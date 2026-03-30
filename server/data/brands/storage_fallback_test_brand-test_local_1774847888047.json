@@ -1,0 +1,30 @@
+{
+  "id": "test_local_1774847888047",
+  "name": "Storage Fallback Test Brand",
+  "url": "https://example.com/test",
+  "products": [
+    {
+      "name": "Test Product 1",
+      "price": 100,
+      "normalization": {
+        "category": "OTHER",
+        "subCategory": "Generic",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "name": "Test Product 2",
+      "price": 200,
+      "normalization": {
+        "category": "OTHER",
+        "subCategory": "Generic",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    }
+  ],
+  "budgetTier": "mid"
+}

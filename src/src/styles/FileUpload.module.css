@@ -1,0 +1,120 @@
+.uploadContainer {
+    margin: 0;
+    width: 100%;
+    height: 100%;
+    animation: fadeIn 0.6s ease-out 0.2s both;
+}
+
+.dropZone {
+    background: var(--bg-card);
+    backdrop-filter: blur(10px);
+    border: 2px dashed var(--border-color);
+    border-radius: 20px;
+    padding: 2rem;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+
+.dropZone::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.dropZone:hover::before {
+    opacity: 1;
+}
+
+.dropZone:hover {
+    border-color: var(--accent);
+    transform: translateY(-2px);
+    box-shadow: 0 10px 40px rgba(102, 126, 234, 0.2);
+}
+
+.dragging {
+    border-color: var(--accent);
+    background: rgba(102, 126, 234, 0.1);
+    transform: scale(1.02);
+}
+
+.disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+.uploadIcon {
+    font-size: 4rem;
+    margin-bottom: 1rem;
+    animation: float 3s ease-in-out infinite;
+}
+
+.uploadTitle {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 0.5rem;
+}
+
+.uploadHint {
+    font-size: 1rem;
+    color: var(--text-secondary);
+    margin-bottom: 1rem;
+}
+
+.uploadFormats {
+    font-size: 0.875rem;
+    color: var(--text-muted);
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes float {
+
+    0%,
+    100% {
+        transform: translateY(0);
+    }
+
+    50% {
+        transform: translateY(-10px);
+    }
+}
+
+@media (max-width: 768px) {
+    .dropZone {
+        padding: 2rem 1rem;
+    }
+
+    .uploadIcon {
+        font-size: 3rem;
+    }
+
+    .uploadTitle {
+        font-size: 1.25rem;
+    }
+}

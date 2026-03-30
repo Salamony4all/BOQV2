@@ -1,0 +1,3331 @@
+{
+  "id": 1766322849665,
+  "name": "B&T Design",
+  "url": "https://www.architonic.com/en/b/bandt-design/collections/3103498/",
+  "origin": "TURKEY",
+  "budgetTier": "mid",
+  "logo": "https://media.architonic.com/m-on/3103498/logo/b-t-design_logo_b083bc1d.png?width=320&height=120&fit=inside&crop=true&format=webp&quality=90",
+  "products": [
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Chairs",
+      "family": "B&T Design",
+      "model": "Odin #20327657",
+      "description": "Chairs. Meet the ODIN chair series! Boasting a simple design, it interprets the classic with a contemporary design approach and harmonizes technology with",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20327657/b-t-design_odin_01e0bf8d.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-odin-20327657/",
+      "price": 0,
+      "normalization": {
+        "category": "Office Seating",
+        "subCategory": "Staff Chairs",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Chairs",
+      "family": "B&T Design",
+      "model": "Odin - Seat Upholstered #20327658",
+      "description": "Chairs. Meet the ODIN chair series! Boasting a simple design, it interprets the classic with a contemporary design approach and harmonizes technology with",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20327658/b-t-design_odin---seat-upholstered_463db635.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-odin-seat-upholstered-20327658/",
+      "price": 0,
+      "normalization": {
+        "category": "Office Seating",
+        "subCategory": "Staff Chairs",
+        "rank": 1,
+        "tags": [
+          "fabric"
+        ],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Chairs",
+      "family": "B&T Design",
+      "model": "Alek #20327556",
+      "description": "Chairs. One of the nature’s strongest textures, wood comes to light as a brand new design. Alek chair series offer a simple naturalness with its oval-shaped",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20327556/b-t-design_alek_7d0f7393.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-alek-20327556/",
+      "price": 0,
+      "normalization": {
+        "category": "Office Seating",
+        "subCategory": "Staff Chairs",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Chairs",
+      "family": "B&T Design",
+      "model": "Daisy - Sled #20327574",
+      "description": "Chairs. Daisy is an ideal chair design for different places from the office to the cafeteria to the hotel room. Dual color, dual material upholstery looks so",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20327574/b-t-design_daisy---sled_43e6128c.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-daisy-sled-20327574/",
+      "price": 0,
+      "normalization": {
+        "category": "Office Seating",
+        "subCategory": "Staff Chairs",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Chairs",
+      "family": "B&T Design",
+      "model": "Daisy - 4 Prong Swivel #20327571",
+      "description": "Chairs. Daisy is an ideal chair design for different places from the office to the cafeteria to the hotel room. Dual color, dual material upholstery looks so",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20327571/b-t-design_daisy---4-prong-swivel_84a0a805.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-daisy-4-prong-swivel-20327571/",
+      "price": 0,
+      "normalization": {
+        "category": "Office Seating",
+        "subCategory": "Staff Chairs",
+        "rank": 1,
+        "tags": [
+          "swivel"
+        ],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Chairs",
+      "family": "B&T Design",
+      "model": "Daisy - Premium Office #20327573",
+      "description": "Office chairs. Daisy is an ideal chair design for different places from the office to the cafeteria to the hotel room. Dual color, dual material upholstery looks so",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20327573/b-t-design_daisy---premium-office_44f68801.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-daisy-premium-office-20327573/",
+      "price": 0,
+      "normalization": {
+        "category": "Office Seating",
+        "subCategory": "Staff Chairs",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Chairs",
+      "family": "B&T Design",
+      "model": "Daisy - Plywood #20327572",
+      "description": "Chairs. Daisy is an ideal chair design for different places from the office to the cafeteria to the hotel room. Dual color, dual material upholstery looks so",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20327572/b-t-design_daisy---plywood_76c5db14.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-daisy-plywood-20327572/",
+      "price": 0,
+      "normalization": {
+        "category": "Office Seating",
+        "subCategory": "Staff Chairs",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Chairs",
+      "family": "B&T Design",
+      "model": "Dupont #20327587",
+      "description": "Chairs. Meet the Dupont Series! Created by the perfect combination of simplicity and practicality of use, it takes its power from the simple language in its",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20327587/b-t-design_dupont_24f9e3be.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-dupont-20327587/",
+      "price": 0,
+      "normalization": {
+        "category": "Office Seating",
+        "subCategory": "Staff Chairs",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Chairs",
+      "family": "B&T Design",
+      "model": "Dupont #20327585",
+      "description": "Chairs. Meet the Dupont Series! Created by the perfect combination of simplicity and practicality of use, it takes its power from the simple language in its",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20327585/b-t-design_dupont_c1abb4ec.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-dupont-20327585/",
+      "price": 0,
+      "normalization": {
+        "category": "Office Seating",
+        "subCategory": "Staff Chairs",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Chairs",
+      "family": "B&T Design",
+      "model": "Dupont #20327586",
+      "description": "Chairs. Meet the Dupont Series! Created by the perfect combination of simplicity and practicality of use, it takes its power from the simple language in its",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20327586/b-t-design_dupont_bbd10236.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-dupont-20327586/",
+      "price": 0,
+      "normalization": {
+        "category": "Office Seating",
+        "subCategory": "Staff Chairs",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Chairs",
+      "family": "B&T Design",
+      "model": "Grace - Premium S #20327620",
+      "description": "Chairs. Introducing Grace, an embodiment of elegance and sophistication with its minimalist design, bringing value to all spaces. Grace is distinguished by its",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20327620/b-t-design_grace---premium-s_fa1dda2d.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-grace-premium-s-20327620/",
+      "price": 0,
+      "normalization": {
+        "category": "Office Seating",
+        "subCategory": "Staff Chairs",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Chairs",
+      "family": "B&T Design",
+      "model": "Grace - Premium S #20327621",
+      "description": "Chairs. Introducing Grace, an embodiment of elegance and sophistication with its minimalist design, bringing value to all spaces. Grace is distinguished by its",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20327621/b-t-design_grace---premium-s_c15a3813.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-grace-premium-s-20327621/",
+      "price": 0,
+      "normalization": {
+        "category": "Office Seating",
+        "subCategory": "Staff Chairs",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Chairs",
+      "family": "B&T Design",
+      "model": "Lamy - Premium Office #20327625",
+      "description": "Office chairs. Lamy, one of B&T Design’s best selling lounge chairs, which responds to different needs in the changing places of functions, is absolutely a georgeous",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20327625/b-t-design_lamy---premium-office_4e95f0fd.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-lamy-premium-office-20327625/",
+      "price": 0,
+      "normalization": {
+        "category": "Office Seating",
+        "subCategory": "Lounge Chairs",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Chairs",
+      "family": "B&T Design",
+      "model": "Lamy - Wood Swivel #20327627",
+      "description": "Chairs. Lamy, one of B&T Design’s best selling lounge chairs, which responds to different needs in the changing places of functions, is absolutely a gorgeous",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20327627/b-t-design_lamy---wood-swivel_51d44082.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-lamy-wood-swivel-20327627/",
+      "price": 0,
+      "normalization": {
+        "category": "Office Seating",
+        "subCategory": "Lounge Chairs",
+        "rank": 1,
+        "tags": [
+          "swivel"
+        ],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Chairs",
+      "family": "B&T Design",
+      "model": "Grace - Office Premium S-GL #20327618",
+      "description": "Office chairs. Introducing Grace, an embodiment of elegance and sophistication with its minimalist design, bringing value to all spaces. Grace is distinguished by its",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20327618/b-t-design_grace---office-premium-s-gl_41621786.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-grace-office-premium-s-gl-20327618/",
+      "price": 0,
+      "normalization": {
+        "category": "Office Seating",
+        "subCategory": "Staff Chairs",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Chairs",
+      "family": "B&T Design",
+      "model": "Grace - Office Premium S-GL #20327619",
+      "description": "Office chairs. Introducing Grace, an embodiment of elegance and sophistication with its minimalist design, bringing value to all spaces. Grace is distinguished by its",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20327619/b-t-design_grace---office-premium-s-gl_bd5cf274.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-grace-office-premium-s-gl-20327619/",
+      "price": 0,
+      "normalization": {
+        "category": "Office Seating",
+        "subCategory": "Staff Chairs",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Chairs",
+      "family": "B&T Design",
+      "model": "Grace - Wood #20327623",
+      "description": "Chairs. Introducing Grace, an embodiment of elegance and sophistication with its minimalist design, bringing value to all spaces. Grace is distinguished by its",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20327623/b-t-design_grace---wood_07a0aa49.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-grace-wood-20327623/",
+      "price": 0,
+      "normalization": {
+        "category": "Office Seating",
+        "subCategory": "Staff Chairs",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Chairs",
+      "family": "B&T Design",
+      "model": "Grace - Wood #20327622",
+      "description": "Chairs. Introducing Grace, an embodiment of elegance and sophistication with its minimalist design, bringing value to all spaces. Grace is distinguished by its",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20327622/b-t-design_grace---wood_31a221ea.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-grace-wood-20327622/",
+      "price": 0,
+      "normalization": {
+        "category": "Office Seating",
+        "subCategory": "Staff Chairs",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Chairs",
+      "family": "B&T Design",
+      "model": "Lamy - Ellipse #20327624",
+      "description": "Chairs. Lamy, one of B&T Design’s best selling lounge chairs, which responds to different needs in the changing places of functions, is absolutely a gorgeous",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20327624/b-t-design_lamy---ellipse_9bf6df0d.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-lamy-ellipse-20327624/",
+      "price": 0,
+      "normalization": {
+        "category": "Office Seating",
+        "subCategory": "Lounge Chairs",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Chairs",
+      "family": "B&T Design",
+      "model": "Lamy - Sled #20327626",
+      "description": "Chairs. Lamy, one of B&T Design’s best selling lounge chairs, which responds to different needs in the changing places of functions, is absolutely a georgeous",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20327626/b-t-design_lamy---sled_b8cb52b2.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-lamy-sled-20327626/",
+      "price": 0,
+      "normalization": {
+        "category": "Office Seating",
+        "subCategory": "Lounge Chairs",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Chairs",
+      "family": "B&T Design",
+      "model": "Lamy - X #20327628",
+      "description": "Chairs. Lamy, one of B&T Design’s best selling lounge chairs, which responds to different needs in the changing places of functions, is absolutely a gorgeous",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20327628/b-t-design_lamy---x_7a385002.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-lamy-x-20327628/",
+      "price": 0,
+      "normalization": {
+        "category": "Office Seating",
+        "subCategory": "Lounge Chairs",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Chairs",
+      "family": "B&T Design",
+      "model": "Mentor - Executive #20327642",
+      "description": "Office chairs. Mentor is a first class office chair designed for senior executives. It differs from other office chairs with its gorgeous design. Decorative stitching",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20327642/b-t-design_mentor---executive_65ecbe20.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-mentor-executive-20327642/",
+      "price": 0,
+      "normalization": {
+        "category": "Office Seating",
+        "subCategory": "Executive Chairs",
+        "rank": 3,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Chairs",
+      "family": "B&T Design",
+      "model": "Mentor - Visitor #20327643",
+      "description": "Chairs. Mentor is a first class office chair designed for senior executives. It differs from other office chairs with its gorgeous design. Decorative stitching",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20327643/b-t-design_mentor---visitor_bcbbcc14.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-mentor-visitor-20327643/",
+      "price": 0,
+      "normalization": {
+        "category": "Office Seating",
+        "subCategory": "Executive Chairs",
+        "rank": 3,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Chairs",
+      "family": "B&T Design",
+      "model": "Mika - Upholstered Seat without Arm #20327644",
+      "description": "Chairs. Entirely built out of wood, and carrying trails of nature in its patterns, it’s the ultimate classic form of a chair. Interpreted into the Mika series",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20327644/b-t-design_mika---upholstered-seat-without-arm_c2610d38.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-mika-upholstered-seat-without-arm-20327644/",
+      "price": 0,
+      "normalization": {
+        "category": "Office Seating",
+        "subCategory": "Staff Chairs",
+        "rank": 1,
+        "tags": [
+          "fabric"
+        ],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Chairs",
+      "family": "B&T Design",
+      "model": "Pera - Wood Dowel #20327664",
+      "description": "Chairs. Pera product family reflects a modern and minimal design approach. \nPera product family includes large range of different base and seat options. Pera is",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20327664/b-t-design_pera---wood-dowel_145ea11e.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-pera-wood-dowel-20327664/",
+      "price": 0,
+      "normalization": {
+        "category": "Office Seating",
+        "subCategory": "Staff Chairs",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Chairs",
+      "family": "B&T Design",
+      "model": "Pera - Ellipse #20327662",
+      "description": "Chairs. Pera product family reflects a modern and minimal design approach. \nPera product family includes large range of different base and seat options. Pera is",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20327662/b-t-design_pera---ellipse_936e6bfd.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-pera-ellipse-20327662/",
+      "price": 0,
+      "normalization": {
+        "category": "Office Seating",
+        "subCategory": "Staff Chairs",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Chairs",
+      "family": "B&T Design",
+      "model": "Pera - Premium Office #20327663",
+      "description": "Office chairs. Pera product family reflects a modern and minimal design approach. \nPera product family includes large range of different base and seat options. Pera is",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20327663/b-t-design_pera---premium-office_98a2d17b.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-pera-premium-office-20327663/",
+      "price": 0,
+      "normalization": {
+        "category": "Office Seating",
+        "subCategory": "Staff Chairs",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Chairs",
+      "family": "B&T Design",
+      "model": "Rego - 5 Prong Spider Office with Castors #20327671",
+      "description": "Chairs. Rego is another Mid-Century inspired modern chair. With its spacious seating area, inviting armrests it’s a very comfortable and robust chair. Another",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20327671/b-t-design_rego---5-prong-spider-office-with-castors_ff49a7e0.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-rego-5-prong-spider-office-with-castors-20327671/",
+      "price": 0,
+      "normalization": {
+        "category": "Office Seating",
+        "subCategory": "Staff Chairs",
+        "rank": 1,
+        "tags": [
+          "armrests"
+        ],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Chairs",
+      "family": "B&T Design",
+      "model": "Rego - Ellipse #20327672",
+      "description": "Chairs. Rego is another Mid-Century inspired modern chair. With its spacious seating area, inviting armrests it’s a very comfortable and robust chair. Another",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20327672/b-t-design_rego---ellipse_1a478451.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-rego-ellipse-20327672/",
+      "price": 0,
+      "normalization": {
+        "category": "Office Seating",
+        "subCategory": "Staff Chairs",
+        "rank": 1,
+        "tags": [
+          "armrests"
+        ],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Chairs",
+      "family": "B&T Design",
+      "model": "Rego - Plywood #20327673",
+      "description": "Chairs. Rego is another Mid-Century inspired modern chair. With its spacious seating area, inviting armrests it’s a very comfortable and robust chair. Another",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20327673/b-t-design_rego---plywood_ed545bd8.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-rego-plywood-20327673/",
+      "price": 0,
+      "normalization": {
+        "category": "Office Seating",
+        "subCategory": "Staff Chairs",
+        "rank": 1,
+        "tags": [
+          "armrests"
+        ],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Chairs",
+      "family": "B&T Design",
+      "model": "Rego - Premium S Office #20327674",
+      "description": "Office chairs. Rego is another Mid-Century inspired modern chair. With its spacious seating area, inviting armrests it’s a very comfortable and robust chair. Another",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20327674/b-t-design_rego---premium-s-office_55ad2468.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-rego-premium-s-office-20327674/",
+      "price": 0,
+      "normalization": {
+        "category": "Office Seating",
+        "subCategory": "Staff Chairs",
+        "rank": 1,
+        "tags": [
+          "armrests"
+        ],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Chairs",
+      "family": "B&T Design",
+      "model": "Rego - Sled #20327675",
+      "description": "Chairs. Rego is another Mid-Century inspired modern chair. With its spacious seating area, inviting armrests it’s a very comfortable and robust chair. Another",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20327675/b-t-design_rego---sled_c6c1a586.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-rego-sled-20327675/",
+      "price": 0,
+      "normalization": {
+        "category": "Office Seating",
+        "subCategory": "Staff Chairs",
+        "rank": 1,
+        "tags": [
+          "armrests"
+        ],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Chairs",
+      "family": "B&T Design",
+      "model": "Rego - X #20327676",
+      "description": "Chairs. Rego is another Mid-Century inspired modern chair. With its spacious seating area, inviting armrests it’s a very comfortable and robust chair. Another",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20327676/b-t-design_rego---x_fb34a974.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-rego-x-20327676/",
+      "price": 0,
+      "normalization": {
+        "category": "Office Seating",
+        "subCategory": "Staff Chairs",
+        "rank": 1,
+        "tags": [
+          "armrests"
+        ],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Chairs",
+      "family": "B&T Design",
+      "model": "Rego Play - Classic Upholstered #20327683",
+      "description": "Chairs. Using suitable materials for outdoor conditions by preserving the same design language, B&T reshapes its unique forms and the authentic lifestyle that it",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20327683/b-t-design_rego-play---classic-upholstered_1c485c4d.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-rego-play-classic-upholstered-20327683/",
+      "price": 0,
+      "normalization": {
+        "category": "Office Seating",
+        "subCategory": "Staff Chairs",
+        "rank": 1,
+        "tags": [
+          "fabric"
+        ],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Chairs",
+      "family": "B&T Design",
+      "model": "Rego Play - Classic Upholstered #20327684",
+      "description": "Chairs. Using suitable materials for outdoor conditions by preserving the same design language, B&T reshapes its unique forms and the authentic lifestyle that it",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20327684/b-t-design_rego-play---classic-upholstered_67028ea3.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-rego-play-classic-upholstered-20327684/",
+      "price": 0,
+      "normalization": {
+        "category": "Office Seating",
+        "subCategory": "Staff Chairs",
+        "rank": 1,
+        "tags": [
+          "fabric"
+        ],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Chairs",
+      "family": "B&T Design",
+      "model": "Rest - 4 Leg with Arm #20327685",
+      "description": "Chairs. Rest is simple, minimal yet distingueshed chair. Very sturdy and sleek polypropylene seat is long lasting. Also elasticity of the plastic provides",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20327685/b-t-design_rest---4-leg-with-arm_e0951be5.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-rest-4-leg-with-arm-20327685/",
+      "price": 0,
+      "normalization": {
+        "category": "Office Seating",
+        "subCategory": "Plastic Chair",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Chairs",
+      "family": "B&T Design",
+      "model": "Rest - 4 Prong Swivel Office #20327686",
+      "description": "Office chairs. Rest is simple, minimal yet distingueshed chair. Very sturdy and sleek polypropylene seat is long lasting. Also elasticity of the plastic provides",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20327686/b-t-design_rest---4-prong-swivel-office_914800e6.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-rest-4-prong-swivel-office-20327686/",
+      "price": 0,
+      "normalization": {
+        "category": "Office Seating",
+        "subCategory": "Plastic Chair",
+        "rank": 1,
+        "tags": [
+          "swivel"
+        ],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Chairs",
+      "family": "B&T Design",
+      "model": "Rest - Prong Swivel #20327688",
+      "description": "Chairs. Rest is simple, minimal yet distingueshed chair. Very sturdy and sleek polypropylene seat is long lasting. Also elasticity of the plastic provides",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20327688/b-t-design_rest---prong-swivel_124891e5.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-rest-prong-swivel-20327688/",
+      "price": 0,
+      "normalization": {
+        "category": "Office Seating",
+        "subCategory": "Plastic Chair",
+        "rank": 1,
+        "tags": [
+          "swivel"
+        ],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Chairs",
+      "family": "B&T Design",
+      "model": "Rest - Prong Swivel Office #20327689",
+      "description": "Chairs. Rest is simple, minimal yet distingueshed chair. Very sturdy and sleek polypropylene seat is long lasting. Also elasticity of the plastic provides",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20327689/b-t-design_rest---prong-swivel-office_18af08b5.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-rest-prong-swivel-office-20327689/",
+      "price": 0,
+      "normalization": {
+        "category": "Office Seating",
+        "subCategory": "Plastic Chair",
+        "rank": 1,
+        "tags": [
+          "swivel"
+        ],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Chairs",
+      "family": "B&T Design",
+      "model": "Rest - 5 Prong Swivel Office #20327687",
+      "description": "Chairs. Rest is simple, minimal yet distingueshed chair. Very sturdy and sleek polypropylene seat is long lasting. Also elasticity of the plastic provides",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20327687/b-t-design_rest---5-prong-swivel-office_50545498.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-rest-5-prong-swivel-office-20327687/",
+      "price": 0,
+      "normalization": {
+        "category": "Office Seating",
+        "subCategory": "Plastic Chair",
+        "rank": 1,
+        "tags": [
+          "swivel"
+        ],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Chairs",
+      "family": "B&T Design",
+      "model": "Rest - Wood Dowel #20327690",
+      "description": "Chairs. Rest is simple, minimal yet distingueshed chair. Very sturdy and sleek polypropylene seat is long lasting. Also elasticity of the plastic provides",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20327690/b-t-design_rest---wood-dowel_4acc7dfc.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-rest-wood-dowel-20327690/",
+      "price": 0,
+      "normalization": {
+        "category": "Office Seating",
+        "subCategory": "Plastic Chair",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Chairs",
+      "family": "B&T Design",
+      "model": "Spirit - with Arm #20327705",
+      "description": "Chairs. Spirit is a chair that requires production precision, where craftsmanship is the front-line. It is a great example of the combination of wood and fabric.",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20327705/b-t-design_spirit---with-arm_f31da377.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-spirit-with-arm-20327705/",
+      "price": 0,
+      "normalization": {
+        "category": "Office Seating",
+        "subCategory": "Staff Chairs",
+        "rank": 1,
+        "tags": [
+          "fabric"
+        ],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Chairs",
+      "family": "B&T Design",
+      "model": "Spirit - without Arm #20327706",
+      "description": "Chairs. Spirit is a chair that requires production precision, where craftsmanship is the front-line. It is a great example of the combination of wood and fabric.",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20327706/b-t-design_spirit---without-arm_9af093c8.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-spirit-without-arm-20327706/",
+      "price": 0,
+      "normalization": {
+        "category": "Office Seating",
+        "subCategory": "Staff Chairs",
+        "rank": 1,
+        "tags": [
+          "fabric"
+        ],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Chairs",
+      "family": "B&T Design",
+      "model": "Zone - 4 Prong Office #20327723",
+      "description": "Chairs. Zone at the intersection of elegance and simplicity is a chair with an integral body. Very sleek, minimally designed office chair. \n\nMany different base",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20327723/b-t-design_zone---4-prong-office_e0eba4bc.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-zone-4-prong-office-20327723/",
+      "price": 0,
+      "normalization": {
+        "category": "Office Seating",
+        "subCategory": "Staff Chairs",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Chairs",
+      "family": "B&T Design",
+      "model": "Zone - 4 Prong Office #20327724",
+      "description": "Chairs. Zone at the intersection of elegance and simplicity is a chair with an integral body. Very sleek, minimally designed office chair. \n\nMany different base",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20327724/b-t-design_zone---4-prong-office_2cfb4a5a.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-zone-4-prong-office-20327724/",
+      "price": 0,
+      "normalization": {
+        "category": "Office Seating",
+        "subCategory": "Staff Chairs",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Chairs",
+      "family": "B&T Design",
+      "model": "Zone Office Prong 5-SGL without Arm #1553020",
+      "description": "Chairs. Zone is a sleek office chair that balances elegance and simplicity through its unified, sculptural form. Designed as a single-body structure, the seat and",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/1553020/b-t-design_zone_6a58fbb6.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-zone-office-prong-5-sgl-without-arm-1553020/",
+      "price": 0,
+      "normalization": {
+        "category": "Office Seating",
+        "subCategory": "Staff Chairs",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Chairs",
+      "family": "B&T Design",
+      "model": "Zone - 4 Prong Office #20327725",
+      "description": "Chairs. Zone at the intersection of elegance and simplicity is a chair with an integral body. Very sleek, minimally designed office chair. \n\nMany different base",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20327725/b-t-design_zone---4-prong-office_e16fa047.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-zone-4-prong-office-20327725/",
+      "price": 0,
+      "normalization": {
+        "category": "Office Seating",
+        "subCategory": "Staff Chairs",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Chairs",
+      "family": "B&T Design",
+      "model": "Zone Office Prong Swivel without Arm #1553019",
+      "description": "Chairs. Zone is a sleek office chair that balances elegance and simplicity through its unified, sculptural form. Designed as a single-body structure, the seat and",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/1553019/b-t-design_zone_895d12fe.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-zone-office-prong-swivel-without-arm-1553019/",
+      "price": 0,
+      "normalization": {
+        "category": "Office Seating",
+        "subCategory": "Staff Chairs",
+        "rank": 1,
+        "tags": [
+          "swivel"
+        ],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Chairs",
+      "family": "B&T Design",
+      "model": "Dante #20276761",
+      "description": "Chairs. Dante brings together familiar elements and refined craftsmanship in a design where fluid woodwork meets precise geometry. Its signature twisted backrest",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20276761/b-t-design_dante_0a8441af.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-dante-20276761/",
+      "price": 0,
+      "normalization": {
+        "category": "Office Seating",
+        "subCategory": "Staff Chairs",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Chairs",
+      "family": "B&T Design",
+      "model": "Dot - with Arm #20276777",
+      "description": "Chairs. Focusing on the training and seminar rooms of companies and social areas like cafes and restaurants, Dot stands out as a chair series with functional",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20276777/b-t-design_dot---with-arm_78f3ff49.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-dot-with-arm-20276777/",
+      "price": 0,
+      "normalization": {
+        "category": "Office Seating",
+        "subCategory": "Staff Chairs",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Chairs",
+      "family": "B&T Design",
+      "model": "Dot - without Arm #20276779",
+      "description": "Chairs. Focusing on the training and seminar rooms of companies and social areas like cafes and restaurants, Dot stands out as a chair series with functional",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20276779/b-t-design_dot---without-arm_84071e81.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-dot-without-arm-20276779/",
+      "price": 0,
+      "normalization": {
+        "category": "Office Seating",
+        "subCategory": "Staff Chairs",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Chairs",
+      "family": "B&T Design",
+      "model": "Dante #20276760",
+      "description": "Chairs. Dante brings together familiar elements and refined craftsmanship in a design where fluid woodwork meets precise geometry. Its signature twisted backrest",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20276760/b-t-design_dante_0f88b870.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-dante-20276760/",
+      "price": 0,
+      "normalization": {
+        "category": "Office Seating",
+        "subCategory": "Staff Chairs",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Lounges",
+      "family": "B&T Design",
+      "model": "Alek Lounge #20327557",
+      "description": "Armchairs. One of the nature’s strongest textures, wood comes to light as a brand new design. Alek armchair series offer a simple naturalness with its oval-shaped",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20327557/b-t-design_alek-lounge_d193fa92.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-alek-lounge-20327557/",
+      "price": 0,
+      "normalization": {
+        "category": "Office Seating",
+        "subCategory": "Lounge Chairs",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Chairs",
+      "family": "B&T Design",
+      "model": "Dante - Upholstered #20276762",
+      "description": "Chairs. Dante brings together familiar elements and refined craftsmanship in a design where fluid woodwork meets precise geometry. Its signature twisted backrest",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20276762/b-t-design_dante---upholstered_075349e1.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-dante-upholstered-20276762/",
+      "price": 0,
+      "normalization": {
+        "category": "Office Seating",
+        "subCategory": "Staff Chairs",
+        "rank": 1,
+        "tags": [
+          "fabric"
+        ],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Chairs",
+      "family": "B&T Design",
+      "model": "Pera - Ellipse #20276939",
+      "description": "Chairs. The Pera collection reflects a modern, minimal design language with a focus on versatility and comfort. It offers a wide range of seat and base options",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20276939/b-t-design_pera---ellipse_f371aa0f.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-pera-ellipse-20276939/",
+      "price": 0,
+      "normalization": {
+        "category": "Office Seating",
+        "subCategory": "Staff Chairs",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Lounges",
+      "family": "B&T Design",
+      "model": "Bold #20327559",
+      "description": "Armchairs. Bold armchair has a 360-degree rounded shape. With the presence of an ergonomic back support, Bold armchair reflects its comfort and softness with all of",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20327559/b-t-design_bold_1f990cb1.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-bold-20327559/",
+      "price": 0,
+      "normalization": {
+        "category": "Office Seating",
+        "subCategory": "Lounge Chairs",
+        "rank": 2,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Chairs",
+      "family": "B&T Design",
+      "model": "Pera - X #20276946",
+      "description": "Chairs. The Pera collection reflects a modern, minimal design language with a focus on versatility and comfort. It offers a wide range of seat and base options",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20276946/b-t-design_pera---x_99473f5b.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-pera-x-20276946/",
+      "price": 0,
+      "normalization": {
+        "category": "Office Seating",
+        "subCategory": "Staff Chairs",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Chairs",
+      "family": "B&T Design",
+      "model": "Lamy - Premium S #20276838",
+      "description": "Chairs. Lamy offers a refined balance of comfort and clarity, defined by its compact form and fluid lines. Its tailored silhouette brings a sense of ease and",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20276838/b-t-design_lamy---metal_e06efdc2.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-lamy-premium-s-20276838/",
+      "price": 0,
+      "normalization": {
+        "category": "Office Seating",
+        "subCategory": "Staff Chairs",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Lounges",
+      "family": "B&T Design",
+      "model": "Bold - with Side Table #20327560",
+      "description": "Armchairs. Bold armchair has a 360-degree rounded shape. With the presence of an ergonomic back support, Bold armchair reflects its comfort and softness with all of",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20327560/b-t-design_bold---with-side-table_bcf8ba27.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-bold-with-side-table-20327560/",
+      "price": 0,
+      "normalization": {
+        "category": "Desk & Table",
+        "subCategory": "Coffee Tables",
+        "rank": 2,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Lounges",
+      "family": "B&T Design",
+      "model": "Ferno #20327595",
+      "description": "Armchairs. Meet Ferno with itscontemporary design, strong nature, delicate workmanship as well as its form featuring soft curves, which gives a timeless answer to",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20327595/b-t-design_ferno_ff420462.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-ferno-20327595/",
+      "price": 0,
+      "normalization": {
+        "category": "Office Seating",
+        "subCategory": "Lounge Chairs",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Chairs",
+      "family": "B&T Design",
+      "model": "Pera - 4 Prong Swivel with Castors #20276937",
+      "description": "Chairs. The Pera collection reflects a modern, minimal design language with a focus on versatility and comfort. It offers a wide range of seat and base options",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20276937/b-t-design_pera---4-prong-swivel-with-castors_d5b5abcb.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-pera-4-prong-swivel-with-castors-20276937/",
+      "price": 0,
+      "normalization": {
+        "category": "Office Seating",
+        "subCategory": "Staff Chairs",
+        "rank": 1,
+        "tags": [
+          "swivel"
+        ],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Lounges",
+      "family": "B&T Design",
+      "model": "Lamy Lounge #20327629",
+      "description": "Armchairs. Lamy, one of B&T Design’s best selling lounge chairs, which responds to different needs in the changing places of functions, is absolutely a georgeous",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20327629/b-t-design_lamy-lounge_4318a811.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-lamy-lounge-20327629/",
+      "price": 0,
+      "normalization": {
+        "category": "Office Seating",
+        "subCategory": "Lounge Chairs",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Chairs",
+      "family": "B&T Design",
+      "model": "Rego Play - Classic Upholstered #20276985",
+      "description": "Chairs. A contemporary take on comfort and clarity, Rego Play features the signature sculptural form and generous seat of the Rego family, expressed through a",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20276985/b-t-design_rego-play---classic-upholstered_0e585b4d.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-rego-play-classic-upholstered-20276985/",
+      "price": 0,
+      "normalization": {
+        "category": "Office Seating",
+        "subCategory": "Staff Chairs",
+        "rank": 1,
+        "tags": [
+          "fabric"
+        ],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Lounges",
+      "family": "B&T Design",
+      "model": "Lamy Lounge #20327630",
+      "description": "Armchairs. Lamy, one of B&T Design’s best selling lounge chairs, which responds to different needs in the changing places of functions, is absolutely a georgeous",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20327630/b-t-design_lamy-lounge_0715c172.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-lamy-lounge-20327630/",
+      "price": 0,
+      "normalization": {
+        "category": "Office Seating",
+        "subCategory": "Lounge Chairs",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Chairs",
+      "family": "B&T Design",
+      "model": "Sole #20277030",
+      "description": "Chairs. Meet the Sole series, designed to offer a bold, balanced and timeless expression through its vibrant colour focus and geometric clarity.\n\nCharacterised by",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20277030/b-t-design_sole_ba81f173.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-sole-20277030/",
+      "price": 0,
+      "normalization": {
+        "category": "Office Seating",
+        "subCategory": "Staff Chairs",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Chairs",
+      "family": "B&T Design",
+      "model": "Sole #20277029",
+      "description": "Chairs. Meet the Sole series, designed to offer a bold, balanced and timeless expression through its vibrant colour focus and geometric clarity.\n\nCharacterised by",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20277029/b-t-design_sole_46659e7b.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-sole-20277029/",
+      "price": 0,
+      "normalization": {
+        "category": "Office Seating",
+        "subCategory": "Staff Chairs",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Lounges",
+      "family": "B&T Design",
+      "model": "Lamy Lounge - Wood Swivel with Headrest #20327634",
+      "description": "Armchairs. Lamy, one of B&T Design’s best selling lounge chairs, which responds to different needs in the changing places of functions, is absolutely a georgeous",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20327634/b-t-design_lamy-lounge---wood-swivel-with-headrest_fa26d707.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-lamy-lounge-wood-swivel-with-headrest-20327634/",
+      "price": 0,
+      "normalization": {
+        "category": "Office Seating",
+        "subCategory": "Lounge Chairs",
+        "rank": 3,
+        "tags": [
+          "swivel",
+          "headrest"
+        ],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Lounges",
+      "family": "B&T Design",
+      "model": "Lamy Lounge - Metal Dowel #20327632",
+      "description": "Armchairs. Lamy, one of B&T Design’s best selling lounge chairs, which responds to different needs in the changing places of functions, is absolutely a georgeous",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20327632/b-t-design_lamy-lounge---metal-dowel_ae055c63.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-lamy-lounge-metal-dowel-20327632/",
+      "price": 0,
+      "normalization": {
+        "category": "Office Seating",
+        "subCategory": "Lounge Chairs",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Lounges",
+      "family": "B&T Design",
+      "model": "Lamy Lounge - Wood with Headrest #20327635",
+      "description": "Armchairs. Lamy, one of B&T Design’s best selling lounge chairs, which responds to different needs in the changing places of functions, is absolutely a georgeous",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20327635/b-t-design_lamy-lounge---wood-with-headrest_068ac312.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-lamy-lounge-wood-with-headrest-20327635/",
+      "price": 0,
+      "normalization": {
+        "category": "Office Seating",
+        "subCategory": "Lounge Chairs",
+        "rank": 3,
+        "tags": [
+          "headrest"
+        ],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Lounges",
+      "family": "B&T Design",
+      "model": "Rego Lounge - Wood S #20327678",
+      "description": "Armchairs. Meet Rego Lounge, the new member of the Rego family, which perfectly adapts to different spaces with its simple, flexible and customizable design and its",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20327678/b-t-design_rego-lounge---wood-s_d3a7f1ac.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-rego-lounge-wood-s-20327678/",
+      "price": 0,
+      "normalization": {
+        "category": "Office Seating",
+        "subCategory": "Lounge Chairs",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Lounges",
+      "family": "B&T Design",
+      "model": "Ora #20327661",
+      "description": "Armchairs. Ora, a piece that brings both simplicity and playful dynamism to its surroundings, stands out with its pronounced curves, visual allure, and a focus on",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20327661/b-t-design_ora_ecdc633f.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-ora-20327661/",
+      "price": 0,
+      "normalization": {
+        "category": "Office Seating",
+        "subCategory": "Lounge Chairs",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Lounges",
+      "family": "B&T Design",
+      "model": "Rego Lounge - Premium #20327677",
+      "description": "Armchairs. ",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20327677/b-t-design_rego-lounge---premium_e0aa3e2d.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-rego-lounge-premium-20327677/",
+      "price": 0,
+      "normalization": {
+        "category": "Office Seating",
+        "subCategory": "Lounge Chairs",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Lounges",
+      "family": "B&T Design",
+      "model": "Lamy Lounge - Wood Swivel #20327633",
+      "description": "Armchairs. Lamy, one of B&T Design’s best selling lounge chairs, which responds to different needs in the changing places of functions, is absolutely a georgeous",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20327633/b-t-design_lamy-lounge---wood-swivel_be41b887.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-lamy-lounge-wood-swivel-20327633/",
+      "price": 0,
+      "normalization": {
+        "category": "Office Seating",
+        "subCategory": "Lounge Chairs",
+        "rank": 1,
+        "tags": [
+          "swivel"
+        ],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Lounges",
+      "family": "B&T Design",
+      "model": "Lamy Lounge #20327631",
+      "description": "Armchairs. Lamy, one of B&T Design’s best selling lounge chairs, which responds to different needs in the changing places of functions, is absolutely a georgeous",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20327631/b-t-design_lamy-lounge_e8adcc0b.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-lamy-lounge-20327631/",
+      "price": 0,
+      "normalization": {
+        "category": "Office Seating",
+        "subCategory": "Lounge Chairs",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Lounges",
+      "family": "B&T Design",
+      "model": "Round - Wood Swivel #20327693",
+      "description": "Armchairs. Bringing rounded pleasure, aesthetic and the comfort to any living, leisure or working spaces. \n\nLiving areas are designed to respond to changing needs",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20327693/b-t-design_round---wood-swivel_969d5b4b.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-round-wood-swivel-20327693/",
+      "price": 0,
+      "normalization": {
+        "category": "Office Seating",
+        "subCategory": "Lounge Chairs",
+        "rank": 1,
+        "tags": [
+          "swivel"
+        ],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Lounges",
+      "family": "B&T Design",
+      "model": "Round Private #20327694",
+      "description": "Armchairs. Round Private is an option with a high backrest provides fully closed and very high backrest for extra privacy. \n\nLiving areas are designed to respond to",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20327694/b-t-design_round-private_f191f89d.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-round-private-20327694/",
+      "price": 0,
+      "normalization": {
+        "category": "Office Seating",
+        "subCategory": "Executive Chairs",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Lounges",
+      "family": "B&T Design",
+      "model": "Bonny - Metal Swivel #20276738",
+      "description": "Armchairs. Created as a refined and comfortable alternative for living spaces, Bonny combines simplicity and integrity in its form. Designed by Alp Nuhoğlu, Bonny",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20276738/b-t-design_bonny---metal-swivel_2aa88dc8.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-bonny-metal-swivel-20276738/",
+      "price": 0,
+      "normalization": {
+        "category": "Office Seating",
+        "subCategory": "Lounge Chairs",
+        "rank": 1,
+        "tags": [
+          "swivel"
+        ],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Lounges",
+      "family": "B&T Design",
+      "model": "Daisy Lounge - Wood Dowel #20276759",
+      "description": "Armchairs. Daisy Lounge offers a clean and timeless expression with its minimal form and relaxed posture. Designed to suit a variety of interior settings, it brings",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20276759/b-t-design_daisy-lounge---wood-dowel_7fa234dc.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-daisy-lounge-wood-dowel-20276759/",
+      "price": 0,
+      "normalization": {
+        "category": "Office Seating",
+        "subCategory": "Lounge Chairs",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Lounges",
+      "family": "B&T Design",
+      "model": "Daisy Lounge - Sled #20276758",
+      "description": "Armchairs. Daisy Lounge offers a clean and timeless expression with its minimal form and relaxed posture. Designed to suit a variety of interior settings, it brings",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20276758/b-t-design_daisy-lounge---sled_f658194d.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-daisy-lounge-sled-20276758/",
+      "price": 0,
+      "normalization": {
+        "category": "Office Seating",
+        "subCategory": "Lounge Chairs",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Lounges",
+      "family": "B&T Design",
+      "model": "Lamy Lounge - Premium Swivel #20276846",
+      "description": "Armchairs. With its fluid form, elegant silhouette, and adaptable character, Lamy brings refined comfort to modern work environments, as well as hotels, waiting",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20276846/b-t-design_lamy-lounge---metal_0ba77055.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-lamy-lounge-premium-swivel-20276846/",
+      "price": 0,
+      "normalization": {
+        "category": "Office Seating",
+        "subCategory": "Lounge Chairs",
+        "rank": 1,
+        "tags": [
+          "swivel"
+        ],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Lounges",
+      "family": "B&T Design",
+      "model": "Bonny - Wood Swivel #20276739",
+      "description": "Armchairs. Created as a refined and comfortable alternative for living spaces, Bonny combines simplicity and integrity in its form. Designed by Alp Nuhoğlu, Bonny",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20276739/b-t-design_bonny---wood-swivel_83ab3e41.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-bonny-wood-swivel-20276739/",
+      "price": 0,
+      "normalization": {
+        "category": "Office Seating",
+        "subCategory": "Lounge Chairs",
+        "rank": 1,
+        "tags": [
+          "swivel"
+        ],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Lounges",
+      "family": "B&T Design",
+      "model": "Lamy Lounge - Premium S with Headrest #20276847",
+      "description": "Armchairs. With its fluid form, elegant silhouette, and adaptable character, Lamy brings refined comfort to modern work environments, as well as hotels, waiting",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20276847/b-t-design_lamy-lounge---premium-s-with-headrest_af8e6275.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-lamy-lounge-premium-s-with-headrest-20276847/",
+      "price": 0,
+      "normalization": {
+        "category": "Office Seating",
+        "subCategory": "Lounge Chairs",
+        "rank": 3,
+        "tags": [
+          "headrest"
+        ],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Lounges",
+      "family": "B&T Design",
+      "model": "Isola Lounge - Private #20276828",
+      "description": "Armchairs. Designed by Alp Nuhoğlu, Isola responds to evolving spatial needs with a focus on comfort, craftsmanship, and visual presence. Offered in two different",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20276828/b-t-design_isola-lounge---private_1f3a1d39.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-isola-lounge-private-20276828/",
+      "price": 0,
+      "normalization": {
+        "category": "Office Seating",
+        "subCategory": "Lounge Chairs",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Lounges",
+      "family": "B&T Design",
+      "model": "Kav #20276835",
+      "description": "Armchairs. Kav is one of B&T Design’s early and iconic lounge designs. With its generous circular seat and sculptural presence, it brings a quiet boldness to any",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20276835/b-t-design_kav_183a3adf.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-kav-20276835/",
+      "price": 0,
+      "normalization": {
+        "category": "Office Seating",
+        "subCategory": "Lounge Chairs",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Lounges",
+      "family": "B&T Design",
+      "model": "Lamy Lounge - Premium S with Pouf #20276848",
+      "description": "Armchairs. With its fluid form, elegant silhouette, and adaptable character, Lamy brings refined comfort to modern work environments, as well as hotels, waiting",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20276848/b-t-design_lamy-lounge---premium-s-with-pouf_08d77144.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-lamy-lounge-premium-s-with-pouf-20276848/",
+      "price": 0,
+      "normalization": {
+        "category": "Office Seating",
+        "subCategory": "Lounge Chairs",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Lounges",
+      "family": "B&T Design",
+      "model": "Isola Lounge #20276827",
+      "description": "Armchairs. Designed by Alp Nuhoğlu, Isola responds to evolving spatial needs with a focus on comfort, craftsmanship, and visual presence. Offered in two different",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20276827/b-t-design_isola-lounge_f49b9974.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-isola-lounge-20276827/",
+      "price": 0,
+      "normalization": {
+        "category": "Office Seating",
+        "subCategory": "Lounge Chairs",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Lounges",
+      "family": "B&T Design",
+      "model": "Rego Lounge - Executive Wood #20276981",
+      "description": "Armchairs. Meet Rego Lounge, the new member of the Rego family, which perfectly adapts to different spaces with its simple, flexible and customizable design and its",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20276981/b-t-design_rego-lounge---executive-wood_ded3d5b4.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-rego-lounge-executive-wood-20276981/",
+      "price": 0,
+      "normalization": {
+        "category": "Office Seating",
+        "subCategory": "Lounge Chairs",
+        "rank": 3,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Lounges",
+      "family": "B&T Design",
+      "model": "Pera Lounge - Metal Swivel #20276956",
+      "description": "Armchairs. The Pera collection is defined by its modern, minimal form and thoughtful detailing. With its sculpted seat and refined base options, it offers a",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20276956/b-t-design_pera-lounge---metal-swivel_bf05ce48.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-pera-lounge-metal-swivel-20276956/",
+      "price": 0,
+      "normalization": {
+        "category": "Office Seating",
+        "subCategory": "Lounge Chairs",
+        "rank": 1,
+        "tags": [
+          "swivel"
+        ],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Lounges",
+      "family": "B&T Design",
+      "model": "Rego Lounge - Executive #20276979",
+      "description": "Armchairs. Meet Rego Lounge, the new member of the Rego family, which perfectly adapts to different spaces with its simple, flexible and customizable design and its",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20276979/b-t-design_rego-lounge---executive_df1aa714.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-rego-lounge-executive-20276979/",
+      "price": 0,
+      "normalization": {
+        "category": "Office Seating",
+        "subCategory": "Lounge Chairs",
+        "rank": 3,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Lounges",
+      "family": "B&T Design",
+      "model": "Rego Lounge - Pouf #20276980",
+      "description": "Armchairs. Meet Rego Lounge, the new member of the Rego family, which perfectly adapts to different spaces with its simple, flexible and customizable design and its",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20276980/b-t-design_rego-lounge---executive_3dbf8b22.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-rego-lounge-pouf-20276980/",
+      "price": 0,
+      "normalization": {
+        "category": "Office Seating",
+        "subCategory": "Lounge Chairs",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Sofas",
+      "family": "B&T Design",
+      "model": "Boom #20327564",
+      "description": "Sofas. Boom, almost your warmest hospitality is reflected in the design of the sofa. It is a product that reveals the upholstering expertise of the brand with",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20327564/b-t-design_boom_d7f35b53.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-boom-20327564/",
+      "price": 0,
+      "normalization": {
+        "category": "Office Seating",
+        "subCategory": "Sofas",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Sofas",
+      "family": "B&T Design",
+      "model": "Bob #20327558",
+      "description": "Sofas. Meet the Bob Sofa, which with its simple and timeless design offers the flexibility to perfectly adapt to every space, and prioritizes comfort with its",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20327558/b-t-design_bob_4ecc1129.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-bob-20327558/",
+      "price": 0,
+      "normalization": {
+        "category": "Office Seating",
+        "subCategory": "Sofas",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Sofas",
+      "family": "B&T Design",
+      "model": "Boom Curve #20327565",
+      "description": "Sofas. Boom, almost your warmest hospitality is reflected in the design of the sofa. It is a product that reveals the upholstering expertise of the brand with",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20327565/b-t-design_boom-curve_1fb66771.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-boom-curve-20327565/",
+      "price": 0,
+      "normalization": {
+        "category": "Office Seating",
+        "subCategory": "Sofas",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Sofas",
+      "family": "B&T Design",
+      "model": "Durgu #20327588",
+      "description": "Sofas. Great selection for who need wide and modern seating. Thanks to its many different module dimensions you may create many different width options. You may",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20327588/b-t-design_durgu_cc662323.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-durgu-20327588/",
+      "price": 0,
+      "normalization": {
+        "category": "Office Seating",
+        "subCategory": "Sofas",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Sofas",
+      "family": "B&T Design",
+      "model": "Go Large #20327617",
+      "description": "Sofas. Go Large is focused on comfortable lounging. Upholstered armrests wrapped around exposed stainless steel frame. That contrast provides very unique look",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20327617/b-t-design_go-large_be6bd612.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-go-large-20327617/",
+      "price": 0,
+      "normalization": {
+        "category": "Office Seating",
+        "subCategory": "Sofas",
+        "rank": 1,
+        "tags": [
+          "fabric",
+          "armrests"
+        ],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Sofas",
+      "family": "B&T Design",
+      "model": "Led #20327637",
+      "description": "Benches. Led in contact with fine, elegant legs, Led is the first choice among experts who want to design romantic spaces with elegance and spirit. The ergonomic",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20327637/b-t-design_led_f86a68ca.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-led-20327637/",
+      "price": 0,
+      "normalization": {
+        "category": "Office Seating",
+        "subCategory": "Sofas",
+        "rank": 2,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Sofas",
+      "family": "B&T Design",
+      "model": "Led #20327636",
+      "description": "Sofas. Led in contact with fine, elegant legs, Led is the first choice among experts who want to design romantic spaces with elegance and spirit. The ergonomic",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20327636/b-t-design_led_56b7bfa7.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-led-20327636/",
+      "price": 0,
+      "normalization": {
+        "category": "Office Seating",
+        "subCategory": "Sofas",
+        "rank": 2,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Sofas",
+      "family": "B&T Design",
+      "model": "Morph #20327653",
+      "description": "Sofas. Simple yet very attractive look of Morph would fit perfectly together with any style coffee and side tables around. With its artistic silhouette its offer",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20327653/b-t-design_morph_43fbce60.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-morph-20327653/",
+      "price": 0,
+      "normalization": {
+        "category": "Desk & Table",
+        "subCategory": "Coffee Tables",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Sofas",
+      "family": "B&T Design",
+      "model": "Boom Curve #20276742",
+      "description": "Sofas. Boom, almost your warmest hospitality is reflected in the design of the sofa. It is a product that reveals the upholstering expertise of the brand with",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20276742/b-t-design_boom-curve_455e32a9.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-boom-curve-20276742/",
+      "price": 0,
+      "normalization": {
+        "category": "Office Seating",
+        "subCategory": "Sofas",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Sofas",
+      "family": "B&T Design",
+      "model": "Durgu #20276796",
+      "description": "Sofas. Great selection for who need wide and modern seating. Thanks to its many different module dimensions you may create many different width options. You may",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20276796/b-t-design_durgu_90567887.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-durgu-20276796/",
+      "price": 0,
+      "normalization": {
+        "category": "Office Seating",
+        "subCategory": "Sofas",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Sofas",
+      "family": "B&T Design",
+      "model": "Go Large #20276818",
+      "description": "Armchairs. Go Large is designed for relaxed lounging, combining comfort with a distinctive look. Upholstered armrests wrap around an exposed metal frame, available",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20276818/b-t-design_go-large_57e71b79.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-go-large-20276818/",
+      "price": 0,
+      "normalization": {
+        "category": "Office Seating",
+        "subCategory": "Lounge Chairs",
+        "rank": 1,
+        "tags": [
+          "fabric",
+          "armrests"
+        ],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Sofas",
+      "family": "B&T Design",
+      "model": "Mabel Comfort #20276870",
+      "description": "Armchairs. Mabel Comfort blends timeless simplicity with exceptional comfort, adapting its elegant design language to different needs. Ideal for executive offices",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20276870/b-t-design_mabel-comfort_dff7b3c4.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-mabel-comfort-20276870/",
+      "price": 0,
+      "normalization": {
+        "category": "Office Seating",
+        "subCategory": "Lounge Chairs",
+        "rank": 3,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Sofas",
+      "family": "B&T Design",
+      "model": "Most #20276905",
+      "description": "Armchairs. Most sofa is the “most” elegant element in exquisite and simple interior design settings with the fineness in its armrests and foot details. With its",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20276905/b-t-design_most_df7fc062.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-most-20276905/",
+      "price": 0,
+      "normalization": {
+        "category": "Office Seating",
+        "subCategory": "Lounge Chairs",
+        "rank": 1,
+        "tags": [
+          "armrests"
+        ],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Sofas",
+      "family": "B&T Design",
+      "model": "Noda Sofa #20276930",
+      "description": "Armchairs. Meet the modular sofa family Noda, which with its simple linearity makes every space more elegant and offers the opportunity to create customized spaces",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20276930/b-t-design_noda-sofa_5efe3f5e.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-noda-sofa-20276930/",
+      "price": 0,
+      "normalization": {
+        "category": "Office Seating",
+        "subCategory": "Lounge Chairs",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Sofas",
+      "family": "B&T Design",
+      "model": "Noda Sofa #20276932",
+      "description": "Armchairs. Meet the modular sofa family Noda, which with its simple linearity makes every space more elegant and offers the opportunity to create customized spaces",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20276932/b-t-design_noda-sofa_713ba07b.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-noda-sofa-20276932/",
+      "price": 0,
+      "normalization": {
+        "category": "Office Seating",
+        "subCategory": "Lounge Chairs",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Sofas",
+      "family": "B&T Design",
+      "model": "Noda Sofa #20276926",
+      "description": "Sofas. Meet the modular sofa family Noda, which with its simple linearity makes every space more elegant and offers the opportunity to create customized spaces",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20276926/b-t-design_noda-sofa_559fc49c.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-noda-sofa-20276926/",
+      "price": 0,
+      "normalization": {
+        "category": "Office Seating",
+        "subCategory": "Sofas",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Sofas",
+      "family": "B&T Design",
+      "model": "Noda Sofa #20276927",
+      "description": "Sofas. Meet the modular sofa family Noda, which with its simple linearity makes every space more elegant and offers the opportunity to create customized spaces",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20276927/b-t-design_noda-sofa_b9d943b6.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-noda-sofa-20276927/",
+      "price": 0,
+      "normalization": {
+        "category": "Office Seating",
+        "subCategory": "Sofas",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Sofas",
+      "family": "B&T Design",
+      "model": "Noda Sofa #20276929",
+      "description": "Sofas. Meet the modular sofa family Noda, which with its simple linearity makes every space more elegant and offers the opportunity to create customized spaces",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20276929/b-t-design_noda-sofa_ef742df5.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-noda-sofa-20276929/",
+      "price": 0,
+      "normalization": {
+        "category": "Office Seating",
+        "subCategory": "Sofas",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Sofas",
+      "family": "B&T Design",
+      "model": "Piu #20276963",
+      "description": "Sofas. Piu sofa series invites the user to feel at home in every living and workspace. Experience comfort comfortably, as it adapts itself easily to different",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20276963/b-t-design_piu_682f9205.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-piu-20276963/",
+      "price": 0,
+      "normalization": {
+        "category": "Office Seating",
+        "subCategory": "Sofas",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Sofas",
+      "family": "B&T Design",
+      "model": "Piu #20276965",
+      "description": "Sofas. Piu sofa series invites the user to feel at home in every living and workspace. Experience comfort comfortably, as it adapts itself easily to different",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20276965/b-t-design_piu_719bb72e.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-piu-20276965/",
+      "price": 0,
+      "normalization": {
+        "category": "Office Seating",
+        "subCategory": "Sofas",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Sofas",
+      "family": "B&T Design",
+      "model": "Piu #20276967",
+      "description": "Benches. Piu sofa series invites the user to feel at home in every living and workspace. Experience comfort comfortably, as it adapts itself easily to different",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20276967/b-t-design_piu_54ee5b47.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-piu-20276967/",
+      "price": 0,
+      "normalization": {
+        "category": "Office Seating",
+        "subCategory": "Sofas",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Sofas",
+      "family": "B&T Design",
+      "model": "Piu #20276964",
+      "description": "Sofas. Piu sofa series invites the user to feel at home in every living and workspace. Experience comfort comfortably, as it adapts itself easily to different",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20276964/b-t-design_piu_b816c6cb.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-piu-20276964/",
+      "price": 0,
+      "normalization": {
+        "category": "Office Seating",
+        "subCategory": "Sofas",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Sofas",
+      "family": "B&T Design",
+      "model": "Mabel Comfort #20276868",
+      "description": "Sofas. Mabel Comfort blends timeless simplicity with exceptional comfort, adapting its elegant design language to different needs. Ideal for executive offices",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20276868/b-t-design_mabel-comfort_7ca868b4.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-mabel-comfort-20276868/",
+      "price": 0,
+      "normalization": {
+        "category": "Office Seating",
+        "subCategory": "Sofas",
+        "rank": 3,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Sofas",
+      "family": "B&T Design",
+      "model": "Most #20276904",
+      "description": "Sofas. Most sofa is the “most” elegant element in exquisite and simple interior design settings with the fineness in its armrests and foot details. With its",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20276904/b-t-design_most_f0123aee.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-most-20276904/",
+      "price": 0,
+      "normalization": {
+        "category": "Office Seating",
+        "subCategory": "Sofas",
+        "rank": 1,
+        "tags": [
+          "armrests"
+        ],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Sofas",
+      "family": "B&T Design",
+      "model": "Noda Sofa #20276931",
+      "description": "Sofas. Meet the modular sofa family Noda, which with its simple linearity makes every space more elegant and offers the opportunity to create customized spaces",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20276931/b-t-design_noda-sofa_a288aae1.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-noda-sofa-20276931/",
+      "price": 0,
+      "normalization": {
+        "category": "Office Seating",
+        "subCategory": "Sofas",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Sofas",
+      "family": "B&T Design",
+      "model": "Mabel Comfort #20276869",
+      "description": "Armchairs. Mabel Comfort blends timeless simplicity with exceptional comfort, adapting its elegant design language to different needs. Ideal for executive offices",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20276869/b-t-design_mabel-comfort_d33a1265.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-mabel-comfort-20276869/",
+      "price": 0,
+      "normalization": {
+        "category": "Office Seating",
+        "subCategory": "Lounge Chairs",
+        "rank": 3,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Sofas",
+      "family": "B&T Design",
+      "model": "Mabel Comfort #20276871",
+      "description": "Armchairs. Mabel Comfort blends timeless simplicity with exceptional comfort, adapting its elegant design language to different needs. Ideal for executive offices",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20276871/b-t-design_mabel-comfort_e25a9b03.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-mabel-comfort-20276871/",
+      "price": 0,
+      "normalization": {
+        "category": "Office Seating",
+        "subCategory": "Lounge Chairs",
+        "rank": 3,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Sofas",
+      "family": "B&T Design",
+      "model": "Noda Sofa #20276925",
+      "description": "Sofas. Meet the modular sofa family Noda, which with its simple linearity makes every space more elegant and offers the opportunity to create customized spaces",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20276925/b-t-design_noda-sofa_31689a03.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-noda-sofa-20276925/",
+      "price": 0,
+      "normalization": {
+        "category": "Office Seating",
+        "subCategory": "Sofas",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Sofas",
+      "family": "B&T Design",
+      "model": "Noda Sofa #20276928",
+      "description": "Sofas. Meet the modular sofa family Noda, which with its simple linearity makes every space more elegant and offers the opportunity to create customized spaces",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20276928/b-t-design_noda-sofa_2eb8763e.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-noda-sofa-20276928/",
+      "price": 0,
+      "normalization": {
+        "category": "Office Seating",
+        "subCategory": "Sofas",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Sofas",
+      "family": "B&T Design",
+      "model": "Piu #20276966",
+      "description": "Armchairs. Piu sofa series invites the user to feel at home in every living and workspace. Experience comfort comfortably, as it adapts itself easily to different",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20276966/b-t-design_piu_d7541eda.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-piu-20276966/",
+      "price": 0,
+      "normalization": {
+        "category": "Office Seating",
+        "subCategory": "Lounge Chairs",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Sofas",
+      "family": "B&T Design",
+      "model": "Pick #20276962",
+      "description": "Armchairs. Pick stands out with its modular structure and customizable seating and armrest widths, allowing for a highly personalized sofa. Each module can be",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20276962/b-t-design_pick_632895eb.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-pick-20276962/",
+      "price": 0,
+      "normalization": {
+        "category": "Office Seating",
+        "subCategory": "Lounge Chairs",
+        "rank": 1,
+        "tags": [
+          "armrests"
+        ],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Sofas",
+      "family": "B&T Design",
+      "model": "Pick #20276961",
+      "description": "Sofas. Pick stands out with its modular structure and customizable seating and armrest widths, allowing for a highly personalized sofa. Each module can be",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20276961/b-t-design_pick_cc183eed.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-pick-20276961/",
+      "price": 0,
+      "normalization": {
+        "category": "Office Seating",
+        "subCategory": "Sofas",
+        "rank": 1,
+        "tags": [
+          "armrests"
+        ],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Sofas",
+      "family": "B&T Design",
+      "model": "Zen #20277045",
+      "description": "Sofas. Meet the Zen sofa family, which brings its calm character wherever it is placed, thanks to its elegant and sculptural appearance presenting the charm of",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20277045/b-t-design_zen_42e13d9b.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-zen-20277045/",
+      "price": 0,
+      "normalization": {
+        "category": "Office Seating",
+        "subCategory": "Sofas",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Tables",
+      "family": "B&T Design",
+      "model": "Fil #20327596",
+      "description": "Dining tables. Meet the FIL table, which takes abstractions of form one step further and offers a unique design with two sculptural support legs!\n\nBoasting an undefined",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20327596/b-t-design_fil_354e34d7.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-fil-20327596/",
+      "price": 0,
+      "normalization": {
+        "category": "Desk & Table",
+        "subCategory": "Single Desks",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Sofas",
+      "family": "B&T Design",
+      "model": "Zen #20277046",
+      "description": "Armchairs. Meet the Zen sofa family, which brings its calm character wherever it is placed, thanks to its elegant and sculptural appearance presenting the charm of",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20277046/b-t-design_zen_ae4443f7.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-zen-20277046/",
+      "price": 0,
+      "normalization": {
+        "category": "Office Seating",
+        "subCategory": "Lounge Chairs",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Tables",
+      "family": "B&T Design",
+      "model": "Fil #20327597",
+      "description": "Dining tables. Meet the FIL table, which takes abstractions of form one step further and offers a unique design with two sculptural support legs!\n\nBoasting an undefined",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20327597/b-t-design_fil_79b06702.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-fil-20327597/",
+      "price": 0,
+      "normalization": {
+        "category": "Desk & Table",
+        "subCategory": "Single Desks",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Tables",
+      "family": "B&T Design",
+      "model": "Fil #20327598",
+      "description": "Dining tables. Meet the FIL table, which takes abstractions of form one step further and offers a unique design with two sculptural support legs!\n\nBoasting an undefined",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20327598/b-t-design_fil_711b015b.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-fil-20327598/",
+      "price": 0,
+      "normalization": {
+        "category": "Desk & Table",
+        "subCategory": "Single Desks",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Tables",
+      "family": "B&T Design",
+      "model": "Tori #20327737",
+      "description": "Dining tables. The Tori table showcases a captivating blend of sculptural elegance and practical functionality, making it a standout piece in B&T Collection. With its",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20327737/b-t-design_tori_fd886750.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-tori-20327737/",
+      "price": 0,
+      "normalization": {
+        "category": "Desk & Table",
+        "subCategory": "Single Desks",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Tables",
+      "family": "B&T Design",
+      "model": "Fil #20327599",
+      "description": "Dining tables. Meet the FIL table, which takes abstractions of form one step further and offers a unique design with two sculptural support legs!\n\nBoasting an undefined",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20327599/b-t-design_fil_c0b72776.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-fil-20327599/",
+      "price": 0,
+      "normalization": {
+        "category": "Desk & Table",
+        "subCategory": "Single Desks",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Tables",
+      "family": "B&T Design",
+      "model": "Tori #20327738",
+      "description": "Bistro tables. The Tori table showcases a captivating blend of sculptural elegance and practical functionality, making it a standout piece in B&T Collection. With its",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20327738/b-t-design_tori_72c5b979.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-tori-20327738/",
+      "price": 0,
+      "normalization": {
+        "category": "Desk & Table",
+        "subCategory": "Single Desks",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Tables",
+      "family": "B&T Design",
+      "model": "Tori #20327739",
+      "description": "Bistro tables. The Tori table showcases a captivating blend of sculptural elegance and practical functionality, making it a standout piece in B&T Collection. With its",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20327739/b-t-design_tori_9e193b12.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-tori-20327739/",
+      "price": 0,
+      "normalization": {
+        "category": "Desk & Table",
+        "subCategory": "Single Desks",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Tables",
+      "family": "B&T Design",
+      "model": "Woodplate High Table #20327715",
+      "description": "Dining tables. ",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20327715/b-t-design_woodplate-high-table_a3094660.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-woodplate-high-table-20327715/",
+      "price": 0,
+      "normalization": {
+        "category": "Desk & Table",
+        "subCategory": "Single Desks",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Tables",
+      "family": "B&T Design",
+      "model": "Woodplate High Table #20327714",
+      "description": "Dining tables. ",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20327714/b-t-design_woodplate-high-table_9fadfe2a.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-woodplate-high-table-20327714/",
+      "price": 0,
+      "normalization": {
+        "category": "Desk & Table",
+        "subCategory": "Single Desks",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Tables",
+      "family": "B&T Design",
+      "model": "Elusive #20327589",
+      "description": "Dining tables. A modern minimal table designed by Alp Nuhoğlu. Table top frame is aluminum extrusion made where production precision is at the highest. Wood top is",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20327589/b-t-design_elusive_d0166f16.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-elusive-20327589/",
+      "price": 0,
+      "normalization": {
+        "category": "Accessories",
+        "subCategory": "Aluminum Profile",
+        "rank": 1,
+        "tags": [
+          "aluminum"
+        ],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Tables",
+      "family": "B&T Design",
+      "model": "Elusive #20327590",
+      "description": "Dining tables. A modern minimal table designed by Alp Nuhoğlu. Table top frame is aluminum extrusion made where production precision is at the highest. Wood top is",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20327590/b-t-design_elusive_46dc293a.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-elusive-20327590/",
+      "price": 0,
+      "normalization": {
+        "category": "Accessories",
+        "subCategory": "Aluminum Profile",
+        "rank": 1,
+        "tags": [
+          "aluminum"
+        ],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Tables",
+      "family": "B&T Design",
+      "model": "Globe #20327611",
+      "description": "Standing tables. Globe is another occasional bistro table by B&T Design. The Globe table tops are produced as elliptic, square or round shape. The base can be ordered in",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20327611/b-t-design_globe_eede7614.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-globe-20327611/",
+      "price": 0,
+      "normalization": {
+        "category": "Desk & Table",
+        "subCategory": "Single Desks",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Tables",
+      "family": "B&T Design",
+      "model": "Globe #20327605",
+      "description": "Bistro tables. Globe is another occasional bistro table by B&T Design. The Globe table tops are produced as elliptic, square or round shape. The base can be ordered in",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20327605/b-t-design_globe_8061dc49.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-globe-20327605/",
+      "price": 0,
+      "normalization": {
+        "category": "Desk & Table",
+        "subCategory": "Single Desks",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Tables",
+      "family": "B&T Design",
+      "model": "Globe #20327612",
+      "description": "Standing tables. Globe is another occasional bistro table by B&T Design. The Globe table tops are produced as elliptic, square or round shape. The base can be ordered in",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20327612/b-t-design_globe_28d9af16.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-globe-20327612/",
+      "price": 0,
+      "normalization": {
+        "category": "Desk & Table",
+        "subCategory": "Single Desks",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Tables",
+      "family": "B&T Design",
+      "model": "Globe #20327609",
+      "description": "Standing tables. Globe is another occasional bistro table by B&T Design. The Globe table tops are produced as elliptic, square or round shape. The base can be ordered in",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20327609/b-t-design_globe_e1fe521c.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-globe-20327609/",
+      "price": 0,
+      "normalization": {
+        "category": "Desk & Table",
+        "subCategory": "Single Desks",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Tables",
+      "family": "B&T Design",
+      "model": "Globe #20327610",
+      "description": "Standing tables. Globe is another occasional bistro table by B&T Design. The Globe table tops are produced as elliptic, square or round shape. The base can be ordered in",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20327610/b-t-design_globe_e613ed81.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-globe-20327610/",
+      "price": 0,
+      "normalization": {
+        "category": "Desk & Table",
+        "subCategory": "Single Desks",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Tables",
+      "family": "B&T Design",
+      "model": "Globe #20327604",
+      "description": "Bistro tables. Globe is another occasional bistro table by B&T Design. The Globe table tops are produced as elliptic, square or round shape. The base can be ordered in",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20327604/b-t-design_globe_ecf2960f.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-globe-20327604/",
+      "price": 0,
+      "normalization": {
+        "category": "Desk & Table",
+        "subCategory": "Single Desks",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Tables",
+      "family": "B&T Design",
+      "model": "Globe #20327606",
+      "description": "Bistro tables. Globe is another occasional bistro table by B&T Design. The Globe table tops are produced as elliptic, square or round shape. The base can be ordered in",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20327606/b-t-design_globe_c3186d5d.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-globe-20327606/",
+      "price": 0,
+      "normalization": {
+        "category": "Desk & Table",
+        "subCategory": "Single Desks",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Tables",
+      "family": "B&T Design",
+      "model": "Globe #20327607",
+      "description": "Bistro tables. Globe is another occasional bistro table by B&T Design. The Globe table tops are produced as elliptic, square or round shape. The base can be ordered in",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20327607/b-t-design_globe_fab60416.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-globe-20327607/",
+      "price": 0,
+      "normalization": {
+        "category": "Desk & Table",
+        "subCategory": "Single Desks",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Tables",
+      "family": "B&T Design",
+      "model": "Globe #20327608",
+      "description": "Bistro tables. Globe is another occasional bistro table by B&T Design. The Globe table tops are produced as elliptic, square or round shape. The base can be ordered in",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20327608/b-t-design_globe_7d5eae81.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-globe-20327608/",
+      "price": 0,
+      "normalization": {
+        "category": "Desk & Table",
+        "subCategory": "Single Desks",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Tables",
+      "family": "B&T Design",
+      "model": "Radius #20327670",
+      "description": "Dining tables. Introducing the Radius table, a testament to minimalism and contemporary design, a style characterized by the inherent strength of geometric forms, making",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20327670/b-t-design_radius_e87997c5.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-radius-20327670/",
+      "price": 0,
+      "normalization": {
+        "category": "Desk & Table",
+        "subCategory": "Single Desks",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Tables",
+      "family": "B&T Design",
+      "model": "Radius #20327742",
+      "description": "Dining tables. Introducing the Radius table, a testament to minimalism and contemporary design, a style characterized by the inherent strength of geometric forms, making",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20327742/b-t-design_radius_c4ca2027.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-radius-20327742/",
+      "price": 0,
+      "normalization": {
+        "category": "Desk & Table",
+        "subCategory": "Single Desks",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Tables",
+      "family": "B&T Design",
+      "model": "Radius #20327741",
+      "description": "Dining tables. Introducing the Radius table, a testament to minimalism and contemporary design, a style characterized by the inherent strength of geometric forms, making",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20327741/b-t-design_radius_b233c1ae.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-radius-20327741/",
+      "price": 0,
+      "normalization": {
+        "category": "Desk & Table",
+        "subCategory": "Single Desks",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Tables",
+      "family": "B&T Design",
+      "model": "Woodplate Table #20327716",
+      "description": "Contract tables. ",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20327716/b-t-design_woodplate-table_a0c44be2.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-woodplate-table-20327716/",
+      "price": 0,
+      "normalization": {
+        "category": "Desk & Table",
+        "subCategory": "Single Desks",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Tables",
+      "family": "B&T Design",
+      "model": "Woodplate Table #20327717",
+      "description": "Dining tables. ",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20327717/b-t-design_woodplate-table_4ed7e59b.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-woodplate-table-20327717/",
+      "price": 0,
+      "normalization": {
+        "category": "Desk & Table",
+        "subCategory": "Single Desks",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Tables",
+      "family": "B&T Design",
+      "model": "Seri #1158812",
+      "description": "Dining tables. It is a modern table design that can accommodate at home, at the manager’s office or at a restaurant, with a choice of circular and elliptical tables and",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/1158812/b-t-design_seri_80ac5a2a.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-seri-1158812/",
+      "price": 0,
+      "normalization": {
+        "category": "Desk & Table",
+        "subCategory": "Manager Tables",
+        "rank": 3,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Tables",
+      "family": "B&T Design",
+      "model": "Woodplate Table #20327718",
+      "description": "Dining tables. ",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20327718/b-t-design_woodplate-table_b8621973.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-woodplate-table-20327718/",
+      "price": 0,
+      "normalization": {
+        "category": "Desk & Table",
+        "subCategory": "Single Desks",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Tables",
+      "family": "B&T Design",
+      "model": "Globe #20276812",
+      "description": "Bistro tables. Globe is another occasional bistro table by B&T Design. The Globe table tops are produced as elliptic, square or round shape. The base can be ordered in",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20276812/b-t-design_globe_478ed8b1.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-globe-20276812/",
+      "price": 0,
+      "normalization": {
+        "category": "Desk & Table",
+        "subCategory": "Single Desks",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Tables",
+      "family": "B&T Design",
+      "model": "Elusive #20276797",
+      "description": "Dining tables. A modern minimal table designed by Alp Nuhoğlu. Table top frame is aluminum extrusion made where production precision is at the highest. Top is inserted",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20276797/b-t-design_elusive_181a9976.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-elusive-20276797/",
+      "price": 0,
+      "normalization": {
+        "category": "Accessories",
+        "subCategory": "Aluminum Profile",
+        "rank": 1,
+        "tags": [
+          "aluminum"
+        ],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Tables",
+      "family": "B&T Design",
+      "model": "Elusive #20276798",
+      "description": "Dining tables. A modern minimal table designed by Alp Nuhoğlu. Table top frame is aluminum extrusion made where production precision is at the highest. Top is inserted",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20276798/b-t-design_elusive_da12a8a2.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-elusive-20276798/",
+      "price": 0,
+      "normalization": {
+        "category": "Accessories",
+        "subCategory": "Aluminum Profile",
+        "rank": 1,
+        "tags": [
+          "aluminum"
+        ],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Tables",
+      "family": "B&T Design",
+      "model": "Seri #20277024",
+      "description": "Dining tables. It is a modern table design that can accommodate at home, at the manager’s office or at a restaurant, with a choice of circular and elliptical tables and",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20277024/b-t-design_seri_06d1032b.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-seri-20277024/",
+      "price": 0,
+      "normalization": {
+        "category": "Desk & Table",
+        "subCategory": "Manager Tables",
+        "rank": 3,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Low Tables",
+      "family": "B&T Design",
+      "model": "Drage Low Table #20327584",
+      "description": "Side tables. Meet the Drage family, bringing energy and dynamism to waiting areas, with their organic forms which render their modest and refined design timeless.",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20327584/b-t-design_drage-low-table_a850cb8c.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-drage-low-table-20327584/",
+      "price": 0,
+      "normalization": {
+        "category": "Desk & Table",
+        "subCategory": "Coffee Tables",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Low Tables",
+      "family": "B&T Design",
+      "model": "Drage Low Table #20327583",
+      "description": "Side tables. Meet the Drage family, bringing energy and dynamism to waiting areas, with their organic forms which render their modest and refined design timeless.",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20327583/b-t-design_drage-low-table_d0eb2f18.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-drage-low-table-20327583/",
+      "price": 0,
+      "normalization": {
+        "category": "Desk & Table",
+        "subCategory": "Coffee Tables",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Low Tables",
+      "family": "B&T Design",
+      "model": "Loom #20327639",
+      "description": "Coffee tables. Loom coffee table, as a refined object consisting of simple and basic lines, appears in executive offices and social spaces.\n\nA series for stylish and",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20327639/b-t-design_loom_1f2e8f69.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-loom-20327639/",
+      "price": 0,
+      "normalization": {
+        "category": "Desk & Table",
+        "subCategory": "Coffee Tables",
+        "rank": 3,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Low Tables",
+      "family": "B&T Design",
+      "model": "Loom #20327638",
+      "description": "Coffee tables. Loom coffee table, as a refined object consisting of simple and basic lines, appears in executive offices and social spaces.\n\nA series for stylish and",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20327638/b-t-design_loom_97771d77.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-loom-20327638/",
+      "price": 0,
+      "normalization": {
+        "category": "Desk & Table",
+        "subCategory": "Coffee Tables",
+        "rank": 3,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Low Tables",
+      "family": "B&T Design",
+      "model": "Modest #20327647",
+      "description": "Coffee tables. Modest as a dismantled product, has a balanced frame structure. The visual effect is enhanced with matte chrome feet at the starting and ending points of",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20327647/b-t-design_modest_52f85218.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-modest-20327647/",
+      "price": 0,
+      "normalization": {
+        "category": "Desk & Table",
+        "subCategory": "Coffee Tables",
+        "rank": 1,
+        "tags": [
+          "chrome"
+        ],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Low Tables",
+      "family": "B&T Design",
+      "model": "Modest #20327648",
+      "description": "Coffee tables. Modest as a dismantled product, has a balanced frame structure. The visual effect is enhanced with matte chrome feet at the starting and ending points of",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20327648/b-t-design_modest_1578a580.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-modest-20327648/",
+      "price": 0,
+      "normalization": {
+        "category": "Desk & Table",
+        "subCategory": "Coffee Tables",
+        "rank": 1,
+        "tags": [
+          "chrome"
+        ],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Low Tables",
+      "family": "B&T Design",
+      "model": "Modest #20327649",
+      "description": "Coffee tables. Modest as a dismantled product, has a balanced frame structure. The visual effect is enhanced with matte chrome feet at the starting and ending points of",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20327649/b-t-design_modest_342fc97d.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-modest-20327649/",
+      "price": 0,
+      "normalization": {
+        "category": "Desk & Table",
+        "subCategory": "Coffee Tables",
+        "rank": 1,
+        "tags": [
+          "chrome"
+        ],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Low Tables",
+      "family": "B&T Design",
+      "model": "Modest #20327650",
+      "description": "Coffee tables. Modest as a dismantled product, has a balanced frame structure. The visual effect is enhanced with matte chrome feet at the starting and ending points of",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20327650/b-t-design_modest_2347dbcc.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-modest-20327650/",
+      "price": 0,
+      "normalization": {
+        "category": "Desk & Table",
+        "subCategory": "Coffee Tables",
+        "rank": 1,
+        "tags": [
+          "chrome"
+        ],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Low Tables",
+      "family": "B&T Design",
+      "model": "Modest #20327652",
+      "description": "Coffee tables. Modest as a dismantled product, has a balanced frame structure. The visual effect is enhanced with matte chrome feet at the starting and ending points of",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20327652/b-t-design_modest_8a43cf55.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-modest-20327652/",
+      "price": 0,
+      "normalization": {
+        "category": "Desk & Table",
+        "subCategory": "Coffee Tables",
+        "rank": 1,
+        "tags": [
+          "chrome"
+        ],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Low Tables",
+      "family": "B&T Design",
+      "model": "Modest #20327726",
+      "description": "Coffee tables. Modest as a dismantled product, has a balanced frame structure. The visual effect is enhanced with matte chrome feet at the starting and ending points of",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20327726/b-t-design_modest_178d14bf.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-modest-20327726/",
+      "price": 0,
+      "normalization": {
+        "category": "Desk & Table",
+        "subCategory": "Coffee Tables",
+        "rank": 1,
+        "tags": [
+          "chrome"
+        ],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Low Tables",
+      "family": "B&T Design",
+      "model": "Modest #20327727",
+      "description": "Coffee tables. Modest as a dismantled product, has a balanced frame structure. The visual effect is enhanced with matte chrome feet at the starting and ending points of",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20327727/b-t-design_modest_e5732eb9.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-modest-20327727/",
+      "price": 0,
+      "normalization": {
+        "category": "Desk & Table",
+        "subCategory": "Coffee Tables",
+        "rank": 1,
+        "tags": [
+          "chrome"
+        ],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Low Tables",
+      "family": "B&T Design",
+      "model": "Noa #20327656",
+      "description": "Side tables. Noa, which comes in contact with the round pedestal base, has a square table and is produced at two different heights. The rounded form of the tablets",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20327656/b-t-design_noa_63f60423.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-noa-20327656/",
+      "price": 0,
+      "normalization": {
+        "category": "Desk & Table",
+        "subCategory": "Coffee Tables",
+        "rank": 1,
+        "tags": [
+          "pedestal"
+        ],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Low Tables",
+      "family": "B&T Design",
+      "model": "Modest #20327651",
+      "description": "Coffee tables. Modest as a dismantled product, has a balanced frame structure. The visual effect is enhanced with matte chrome feet at the starting and ending points of",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20327651/b-t-design_modest_105ed806.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-modest-20327651/",
+      "price": 0,
+      "normalization": {
+        "category": "Desk & Table",
+        "subCategory": "Coffee Tables",
+        "rank": 1,
+        "tags": [
+          "chrome"
+        ],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Low Tables",
+      "family": "B&T Design",
+      "model": "Noa #20327655",
+      "description": "Side tables. Noa, which comes in contact with the round pedestal base, has a square table and is produced at two different heights. The rounded form of the tablets",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20327655/b-t-design_noa_9cb9d5f8.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-noa-20327655/",
+      "price": 0,
+      "normalization": {
+        "category": "Desk & Table",
+        "subCategory": "Coffee Tables",
+        "rank": 1,
+        "tags": [
+          "pedestal"
+        ],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Low Tables",
+      "family": "B&T Design",
+      "model": "Noa #20327654",
+      "description": "Side tables. Noa, which comes in contact with the round pedestal base, has a square table and is produced at two different heights. The rounded form of the tablets",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20327654/b-t-design_noa_e6286b07.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-noa-20327654/",
+      "price": 0,
+      "normalization": {
+        "category": "Desk & Table",
+        "subCategory": "Coffee Tables",
+        "rank": 1,
+        "tags": [
+          "pedestal"
+        ],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Low Tables",
+      "family": "B&T Design",
+      "model": "Sini #20327698",
+      "description": "Coffee tables. Another very unique furniture design from a celebrated designer Tanju Özelgin. Takes its design reference from tradition, Sini blends the modern design",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20327698/b-t-design_sini_85402a9e.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-sini-20327698/",
+      "price": 0,
+      "normalization": {
+        "category": "Desk & Table",
+        "subCategory": "Coffee Tables",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Low Tables",
+      "family": "B&T Design",
+      "model": "Sini #20327697",
+      "description": "Coffee tables. Another very unique furniture design from a celebrated designer Tanju Özelgin. Takes its design reference from tradition, Sini blends the modern design",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20327697/b-t-design_sini_e036d3ea.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-sini-20327697/",
+      "price": 0,
+      "normalization": {
+        "category": "Desk & Table",
+        "subCategory": "Coffee Tables",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Low Tables",
+      "family": "B&T Design",
+      "model": "Sini #20327699",
+      "description": "Side tables. Another very unique furniture design from a celebrated designer Tanju Özelgin. Takes its design reference from tradition, Sini blends the modern design",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20327699/b-t-design_sini_29c88895.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-sini-20327699/",
+      "price": 0,
+      "normalization": {
+        "category": "Desk & Table",
+        "subCategory": "Coffee Tables",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Low Tables",
+      "family": "B&T Design",
+      "model": "Theo #20327708",
+      "description": "Coffee tables. Having two main shapes for the surface, a circle and an oval, Theo series bring a 5 possibilities of dimensional varieties. Rich in both visual appeal and",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20327708/b-t-design_theo_b528dca4.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-theo-20327708/",
+      "price": 0,
+      "normalization": {
+        "category": "Desk & Table",
+        "subCategory": "Coffee Tables",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Low Tables",
+      "family": "B&T Design",
+      "model": "Theo #20327707",
+      "description": "Coffee tables. Having two main shapes for the surface, a circle and an oval, Theo series bring a 5 possibilities of dimensional varieties. Rich in both visual appeal and",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20327707/b-t-design_theo_78d5813a.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-theo-20327707/",
+      "price": 0,
+      "normalization": {
+        "category": "Desk & Table",
+        "subCategory": "Coffee Tables",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Low Tables",
+      "family": "B&T Design",
+      "model": "Theo #20327710",
+      "description": "Side tables. Having two main shapes for the surface, a circle and an oval, Theo series bring a 5 possibilities of dimensional varieties. Rich in both visual appeal and",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20327710/b-t-design_theo_1ee5ad67.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-theo-20327710/",
+      "price": 0,
+      "normalization": {
+        "category": "Desk & Table",
+        "subCategory": "Coffee Tables",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Low Tables",
+      "family": "B&T Design",
+      "model": "Theo #20327709",
+      "description": "Side tables. Having two main shapes for the surface, a circle and an oval, Theo series bring a 5 possibilities of dimensional varieties. Rich in both visual appeal and",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20327709/b-t-design_theo_509f61aa.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-theo-20327709/",
+      "price": 0,
+      "normalization": {
+        "category": "Desk & Table",
+        "subCategory": "Coffee Tables",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Low Tables",
+      "family": "B&T Design",
+      "model": "Theo #20327711",
+      "description": "Side tables. Having two main shapes for the surface, a circle and an oval, Theo series bring a 5 possibilities of dimensional varieties. Rich in both visual appeal and",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20327711/b-t-design_theo_437cc394.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-theo-20327711/",
+      "price": 0,
+      "normalization": {
+        "category": "Desk & Table",
+        "subCategory": "Coffee Tables",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Low Tables",
+      "family": "B&T Design",
+      "model": "Woodplate Low Table #20327720",
+      "description": "Coffee tables. The Woodplate brings a horizontal section to the space. It offers different height options for each top. \n\nWith different top options and different legs",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20327720/b-t-design_woodplate-low-table_73296886.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-woodplate-low-table-20327720/",
+      "price": 0,
+      "normalization": {
+        "category": "Desk & Table",
+        "subCategory": "Coffee Tables",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Low Tables",
+      "family": "B&T Design",
+      "model": "Woodplate Low Table #20327719",
+      "description": "Dining tables. The Woodplate brings a horizontal section to the space. It offers different height options for each top. \n\nWith different top options and different legs",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20327719/b-t-design_woodplate-low-table_5d17001a.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-woodplate-low-table-20327719/",
+      "price": 0,
+      "normalization": {
+        "category": "Desk & Table",
+        "subCategory": "Coffee Tables",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Low Tables",
+      "family": "B&T Design",
+      "model": "Woodplate Low Table #20327721",
+      "description": "Coffee tables. The Woodplate brings a horizontal section to the space. It offers different height options for each top. \n\nWith different top options and different legs",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20327721/b-t-design_woodplate-low-table_33af4999.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-woodplate-low-table-20327721/",
+      "price": 0,
+      "normalization": {
+        "category": "Desk & Table",
+        "subCategory": "Coffee Tables",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Low Tables",
+      "family": "B&T Design",
+      "model": "Woodplate Low Table #20327722",
+      "description": "Coffee tables. The Woodplate brings a horizontal section to the space. It offers different height options for each top. \n\nWith different top options and different legs",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20327722/b-t-design_woodplate-low-table_c6a5fc1e.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-woodplate-low-table-20327722/",
+      "price": 0,
+      "normalization": {
+        "category": "Desk & Table",
+        "subCategory": "Coffee Tables",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Low Tables",
+      "family": "B&T Design",
+      "model": "Loom #20276863",
+      "description": "Coffee tables. Loom coffee table, as a refined object consisting of simple and basic lines, appears in executive offices and social spaces.\n\nA series for stylish and",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20276863/b-t-design_loom_9df818b5.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-loom-20276863/",
+      "price": 0,
+      "normalization": {
+        "category": "Desk & Table",
+        "subCategory": "Coffee Tables",
+        "rank": 3,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Poufs",
+      "family": "B&T Design",
+      "model": "Sorbe #20327733",
+      "description": "Poufs. Meet the Sorbe pouf family, which brings dynamism and fun to interiors with its exceptional, geometric forms. The collection renders every space inviting",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20327733/b-t-design_sorbe_b77b8865.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-sorbe-20327733/",
+      "price": 0,
+      "normalization": {
+        "category": "Office Seating",
+        "subCategory": "Sofas",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Poufs",
+      "family": "B&T Design",
+      "model": "Boom #20327562",
+      "description": "Poufs. ",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20327562/b-t-design_boom_93ab6a4f.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-boom-20327562/",
+      "price": 0,
+      "normalization": {
+        "category": "Office Seating",
+        "subCategory": "Sofas",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Poufs",
+      "family": "B&T Design",
+      "model": "Boom #20327561",
+      "description": "Poufs. ",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20327561/b-t-design_boom_0ba84d30.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-boom-20327561/",
+      "price": 0,
+      "normalization": {
+        "category": "Office Seating",
+        "subCategory": "Sofas",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Poufs",
+      "family": "B&T Design",
+      "model": "Boom #20327563",
+      "description": "Armchairs. ",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20327563/b-t-design_boom_388f3e3d.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-boom-20327563/",
+      "price": 0,
+      "normalization": {
+        "category": "Office Seating",
+        "subCategory": "Lounge Chairs",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Poufs",
+      "family": "B&T Design",
+      "model": "Flint #20327601",
+      "description": "Poufs. Flint is a family of stools inspired by the organic forms of natural stones and their layered textures in varying colors and materials. Designed to",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20327601/b-t-design_flint_f5390ffb.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-flint-20327601/",
+      "price": 0,
+      "normalization": {
+        "category": "Office Seating",
+        "subCategory": "Stools",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Furniture",
+      "subCategory": "Poufs",
+      "family": "B&T Design",
+      "model": "Flint #20327602",
+      "description": "Poufs. Flint is a family of stools inspired by the organic forms of natural stones and their layered textures in varying colors and materials. Designed to",
+      "imageUrl": "https://media.architonic.com/m-on/3103498/product/20327602/b-t-design_flint_77d15f1c.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/bandt-design-flint-20327602/",
+      "price": 0,
+      "normalization": {
+        "category": "Office Seating",
+        "subCategory": "Stools",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    }
+  ],
+  "createdAt": "2025-12-21T13:14:09.665Z"
+}

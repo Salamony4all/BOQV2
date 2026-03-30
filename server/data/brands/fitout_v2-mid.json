@@ -1,0 +1,846 @@
+{
+  "id": 1766941758543,
+  "name": "FitOut V2",
+  "url": "",
+  "origin": "Local",
+  "budgetTier": "mid",
+  "logo": "",
+  "products": [
+    {
+      "mainCategory": "General Requirements",
+      "subCategory": "Site Setup",
+      "family": "MOB",
+      "model": "MOB-01",
+      "description": "Site mobilization including temporary office setup and storage facilities.",
+      "imageUrl": "",
+      "price": 2500,
+      "productUrl": "",
+      "normalization": {
+        "category": "Storage",
+        "subCategory": "Generic",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "General Requirements",
+      "subCategory": "Utilities",
+      "family": "UTIL",
+      "model": "UTIL-01",
+      "description": "Provision of temporary water and electricity for site works.",
+      "imageUrl": "",
+      "price": 500,
+      "productUrl": "",
+      "normalization": {
+        "category": "OTHER",
+        "subCategory": "Generic",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "General Requirements",
+      "subCategory": "Health & Safety",
+      "family": "HSE",
+      "model": "HSE-01",
+      "description": "Health and safety requirements including PPE and on-site safety signage.",
+      "imageUrl": "",
+      "price": 1200,
+      "productUrl": "",
+      "normalization": {
+        "category": "OTHER",
+        "subCategory": "Generic",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "General Requirements",
+      "subCategory": "Logistics",
+      "family": "DEB",
+      "model": "DEB-01",
+      "description": "Daily housekeeping and periodic disposal of debris off-site to approved dumpsites.",
+      "imageUrl": "",
+      "price": 850,
+      "productUrl": "",
+      "normalization": {
+        "category": "OTHER",
+        "subCategory": "Generic",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "General Requirements",
+      "subCategory": "Final Works",
+      "family": "CLN",
+      "model": "CLN-01",
+      "description": "Professional deep cleaning and handover preparation.",
+      "imageUrl": "",
+      "price": 1500,
+      "productUrl": "",
+      "normalization": {
+        "category": "OTHER",
+        "subCategory": "Generic",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "General Requirements",
+      "subCategory": "Insurance",
+      "family": "INS",
+      "model": "INS-01",
+      "description": "Workmen Compensation and All-Risk Insurance for project duration.",
+      "imageUrl": "",
+      "price": 1800,
+      "productUrl": "",
+      "normalization": {
+        "category": "OTHER",
+        "subCategory": "Generic",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Flooring & Wet Works",
+      "subCategory": "Stone Flooring",
+      "family": "MA",
+      "model": "MA-201",
+      "description": "Mechanically fixed marble, 20mm thick stone as per approved sample.",
+      "imageUrl": "",
+      "price": 26,
+      "productUrl": "",
+      "normalization": {
+        "category": "OTHER",
+        "subCategory": "Generic",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Flooring & Wet Works",
+      "subCategory": "Stone Flooring",
+      "family": "MA",
+      "model": "MA-101",
+      "description": "Cool white marble 1200x600x20mm thick stone as per approved sample including cement sand screed.",
+      "imageUrl": "",
+      "price": 42,
+      "productUrl": "",
+      "normalization": {
+        "category": "OTHER",
+        "subCategory": "Generic",
+        "rank": 1,
+        "tags": [],
+        "dimensions": {
+          "width": 1200,
+          "depth": 600,
+          "raw": "1200x600"
+        }
+      }
+    },
+    {
+      "mainCategory": "Flooring & Wet Works",
+      "subCategory": "Carpet Tiles",
+      "family": "CA",
+      "model": "CA-101",
+      "description": "9mm Thick custom design carpet tile.",
+      "imageUrl": "",
+      "price": 19,
+      "productUrl": "",
+      "normalization": {
+        "category": "OTHER",
+        "subCategory": "Generic",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Flooring & Wet Works",
+      "subCategory": "Carpet Tiles",
+      "family": "CA",
+      "model": "CA-102",
+      "description": "9mm Thick custom design carpet tile.",
+      "imageUrl": "",
+      "price": 19,
+      "productUrl": "",
+      "normalization": {
+        "category": "OTHER",
+        "subCategory": "Generic",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Flooring & Wet Works",
+      "subCategory": "Carpet Tiles",
+      "family": "CA",
+      "model": "CA-103",
+      "description": "9mm Thick custom design carpet tile, 3000 mm dia.",
+      "imageUrl": "",
+      "price": 19,
+      "productUrl": "",
+      "normalization": {
+        "category": "OTHER",
+        "subCategory": "Generic",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Flooring & Wet Works",
+      "subCategory": "Carpet Tiles",
+      "family": "CA",
+      "model": "CA-104",
+      "description": "9mm Thick custom design wall to wall tile with underlay.",
+      "imageUrl": "",
+      "price": 19,
+      "productUrl": "",
+      "normalization": {
+        "category": "Partition Wall",
+        "subCategory": "Generic",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Flooring & Wet Works",
+      "subCategory": "Carpet Tiles",
+      "family": "CA",
+      "model": "CA-106",
+      "description": "9mm Thick custom design wall to wall carpet with underlay.",
+      "imageUrl": "",
+      "price": 19,
+      "productUrl": "",
+      "normalization": {
+        "category": "Partition Wall",
+        "subCategory": "Generic",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Flooring & Wet Works",
+      "subCategory": "Preparation",
+      "family": "SL",
+      "model": "SL-001",
+      "description": "Supply and fix of self leveling below carpet and any other requirement needed to final fix of carpet.",
+      "imageUrl": "",
+      "price": 10500,
+      "productUrl": "",
+      "normalization": {
+        "category": "OTHER",
+        "subCategory": "Generic",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Flooring & Wet Works",
+      "subCategory": "Finishing",
+      "family": "SS",
+      "model": "SS-TRIM",
+      "description": "3mm stainless steel trim to be considered where change of flooring materials as per approved sample.",
+      "imageUrl": "",
+      "price": 8000,
+      "productUrl": "",
+      "normalization": {
+        "category": "OTHER",
+        "subCategory": "Generic",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Partitions & Wall Cladding",
+      "subCategory": "Glass Partitions",
+      "family": "GL",
+      "model": "GL-101",
+      "description": "12 mm thick toughened clear glass with vinyl sticker signage.",
+      "imageUrl": "",
+      "price": 55,
+      "productUrl": "",
+      "normalization": {
+        "category": "Partition Wall",
+        "subCategory": "full height partition wall",
+        "rank": 1,
+        "tags": [
+          "glass"
+        ],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Partitions & Wall Cladding",
+      "subCategory": "Glass Partitions",
+      "family": "GL",
+      "model": "GL-102",
+      "description": "12 mm thick toughened clear rippled glass.",
+      "imageUrl": "",
+      "price": 110,
+      "productUrl": "",
+      "normalization": {
+        "category": "Partition Wall",
+        "subCategory": "full height partition wall",
+        "rank": 1,
+        "tags": [
+          "glass"
+        ],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Partitions & Wall Cladding",
+      "subCategory": "Wood Cladding",
+      "family": "WD",
+      "model": "WD-101",
+      "description": "Natural wood veneer cladded MDF panel.",
+      "imageUrl": "",
+      "price": 65,
+      "productUrl": "",
+      "normalization": {
+        "category": "Partition Wall",
+        "subCategory": "wall cladding",
+        "rank": 1,
+        "tags": [
+          "veneer"
+        ],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Partitions & Wall Cladding",
+      "subCategory": "Wood Cladding",
+      "family": "WD",
+      "model": "WD-102",
+      "description": "Prefabricated wooded fluted panel.",
+      "imageUrl": "",
+      "price": 85,
+      "productUrl": "",
+      "normalization": {
+        "category": "Partition Wall",
+        "subCategory": "wall cladding",
+        "rank": 1,
+        "tags": [
+          "fabric"
+        ],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Partitions & Wall Cladding",
+      "subCategory": "Metal Cladding",
+      "family": "MT",
+      "model": "MT-101",
+      "description": "Black color PVD coated stainless steel trim or accents.",
+      "imageUrl": "",
+      "price": 20,
+      "productUrl": "",
+      "normalization": {
+        "category": "Partition Wall",
+        "subCategory": "wall cladding",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Partitions & Wall Cladding",
+      "subCategory": "Acoustic Partitions",
+      "family": "AP",
+      "model": "AP-104",
+      "description": "Prefabricated acoustic panel fully enclosed with excellent quality fabrics.",
+      "imageUrl": "",
+      "price": 75,
+      "productUrl": "",
+      "normalization": {
+        "category": "Partition Wall",
+        "subCategory": "wall cladding",
+        "rank": 1,
+        "tags": [
+          "fabric"
+        ],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Partitions & Wall Cladding",
+      "subCategory": "Specialized Glass",
+      "family": "GL",
+      "model": "GL-FROST",
+      "description": "10 mm thick frosted toughened glass decorative partition.",
+      "imageUrl": "",
+      "price": 45,
+      "productUrl": "",
+      "normalization": {
+        "category": "Partition Wall",
+        "subCategory": "wall cladding",
+        "rank": 1,
+        "tags": [
+          "glass"
+        ],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Partitions & Wall Cladding",
+      "subCategory": "Masonry & Gypsum",
+      "family": "GYP",
+      "model": "GYP-DOOR",
+      "description": "Gypsum decorative board wall with single glass door.",
+      "imageUrl": "",
+      "price": 30,
+      "productUrl": "",
+      "normalization": {
+        "category": "Partition Wall",
+        "subCategory": "wall cladding",
+        "rank": 1,
+        "tags": [
+          "glass"
+        ],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Partitions & Wall Cladding",
+      "subCategory": "Temporary Works",
+      "family": "TEMP",
+      "model": "TEMP-PART",
+      "description": "2000 mm high temporary partition.",
+      "imageUrl": "",
+      "price": 25,
+      "productUrl": "",
+      "normalization": {
+        "category": "Partition Wall",
+        "subCategory": "wall cladding",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Ceiling Works",
+      "subCategory": "Acoustic Ceiling",
+      "family": "AP",
+      "model": "AP-101",
+      "description": "Prefabricated acoustic panel with custom design, fully enclosed with fabrics.",
+      "imageUrl": "",
+      "price": 90,
+      "productUrl": "",
+      "normalization": {
+        "category": "Acoustic Solutions",
+        "subCategory": "Acoustic Panels",
+        "rank": 1,
+        "tags": [
+          "fabric"
+        ],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Ceiling Works",
+      "subCategory": "Acoustic Ceiling",
+      "family": "AP",
+      "model": "AP-102",
+      "description": "Prefabricated acoustic panel with custom design, fully enclosed with fabrics.",
+      "imageUrl": "",
+      "price": 90,
+      "productUrl": "",
+      "normalization": {
+        "category": "Acoustic Solutions",
+        "subCategory": "Acoustic Panels",
+        "rank": 1,
+        "tags": [
+          "fabric"
+        ],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Ceiling Works",
+      "subCategory": "Wood Ceilings",
+      "family": "WS",
+      "model": "WS-101",
+      "description": "White oak veneered Wood Slats suspended from ceiling.",
+      "imageUrl": "",
+      "price": 35,
+      "productUrl": "",
+      "normalization": {
+        "category": "OTHER",
+        "subCategory": "Generic",
+        "rank": 1,
+        "tags": [
+          "veneer"
+        ],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Ceiling Works",
+      "subCategory": "Painting",
+      "family": "C",
+      "model": "C-01",
+      "description": "Smooth finished cement with approved paint as per architect approval.",
+      "imageUrl": "",
+      "price": 8,
+      "productUrl": "",
+      "normalization": {
+        "category": "OTHER",
+        "subCategory": "Generic",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Doors & Windows",
+      "subCategory": "Window Treatments",
+      "family": "CUR",
+      "model": "CUR-2600",
+      "description": "Horizontal window curtain for window size 2600x2800 mm.",
+      "imageUrl": "",
+      "price": 85,
+      "productUrl": "",
+      "normalization": {
+        "category": "OTHER",
+        "subCategory": "Generic",
+        "rank": 1,
+        "tags": [],
+        "dimensions": {
+          "width": 2800,
+          "depth": 2600,
+          "raw": "2600x2800"
+        }
+      }
+    },
+    {
+      "mainCategory": "Doors & Windows",
+      "subCategory": "Window Treatments",
+      "family": "CUR",
+      "model": "CUR-6200",
+      "description": "Horizontal window curtain for window size 6200x2800 mm.",
+      "imageUrl": "",
+      "price": 201,
+      "productUrl": "",
+      "normalization": {
+        "category": "OTHER",
+        "subCategory": "Generic",
+        "rank": 1,
+        "tags": [],
+        "dimensions": {
+          "width": 6200,
+          "depth": 2800,
+          "raw": "6200x2800"
+        }
+      }
+    },
+    {
+      "mainCategory": "Doors & Windows",
+      "subCategory": "Specialized Doors",
+      "family": "SLD",
+      "model": "SLD-01",
+      "description": "Sliding door unit (GL-101, GL-102, MT-101, FB-101), overall size 3400x3300 mm.",
+      "imageUrl": "",
+      "price": 400,
+      "productUrl": "",
+      "normalization": {
+        "category": "OTHER",
+        "subCategory": "Generic",
+        "rank": 1,
+        "tags": [],
+        "dimensions": {
+          "width": 3400,
+          "depth": 3300,
+          "raw": "3400x3300"
+        }
+      }
+    },
+    {
+      "mainCategory": "Finishes (Painting & Decoration)",
+      "subCategory": "Painting",
+      "family": "PT",
+      "model": "PT-202",
+      "description": "Textured paint matt finish brushed suede effect Low VOC emulation paint.",
+      "imageUrl": "",
+      "price": 8,
+      "productUrl": "",
+      "normalization": {
+        "category": "OTHER",
+        "subCategory": "Generic",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Finishes (Painting & Decoration)",
+      "subCategory": "Painting",
+      "family": "PT",
+      "model": "PT-103",
+      "description": "Textured paint matt finish (Low VOC).",
+      "imageUrl": "",
+      "price": 8,
+      "productUrl": "",
+      "normalization": {
+        "category": "OTHER",
+        "subCategory": "Generic",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Finishes (Painting & Decoration)",
+      "subCategory": "Wallpaper",
+      "family": "WP",
+      "model": "WP-101",
+      "description": "Non-woven vinyl backed textured wallpaper cladded over MDF.",
+      "imageUrl": "",
+      "price": 35,
+      "productUrl": "",
+      "normalization": {
+        "category": "Partition Wall",
+        "subCategory": "Generic",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Finishes (Painting & Decoration)",
+      "subCategory": "Skirting",
+      "family": "SK",
+      "model": "SK-101",
+      "description": "18 thickness, 100 mm high solid wood skirting HDPE wood skirting.",
+      "imageUrl": "",
+      "price": 12,
+      "productUrl": "",
+      "normalization": {
+        "category": "OTHER",
+        "subCategory": "Generic",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Finishes (Painting & Decoration)",
+      "subCategory": "Mirrors",
+      "family": "MR",
+      "model": "MR-101",
+      "description": "Silver mirror 6mm thick with vanity lighting, size 400x1200 mm.",
+      "imageUrl": "",
+      "price": 75,
+      "productUrl": "",
+      "normalization": {
+        "category": "OTHER",
+        "subCategory": "Generic",
+        "rank": 1,
+        "tags": [],
+        "dimensions": {
+          "width": 1200,
+          "depth": 400,
+          "raw": "400x1200"
+        }
+      }
+    },
+    {
+      "mainCategory": "Finishes (Painting & Decoration)",
+      "subCategory": "Artwork",
+      "family": "ART",
+      "model": "ART-1920",
+      "description": "Art work (overall size 1900x2000 mm).",
+      "imageUrl": "",
+      "price": 210,
+      "productUrl": "",
+      "normalization": {
+        "category": "OTHER",
+        "subCategory": "Generic",
+        "rank": 1,
+        "tags": [],
+        "dimensions": {
+          "width": 2000,
+          "depth": 1900,
+          "raw": "1900x2000"
+        }
+      }
+    },
+    {
+      "mainCategory": "Finishes (Painting & Decoration)",
+      "subCategory": "Artwork",
+      "family": "ART",
+      "model": "ART-0610",
+      "description": "Art work (overall size 600x1000 mm).",
+      "imageUrl": "",
+      "price": 65,
+      "productUrl": "",
+      "normalization": {
+        "category": "OTHER",
+        "subCategory": "Generic",
+        "rank": 1,
+        "tags": [],
+        "dimensions": {
+          "width": 1000,
+          "depth": 600,
+          "raw": "600x1000"
+        }
+      }
+    },
+    {
+      "mainCategory": "Pantry & Cabinetry",
+      "subCategory": "Custom Cabinets",
+      "family": "LA",
+      "model": "LA-201-B",
+      "description": "Laminate matte brushed finish base cabinet with korean countertop.",
+      "imageUrl": "",
+      "price": 140,
+      "productUrl": "",
+      "normalization": {
+        "category": "Desk & Table",
+        "subCategory": "Reception Desks",
+        "rank": 1,
+        "tags": [
+          "melamine"
+        ],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Pantry & Cabinetry",
+      "subCategory": "Custom Cabinets",
+      "family": "LF",
+      "model": "LF-29A-O",
+      "description": "Overhead cabinet including gypsum board cover up to ceiling.",
+      "imageUrl": "",
+      "price": 155,
+      "productUrl": "",
+      "normalization": {
+        "category": "Storage",
+        "subCategory": "cabinets",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Pantry & Cabinetry",
+      "subCategory": "Furniture",
+      "family": "COF",
+      "model": "COF-TBL",
+      "description": "Fixed coffee table 20 mm table top.",
+      "imageUrl": "",
+      "price": 105,
+      "productUrl": "",
+      "normalization": {
+        "category": "Desk & Table",
+        "subCategory": "Coffee Tables",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Pantry & Cabinetry",
+      "subCategory": "Specialized Units",
+      "family": "WB",
+      "model": "WB-101",
+      "description": "Integrated whiteboard unit with artificial plant accents.",
+      "imageUrl": "",
+      "price": 70,
+      "productUrl": "",
+      "normalization": {
+        "category": "Storage",
+        "subCategory": "cabinets",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Electrical & Mechanical (MEP)",
+      "subCategory": "Lighting",
+      "family": "BRS",
+      "model": "BRS-LOGO",
+      "description": "Metal logo with back-lighting (Brushed brass finish).",
+      "imageUrl": "",
+      "price": 450,
+      "productUrl": "",
+      "normalization": {
+        "category": "Accessories",
+        "subCategory": "power data socked",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Electrical & Mechanical (MEP)",
+      "subCategory": "Lighting",
+      "family": "MT",
+      "model": "MT-101-L",
+      "description": "Black PVD coated steel including metal Logo and LED strip light.",
+      "imageUrl": "",
+      "price": 40,
+      "productUrl": "",
+      "normalization": {
+        "category": "Accessories",
+        "subCategory": "power data socked",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    },
+    {
+      "mainCategory": "Electrical & Mechanical (MEP)",
+      "subCategory": "Plumbing",
+      "family": "ABL",
+      "model": "ABL-BST",
+      "description": "Ablution base with TL-101 finish, size 500x500x500 mm.",
+      "imageUrl": "",
+      "price": 110,
+      "productUrl": "",
+      "normalization": {
+        "category": "Accessories",
+        "subCategory": "power data socked",
+        "rank": 1,
+        "tags": [],
+        "dimensions": {
+          "width": 500,
+          "depth": 500,
+          "raw": "500x500"
+        }
+      }
+    },
+    {
+      "mainCategory": "Electrical & Mechanical (MEP)",
+      "subCategory": "Sanitary",
+      "family": "ST",
+      "model": "ST-101",
+      "description": "20 mm thick artificial stone ledge wall top and counter top.",
+      "imageUrl": "",
+      "price": 52,
+      "productUrl": "",
+      "normalization": {
+        "category": "Desk & Table",
+        "subCategory": "Reception Desks",
+        "rank": 1,
+        "tags": [],
+        "dimensions": null
+      }
+    }
+  ]
+}

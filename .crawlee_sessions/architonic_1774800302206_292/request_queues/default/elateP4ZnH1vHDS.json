@@ -1,0 +1,9 @@
+{
+	"id": "elateP4ZnH1vHDS",
+	"json": "{\"id\":\"elateP4ZnH1vHDS\",\"url\":\"https://www.architonic.com/en/b/sedus-stoll/collections/3100165/\",\"uniqueKey\":\"https://www.architonic.com/en/b/sedus-stoll/collections/3100165\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":0,\"errorMessages\":[\"Error: userDataDir option is not supported in `browserType.launch`. Use `browserType.launchPersistentContext` instead\\n    at assert (C:\\\\Users\\\\Mohamad60025\\\\Desktop\\\\App\\\\BOQ - v2\\\\node_modules\\\\playwright-core\\\\lib\\\\utils\\\\isomorphic\\\\assert.js:26:11)\\n    at BrowserType.launch (C:\\\\Users\\\\Mohamad60025\\\\Desktop\\\\App\\\\BOQ - v2\\\\node_modules\\\\playwright-core\\\\lib\\\\client\\\\browserType.js:52:30)\\n    at PlaywrightPlugin._launch (C:\\\\Users\\\\Mohamad60025\\\\Desktop\\\\App\\\\BOQ - v2\\\\node_modules\\\\@crawlee\\\\browser-pool\\\\playwright\\\\playwright-plugin.js:148:64)\\n    at async BrowserPool._launchBrowser (C:\\\\Users\\\\Mohamad60025\\\\Desktop\\\\App\\\\BOQ - v2\\\\node_modules\\\\@crawlee\\\\browser-pool\\\\browser-pool.js:496:29)\\n    at async C:\\\\Users\\\\Mohamad60025\\\\Desktop\\\\App\\\\BOQ - v2\\\\node_modules\\\\@crawlee\\\\browser-pool\\\\browser-pool.js:293:37\"],\"headers\":{},\"userData\":{\"__crawlee\":{\"state\":5}},\"handledAt\":\"2026-03-29T16:05:12.613Z\"}",
+	"method": "GET",
+	"orderNo": null,
+	"retryCount": 0,
+	"uniqueKey": "https://www.architonic.com/en/b/sedus-stoll/collections/3100165",
+	"url": "https://www.architonic.com/en/b/sedus-stoll/collections/3100165/"
+}

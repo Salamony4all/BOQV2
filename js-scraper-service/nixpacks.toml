@@ -1,0 +1,9 @@
+# Railway Nixpacks configuration
+[phases.setup]
+nixPkgs = ["nodejs_18", "chromium"]
+
+[phases.install]
+cmds = ["npm install", "npx playwright install chromium --with-deps"]
+
+[start]
+cmd = "npm start"

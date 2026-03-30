@@ -1,0 +1,23 @@
+{
+    "name": "js-scraper-service",
+    "version": "1.0.0",
+    "description": "Railway-deployed JavaScript scraper service for BOQ application",
+    "type": "module",
+    "main": "index.js",
+    "scripts": {
+        "start": "node index.js",
+        "dev": "node --watch index.js"
+    },
+    "engines": {
+        "node": ">=18.0.0"
+    },
+    "dependencies": {
+        "axios": "^1.6.2",
+        "cheerio": "^1.0.0-rc.12",
+        "cors": "^2.8.5",
+        "crawlee": "^3.7.0",
+        "dotenv": "^16.3.1",
+        "express": "^4.18.2",
+        "playwright": "1.49.0"
+    }
+}

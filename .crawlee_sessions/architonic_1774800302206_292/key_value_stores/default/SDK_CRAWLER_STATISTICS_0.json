@@ -1,0 +1,37 @@
+{
+  "requestsFinished": 0,
+  "requestsFailed": 1,
+  "requestsRetries": 0,
+  "requestsFailedPerMinute": 8,
+  "requestsFinishedPerMinute": 0,
+  "requestMinDurationMillis": null,
+  "requestMaxDurationMillis": 0,
+  "requestTotalFailedDurationMillis": 3185,
+  "requestTotalFinishedDurationMillis": 0,
+  "crawlerStartedAt": "2026-03-29T16:05:06.933Z",
+  "crawlerFinishedAt": "2026-03-29T16:05:13.601Z",
+  "statsPersistedAt": "2026-03-29T16:05:13.601Z",
+  "crawlerRuntimeMillis": 7052,
+  "crawlerLastStartTimestamp": 1774800306549,
+  "requestRetryHistogram": [
+    1
+  ],
+  "statsId": 0,
+  "requestAvgFailedDurationMillis": 3185,
+  "requestAvgFinishedDurationMillis": null,
+  "requestTotalDurationMillis": 3185,
+  "requestsTotal": 1,
+  "requestsWithStatusCode": {},
+  "errors": {
+    "C:\\Users\\Mohamad60025\\Desktop\\App\\BOQ - v2\\node_modules\\playwright-core\\lib\\utils\\isomorphic\\assert.js:26:11": {
+      "missing error code": {
+        "Error": {
+          "userDataDir option is not supported in `browserType.launch`. Use `browserType.launchPersistentContext` instead": {
+            "count": 1
+          }
+        }
+      }
+    }
+  },
+  "retryErrors": {}
+}

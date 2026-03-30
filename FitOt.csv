@@ -1,0 +1,47 @@
+Category,Sub-Category,Model_Code,Item_Description,UOM,Unit_Rate_OMR,Image_URL
+General Requirements,Site Setup,MOB-01,Site mobilization including temporary office setup and storage facilities.,LS,2500,https://images.fitoutapp.com/prelims/mobilization.jpg
+General Requirements,Utilities,UTIL-01,Provision of temporary water and electricity for site works.,LS,500,https://images.fitoutapp.com/prelims/utilities.jpg
+General Requirements,Health & Safety,HSE-01,Health and safety requirements including PPE and on-site safety signage.,LS,1200,https://images.fitoutapp.com/prelims/safety.jpg
+General Requirements,Logistics,DEB-01,Daily housekeeping and periodic disposal of debris off-site to approved dumpsites.,LS,850,https://images.fitoutapp.com/prelims/waste-management.jpg
+General Requirements,Final Works,CLN-01,Professional deep cleaning and handover preparation.,LS,1500,https://images.fitoutapp.com/prelims/final-cleaning.jpg
+General Requirements,Insurance,INS-01,Workmen Compensation and All-Risk Insurance for project duration.,LS,1800,https://images.fitoutapp.com/prelims/insurance.jpg
+Flooring & Wet Works,Stone Flooring,MA-201,"Mechanically fixed marble, 20mm thick stone as per approved sample.",m2,26,https://images.fitoutapp.com/materials/marble-ma201.jpg
+Flooring & Wet Works,Stone Flooring,MA-101,Cool white marble 1200x600x20mm thick stone as per approved sample including cement sand screed.,m2,42,https://images.fitoutapp.com/materials/marble-ma101.jpg
+Flooring & Wet Works,Carpet Tiles,CA-101,9mm Thick custom design carpet tile.,m2,19,https://images.fitoutapp.com/materials/carpet-ca101.jpg
+Flooring & Wet Works,Carpet Tiles,CA-102,9mm Thick custom design carpet tile.,m2,19,https://images.fitoutapp.com/materials/carpet-ca102.jpg
+Flooring & Wet Works,Carpet Tiles,CA-103,"9mm Thick custom design carpet tile, 3000 mm dia.",m2,19,https://images.fitoutapp.com/materials/carpet-ca103.jpg
+Flooring & Wet Works,Carpet Tiles,CA-104,9mm Thick custom design wall to wall tile with underlay.,m2,19,https://images.fitoutapp.com/materials/carpet-ca104.jpg
+Flooring & Wet Works,Carpet Tiles,CA-106,9mm Thick custom design wall to wall carpet with underlay.,m2,19,https://images.fitoutapp.com/materials/carpet-ca106.jpg
+Flooring & Wet Works,Preparation,SL-001,Supply and fix of self leveling below carpet and any other requirement needed to final fix of carpet.,LS,10500,https://images.fitoutapp.com/services/self-leveling.jpg
+Flooring & Wet Works,Finishing,SS-TRIM,3mm stainless steel trim to be considered where change of flooring materials as per approved sample.,LS,8000,https://images.fitoutapp.com/decor/ss-trim.jpg
+Partitions & Wall Cladding,Glass Partitions,GL-101,12 mm thick toughened clear glass with vinyl sticker signage.,m2,55,https://images.fitoutapp.com/glass/clear-toughened.jpg
+Partitions & Wall Cladding,Glass Partitions,GL-102,12 mm thick toughened clear rippled glass.,m2,110,https://images.fitoutapp.com/glass/rippled-glass.jpg
+Partitions & Wall Cladding,Wood Cladding,WD-101,Natural wood veneer cladded MDF panel.,m2,65,https://images.fitoutapp.com/wood/veneer-mdf.jpg
+Partitions & Wall Cladding,Wood Cladding,WD-102,Prefabricated wooded fluted panel.,m2,85,https://images.fitoutapp.com/wood/fluted-panel.jpg
+Partitions & Wall Cladding,Metal Cladding,MT-101,Black color PVD coated stainless steel trim or accents.,m,20,https://images.fitoutapp.com/metal/pvd-black.jpg
+Partitions & Wall Cladding,Acoustic Partitions,AP-104,Prefabricated acoustic panel fully enclosed with excellent quality fabrics.,m2,75,https://images.fitoutapp.com/acoustic/wall-panel.jpg
+Partitions & Wall Cladding,Specialized Glass,GL-FROST,10 mm thick frosted toughened glass decorative partition.,m2,45,https://images.fitoutapp.com/glass/frosted-partition.jpg
+Partitions & Wall Cladding,Masonry & Gypsum,GYP-DOOR,Gypsum decorative board wall with single glass door.,m2,30,https://images.fitoutapp.com/walls/gyp-glass-door.jpg
+Partitions & Wall Cladding,Temporary Works,TEMP-PART,2000 mm high temporary partition.,m2,25,https://images.fitoutapp.com/walls/temp-partition.jpg
+Ceiling Works,Acoustic Ceiling,AP-101,"Prefabricated acoustic panel with custom design, fully enclosed with fabrics.",m2,90,https://images.fitoutapp.com/ceiling/acoustic-white.jpg
+Ceiling Works,Acoustic Ceiling,AP-102,"Prefabricated acoustic panel with custom design, fully enclosed with fabrics.",m2,90,https://images.fitoutapp.com/ceiling/acoustic-custom.jpg
+Ceiling Works,Wood Ceilings,WS-101,White oak veneered Wood Slats suspended from ceiling.,m2,35,https://images.fitoutapp.com/ceiling/wood-slats.jpg
+Ceiling Works,Painting,C-01,Smooth finished cement with approved paint as per architect approval.,m2,8,https://images.fitoutapp.com/ceiling/cement-paint.jpg
+Doors & Windows,Window Treatments,CUR-2600,Horizontal window curtain for window size 2600x2800 mm.,No.,85,https://images.fitoutapp.com/windows/curtain-2600.jpg
+Doors & Windows,Window Treatments,CUR-6200,Horizontal window curtain for window size 6200x2800 mm.,No.,201,https://images.fitoutapp.com/windows/curtain-6200.jpg
+Doors & Windows,Specialized Doors,SLD-01,"Sliding door unit (GL-101, GL-102, MT-101, FB-101), overall size 3400x3300 mm.",No.,400,https://images.fitoutapp.com/glass/sliding-door.jpg
+Finishes (Painting & Decoration),Painting,PT-202,Textured paint matt finish brushed suede effect Low VOC emulation paint.,m2,8,https://images.fitoutapp.com/paint/suede-effect.jpg
+Finishes (Painting & Decoration),Painting,PT-103,Textured paint matt finish (Low VOC).,m2,8,https://images.fitoutapp.com/paint/textured-matt.jpg
+Finishes (Painting & Decoration),Wallpaper,WP-101,Non-woven vinyl backed textured wallpaper cladded over MDF.,m2,35,https://images.fitoutapp.com/decor/wallpaper-texture.jpg
+Finishes (Painting & Decoration),Skirting,SK-101,"18 thickness, 100 mm high solid wood skirting HDPE wood skirting.",m,12,https://images.fitoutapp.com/decor/wood-skirting.jpg
+Finishes (Painting & Decoration),Mirrors,MR-101,"Silver mirror 6mm thick with vanity lighting, size 400x1200 mm.",No.,75,https://images.fitoutapp.com/decor/vanity-mirror.jpg
+Finishes (Painting & Decoration),Artwork,ART-1920,Art work (overall size 1900x2000 mm).,No.,210,https://images.fitoutapp.com/decor/artwork-large.jpg
+Finishes (Painting & Decoration),Artwork,ART-0610,Art work (overall size 600x1000 mm).,No.,65,https://images.fitoutapp.com/decor/artwork-small.jpg
+Pantry & Cabinetry,Custom Cabinets,LA-201-B,Laminate matte brushed finish base cabinet with korean countertop.,m,140,https://images.fitoutapp.com/joinery/base-cabinet-la201.jpg
+Pantry & Cabinetry,Custom Cabinets,LF-29A-O,Overhead cabinet including gypsum board cover up to ceiling.,m,155,https://images.fitoutapp.com/joinery/overhead-cabinet-lf29a.jpg
+Pantry & Cabinetry,Furniture,COF-TBL,Fixed coffee table 20 mm table top.,m,105,https://images.fitoutapp.com/joinery/coffee-table.jpg
+Pantry & Cabinetry,Specialized Units,WB-101,Integrated whiteboard unit with artificial plant accents.,m2,70,https://images.fitoutapp.com/joinery/whiteboard-unit.jpg
+Electrical & Mechanical (MEP),Lighting,BRS-LOGO,Metal logo with back-lighting (Brushed brass finish).,No.,450,https://images.fitoutapp.com/mep/backlit-logo.jpg
+Electrical & Mechanical (MEP),Lighting,MT-101-L,Black PVD coated steel including metal Logo and LED strip light.,m,40,https://images.fitoutapp.com/mep/led-strip-pvd.jpg
+Electrical & Mechanical (MEP),Plumbing,ABL-BST,"Ablution base with TL-101 finish, size 500x500x500 mm.",No.,110,https://images.fitoutapp.com/mep/ablution-base.jpg
+Electrical & Mechanical (MEP),Sanitary,ST-101,20 mm thick artificial stone ledge wall top and counter top.,m,52,https://images.fitoutapp.com/mep/stone-counter.jpg

@@ -1,0 +1,50 @@
+{
+  "requestsFinished": 0,
+  "requestsFailed": 1,
+  "requestsRetries": 1,
+  "requestsFailedPerMinute": 3,
+  "requestsFinishedPerMinute": 0,
+  "requestMinDurationMillis": null,
+  "requestMaxDurationMillis": 0,
+  "requestTotalFailedDurationMillis": 3208,
+  "requestTotalFinishedDurationMillis": 0,
+  "crawlerStartedAt": "2026-03-29T16:00:33.728Z",
+  "crawlerFinishedAt": "2026-03-29T16:00:52.336Z",
+  "statsPersistedAt": "2026-03-29T16:00:52.336Z",
+  "crawlerRuntimeMillis": 19090,
+  "crawlerLastStartTimestamp": 1774800033246,
+  "requestRetryHistogram": [
+    null,
+    null,
+    null,
+    1
+  ],
+  "statsId": 0,
+  "requestAvgFailedDurationMillis": 3208,
+  "requestAvgFinishedDurationMillis": null,
+  "requestTotalDurationMillis": 3208,
+  "requestsTotal": 1,
+  "requestsWithStatusCode": {},
+  "errors": {
+    "C:\\Users\\Mohamad60025\\Desktop\\App\\BOQ - v2\\node_modules\\playwright-core\\lib\\utils\\isomorphic\\assert.js:26:11": {
+      "missing error code": {
+        "Error": {
+          "userDataDir option is not supported in `browserType.launch`. Use `browserType.launchPersistentContext` instead": {
+            "count": 1
+          }
+        }
+      }
+    }
+  },
+  "retryErrors": {
+    "C:\\Users\\Mohamad60025\\Desktop\\App\\BOQ - v2\\node_modules\\playwright-core\\lib\\utils\\isomorphic\\assert.js:26:11": {
+      "missing error code": {
+        "Error": {
+          "userDataDir option is not supported in `browserType.launch`. Use `browserType.launchPersistentContext` instead": {
+            "count": 3
+          }
+        }
+      }
+    }
+  }
+}

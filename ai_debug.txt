@@ -1,0 +1,16 @@
+Processing Batch 1/1
+Batch Size: 1
+Total Rows: 1
+Keywords: task, chair
+Brands: 
+Prompt length: 796 chars
+--- AI RESPONSE (snippet) ---
+```json
+[
+  {
+    "budgetary": null,
+    "mid": null,
+    "high": null
+  }
+]
+```
