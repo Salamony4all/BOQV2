@@ -2190,9 +2190,11 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                         const activeBrand = brands.find(b => b.name === row.selectedBrand);
                         const brandProducts = activeBrand?.products || [];
 
-                        // Filter Logic using Standardized Normalization
-                        const mainCats = getUniqueValues(brandProducts, 'normalization.category');
-                        const subCats = getUniqueValues(brandProducts.filter(p => (p.normalization?.category || p.mainCategory) === row.selectedMainCat), 'normalization.subCategory');
+                        // Filter Logic using Standardized Normalization (with Fallbacks)
+                        const mainCats = getUniqueValues(brandProducts, 'normalization.category') || getUniqueValues(brandProducts, 'mainCategory');
+                        const subCats = getUniqueValues(brandProducts.filter(p => (p.normalization?.category || p.mainCategory) === row.selectedMainCat), 'normalization.subCategory') || 
+                                       getUniqueValues(brandProducts.filter(p => (p.normalization?.category || p.mainCategory) === row.selectedMainCat), 'subCategory');
+                        
                         const families = getUniqueValues(brandProducts.filter(p => 
                             (p.normalization?.category || p.mainCategory) === row.selectedMainCat && 
                             (p.normalization?.subCategory || p.subCategory) === row.selectedSubCat
@@ -2395,39 +2397,48 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                                             {/* Dropdown Panel */}
                                             {openBrandDropdown === index && (
                                                 <div className={styles.brandDropdownPanel}>
-                                                    {Array.from(new Map(brands.map(b => [b.name, b])).values()).map((b, bIdx) => (
-                                                        <button
-                                                            key={`${b.id}-${bIdx}`}
-                                                            className={`${styles.brandOption} ${row.selectedBrand === b.name ? styles.brandOptionActive : ''}`}
-                                                            onClick={() => {
-                                                                handleCellChange(index, 'selectedBrand', b.name);
-                                                                setOpenBrandDropdown(null);
-                                                            }}
-                                                        >
-                                                            {b.logo ? (
-                                                                <img
-                                                                    src={getFullUrl(b.logo)}
-                                                                    alt=""
-                                                                    className={styles.optionLogo}
-                                                                    style={{ objectFit: 'contain', background: 'white', padding: '1px', borderRadius: '2px' }}
-                                                                    onError={(e) => {
-                                                                        // Replace with initial on error
-                                                                        const span = document.createElement('span');
-                                                                        span.className = e.target.nextSibling?.previousSibling ? '' : '';
-                                                                        span.textContent = b.name.charAt(0);
-                                                                        span.style.cssText = 'width:22px;height:22px;background:white;border-radius:3px;display:flex;align-items:center;justify-content:center;font-weight:bold;font-size:11px;color:#7c3aed;flex-shrink:0;';
-                                                                        e.target.parentNode?.insertBefore(span, e.target);
-                                                                        e.target.style.display = 'none';
-                                                                    }}
-                                                                />
-                                                            ) : (
-                                                                <span className={styles.optionInitial}>{b.name.charAt(0)}</span>
-                                                            )}
-                                                            <span className={styles.optionName}>
-                                                                {b.name.replace(/Explore collections by/i, '').trim()}
-                                                            </span>
-                                                        </button>
-                                                    ))}
+                                                    {/* Sort brands: Put same-tier brands at the top, then others */}
+                                                    {[...brands]
+                                                        .sort((a, b) => {
+                                                            const aMatch = a.budgetTier === activeTier;
+                                                            const bMatch = b.budgetTier === activeTier;
+                                                            if (aMatch && !bMatch) return -1;
+                                                            if (!aMatch && bMatch) return 1;
+                                                            return a.name.localeCompare(b.name);
+                                                        })
+                                                        .map((b, bIdx) => (
+                                                            <button
+                                                                key={`${b.id}-${bIdx}`}
+                                                                className={`${styles.brandOption} ${row.selectedBrand === b.name ? styles.brandOptionActive : ''}`}
+                                                                onClick={() => {
+                                                                    handleCellChange(index, 'selectedBrand', b.name);
+                                                                    setOpenBrandDropdown(null);
+                                                                }}
+                                                            >
+                                                                <div className={styles.brandOptionMeta}>
+                                                                    <span className={`${styles.tierBadgeSmall} ${styles['tier' + b.budgetTier]}`}>
+                                                                        {b.budgetTier?.charAt(0).toUpperCase()}
+                                                                    </span>
+                                                                </div>
+                                                                {b.logo ? (
+                                                                    <img
+                                                                        src={getFullUrl(b.logo)}
+                                                                        alt=""
+                                                                        className={styles.optionLogo}
+                                                                        style={{ objectFit: 'contain', background: 'white', padding: '1px', borderRadius: '2px' }}
+                                                                        onError={(e) => {
+                                                                            e.target.style.display = 'none';
+                                                                        }}
+                                                                    />
+                                                                ) : (
+                                                                    <span className={styles.optionInitial}>{b.name.charAt(0)}</span>
+                                                                )}
+                                                                <span className={styles.optionName}>
+                                                                    {b.name.replace(/Explore collections by/i, '').trim()}
+                                                                </span>
+                                                            </button>
+                                                        ))
+                                                    }
                                                 </div>
                                             )}
                                         </div>

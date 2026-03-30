@@ -566,6 +566,26 @@
     flex-shrink: 0;
 }
 
+.brandOptionMeta {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    flex-shrink: 0;
+}
+
+.tierBadgeSmall {
+    font-size: 0.6rem;
+    padding: 1px 4px;
+    border-radius: 3px;
+    font-weight: 800;
+    min-width: 14px;
+    text-align: center;
+}
+
+.tierbudgetary { background: #3b82f6; color: white; }
+.tiermid { background: #8b5cf6; color: white; }
+.tierhigh { background: #ec4899; color: white; }
+
 /* Compact Footer */
 .footer {
     padding: 0.4rem 1rem;

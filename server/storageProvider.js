@@ -121,40 +121,51 @@ export const brandStorage = {
     },
 
     async saveBrand(brand) {
+        const MASTER_DB_PATH = isVercel ? '/tmp/data/product_database.json' : path.join(__dirname, 'data/product_database.json');
+
         if (kv) {
             try {
                 await kv.set(`brand:${brand.id}`, brand);
-                return true;
-            } catch (error) { return false; }
+                // Also update master list in KV if needed, but for now we focus on files
+            } catch (error) { /* continue */ }
         }
 
         // Blob Storage Strategy (Persistent)
         if (process.env.BLOB_READ_WRITE_TOKEN) {
             try {
-                console.log('[Storage] Saving to Blob DB...');
-                // Save as JSON file in 'brands-db/' folder
                 const filename = `brands-db/${brand.id}.json`;
-                await put(filename, JSON.stringify(brand, null, 2), {
-                    access: 'public',
-                    addRandomSuffix: false, // Overwrite existing
-                });
-                return true;
-            } catch (error) {
-                console.error('[Storage] Blob save failed:', error);
-                // Fallthrough to local tmp just in case
-            }
+                await put(filename, JSON.stringify(brand, null, 2), { access: 'public', addRandomSuffix: false });
+            } catch (error) { console.error('[Storage] Blob save failed:', error); }
         }
 
         // Local / Try-Hard Strategy
         try {
-            // On Vercel, use /tmp/data/brands. On local, use server/data/brands
             const baseDir = isVercel ? '/tmp/data/brands' : path.join(__dirname, 'data/brands');
-
             const sanitizedName = brand.name.toLowerCase().replace(/[^a-z0-9]/g, '_');
             const filename = `${sanitizedName}-${brand.budgetTier || 'mid'}.json`;
 
             await fs.mkdir(baseDir, { recursive: true });
             await fs.writeFile(path.join(baseDir, filename), JSON.stringify(brand, null, 2));
+
+            // MASTER DATABASE PERSISTENCE
+            try {
+              let masterDb = { products: [] };
+              try {
+                const data = await fs.readFile(MASTER_DB_PATH, 'utf8');
+                masterDb = JSON.parse(data);
+              } catch (e) { /* empty or missing */ }
+
+              // Merge products
+              (brand.products || []).forEach(p => {
+                const exists = masterDb.products.some(mp => mp.model === p.model && mp.family === p.family);
+                if (!exists) masterDb.products.push({ ...p, brandId: brand.id, brandName: brand.name });
+              });
+
+              await fs.mkdir(path.dirname(MASTER_DB_PATH), { recursive: true });
+              await fs.writeFile(MASTER_DB_PATH, JSON.stringify(masterDb, null, 2));
+              console.log(`✅ [Storage] Master DB updated with ${brand.products?.length || 0} products from ${brand.name}`);
+            } catch (e) { console.error('[Storage] Master DB save failed:', e.message); }
+
             return true;
         } catch (error) {
             console.error('[Storage] Filesystem save failed:', error);

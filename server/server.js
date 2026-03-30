@@ -18,6 +18,10 @@ import ScrapingBeeScraper from './scrapingBeeScraper.js';
 import { ExcelDbManager } from './excelManager.js';
 import { brandStorage } from './storageProvider.js';
 import { spawn } from 'child_process';
+import { matchFFE, hardMatchByModel } from './utils/ffe_matcher.js';
+import { normalizeProducts, TAXONOMY, RANK_MAP, FEATURE_TAXONOMY } from './utils/normalizer.js';
+import discoveryService from './discoveryService.js';
+import { callLlm } from './utils/llmUtils.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -1395,6 +1399,323 @@ app.post('/api/brands/:id/import', upload.single('file'), async (req, res) => {
     console.error('Import failed:', error);
     res.status(500).json({ error: 'Import failed', details: error.message });
   }
+});
+
+// --- Matching Helpers ---
+const hydrate = (modelName, tierBrands, index) => {
+  if (!modelName || modelName === 'null') return null;
+  const searchName = String(modelName).toLowerCase().trim();
+  
+  // Case A: Fast lookup from pre-built index
+  const indexed = index.get(searchName);
+  if (indexed) return { ...indexed.product, brand: indexed.brand.name, logo: indexed.brand.logo, score: 0.95, source: 'ai-indexed' };
+
+  // Case B: Scan relevant tier brands
+  for (const brand of tierBrands) {
+    const match = (brand.products || []).find(p => String(p.model || '').toLowerCase().includes(searchName));
+    if (match) return { ...match, brand: brand.name, logo: brand.logo, score: 0.9, source: 'ai-scanned' };
+  }
+  return null;
+};
+
+const MEMORY_PATH = path.join(__dirname, 'data/matching_memory.json');
+
+async function getMatchingMemory() {
+  try {
+    const data = await fs.readFile(MEMORY_PATH, 'utf8');
+    return JSON.parse(data);
+  } catch (e) {
+    return { records: [] };
+  }
+}
+
+async function saveMatchToMemory(description, match) {
+  if (!description || !match) return;
+  try {
+    const memory = await getMatchingMemory();
+    const existingIdx = memory.records.findIndex(r => r.description.toLowerCase() === description.toLowerCase());
+    
+    if (existingIdx !== -1) {
+      memory.records[existingIdx].match = match; 
+      memory.records[existingIdx].count = (memory.records[existingIdx].count || 1) + 1;
+    } else {
+      memory.records.push({ description, match, count: 1 });
+    }
+    
+    if (memory.records.length > 1000) memory.records.shift();
+    await fs.writeFile(MEMORY_PATH, JSON.stringify(memory, null, 2));
+  } catch (e) { console.error('[Memory] Save failed:', e); }
+}
+
+const aiMatchStatus = {
+  active: false,
+  lastRun: null,
+  startTime: null,
+  endTime: null,
+  totalRows: 0,
+  batchSize: 0,
+  currentBatch: 0,
+  totalBatches: 0,
+  lastBatchDurationMs: 0,
+  lastError: null
+};
+
+app.get('/api/ai-match-status', (req, res) => {
+  res.json(aiMatchStatus);
+});
+
+// (callLlm functionality moved to ./utils/llmUtils.js)
+
+app.post('/api/auto-match', async (req, res) => {
+  try {
+    const { rows, allowedBrandIds } = req.body; 
+    if (!rows || !Array.isArray(rows)) return res.status(400).json({ error: 'Rows array is required' });
+
+    const allBrands = await brandStorage.getAllBrands();
+    const memory = await getMatchingMemory();
+
+    const filteredBrands = allowedBrandIds 
+      ? allBrands.filter(b => allowedBrandIds.includes(String(b.id)))
+      : allBrands;
+
+    const tiers = {
+      budgetary: filteredBrands.filter(b => ['budgetary', 'low', 'economy', 'budget'].includes(String(b.budgetTier).toLowerCase())),
+      mid: filteredBrands.filter(b => ['mid', 'standard', 'mid-range'].includes(String(b.budgetTier).toLowerCase()) || !b.budgetTier),
+      high: filteredBrands.filter(b => ['high', 'high-end', 'premium', 'luxury'].includes(String(b.budgetTier).toLowerCase()))
+    };
+
+    const results = rows.map(row => {
+      const desc = row.description || '';
+      return {
+        originalRow: row,
+        matches: {
+          budgetary: matchFFE(desc, tiers.budgetary),
+          mid: matchFFE(desc, tiers.mid),
+          high: matchFFE(desc, tiers.high)
+        }
+      };
+    });
+
+    res.json({ success: true, results });
+  } catch (error) {
+    console.error('Auto-match failed:', error);
+    res.status(500).json({ error: 'Auto-match failed', details: error.message });
+  }
+});
+
+app.post('/api/auto-match-ai', async (req, res) => {
+  try {
+    const { rows, allowedBrandIds, batchSize = 5 } = req.body;
+    
+    const brandsStart = Date.now();
+    const allBrands = await brandStorage.getAllBrands();
+    const filteredBrands = allowedBrandIds 
+      ? allBrands.filter(b => allowedBrandIds.includes(String(b.id)))
+      : allBrands;
+    console.log(`[AI] Loaded ${filteredBrands.length} brands in ${Date.now() - brandsStart}ms`);
+
+    const globalProductIndex = new Map();
+    for (const brand of filteredBrands) {
+      for (const p of brand.products || []) {
+        const modelKey = String(p.model || '').toLowerCase().trim();
+        const entry = { brand, product: p };
+        if (modelKey && !globalProductIndex.has(modelKey)) globalProductIndex.set(modelKey, entry);
+      }
+    }
+
+    aiMatchStatus.active = true;
+    aiMatchStatus.startTime = Date.now();
+    aiMatchStatus.totalRows = rows.length;
+    aiMatchStatus.batchSize = batchSize;
+    aiMatchStatus.totalBatches = Math.ceil(rows.length / batchSize);
+
+    const results = [];
+    const budgetTiers = {
+      budgetary: filteredBrands.filter(b => ['budgetary', 'low', 'economy', 'budget'].includes(String(b.budgetTier).toLowerCase())),
+      mid: filteredBrands.filter(b => ['mid', 'standard', 'mid-range'].includes(String(b.budgetTier).toLowerCase()) || !b.budgetTier),
+      high: filteredBrands.filter(b => ['high', 'high-end', 'premium', 'luxury'].includes(String(b.budgetTier).toLowerCase()))
+    };
+
+    for (let i = 0; i < rows.length; i += batchSize) {
+      const batch = rows.slice(i, i + batchSize);
+      const batchIndex = Math.floor(i / batchSize);
+      aiMatchStatus.currentBatch = batchIndex;
+
+      const localMatches = [];
+      const uncertainItems = [];
+
+      // PASS 1: Strict Tier-Based Local Matching (High Confidence)
+      batch.forEach(item => {
+        const match_b = matchFFE(item.description, budgetTiers.budgetary);
+        const match_m = matchFFE(item.description, budgetTiers.mid);
+        const match_h = matchFFE(item.description, budgetTiers.high);
+
+        if (match_b || match_m || match_h) {
+          localMatches.push({
+            originalRow: item,
+            matches: { budgetary: match_b, mid: match_m, high: match_h }
+          });
+        } else {
+          uncertainItems.push(item);
+        }
+      });
+
+      if (uncertainItems.length === 0) {
+        results.push(...localMatches);
+        continue;
+      }
+
+      // PASS 2: AI-Powered Semantic Matching
+      const getBrandNames = (brands) => brands.map(b => b.name).join(', ') || 'Any Brands';
+
+      const tierBrandsInfo = `
+--- BUDGETARY BRANDS ---
+${getBrandNames(budgetTiers.budgetary)}
+
+--- MID-RANGE BRANDS ---
+${getBrandNames(budgetTiers.mid)}
+
+--- HIGH-END BRANDS ---
+${getBrandNames(budgetTiers.high)}
+      `;
+
+      const batchPrompt = `
+You are a Professional Furniture Consultant with expert knowledge of global furniture brands (Narbutas, Dauphin, Arper, Vitra, Haworth, Steelcase, etc.).
+
+### TASK:
+For each BOQ item, identify the most suitable specific MODEL NAME from the catalogs of the brands listed in each tier.
+
+### BRAND STRATEGY HINTS:
+- **Workstations (Modular/Bench Systems)**: If the description mentions "Workstation", "Pax", or "Cluster", prioritize modular bench systems. 
+  - *Narbutas*: Suggest **"Nova"**, **"Zento"**, or **"North Cape"**.
+  - *Arper*: Suggest **"Cross"**, **"Nuur Workstation"**, or **"Parentesit"**.
+  - *Steelcase*: Suggest **"Ology"** or **"FrameOne"**.
+- **Seating**: If "Task Chair" or "Office Chair", prioritize ergonomic models (e.g., Narbutas **"Wind"**, **"Era"**; Arper **"Kinesit"**).
+- **Avoid Desks for Workstations**: Do NOT suggest single/freestanding desks (like Narbutas "Zedo" or "Motion") for workstation items unless explicitly requested.
+
+### AVAILABLE BRANDS BY TIER:
+${tierBrandsInfo}
+
+### ITEMS TO MATCH:
+${uncertainItems.map((r, i) => `${i + 1}. [DESC: ${r.description}]`).join('\n')}
+
+### RULES:
+1. Suggest specific model names that actually belong to the listed brands.
+2. For "Workstation" items, focus on **Modular Bench Systems** and **Desk Clusters**.
+3. If no specific model comes to mind for a tier, return "null".
+
+### OUTPUT:
+Return ONLY a JSON array: [ { "budgetary": "ModelName", "mid": "ModelName", "high": "ModelName" } ]
+`;
+
+      let batchAiHits = [];
+      try {
+        const text = await callLlm(batchPrompt);
+        console.log(`\n🤖 [AI Batch Response]:\n${text}\n`);
+        const jsonMatch = text.match(/\[\s*\{[\s\S]*\}\s*\]/);
+        if (jsonMatch) {
+          batchAiHits = JSON.parse(jsonMatch[0]);
+          console.log(`✅ [AI] Parsed ${batchAiHits.length} suggestions.`);
+        }
+      } catch (e) { console.error('[AI] Batch failed, using local fallback:', e.message); }
+
+      // PASS 3: Hydration & Robust Local Fallback
+      for (const item of batch) {
+        const local = localMatches.find(lm => lm.originalRow.sn === item.sn);
+        if (local) { results.push(local); continue; }
+
+        const uncertainIdx = uncertainItems.findIndex(ui => ui.sn === item.sn);
+        let m = batchAiHits[uncertainIdx] || {};
+
+        if (!m.budgetary && !m.mid && !m.high) {
+          m = {
+            budgetary: matchFFE(item.description, budgetTiers.budgetary)?.model || null,
+            mid: matchFFE(item.description, budgetTiers.mid)?.model || null,
+            high: matchFFE(item.description, budgetTiers.high)?.model || null
+          };
+        }
+
+        // JIT Discovery Helper
+        const jitMatch = async (modelName, brands) => {
+          let found = hardMatchByModel(modelName, brands);
+          if (found) return found;
+
+          // If not found locally, try Discovery (Architonic / Brand Site)
+          if (modelName && modelName !== 'null' && brands?.length > 0) {
+            const firstBrand = brands[0]; // Primary brand for discovery
+            const discovered = await discoveryService.discoverModel(firstBrand.name, modelName);
+            if (discovered) {
+              console.log(`🚀 [JIT] Saving discovered product: ${discovered.model} to ${firstBrand.name}`);
+              
+              const brand = await brandStorage.getBrandById(firstBrand.id);
+              if (brand) {
+                if (!brand.products) brand.products = [];
+                brand.products.push(discovered);
+                await brandStorage.saveBrand(brand);
+                
+                // Return as match
+                return {
+                  brand: brand.name,
+                  logo: brand.logo,
+                  image: discovered.imageUrl,
+                  description: discovered.description || discovered.model,
+                  mainCat: discovered.normalization?.category || discovered.mainCategory || 'Furniture',
+                  subCat: discovered.normalization?.subCategory || discovered.subCategory || 'Generic',
+                  family: discovered.family,
+                  model: discovered.model,
+                  modelUrl: discovered.productUrl || discovered.imageUrl,
+                  price: discovered.price || 0,
+                  source: 'ai-discovery',
+                  confidence: 1.0,
+                  normalization: discovered.normalization || {},
+                  alternatives: []
+                };
+              }
+            }
+          }
+          return null;
+        };
+
+        const matchEntry = {
+          budgetary: await jitMatch(m.budgetary, budgetTiers.budgetary) || matchFFE(item.description, budgetTiers.budgetary),
+          mid: await jitMatch(m.mid, budgetTiers.mid) || matchFFE(item.description, budgetTiers.mid),
+          high: await jitMatch(m.high, budgetTiers.high) || matchFFE(item.description, budgetTiers.high)
+        };
+
+        // Log results for Row (Brief)
+        console.log(`   🔸 Row #${item.sn || '?'}: [B: ${matchEntry.budgetary?.model || 'none'}] [M: ${matchEntry.mid?.model || 'none'}] [H: ${matchEntry.high?.model || 'none'}] (Source: ${matchEntry.mid?.source || 'fallback'})`);
+        
+        results.push({ originalRow: item, matches: matchEntry });
+      }
+    }
+
+    aiMatchStatus.active = false;
+    res.json({ success: true, results });
+  } catch (error) {
+    aiMatchStatus.active = false;
+    res.status(500).json({ error: 'AI matching failed', details: error.message });
+  }
+});
+
+app.post('/api/learn-match', async (req, res) => {
+  try {
+    const { description, match } = req.body;
+    await saveMatchToMemory(description, match);
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/standardize-catalogue', async (req, res) => {
+  try {
+    const brands = await brandStorage.getAllBrands();
+    for (const brand of brands) {
+      if (brand.products) {
+        brand.products = normalizeProducts(brand.products);
+        await brandStorage.saveBrand(brand);
+      }
+    }
+    res.json({ success: true });
+  } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
 export default app;
