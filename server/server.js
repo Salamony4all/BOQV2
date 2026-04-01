@@ -726,9 +726,13 @@ app.post('/api/scrape-brand', async (req, res) => {
                   }
                 });
 
-                const products = result.products || [];
+                const rawProducts = result.products || [];
                 const brandNameFound = name || result.brandInfo?.name || 'Unknown Brand';
                 const brandLogo = result.brandInfo?.logo || '';
+
+                // Normalize products at save time so FFE matcher always has category/rank/tags
+                const products = normalizeProducts(rawProducts);
+                console.log(`🏷️ Normalized ${products.length} products for ${brandNameFound}`);
 
                 const id = Date.now();
                 const newBrand = {
@@ -813,11 +817,16 @@ app.post('/api/scrape-brand', async (req, res) => {
         });
 
         console.log(`✅ [Background Task] Scrape completed: ${result?.products?.length} products`);
-        const products = result.products || [];
+        const rawProducts = result.products || [];
         const brandLogo = result.brandInfo?.logo || '';
 
         const id = Date.now();
         const brandName = result.brandInfo?.name || name;
+
+        // Normalize products at save time so FFE matcher always has category/rank/tags
+        const products = normalizeProducts(rawProducts);
+        console.log(`🏷️ Normalized ${products.length} products for ${brandName}`);
+
         const newBrand = {
           id,
           name: brandName,
@@ -908,9 +917,13 @@ app.post('/api/scrape-ai', async (req, res) => {
                   }
                 });
 
-                const products = result.products || [];
+                const rawProducts = result.products || [];
                 const brandNameFound = name || result.brandInfo?.name || 'Unknown Brand';
                 const brandLogo = result.brandInfo?.logo || '';
+
+                // Normalize products at save time so FFE matcher always has category/rank/tags
+                const products = normalizeProducts(rawProducts);
+                console.log(`🏷️ Normalized ${products.length} products for ${brandNameFound}`);
 
                 const id = Date.now();
                 const newBrand = {
@@ -1027,9 +1040,13 @@ app.post('/api/scrape-ai', async (req, res) => {
           result = await structureScraper.scrapeBrand(url, name, progressCallback);
         }
 
-        const products = result.products || [];
+        const rawProducts = result.products || [];
         const brandNameFound = name || result.brandInfo?.name || 'Unknown Brand';
         const brandLogo = result.brandInfo?.logo || '';
+
+        // Normalize products at save time so FFE matcher always has category/rank/tags
+        const products = normalizeProducts(rawProducts);
+        console.log(`🏷️ Normalized ${products.length} products for ${brandNameFound}`);
 
         const id = Date.now();
         const newBrand = {
@@ -1530,6 +1547,7 @@ app.post('/api/auto-match-ai', async (req, res) => {
     aiMatchStatus.totalBatches = Math.ceil(rows.length / batchSize);
 
     const results = [];
+    const newlyAdded = []; // Track products added to DB across all batches
     const budgetTiers = {
       budgetary: filteredBrands.filter(b => ['budgetary', 'low', 'economy', 'budget'].includes(String(b.budgetTier).toLowerCase())),
       mid: filteredBrands.filter(b => ['mid', 'standard', 'mid-range'].includes(String(b.budgetTier).toLowerCase()) || !b.budgetTier),
@@ -1544,18 +1562,23 @@ app.post('/api/auto-match-ai', async (req, res) => {
       const localMatches = [];
       const uncertainItems = [];
 
-      // PASS 1: Strict Tier-Based Local Matching (High Confidence)
+      // PASS 1: Strict Tier-Based Local Matching (HIGH CONFIDENCE ONLY)
       batch.forEach(item => {
         const match_b = matchFFE(item.description, budgetTiers.budgetary);
         const match_m = matchFFE(item.description, budgetTiers.mid);
         const match_h = matchFFE(item.description, budgetTiers.high);
 
-        if (match_b || match_m || match_h) {
+        // We only "trust" local matching in PASS 1 if it found a specific model name match 
+        // or has extremely high score (> 500M) which indicates an exact taxonomy + model hit.
+        const isHighConfidence = (m) => m && (m.source === 'ai-indexed' || m.confidence > 500000000);
+
+        if (isHighConfidence(match_b) || isHighConfidence(match_m) || isHighConfidence(match_h)) {
           localMatches.push({
             originalRow: item,
             matches: { budgetary: match_b, mid: match_m, high: match_h }
           });
         } else {
+          // Generic descriptions or weak matches go to AI for Discovery/Verification
           uncertainItems.push(item);
         }
       });
@@ -1585,27 +1608,33 @@ You are a Professional Furniture Consultant with expert knowledge of global furn
 ### TASK:
 For each BOQ item, identify the most suitable specific MODEL NAME from the catalogs of the brands listed in each tier.
 
-### BRAND STRATEGY HINTS:
-- **Workstations (Modular/Bench Systems)**: If the description mentions "Workstation", "Pax", or "Cluster", prioritize modular bench systems. 
-  - *Narbutas*: Suggest **"Nova"**, **"Zento"**, or **"North Cape"**.
-  - *Arper*: Suggest **"Cross"**, **"Nuur Workstation"**, or **"Parentesit"**.
-  - *Steelcase*: Suggest **"Ology"** or **"FrameOne"**.
-- **Seating**: If "Task Chair" or "Office Chair", prioritize ergonomic models (e.g., Narbutas **"Wind"**, **"Era"**; Arper **"Kinesit"**).
-- **Avoid Desks for Workstations**: Do NOT suggest single/freestanding desks (like Narbutas "Zedo" or "Motion") for workstation items unless explicitly requested.
+### MATCH OR DISCOVER PROTOCOL:
+1. **Match**: If you recognize a model belonging to the brand and tier that fits the description, return "ModelName".
+2. **Discover**: If you know of a high-quality model for that brand that fits but is NOT obviously in a catalog, or if you want the system to scrape it for verification, return "[DISCOVER] ModelName".
+3. **Null**: If no specific model fits, return "null".
+
+### BRAND STRATEGY HINTS (PRIORITIZE THESE MODELS):
+- **Seating**: If "Task Chair" or "Office Chair", prioritize ergonomic flagship models. 
+  - *Narbutas*: If the description mentions a task chair, prioritize **"Wind"** or **"Era"**. If they aren't in the database, use the [DISCOVER] tag.
+  - *Arper*: Prioritize **"Kinesit"**.
+- **Workstations**: Prioritize **"Nova"**, **"Zento"**, or **"North Cape"**. Use [DISCOVER] if missing from local brands.
+
+### ACTION PROTOCOL:
+1. **Exact Match**: If you're 95%+ sure a listed brand has a model for the description, return "ModelName".
+2. **Discover (High Priority)**: If the description fits a flagship model (like Wind, Era, Nova) but you don't see it in the local brands list, RETURN: "[DISCOVER] ModelName".
+3. **Fallback**: If no obvious match, return "null".
+
+### OUTPUT FORMAT:
+Return ONLY a valid JSON array of objects. One for each row in the 'ITEMS TO MATCH' section.
+No markdown. No commentary. No preamble.
+
+Example: [ { "budgetary": "Wind", "mid": "[DISCOVER] Wind", "high": "[DISCOVER] Kinesit" }, ... ]
 
 ### AVAILABLE BRANDS BY TIER:
 ${tierBrandsInfo}
 
 ### ITEMS TO MATCH:
-${uncertainItems.map((r, i) => `${i + 1}. [DESC: ${r.description}]`).join('\n')}
-
-### RULES:
-1. Suggest specific model names that actually belong to the listed brands.
-2. For "Workstation" items, focus on **Modular Bench Systems** and **Desk Clusters**.
-3. If no specific model comes to mind for a tier, return "null".
-
-### OUTPUT:
-Return ONLY a JSON array: [ { "budgetary": "ModelName", "mid": "ModelName", "high": "ModelName" } ]
+${uncertainItems.map((r, i) => `${i + 1}. [BRAND: ${r.brand || r.brandName || 'Any'}] [DESC: ${r.description}]`).join('\n')}
 `;
 
       let batchAiHits = [];
@@ -1636,13 +1665,20 @@ Return ONLY a JSON array: [ { "budgetary": "ModelName", "mid": "ModelName", "hig
         }
 
         // JIT Discovery Helper
-        const jitMatch = async (modelName, brands) => {
-          let found = hardMatchByModel(modelName, brands);
-          if (found) return found;
+        const jitMatch = async (aiSuggestion, brands) => {
+          if (!aiSuggestion || aiSuggestion === 'null') return null;
 
-          // If not found locally, try Discovery (Architonic / Brand Site)
+          const isDiscoveryRequest = String(aiSuggestion).includes('[DISCOVER]');
+          const modelName = String(aiSuggestion).replace('[DISCOVER]', '').trim();
+
+          let found = hardMatchByModel(modelName, brands);
+          if (found) return found; 
+
+          // If discovery requested OR not found locally, try Discovery
           if (modelName && modelName !== 'null' && brands?.length > 0) {
-            const firstBrand = brands[0]; // Primary brand for discovery
+            const firstBrand = brands[0]; 
+            if (!firstBrand) return null;
+
             const discovered = await discoveryService.discoverModel(firstBrand.name, modelName);
             if (discovered) {
               console.log(`🚀 [JIT] Saving discovered product: ${discovered.model} to ${firstBrand.name}`);
@@ -1653,6 +1689,15 @@ Return ONLY a JSON array: [ { "budgetary": "ModelName", "mid": "ModelName", "hig
                 brand.products.push(discovered);
                 await brandStorage.saveBrand(brand);
                 
+                // Update the current batch's in-memory brands list so subsequent items find it instantly
+                const brandInBatch = brands.find(b => String(b.id) === String(firstBrand.id));
+                if (brandInBatch) {
+                  if (!brandInBatch.products) brandInBatch.products = [];
+                  brandInBatch.products.push(discovered);
+                }
+                
+                newlyAdded.push({ brand: brand.name, model: discovered.model });
+
                 // Return as match
                 return {
                   brand: brand.name,
@@ -1673,7 +1718,7 @@ Return ONLY a JSON array: [ { "budgetary": "ModelName", "mid": "ModelName", "hig
               }
             }
           }
-          return null;
+          return found; // Fallback to whatever we had locally if discovery failed
         };
 
         const matchEntry = {
@@ -1690,7 +1735,7 @@ Return ONLY a JSON array: [ { "budgetary": "ModelName", "mid": "ModelName", "hig
     }
 
     aiMatchStatus.active = false;
-    res.json({ success: true, results });
+    res.json({ success: true, results, newlyAdded: Array.from(new Set(newlyAdded.map(a => JSON.stringify(a)))).map(s => JSON.parse(s)) });
   } catch (error) {
     aiMatchStatus.active = false;
     res.status(500).json({ error: 'AI matching failed', details: error.message });
@@ -1719,8 +1764,3 @@ app.post('/api/standardize-catalogue', async (req, res) => {
 });
 
 export default app;
-
-// Start server locally
-app.listen(3001, () => {
-  console.log('🚀 Server running on http://localhost:3001');
-});

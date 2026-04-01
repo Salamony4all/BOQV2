@@ -60,7 +60,14 @@ export function matchFFE(boqDescription, candidateBrands) {
       const norm = p.normalization || {};
       let score = 0;
 
-      const pText = (p.model + ' ' + (p.description || '') + ' ' + (norm.subCategory || '')).toLowerCase();
+      // Build product text corpus — reads from normalization if available, falls back to raw fields
+      // This ensures matching works for both normalized AND freshly-scraped (un-normalized) products
+      const pText = (
+        p.model + ' ' +
+        (p.description || '') + ' ' +
+        (norm.subCategory || p.subCategory || '') + ' ' +
+        (norm.category || p.mainCategory || '')
+      ).toLowerCase();
 
       /** SECTION 2: SENTENCE-WISE BLOCKADES (1,000,000,000 pts) **/
       const isBoqSeating = /chair|seating|stool|sofa|pouf|bench/i.test(boqText);
