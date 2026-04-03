@@ -12,6 +12,8 @@ dist
 dist-ssr
 *.local
 uploads
+__pycache__/
+*.pyc
 
 # Editor directories and files
 .vscode/*
