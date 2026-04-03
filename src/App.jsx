@@ -6,8 +6,8 @@ import ProgressModal from './components/ProgressModal';
 import TableViewer from './components/TableViewer';
 import MultiBudgetModal from './components/MultiBudgetModal';
 import CompanySettings from './components/CompanySettings';
+import { useCompanyProfile, CompanyProvider } from './context/CompanyContext';
 import { ScrapingProvider } from './context/ScrapingContext';
-import { CompanyProvider, useCompanyProfile } from './context/CompanyContext';
 import styles from './styles/App.module.css';
 import { useTheme } from './context/ThemeContext';
 
@@ -257,8 +257,7 @@ function AppContent({ onOpenSettings }) {
   // If we have extracted data or explicitly left landing, show the main app
   if (!showLanding || extractedData) {
     return (
-      <ScrapingProvider>
-        <div className={styles.app}>
+      <div className={styles.app}>
           <div className={styles.container}>
             <header className={styles.headerCompact}>
               <button className={styles.hamburgerBtn} onClick={onOpenSettings} title="Settings">
@@ -319,14 +318,12 @@ function AppContent({ onOpenSettings }) {
             stage={stage}
           />
         </div>
-      </ScrapingProvider>
     );
   }
 
   // Landing Page
   return (
-    <ScrapingProvider>
-      <div className={styles.landingPage}>
+    <div className={styles.landingPage}>
         {/* Hamburger Menu - Fixed Top Left */}
         <button className={styles.hamburgerFixed} onClick={onOpenSettings} title="Settings">
           <span className={styles.hamburgerLine}></span>
@@ -446,7 +443,7 @@ function AppContent({ onOpenSettings }) {
               </p>
             </div>
             <div className={styles.featureCard}>
-              <h3 className={styles.featureTitle}>Product Scraping</h3>
+              <h3 className={styles.featureTitle}>Product Scrapping</h3>
               <p className={styles.featureDesc}>
                 Automatically fetch product data, images, and specifications from brand websites
               </p>
@@ -474,7 +471,6 @@ function AppContent({ onOpenSettings }) {
           stage={stage}
         />
       </div>
-    </ScrapingProvider>
   );
 }
 
@@ -510,7 +506,9 @@ function AppWithSetup() {
 function App() {
   return (
     <CompanyProvider>
-      <AppWithSetup />
+      <ScrapingProvider>
+        <AppWithSetup />
+      </ScrapingProvider>
     </CompanyProvider>
   );
 }

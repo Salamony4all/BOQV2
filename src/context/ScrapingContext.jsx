@@ -3,9 +3,7 @@ import styles from '../styles/AddBrandModal.module.css';
 
 const ScrapingContext = createContext(null);
 
-import { getApiBase } from '../utils/apiBase';
-
-const API_BASE = getApiBase();
+const API_BASE = window.location.hostname === 'localhost' ? 'http://localhost:3001' : '';
 
 export function ScrapingProvider({ children }) {
     const [scrapingState, setScrapingState] = useState({
@@ -47,7 +45,7 @@ export function ScrapingProvider({ children }) {
             // normalizing name for comparison
             const targetName = brandName.toLowerCase().trim();
 
-            const res = await fetch(`${API_BASE}/api/brands`);
+            const res = await fetch(`${API_BASE}/api/railway-brands`);
             if (!res.ok) return null;
 
             const data = await res.json();
@@ -59,8 +57,6 @@ export function ScrapingProvider({ children }) {
                 .sort((a, b) => new Date(b.completedAt) - new Date(a.completedAt))[0];
 
             if (match) {
-                // Check if this file was created AFTER we started scraping
-                // (To avoid picking up old scrapes)
                 console.log(`📂 Found saved backup for ${brandName}:`, match.filename);
                 return match;
             }
@@ -186,7 +182,7 @@ export function ScrapingProvider({ children }) {
                     const savedFile = await checkForSavedFile(brandName);
                     if (savedFile) {
                         try {
-                            const fileRes = await fetch(`${API_BASE}/api/brands/${savedFile.filename}`);
+                            const fileRes = await fetch(`${API_BASE}/api/railway-brands/${savedFile.filename}`);
                             if (fileRes.ok) {
                                 const fileData = await fileRes.json();
 
@@ -465,4 +461,3 @@ export function useScraping() {
     }
     return context;
 }
-

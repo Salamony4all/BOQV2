@@ -126,128 +126,10 @@
     transform: translateY(-1px);
 }
 
-.magicBtn {
-    background: linear-gradient(135deg, #a855f7 0%, #ec4899 100%) !important;
-    box-shadow: 0 4px 12px rgba(168, 85, 247, 0.3) !important;
-    position: relative;
-    overflow: hidden;
-}
-
-.magicBtn:after {
-    content: '';
-    position: absolute;
-    top: -50%;
-    left: -50%;
-    width: 200%;
-    height: 200%;
-    background: linear-gradient(45deg, transparent 45%, rgba(255,255,255,0.2) 50%, transparent 55%);
-    animation: shine 3s infinite;
-}
-
-@keyframes shine {
-    0% { transform: translateX(-100%) translateY(-100%); }
-    100% { transform: translateX(100%) translateY(100%); }
-}
-
-.magicBtn:disabled {
-    opacity: 0.7;
-    cursor: not-allowed;
-    background: #94a3b8 !important;
-}
 
 /* Smart Fill Popover */
-.popSettingsOverlay {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0,0,0,0.5);
-    -webkit-backdrop-filter: blur(4px);
-    backdrop-filter: blur(4px);
-    z-index: 100;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
 
-.popSettingsBox {
-    background: white;
-    color: #0f172a;
-    padding: 2rem;
-    border-radius: 12px;
-    width: 80%;
-    max-width: 800px;
-    box-shadow: 0 10px 25px rgba(0,0,0,0.2);
-    position: relative;
-    max-height: 90vh;
-    overflow-y: auto;
-}
-
-.brandGrid {
-    display: grid;
-    grid-template-columns: 1fr 1fr 1fr;
-    gap: 1.5rem;
-    margin: 1.5rem 0;
-}
-
-.tierGroup h4 {
-    border-bottom: 2px solid #e2e8f0;
-    padding-bottom: 0.5rem;
-    margin-bottom: 1rem;
-    color: #475569;
-}
-
-.brandCheck {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.25rem 0;
-    font-size: 0.9rem;
-    cursor: pointer;
-}
-
-.popActions {
-    display: flex;
-    gap: 1rem;
-    margin-top: 2rem;
-}
-
-.inAppBtn, .geminiBtn {
-    flex: 1;
-    padding: 1rem;
-    border: none;
-    border-radius: 8px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.2s;
-}
-
-.inAppBtn {
-    background: #4f46e5;
-    color: white;
-}
-
-.geminiBtn {
-    background: linear-gradient(135deg, #0284c7, #7c3aed);
-    color: white;
-}
-
-.inAppBtn:hover, .geminiBtn:hover {
-    transform: scale(1.02);
-    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-}
-
-.closePop {
-    position: absolute;
-    top: 1rem;
-    right: 1rem;
-    background: none;
-    border: none;
-    font-size: 1.5rem;
-    cursor: pointer;
-    color: #64748b;
-}
+/* Delete old action buttons */
 
 /* Compact Tabs */
 .tabsContainer {
@@ -817,146 +699,8 @@
     object-fit: contain;
 }
 
-/* ===== AUTO-MATCH PROGRESS BAR ===== */
-.matchProgressContainer {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    padding: 0.4rem 0.2rem 0;
-    flex-shrink: 0;
-}
-
-.matchProgressTrack {
-    flex: 1;
-    height: 6px;
-    background: rgba(255, 255, 255, 0.1);
-    border-radius: 999px;
-    overflow: hidden;
-}
-
-.matchProgressFill {
-    height: 100%;
-    background: linear-gradient(90deg, #a855f7, #ec4899);
-    border-radius: 999px;
-    transition: width 0.3s ease;
-    box-shadow: 0 0 8px rgba(168, 85, 247, 0.6);
-}
-
-.matchProgressText {
-    font-size: 0.72rem;
-    color: #c084fc;
-    white-space: nowrap;
-    font-weight: 600;
-}
-
-/* ===== INDIVIDUAL ROW PROGRESS (BESIDE ITEM) ===== */
-.rowProgressBar {
-    position: absolute;
-    bottom: -8px;
-    left: 0;
-    width: 100%;
-    height: 3px;
-    background: rgba(255, 255, 255, 0.1);
-    border-radius: 999px;
-    overflow: hidden;
-    z-index: 5;
-}
-
-.rowProgressFill {
-    height: 100%;
-    background: linear-gradient(90deg, #a855f7, #ec4899);
-    width: 30%; /* Will be controlled by animation/prop */
-    animation: shimmy 2s infinite ease-in-out;
-}
-
-@keyframes shimmy {
-    0% { transform: translateX(-100%); width: 30%; }
-    50% { width: 60%; }
-    100% { transform: translateX(350%); width: 30%; }
-}
-
-.aiRowLoading {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    height: 100%;
-    width: 100%;
-    gap: 4px;
-}
-
-.aiThinkingSmall {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1.2rem;
-    animation: bounce 1s infinite alternate;
-}
-
-@keyframes bounce {
-    from { transform: translateY(0); }
-    to { transform: translateY(-4px); }
-}
-
-.aiThinkingText {
-    font-size: 0.6rem;
-    color: #a855f7;
-    font-weight: 600;
-    text-align: center;
-    white-space: nowrap;
-}
-
-/* ===== MATCH SOURCE BADGE ===== */
-.matchBadge {
-    display: inline-flex;
-    align-items: center;
-    gap: 2px;
-    padding: 1px 5px;
-    border-radius: 999px;
-    font-size: 0.6rem;
-    font-weight: 700;
-    margin-top: 3px;
-    line-height: 1.4;
-    cursor: default;
-}
-
-.matchBadge span {
-    font-size: 0.55rem;
-    opacity: 0.9;
-}
-
-.matchBadgeMemory {
-    background: rgba(16, 185, 129, 0.15);
-    color: #10b981;
-    border: 1px solid rgba(16, 185, 129, 0.3);
-}
-
-.matchBadgeAlgo {
-    background: rgba(245, 158, 11, 0.15);
-    color: #f59e0b;
-    border: 1px solid rgba(245, 158, 11, 0.3);
-}
-
-.matchBadgeAi {
-    background: rgba(139, 92, 246, 0.15);
-    color: #8b5cf6;
-    border: 1px solid rgba(139, 92, 246, 0.3);
-}
 
 /* ===== ACTION BUTTONS — CLEAR & NEXT ALT ===== */
-.altBtn {
-    background: linear-gradient(135deg, #0ea5e9, #6366f1) !important;
-    color: white !important;
-    font-size: 0.9rem !important;
-    font-weight: 700 !important;
-    border-radius: 4px !important;
-    title: "Next alternative";
-}
-
-.altBtn:hover {
-    transform: rotate(45deg) scale(1.1);
-    box-shadow: 0 2px 6px rgba(99, 102, 241, 0.5) !important;
-}
 
 .clearBtn {
     background: rgba(239, 68, 68, 0.15) !important;
@@ -1407,4 +1151,129 @@
 
 .tierHeader.budgetary { color: #3b82f6; }
 .tierHeader.mid { color: #8b5cf6; }
-.tierHeader.high { color: #ec4899; }
+
+/* ===== AI AUTO-FILL BUTTON ===== */
+.aiAutoFillBtn {
+    background: linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%) !important;
+    position: relative;
+    overflow: hidden;
+}
+
+.aiAutoFillBtn::before {
+    content: '';
+    position: absolute;
+    top: 0; left: -100%;
+    width: 60%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+    transition: left 0.5s ease;
+}
+
+.aiAutoFillBtn:hover::before {
+    left: 150%;
+}
+
+.aiAutoFilling {
+    background: linear-gradient(135deg, #1e1b4b 0%, #312e81 100%) !important;
+    cursor: not-allowed !important;
+    animation: aiPulseBtn 1.5s ease-in-out infinite;
+}
+
+@keyframes aiPulseBtn {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.5); }
+    50% { box-shadow: 0 0 0 6px rgba(99, 102, 241, 0); }
+}
+
+/* ===== AI BATCH NOTIFICATION BANNER ===== */
+.aiBatchNotification {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.55rem 1rem;
+    border-radius: 8px;
+    margin-bottom: 0.6rem;
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.12), rgba(5, 150, 105, 0.08));
+    border: 1px solid rgba(16, 185, 129, 0.35);
+    color: #6ee7b7;
+    font-size: 0.8rem;
+    font-weight: 500;
+    width: 100%;
+    box-sizing: border-box;
+    animation: slideInBanner 0.3s ease;
+    flex-shrink: 0;
+}
+
+@keyframes slideInBanner {
+    from { opacity: 0; transform: translateY(-8px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.batchErrorCount {
+    color: #fca5a5;
+    font-weight: 600;
+}
+
+.batchNewCount {
+    color: #a5b4fc;
+    font-weight: 600;
+}
+
+.batchDismissBtn {
+    background: none;
+    border: 1px solid rgba(110, 231, 183, 0.3);
+    color: #6ee7b7;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 0.85rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: all 0.2s;
+}
+
+.batchDismissBtn:hover {
+    background: rgba(239, 68, 68, 0.2);
+    border-color: #ef4444;
+    color: #fca5a5;
+}
+
+/* ===== RETRY BUTTON (Error Rows) ===== */
+.retryBtn {
+    background: rgba(239, 68, 68, 0.12);
+    border: 1px solid rgba(239, 68, 68, 0.35);
+    color: #fca5a5;
+    border-radius: 4px;
+    padding: 1px 6px;
+    font-size: 0.6rem;
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+}
+
+.retryBtn:hover {
+    background: #ef4444;
+    color: white;
+    transform: scale(1.05);
+}
+
+/* ===== AI STATUS BADGES ===== */
+.aiErrorBadge {
+    font-size: 0.6rem;
+    color: #fca5a5;
+    font-weight: 600;
+}
+
+.aiProcessingBadge {
+    font-size: 0.7rem;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+

@@ -38,26 +38,41 @@ async function getLocalBrands() {
 
     for (const brandsPath of possiblePaths) {
         try {
+            console.log(`🔍 [Storage] Checking path: ${brandsPath}`);
             const files = await fs.readdir(brandsPath);
             const jsonFiles = files.filter(f => f.endsWith('.json'));
             if (jsonFiles.length > 0) {
-                console.log(`[Storage] Found ${jsonFiles.length} brands in ${brandsPath}`);
+                console.log(`✅ [Storage] Found ${jsonFiles.length} JSON files in ${brandsPath}`);
                 const brands = await Promise.all(jsonFiles.map(async file => {
+                    const fullPath = path.join(brandsPath, file);
                     try {
-                        const content = await fs.readFile(path.join(brandsPath, file), 'utf8');
-                        return JSON.parse(content);
-                    } catch (e) { return null; }
+                        const content = await fs.readFile(fullPath, 'utf8');
+                        const parsed = JSON.parse(content);
+                        if (!parsed.id) {
+                            console.warn(`⚠️ [Storage] Missing brand.id in ${file}`);
+                        }
+                        return parsed;
+                    } catch (e) { 
+                        console.error(`❌ [Storage] Error reading/parsing ${fullPath}:`, e.message);
+                        return null; 
+                    }
                 }));
 
                 for (const brand of brands) {
-                    if (brand && !seenIds.has(brand.id)) {
-                        seenIds.add(brand.id);
-                        allBrands.push(brand);
+                    if (brand && brand.id) {
+                        const brandIdStr = String(brand.id);
+                        if (!seenIds.has(brandIdStr)) {
+                            seenIds.add(brandIdStr);
+                            allBrands.push(brand);
+                        }
                     }
                 }
             }
-        } catch (e) { /* silent skip */ }
+        } catch (e) { 
+            console.log(`ℹ️ [Storage] Path not found or inaccessible: ${brandsPath}`);
+        }
     }
+    console.log(`📊 [Storage] Final Local Brand Count: ${allBrands.length}`);
     return allBrands;
 }
 
@@ -145,15 +160,18 @@ export const brandStorage = {
             const filename = `${sanitizedName}-${brand.budgetTier || 'mid'}.json`;
 
             await fs.mkdir(baseDir, { recursive: true });
-            await fs.writeFile(path.join(baseDir, filename), JSON.stringify(brand, null, 2));
+            const filePath = path.join(baseDir, filename);
+            await fs.writeFile(filePath, JSON.stringify(brand, null, 2));
+            console.log(`💾 [Storage] Successfully saved brand ${brand.name} to ${filePath}`);
 
-            // MASTER DATABASE PERSISTENCE
+            // MASTER DATABASE PERSISTENCE (DISABLED to use standalone brand databases)
+            /*
             try {
               let masterDb = { products: [] };
               try {
                 const data = await fs.readFile(MASTER_DB_PATH, 'utf8');
                 masterDb = JSON.parse(data);
-              } catch (e) { /* empty or missing */ }
+              } catch (e) { }
 
               // Merge products
               (brand.products || []).forEach(p => {
@@ -165,12 +183,50 @@ export const brandStorage = {
               await fs.writeFile(MASTER_DB_PATH, JSON.stringify(masterDb, null, 2));
               console.log(`✅ [Storage] Master DB updated with ${brand.products?.length || 0} products from ${brand.name}`);
             } catch (e) { console.error('[Storage] Master DB save failed:', e.message); }
+            */
 
             return true;
         } catch (error) {
             console.error('[Storage] Filesystem save failed:', error);
             return false;
         }
+    },
+
+    async addProductToBrand(brandName, budgetTier, product) {
+        const brands = await this.getAllBrands();
+        // Case-insensitive match for name and tier
+        const targetBrand = brands.find(b => 
+            b.name.toLowerCase().trim() === brandName.toLowerCase().trim() && 
+            (b.budgetTier || 'mid').toLowerCase() === budgetTier.toLowerCase()
+        );
+
+        if (!targetBrand) {
+            console.warn(`⚠️ [Storage] Brand ${brandName} (${budgetTier}) not found for hardening.`);
+            return false;
+        }
+
+        // Initialize products array if missing
+        if (!targetBrand.products) targetBrand.products = [];
+
+        // Check if product already exists (by model name/number)
+        const exists = targetBrand.products.some(p => 
+            String(p.model).toLowerCase().trim() === String(product.model).toLowerCase().trim()
+        );
+
+        if (exists) {
+            console.log(`ℹ️ [Storage] Product "${product.model}" already exists in ${brandName}. Skipping hardening.`);
+            return true; 
+        }
+
+        // Append new product with metadata
+        targetBrand.products.push({
+            ...product,
+            lastUpdated: new Date().toISOString(),
+            source: 'AI-Specialist-Discovery'
+        });
+
+        console.log(`💎 [Storage] Hardening ${brandName}: Added "${product.model}"`);
+        return await this.saveBrand(targetBrand);
     },
 
     async deleteBrand(brandId) {

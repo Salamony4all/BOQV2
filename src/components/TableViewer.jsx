@@ -17,14 +17,23 @@ const API_BASE = getApiBase();
 
 const getFullUrl = (url) => {
     if (!url) return '';
-    // Proxy Architonic and Amara Art images to bypass hotlink protection/CORS
-    if (url.includes('amara-art.com') || url.includes('architonic.com')) {
-        // Base64 encode the URL to bypass client-side antivirus/firewall URL inspection
-        return `${API_BASE}/api/image-proxy?url=${encodeURIComponent(btoa(url))}`;
+    let normalizedUrl = url;
+    if (url.startsWith('//')) {
+        normalizedUrl = 'https:' + url;
     }
-    if (url.startsWith('http') || url.startsWith('data:')) return url;
-    return `${API_BASE}${url}`;
+    // Proxy Architonic and Amara Art images to bypass hotlink protection/CORS
+    if (normalizedUrl.includes('amara-art.com') || normalizedUrl.includes('architonic.com')) {
+        // Base64 encode the URL to bypass client-side antivirus/firewall URL inspection
+        try {
+            return `${API_BASE}/api/image-proxy?url=${encodeURIComponent(btoa(normalizedUrl))}`;
+        } catch (e) {
+            return `${API_BASE}/api/image-proxy?url=${encodeURIComponent(normalizedUrl)}`;
+        }
+    }
+    if (normalizedUrl.startsWith('http') || normalizedUrl.startsWith('data:')) return normalizedUrl;
+    return `${API_BASE}${normalizedUrl}`;
 };
+
 
 function TableViewer({ data }) {
     const profile = useCompanyProfile();

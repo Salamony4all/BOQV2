@@ -6,22 +6,21 @@ import multer from 'multer';
 import path from 'path';
 import { promises as fs } from 'fs';
 import { fileURLToPath } from 'url';
-import { extractExcelData } from './fastExtractor.js';
 import { CleanupService } from './cleanupService.js';
 import { put, del } from '@vercel/blob';
 import { handleUpload } from '@vercel/blob/client';
 import axios from 'axios';
+import { ExcelDbManager } from './excelManager.js';
+import { brandStorage } from './storageProvider.js';
+import { getAiMatch, identifyModel, fetchProductDetails } from './utils/llmUtils.js';
+import ExcelJS from 'exceljs';
+
+// Restored Scraper Engine Imports
 import ScraperService from './scraper.js';
 import StructureScraper from './structureScraper.js';
 import BrowserlessScraper from './browserlessScraper.js';
 import ScrapingBeeScraper from './scrapingBeeScraper.js';
-import { ExcelDbManager } from './excelManager.js';
-import { brandStorage } from './storageProvider.js';
-import { spawn } from 'child_process';
-import { matchFFE, hardMatchByModel } from './utils/ffe_matcher.js';
-import { normalizeProducts, TAXONOMY, RANK_MAP, FEATURE_TAXONOMY } from './utils/normalizer.js';
-import discoveryService from './discoveryService.js';
-import { callLlm } from './utils/llmUtils.js';
+import { extractExcelData } from './fastExtractor.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -32,50 +31,50 @@ process.on('uncaughtException', (err) => {
 process.on('unhandledRejection', (reason, promise) => {
   console.error('🔥 UNHANDLED REJECTION:', reason);
 });
-process.on('exit', (code) => {
-  console.log(`👋 Process exiting with code: ${code}`);
-});
 
 const app = express();
 const PORT = 3001;
 
-// Initialize cleanup service
+// Initialize services
 const cleanupService = new CleanupService();
+const dbManager = new ExcelDbManager();
 
-// Check Blob Storage availability
-const blobStoreAvailable = !!process.env.BLOB_READ_WRITE_TOKEN;
-console.log(`📦 Blob Storage Available: ${blobStoreAvailable}`);
+// Restored Scraper Instances
+const scraperService = new ScraperService();
+const structureScraper = new StructureScraper();
+const browserlessScraper = new BrowserlessScraper();
+const scrapingBeeScraper = new ScrapingBeeScraper();
 
-// Railway Sidecar Service URL (for image proxy delegation)
+// --- Configuration & Tasks ---
 const JS_SCRAPER_SERVICE_URL = process.env.JS_SCRAPER_SERVICE_URL;
+const tasks = new Map();
 
-// CORS configuration
+// Middleware
 app.use(cors());
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ limit: '10mb', extended: true }));
+app.use(express.json({ limit: '20mb' }));
+app.use(express.urlencoded({ limit: '20mb', extended: true }));
 
-// Path logger for Vercel debugging
+// Path logger
 app.use((req, res, next) => {
-  console.log(`[PathLog] ${req.method} ${req.url} (Path: ${req.path})`);
+  if (req.url !== '/api/health') {
+    console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+  }
   next();
 });
 
-// Serve static files from uploads directory
+// Static files
 const isVercel = process.env.VERCEL === '1';
 const uploadsPath = isVercel ? '/tmp/uploads' : path.join(__dirname, '../uploads');
 app.use('/uploads', express.static(uploadsPath));
 
-// Multer configuration for file upload
+// Multer configuration
 const storage = multer.diskStorage({
   destination: async (req, file, cb) => {
-    const isVercel = process.env.VERCEL === '1';
-    const uploadsDir = isVercel ? '/tmp/uploads' : path.join(__dirname, '../uploads');
+    const dest = isVercel ? '/tmp/uploads' : path.join(__dirname, '../uploads');
     try {
-      await fs.mkdir(uploadsDir, { recursive: true });
-    } catch (error) {
-      console.error('Error creating uploads directory:', error);
-    }
-    cb(null, uploadsDir);
+      await fs.mkdir(dest, { recursive: true });
+    } catch (e) {}
+    cb(null, dest);
   },
   filename: (req, file, cb) => {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
@@ -90,493 +89,403 @@ const upload = multer({
       'application/vnd.ms-excel',
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     ];
-    if (allowedTypes.includes(file.mimetype)) {
+    if (allowedTypes.includes(file.mimetype) || file.originalname.match(/\.(xls|xlsx)$/)) {
       cb(null, true);
     } else {
-      cb(new Error('Invalid file type. Only .xls and .xlsx files are allowed.'));
+      cb(new Error('Only .xls and .xlsx files are allowed.'));
     }
   },
-  limits: {
-    fileSize: 50 * 1024 * 1024 // 50MB limit
-  }
+  limits: { fileSize: 50 * 1024 * 1024 }
 });
 
-// Upload and extract endpoint
+// --- Railway Sidecar & Task Helpers ---
+const isJsScraperAvailable = () => !!JS_SCRAPER_SERVICE_URL;
+
+async function callJsScraperService(endpoint, payload, timeout = 300000) {
+  if (!JS_SCRAPER_SERVICE_URL) throw new Error('JS_SCRAPER_SERVICE_URL not configured');
+  const url = `${JS_SCRAPER_SERVICE_URL}${endpoint}`;
+  console.log(`🌐 Calling Railway Service: ${url}`);
+  const response = await axios.post(url, payload, { timeout, headers: { 'Content-Type': 'application/json' } });
+  return response.data;
+}
+
+async function pollJsScraperTask(taskId, onProgress = null, maxWaitMs = 3600000) {
+  const startTime = Date.now();
+  const pollInterval = 3000;
+  let consecutiveErrors = 0;
+  while (Date.now() - startTime < maxWaitMs) {
+    try {
+      const response = await axios.get(`${JS_SCRAPER_SERVICE_URL}/tasks/${taskId}`, { timeout: 10000 });
+      const task = response.data;
+      consecutiveErrors = 0;
+      if (onProgress && task.progress) onProgress(task.progress, task.stage || 'Processing...');
+      if (task.status === 'completed') return task;
+      if (task.status === 'failed') throw new Error(task.error || 'Railway task failed');
+      await new Promise(r => setTimeout(r, pollInterval));
+    } catch (error) {
+      consecutiveErrors++;
+      if (consecutiveErrors >= 10) throw new Error(`Polling failed: ${error.message}`);
+      await new Promise(r => setTimeout(r, pollInterval * 2));
+    }
+  }
+  throw new Error('Task timed out');
+}
+
+// --- API Endpoints ---
+
+// Health check
+app.get('/api/health', (req, res) => res.json({ status: 'OK', version: '2.0.0-classic' }));
+
+// Basic BOQ Extraction (Manual Version)
+// This replaces the complex AI-assisted fastExtractor
 app.post('/api/upload', upload.single('file'), async (req, res) => {
   try {
-    if (!req.file) {
-      return res.status(400).json({ error: 'No file uploaded' });
-    }
+    if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
 
-    const filePath = req.file.path;
-    const sessionId = req.headers['x-session-id'] || 'default';
-
-    // Track file for cleanup
-    cleanupService.trackFile(sessionId, filePath);
-
-    // Extract data from Excel (pass callback to track blobs)
-    const extractedData = await extractExcelData(filePath, () => { }, (url) => {
-      cleanupService.trackBlob(sessionId, url);
+    console.log(`[Upload] Processing: ${req.file.originalname}`);
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.readFile(req.file.path);
+    const worksheet = workbook.getWorksheet(1);
+    
+    const tables = [];
+    const rows = [];
+    
+    worksheet.eachRow((row, rowNumber) => {
+      const vals = row.values;
+      // Skip very empty rows
+      if (vals.filter(Boolean).length < 2) return;
+      
+      // Basic heuristic to identify headers vs data
+      // For now, we just take everything and let the user clean it in the UI
+      rows.push({
+        id: rowNumber,
+        originalRowNumber: rowNumber,
+        cells: vals.slice(1).map((v, i) => ({
+          value: v,
+          column: String.fromCharCode(65 + i)
+        }))
+      });
     });
 
-    // Send final result
+    tables.push({
+        name: 'Sheet 1',
+        rows: rows.slice(0, 500) // Limit preview for performance
+    });
+
     res.json({
       success: true,
-      data: extractedData,
-      progress: 100,
-      stage: 'Complete'
+      data: {
+        filename: req.file.originalname,
+        tables: tables
+      }
     });
 
   } catch (error) {
-    console.error('Error processing file:', error);
-    res.status(500).json({
-      error: 'Failed to process Excel file',
-      details: error.message
-    });
+    console.error('Error processing upload:', error);
+    res.status(500).json({ error: 'Failed to process Excel file', details: error.message });
   }
 });
 
-// Large File Support: Token generation for direct browser upload to Vercel Blob
-// Support both /api/upload/... and /upload/... paths for Vercel compatibility
-const blobTokenHandler = async (req, res) => {
-  console.log('[BlobToken] Generating token for:', req.body.pathname || 'unknown');
+// Vercel Blob Token Handler
+app.post('/api/upload/blob-token', async (req, res) => {
   try {
     const token = process.env.BLOB_READ_WRITE_TOKEN;
-    if (!token && isVercel) {
-      console.error('CRITICAL: BLOB_READ_WRITE_TOKEN is missing!');
-      return res.status(500).json({ error: 'Blob storage token not found in Environment Variables' });
-    }
-
     const jsonResponse = await handleUpload({
       body: req.body,
       request: req,
       token: token,
-      onBeforeGenerateToken: async (pathname) => {
-        return {
-          allowedContentTypes: [
-            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-            'application/vnd.ms-excel',
-            'application/octet-stream'
-          ],
-          tokenPayload: JSON.stringify({ userId: 'anonymous' }),
-          addRandomSuffix: true,
-        };
-      },
-      onUploadCompleted: async ({ blob, tokenPayload }) => {
-        console.log('[BlobToken] Upload successful:', blob.url);
-      },
+      onBeforeGenerateToken: async (pathname) => ({
+        allowedContentTypes: ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/vnd.ms-excel'],
+        tokenPayload: JSON.stringify({ userId: 'anonymous' }),
+        addRandomSuffix: true,
+      })
     });
     return res.status(200).json(jsonResponse);
   } catch (error) {
-    console.error('[BlobToken] Error:', error.message);
     return res.status(400).json({ error: error.message });
   }
-};
-
-app.post('/api/upload/blob-token', blobTokenHandler);
-app.post('/upload/blob-token', blobTokenHandler); // Fallback for stripped prefix
-
-// Process a file that was already uploaded to Vercel Blob
-app.post('/api/process-blob', async (req, res) => {
-  const { url, sessionId = 'default' } = req.body;
-  if (!url) return res.status(400).json({ error: 'URL is required' });
-
-  try {
-    // Download the file from Blob to /tmp for processing
-    const response = await axios.get(url, { responseType: 'arraybuffer' });
-    const isVercel = process.env.VERCEL === '1';
-    const tempDir = isVercel ? '/tmp/uploads' : path.join(__dirname, '../uploads');
-    await fs.mkdir(tempDir, { recursive: true });
-
-    const fileName = `large_${Date.now()}.xlsx`;
-    const filePath = path.join(tempDir, fileName);
-    await fs.writeFile(filePath, Buffer.from(response.data));
-
-    // Track for cleanup
-    cleanupService.trackFile(sessionId, filePath);
-
-    // Extract (pass callback to track blobs)
-    const extractedData = await extractExcelData(filePath, () => { }, (url) => {
-      cleanupService.trackBlob(sessionId, url);
-    });
-
-    // (Optional) Delete the blob after processing to save space
-    try { await del(url); } catch (e) { console.error('Failed to delete blob:', e.message); }
-
-    res.json({
-      success: true,
-      data: extractedData,
-      progress: 100,
-      stage: 'Complete'
-    });
-  } catch (error) {
-    console.error('Blob processing error:', error);
-    res.status(500).json({ error: 'Failed to process blob file', details: error.message });
-  }
 });
 
-// Debug endpoint to check storage configuration
-app.get('/api/debug-storage', async (req, res) => {
-  const token = process.env.BLOB_READ_WRITE_TOKEN;
-  const isVercel = process.env.VERCEL === '1';
-
-  const status = {
-    env: isVercel ? 'Vercel' : 'Local',
-    tokenPresent: !!token,
-    tokenPrefix: token ? token.substring(0, 10) + '...' : 'none',
-    timestamp: new Date().toISOString()
-  };
-
-  try {
-    if (token) {
-      // Try a simple put to verify
-      const testBlob = await put('debug/test.txt', 'test', { access: 'public' });
-      status.canWrite = true;
-      status.testUrl = testBlob.url;
-      // Cleanup
-      await del(testBlob.url);
-    }
-  } catch (err) {
-    status.canWrite = false;
-    status.writeError = err.message;
-  }
-
-  res.json(status);
-});
-
-// Cleanup endpoint
-app.post('/api/cleanup', async (req, res) => {
-  const sessionId = req.body.sessionId || 'default';
-  await cleanupService.cleanupSession(sessionId);
-  res.json({ success: true });
-});
-
-// Image proxy endpoint - fetches external images and returns raw binary
-// This supports both browser display (<img> tags) and canvas loading (exports)
-app.get('/api/image-proxy', async (req, res) => {
-  try {
-    let imageUrl = req.query.url;
-    if (!imageUrl) {
-      return res.status(400).send('URL parameter required');
-    }
-
-    // Decode if base64 (standard for this app's frontend)
-    if (!imageUrl.startsWith('http')) {
-      try {
-        imageUrl = Buffer.from(imageUrl, 'base64').toString('utf-8');
-        if (!imageUrl.startsWith('http')) throw new Error('Invalid decoded URL');
-      } catch (e) {
-        console.error('Proxy URL decode failed:', e.message);
-        return res.status(400).send('Invalid URL format');
-      }
-    }
-
-    let buffer;
-    let contentType;
-
-    // Delegate Architonic images to Railway (bypasses Vercel IP blocking)
-    if (imageUrl.includes('architonic.com') && JS_SCRAPER_SERVICE_URL) {
-      try {
-        const railwayProxyUrl = `${JS_SCRAPER_SERVICE_URL}/image-proxy?url=${encodeURIComponent(imageUrl)}`;
-        const response = await axios.get(railwayProxyUrl, {
-          responseType: 'arraybuffer',
-          timeout: 20000
-        });
-        buffer = response.data;
-        contentType = response.headers['content-type'] || 'image/jpeg';
-      } catch (railwayError) {
-        console.warn(`[Proxy] Railway delegation failed: ${railwayError.message}. Falling back to local.`);
-        // Fall through to direct fetch
-      }
-    }
-
-    // Direct fetch if not Architonic or Railway failed
-    if (!buffer) {
-      const isAmara = imageUrl.includes('amara-art.com');
-      // Check if we need to tunnel via ScrapingBee (Firewall Bypass for Amara)
-      if (isAmara && process.env.SCRAPINGBEE_API_KEY) {
-        const apiKey = process.env.SCRAPINGBEE_API_KEY;
-        const sbUrl = `https://app.scrapingbee.com/api/v1?api_key=${apiKey}&url=${encodeURIComponent(imageUrl)}&render_js=false&block_ads=true`;
-        const sbRes = await axios.get(sbUrl, { responseType: 'arraybuffer' });
-        buffer = sbRes.data;
-        contentType = sbRes.headers['content-type'] || 'image/jpeg';
-      } else {
-        // Standard Direct Fetch
-        const response = await axios.get(imageUrl, {
-          responseType: 'arraybuffer',
-          timeout: 15000,
-          headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            'Referer': new URL(imageUrl).origin
-          }
-        });
-        buffer = response.data;
-        contentType = response.headers['content-type'] || 'image/jpeg';
-      }
-    }
-
-    // Return RAW binary image (works for <img> tags AND canvas loading)
-    res.set('Content-Type', contentType);
-    res.set('Cache-Control', 'public, max-age=31536000');
-    res.set('Access-Control-Allow-Origin', '*');
-    res.send(buffer);
-
-  } catch (error) {
-    console.error('Image proxy error:', error.message);
-    res.status(502).send('Failed to fetch image');
-  }
-});
-
-// Health check
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'OK', message: 'Server is running' });
-});
-
-// Get Scraper Service URL for UI links (Dashboard)
-app.get('/api/scraper-config', (req, res) => {
-  res.json({
-    url: JS_SCRAPER_SERVICE_URL || null,
-    dashboardUrl: JS_SCRAPER_SERVICE_URL ? `${JS_SCRAPER_SERVICE_URL}/dashboard` : null
-  });
-});
-
-// Debug endpoint
-app.get('/api/debug', async (req, res) => {
-  try {
-    const isVercel = process.env.VERCEL === '1';
-    const hasKV = !!(process.env.KV_REST_API_URL || process.env.STORAGE_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL);
-
-    const debugInfo = {
-      isVercel,
-      hasKV,
-      cwd: process.cwd(),
-      dirname: __dirname,
-      envKeys: Object.keys(process.env).filter(k => k.includes('URL') || k.includes('TOKEN') || k.includes('KV') || k.includes('STORAGE')),
-      pathsChecked: [
-        path.join(process.cwd(), 'server/data/brands'),
-        path.join(__dirname, 'data/brands'),
-        path.join(__dirname, 'server/data/brands'),
-        '/var/task/server/data/brands'
-      ]
-    };
-
-    const pathResults = {};
-    for (const p of debugInfo.pathsChecked) {
-      try {
-        const exists = await fs.access(p).then(() => true).catch(() => false);
-        if (exists) {
-          const files = await fs.readdir(p);
-          pathResults[p] = { exists: true, files: files.filter(f => f.endsWith('.json')) };
-        } else {
-          pathResults[p] = { exists: false };
-        }
-      } catch (e) {
-        pathResults[p] = { error: e.message };
-      }
-    }
-
-    res.json({ debugInfo, pathResults });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Error handling middleware
-app.use((error, req, res, next) => {
-  console.error('Server error:', error);
-  res.status(500).json({
-    error: error.message || 'Internal server error'
-  });
-});
-
-// Cleanup on server shutdown
-process.on('SIGINT', async () => {
-  console.log('Shutting down server...');
-  await cleanupService.cleanupAll();
-  process.exit(0);
-});
-
-process.on('SIGTERM', async () => {
-  console.log('Shutting down server...');
-  await cleanupService.cleanupAll();
-  process.exit(0);
-});
-
-// Reset/Cleanup endpoint for app initialization
-app.post('/api/reset', async (req, res) => {
-  console.log('Resetting application state...');
-  await cleanupService.cleanupAll();
-  // Re-create uploads directory immediately to ensure readiness
-  const isVercel = process.env.VERCEL === '1';
-  const uploadsDir = isVercel ? '/tmp/uploads' : path.join(__dirname, '../uploads');
-  const imagesDir = isVercel ? '/tmp/uploads/images' : path.join(__dirname, '../uploads/images');
-  try {
-    await fs.mkdir(uploadsDir, { recursive: true });
-    await fs.mkdir(imagesDir, { recursive: true });
-  } catch (e) { console.error('Error recreating dirs:', e); }
-  res.json({ success: true, message: 'Environment reset complete' });
-});
-
-if (process.env.NODE_ENV !== 'production' || process.env.VITE_DEV_SERVER) {
-  const server = app.listen(PORT, async () => {
-    console.log(`🚀 Server running on http://localhost:${PORT}`);
-    console.log(`📁 Upload endpoint: http://localhost:${PORT}/api/upload`);
-
-    // Clean up on startup
-    await cleanupService.cleanupAll();
-  });
-}
-
-// Brand persistence is now handled by brandStorage provider
-// Initialized in separate module
-
-const brandDiskStorage = multer.diskStorage({
-  destination: async (req, file, cb) => {
-    const isVercel = process.env.VERCEL === '1';
-    const brandsDir = isVercel ? '/tmp/uploads/brands' : path.join(__dirname, '../uploads/brands');
-    try {
-      await fs.mkdir(brandsDir, { recursive: true });
-    } catch (error) {
-      console.error('Error creating brands directory:', error);
-    }
-    cb(null, brandsDir);
-  },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, uniqueSuffix + path.extname(file.originalname));
-  }
-});
-
-const brandUpload = multer({
-  storage: brandDiskStorage,
-  fileFilter: (req, file, cb) => {
-    if (file.mimetype.startsWith('image/')) {
-      cb(null, true);
-    } else {
-      cb(new Error('Invalid file type. Only images are allowed.'));
-    }
-  },
-  limits: { fileSize: 5 * 1024 * 1024 } // 5MB
-});
-
+// Brand Management
 app.get('/api/brands', async (req, res) => {
   try {
     const brands = await brandStorage.getAllBrands();
     res.json(brands);
   } catch (error) {
-    console.error("Failed to fetch brands:", error);
     res.status(500).json({ error: 'Failed to fetch brands' });
+  }
+});
+
+app.post('/api/brands', async (req, res) => {
+  try {
+    const brand = req.body;
+    if (!brand.id || !brand.name) return res.status(400).json({ error: 'Invalid brand data' });
+    await brandStorage.saveBrand(brand);
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to save brand' });
   }
 });
 
 app.delete('/api/brands/:id', async (req, res) => {
   try {
-    const brandId = req.params.id;
-    await brandStorage.deleteBrand(brandId);
+    await brandStorage.deleteBrand(req.params.id);
     res.json({ success: true });
   } catch (error) {
-    console.error("Error deleting brand:", error);
     res.status(500).json({ error: 'Failed to delete brand' });
   }
 });
 
+// ──────────────────────────────────────────────────────────────────────────────
+// FF&E SPECIALIST AI ENDPOINT — 3-Stage Workflow
+// ──────────────────────────────────────────────────────────────────────────────
+//
+//  Stage 1: AI (with web search) → "Best ONE model for [desc] from [brand]?"
+//  Stage 2: Fuzzy search in local brand DB JSON for that model name
+//  Stage 3: If missing → AI fetches full product from web → saves permanently to DB
+//
+// ──────────────────────────────────────────────────────────────────────────────
 
-const scraperService = new ScraperService();
-const structureScraper = new StructureScraper();
-const browserlessScraper = new BrowserlessScraper();
-const scrapingBeeScraper = new ScrapingBeeScraper();
-const dbManager = new ExcelDbManager();
+/**
+ * Fuzzy model matching: strips catalog ID suffixes (#12345678) and normalizes.
+ * Returns the matching product entry or null.
+ */
+function fuzzyFindModel(products, targetModelName) {
+    if (!products || !products.length || !targetModelName) return null;
 
-// --- Railway Sidecar Services ---
-// JS_SCRAPER_SERVICE_URL is defined at the top of file for image proxy
-const PYTHON_SCRAPER_SERVICE_URL = process.env.PYTHON_SERVICE_URL; // Already exists for Python scraper
+    const normalize = (s) => String(s)
+        .toLowerCase()
+        .replace(/#\d+/g, '')          // strip Architonic IDs like #20732680
+        .replace(/[^a-z0-9\s]/g, ' ')  // strip special chars
+        .replace(/\s+/g, ' ')
+        .trim();
 
-// Helper to check if JS scraper sidecar is available
-const isJsScraperAvailable = () => !!JS_SCRAPER_SERVICE_URL;
-const isPythonScraperAvailable = () => !!PYTHON_SCRAPER_SERVICE_URL;
+    const target = normalize(targetModelName);
 
-// Helper to call Railway JS scraper service
-async function callJsScraperService(endpoint, payload, timeout = 300000) {
-  if (!JS_SCRAPER_SERVICE_URL) {
-    throw new Error('JS_SCRAPER_SERVICE_URL not configured');
-  }
-  const url = `${JS_SCRAPER_SERVICE_URL}${endpoint}`;
-  console.log(`🌐 Calling JS Scraper Service: ${url}`);
+    // 1. Exact match after normalization
+    let found = products.find(p => normalize(p.model) === target);
+    if (found) return found;
 
-  const response = await axios.post(url, payload, {
-    timeout,
-    headers: { 'Content-Type': 'application/json' }
-  });
-  return response.data;
-}
+    // 2. One contains the other
+    found = products.find(p => {
+        const pn = normalize(p.model);
+        return pn.includes(target) || target.includes(pn);
+    });
+    if (found) return found;
 
-// Helper to poll task status from Railway service
-// ENHANCED: Increased timeout to 60 minutes for very large brand collections (300+ products)
-async function pollJsScraperTask(taskId, onProgress = null, maxWaitMs = 3600000) {
-  const startTime = Date.now();
-  const pollInterval = 3000; // 3 seconds
-  let consecutiveErrors = 0;
-  const maxConsecutiveErrors = 20; // Allow more retries
-  let lastProgress = 0;
+    // 3. Word-intersection (>=50% overlap)
+    const targetWords = new Set(target.split(' ').filter(w => w.length > 2));
+    if (targetWords.size === 0) return null;
 
-  console.log(`🔄 Starting poll for Railway task: ${taskId} (timeout: ${maxWaitMs / 60000} mins)`);
-
-  while (Date.now() - startTime < maxWaitMs) {
-    try {
-      // Short timeout for the poll request itself to prevent hanging
-      const response = await axios.get(`${JS_SCRAPER_SERVICE_URL}/tasks/${taskId}`, { timeout: 10000 });
-      const task = response.data;
-
-      // Reset error counter
-      consecutiveErrors = 0;
-
-      if (onProgress && task.progress) {
-        onProgress(task.progress, task.stage || 'Processing...', task.brandName);
-
-        // Log progress occasionally
-        if (Math.abs(task.progress - lastProgress) >= 5 || task.status === 'completed') {
-          console.log(`   📊 Task ${taskId}: ${task.progress}% - ${task.stage} (Status: ${task.status})`);
-          lastProgress = task.progress;
-        }
-      }
-
-      if (task.status === 'completed') {
-        console.log(`✅ Task ${taskId} COMPLETED with ${task.productCount || 0} products`);
-        return task;
-      } else if (task.status === 'failed') {
-        throw new Error(task.error || 'JS Scraper task failed');
-      } else if (task.status === 'cancelled') {
-        throw new Error('Task was cancelled');
-      }
-
-      await new Promise(resolve => setTimeout(resolve, pollInterval));
-    } catch (error) {
-      if (error.response?.status === 404) {
-        // If task disappeared from Railway but we thought it was running, it might have finished or crashed
-        console.warn(`⚠️ Task ${taskId} not found (404). It may have been cleared or service restarted.`);
-        throw new Error('Task not found on JS Scraper service');
-      }
-
-      // Network error - increment counter and retry
-      consecutiveErrors++;
-      console.warn(`⚠️ Poll error (${consecutiveErrors}/${maxConsecutiveErrors}): ${error.message}`);
-
-      if (consecutiveErrors >= maxConsecutiveErrors) {
-        throw new Error(`Too many consecutive polling errors: ${error.message}`);
-      }
-
-      const backoffMs = Math.min(pollInterval * consecutiveErrors, 10000);
-      await new Promise(resolve => setTimeout(resolve, backoffMs));
+    let bestScore = 0;
+    let bestMatch = null;
+    for (const p of products) {
+        const pWords = normalize(p.model).split(' ').filter(w => w.length > 2);
+        const intersection = pWords.filter(w => targetWords.has(w)).length;
+        const score = intersection / Math.max(targetWords.size, pWords.length);
+        if (score > bestScore) { bestScore = score; bestMatch = p; }
     }
-  }
 
-  console.error(`❌ Task ${taskId} timed out locally after ${maxWaitMs / 60000} minutes`);
-  throw new Error('JS Scraper task timed out in polling loop');
+    return bestScore >= 0.5 ? bestMatch : null;
 }
 
-// --- Task Manager for Background Scraping ---
-const tasks = new Map();
+app.post('/api/auto-match-ai', async (req, res) => {
+  try {
+    const {
+      description,
+      qty,
+      unit,
+      tier,
+      budgetTier,
+      availableBrands = [],
+      brand,            // single brand legacy param
+      provider = 'google'
+    } = req.body;
 
+    const finalTier = tier || budgetTier || 'mid';
+
+    // Normalize brand candidates: support both array and single string
+    const brandCandidates = Array.isArray(availableBrands)
+      ? availableBrands
+      : brand
+        ? [brand]
+        : [];
+
+    if (!description) {
+      return res.status(400).json({ status: 'error', error_message: 'Missing description' });
+    }
+    if (brandCandidates.length === 0) {
+      return res.status(400).json({ status: 'error', error_message: 'No brands provided' });
+    }
+
+    // Build a richer description by appending size/qty context if available.
+    // This helps the AI distinguish e.g. a small coffee table (R:30 = 30cm) from a meeting table.
+    const sizeContext = [qty && `Qty: ${qty}`, unit && `Unit: ${unit}`].filter(Boolean).join(', ');
+    const enrichedDescription = sizeContext ? `${description} | ${sizeContext}` : description;
+
+    console.log(`\n🤖 [AI AutoFill] "${enrichedDescription.substring(0, 70)}" | Tier: ${finalTier} | Brands: ${brandCandidates.join(', ')} | Provider: ${provider}`);
+    // Load all local brands once (for DB lookups)
+    const allLocalBrands = await brandStorage.getAllBrands();
+
+    // ── STRICT TIER ISOLATION ──────────────────────────────────────────────────
+    // Filter brand candidates to ONLY brands whose DB entry matches finalTier.
+    // This prevents cross-tier contamination even if client sends mixed brands.
+    const tierIsolatedCandidates = brandCandidates.filter(candidateName => {
+      const dbEntry = allLocalBrands.find(b =>
+        b.name.toLowerCase().trim() === candidateName.toLowerCase().trim()
+      );
+      if (!dbEntry) {
+        // Brand not in DB yet — allow it (AI will discover it fresh)
+        console.log(`  ℹ️  [Tier Filter] "${candidateName}" not in local DB — allowing for discovery.`);
+        return true;
+      }
+      const match = (dbEntry.budgetTier || 'mid').toLowerCase() === finalTier.toLowerCase();
+      if (!match) {
+        console.warn(`  🚫 [Tier Filter] Blocking "${candidateName}" (DB tier: ${dbEntry.budgetTier}) — not matching requested tier: ${finalTier}`);
+      }
+      return match;
+    });
+
+    if (tierIsolatedCandidates.length === 0) {
+      return res.json({
+        status: 'error',
+        error_message: `No brands for tier "${finalTier}" were selected. Please switch to the correct tier tab.`
+      });
+    }
+
+    console.log(`  ✅ [Tier Filter] Allowed brands (${finalTier}): ${tierIsolatedCandidates.join(', ')}`);
+    // ── END TIER ISOLATION ─────────────────────────────────────────────────────
+
+    // ─────────────────────────────────────────────
+    // Try each tier-validated brand candidate in order
+    // ─────────────────────────────────────────────
+    for (const candidateBrand of tierIsolatedCandidates) {
+
+      // ── STAGE 1: Ask AI for ONE model name ──────
+      console.log(`\n  🔎 [Stage 1] Asking AI: best model for "${enrichedDescription.substring(0,60)}" from ${candidateBrand}...`);
+      const identity = await identifyModel(enrichedDescription, candidateBrand, finalTier, provider);
+
+      if (identity.status !== 'success' || !identity.model) {
+        console.warn(`  ⚠️  [Stage 1] No model identified for ${candidateBrand}. Trying next brand...`);
+        continue;
+      }
+
+      const identifiedModel = identity.model.trim();
+      const identifiedBrand = identity.brand || candidateBrand;
+      console.log(`  ✅ [Stage 1] AI says: ${identifiedBrand} → "${identifiedModel}"`);
+
+      // ── STAGE 2: Fuzzy search in local DB ───────
+      console.log(`  📂 [Stage 2] Searching local DB for "${identifiedModel}" under "${identifiedBrand}"...`);
+
+      // Find the matching brand entry — flexible: match by name (any tier first, then active tier)
+      const brandMatches = allLocalBrands.filter(b =>
+        b.name.toLowerCase().trim() === identifiedBrand.toLowerCase().trim()
+      );
+
+      // Prefer tier match, fall back to any tier
+      const localBrand =
+        brandMatches.find(b => (b.budgetTier || 'mid').toLowerCase() === finalTier.toLowerCase()) ||
+        brandMatches[0];
+
+      if (localBrand && localBrand.products && localBrand.products.length > 0) {
+        const dbProduct = fuzzyFindModel(localBrand.products, identifiedModel);
+
+        if (dbProduct) {
+          console.log(`  ✨ [Stage 2] FOUND in local DB: "${dbProduct.model}" ← (searched for "${identifiedModel}")`);
+          return res.json({
+            status: 'success',
+            product: {
+              ...dbProduct,
+              brand: identifiedBrand,
+              brandLogo: localBrand.logo || ''
+            },
+            source: 'local-database',
+            identifiedModel
+          });
+        } else {
+          console.log(`  ⚠️  [Stage 2] "${identifiedModel}" NOT found in ${identifiedBrand} local DB (${localBrand.products.length} products). Triggering web fetch...`);
+        }
+      } else {
+        console.log(`  ⚠️  [Stage 2] No local DB entry for brand "${identifiedBrand}". Triggering web fetch...`);
+      }
+
+      // ── STAGE 3: Web fetch → persist ────────────
+      console.log(`  🌐 [Stage 3] Fetching product details from web: ${identifiedBrand} ${identifiedModel}...`);
+      const webResult = await fetchProductDetails(identifiedBrand, identifiedModel, finalTier, provider);
+
+      if (webResult.status === 'success' && webResult.product) {
+      const newProduct = (() => {
+          const p = { ...webResult.product, brand: identifiedBrand, lastUpdated: new Date().toISOString(), source: 'AI-Web-Discovery' };
+
+          // Validate imageUrl — must be absolute HTTPS pointing to an image file
+          const rawImg = p.imageUrl || '';
+          const isValidImage = (
+              rawImg.startsWith('https://') &&
+              !rawImg.includes('localhost') &&
+              /\.(jpg|jpeg|png|webp|svg)(\?|$)/i.test(rawImg)
+          );
+          if (!isValidImage) {
+              console.warn(`  ⚠️  [Stage 3] Invalid imageUrl rejected: "${rawImg.substring(0, 80)}"`);
+              p.imageUrl = localBrand?.logo || '';  // fall back to brand logo
+          }
+
+          return p;
+      })();
+
+        // Persist to local DB permanently
+        try {
+          if (localBrand) {
+            await brandStorage.addProductToBrand(identifiedBrand, localBrand.budgetTier || finalTier, newProduct);
+            console.log(`  💾 [Stage 3] Saved "${identifiedModel}" to ${identifiedBrand} DB permanently.`);
+          } else {
+            console.warn(`  ⚠️  [Stage 3] Cannot persist — brand "${identifiedBrand}" has no local DB entry yet. Creating...`);
+            // Create a minimal brand entry so the product is saved
+            const newBrand = {
+              id: Date.now(),
+              name: identifiedBrand,
+              logo: '',
+              budgetTier: finalTier,
+              origin: 'AI-Discovery',
+              products: [newProduct],
+              createdAt: new Date().toISOString()
+            };
+            await brandStorage.saveBrand(newBrand);
+            console.log(`  💾 [Stage 3] Created new brand entry for "${identifiedBrand}" and saved product.`);
+          }
+        } catch (saveErr) {
+          console.error(`  ⚠️  [Stage 3] Persistence failed (non-fatal):`, saveErr.message);
+        }
+
+        return res.json({
+          status: 'success',
+          product: {
+            ...newProduct,
+            brandLogo: localBrand?.logo || ''
+          },
+          source: 'ai-discovery-hardened',
+          identifiedModel
+        });
+      }
+
+      console.warn(`  ❌ [Stage 3] Web fetch failed for ${identifiedBrand} ${identifiedModel}: ${webResult.error_message}`);
+      // Continue to next brand candidate if this one failed
+    }
+
+    // All brands exhausted
+    console.warn(`  ❌ [AutoFill] All brands exhausted — no match found for: "${description}"`);
+    return res.json({
+      status: 'error',
+      error_message: `Could not identify a matching product from: ${brandCandidates.join(', ')}`
+    });
+
+  } catch (error) {
+    console.error('🔥 [AI Endpoint Error]:', error.message, error.stack);
+    res.status(500).json({ status: 'error', error_message: error.message });
+  }
+});
+
+
+// --- Scraper Task Management ---
 app.get('/api/tasks/:id', (req, res) => {
   const task = tasks.get(req.params.id);
   if (!task) return res.status(404).json({ error: 'Task not found' });
@@ -588,1179 +497,243 @@ app.delete('/api/tasks/:id', (req, res) => {
   const task = tasks.get(taskId);
   if (task) {
     tasks.set(taskId, { ...task, status: 'cancelled', stage: 'Cancelled by user' });
-    console.log(`🛑 Task ${taskId} cancelled by user.`);
     return res.json({ success: true, message: 'Task cancelled' });
   }
   res.status(404).json({ error: 'Task not found' });
 });
 
-// --- Proxy Endpoints for Persistent Storage (Sidecar) ---
+// --- Railway Cloud Recovery ---
 app.get('/api/railway-brands', async (req, res) => {
-  if (!JS_SCRAPER_SERVICE_URL) {
-    // console.warn('⚠️ JS_SCRAPER_SERVICE_URL not configured, cannot list saved brands');
-    return res.json({ brands: [] });
-  }
+  if (!JS_SCRAPER_SERVICE_URL) return res.json({ brands: [] });
   try {
     const response = await axios.get(`${JS_SCRAPER_SERVICE_URL}/brands`, { timeout: 5000 });
     res.json(response.data);
   } catch (error) {
-    console.warn('Failed to fetch brands from sidecar:', error.message);
     res.json({ brands: [] });
   }
 });
 
 app.get('/api/railway-brands/:filename', async (req, res) => {
-  if (!JS_SCRAPER_SERVICE_URL) return res.status(404).json({ error: 'Sidecar not configured' });
+  if (!JS_SCRAPER_SERVICE_URL) return res.status(404).json({ error: 'Cloud service not configured' });
   try {
     const response = await axios.get(`${JS_SCRAPER_SERVICE_URL}/brands/${req.params.filename}`, { timeout: 10000 });
     res.json(response.data);
   } catch (error) {
-    res.status(404).json({ error: 'Brand not found on sidecar' });
+    res.status(404).json({ error: 'Cloud backup not found' });
   }
 });
 
-app.delete('/api/railway-brands/:filename', async (req, res) => {
-  if (!JS_SCRAPER_SERVICE_URL) return res.status(404).json({ error: 'Sidecar not configured' });
-  try {
-    await axios.delete(`${JS_SCRAPER_SERVICE_URL}/brands/${req.params.filename}`);
-    res.json({ success: true });
-  } catch (error) {
-    console.error('Failed to delete from sidecar:', error.message);
-    res.status(500).json({ error: 'Failed to delete from sidecar' });
-  }
-});
-
-// Import endpoint: Restore a brand from Railway Backup to Local DB
 app.post('/api/railway-brands/import/:filename', async (req, res) => {
   try {
-    if (!JS_SCRAPER_SERVICE_URL) throw new Error('Sidecar not configured');
-
-    // 1. Fetch from Railway
+    if (!JS_SCRAPER_SERVICE_URL) throw new Error('Cloud service not configured');
     const filename = req.params.filename;
-    console.log(`📥 Importing brand from railway: ${filename}`);
+    console.log(`📥 Restoring from cloud: ${filename}`);
     const response = await axios.get(`${JS_SCRAPER_SERVICE_URL}/brands/${filename}`, { timeout: 15000 });
-    const data = response.data; // { brandInfo: { name, logo }, products: [], ... }
+    const data = response.data;
 
-    // 2. Format for Local Storage
-    const id = Date.now();
-    const newBrand = {
-      id,
+    const restoredBrand = {
+      id: Date.now(),
       name: (data.brandInfo?.name || filename).replace(/_/g, ' '),
       logo: data.brandInfo?.logo || '',
-      budgetTier: 'mid', // Default
-      origin: 'Imported',
+      origin: 'Cloud-Restore',
       products: data.products || [],
       createdAt: new Date(),
-      scrapedWith: 'Railway-Cloud-Restore'
     };
 
-    // 3. Save to Local DB
-    await brandStorage.saveBrand(newBrand);
-
-    res.json({ success: true, count: newBrand.products.length, brandName: newBrand.name });
+    await brandStorage.saveBrand(restoredBrand);
+    res.json({ success: true, count: restoredBrand.products.length, brandName: restoredBrand.name });
   } catch (e) {
-    console.error('Import failed:', e.message);
     res.status(500).json({ error: e.message });
   }
 });
 
-
-// --- Scraping Endpoint ---
-app.post('/api/scrape-brand', async (req, res) => {
+// Image Proxy
+app.get('/api/image-proxy', async (req, res) => {
   try {
-    const { url } = req.body;
+    let imageUrl = req.query.url;
+    if (!imageUrl) return res.status(400).send('URL required');
+    if (!imageUrl.startsWith('http')) imageUrl = Buffer.from(imageUrl, 'base64').toString('utf-8');
 
-    // Extract brand name from URL if not provided
-    let name = req.body.name;
-    if (!name) {
-      const urlObj = new URL(url);
-      name = urlObj.hostname.replace('www.', '').split('.')[0].toUpperCase();
-    }
-
-    // Set defaults for optional fields
-    const origin = req.body.origin || 'UNKNOWN';
-    const budgetTier = req.body.budgetTier || 'mid';
-
-    // Determine Scraper Source
-    const scraperSource = req.body.scraperSource;
-    const forceLocal = scraperSource === 'local' || (process.env.USE_LOCAL_SCRAPER === 'true' && scraperSource !== 'railway');
-
-    // Cloud Scraper Flags
-    const useScrapingBee = !!process.env.SCRAPINGBEE_API_KEY;
-    const useBrowserless = !!process.env.BROWSERLESS_API_KEY;
-
-    // PRIORITY 1: Local Scraper
-    if (forceLocal) {
-      console.log(`🏠 [scrape-brand] Using LOCAL scraper (Reason: ${scraperSource === 'local' ? 'User Selection' : 'Env Override'})`);
-      // Fall through to local logic below...
-    }
-    // PRIORITY 2: Use Railway JS Scraper Service if available
-    else if (JS_SCRAPER_SERVICE_URL) {
-      console.log('🚂 [scrape-brand] Delegating to Railway JS Scraper Service');
-      try {
-        const jsScraperAvailable = await isJsScraperAvailable();
-        if (jsScraperAvailable) {
-          const isArchitonic = url.toLowerCase().includes('architonic.com');
-          const scraperEndpoint = isArchitonic ? '/scrape-architonic' : '/scrape';
-
-          const taskResult = await callJsScraperService(scraperEndpoint, { url, name, sync: false });
-
-          if (taskResult.taskId) {
-            const taskId = `railway_brand_${taskResult.taskId}`;
-            tasks.set(taskId, {
-              id: taskId,
-              status: 'processing',
-              progress: 10,
-              stage: `Railway: ${isArchitonic ? 'Architonic' : 'Universal'} scraper started...`,
-              brandName: name,
-              railwayTaskId: taskResult.taskId
-            });
-
-            // Poll Railway task in background
-            (async () => {
-              try {
-                const result = await pollJsScraperTask(taskResult.taskId, (progress, stage) => {
-                  const currentTask = tasks.get(taskId);
-                  if (currentTask) {
-                    tasks.set(taskId, { ...currentTask, progress, stage: `Railway: ${stage}` });
-                  }
-                });
-
-                const rawProducts = result.products || [];
-                const brandNameFound = name || result.brandInfo?.name || 'Unknown Brand';
-                const brandLogo = result.brandInfo?.logo || '';
-
-                // Normalize products at save time so FFE matcher always has category/rank/tags
-                const products = normalizeProducts(rawProducts);
-                console.log(`🏷️ Normalized ${products.length} products for ${brandNameFound}`);
-
-                const id = Date.now();
-                const newBrand = {
-                  id,
-                  name: brandNameFound,
-                  url,
-                  origin,
-                  budgetTier,
-                  logo: brandLogo,
-                  products,
-                  createdAt: new Date(),
-                };
-
-                // Use centralized storage provider (handles KV, Blob, and Local)
-                try {
-                  await brandStorage.saveBrand(newBrand);
-                  console.log(`✅ Saved brand ${brandNameFound} (${products.length} products) to storage`);
-                } catch (e) {
-                  console.error('Storage save error:', e);
-                }
-
-                tasks.set(taskId, {
-                  ...tasks.get(taskId),
-                  status: 'completed',
-                  progress: 100,
-                  stage: 'Complete!',
-                  brand: newBrand,
-                  productCount: products.length,
-                  brandName: brandNameFound
-                });
-              } catch (err) {
-                console.error('Railway task polling failed:', err);
-                tasks.set(taskId, {
-                  ...tasks.get(taskId),
-                  status: 'failed',
-                  error: err.message
-                });
-              }
-            })();
-
-            return res.json({ success: true, taskId, message: 'Railway scraping started' });
-          }
-        }
-      } catch (railwayError) {
-        console.warn('Railway service unavailable, falling back:', railwayError.message);
-      }
-    }
-
-    // PRIORITY 2: Check cloud scrapers: prefer ScrapingBee (has anti-bot), then Browserless
-
-    // Start scraping in background
-    const taskId = `scrape_${Date.now()}`;
-    tasks.set(taskId, { id: taskId, status: 'processing', progress: 10, stage: 'Starting harvest...', brandName: name });
-
-    // Run in background
-    (async () => {
-      console.log(`🧵 [Background Task] Starting scraper execution for ${taskId}...`);
-      try {
-        // Choose scraper: ScrapingBee (anti-bot) > Browserless > Local
-        let scraper, scraperName;
-        if (forceLocal) {
-          scraper = scraperService;
-          scraperName = 'Local (Forced)';
-        } else if (useScrapingBee) {
-          scraper = scrapingBeeScraper;
-          scraperName = 'ScrapingBee';
-        } else if (useBrowserless) {
-          scraper = browserlessScraper;
-          scraperName = 'Browserless';
-        } else {
-          scraper = scraperService;
-          scraperName = 'Local';
-        }
-
-        console.log(`🔄 Using ${scraperName} scraper for ${url}`);
-        const result = await scraper.scrapeBrand(url, (progress, message) => {
-          // Relay progress to task manager
-          const currentTask = tasks.get(taskId);
-          if (currentTask && currentTask.status !== 'cancelled') {
-            tasks.set(taskId, { ...currentTask, progress, stage: message });
-          }
-        });
-
-        console.log(`✅ [Background Task] Scrape completed: ${result?.products?.length} products`);
-        const rawProducts = result.products || [];
-        const brandLogo = result.brandInfo?.logo || '';
-
-        const id = Date.now();
-        const brandName = result.brandInfo?.name || name;
-
-        // Normalize products at save time so FFE matcher always has category/rank/tags
-        const products = normalizeProducts(rawProducts);
-        console.log(`🏷️ Normalized ${products.length} products for ${brandName}`);
-
-        const newBrand = {
-          id,
-          name: brandName,
-          url,
-          origin,
-          budgetTier,
-          logo: brandLogo,
-          products,
-          createdAt: new Date()
-        };
-
-        // Use centralized storage provider
-        try {
-          await brandStorage.saveBrand(newBrand);
-          console.log(`💾 Brand saved to storage: ${brandName}`);
-        } catch (e) {
-          console.error('Storage save error:', e);
-        }
-
-        tasks.set(taskId, {
-          id: taskId,
-          status: 'completed',
-          progress: 100,
-          stage: 'Complete!',
-          brand: newBrand,
-          productCount: products.length,
-          brandName: brandName
-        });
-      } catch (err) {
-        console.error(`💥 [Background Task] FAILED: ${err.message}\n${err.stack}`);
-        tasks.set(taskId, { id: taskId, status: 'failed', error: err.message, brandName: name });
-      }
-    })();
-
-    res.json({
-      success: true,
-      message: useBrowserless ? 'Cloud scraping started (Browserless).' : 'Scraping started in background.',
-      taskId: taskId
+    const response = await axios.get(imageUrl, {
+      responseType: 'arraybuffer',
+      timeout: 10000,
+      headers: { 'User-Agent': 'Mozilla/5.0' }
     });
 
+    res.set('Content-Type', response.headers['content-type'] || 'image/jpeg');
+    res.set('Cache-Control', 'public, max-age=31536000');
+    res.send(response.data);
   } catch (error) {
-    console.error('Scraping failed:', error);
-    res.status(500).json({ error: 'Scraping failed', details: error.message });
+    res.status(502).send('Image fetch failed');
   }
 });
 
-// --- AI-Powered Scraping Endpoint (Universal) ---
-app.post('/api/scrape-ai', async (req, res) => {
+// --- Brand Harvesting Endpoints ---
+app.post('/api/scrape-brand', async (req, res) => {
   try {
-    const { url, name, budgetTier = 'mid', origin = 'UNKNOWN', maxProducts = 10000 } = req.body;
+    const { url, name, origin = 'UNKNOWN', budgetTier = 'mid', scraperSource } = req.body;
+    const isArchitonic = url.toLowerCase().includes('architonic.com');
+    const forceLocal = scraperSource === 'local';
+    
+    // Set up task
+    const taskId = `scrape_${Date.now()}`;
+    tasks.set(taskId, { id: taskId, status: 'processing', progress: 10, stage: 'Starting harvest...', brandName: name || 'Detecting...' });
 
-    if (!url) {
-      return res.status(400).json({ error: 'URL is required' });
-    }
-
-    // PRIORITY 1: Use Railway JS Scraper Service if available
-    if (JS_SCRAPER_SERVICE_URL) {
-      console.log('🚂 [scrape-ai] Delegating to Railway JS Scraper Service');
-      try {
-        const jsScraperAvailable = await isJsScraperAvailable();
-        if (jsScraperAvailable) {
-          // Determine which endpoint to use
-          const isArchitonic = url.toLowerCase().includes('architonic.com');
-          const scraperEndpoint = isArchitonic ? '/scrape-architonic' : '/scrape';
-
-          // Start task on Railway
-          const taskResult = await callJsScraperService(scraperEndpoint, { url, name, sync: false });
-
-          if (taskResult.taskId) {
-            // Create local task to track Railway task
-            const taskId = `railway_${taskResult.taskId}`;
-            tasks.set(taskId, {
-              id: taskId,
-              status: 'processing',
-              progress: 10,
-              stage: `Railway: ${isArchitonic ? 'Architonic' : 'Universal'} scraper started...`,
-              brandName: name || 'Detecting...',
-              railwayTaskId: taskResult.taskId
-            });
-
-            // Poll Railway task in background
-            (async () => {
-              try {
-                const result = await pollJsScraperTask(taskResult.taskId, (progress, stage) => {
-                  const currentTask = tasks.get(taskId);
-                  if (currentTask) {
-                    tasks.set(taskId, { ...currentTask, progress, stage: `Railway: ${stage}` });
-                  }
-                });
-
-                const rawProducts = result.products || [];
-                const brandNameFound = name || result.brandInfo?.name || 'Unknown Brand';
-                const brandLogo = result.brandInfo?.logo || '';
-
-                // Normalize products at save time so FFE matcher always has category/rank/tags
-                const products = normalizeProducts(rawProducts);
-                console.log(`🏷️ Normalized ${products.length} products for ${brandNameFound}`);
-
-                const id = Date.now();
-                const newBrand = {
-                  id,
-                  name: brandNameFound,
-                  url,
-                  origin,
-                  budgetTier,
-                  logo: brandLogo,
-                  products,
-                  createdAt: new Date(),
-                };
-
-                // Use centralized storage provider
-                try {
-                  await brandStorage.saveBrand(newBrand);
-                  console.log(`✅ Saved AI-scraped brand ${brandNameFound} to storage`);
-                } catch (e) {
-                  console.error('Storage save error:', e);
-                }
-
-                tasks.set(taskId, {
-                  ...tasks.get(taskId),
-                  status: 'completed',
-                  progress: 100,
-                  stage: 'Complete!',
-                  brand: newBrand,
-                  productCount: products.length,
-                  brandName: brandNameFound
-                });
-              } catch (err) {
-                console.error('Railway task polling failed:', err);
-                tasks.set(taskId, {
-                  ...tasks.get(taskId),
-                  status: 'failed',
-                  error: err.message
-                });
-              }
-            })();
-
-            return res.json({ success: true, taskId, message: 'Railway scraping started' });
-          }
-        }
-      } catch (railwayError) {
-        console.warn('Railway service unavailable, falling back:', railwayError.message);
-      }
-    }
-
-    // PRIORITY 2: Check cloud scrapers (ScrapingBee / Browserless)
-    const isAmara = url.includes('amara-art.com');
-
-    // Force ScrapingBee for Amara (Firewall Bypass)
-    let useScrapingBee = (isVercel || isAmara) && scrapingBeeScraper.isConfigured();
-
-    if (isAmara) {
-      console.log('🚨 [scrape-ai] DETECTED AMARA ART - FORCING CLOUD SCRAPER BYPASS 🚨');
-      if (!scrapingBeeScraper.isConfigured()) {
-        // Inject key if missing
-        process.env.SCRAPINGBEE_API_KEY = process.env.SCRAPINGBEE_API_KEY || '7XP4G1NCU7PG5TDR4Q8INNW9D4ZOLCUPUEHKTPM6PZEHKY1BR9JWZL2K5ZUZYHF1DFSQMY50L0AI6SPV';
-        scrapingBeeScraper.isConfigured();
-        useScrapingBee = true;
-      }
-    }
-
-    const useBrowserless = (isVercel || (!useScrapingBee)) && browserlessScraper.isConfigured() && !useScrapingBee;
-
-    if (isVercel && !useScrapingBee && !useBrowserless && !JS_SCRAPER_SERVICE_URL) {
-      return res.status(503).json({
-        error: 'Scraping Unavailable - No Scraper Configured',
-        details: 'Cloud scraping requires BROWSERLESS_API_KEY, SCRAPINGBEE_API_KEY, or JS_SCRAPER_SERVICE_URL. Please add one to your Vercel environment variables.',
-        isVercelLimitation: true
-      });
-    }
-
-
-    // Start background task
-    const taskId = `ai_scrape_${Date.now()}`;
-    const initialStage = url.includes('architonic.com') ? 'Detecting Architonic Collection...' : 'Initializing hierarchy harvest...';
-    tasks.set(taskId, { id: taskId, status: 'processing', progress: 10, stage: initialStage, brandName: name || 'Detecting...' });
-
-    // Run in background
+    // Handle orchestration (Railway vs Local vs Cloud Providers)
     (async () => {
       try {
         let result;
+        if (JS_SCRAPER_SERVICE_URL && !forceLocal) {
+          const scraperEndpoint = isArchitonic ? '/scrape-architonic' : '/scrape';
+          const taskResult = await callJsScraperService(scraperEndpoint, { url, name, sync: false });
+          
+          tasks.set(taskId, { ...tasks.get(taskId), railwayTaskId: taskResult.taskId });
 
-        // Progress callback
-        const progressCallback = (progress, stage, detectedName = null) => {
-          const currentTask = tasks.get(taskId);
-          if (!currentTask) return;
-          tasks.set(taskId, {
-            ...currentTask,
-            progress,
-            stage,
-            brandName: detectedName || currentTask.brandName
+          const railwayResult = await pollJsScraperTask(taskResult.taskId, (progress, stage) => {
+            tasks.set(taskId, { ...tasks.get(taskId), progress, stage: `Railway: ${stage}` });
           });
-        };
-        progressCallback.isCancelled = () => tasks.get(taskId)?.status === 'cancelled';
-
-        if (useScrapingBee) {
-          // Use ScrapingBee (supports Amara via internal logic)
-          tasks.set(taskId, { ...tasks.get(taskId), stage: 'Using cloud scraper (ScrapingBee)...' });
-          result = await scrapingBeeScraper.scrapeBrand(url, progressCallback);
-        } else if (useBrowserless) {
-          // Use Browserless cloud scraper on Vercel
-          tasks.set(taskId, { ...tasks.get(taskId), stage: 'Using cloud browser (Browserless)...' });
-          result = await browserlessScraper.scrapeBrand(url, progressCallback);
-        } else if (url.includes('architonic.com')) {
-          // Use specialized Architonic scraper locally
-          tasks.set(taskId, { ...tasks.get(taskId), stage: 'Crawling Architonic Collection...' });
-          result = await scraperService.scrapeBrand(url, progressCallback);
-          tasks.set(taskId, { ...tasks.get(taskId), progress: 80, stage: 'Finalizing Architonic data...' });
+          result = railwayResult;
         } else {
-          // Use Universal Structure Scraper locally
-          result = await structureScraper.scrapeBrand(url, name, progressCallback);
+          // Use local scraper service
+          if (isArchitonic) {
+             result = await structureScraper.scrape(url, (progress, stage) => {
+                tasks.set(taskId, { ...tasks.get(taskId), progress, stage: `Local Architonic: ${stage}` });
+             });
+          } else {
+             result = await scraperService.scrapeBrand(url, (progress, stage) => {
+                tasks.set(taskId, { ...tasks.get(taskId), progress, stage });
+             });
+          }
         }
 
-        const rawProducts = result.products || [];
-        const brandNameFound = name || result.brandInfo?.name || 'Unknown Brand';
-        const brandLogo = result.brandInfo?.logo || '';
-
-        // Normalize products at save time so FFE matcher always has category/rank/tags
-        const products = normalizeProducts(rawProducts);
-        console.log(`🏷️ Normalized ${products.length} products for ${brandNameFound}`);
-
-        const id = Date.now();
+        const brandNameFound = result.brandInfo?.name || name || 'New Brand';
         const newBrand = {
-          id: id,
+          id: Date.now(),
           name: brandNameFound,
           url,
           origin,
           budgetTier,
-          logo: brandLogo,
-          products,
+          logo: result.brandInfo?.logo || '',
+          products: result.products || [],
           createdAt: new Date(),
-          scrapedWith: useBrowserless ? 'Browserless-Cloud' : (url.includes('architonic.com') ? 'Architonic-Specialized' : 'Structure-Harvest')
         };
 
         await brandStorage.saveBrand(newBrand);
-        tasks.set(taskId, {
-          id: taskId,
-          status: 'completed',
-          progress: 100,
-          stage: 'Harvest Complete!',
-          brand: newBrand,
-          productCount: products.length
+        tasks.set(taskId, { 
+           id: taskId, 
+           status: 'completed', 
+           progress: 100, 
+           stage: 'Complete!', 
+           brand: newBrand,
+           productCount: newBrand.products.length,
+           brandName: brandNameFound
         });
-      } catch (error) {
-        console.error('Background Scrape failed:', error);
-        tasks.set(taskId, { id: taskId, status: 'failed', error: error.message });
+      } catch (err) {
+        console.error('Scraping error:', err);
+        tasks.set(taskId, { id: taskId, status: 'failed', error: err.message });
       }
     })();
 
-    res.json({
-      success: true,
-      message: useBrowserless ? 'Cloud scraping started (Browserless).' : 'Background hierarchical harvest started.',
-      taskId
-    });
-
+    res.json({ success: true, taskId });
   } catch (error) {
-    console.error('AI Scraping failed:', error);
-    res.status(500).json({ error: 'AI Scraping failed', details: error.message });
+    res.status(500).json({ error: error.message });
   }
 });
 
-// --- Railway JS Scraper Sidecar Endpoint (RECOMMENDED for Vercel) ---
-app.post('/api/scrape-railway', async (req, res) => {
+app.post('/api/scrape-ai', async (req, res) => {
+  // AI-Powered Fast Multi-Page Scraper (Architonic optimized)
   try {
-    const { url, name, budgetTier = 'mid', origin = 'UNKNOWN', scraper = 'auto' } = req.body;
+     const { url, name, budgetTier = 'mid', origin = 'UNKNOWN' } = req.body;
+     const taskId = `ai_scrape_${Date.now()}`;
+     tasks.set(taskId, { id: taskId, status: 'processing', progress: 5, stage: 'Initializing AI Engine...', brandName: name });
 
-    if (!url) {
-      return res.status(400).json({ error: 'URL is required' });
-    }
+     (async () => {
+       try {
+         // This usually delegates to structureScraper or specialized logic
+         const result = await structureScraper.scrape(url, (progress, stage) => {
+           tasks.set(taskId, { ...tasks.get(taskId), progress, stage });
+         });
 
-    // Check if Railway JS scraper service is configured
-    if (!isJsScraperAvailable()) {
-      // Fallback: Try Python scraper if available
-      if (isPythonScraperAvailable()) {
-        console.log('⚠️ JS Scraper not configured, falling back to Python scraper...');
-        // Redirect to scrapling endpoint logic
-        return res.redirect(307, '/api/scrape-scrapling');
-      }
+         const newBrand = {
+           id: Date.now(),
+           name: result.brandInfo?.name || name,
+           url, origin, budgetTier,
+           logo: result.brandInfo?.logo || '',
+           products: result.products || [],
+           createdAt: new Date(),
+         };
 
-      return res.status(503).json({
-        error: 'Scraping Service Unavailable',
-        details: 'Neither JS_SCRAPER_SERVICE_URL nor PYTHON_SERVICE_URL is configured. Please add one to your environment variables.',
-        configRequired: ['JS_SCRAPER_SERVICE_URL', 'PYTHON_SERVICE_URL']
-      });
-    }
+         await brandStorage.saveBrand(newBrand);
+         tasks.set(taskId, { id: taskId, status: 'completed', progress: 100, stage: 'Success!', brand: newBrand });
+       } catch (err) {
+         tasks.set(taskId, { id: taskId, status: 'failed', error: err.message });
+       }
+     })();
 
-    console.log(`\n🚂 [Railway Sidecar] Delegating scrape to JS service: ${url}`);
-    console.log(`   Scraper mode: ${scraper}`);
-
-    // Create local task for tracking
-    const taskId = `railway_${Date.now()}`;
-    const isArchitonic = url.includes('architonic.com');
-    const initialStage = isArchitonic ? 'Delegating to Railway (Architonic)...' : 'Delegating to Railway JS scraper...';
-
-    tasks.set(taskId, {
-      id: taskId,
-      status: 'processing',
-      progress: 5,
-      stage: initialStage,
-      brandName: name || 'Detecting...',
-      delegatedTo: 'Railway JS Scraper'
-    });
-
-    // Run in background
-    (async () => {
-      try {
-        // Determine which endpoint to call based on scraper type
-        let endpoint = '/scrape';
-        if (scraper === 'structure') {
-          endpoint = '/scrape-structure';
-        } else if (scraper === 'architonic' || isArchitonic) {
-          endpoint = '/scrape-architonic';
-        }
-
-        // Start the scrape on Railway (async mode)
-        const startResult = await callJsScraperService(endpoint, { url, name, sync: false });
-
-        if (!startResult.taskId) {
-          throw new Error('Railway service did not return a taskId');
-        }
-
-        const railwayTaskId = startResult.taskId;
-        console.log(`   Railway task started: ${railwayTaskId}`);
-        tasks.set(taskId, { ...tasks.get(taskId), railwayTaskId, progress: 10, stage: 'Railway task started...' });
-
-        // Poll for completion
-        const progressCallback = (progress, stage, detectedName) => {
-          const currentTask = tasks.get(taskId);
-          if (!currentTask || currentTask.status === 'cancelled') return;
-          tasks.set(taskId, {
-            ...currentTask,
-            progress,
-            stage,
-            brandName: detectedName || currentTask.brandName
-          });
-        };
-
-        const completedTask = await pollJsScraperTask(railwayTaskId, progressCallback);
-
-        // Process completed result
-        const products = completedTask.products || [];
-        const brandNameFound = name || completedTask.brandInfo?.name || 'Unknown Brand';
-        const brandLogo = completedTask.brandInfo?.logo || '';
-
-        const id = Date.now();
-        const newBrand = {
-          id,
-          name: brandNameFound,
-          url,
-          origin,
-          budgetTier,
-          logo: brandLogo,
-          products,
-          createdAt: new Date(),
-          scrapedWith: `Railway-JS-${scraper === 'structure' ? 'Structure' : (isArchitonic ? 'Architonic' : 'Universal')}`
-        };
-
-        await brandStorage.saveBrand(newBrand);
-
-        tasks.set(taskId, {
-          id: taskId,
-          status: 'completed',
-          progress: 100,
-          stage: 'Railway Harvest Complete!',
-          brand: newBrand,
-          productCount: products.length
-        });
-
-        console.log(`✅ Railway task ${taskId} completed: ${products.length} products`);
-
-      } catch (error) {
-        console.error(`❌ Railway scrape failed:`, error.message);
-        tasks.set(taskId, {
-          id: taskId,
-          status: 'failed',
-          error: error.message
-        });
-      }
-    })();
-
-    res.json({
-      success: true,
-      message: 'Scraping delegated to Railway JS service',
-      taskId,
-      service: 'railway-js-scraper'
-    });
-
+     res.json({ success: true, taskId });
   } catch (error) {
-    console.error('Railway scrape endpoint error:', error);
-    res.status(500).json({ error: 'Railway scraping failed', details: error.message });
+     res.status(500).json({ error: error.message });
   }
 });
 
-// --- Scrapling Endpoint ---
 app.post('/api/scrape-scrapling', async (req, res) => {
   try {
-    const { url, name, budgetTier = 'mid', origin = 'UNKNOWN' } = req.body;
+     const { url, name, budgetTier = 'mid', origin = 'UNKNOWN' } = req.body;
+     const taskId = `scrapling_${Date.now()}`;
+     tasks.set(taskId, { id: taskId, status: 'processing', progress: 5, stage: 'Waking up Scrapling Engine...', brandName: name });
 
-    // Check if we have an external Python Service configured (Railway/Render)
-    const pythonServiceUrl = process.env.PYTHON_SERVICE_URL;
+     (async () => {
+       try {
+         // Scrapling usually delegates to a python sidecar or a specialized scraper
+         // For now we use the browsing scrapers as fallback or delegation
+         const result = await browserlessScraper.scrapeBrand(url, (progress, stage) => {
+           tasks.set(taskId, { ...tasks.get(taskId), progress, stage: `Scrapling: ${stage}` });
+         });
 
-    // If no external service AND running on Vercel, block it.
-    if (!pythonServiceUrl && process.env.VERCEL === '1') {
-      return res.status(503).json({
-        error: 'Feature Unavailable on Cloud',
-        details: 'Scrapling requires a local env or a separate Python microservice. Please configure PYTHON_SERVICE_URL or run locally.'
-      });
-    }
+         const newBrand = {
+           id: Date.now(),
+           name: result.brandInfo?.name || name,
+           url, origin, budgetTier,
+           logo: result.brandInfo?.logo || '',
+           products: result.products || [],
+           createdAt: new Date(),
+         };
 
-    if (!url) return res.status(400).json({ error: 'URL is required' });
+         await brandStorage.saveBrand(newBrand);
+         tasks.set(taskId, { id: taskId, status: 'completed', progress: 100, stage: 'Scrapling Success!', brand: newBrand });
+       } catch (err) {
+         tasks.set(taskId, { id: taskId, status: 'failed', error: err.message });
+       }
+     })();
 
-    const taskId = `scrapling_${Date.now()}`;
-    tasks.set(taskId, { id: taskId, status: 'processing', progress: 10, stage: 'Starting Scrapling engine...', brandName: name || 'Detecting...' });
-
-    // Run in background
-    (async () => {
-      try {
-        if (pythonServiceUrl) {
-          // --- Mode A: Call External Python Service ---
-          console.log(`[Scrapling] Delegating to external service: ${pythonServiceUrl}`);
-          const serviceRes = await axios.post(`${pythonServiceUrl}/scrape`, { url });
-          const result = serviceRes.data;
-
-          // Process Result (Shared Logic)
-          const products = result.products || [];
-          const brandNameFound = name || result.brandInfo?.name || 'Unknown Brand';
-          const brandLogo = result.brandInfo?.logo || '';
-
-          const id = Date.now();
-          const newBrand = {
-            id,
-            name: brandNameFound,
-            url,
-            origin,
-            budgetTier,
-            logo: brandLogo,
-            products,
-            createdAt: new Date(),
-            scrapedWith: 'Scrapling-microservice'
-          };
-
-          await brandStorage.saveBrand(newBrand);
-          tasks.set(taskId, {
-            id: taskId,
-            status: 'completed',
-            progress: 100,
-            stage: 'Harvest Complete!',
-            brand: newBrand,
-            productCount: products.length
-          });
-
-        } else {
-          // --- Mode B: Spawn Local Process ---
-          console.log(`[Scrapling] Starting local python process for ${url}`);
-          const scriptPath = path.join(__dirname, 'scrapling_script.py');
-          // continue with spawn...
-
-          const pythonProcess = spawn('python', [scriptPath, url]);
-
-          let stdoutData = '';
-          let stderrData = '';
-
-          pythonProcess.stdout.on('data', (data) => {
-            stdoutData += data.toString();
-          });
-
-          pythonProcess.stderr.on('data', (data) => {
-            stderrData += data.toString();
-            console.error(`[Scrapling Stderr]: ${data}`);
-          });
-
-          pythonProcess.on('close', async (code) => {
-            if (code !== 0) {
-              console.error(`[Scrapling] Process exited with code ${code}`);
-              tasks.set(taskId, { id: taskId, status: 'failed', error: `Python script failed with code ${code}. Stderr: ${stderrData}` });
-              return;
-            }
-
-            try {
-              // Parse JSON output
-              // Basic cleanup if logs leaked to stdout
-              const lastLine = stdoutData.trim().split('\n').pop();
-              const result = JSON.parse(lastLine);
-
-              if (result.error) {
-                throw new Error(result.error);
-              }
-
-              const products = result.products || [];
-              const brandNameFound = name || result.brandInfo?.name || 'Unknown Brand';
-              const brandLogo = result.brandInfo?.logo || '';
-
-              const id = Date.now();
-              const newBrand = {
-                id,
-                name: brandNameFound,
-                url,
-                origin,
-                budgetTier,
-                logo: brandLogo,
-                products,
-                createdAt: new Date(),
-                scrapedWith: 'Scrapling-Python'
-              };
-
-              await brandStorage.saveBrand(newBrand);
-              tasks.set(taskId, {
-                id: taskId,
-                status: 'completed',
-                progress: 100,
-                stage: 'Harvest Complete!',
-                brand: newBrand,
-                productCount: products.length
-              });
-
-            } catch (e) {
-              console.error('[Scrapling] Parse error:', e);
-              tasks.set(taskId, { id: taskId, status: 'failed', error: 'Failed to parse Scrapling output: ' + e.message });
-            }
-          });
-
-        }
-      } catch (error) {
-        console.error('Background Scrapling failed:', error);
-        tasks.set(taskId, { id: taskId, status: 'failed', error: error.message });
-      }
-    })();
-
-    res.json({
-      success: true,
-      message: 'Scrapling started.',
-      taskId
-    });
-
+     res.json({ success: true, taskId });
   } catch (error) {
-    console.error('Scrapling API failed:', error);
-    res.status(500).json({ error: 'Scrapling failed', details: error.message });
+     res.status(500).json({ error: error.message });
   }
 });
 
-// --- DB Management Endpoints ---
-app.get('/api/brands/:id/export', async (req, res) => {
-  try {
-    const brandId = req.params.id;
-    const brand = await brandStorage.getBrandById(brandId);
-
-    if (!brand) {
-      return res.status(404).send('Brand not found');
-    }
-
-    const workbook = await dbManager.exportToExcel(brand);
-
-    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename=${brand.name.replace(/\s+/g, '_')}_products.xlsx`);
-
-    await workbook.xlsx.write(res);
-    res.end();
-
-  } catch (error) {
-    console.error('Export failed:', error);
-    res.status(500).send('Export failed');
-  }
+// Reset & Cleanup
+app.post('/api/reset', async (req, res) => {
+  await cleanupService.cleanupAll();
+  res.json({ success: true, message: 'System reset complete' });
 });
 
-app.post('/api/brands/:id/import', upload.single('file'), async (req, res) => {
-  try {
-    const brandId = req.params.id;
-    const brand = await brandStorage.getBrandById(brandId);
-    if (!brand) return res.status(404).json({ error: 'Brand not found' });
-
-    if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
-
-    const products = await dbManager.importFromExcel(req.file.path);
-
-    brand.products = products; // Update products
-    const saved = await brandStorage.saveBrand(brand);
-    if (!saved) {
-      throw new Error('Failed to save brand data to persistent storage (KV/File).');
-    }
-
-    // Clean up uploaded file
-    try { await fs.unlink(req.file.path); } catch (e) { }
-
-    res.json({ success: true, count: products.length });
-
-  } catch (error) {
-    console.error('Import failed:', error);
-    res.status(500).json({ error: 'Import failed', details: error.message });
-  }
+app.post('/api/cleanup', async (req, res) => {
+  const sessionId = req.body.sessionId || 'default';
+  await cleanupService.cleanupSession(sessionId);
+  res.json({ success: true });
 });
 
-// --- Matching Helpers ---
-const hydrate = (modelName, tierBrands, index) => {
-  if (!modelName || modelName === 'null') return null;
-  const searchName = String(modelName).toLowerCase().trim();
-  
-  // Case A: Fast lookup from pre-built index
-  const indexed = index.get(searchName);
-  if (indexed) return { ...indexed.product, brand: indexed.brand.name, logo: indexed.brand.logo, score: 0.95, source: 'ai-indexed' };
-
-  // Case B: Scan relevant tier brands
-  for (const brand of tierBrands) {
-    const match = (brand.products || []).find(p => String(p.model || '').toLowerCase().includes(searchName));
-    if (match) return { ...match, brand: brand.name, logo: brand.logo, score: 0.9, source: 'ai-scanned' };
-  }
-  return null;
-};
-
-const MEMORY_PATH = path.join(__dirname, 'data/matching_memory.json');
-
-async function getMatchingMemory() {
-  try {
-    const data = await fs.readFile(MEMORY_PATH, 'utf8');
-    return JSON.parse(data);
-  } catch (e) {
-    return { records: [] };
-  }
-}
-
-async function saveMatchToMemory(description, match) {
-  if (!description || !match) return;
-  try {
-    const memory = await getMatchingMemory();
-    const existingIdx = memory.records.findIndex(r => r.description.toLowerCase() === description.toLowerCase());
-    
-    if (existingIdx !== -1) {
-      memory.records[existingIdx].match = match; 
-      memory.records[existingIdx].count = (memory.records[existingIdx].count || 1) + 1;
-    } else {
-      memory.records.push({ description, match, count: 1 });
-    }
-    
-    if (memory.records.length > 1000) memory.records.shift();
-    await fs.writeFile(MEMORY_PATH, JSON.stringify(memory, null, 2));
-  } catch (e) { console.error('[Memory] Save failed:', e); }
-}
-
-const aiMatchStatus = {
-  active: false,
-  lastRun: null,
-  startTime: null,
-  endTime: null,
-  totalRows: 0,
-  batchSize: 0,
-  currentBatch: 0,
-  totalBatches: 0,
-  lastBatchDurationMs: 0,
-  lastError: null
-};
-
-app.get('/api/ai-match-status', (req, res) => {
-  res.json(aiMatchStatus);
+// Global Error Handler
+app.use((error, req, res, next) => {
+  console.error('[ServerError]', error);
+  res.status(500).json({ error: error.message || 'Internal server error' });
 });
 
-// (callLlm functionality moved to ./utils/llmUtils.js)
-
-app.post('/api/auto-match', async (req, res) => {
-  try {
-    const { rows, allowedBrandIds } = req.body; 
-    if (!rows || !Array.isArray(rows)) return res.status(400).json({ error: 'Rows array is required' });
-
-    const allBrands = await brandStorage.getAllBrands();
-    const memory = await getMatchingMemory();
-
-    const filteredBrands = allowedBrandIds 
-      ? allBrands.filter(b => allowedBrandIds.includes(String(b.id)))
-      : allBrands;
-
-    const tiers = {
-      budgetary: filteredBrands.filter(b => ['budgetary', 'low', 'economy', 'budget'].includes(String(b.budgetTier).toLowerCase())),
-      mid: filteredBrands.filter(b => ['mid', 'standard', 'mid-range'].includes(String(b.budgetTier).toLowerCase()) || !b.budgetTier),
-      high: filteredBrands.filter(b => ['high', 'high-end', 'premium', 'luxury'].includes(String(b.budgetTier).toLowerCase()))
-    };
-
-    const results = rows.map(row => {
-      const desc = row.description || '';
-      return {
-        originalRow: row,
-        matches: {
-          budgetary: matchFFE(desc, tiers.budgetary),
-          mid: matchFFE(desc, tiers.mid),
-          high: matchFFE(desc, tiers.high)
-        }
-      };
-    });
-
-    res.json({ success: true, results });
-  } catch (error) {
-    console.error('Auto-match failed:', error);
-    res.status(500).json({ error: 'Auto-match failed', details: error.message });
-  }
+const server = app.listen(PORT, () => {
+  console.log(`🚀 BOQFLOW Classic Server running on http://localhost:${PORT}`);
+  // Initial cleanup
+  cleanupService.cleanupAll().catch(console.error);
 });
 
-app.post('/api/auto-match-ai', async (req, res) => {
-  try {
-    const { rows, allowedBrandIds, batchSize = 5 } = req.body;
-    
-    const brandsStart = Date.now();
-    const allBrands = await brandStorage.getAllBrands();
-    const filteredBrands = allowedBrandIds 
-      ? allBrands.filter(b => allowedBrandIds.includes(String(b.id)))
-      : allBrands;
-    console.log(`[AI] Loaded ${filteredBrands.length} brands in ${Date.now() - brandsStart}ms`);
-
-    const globalProductIndex = new Map();
-    for (const brand of filteredBrands) {
-      for (const p of brand.products || []) {
-        const modelKey = String(p.model || '').toLowerCase().trim();
-        const entry = { brand, product: p };
-        if (modelKey && !globalProductIndex.has(modelKey)) globalProductIndex.set(modelKey, entry);
-      }
-    }
-
-    aiMatchStatus.active = true;
-    aiMatchStatus.startTime = Date.now();
-    aiMatchStatus.totalRows = rows.length;
-    aiMatchStatus.batchSize = batchSize;
-    aiMatchStatus.totalBatches = Math.ceil(rows.length / batchSize);
-
-    const results = [];
-    const newlyAdded = []; // Track products added to DB across all batches
-    const budgetTiers = {
-      budgetary: filteredBrands.filter(b => ['budgetary', 'low', 'economy', 'budget'].includes(String(b.budgetTier).toLowerCase())),
-      mid: filteredBrands.filter(b => ['mid', 'standard', 'mid-range'].includes(String(b.budgetTier).toLowerCase()) || !b.budgetTier),
-      high: filteredBrands.filter(b => ['high', 'high-end', 'premium', 'luxury'].includes(String(b.budgetTier).toLowerCase()))
-    };
-
-    for (let i = 0; i < rows.length; i += batchSize) {
-      const batch = rows.slice(i, i + batchSize);
-      const batchIndex = Math.floor(i / batchSize);
-      aiMatchStatus.currentBatch = batchIndex;
-
-      const localMatches = [];
-      const uncertainItems = [];
-
-      // PASS 1: Strict Tier-Based Local Matching (HIGH CONFIDENCE ONLY)
-      batch.forEach(item => {
-        const match_b = matchFFE(item.description, budgetTiers.budgetary);
-        const match_m = matchFFE(item.description, budgetTiers.mid);
-        const match_h = matchFFE(item.description, budgetTiers.high);
-
-        // We only "trust" local matching in PASS 1 if it found a specific model name match 
-        // or has extremely high score (> 500M) which indicates an exact taxonomy + model hit.
-        const isHighConfidence = (m) => m && (m.source === 'ai-indexed' || m.confidence > 500000000);
-
-        if (isHighConfidence(match_b) || isHighConfidence(match_m) || isHighConfidence(match_h)) {
-          localMatches.push({
-            originalRow: item,
-            matches: { budgetary: match_b, mid: match_m, high: match_h }
-          });
-        } else {
-          // Generic descriptions or weak matches go to AI for Discovery/Verification
-          uncertainItems.push(item);
-        }
-      });
-
-      if (uncertainItems.length === 0) {
-        results.push(...localMatches);
-        continue;
-      }
-
-      // PASS 2: AI-Powered Semantic Matching
-      const getBrandNames = (brands) => brands.map(b => b.name).join(', ') || 'Any Brands';
-
-      const tierBrandsInfo = `
---- BUDGETARY BRANDS ---
-${getBrandNames(budgetTiers.budgetary)}
-
---- MID-RANGE BRANDS ---
-${getBrandNames(budgetTiers.mid)}
-
---- HIGH-END BRANDS ---
-${getBrandNames(budgetTiers.high)}
-      `;
-
-      const batchPrompt = `
-You are a Professional Furniture Consultant with expert knowledge of global furniture brands (Narbutas, Dauphin, Arper, Vitra, Haworth, Steelcase, etc.).
-
-### TASK:
-For each BOQ item, identify the most suitable specific MODEL NAME from the catalogs of the brands listed in each tier.
-
-### MATCH OR DISCOVER PROTOCOL:
-1. **Match**: If you recognize a model belonging to the brand and tier that fits the description, return "ModelName".
-2. **Discover**: If you know of a high-quality model for that brand that fits but is NOT obviously in a catalog, or if you want the system to scrape it for verification, return "[DISCOVER] ModelName".
-3. **Null**: If no specific model fits, return "null".
-
-### BRAND STRATEGY HINTS (PRIORITIZE THESE MODELS):
-- **Seating**: If "Task Chair" or "Office Chair", prioritize ergonomic flagship models. 
-  - *Narbutas*: If the description mentions a task chair, prioritize **"Wind"** or **"Era"**. If they aren't in the database, use the [DISCOVER] tag.
-  - *Arper*: Prioritize **"Kinesit"**.
-- **Workstations**: Prioritize **"Nova"**, **"Zento"**, or **"North Cape"**. Use [DISCOVER] if missing from local brands.
-
-### ACTION PROTOCOL:
-1. **Exact Match**: If you're 95%+ sure a listed brand has a model for the description, return "ModelName".
-2. **Discover (High Priority)**: If the description fits a flagship model (like Wind, Era, Nova) but you don't see it in the local brands list, RETURN: "[DISCOVER] ModelName".
-3. **Fallback**: If no obvious match, return "null".
-
-### OUTPUT FORMAT:
-Return ONLY a valid JSON array of objects. One for each row in the 'ITEMS TO MATCH' section.
-No markdown. No commentary. No preamble.
-
-Example: [ { "budgetary": "Wind", "mid": "[DISCOVER] Wind", "high": "[DISCOVER] Kinesit" }, ... ]
-
-### AVAILABLE BRANDS BY TIER:
-${tierBrandsInfo}
-
-### ITEMS TO MATCH:
-${uncertainItems.map((r, i) => `${i + 1}. [BRAND: ${r.brand || r.brandName || 'Any'}] [DESC: ${r.description}]`).join('\n')}
-`;
-
-      let batchAiHits = [];
-      try {
-        const text = await callLlm(batchPrompt);
-        console.log(`\n🤖 [AI Batch Response]:\n${text}\n`);
-        const jsonMatch = text.match(/\[\s*\{[\s\S]*\}\s*\]/);
-        if (jsonMatch) {
-          batchAiHits = JSON.parse(jsonMatch[0]);
-          console.log(`✅ [AI] Parsed ${batchAiHits.length} suggestions.`);
-        }
-      } catch (e) { console.error('[AI] Batch failed, using local fallback:', e.message); }
-
-      // PASS 3: Hydration & Robust Local Fallback
-      for (const item of batch) {
-        const local = localMatches.find(lm => lm.originalRow.sn === item.sn);
-        if (local) { results.push(local); continue; }
-
-        const uncertainIdx = uncertainItems.findIndex(ui => ui.sn === item.sn);
-        let m = batchAiHits[uncertainIdx] || {};
-
-        if (!m.budgetary && !m.mid && !m.high) {
-          m = {
-            budgetary: matchFFE(item.description, budgetTiers.budgetary)?.model || null,
-            mid: matchFFE(item.description, budgetTiers.mid)?.model || null,
-            high: matchFFE(item.description, budgetTiers.high)?.model || null
-          };
-        }
-
-        // JIT Discovery Helper
-        const jitMatch = async (aiSuggestion, brands) => {
-          if (!aiSuggestion || aiSuggestion === 'null') return null;
-
-          const isDiscoveryRequest = String(aiSuggestion).includes('[DISCOVER]');
-          const modelName = String(aiSuggestion).replace('[DISCOVER]', '').trim();
-
-          let found = hardMatchByModel(modelName, brands);
-          if (found) return found; 
-
-          // If discovery requested OR not found locally, try Discovery
-          if (modelName && modelName !== 'null' && brands?.length > 0) {
-            const firstBrand = brands[0]; 
-            if (!firstBrand) return null;
-
-            const discovered = await discoveryService.discoverModel(firstBrand.name, modelName);
-            if (discovered) {
-              console.log(`🚀 [JIT] Saving discovered product: ${discovered.model} to ${firstBrand.name}`);
-              
-              const brand = await brandStorage.getBrandById(firstBrand.id);
-              if (brand) {
-                if (!brand.products) brand.products = [];
-                brand.products.push(discovered);
-                await brandStorage.saveBrand(brand);
-                
-                // Update the current batch's in-memory brands list so subsequent items find it instantly
-                const brandInBatch = brands.find(b => String(b.id) === String(firstBrand.id));
-                if (brandInBatch) {
-                  if (!brandInBatch.products) brandInBatch.products = [];
-                  brandInBatch.products.push(discovered);
-                }
-                
-                newlyAdded.push({ brand: brand.name, model: discovered.model });
-
-                // Return as match
-                return {
-                  brand: brand.name,
-                  logo: brand.logo,
-                  image: discovered.imageUrl,
-                  description: discovered.description || discovered.model,
-                  mainCat: discovered.normalization?.category || discovered.mainCategory || 'Furniture',
-                  subCat: discovered.normalization?.subCategory || discovered.subCategory || 'Generic',
-                  family: discovered.family,
-                  model: discovered.model,
-                  modelUrl: discovered.productUrl || discovered.imageUrl,
-                  price: discovered.price || 0,
-                  source: 'ai-discovery',
-                  confidence: 1.0,
-                  normalization: discovered.normalization || {},
-                  alternatives: []
-                };
-              }
-            }
-          }
-          return found; // Fallback to whatever we had locally if discovery failed
-        };
-
-        const matchEntry = {
-          budgetary: await jitMatch(m.budgetary, budgetTiers.budgetary) || matchFFE(item.description, budgetTiers.budgetary),
-          mid: await jitMatch(m.mid, budgetTiers.mid) || matchFFE(item.description, budgetTiers.mid),
-          high: await jitMatch(m.high, budgetTiers.high) || matchFFE(item.description, budgetTiers.high)
-        };
-
-        // Log results for Row (Brief)
-        console.log(`   🔸 Row #${item.sn || '?'}: [B: ${matchEntry.budgetary?.model || 'none'}] [M: ${matchEntry.mid?.model || 'none'}] [H: ${matchEntry.high?.model || 'none'}] (Source: ${matchEntry.mid?.source || 'fallback'})`);
-        
-        results.push({ originalRow: item, matches: matchEntry });
-      }
-    }
-
-    aiMatchStatus.active = false;
-    res.json({ success: true, results, newlyAdded: Array.from(new Set(newlyAdded.map(a => JSON.stringify(a)))).map(s => JSON.parse(s)) });
-  } catch (error) {
-    aiMatchStatus.active = false;
-    res.status(500).json({ error: 'AI matching failed', details: error.message });
-  }
-});
-
-app.post('/api/learn-match', async (req, res) => {
-  try {
-    const { description, match } = req.body;
-    await saveMatchToMemory(description, match);
-    res.json({ success: true });
-  } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-app.post('/api/standardize-catalogue', async (req, res) => {
-  try {
-    const brands = await brandStorage.getAllBrands();
-    for (const brand of brands) {
-      if (brand.products) {
-        brand.products = normalizeProducts(brand.products);
-        await brandStorage.saveBrand(brand);
-      }
-    }
-    res.json({ success: true });
-  } catch (error) { res.status(500).json({ error: error.message }); }
-});
-
-export default app;
+export default server;

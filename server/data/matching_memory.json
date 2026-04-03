@@ -39,14 +39,14 @@
     {
       "description": "STAFF CHAIR",
       "match": {
-        "brand": "NARBUTAS",
-        "logo": "https://media.architonic.com/m-on/10001981/logo/narbutas_logo_c1db0dc7.jpeg?width=320&height=120&fit=inside&crop=true&format=webp&quality=90",
-        "model": "D-Chair Task Chair #20793293",
-        "description": "Office chairs. Together with our long-time partners, the Italian studio Baldanzi & Novelli designers, we have developed a number of successful furniture collections for",
-        "image": "https://media.architonic.com/m-on/10001981/product/20793293/narbutas_d-chair-task-chair_35e52521.jpeg?format=webp&quality=75",
+        "brand": "Ottimo Furniture",
+        "logo": "https://ottimouae.com/wp-content/uploads/2022/08/ottimo-logo-retina.png",
+        "model": "Sling Chair",
+        "description": "Sling Chair",
+        "image": "https://ottimouae.com/wp-content/uploads/2022/08/sling-HB-280x280.jpg",
         "price": 0
       },
-      "count": 1
+      "count": 2
     },
     {
       "description": "STAFF WORKSTATION 2 80 X 160 NO PARTITION",
@@ -63,11 +63,23 @@
     {
       "description": "HEAD OF CHAIR",
       "match": {
-        "brand": "Arper",
-        "logo": "https://media.architonic.com/m-on/3100610/logo/arper_logo_2bbd6b5f.jpeg?width=320&height=120&fit=inside&crop=true&format=webp&quality=90",
-        "model": "Parentesit freestanding #1372321",
-        "description": "Privacy screen. Arper extends the functionality of Parentesit to include freestanding models for increased privacy and comfort. Architectural in scale, these modules",
-        "image": "https://media.architonic.com/m-on/3100610/product/1372321/arper_parentesit-freestanding_6541f9f4.jpeg?format=webp&quality=75",
+        "brand": "NARBUTAS",
+        "logo": "https://media.architonic.com/m-on/10001981/logo/narbutas_logo_c1db0dc7.jpeg?width=320&height=120&fit=inside&crop=true&format=webp&quality=90",
+        "model": "Wind",
+        "description": "Task chair family featuring ergonomic mesh backrest, adjustable lumbar support, and multiple base options (task, high-swivel, visitor, and 4-leg). Designed for dynamic, modern office spaces.",
+        "image": "https://www.narbutas.com/wp-content/uploads/2023/09/WIND_task-chair_narbutas.jpg",
+        "price": 0
+      },
+      "count": 5
+    },
+    {
+      "description": "HEAD OF GUEST CHAIR 2",
+      "match": {
+        "brand": "Narbutas",
+        "logo": "https://media.architonic.com/m-on/10001981/logo/narbutas_logo_91d832b9.jpeg",
+        "model": "Polyton-O Chairs",
+        "description": "Chairs. POLYTONE-O chairs have been designed by Orlandini Design. These 100% plastic compact chairs featuring thin lines and ergonomic shape will look stylish",
+        "image": "https://media.architonic.com/m-on/10001981/product/20727046/narbutas_polyton-o-chairs_10556c6c.jpeg?format=webp&quality=75",
         "price": 0
       },
       "count": 1

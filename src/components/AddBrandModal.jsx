@@ -2,9 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import styles from '../styles/AddBrandModal.module.css';
 import { useScraping } from '../context/ScrapingContext';
 
-import { getApiBase } from '../utils/apiBase';
-
-const API_BASE = getApiBase();
+const API_BASE = window.location.hostname === 'localhost' ? 'http://localhost:3001' : '';
 
 export default function AddBrandModal({ isOpen, onClose, onBrandAdded, onBrandUpdated }) {
     const [name, setName] = useState('');

@@ -12,7 +12,6 @@
   backdrop-filter: blur(4px);
 }
 
-/* ... */
 .modal {
   background: var(--bg-secondary);
   width: 600px;

@@ -1,11 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import AddBrandModal from './AddBrandModal';
 import CostingModal from './CostingModal';
+import SpecialistModal from './SpecialistModal';
+import AutoFillSelectModal from './AutoFillSelectModal';
 import styles from '../styles/MultiBudgetModal.module.css';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
-import { ScrapingProvider } from '../context/ScrapingContext';
 import { useCompanyProfile } from '../context/CompanyContext';
 import { fixArabic, hasArabic, loadArabicFont } from '../utils/arabicPdfUtils';
 
@@ -15,14 +16,23 @@ const API_BASE = getApiBase();
 
 const getFullUrl = (url) => {
     if (!url) return '';
-    // Proxy Architonic and Amara Art images to bypass hotlink protection/CORS
-    if (url.includes('amara-art.com') || url.includes('architonic.com')) {
-        // Base64 encode the URL to bypass client-side antivirus/firewall URL inspection
-        return `${API_BASE}/api/image-proxy?url=${encodeURIComponent(btoa(url))}`;
+    let normalizedUrl = url;
+    if (url.startsWith('//')) {
+        normalizedUrl = 'https:' + url;
     }
-    if (url.startsWith('http') || url.startsWith('data:')) return url;
-    return `${API_BASE}${url}`;
+    // Proxy Architonic and Amara Art images to bypass hotlink protection/CORS
+    if (normalizedUrl.includes('amara-art.com') || normalizedUrl.includes('architonic.com')) {
+        // Base64 encode the URL to bypass client-side antivirus/firewall URL inspection
+        try {
+            return `${API_BASE}/api/image-proxy?url=${encodeURIComponent(btoa(normalizedUrl))}`;
+        } catch (e) {
+            return `${API_BASE}/api/image-proxy?url=${encodeURIComponent(normalizedUrl)}`;
+        }
+    }
+    if (normalizedUrl.startsWith('http') || normalizedUrl.startsWith('data:')) return normalizedUrl;
+    return `${API_BASE}${normalizedUrl}`;
 };
+
 
 export default function MultiBudgetModal({ isOpen, onClose, originalTables, onApplyFlow }) {
     const profile = useCompanyProfile();
@@ -30,6 +40,11 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
     const [activeTier, setActiveTier] = useState('mid'); // budgetary, mid, high
     const [previewImage, setPreviewImage] = useState(null); // URL of image to preview
     const [previewLogo, setPreviewLogo] = useState(null); // URL of brand logo for preview
+    const [isAutoFilling, setIsAutoFilling] = useState(false);
+    const [isAutoFillSelectOpen, setIsAutoFillSelectOpen] = useState(false);
+    const [specialistData, setSpecialistData] = useState(null); // Data for SpecialistModal
+    const [aiProgress, setAiProgress] = useState({ current: 0, total: 0 });
+    const [aiBatchResult, setAiBatchResult] = useState(null); // { success, error, newlyAdded }
     // State stores data + mode PER TIER
     // Structure: { mid: { rows: [...], mode: 'boq'|'new' }, ... }
     const [tierData, setTierData] = useState({
@@ -37,16 +52,15 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
         mid: null,
         high: null
     });
+    // Keep a ref that always reflects the latest tierData so async functions
+    // can read it after React's state batching (avoids stale closure)
+    const tierDataRef = useRef(tierData);
+    useEffect(() => { tierDataRef.current = tierData; }, [tierData]);
 
     // Brand System
     const [brands, setBrands] = useState([]);
     const [isAddBrandOpen, setIsAddBrandOpen] = useState(false);
     const [openBrandDropdown, setOpenBrandDropdown] = useState(null); // row index of open dropdown
-    const [isAutoMatching, setIsAutoMatching] = useState(false);
-    const [matchProgress, setMatchProgress] = useState(null); // { current, total } | null
-    const [matchStages, setMatchStages] = useState([]); // Array of stage objects
-    const [popSettingsOpen, setPopSettingsOpen] = useState(false);
-    const [selectedBrandIds, setSelectedBrandIds] = useState(new Set());
 
     // Costing System
     const [isCostingOpen, setIsCostingOpen] = useState(false);
@@ -132,55 +146,46 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
         return header.findIndex(h => regex.test(h));
     };
 
-    const handleGenerateFromBoq = () => {
-        if (!originalTables || originalTables.length === 0) {
-            console.warn("No original tables to generate from.");
-            return;
-        }
-
+    const buildBoqRows = () => {
+        if (!originalTables || originalTables.length === 0) return [];
         const sourceTable = originalTables[0];
         const header = sourceTable.header || [];
-
         const idxDesc = findCol(header, /description|desc/i);
         const idxQty = findCol(header, /qty|quantity/i);
         const idxUnit = findCol(header, /unit|uom/i);
         const idxRate = findCol(header, /rate|price/i);
         const idxTotal = findCol(header, /total|amount/i);
-
-        const newRows = sourceTable.rows.map((row, i) => {
+        return sourceTable.rows.map((row, i) => {
             const getVal = (idx) => idx !== -1 ? (row.cells[idx]?.value || '') : '';
             const imageCell = row.cells.find(c => c.image || (c.images && c.images.length > 0));
             let imgSrc = imageCell ? (imageCell.image || imageCell.images[0]) : null;
             if (imgSrc && typeof imgSrc === 'object' && imgSrc.url) imgSrc = imgSrc.url;
-            // Ensure proper path format
             if (imgSrc && !imgSrc.startsWith('http') && !imgSrc.startsWith('/')) imgSrc = '/' + imgSrc;
-
             return {
                 id: Date.now() + i,
                 sn: i + 1,
                 imageRef: imgSrc,
-                brandImage: '',
-                brandDesc: '',
+                brandImage: '', brandDesc: '',
                 description: getVal(idxDesc) || (idxDesc === -1 ? row.cells[1]?.value : ''),
                 qty: getVal(idxQty),
                 unit: getVal(idxUnit),
                 rate: getVal(idxRate),
                 amount: getVal(idxTotal),
-
-                // Dropdown States
-                selectedBrand: '',
-                selectedMainCat: '',
-                selectedSubCat: '',
-                selectedFamily: '',
-                selectedModel: ''
+                selectedBrand: '', selectedMainCat: '', selectedSubCat: '', selectedFamily: '', selectedModel: ''
             };
         });
+    };
 
-        // Update ONLY active tier with BOQ mode
+    const handleGenerateFromBoq = () => {
+        const newRows = buildBoqRows();
+        if (!newRows.length) { console.warn("No original tables to generate from."); return []; }
+        // Seed ALL three tiers simultaneously with identical BOQ rows
         setTierData(prev => ({
-            ...prev,
-            [activeTier]: { rows: newRows, mode: 'boq' }
+            budgetary: { rows: newRows.map(r => ({ ...r, id: r.id + 0 })), mode: 'boq' },
+            mid:       { rows: newRows.map(r => ({ ...r, id: r.id + 100000 })), mode: 'boq' },
+            high:      { rows: newRows.map(r => ({ ...r, id: r.id + 200000 })), mode: 'boq' }
         }));
+        return newRows;
     };
 
     const handleCreateNewBoq = () => {
@@ -199,350 +204,6 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
         }));
     };
 
-    const handleAutoMatch = async (mode = 'algorithm') => {
-        if (!originalTables || originalTables.length === 0) {
-            alert("No BOQ data found to auto-populate. Please upload a BOQ first.");
-            return;
-        }
-
-        const sourceTable = originalTables[0];
-        const header = sourceTable.header || [];
-        const idxDesc = findCol(header, /description|desc/i);
-        const idxQty = findCol(header, /qty|quantity/i);
-        const idxUnit = findCol(header, /unit|uom/i);
-        const getVal = (idx, origRow) => idx !== -1 ? (origRow.cells[idx]?.value || '') : '';
-
-        const tenderRows = sourceTable.rows.map(row => ({
-            description: idxDesc !== -1 ? (row.cells[idxDesc]?.value || '') : (row.cells[1]?.value || '')
-        }));
-
-        setIsAutoMatching(true);
-        setMatchProgress({ current: 0, total: tenderRows.length, stage: 'Initializing...' });
-        
-        // Initialize progress stages
-        const stages = [
-            { id: 'init', text: 'Initializing matching process', detail: 'Preparing data and catalogs', status: 'active' },
-            { id: 'preparing', text: 'Preparing table structure', detail: 'Setting up rows for all tiers', status: 'pending' },
-            { id: 'processing', text: 'Processing descriptions', detail: `0/${tenderRows.length} items matched`, status: 'pending' },
-            { id: 'finalizing', text: 'Finalizing results', detail: 'Applying matches and calculating totals', status: 'pending' }
-        ];
-        setMatchStages(stages);
-        
-        setPopSettingsOpen(false); // Close settings box immediately
-
-        try {
-            const endpoint = (mode === 'gemini' || mode === 'nvidia') ? '/api/auto-match-ai' : '/api/auto-match';
-            const allowedBrandIds = Array.from(selectedBrandIds);
-            const batchSize = mode === 'gemini' ? 5 : 10; // Larger batches for algorithm mode
-
-            // Stage 1: Complete initialization
-            setMatchStages(prev => prev.map(s => 
-                s.id === 'init' ? { ...s, status: 'completed' } : 
-                s.id === 'preparing' ? { ...s, status: 'active' } : s
-            ));
-
-            // 1. Pre-initialize the empty rows for all tiers so the user sees the table structure
-            const initialTierData = { ...tierData };
-            ['budgetary', 'mid', 'high'].forEach(t => {
-                if (!initialTierData[t]) {
-                    initialTierData[t] = {
-                        mode: 'boq',
-                        rows: sourceTable.rows.map((origRow, i) => {
-                            const imageCell = origRow.cells.find(c => c.image || (c.images && c.images.length > 0));
-                            let imgSrc = imageCell ? (imageCell.image || imageCell.images[0]) : null;
-                            if (imgSrc && typeof imgSrc === 'object' && imgSrc.url) imgSrc = imgSrc.url;
-                            if (imgSrc && !imgSrc.startsWith('http') && !imgSrc.startsWith('/')) imgSrc = '/' + imgSrc;
-                            
-                            return {
-                                id: Date.now() + i + t,
-                                sn: i + 1,
-                                imageRef: imgSrc,
-                                description: tenderRows[i].description,
-                                qty: getVal(idxQty, origRow),
-                                unit: getVal(idxUnit, origRow),
-                                rate: '0.00',
-                                amount: 0,
-                                selectedBrand: '',
-                                brandLogo: '',
-                                brandImage: '',
-                                brandDesc: '',
-                                isMatching: true // Progress indicator for row
-                            };
-                        })
-                    };
-                }
-            });
-            setTierData(initialTierData);
-
-            // Stage 2: Complete preparation, start processing
-            setMatchStages(prev => prev.map(s => 
-                s.id === 'preparing' ? { ...s, status: 'completed' } : 
-                s.id === 'processing' ? { ...s, status: 'active' } : s
-            ));
-
-            // 2. Process in batches for better performance and stability
-            let processedCount = 0;
-            for (let batchStart = 0; batchStart < tenderRows.length; batchStart += batchSize) {
-                const batchEnd = Math.min(batchStart + batchSize, tenderRows.length);
-                const batch = tenderRows.slice(batchStart, batchEnd);
-                
-                setMatchProgress({ 
-                    current: processedCount, 
-                    total: tenderRows.length, 
-                    stage: `Processing batch ${Math.floor(batchStart/batchSize) + 1}/${Math.ceil(tenderRows.length/batchSize)}...` 
-                });
-
-                // Update processing stage detail
-                setMatchStages(prev => prev.map(s => 
-                    s.id === 'processing' ? { 
-                        ...s, 
-                        detail: `${processedCount}/${tenderRows.length} items matched` 
-                    } : s
-                ));
-
-                // Call API for batch
-                const response = await fetch(`${API_BASE}${endpoint}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ 
-                        rows: batch,
-                        allowedBrandIds: allowedBrandIds.length > 0 ? allowedBrandIds : null,
-                        batchSize: batchSize
-                    })
-                });
-                
-                const data = await response.json();
-                if (data.success && data.results) {
-                    // Gemini can succeed but still return null matches if it couldn't select exact model names.
-                    // In that case, fall back to the in-app algorithm for this batch.
-                    if (mode === 'gemini') {
-                        const allNullMatches = data.results.every((r) => {
-                            const m = r?.matches || {};
-                            return !m?.budgetary && !m?.mid && !m?.high;
-                        });
-
-                        if (allNullMatches) {
-                            try {
-                                const algoRes = await fetch(`${API_BASE}/api/auto-match`, {
-                                    method: 'POST',
-                                    headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({
-                                        rows: batch,
-                                        allowedBrandIds: allowedBrandIds.length > 0 ? allowedBrandIds : null
-                                    })
-                                });
-
-                                const algoData = await algoRes.json();
-                                if (algoData?.success && algoData.results) {
-                                    setTierData(prev => {
-                                        const updated = { ...prev };
-                                        algoData.results.forEach((result, batchIdx) => {
-                                            const rowIndex = batchStart + batchIdx;
-                                            const matchResult = result.matches;
-
-                                            ['budgetary', 'mid', 'high'].forEach(tierName => {
-                                                const match = matchResult[tierName];
-                                                const rows = [...updated[tierName].rows];
-                                                const qty = parseFloat(rows[rowIndex].qty || 0);
-                                                const rate = match?.price ? parseFloat(match.price) : 0;
-
-                                                rows[rowIndex] = {
-                                                    ...rows[rowIndex],
-                                                    isMatching: false,
-                                                    selectedBrand: match?.brand || '',
-                                                    brandLogo: match?.logo || '',
-                                                    brandImage: match?.image || '',
-                                                    brandDesc: match?.description || '',
-                                                    selectedMainCat: match?.mainCat || '',
-                                                    selectedSubCat: match?.subCat || '',
-                                                    selectedFamily: match?.family || '',
-                                                    selectedModel: match?.model || '',
-                                                    selectedModelUrl: match?.modelUrl || match?.image || '',
-                                                    rate: rate > 0 ? rate.toFixed(2) : '0.00',
-                                                    amount: qty * rate,
-                                                    basePrice: rate,
-                                                    matchScore: match?.score || 0,
-                                                    matchSource: match?.source || '',
-                                                    matchAlternatives: match?.alternatives || [],
-                                                };
-                                                updated[tierName] = { ...updated[tierName], rows };
-                                            });
-                                        });
-                                        return updated;
-                                    });
-
-                                    processedCount += batch.length;
-                                    continue;
-                                }
-                            } catch (e) {
-                                console.warn('Gemini batch all-null fallback failed:', e?.message || e);
-                            }
-                        }
-                    }
-
-                    // Update UI for each result in the batch
-                    setTierData(prev => {
-                        const updated = { ...prev };
-                        data.results.forEach((result, batchIdx) => {
-                            const rowIndex = batchStart + batchIdx;
-                            const matchResult = result.matches;
-
-                            ['budgetary', 'mid', 'high'].forEach(tierName => {
-                                const match = matchResult[tierName];
-                                const rows = [...updated[tierName].rows];
-                                const qty = parseFloat(rows[rowIndex].qty || 0);
-                                const rate = match?.price ? parseFloat(match.price) : 0;
-
-                                rows[rowIndex] = {
-                                    ...rows[rowIndex],
-                                    isMatching: false,
-                                    selectedBrand: match?.brand || '',
-                                    brandLogo: match?.logo || '',
-                                    brandImage: match?.image || '',
-                                    brandDesc: match?.description || '',
-                                    selectedMainCat: match?.mainCat || '',
-                                    selectedSubCat: match?.subCat || '',
-                                    selectedFamily: match?.family || '',
-                                    selectedModel: match?.model || '',
-                                    selectedModelUrl: match?.modelUrl || match?.image || '',
-                                    rate: rate > 0 ? rate.toFixed(2) : '0.00',
-                                    amount: qty * rate,
-                                    basePrice: rate,
-                                    matchScore: match?.score || 0,
-                                    matchSource: match?.source || '',
-                                    matchAlternatives: match?.alternatives || [],
-                                };
-                                updated[tierName] = { ...updated[tierName], rows };
-                            });
-                        });
-                        return updated;
-                    });
-                    processedCount += batch.length;
-                } else {
-                    console.error('Batch failed:', data);
-                    // If AI (gemini/ernie) fails for a batch, gracefully fall back
-                    // to the in-app algorithm so the user still gets filled matches.
-                    if (mode === 'gemini') {
-                        try {
-                            const algoRes = await fetch(`${API_BASE}/api/auto-match`, {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({
-                                    rows: batch,
-                                    allowedBrandIds: allowedBrandIds.length > 0 ? allowedBrandIds : null
-                                })
-                            });
-
-                            const algoData = await algoRes.json();
-                            if (algoData?.success && algoData.results) {
-                                setTierData(prev => {
-                                    const updated = { ...prev };
-                                    algoData.results.forEach((result, batchIdx) => {
-                                        const rowIndex = batchStart + batchIdx;
-                                        const matchResult = result.matches;
-
-                                        ['budgetary', 'mid', 'high'].forEach(tierName => {
-                                            const match = matchResult[tierName];
-                                            const rows = [...updated[tierName].rows];
-                                            const qty = parseFloat(rows[rowIndex].qty || 0);
-                                            const rate = match?.price ? parseFloat(match.price) : 0;
-
-                                            rows[rowIndex] = {
-                                                ...rows[rowIndex],
-                                                isMatching: false,
-                                                selectedBrand: match?.brand || '',
-                                                brandLogo: match?.logo || '',
-                                                brandImage: match?.image || '',
-                                                brandDesc: match?.description || '',
-                                                selectedMainCat: match?.mainCat || '',
-                                                selectedSubCat: match?.subCat || '',
-                                                selectedFamily: match?.family || '',
-                                                selectedModel: match?.model || '',
-                                                selectedModelUrl: match?.modelUrl || match?.image || '',
-                                                rate: rate > 0 ? rate.toFixed(2) : '0.00',
-                                                amount: qty * rate,
-                                                basePrice: rate,
-                                                matchScore: match?.score || 0,
-                                                matchSource: match?.source || '',
-                                                matchAlternatives: match?.alternatives || [],
-                                            };
-                                            updated[tierName] = { ...updated[tierName], rows };
-                                        });
-                                    });
-                                    return updated;
-                                });
-
-                                processedCount += batch.length;
-                                continue;
-                            }
-                        } catch (fallbackError) {
-                            console.warn('Gemini batch fallback failed:', fallbackError?.message || fallbackError);
-                        }
-                    }
-
-                    // Mark failed rows and update stage
-                    setMatchStages(prev => prev.map(s =>
-                        s.id === 'processing' ? { ...s, status: 'error', detail: 'Some batches failed - continuing...' } : s
-                    ));
-
-                    setTierData(prev => {
-                        const updated = { ...prev };
-                        for (let batchIdx = 0; batchIdx < batch.length; batchIdx++) {
-                            const rowIndex = batchStart + batchIdx;
-                            ['budgetary', 'mid', 'high'].forEach(tierName => {
-                                const rows = [...updated[tierName].rows];
-                                rows[rowIndex] = {
-                                    ...rows[rowIndex],
-                                    isMatching: false,
-                                    matchError: true
-                                };
-                                updated[tierName] = { ...updated[tierName], rows };
-                            });
-                        }
-                        return updated;
-                    });
-                    processedCount += batch.length; // Still count as processed
-                }
-            }
-
-            // Stage 3: Complete processing, start finalizing
-            setMatchStages(prev => prev.map(s => 
-                s.id === 'processing' ? { ...s, status: 'completed' } : 
-                s.id === 'finalizing' ? { ...s, status: 'active' } : s
-            ));
-
-            // After all batches done
-            setActiveTier('budgetary');
-            setMatchProgress({ current: tenderRows.length, total: tenderRows.length, stage: 'Complete!' });
-            
-            // Stage 4: Complete finalizing
-            setMatchStages(prev => prev.map(s => 
-                s.id === 'finalizing' ? { ...s, status: 'completed', detail: 'All matches applied successfully' } : s
-            ));
-        } catch (error) {
-            console.error('Auto-match failed:', error);
-            setMatchStages(prev => prev.map(s => 
-                s.status === 'active' ? { ...s, status: 'error', detail: error.message } : s
-            ));
-            alert(`Auto-match encountered an error: ${error.message}`);
-            setMatchProgress({ current: 0, total: tenderRows.length, stage: 'Failed', error: error.message });
-        } finally {
-            // Keep progress visible for a moment to show completion
-            setTimeout(() => {
-                setIsAutoMatching(false);
-                setMatchProgress(null);
-                setMatchStages([]);
-            }, 3000);
-        }
-    };
-
-    const toggleBrand = (id) => {
-        const newSet = new Set(selectedBrandIds);
-        if (newSet.has(String(id))) newSet.delete(String(id));
-        else newSet.add(String(id));
-        setSelectedBrandIds(newSet);
-    };
-
     const handleAddBrand = () => {
         setIsAddBrandOpen(true);
     };
@@ -552,8 +213,8 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
     };
 
     const getUniqueValues = (items, keyPath) => {
-        return [...new Set(items.map(i => {
-            // Support dot notation for nested keys (e.g., 'normalization.category')
+        if (!items || items.length === 0) return null;
+        const results = [...new Set(items.map(i => {
             const parts = keyPath.split('.');
             let val = i;
             for (const part of parts) {
@@ -561,6 +222,207 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
             }
             return val;
         }).filter(Boolean))];
+        return results.length > 0 ? results : null;
+    };
+
+    const handleAutoFillAI = () => {
+        // Ensure ALL tiers have rows before opening modal
+        const anyTierHasRows = ['budgetary', 'mid', 'high'].some(k => tierData[k]?.rows?.length > 0);
+        if (!anyTierHasRows) {
+            const rows = buildBoqRows();
+            if (!rows.length) { console.warn("No data available to auto-fill."); return; }
+            setTierData({
+                budgetary: { rows: rows.map(r => ({ ...r, id: r.id + 0 })), mode: 'boq' },
+                mid:       { rows: rows.map(r => ({ ...r, id: r.id + 100000 })), mode: 'boq' },
+                high:      { rows: rows.map(r => ({ ...r, id: r.id + 200000 })), mode: 'boq' }
+            });
+        } else {
+            // Only seed tiers that are still empty
+            const rows = buildBoqRows();
+            setTierData(prev => ({
+                budgetary: prev.budgetary?.rows?.length ? prev.budgetary : { rows: rows.map(r => ({ ...r, id: r.id + 0 })), mode: 'boq' },
+                mid:       prev.mid?.rows?.length       ? prev.mid       : { rows: rows.map(r => ({ ...r, id: r.id + 100000 })), mode: 'boq' },
+                high:      prev.high?.rows?.length      ? prev.high      : { rows: rows.map(r => ({ ...r, id: r.id + 200000 })), mode: 'boq' }
+            }));
+        }
+        setIsAutoFillSelectOpen(true);
+    };
+
+    const executeAutoFillAI = async (selectedBrands, selectedEngine) => {
+        setIsAutoFillSelectOpen(false);
+        setIsAutoFilling(true);
+        setAiBatchResult(null);
+
+        // Detect if a row is a table header or BOQ section divider
+        // IMPORTANT: Only explicit column keywords or "HEAD/GROUP/SECTION OF" patterns.
+        // Do NOT use ALL-CAPS heuristic — real BOQ items like "STAFF CHAIR" are ALL CAPS too.
+        const isHeader = (desc) => {
+            if (!desc || desc.trim() === '') return true;
+            const normalized = desc.trim().toLowerCase();
+
+            // 1. Exact column-header keywords (stand-alone labels only)
+            const exactHeaders = ['item', 'description', 'desc', 'quantity', 'qty', 'unit', 'uom',
+                'rate', 'price', 'total', 'amount', 's.n.', 'sn', 'sr.no', 'sr no', 'id',
+                'ref', 'area', 'specification', 'specifications', 'remarks', 'location',
+                'description and area', 'description & area'];
+            if (exactHeaders.some(kw => normalized === kw || normalized.startsWith(kw + ' '))) return true;
+
+            // 2. "GROUP OF ..." / "SECTION OF ..." / "CATEGORY OF ..." prefix patterns
+            // NOTE: "HEAD OF" is intentionally excluded — in furniture BOQs, "HEAD OF CHAIR",
+            // "HEAD OF DESK", "HEAD OF GUEST CHAIR" are real products for the department head.
+            if (/^(group|type|section|category|list)\s+of\s/i.test(normalized)) return true;
+
+            return false;
+        };
+
+        // Group selected brands by their DB budgetTier
+        const brandsByTier = { budgetary: [], mid: [], high: [] };
+        for (const brandName of selectedBrands) {
+            const dbEntry = brands.find(b => b.name === brandName);
+            const t = (dbEntry?.budgetTier || 'mid').toLowerCase();
+            const key = (t === 'high' || t === 'premium') ? 'high' : t === 'budgetary' ? 'budgetary' : 'mid';
+            brandsByTier[key].push(brandName);
+        }
+
+        // Build per-tier working row arrays from the ref (latest state)
+        const tierKeys = ['budgetary', 'mid', 'high'].filter(k => brandsByTier[k].length > 0 && tierDataRef.current[k]?.rows?.length > 0);
+        if (tierKeys.length === 0) {
+            setIsAutoFilling(false);
+            return;
+        }
+
+        // Use the first active tier's rows as the "master" row sequence
+        // All tiers should have the same number of rows (seeded from same BOQ)
+        const masterRows = tierDataRef.current[tierKeys[0]].rows;
+        const rowCount = masterRows.length;
+
+        // Per-tier local mutable row arrays
+        const tierRows = {};
+        for (const k of tierKeys) {
+            tierRows[k] = [...(tierDataRef.current[k]?.rows || [])];
+        }
+
+        // Count workable rows (skip headers and already-done)
+        const workableCount = masterRows.filter(r => !isHeader(r.description) && r.aiStatus !== 'success').length;
+        let processed = 0;
+        setAiProgress({ current: 0, total: workableCount * tierKeys.length });
+
+        let totalSuccess = 0;
+        let totalError = 0;
+        let totalNew = 0;
+
+        // ── ROW-FIRST SEQUENTIAL LOOP ────────────────────────────────────────────
+        // Process row 0, then row 1, then row 2 etc. — in ORDER.
+        // For EACH row, ALL active tiers fire their AI call simultaneously (parallel).
+        // This gives sequential visual feedback (rows light up top-to-bottom)
+        // while keeping parallel speed (3 tiers per row at once).
+        for (let i = 0; i < rowCount; i++) {
+            const masterRow = masterRows[i];
+
+            // Skip headers in all tiers uniformly
+            if (isHeader(masterRow.description)) {
+                for (const k of tierKeys) {
+                    tierRows[k][i] = { ...tierRows[k][i], aiStatus: 'skipped' };
+                    setTierData(prev => ({ ...prev, [k]: { ...prev[k], rows: [...tierRows[k]] } }));
+                }
+                continue;
+            }
+
+            // Skip rows already matched
+            if (masterRow.aiStatus === 'success') continue;
+
+            // Mark all tiers' current row as "processing" simultaneously
+            for (const k of tierKeys) {
+                tierRows[k][i] = { ...tierRows[k][i], aiStatus: 'processing' };
+                setTierData(prev => ({ ...prev, [k]: { ...prev[k], rows: [...tierRows[k]] } }));
+            }
+
+            // Fire all tier requests for this row IN PARALLEL with 30s timeout
+            await Promise.all(tierKeys.map(async (k) => {
+                const row = tierRows[k][i];
+                const sizeContext = [row.qty && `Qty: ${row.qty}`, row.unit && `Unit: ${row.unit}`].filter(Boolean).join(', ');
+                const enrichedDesc = sizeContext ? `${row.description} | ${sizeContext}` : row.description;
+
+                try {
+                    const controller = new AbortController();
+                    const timeout = setTimeout(() => controller.abort(), 30000); // 30s timeout
+
+                    const response = await fetch(`${API_BASE}/api/auto-match-ai`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        signal: controller.signal,
+                        body: JSON.stringify({
+                            description: enrichedDesc,
+                            tier: k,
+                            availableBrands: brandsByTier[k],
+                            provider: selectedEngine
+                        })
+                    });
+                    clearTimeout(timeout);
+
+                    if (!response.ok && response.status !== 404) throw new Error(`HTTP ${response.status}`);
+                    const result = await response.json();
+
+                    if (result.status === 'success' && result.product) {
+                        const match = result.product;
+                        const matchedBrandName = match.brand || '';
+                        const localBrandEntry = brands.find(b => b.name.toLowerCase().trim() === matchedBrandName.toLowerCase().trim());
+                        const resolvedLogo = localBrandEntry?.logo || '';
+                        if (result.source === 'ai-discovery-hardened') totalNew++;
+
+                        tierRows[k][i] = {
+                            ...tierRows[k][i],
+                            selectedBrand: matchedBrandName,
+                            selectedMainCat: match.mainCategory,
+                            selectedSubCat: String(match.subCategory || ''),
+                            selectedFamily: String(match.family || ''),
+                            selectedModel: match.model,
+                            selectedModelUrl: match.productUrl,
+                            brandDesc: match.description,
+                            brandImage: match.imageUrl,
+                            brandLogo: resolvedLogo,
+                            aiStatus: 'success',
+                            aiResult: result
+                        };
+                        totalSuccess++;
+                    } else {
+                        tierRows[k][i] = { ...tierRows[k][i], aiStatus: 'error', aiError: result.error_message || 'No match found' };
+                        totalError++;
+                    }
+                } catch (error) {
+                    console.error(`[AI] Row ${i} tier ${k} failed:`, error);
+                    const msg = error.name === 'AbortError' ? 'Timeout (30s)' : error.message;
+                    tierRows[k][i] = { ...tierRows[k][i], aiStatus: 'error', aiError: msg };
+                    totalError++;
+                }
+
+                // Live update this tier's row
+                setTierData(prev => ({ ...prev, [k]: { ...prev[k], rows: [...tierRows[k]] } }));
+                processed++;
+                setAiProgress({ current: processed, total: workableCount * tierKeys.length });
+            }));
+
+            await new Promise(r => setTimeout(r, 150)); // brief pause between rows
+        }
+        // ── END ROW LOOP ─────────────────────────────────────────────────────────
+
+        setIsAutoFilling(false);
+        setAiProgress({});
+        setAiBatchResult({ success: totalSuccess, error: totalError, newlyAdded: totalNew });
+        fetchBrands();
+    };
+
+
+    // Allow re-running AI on a single error row
+    const handleRetryRow = async (rowIndex, selectedBrands, selectedEngine) => {
+        // Reset error state then re-queue just this row by temporarily triggering a mini-batch
+        setTierData(prev => {
+            const tier = prev[activeTier];
+            if (!tier) return prev;
+            const newRows = [...tier.rows];
+            newRows[rowIndex] = { ...newRows[rowIndex], aiStatus: null, aiError: null };
+            return { ...prev, [activeTier]: { ...tier, rows: newRows } };
+        });
     };
 
     const handleCellChange = (rowIndex, field, value) => {
@@ -651,23 +513,6 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                         row.rate = basePrice.toFixed(2);
                         row.basePrice = basePrice;
                         if (!row.unit) row.unit = 'Nos';
-
-                        // LEARNING SYSTEM: Feed the algorithm with this confirmed match
-                        fetch(`${API_BASE}/api/learn-match`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                description: row.tenderDescription || row.description,
-                                match: {
-                                    brand: row.selectedBrand,
-                                    logo: row.brandLogo,
-                                    model: product.model,
-                                    description: product.description,
-                                    image: product.imageUrl,
-                                    price: product.price
-                                }
-                            })
-                        }).catch(e => console.error('Learning feedback failed:', e));
                     }
                 }
             } else {
@@ -708,7 +553,7 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
         });
     };
 
-    // Clear all auto-matched data from a single row
+    // Clear all manual selection data from a single row
     const handleClearRowMatch = (rowIndex) => {
         setTierData(prev => {
             const tier = prev[activeTier];
@@ -719,51 +564,8 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                 selectedBrand: '', brandLogo: '', brandImage: '', brandDesc: '',
                 selectedMainCat: '', selectedSubCat: '', selectedFamily: '',
                 selectedModel: '', selectedModelUrl: '',
-                rate: '0.00', basePrice: 0, amount: 0,
-                matchScore: null, matchSource: null, matchAlternatives: [],
+                rate: '0.00', basePrice: 0, amount: 0
             };
-            return { ...prev, [activeTier]: { ...tier, rows: newRows } };
-        });
-    };
-
-    // Rotate to the next alternative match for a row (cycles through alternatives endlessly)
-    const handleNextAlternative = (rowIndex) => {
-        setTierData(prev => {
-            const tier = prev[activeTier];
-            if (!tier) return prev;
-            const newRows = [...tier.rows];
-            const row = { ...newRows[rowIndex] };
-            const alts = row.matchAlternatives;
-            if (!alts || alts.length === 0) return prev;
-
-            // Save current primary back as the last alternative, pick next from front
-            const currentAsPrimary = {
-                brand: row.selectedBrand, logo: row.brandLogo, image: row.brandImage,
-                description: row.brandDesc, model: row.selectedModel,
-                modelUrl: row.selectedModelUrl, price: row.basePrice,
-                score: row.matchScore, source: row.matchSource,
-                mainCat: row.selectedMainCat, subCat: row.selectedSubCat, family: row.selectedFamily,
-            };
-            const nextMatch = alts[0];
-            row.matchAlternatives = [...alts.slice(1), currentAsPrimary];
-
-            row.selectedBrand = nextMatch.brand || '';
-            row.brandLogo = nextMatch.logo || '';
-            row.brandImage = nextMatch.image || '';
-            row.brandDesc = nextMatch.description || '';
-            row.selectedModel = nextMatch.model || '';
-            row.selectedModelUrl = nextMatch.modelUrl || nextMatch.image || '';
-            row.selectedMainCat = nextMatch.mainCat || '';
-            row.selectedSubCat = nextMatch.subCat || '';
-            row.selectedFamily = nextMatch.family || '';
-            row.matchScore = nextMatch.score;
-            row.matchSource = nextMatch.source;
-            const rate = nextMatch.price ? parseFloat(nextMatch.price) : 0;
-            row.rate = rate > 0 ? rate.toFixed(2) : '0.00';
-            row.basePrice = rate;
-            row.amount = parseFloat(row.qty || 0) * rate;
-
-            newRows[rowIndex] = row;
             return { ...prev, [activeTier]: { ...tier, rows: newRows } };
         });
     };
@@ -2191,20 +1993,39 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                         const brandProducts = activeBrand?.products || [];
 
                         // Filter Logic using Standardized Normalization (with Fallbacks)
-                        const mainCats = getUniqueValues(brandProducts, 'normalization.category') || getUniqueValues(brandProducts, 'mainCategory');
-                        const subCats = getUniqueValues(brandProducts.filter(p => (p.normalization?.category || p.mainCategory) === row.selectedMainCat), 'normalization.subCategory') || 
-                                       getUniqueValues(brandProducts.filter(p => (p.normalization?.category || p.mainCategory) === row.selectedMainCat), 'subCategory');
+                        let mainCats = getUniqueValues(brandProducts, 'normalization.category');
+                        if (!mainCats || mainCats.length === 0) {
+                            mainCats = getUniqueValues(brandProducts, 'mainCategory');
+                        }
+
+                        let matchingByMain = brandProducts.filter(p => (p.normalization?.category || p.mainCategory) === row.selectedMainCat);
+                        let subCats = getUniqueValues(matchingByMain, 'normalization.subCategory');
+                        if (!subCats || subCats.length === 0) {
+                            subCats = getUniqueValues(matchingByMain, 'subCategory');
+                        }
                         
                         const families = getUniqueValues(brandProducts.filter(p => 
                             (p.normalization?.category || p.mainCategory) === row.selectedMainCat && 
                             (p.normalization?.subCategory || p.subCategory) === row.selectedSubCat
                         ), 'family');
 
-                        const rawModels = brandProducts.filter(p => 
+                        const allRawModels = brandProducts.filter(p => 
                             (p.normalization?.category || p.mainCategory) === row.selectedMainCat && 
                             (p.normalization?.subCategory || p.subCategory) === row.selectedSubCat && 
                             p.family === row.selectedFamily
                         );
+
+                        // De-duplicate based on unique identifier (URL or Image) to prevent React key crashes
+                        const rawModels = [];
+                        const seenUids = new Set();
+                        allRawModels.forEach(p => {
+                            const uid = p.productUrl || p.imageUrl || `id_${p.id || Math.random()}`;
+                            if (!seenUids.has(uid)) {
+                                seenUids.add(uid);
+                                rawModels.push(p);
+                            }
+                        });
+
                         const modelGroups = {};
                         rawModels.forEach(p => {
                             if (!modelGroups[p.model]) modelGroups[p.model] = [];
@@ -2216,29 +2037,62 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                             if (items.length > 1) {
                                 // Add each variant with a snippet of description or unique ID
                                 items.forEach((item, i) => {
+                                    const catSnippet = item.subCategory || item.mainCategory || 'Misc';
                                     const snippet = item.description ? item.description.substring(0, 25) + '...' : `Variant ${i + 1}`;
-                                    // Use productUrl as unique ID, fallback to imageUrl if missing (common in Excel imports)
                                     const uniqueVal = item.productUrl || item.imageUrl || `model_${modelName}_${i}`;
                                     modelOptions.push({
                                         value: uniqueVal,
-                                        label: `${modelName} (${snippet})`,
+                                        label: `[${catSnippet}] ${modelName} (${snippet})`,
                                         rawModel: modelName
                                     });
                                 });
                             } else {
                                 const item = items[0];
+                                const catSnippet = item.subCategory || item.mainCategory || 'Misc';
                                 const uniqueVal = item.productUrl || item.imageUrl || `model_${modelName}`;
                                 modelOptions.push({
                                     value: uniqueVal,
-                                    label: modelName,
+                                    label: `[${catSnippet}] ${modelName}`,
                                     rawModel: modelName
                                 });
                             }
                         });
 
+                        const rowStatusClass = row.aiStatus === 'processing' ? styles.aiPulse :
+                                               row.aiStatus === 'success' ? styles.aiGlow :
+                                               row.aiStatus === 'error' ? styles.aiErrorBorder : '';
+
                         return (
-                            <tr key={row.id}>
-                                <td>{row.sn}</td>
+                            <tr key={row.id} className={rowStatusClass}>
+                                <td>
+                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+                                        {row.sn}
+                                        {row.aiStatus === 'success' && row.aiResult && (
+                                            <button
+                                                className={styles.specialistBtn}
+                                                onClick={() => setSpecialistData(row.aiResult)}
+                                                title="View Specialist Reasoning"
+                                            >
+                                                ✨
+                                            </button>
+                                        )}
+                                        {row.aiStatus === 'error' && (
+                                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
+                                                <span className={styles.aiErrorBadge} title={row.aiError}>✗ AI Failed</span>
+                                                <button
+                                                    className={styles.retryBtn}
+                                                    title={`Retry: ${row.aiError}`}
+                                                    onClick={() => handleRetryRow(rows.indexOf(row))}
+                                                >
+                                                    ↻ retry
+                                                </button>
+                                            </div>
+                                        )}
+                                        {row.aiStatus === 'processing' && (
+                                            <span className={styles.aiProcessingBadge}>⏳</span>
+                                        )}
+                                    </div>
+                                </td>
 
                                 {/* Ref Image (BOQ Only) */}
                                 {isBoqMode && (
@@ -2276,69 +2130,39 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                                 {/* Brand Image */}
                                 <td>
                                     <div className={styles.brandImageCell}>
-                                        {row.isMatching ? (
-                                            <div className={styles.aiRowLoading}>
-                                                <div className={styles.aiThinkingSmall}>🧠</div>
-                                                <div className={styles.aiThinkingText}>Matching...</div>
-                                                <div className={styles.rowProgressBar}>
-                                                    <div className={styles.rowProgressFill} />
-                                                </div>
+                                        {/* Brand Logo Badge */}
+                                        {row.brandLogo && (
+                                            <div className={styles.brandLogoBadge}>
+                                                <img
+                                                    src={getFullUrl(row.brandLogo)}
+                                                    alt=""
+                                                    className={styles.badgeLogo}
+                                                    style={{ objectFit: 'contain', background: 'white', borderRadius: '2px' }}
+                                                    onError={(e) => { e.target.style.display = 'none'; }}
+                                                />
                                             </div>
+                                        )}
+
+                                        {/* Product Image */}
+                                        {row.brandImage ? (
+                                            <img
+                                                src={getFullUrl(row.brandImage)}
+                                                alt="brand"
+                                                className={styles.tableImg}
+                                                onClick={() => {
+                                                    setPreviewImage(getFullUrl(row.brandImage));
+                                                    setPreviewLogo(getFullUrl(row.brandLogo));
+                                                }}
+                                            />
                                         ) : (
-                                            <>
-                                                {/* Brand Logo Badge */}
-                                                {row.brandLogo && (
-                                                    <div className={styles.brandLogoBadge}>
-                                                        <img
-                                                            src={getFullUrl(row.brandLogo)}
-                                                            alt=""
-                                                            className={styles.badgeLogo}
-                                                            style={{ objectFit: 'contain', background: 'white', borderRadius: '2px' }}
-                                                            onError={(e) => { e.target.style.display = 'none'; }}
-                                                        />
-                                                    </div>
-                                                )}
-
-                                                {/* Product Image */}
-                                                {row.brandImage ? (
-                                                    <img
-                                                        src={getFullUrl(row.brandImage)}
-                                                        alt="brand"
-                                                        className={styles.tableImg}
-                                                        onClick={() => {
-                                                            setPreviewImage(getFullUrl(row.brandImage));
-                                                            setPreviewLogo(getFullUrl(row.brandLogo));
-                                                        }}
-                                                    />
-                                                ) : (
-                                                    <div className={styles.imgPlaceholder}>Select</div>
-                                                )}
-
-                                                {/* Match Source Badge */}
-                                                {row.matchSource && (
-                                                    <div className={`${styles.matchBadge} ${
-                                                        row.matchSource === 'memory' ? styles.matchBadgeMemory :
-                                                        row.matchSource === 'baidu-ai' ? styles.matchBadgeAi :
-                                                        styles.matchBadgeAlgo
-                                                    }`} title={`Matched by: ${row.matchSource} (score: ${row.matchScore})`}>
-                                                        {row.matchSource === 'memory' ? '🧠' : row.matchSource === 'baidu-ai' ? '🤖' : '⚡'}
-                                                        {row.matchScore && <span>{row.matchScore}</span>}
-                                                    </div>
-                                                )}
-                                            </>
+                                            <div className={styles.imgPlaceholder}>Select</div>
                                         )}
                                     </div>
                                 </td>
 
                                 {/* Brand Description */}
                                 <td>
-                                    {row.isMatching ? (
-                                        <div className={styles.aiThinkingPlaceholder}>
-                                            <div style={{ fontStyle: 'italic', opacity: 0.5 }}>Analyzing specs...</div>
-                                        </div>
-                                    ) : (
-                                        <textarea className={styles.cellInput} value={row.brandDesc} onChange={(e) => handleCellChange(index, 'brandDesc', e.target.value)} style={{ minHeight: '80px' }} placeholder="Product details..." />
-                                    )}
+                                    <textarea className={styles.cellInput} value={row.brandDesc} onChange={(e) => handleCellChange(index, 'brandDesc', e.target.value)} style={{ minHeight: '80px' }} placeholder="Product details..." />
                                 </td>
 
                                 <td>
@@ -2377,16 +2201,21 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                                                                 onError={(e) => {
                                                                     e.target.style.display = 'none';
                                                                     // Show initial instead
+                                                                    const bName = brands.find(b => String(b.id) === String(row.selectedBrand))?.name || String(row.selectedBrand);
                                                                     const initial = document.createElement('span');
                                                                     initial.className = e.target.closest('button')?.querySelector('span')?.className || '';
-                                                                    initial.textContent = row.selectedBrand?.charAt(0) || '?';
+                                                                    initial.textContent = bName.charAt(0) || '?';
                                                                     e.target.parentNode?.insertBefore(initial, e.target);
                                                                 }}
                                                             />
                                                         ) : (
-                                                            <span className={styles.triggerInitial}>{row.selectedBrand.charAt(0)}</span>
+                                                            <span className={styles.triggerInitial}>
+                                                                {(brands.find(b => String(b.id) === String(row.selectedBrand))?.name || String(row.selectedBrand)).charAt(0)}
+                                                            </span>
                                                         )}
-                                                        <span className={styles.triggerText}>{row.selectedBrand}</span>
+                                                        <span className={styles.triggerText}>
+                                                            {brands.find(b => String(b.id) === String(row.selectedBrand))?.name || row.selectedBrand}
+                                                        </span>
                                                     </>
                                                 ) : (
                                                     <span className={styles.triggerPlaceholder}>Select Brand...</span>
@@ -2397,21 +2226,31 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                                             {/* Dropdown Panel */}
                                             {openBrandDropdown === index && (
                                                 <div className={styles.brandDropdownPanel}>
-                                                    {/* Sort brands: Put same-tier brands at the top, then others */}
-                                                    {[...brands]
-                                                        .sort((a, b) => {
-                                                            const aMatch = a.budgetTier === activeTier;
-                                                            const bMatch = b.budgetTier === activeTier;
-                                                            if (aMatch && !bMatch) return -1;
-                                                            if (!aMatch && bMatch) return 1;
-                                                            return a.name.localeCompare(b.name);
+                                                    {/* Strict UI Segregation: Only show brands belonging to this specific tier */}
+                                                    {brands
+                                                        .filter(b => {
+                                                            const bTier = String(b.budgetTier || 'mid').toLowerCase();
+                                                            const aTier = String(activeTier || 'mid').toLowerCase();
+                                                            
+                                                            // Standardize tags
+                                                            const isBudget = ['budgetary', 'low', 'economy', 'budget'].includes(bTier);
+                                                            const isHigh = ['high', 'high-end', 'premium', 'luxury'].includes(bTier);
+                                                            const isMid = !isBudget && !isHigh;
+
+                                                            if (aTier === 'budgetary') return isBudget;
+                                                            if (aTier === 'high') return isHigh;
+                                                            return isMid;
                                                         })
+                                                        .sort((a, b) => a.name.localeCompare(b.name))
                                                         .map((b, bIdx) => (
                                                             <button
                                                                 key={`${b.id}-${bIdx}`}
-                                                                className={`${styles.brandOption} ${row.selectedBrand === b.name ? styles.brandOptionActive : ''}`}
+                                                                className={`${styles.brandOption} ${(String(row.selectedBrand) === String(b.name) || String(row.selectedBrand) === String(b.id)) ? styles.brandOptionActive : ''}`}
                                                                 onClick={() => {
+                                                                    // Atomically update all brand metadata
                                                                     handleCellChange(index, 'selectedBrand', b.name);
+                                                                    handleCellChange(index, 'brandId', b.id);
+                                                                    handleCellChange(index, 'brandLogo', b.logo);
                                                                     setOpenBrandDropdown(null);
                                                                 }}
                                                             >
@@ -2447,7 +2286,7 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                                         {row.selectedBrand && (
                                             <select className={styles.productSelect} value={row.selectedMainCat} onChange={(e) => handleCellChange(index, 'selectedMainCat', e.target.value)}>
                                                 <option value="">Select Category...</option>
-                                                {mainCats.map(c => <option key={c} value={c}>{c}</option>)}
+                                                {(mainCats || []).map(c => <option key={c} value={c}>{c}</option>)}
                                             </select>
                                         )}
 
@@ -2455,7 +2294,7 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                                         {row.selectedMainCat && (
                                             <select className={styles.productSelect} value={row.selectedSubCat} onChange={(e) => handleCellChange(index, 'selectedSubCat', e.target.value)}>
                                                 <option value="">Select Sub-Category...</option>
-                                                {subCats.map(c => <option key={c} value={c}>{c}</option>)}
+                                                {(subCats || []).map(c => <option key={c} value={c}>{c}</option>)}
                                             </select>
                                         )}
 
@@ -2463,7 +2302,7 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                                         {row.selectedSubCat && (
                                             <select className={styles.productSelect} value={row.selectedFamily} onChange={(e) => handleCellChange(index, 'selectedFamily', e.target.value)}>
                                                 <option value="">Select Family...</option>
-                                                {families.map(c => <option key={c} value={c}>{c}</option>)}
+                                                {(families || []).map(c => <option key={c} value={c}>{c}</option>)}
                                             </select>
                                         )}
 
@@ -2491,20 +2330,12 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
 
                                 <td>
                                     <div className={styles.actionCell}>
-                                        {/* Cycle to next alternative match */}
-                                        {row.matchAlternatives?.length > 0 && !row.isMatching && (
-                                            <button
-                                                className={`${styles.actionBtn} ${styles.altBtn}`}
-                                                onClick={() => handleNextAlternative(index)}
-                                                title={`Try next alternative (${row.matchAlternatives.length} available)`}
-                                            >↻</button>
-                                        )}
                                         {/* Clear auto-matched data */}
-                                        {row.selectedBrand && !row.isMatching && (
+                                        {row.selectedBrand && (
                                             <button
                                                 className={`${styles.actionBtn} ${styles.clearBtn}`}
                                                 onClick={() => handleClearRowMatch(index)}
-                                                title="Clear match"
+                                                title="Clear selection"
                                             >⊘</button>
                                         )}
                                         <button className={`${styles.actionBtn} ${styles.addBtn}`} onClick={() => handleAddRow(index)}>+</button>
@@ -2547,7 +2378,7 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
         if (sampleRows.length === 0) return (
             <div className={styles.emptyState}>
                 <div style={{ fontSize: '3rem', opacity: 0.2 }}>🔍</div>
-                <div style={{ marginTop: '1rem' }}>No data to compare. Run "Auto-Populate" first.</div>
+                <div style={{ marginTop: '1rem' }}>No data to compare. Select products for each tier first.</div>
             </div>
         );
 
@@ -2636,74 +2467,20 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                             <button className={styles.actionCard} onClick={handleCreateNewBoq}>
                                 ➕ Create New BOQ
                             </button>
-                       <div 
-                    className={`${styles.actionCard} ${styles.magicBtn}`} 
-                    onClick={() => setPopSettingsOpen(!popSettingsOpen)}
-                >
-                    <div className={styles.actionIcon}>✨</div>
-                    <div className={styles.actionInfo}>
-                        <div className={styles.actionTitle}>Auto-Populate</div>
-                        <div className={styles.actionDesc}>Gen 3 Options</div>
-                    </div>
-                </div>
-
-                {popSettingsOpen && (
-                    <div className={styles.popSettingsOverlay}>
-                        <div className={styles.popSettingsBox}>
-                            <h3>✨ Smart Fill Settings</h3>
-                            <p>Select brands to include in the matching pool:</p>
-                            
-                            <div className={styles.brandGrid}>
-                                {['budgetary', 'mid', 'high'].map(tier => (
-                                    <div key={tier} className={styles.tierGroup}>
-                                        <h4>{tier.charAt(0).toUpperCase() + tier.slice(1)}</h4>
-                                        {brands
-                                            .filter(b => {
-                                                const budgetTier = String(b.budgetTier || '').toLowerCase();
-                                                if (tier === 'mid') return !budgetTier || ['mid', 'standard'].includes(budgetTier);
-                                                if (tier === 'budgetary') return ['budgetary', 'low', 'economy', 'budget'].includes(budgetTier);
-                                                if (tier === 'high') return ['high', 'high-end', 'premium', 'luxury'].includes(budgetTier);
-                                                return false; // Brands without a budgetTier or matching any of the above will be filtered out
-                                            })
-                                            .map(brand => (
-                                                <label key={brand.id} className={styles.brandCheck}>
-                                                    <input 
-                                                        type="checkbox" 
-                                                        checked={selectedBrandIds.has(String(brand.id))}
-                                                        onChange={() => toggleBrand(brand.id)}
-                                                    />
-                                                    {brand.name}
-                                                </label>
-                                            ))
-                                        }
-                                    </div>
-                                ))}
-                            </div>
-
-                            <div className={styles.popActions}>
-                                <button 
-                                    className={styles.inAppBtn} 
-                                    disabled={isAutoMatching}
-                                    onClick={() => handleAutoMatch('algorithm')}
-                                >
-                                    {isAutoMatching ? '⏳ Matching...' : '🚀 Initial Fill (In-App)'}
-                                </button>
-                                <button 
-                                    className={styles.geminiBtn}
-                                    disabled={isAutoMatching}
-                                    onClick={() => handleAutoMatch('gemini')}
-                                >
-                                    {isAutoMatching ? '🧠 Thinking...' : '🤖 AI Fill (NVIDIA)'}
-                                </button>
-                            </div>
-                            <button className={styles.closePop} onClick={() => setPopSettingsOpen(false)}>×</button>
-                        </div>
-                    </div>
-                )}
                             <button className={styles.actionCard} onClick={handleAddBrand}>
                                 🌐 Add Brand
                             </button>
-                        </div>
+                                <button
+                                    className={`${styles.actionCard} ${styles.aiAutoFillBtn} ${isAutoFilling ? styles.aiAutoFilling : ''}`}
+                                    onClick={handleAutoFillAI}
+                                    disabled={isAutoFilling}
+                                >
+                                    {isAutoFilling
+                                        ? `⏳ AI Processing${aiProgress.total > 0 ? ` (${aiProgress.current}/${aiProgress.total})` : '...'}`
+                                        : '✨ AI AUTO-FILL'
+                                    }
+                                </button>
+                            </div>
 
                         <div className={styles.tabsContainer}>
                             <div className={styles.topTabs}>
@@ -2724,29 +2501,21 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                             </div>
                         </div>
 
-                        {/* Auto-Match Progress Bar */}
-                        {matchProgress && (
-                            <div className={styles.matchProgressContainer}>
-                                <div className={styles.matchProgressTrack}>
-                                    <div
-                                        className={styles.matchProgressFill}
-                                        style={{ width: `${(matchProgress.current / matchProgress.total) * 100}%` }}
-                                    />
-                                </div>
-                                <span className={styles.matchProgressText}>
-                                    {matchProgress.stage || `✨ Matching ${matchProgress.current} / ${matchProgress.total} rows...`}
-                                </span>
-                                {matchProgress.error && (
-                                    <span className={styles.matchProgressError}>
-                                        ❌ {matchProgress.error}
-                                    </span>
-                                )}
-                            </div>
-                        )}
                     </div>
 
                     {/* Scrollable Table Area */}
                     <div className={styles.tableContainer}>
+                        {/* Batch completion notification */}
+                        {aiBatchResult && !isAutoFilling && (
+                            <div className={styles.aiBatchNotification}>
+                                <span>
+                                    ✅ AI Batch Complete — <strong>{aiBatchResult.success}</strong> matched
+                                    {aiBatchResult.error > 0 && <span className={styles.batchErrorCount}>, {aiBatchResult.error} failed</span>}
+                                    {aiBatchResult.newlyAdded > 0 && <span className={styles.batchNewCount}> · ✨ {aiBatchResult.newlyAdded} new products discovered</span>}
+                                </span>
+                                <button className={styles.batchDismissBtn} onClick={() => setAiBatchResult(null)}>×</button>
+                            </div>
+                        )}
                         {renderActiveView()}
                     </div>
 
@@ -2798,6 +2567,19 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                 onClose={() => setIsAddBrandOpen(false)}
                 onBrandAdded={handleBrandAdded}
                 onBrandUpdated={fetchBrands}
+            />
+            {/* Specialist Audit Modal */}
+            <SpecialistModal 
+                isOpen={!!specialistData} 
+                onClose={() => setSpecialistData(null)} 
+                data={specialistData} 
+            />
+            <AutoFillSelectModal 
+                isOpen={isAutoFillSelectOpen}
+                onClose={() => setIsAutoFillSelectOpen(false)}
+                allBrands={brands}
+                activeTier={activeTier}
+                onConfirm={executeAutoFillAI}
             />
             {/* Costing Modal */}
             <CostingModal

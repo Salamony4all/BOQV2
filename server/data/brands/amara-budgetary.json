@@ -13,14 +13,7 @@
       "model": "1_AGATHABERJER",
       "description": "1_AGATHABERJER",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/1_AGATHA-BERJER-005-scaled-300x400.jpg",
-      "price": 150,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": null
-      }
+      "price": 150
     },
     {
       "mainCategory": "Products",
@@ -29,14 +22,7 @@
       "model": "1_AQUA",
       "description": "1_AQUA",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/1_AQUA-002-300x400.jpg",
-      "price": 50,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": null
-      }
+      "price": 50
     },
     {
       "mainCategory": "Products",
@@ -45,14 +31,7 @@
       "model": "1_ASAL",
       "description": "1_ASAL",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/1_ASAL-002-300x400.jpg",
-      "price": 70,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": null
-      }
+      "price": 70
     },
     {
       "mainCategory": "Products",
@@ -61,14 +40,7 @@
       "model": "1_ATRA",
       "description": "1_ATRA",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/1_ATRA-002-300x400.png",
-      "price": 80,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": null
-      }
+      "price": 80
     },
     {
       "mainCategory": "Products",
@@ -77,14 +49,7 @@
       "model": "1_AVVA",
       "description": "1_AVVA",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/1_AVVA-002-300x400.jpg",
-      "price": 90,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": null
-      }
+      "price": 90
     },
     {
       "mainCategory": "Products",
@@ -93,14 +58,7 @@
       "model": "1_BLUFF",
       "description": "1_BLUFF",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/1_BLUFF-002-300x400.jpg",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": null
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -109,14 +67,7 @@
       "model": "1_KOMPAKT",
       "description": "1_KOMPAKT",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/1_KOMPAKT-002-300x400.png",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": null
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -125,14 +76,7 @@
       "model": "10_ANTIK",
       "description": "10_ANTIK",
       "imageUrl": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMSIgaGVpZ2h0PSIxIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjwvc3ZnPg==",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": null
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -141,14 +85,7 @@
       "model": "10_BarokMasa",
       "description": "10_BarokMasa",
       "imageUrl": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMSIgaGVpZ2h0PSIxIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjwvc3ZnPg==",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": null
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -157,18 +94,7 @@
       "model": "10_CORNER",
       "description": "10_CORNER",
       "imageUrl": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMSIgaGVpZ2h0PSIxIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjwvc3ZnPg==",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": {
-          "width": 100,
-          "depth": 100,
-          "raw": "r 10"
-        }
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -177,14 +103,7 @@
       "model": "10_HARLEY",
       "description": "10_HARLEY",
       "imageUrl": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMSIgaGVpZ2h0PSIxIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjwvc3ZnPg==",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": null
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -193,14 +112,7 @@
       "model": "10_MUSE",
       "description": "10_MUSE",
       "imageUrl": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMSIgaGVpZ2h0PSIxIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjwvc3ZnPg==",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": null
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -209,14 +121,7 @@
       "model": "1_AGATHABERJER",
       "description": "1_AGATHABERJER",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/1_AGATHA-BERJER-005-scaled-300x400.jpg",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": null
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -225,14 +130,7 @@
       "model": "10_RUBINO",
       "description": "10_RUBINO",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/10_RUBINO-002-300x400.jpg",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": null
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -241,14 +139,7 @@
       "model": "11_RICARDO",
       "description": "11_RICARDO",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/11_RICARDO-002-300x400.jpg",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": null
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -257,18 +148,7 @@
       "model": "12_TEODOR",
       "description": "12_TEODOR",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/12_TEODOR-002-300x400.jpg",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": {
-          "width": 120,
-          "depth": 120,
-          "raw": "r 12"
-        }
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -277,14 +157,7 @@
       "model": "13_TILLA",
       "description": "13_TILLA",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/13_TILLA-002-300x400.jpg",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": null
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -293,14 +166,7 @@
       "model": "2_ALRISA",
       "description": "2_ALRISA",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/2_ALRISA-002-300x400.png",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": null
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -309,14 +175,7 @@
       "model": "3_BAZZ",
       "description": "3_BAZZ",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/3_BAZZ-002-300x400.jpg",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": null
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -325,14 +184,7 @@
       "model": "4_GINA",
       "description": "4_GINA",
       "imageUrl": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMSIgaGVpZ2h0PSIxIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjwvc3ZnPg==",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": null
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -341,14 +193,7 @@
       "model": "5_HAMPTO",
       "description": "5_HAMPTO",
       "imageUrl": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMSIgaGVpZ2h0PSIxIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjwvc3ZnPg==",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": null
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -357,14 +202,7 @@
       "model": "6_JASPER",
       "description": "6_JASPER",
       "imageUrl": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMSIgaGVpZ2h0PSIxIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjwvc3ZnPg==",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": null
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -373,14 +211,7 @@
       "model": "7_KENNEDY",
       "description": "7_KENNEDY",
       "imageUrl": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMSIgaGVpZ2h0PSIxIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjwvc3ZnPg==",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": null
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -389,14 +220,7 @@
       "model": "8_LIV",
       "description": "8_LIV",
       "imageUrl": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMSIgaGVpZ2h0PSIxIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjwvc3ZnPg==",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": null
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -405,14 +229,7 @@
       "model": "9_MINOTTI",
       "description": "9_MINOTTI",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/9_MINOTTI-002-300x400.jpg",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": null
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -421,14 +238,7 @@
       "model": "1_AQUA",
       "description": "1_AQUA",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/1_AQUA-002-300x400.jpg",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": null
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -437,14 +247,7 @@
       "model": "10_MUSE",
       "description": "10_MUSE",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/10_MUSE-002-300x400.jpg",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": null
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -453,14 +256,7 @@
       "model": "12_NIL",
       "description": "12_NIL",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/12_NIL-002-300x400.jpg",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": null
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -469,14 +265,7 @@
       "model": "15_PASHA",
       "description": "15_PASHA",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/15_PASHA-002-300x400.jpg",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": null
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -485,14 +274,7 @@
       "model": "4_DUNE",
       "description": "4_DUNE",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/4_DUNE-002-300x400.png",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": null
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -501,14 +283,7 @@
       "model": "5_FLORA",
       "description": "5_FLORA",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/5_FLORA-002-300x400.jpg",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": null
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -517,14 +292,7 @@
       "model": "6_JOSEFIN",
       "description": "6_JOSEFIN",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/6_JOSEFIN-002-300x400.jpg",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": null
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -533,14 +301,7 @@
       "model": "7_KELLY",
       "description": "7_KELLY",
       "imageUrl": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMSIgaGVpZ2h0PSIxIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjwvc3ZnPg==",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": null
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -549,14 +310,7 @@
       "model": "8_KARO",
       "description": "8_KARO",
       "imageUrl": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMSIgaGVpZ2h0PSIxIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjwvc3ZnPg==",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": null
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -565,14 +319,7 @@
       "model": "9_LAURA",
       "description": "9_LAURA",
       "imageUrl": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMSIgaGVpZ2h0PSIxIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjwvc3ZnPg==",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": null
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -581,14 +328,7 @@
       "model": "1_ASAL",
       "description": "1_ASAL",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/1_ASAL-002-300x400.jpg",
-      "price": 0,
-      "normalization": {
-        "category": "Office Seating",
-        "subCategory": "Sofas",
-        "rank": 1,
-        "tags": [],
-        "dimensions": null
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -597,14 +337,7 @@
       "model": "10_HARLEY",
       "description": "10_HARLEY",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/10_HARLEY-002-300x400.jpg",
-      "price": 0,
-      "normalization": {
-        "category": "Office Seating",
-        "subCategory": "Sofas",
-        "rank": 1,
-        "tags": [],
-        "dimensions": null
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -613,14 +346,7 @@
       "model": "11_KRAL",
       "description": "11_KRAL",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/11_KRAL-002-300x400.jpg",
-      "price": 0,
-      "normalization": {
-        "category": "Office Seating",
-        "subCategory": "Sofas",
-        "rank": 1,
-        "tags": [],
-        "dimensions": null
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -629,14 +355,7 @@
       "model": "12_KAYRA",
       "description": "12_KAYRA",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/12_KAYRA-002-300x400.jpg",
-      "price": 0,
-      "normalization": {
-        "category": "Office Seating",
-        "subCategory": "Sofas",
-        "rank": 1,
-        "tags": [],
-        "dimensions": null
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -645,14 +364,7 @@
       "model": "13_LIVAN",
       "description": "13_LIVAN",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/13_LIVAN-002-300x400.jpg",
-      "price": 0,
-      "normalization": {
-        "category": "Office Seating",
-        "subCategory": "Sofas",
-        "rank": 1,
-        "tags": [],
-        "dimensions": null
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -661,14 +373,7 @@
       "model": "14_LINDA",
       "description": "14_LINDA",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/14_LINDA-002-300x400.jpg",
-      "price": 0,
-      "normalization": {
-        "category": "Office Seating",
-        "subCategory": "Sofas",
-        "rank": 1,
-        "tags": [],
-        "dimensions": null
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -677,18 +382,7 @@
       "model": "15_MAJOR",
       "description": "15_MAJOR",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/15_MAJOR-002-300x400.jpg",
-      "price": 0,
-      "normalization": {
-        "category": "Office Seating",
-        "subCategory": "Sofas",
-        "rank": 1,
-        "tags": [],
-        "dimensions": {
-          "width": 150,
-          "depth": 150,
-          "raw": "r 15"
-        }
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -697,14 +391,7 @@
       "model": "16_MACCOS",
       "description": "16_MACCOS",
       "imageUrl": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMSIgaGVpZ2h0PSIxIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjwvc3ZnPg==",
-      "price": 0,
-      "normalization": {
-        "category": "Office Seating",
-        "subCategory": "Sofas",
-        "rank": 1,
-        "tags": [],
-        "dimensions": null
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -713,14 +400,7 @@
       "model": "17_NOBLE",
       "description": "17_NOBLE",
       "imageUrl": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMSIgaGVpZ2h0PSIxIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjwvc3ZnPg==",
-      "price": 0,
-      "normalization": {
-        "category": "Office Seating",
-        "subCategory": "Sofas",
-        "rank": 1,
-        "tags": [],
-        "dimensions": null
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -729,14 +409,7 @@
       "model": "18_OPAL",
       "description": "18_OPAL",
       "imageUrl": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMSIgaGVpZ2h0PSIxIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjwvc3ZnPg==",
-      "price": 0,
-      "normalization": {
-        "category": "Office Seating",
-        "subCategory": "Sofas",
-        "rank": 1,
-        "tags": [],
-        "dimensions": null
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -745,14 +418,7 @@
       "model": "19_SEPIA",
       "description": "19_SEPIA",
       "imageUrl": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMSIgaGVpZ2h0PSIxIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjwvc3ZnPg==",
-      "price": 0,
-      "normalization": {
-        "category": "Office Seating",
-        "subCategory": "Sofas",
-        "rank": 1,
-        "tags": [],
-        "dimensions": null
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -761,14 +427,7 @@
       "model": "2_ALACARTE",
       "description": "2_ALACARTE",
       "imageUrl": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMSIgaGVpZ2h0PSIxIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjwvc3ZnPg==",
-      "price": 0,
-      "normalization": {
-        "category": "Office Seating",
-        "subCategory": "Sofas",
-        "rank": 1,
-        "tags": [],
-        "dimensions": null
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -777,14 +436,7 @@
       "model": "20_SANDRA",
       "description": "20_SANDRA",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/20_SANDRA-002-300x400.jpg",
-      "price": 0,
-      "normalization": {
-        "category": "Office Seating",
-        "subCategory": "Sofas",
-        "rank": 1,
-        "tags": [],
-        "dimensions": null
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -793,14 +445,7 @@
       "model": "21_TRUVA",
       "description": "21_TRUVA",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/21_TRUVA-002-300x400.jpg",
-      "price": 0,
-      "normalization": {
-        "category": "Office Seating",
-        "subCategory": "Sofas",
-        "rank": 1,
-        "tags": [],
-        "dimensions": null
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -809,14 +454,7 @@
       "model": "22_TWIN",
       "description": "22_TWIN",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/22_TWIN-002-300x400.jpg",
-      "price": 0,
-      "normalization": {
-        "category": "Office Seating",
-        "subCategory": "Sofas",
-        "rank": 1,
-        "tags": [],
-        "dimensions": null
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -825,14 +463,7 @@
       "model": "23_VERDANT",
       "description": "23_VERDANT",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/23_VERDANT-002-300x400.jpg",
-      "price": 0,
-      "normalization": {
-        "category": "Office Seating",
-        "subCategory": "Sofas",
-        "rank": 1,
-        "tags": [],
-        "dimensions": null
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -841,14 +472,7 @@
       "model": "24_WHALE",
       "description": "24_WHALE",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/24_WHALE-002-300x400.jpg",
-      "price": 0,
-      "normalization": {
-        "category": "Office Seating",
-        "subCategory": "Sofas",
-        "rank": 1,
-        "tags": [],
-        "dimensions": null
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -857,14 +481,7 @@
       "model": "25_ZENAN",
       "description": "25_ZENAN",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/25_ZENAN-002-300x400.png",
-      "price": 0,
-      "normalization": {
-        "category": "Office Seating",
-        "subCategory": "Sofas",
-        "rank": 1,
-        "tags": [],
-        "dimensions": null
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -873,14 +490,7 @@
       "model": "3_BULUT",
       "description": "3_BULUT",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/3_BULUT-002-300x400.jpg",
-      "price": 0,
-      "normalization": {
-        "category": "Office Seating",
-        "subCategory": "Sofas",
-        "rank": 1,
-        "tags": [],
-        "dimensions": null
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -889,14 +499,7 @@
       "model": "4_BRAND",
       "description": "4_BRAND",
       "imageUrl": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMSIgaGVpZ2h0PSIxIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjwvc3ZnPg==",
-      "price": 0,
-      "normalization": {
-        "category": "Office Seating",
-        "subCategory": "Sofas",
-        "rank": 1,
-        "tags": [],
-        "dimensions": null
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -905,14 +508,7 @@
       "model": "5_BECONS",
       "description": "5_BECONS",
       "imageUrl": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMSIgaGVpZ2h0PSIxIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjwvc3ZnPg==",
-      "price": 0,
-      "normalization": {
-        "category": "Office Seating",
-        "subCategory": "Sofas",
-        "rank": 1,
-        "tags": [],
-        "dimensions": null
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -921,14 +517,7 @@
       "model": "6_CONNOR",
       "description": "6_CONNOR",
       "imageUrl": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMSIgaGVpZ2h0PSIxIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjwvc3ZnPg==",
-      "price": 0,
-      "normalization": {
-        "category": "Office Seating",
-        "subCategory": "Sofas",
-        "rank": 1,
-        "tags": [],
-        "dimensions": null
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -937,14 +526,7 @@
       "model": "7_DILIMLI",
       "description": "7_DILIMLI",
       "imageUrl": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMSIgaGVpZ2h0PSIxIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjwvc3ZnPg==",
-      "price": 0,
-      "normalization": {
-        "category": "Office Seating",
-        "subCategory": "Sofas",
-        "rank": 1,
-        "tags": [],
-        "dimensions": null
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -953,14 +535,7 @@
       "model": "8_GLEEN",
       "description": "8_GLEEN",
       "imageUrl": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMSIgaGVpZ2h0PSIxIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjwvc3ZnPg==",
-      "price": 0,
-      "normalization": {
-        "category": "Office Seating",
-        "subCategory": "Sofas",
-        "rank": 1,
-        "tags": [],
-        "dimensions": null
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -969,14 +544,7 @@
       "model": "9_HEAVEN",
       "description": "9_HEAVEN",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/9_HEAVEN-002-300x400.jpg",
-      "price": 0,
-      "normalization": {
-        "category": "Office Seating",
-        "subCategory": "Sofas",
-        "rank": 1,
-        "tags": [],
-        "dimensions": null
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -985,14 +553,7 @@
       "model": "1_ATRA",
       "description": "1_ATRA",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/1_ATRA-002-300x400.png",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": null
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -1001,18 +562,7 @@
       "model": "10_CORNER",
       "description": "10_CORNER",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/10_CORNER-002-300x400.jpg",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": {
-          "width": 100,
-          "depth": 100,
-          "raw": "r 10"
-        }
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -1021,18 +571,7 @@
       "model": "11_EVANS",
       "description": "11_EVANS",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/11_EVANS-002-300x400.jpg",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": {
-          "width": 110,
-          "depth": 110,
-          "raw": "r 11"
-        }
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -1041,18 +580,7 @@
       "model": "12_ERVA",
       "description": "12_ERVA",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/12_ERVA-002-300x400.jpg",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": {
-          "width": 120,
-          "depth": 120,
-          "raw": "r 12"
-        }
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -1061,18 +589,7 @@
       "model": "13_EOS",
       "description": "13_EOS",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/13_EOS-002-300x400.jpg",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": {
-          "width": 130,
-          "depth": 130,
-          "raw": "r 13"
-        }
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -1081,18 +598,7 @@
       "model": "14_GLORY",
       "description": "14_GLORY",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/14_GLORY-002-300x400.jpg",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": {
-          "width": 140,
-          "depth": 140,
-          "raw": "r 14"
-        }
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -1101,18 +607,7 @@
       "model": "15_GLINT",
       "description": "15_GLINT",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/15_GLINT-002-300x400.jpg",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": {
-          "width": 150,
-          "depth": 150,
-          "raw": "r 15"
-        }
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -1121,18 +616,7 @@
       "model": "16_GEO",
       "description": "16_GEO",
       "imageUrl": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMSIgaGVpZ2h0PSIxIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjwvc3ZnPg==",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": {
-          "width": 160,
-          "depth": 160,
-          "raw": "r 16"
-        }
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -1141,18 +625,7 @@
       "model": "17_JESUS",
       "description": "17_JESUS",
       "imageUrl": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMSIgaGVpZ2h0PSIxIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjwvc3ZnPg==",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": {
-          "width": 170,
-          "depth": 170,
-          "raw": "r 17"
-        }
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -1161,18 +634,7 @@
       "model": "18_LOGAN",
       "description": "18_LOGAN",
       "imageUrl": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMSIgaGVpZ2h0PSIxIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjwvc3ZnPg==",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": {
-          "width": 180,
-          "depth": 180,
-          "raw": "r 18"
-        }
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -1181,18 +643,7 @@
       "model": "19_LIZBON",
       "description": "19_LIZBON",
       "imageUrl": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMSIgaGVpZ2h0PSIxIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjwvc3ZnPg==",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": {
-          "width": 190,
-          "depth": 190,
-          "raw": "r 19"
-        }
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -1201,14 +652,7 @@
       "model": "2_AURA",
       "description": "2_AURA",
       "imageUrl": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMSIgaGVpZ2h0PSIxIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjwvc3ZnPg==",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": null
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -1217,18 +661,7 @@
       "model": "20_LETY",
       "description": "20_LETY",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/20_LETY-002-300x400.jpg",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": {
-          "width": 200,
-          "depth": 200,
-          "raw": "r 20"
-        }
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -1237,18 +670,7 @@
       "model": "21_MIST",
       "description": "21_MIST",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/21_MIST-002-300x400.jpg",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": {
-          "width": 210,
-          "depth": 210,
-          "raw": "r 21"
-        }
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -1257,18 +679,7 @@
       "model": "22_NARNIA",
       "description": "22_NARNIA",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/22_NARNIA-002-300x400.jpg",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": {
-          "width": 220,
-          "depth": 220,
-          "raw": "r 22"
-        }
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -1277,18 +688,7 @@
       "model": "23_OASIS",
       "description": "23_OASIS",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/23_OASIS-002-300x400.jpg",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": {
-          "width": 230,
-          "depth": 230,
-          "raw": "r 23"
-        }
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -1297,18 +697,7 @@
       "model": "24_RUTTY",
       "description": "24_RUTTY",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/24_RUTTY-002-300x400.png",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": {
-          "width": 240,
-          "depth": 240,
-          "raw": "r 24"
-        }
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -1317,18 +706,7 @@
       "model": "25_RANDA",
       "description": "25_RANDA",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/25_RANDA-002-300x400.jpg",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": {
-          "width": 250,
-          "depth": 250,
-          "raw": "r 25"
-        }
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -1337,18 +715,7 @@
       "model": "26_SPACE",
       "description": "26_SPACE",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/26_SPACE-002-300x400.jpg",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": {
-          "width": 260,
-          "depth": 260,
-          "raw": "r 26"
-        }
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -1357,18 +724,7 @@
       "model": "27_SIRIO",
       "description": "27_SIRIO",
       "imageUrl": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMSIgaGVpZ2h0PSIxIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjwvc3ZnPg==",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": {
-          "width": 270,
-          "depth": 270,
-          "raw": "r 27"
-        }
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -1377,18 +733,7 @@
       "model": "28_TAPE",
       "description": "28_TAPE",
       "imageUrl": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMSIgaGVpZ2h0PSIxIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjwvc3ZnPg==",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": {
-          "width": 280,
-          "depth": 280,
-          "raw": "r 28"
-        }
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -1397,18 +742,7 @@
       "model": "29_VOONKA",
       "description": "29_VOONKA",
       "imageUrl": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMSIgaGVpZ2h0PSIxIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjwvc3ZnPg==",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": {
-          "width": 290,
-          "depth": 290,
-          "raw": "r 29"
-        }
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -1417,14 +751,7 @@
       "model": "3_ARAY",
       "description": "3_ARAY",
       "imageUrl": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMSIgaGVpZ2h0PSIxIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjwvc3ZnPg==",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": null
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -1433,18 +760,7 @@
       "model": "30_VOXEL",
       "description": "30_VOXEL",
       "imageUrl": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMSIgaGVpZ2h0PSIxIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjwvc3ZnPg==",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": {
-          "width": 300,
-          "depth": 300,
-          "raw": "r 30"
-        }
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -1453,18 +769,7 @@
       "model": "31_WICKER",
       "description": "31_WICKER",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/31_WICKER-002-1-scaled-300x400.png",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": {
-          "width": 310,
-          "depth": 310,
-          "raw": "r 31"
-        }
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -1473,14 +778,7 @@
       "model": "4_ALLURE",
       "description": "4_ALLURE",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/4_ALLURE-002-300x400.png",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": null
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -1489,14 +787,7 @@
       "model": "5_ALGA",
       "description": "5_ALGA",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/5_ALGA-002-300x400.png",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": null
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -1505,14 +796,7 @@
       "model": "6_ALINA",
       "description": "6_ALINA",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/6_ALINA-002-300x400.jpg",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": null
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -1521,14 +805,7 @@
       "model": "7_ADLER",
       "description": "7_ADLER",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/7_ADLER-002-300x400.png",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": null
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -1537,14 +814,7 @@
       "model": "8_BRANKO",
       "description": "8_BRANKO",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/8_BRANKO-002-1-scaled-300x400.png",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": null
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -1553,14 +823,7 @@
       "model": "9_BLISS",
       "description": "9_BLISS",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/9_BLISS-002-300x400.jpg",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": null
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -1569,14 +832,7 @@
       "model": "1_AVVA",
       "description": "1_AVVA",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/1_AVVA-002-300x400.jpg",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": null
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -1585,18 +841,7 @@
       "model": "10_ANTIK",
       "description": "10_ANTIK",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/10_ANTIK-002-300x400.jpg",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": {
-          "width": 100,
-          "depth": 100,
-          "raw": "r 10"
-        }
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -1605,18 +850,7 @@
       "model": "100_TOLEDO",
       "description": "100_TOLEDO",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/100_TOLEDO-002-300x400.jpg",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": {
-          "width": 1000,
-          "depth": 1000,
-          "raw": "r 100"
-        }
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -1625,18 +859,7 @@
       "model": "101_TOMY",
       "description": "101_TOMY",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/101_TOMY-002-300x400.jpg",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": {
-          "width": 1010,
-          "depth": 1010,
-          "raw": "r 101"
-        }
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -1645,18 +868,7 @@
       "model": "102_TONET",
       "description": "102_TONET",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/102_TONET-002-300x400.jpg",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": {
-          "width": 1020,
-          "depth": 1020,
-          "raw": "r 102"
-        }
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -1665,18 +877,7 @@
       "model": "103_VEIL",
       "description": "103_VEIL",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/103_VEIL-002-300x400.png",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": {
-          "width": 1030,
-          "depth": 1030,
-          "raw": "r 103"
-        }
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -1685,18 +886,7 @@
       "model": "104_VENUS",
       "description": "104_VENUS",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/104_VENUS-002-300x400.jpg",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": {
-          "width": 1040,
-          "depth": 1040,
-          "raw": "r 104"
-        }
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -1705,18 +895,7 @@
       "model": "105_YASE",
       "description": "105_YASE",
       "imageUrl": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMSIgaGVpZ2h0PSIxIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjwvc3ZnPg==",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": {
-          "width": 1050,
-          "depth": 1050,
-          "raw": "r 105"
-        }
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -1725,18 +904,7 @@
       "model": "107_YUCEL",
       "description": "107_YUCEL",
       "imageUrl": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMSIgaGVpZ2h0PSIxIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjwvc3ZnPg==",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": {
-          "width": 1070,
-          "depth": 1070,
-          "raw": "r 107"
-        }
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -1745,18 +913,7 @@
       "model": "108_ZEN",
       "description": "108_ZEN",
       "imageUrl": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMSIgaGVpZ2h0PSIxIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjwvc3ZnPg==",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": {
-          "width": 1080,
-          "depth": 1080,
-          "raw": "r 108"
-        }
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -1765,18 +922,7 @@
       "model": "109_ZEST",
       "description": "109_ZEST",
       "imageUrl": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMSIgaGVpZ2h0PSIxIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjwvc3ZnPg==",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": {
-          "width": 1090,
-          "depth": 1090,
-          "raw": "r 109"
-        }
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -1785,18 +931,7 @@
       "model": "11_ANGORA",
       "description": "11_ANGORA",
       "imageUrl": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMSIgaGVpZ2h0PSIxIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjwvc3ZnPg==",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": {
-          "width": 110,
-          "depth": 110,
-          "raw": "r 11"
-        }
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -1805,18 +940,7 @@
       "model": "110_ZUCA",
       "description": "110_ZUCA",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/110_ZUCA-002-300x400.jpg",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": {
-          "width": 1100,
-          "depth": 1100,
-          "raw": "r 110"
-        }
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -1825,18 +949,7 @@
       "model": "12_AMSTERDAM",
       "description": "12_AMSTERDAM",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/12_AMSTERDAM-002-300x400.jpg",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": {
-          "width": 120,
-          "depth": 120,
-          "raw": "r 12"
-        }
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -1845,18 +958,7 @@
       "model": "13_ANDI",
       "description": "13_ANDI",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/13_ANDI-002-300x400.jpg",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": {
-          "width": 130,
-          "depth": 130,
-          "raw": "r 13"
-        }
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -1865,18 +967,7 @@
       "model": "15_ALTUS",
       "description": "15_ALTUS",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/15_ALTUS-002-300x400.jpg",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": {
-          "width": 150,
-          "depth": 150,
-          "raw": "r 15"
-        }
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -1885,18 +976,7 @@
       "model": "16_ALLEN",
       "description": "16_ALLEN",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/16_ALLEN-002-300x400.jpg",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": {
-          "width": 160,
-          "depth": 160,
-          "raw": "r 16"
-        }
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -1905,18 +985,7 @@
       "model": "17_ALBERT",
       "description": "17_ALBERT",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/17_ALBERT-002-300x400.jpg",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": {
-          "width": 170,
-          "depth": 170,
-          "raw": "r 17"
-        }
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -1925,18 +994,7 @@
       "model": "18_DBA",
       "description": "18_DBA",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/18_DBA-002-300x400.jpg",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": {
-          "width": 180,
-          "depth": 180,
-          "raw": "r 18"
-        }
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -1945,18 +1003,7 @@
       "model": "19_BROWN",
       "description": "19_BROWN",
       "imageUrl": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMSIgaGVpZ2h0PSIxIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjwvc3ZnPg==",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": {
-          "width": 190,
-          "depth": 190,
-          "raw": "r 19"
-        }
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -1965,18 +1012,7 @@
       "model": "20_BOSTON",
       "description": "20_BOSTON",
       "imageUrl": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMSIgaGVpZ2h0PSIxIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjwvc3ZnPg==",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": {
-          "width": 200,
-          "depth": 200,
-          "raw": "r 20"
-        }
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -1985,18 +1021,7 @@
       "model": "21_BOLD",
       "description": "21_BOLD",
       "imageUrl": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMSIgaGVpZ2h0PSIxIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjwvc3ZnPg==",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": {
-          "width": 210,
-          "depth": 210,
-          "raw": "r 21"
-        }
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -2005,18 +1030,7 @@
       "model": "23_BETA",
       "description": "23_BETA",
       "imageUrl": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMSIgaGVpZ2h0PSIxIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjwvc3ZnPg==",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": {
-          "width": 230,
-          "depth": 230,
-          "raw": "r 23"
-        }
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -2025,18 +1039,7 @@
       "model": "24_BETHOVEN",
       "description": "24_BETHOVEN",
       "imageUrl": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMSIgaGVpZ2h0PSIxIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjwvc3ZnPg==",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": {
-          "width": 240,
-          "depth": 240,
-          "raw": "r 24"
-        }
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -2045,18 +1048,7 @@
       "model": "25_BANJAMIN",
       "description": "25_BANJAMIN",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/25_BANJAMIN-002-300x400.jpg",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": {
-          "width": 250,
-          "depth": 250,
-          "raw": "r 25"
-        }
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -2065,18 +1057,7 @@
       "model": "26_BEREN",
       "description": "26_BEREN",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/26_BEREN-002-300x400.jpg",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": {
-          "width": 260,
-          "depth": 260,
-          "raw": "r 26"
-        }
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -2085,18 +1066,7 @@
       "model": "27_BELT",
       "description": "27_BELT",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/27_BELT-002-300x400.jpg",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": {
-          "width": 270,
-          "depth": 270,
-          "raw": "r 27"
-        }
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -2105,18 +1075,7 @@
       "model": "28_BLS",
       "description": "28_BLS",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/28_BLS-002-300x400.jpg",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": {
-          "width": 280,
-          "depth": 280,
-          "raw": "r 28"
-        }
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -2125,18 +1084,7 @@
       "model": "29_BEGONVIL",
       "description": "29_BEGONVIL",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/29_BEGONVIL-002-300x400.jpg",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": {
-          "width": 290,
-          "depth": 290,
-          "raw": "r 29"
-        }
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -2145,18 +1093,7 @@
       "model": "30_BAMBU",
       "description": "30_BAMBU",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/30_BAMBU-002-300x400.jpg",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": {
-          "width": 300,
-          "depth": 300,
-          "raw": "r 30"
-        }
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -2165,18 +1102,7 @@
       "model": "31_CABRIO",
       "description": "31_CABRIO",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/31_CABRIO-002-300x400.jpg",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": {
-          "width": 310,
-          "depth": 310,
-          "raw": "r 31"
-        }
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -2185,18 +1111,7 @@
       "model": "32_CASTRO",
       "description": "32_CASTRO",
       "imageUrl": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMSIgaGVpZ2h0PSIxIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjwvc3ZnPg==",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": {
-          "width": 320,
-          "depth": 320,
-          "raw": "r 32"
-        }
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -2205,18 +1120,7 @@
       "model": "33_CHILL",
       "description": "33_CHILL",
       "imageUrl": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMSIgaGVpZ2h0PSIxIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjwvc3ZnPg==",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": {
-          "width": 330,
-          "depth": 330,
-          "raw": "r 33"
-        }
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -2225,18 +1129,7 @@
       "model": "35_CLOUD",
       "description": "35_CLOUD",
       "imageUrl": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMSIgaGVpZ2h0PSIxIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjwvc3ZnPg==",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": {
-          "width": 350,
-          "depth": 350,
-          "raw": "r 35"
-        }
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -2245,18 +1138,7 @@
       "model": "36_COOL",
       "description": "36_COOL",
       "imageUrl": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMSIgaGVpZ2h0PSIxIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjwvc3ZnPg==",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": {
-          "width": 360,
-          "depth": 360,
-          "raw": "r 36"
-        }
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -2265,18 +1147,7 @@
       "model": "37_CHILOK",
       "description": "37_CHILOK",
       "imageUrl": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMSIgaGVpZ2h0PSIxIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjwvc3ZnPg==",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": {
-          "width": 370,
-          "depth": 370,
-          "raw": "r 37"
-        }
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -2285,18 +1156,7 @@
       "model": "38_CEMRE",
       "description": "38_CEMRE",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/38_CEMRE-002-300x400.jpg",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": {
-          "width": 380,
-          "depth": 380,
-          "raw": "r 38"
-        }
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -2305,18 +1165,7 @@
       "model": "39_DIANA",
       "description": "39_DIANA",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/39_DIANA-002-300x400.jpg",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": {
-          "width": 390,
-          "depth": 390,
-          "raw": "r 39"
-        }
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -2325,14 +1174,7 @@
       "model": "4_ARTEGNA",
       "description": "4_ARTEGNA",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/4_ARTEGNA-002-300x400.jpg",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": null
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -2341,18 +1183,7 @@
       "model": "40_DEFNE",
       "description": "40_DEFNE",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/40_DEFNE-002-300x400.jpg",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": {
-          "width": 400,
-          "depth": 400,
-          "raw": "r 40"
-        }
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -2361,18 +1192,7 @@
       "model": "42_DIBBA",
       "description": "42_DIBBA",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/42_DIBBA-002-300x400.png",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": {
-          "width": 420,
-          "depth": 420,
-          "raw": "r 42"
-        }
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -2381,18 +1201,7 @@
       "model": "44_EVELIS",
       "description": "44_EVELIS",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/44_EVELIS-002-300x400.png",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": {
-          "width": 440,
-          "depth": 440,
-          "raw": "r 44"
-        }
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -2401,18 +1210,7 @@
       "model": "45_ELIZA",
       "description": "45_ELIZA",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/45_ELIZA-002-300x400.jpg",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": {
-          "width": 450,
-          "depth": 450,
-          "raw": "r 45"
-        }
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -2421,18 +1219,7 @@
       "model": "46_ELEGANCE",
       "description": "46_ELEGANCE",
       "imageUrl": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMSIgaGVpZ2h0PSIxIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjwvc3ZnPg==",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": {
-          "width": 460,
-          "depth": 460,
-          "raw": "r 46"
-        }
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -2441,18 +1228,7 @@
       "model": "47_FORTE",
       "description": "47_FORTE",
       "imageUrl": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMSIgaGVpZ2h0PSIxIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjwvc3ZnPg==",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": {
-          "width": 470,
-          "depth": 470,
-          "raw": "r 47"
-        }
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -2461,18 +1237,7 @@
       "model": "48_FRIO",
       "description": "48_FRIO",
       "imageUrl": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMSIgaGVpZ2h0PSIxIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjwvc3ZnPg==",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": {
-          "width": 480,
-          "depth": 480,
-          "raw": "r 48"
-        }
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -2481,14 +1246,7 @@
       "model": "5_ARGOS",
       "description": "5_ARGOS",
       "imageUrl": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMSIgaGVpZ2h0PSIxIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjwvc3ZnPg==",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": null
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -2497,18 +1255,7 @@
       "model": "51_FAS",
       "description": "51_FAS",
       "imageUrl": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMSIgaGVpZ2h0PSIxIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjwvc3ZnPg==",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": {
-          "width": 510,
-          "depth": 510,
-          "raw": "r 51"
-        }
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -2517,18 +1264,7 @@
       "model": "52_GRACE",
       "description": "52_GRACE",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/52_GRACE-002-300x400.jpg",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": {
-          "width": 520,
-          "depth": 520,
-          "raw": "r 52"
-        }
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -2537,18 +1273,7 @@
       "model": "53_GLADE",
       "description": "53_GLADE",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/53_GLADE-002-300x400.jpg",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": {
-          "width": 530,
-          "depth": 530,
-          "raw": "r 53"
-        }
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -2557,18 +1282,7 @@
       "model": "54_HESSE",
       "description": "54_HESSE",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/54_HESSE-002-300x400.jpg",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": {
-          "width": 540,
-          "depth": 540,
-          "raw": "r 54"
-        }
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -2577,18 +1291,7 @@
       "model": "55_ISABELLA",
       "description": "55_ISABELLA",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/55_ISABELLA-002-300x400.jpg",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": {
-          "width": 550,
-          "depth": 550,
-          "raw": "r 55"
-        }
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -2597,18 +1300,7 @@
       "model": "57_IBER",
       "description": "57_IBER",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/57_IBER-002-300x400.jpg",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": {
-          "width": 570,
-          "depth": 570,
-          "raw": "r 57"
-        }
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -2617,18 +1309,7 @@
       "model": "58_JESS",
       "description": "58_JESS",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/58_JESS-002-300x400.jpg",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": {
-          "width": 580,
-          "depth": 580,
-          "raw": "r 58"
-        }
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -2637,18 +1318,7 @@
       "model": "59_KEEN",
       "description": "59_KEEN",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/59_KEEN-002-300x400.jpg",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": {
-          "width": 590,
-          "depth": 590,
-          "raw": "r 59"
-        }
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -2657,18 +1327,7 @@
       "model": "60_KAMS",
       "description": "60_KAMS",
       "imageUrl": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMSIgaGVpZ2h0PSIxIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjwvc3ZnPg==",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": {
-          "width": 600,
-          "depth": 600,
-          "raw": "r 60"
-        }
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -2677,18 +1336,7 @@
       "model": "61_LUSH",
       "description": "61_LUSH",
       "imageUrl": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMSIgaGVpZ2h0PSIxIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjwvc3ZnPg==",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": {
-          "width": 610,
-          "depth": 610,
-          "raw": "r 61"
-        }
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -2697,18 +1345,7 @@
       "model": "62_LUIS",
       "description": "62_LUIS",
       "imageUrl": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMSIgaGVpZ2h0PSIxIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjwvc3ZnPg==",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": {
-          "width": 620,
-          "depth": 620,
-          "raw": "r 62"
-        }
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -2717,18 +1354,7 @@
       "model": "63_LION",
       "description": "63_LION",
       "imageUrl": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMSIgaGVpZ2h0PSIxIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjwvc3ZnPg==",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": {
-          "width": 630,
-          "depth": 630,
-          "raw": "r 63"
-        }
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -2737,18 +1363,7 @@
       "model": "64_LIMA",
       "description": "64_LIMA",
       "imageUrl": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMSIgaGVpZ2h0PSIxIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjwvc3ZnPg==",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": {
-          "width": 640,
-          "depth": 640,
-          "raw": "r 64"
-        }
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -2757,14 +1372,7 @@
       "model": "1_BLUFF",
       "description": "1_BLUFF",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/1_BLUFF-002-300x400.jpg",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": null
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -2773,14 +1381,7 @@
       "model": "2_BABY",
       "description": "2_BABY",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/2_BABY-002-300x400.jpg",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": null
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -2789,14 +1390,7 @@
       "model": "1_KOMPAKT",
       "description": "1_KOMPAKT",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/1_KOMPAKT-002-300x400.png",
-      "price": 0,
-      "normalization": {
-        "category": "Desk & Table",
-        "subCategory": "Single Desks",
-        "rank": 1,
-        "tags": [],
-        "dimensions": null
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -2805,14 +1399,7 @@
       "model": "10_BarokMasa",
       "description": "10_BarokMasa",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/10_Barok-Masa-003-300x400.png",
-      "price": 0,
-      "normalization": {
-        "category": "Desk & Table",
-        "subCategory": "Single Desks",
-        "rank": 1,
-        "tags": [],
-        "dimensions": null
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -2821,14 +1408,7 @@
       "model": "11_mixtables",
       "description": "11_mixtables",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/11_mix-tables-014-300x400.png",
-      "price": 0,
-      "normalization": {
-        "category": "Desk & Table",
-        "subCategory": "Single Desks",
-        "rank": 1,
-        "tags": [],
-        "dimensions": null
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -2837,14 +1417,7 @@
       "model": "2_CDF",
       "description": "2_CDF",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/2_CDF-002-300x400.png",
-      "price": 0,
-      "normalization": {
-        "category": "Desk & Table",
-        "subCategory": "Single Desks",
-        "rank": 1,
-        "tags": [],
-        "dimensions": null
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -2853,14 +1426,7 @@
       "model": "3_MERMER",
       "description": "3_MERMER",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/3_MERMER-002-300x400.png",
-      "price": 0,
-      "normalization": {
-        "category": "Desk & Table",
-        "subCategory": "Single Desks",
-        "rank": 1,
-        "tags": [],
-        "dimensions": null
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -2869,14 +1435,7 @@
       "model": "4_CEVZ",
       "description": "4_CEVZ",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/4_CEVIZ-006-300x400.png",
-      "price": 0,
-      "normalization": {
-        "category": "Desk & Table",
-        "subCategory": "Single Desks",
-        "rank": 1,
-        "tags": [],
-        "dimensions": null
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -2885,14 +1444,7 @@
       "model": "5_EPOKSI",
       "description": "5_EPOKSI",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/5_EPOKSI-001-300x400.png",
-      "price": 0,
-      "normalization": {
-        "category": "Desk & Table",
-        "subCategory": "Single Desks",
-        "rank": 1,
-        "tags": [],
-        "dimensions": null
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -2901,14 +1453,7 @@
       "model": "6_RVERA SERAMK",
       "description": "6_RVERA SERAMK",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/6_RIVERA-SERAMIK-001-300x400.png",
-      "price": 0,
-      "normalization": {
-        "category": "Desk & Table",
-        "subCategory": "Single Desks",
-        "rank": 1,
-        "tags": [],
-        "dimensions": null
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -2917,14 +1462,7 @@
       "model": "7_GROVE SERMAMK",
       "description": "7_GROVE SERMAMK",
       "imageUrl": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMSIgaGVpZ2h0PSIxIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjwvc3ZnPg==",
-      "price": 0,
-      "normalization": {
-        "category": "Desk & Table",
-        "subCategory": "Single Desks",
-        "rank": 1,
-        "tags": [],
-        "dimensions": null
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -2933,14 +1471,7 @@
       "model": "8_Alison Masa",
       "description": "8_Alison Masa",
       "imageUrl": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMSIgaGVpZ2h0PSIxIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjwvc3ZnPg==",
-      "price": 0,
-      "normalization": {
-        "category": "Desk & Table",
-        "subCategory": "Single Desks",
-        "rank": 1,
-        "tags": [],
-        "dimensions": null
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -2949,14 +1480,7 @@
       "model": "9_Güneli Çerçeveli Masa",
       "description": "9_Güneli Çerçeveli Masa",
       "imageUrl": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMSIgaGVpZ2h0PSIxIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjwvc3ZnPg==",
-      "price": 0,
-      "normalization": {
-        "category": "Desk & Table",
-        "subCategory": "Single Desks",
-        "rank": 1,
-        "tags": [],
-        "dimensions": null
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -2965,16 +1489,7 @@
       "model": "Alloy",
       "description": "Alloy",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/Alloy-001-300x400.jpg",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [
-          "aluminum"
-        ],
-        "dimensions": null
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -2983,16 +1498,7 @@
       "model": "ALumina",
       "description": "ALumina",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/ALumina-001-300x400.jpg",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [
-          "aluminum"
-        ],
-        "dimensions": null
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -3001,16 +1507,7 @@
       "model": "Aurora",
       "description": "Aurora",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/Aurora-001-300x400.jpg",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [
-          "aluminum"
-        ],
-        "dimensions": null
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -3019,16 +1516,7 @@
       "model": "Breeze",
       "description": "Breeze",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/Breeze-001-300x400.jpg",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [
-          "aluminum"
-        ],
-        "dimensions": null
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -3037,16 +1525,7 @@
       "model": "Canyon",
       "description": "Canyon",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/Canyon-001-300x400.jpg",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [
-          "aluminum"
-        ],
-        "dimensions": null
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -3055,16 +1534,7 @@
       "model": "Empire",
       "description": "Empire",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/Empire-001-300x400.jpg",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [
-          "aluminum"
-        ],
-        "dimensions": null
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -3073,16 +1543,7 @@
       "model": "Flexo",
       "description": "Flexo",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/Flexo-001-300x400.jpg",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [
-          "aluminum"
-        ],
-        "dimensions": null
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -3091,16 +1552,7 @@
       "model": "Horizon",
       "description": "Horizon",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/Horizon-001-300x400.jpg",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [
-          "aluminum"
-        ],
-        "dimensions": null
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -3109,16 +1561,7 @@
       "model": "Maxx",
       "description": "Maxx",
       "imageUrl": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMSIgaGVpZ2h0PSIxIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjwvc3ZnPg==",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [
-          "aluminum"
-        ],
-        "dimensions": null
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -3127,16 +1570,7 @@
       "model": "MeaDow",
       "description": "MeaDow",
       "imageUrl": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMSIgaGVpZ2h0PSIxIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjwvc3ZnPg==",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [
-          "aluminum"
-        ],
-        "dimensions": null
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -3145,16 +1579,7 @@
       "model": "Noble",
       "description": "Noble",
       "imageUrl": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMSIgaGVpZ2h0PSIxIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjwvc3ZnPg==",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [
-          "aluminum"
-        ],
-        "dimensions": null
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -3163,16 +1588,7 @@
       "model": "Nomad",
       "description": "Nomad",
       "imageUrl": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMSIgaGVpZ2h0PSIxIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjwvc3ZnPg==",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [
-          "aluminum"
-        ],
-        "dimensions": null
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -3181,16 +1597,7 @@
       "model": "Oceanic",
       "description": "Oceanic",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/Oceanic-004-300x400.jpg",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [
-          "aluminum"
-        ],
-        "dimensions": null
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -3199,16 +1606,7 @@
       "model": "Palm",
       "description": "Palm",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/Palm-001-300x400.png",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [
-          "aluminum"
-        ],
-        "dimensions": null
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -3217,16 +1615,7 @@
       "model": "Pavo",
       "description": "Pavo",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/Pavo-003-300x400.png",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [
-          "aluminum"
-        ],
-        "dimensions": null
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -3235,16 +1624,7 @@
       "model": "Polyrest",
       "description": "Polyrest",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/Polyrest-001-300x400.jpg",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [
-          "aluminum"
-        ],
-        "dimensions": null
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -3253,16 +1633,7 @@
       "model": "Rila",
       "description": "Rila",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/Rila-002-scaled-300x400.png",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [
-          "aluminum"
-        ],
-        "dimensions": null
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -3271,16 +1642,7 @@
       "model": "Riverstone",
       "description": "Riverstone",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/Riverstone-001-1-scaled-300x400.jpg",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [
-          "aluminum"
-        ],
-        "dimensions": null
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -3289,16 +1651,7 @@
       "model": "Sandwave",
       "description": "Sandwave",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/Sandwave-001-1-scaled-300x400.jpg",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [
-          "aluminum"
-        ],
-        "dimensions": null
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -3307,16 +1660,7 @@
       "model": "Sunset",
       "description": "Sunset",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/Sunset-001-300x400.jpg",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [
-          "aluminum"
-        ],
-        "dimensions": null
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -3325,16 +1669,7 @@
       "model": "WindsoR",
       "description": "WindsoR",
       "imageUrl": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMSIgaGVpZ2h0PSIxIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjwvc3ZnPg==",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [
-          "aluminum"
-        ],
-        "dimensions": null
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -3343,16 +1678,7 @@
       "model": "Zeno",
       "description": "Zeno",
       "imageUrl": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMSIgaGVpZ2h0PSIxIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjwvc3ZnPg==",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [
-          "aluminum"
-        ],
-        "dimensions": null
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -3361,14 +1687,7 @@
       "model": "Axis",
       "description": "Axis",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/Axis-001-300x400.png",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": null
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -3377,14 +1696,7 @@
       "model": "Cambridge",
       "description": "Cambridge",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/Cambridge-001-1-scaled-300x400.jpg",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": null
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -3393,14 +1705,7 @@
       "model": "Loft",
       "description": "Loft",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/Loft-001-300x400.jpg",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": null
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -3409,14 +1714,7 @@
       "model": "Metro",
       "description": "Metro",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/Metro-001-1-scaled-300x400.jpg",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": null
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -3425,14 +1723,7 @@
       "model": "Modena",
       "description": "Modena",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/Modena-001-1-scaled-300x400.jpg",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": null
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -3441,14 +1732,7 @@
       "model": "Neo",
       "description": "Neo",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/Neo-001-300x400.jpg",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": null
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -3457,14 +1741,7 @@
       "model": "Nova",
       "description": "Nova",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/Nova-010-300x400.png",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": null
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -3473,14 +1750,7 @@
       "model": "OxFord",
       "description": "OxFord",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/OxFord-001-300x400.jpg",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": null
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -3489,14 +1759,7 @@
       "model": "Pulse",
       "description": "Pulse",
       "imageUrl": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMSIgaGVpZ2h0PSIxIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjwvc3ZnPg==",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": null
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -3505,14 +1768,7 @@
       "model": "Skyline",
       "description": "Skyline",
       "imageUrl": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMSIgaGVpZ2h0PSIxIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjwvc3ZnPg==",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": null
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -3521,14 +1777,7 @@
       "model": "Titan",
       "description": "Titan",
       "imageUrl": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMSIgaGVpZ2h0PSIxIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjwvc3ZnPg==",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": null
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -3537,14 +1786,7 @@
       "model": "Urbansit",
       "description": "Urbansit",
       "imageUrl": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMSIgaGVpZ2h0PSIxIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjwvc3ZnPg==",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": null
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -3553,14 +1795,7 @@
       "model": "Vibe",
       "description": "Vibe",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/Vibe-001-300x400.jpg",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": null
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -3569,14 +1804,7 @@
       "model": "Luma",
       "description": "Luma",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/Luma-001-300x400.png",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": null
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -3585,14 +1813,7 @@
       "model": "Tero",
       "description": "Tero",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/Tero-001-300x400.png",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": null
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -3601,14 +1822,7 @@
       "model": "Duraseat",
       "description": "Duraseat",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/Duraseat-001-1-scaled-300x400.png",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": null
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -3617,14 +1831,7 @@
       "model": "Litechair",
       "description": "Litechair",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/Litechair-001-1-scaled-300x400.jpg",
-      "price": 0,
-      "normalization": {
-        "category": "Office Seating",
-        "subCategory": "Staff Chairs",
-        "rank": 1,
-        "tags": [],
-        "dimensions": null
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -3633,14 +1840,7 @@
       "model": "Solidline",
       "description": "Solidline",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/Solidline-007-1-scaled-300x400.jpg",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": null
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -3649,14 +1849,7 @@
       "model": "Strongsit",
       "description": "Strongsit",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/Strongsit-001-1-scaled-300x400.png",
-      "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": null
-      }
+      "price": 0
     },
     {
       "mainCategory": "Products",
@@ -3665,14 +1858,17 @@
       "model": "WOOD",
       "description": "WOOD",
       "imageUrl": "https://amara-art.com/wp-content/uploads/2025/10/WOOD-001-300x400.png",
+      "price": 0
+    },
+    {
+      "model": "AMARA Dining Table",
+      "mainCategory": "Furniture",
+      "subCategory": "Generic",
+      "family": "Standard",
+      "description": "AMARA Dining Table (AI Suggested)",
+      "productUrl": "virtual_1775146776235_0.14481613014841355",
       "price": 0,
-      "normalization": {
-        "category": "OTHER",
-        "subCategory": "Generic",
-        "rank": 1,
-        "tags": [],
-        "dimensions": null
-      }
+      "source": "ai-suggested"
     }
   ],
   "createdAt": "2025-12-27T13:18:11.216Z",

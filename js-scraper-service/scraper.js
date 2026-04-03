@@ -834,23 +834,23 @@ class ScraperService {
                         let lastHeight = 0;
                         let stableHeightCount = 0;
 
-                        // ENHANCED: Smart scroll — 60 iterations, break when page height stable for 20 consecutive scans.
+                        // ENHANCED: Smart scroll — 100 iterations, break when page height stable for 30 consecutive scans.
                         // Architonic collections page renders all collection cards without true infinite scroll.
-                        // 60 × 600ms = max 36 seconds for discovery (vs previous 500 × 600ms = 5 minutes).
-                        for (let i = 0; i < 60; i++) {
-                            const progressVal = Math.min(60, 20 + (i * 0.1));
+                        // 100 × 700ms = max 70 seconds for discovery
+                        for (let i = 0; i < 100; i++) {
+                            const progressVal = Math.min(60, 20 + (i * 0.4));
                             if (onProgress) onProgress(progressVal, `Discovering collections (Scan ${i})...`);
 
                             // Keyboard scroll is more reliable for infinite scroll triggers
                             try { await page.keyboard.press('End'); } catch (e) { }
 
-                            // Wait between scrolls for lazy loading (slightly longer for reliable loading)
-                            await page.waitForTimeout(600);
+                            // Wait between scrolls for lazy loading
+                            await page.waitForTimeout(700);
 
                             const iterationResults = await page.evaluate(async (currentUrl) => {
                                 // Dynamic scroll amount based on page height
-                                window.scrollBy(0, 2000); // Increased scroll distance
-                                await new Promise(r => setTimeout(r, 400)); // Reduced from 800
+                                window.scrollBy(0, 3500); // Increased scroll distance further
+                                await new Promise(r => setTimeout(r, 500)); 
 
                                 // 1. Find Load More
                                 const elements = Array.from(document.querySelectorAll('button, a, span, div'));
@@ -875,12 +875,12 @@ class ScraperService {
                                     .map(el => el.href)
                                     .filter(href => {
                                         if (!href || !href.includes('architonic.com')) return false;
-                                        // STRICT: Only allow /collection/ URLs, NEVER /products/
+                                        // STRICT: Only allow /collection/ or /category/ URLs, NEVER /products/
                                         if (href.includes('/products/')) return false;
                                         const normalizedHref = href.replace(/\/$/, '');
                                         const isSamePage = normalizedHref === normalizedCurrent;
-                                        const isCollectionLink = href.includes('/collection/');
-                                        const isUtility = href.endsWith('/collections') || href.endsWith('/products') || !href.includes('/b/');
+                                        const isCollectionLink = href.includes('/collection/') || href.includes('/category/') || href.includes('/group/');
+                                        const isUtility = href.endsWith('/collections') || href.endsWith('/products') || !href.includes('/b/') || href.includes('search?');
                                         return !isSamePage && !href.includes('#') && isCollectionLink && !isUtility;
                                     });
 
@@ -898,13 +898,12 @@ class ScraperService {
                             iterationResults.products.forEach(l => discoveredProductLinks.add(l));
 
 
-                            // SMART BREAKER: Stop if height doesn't change for 12 consecutive scans
-                            // Increased from 5 to 12 to catch lazy-loaded categories like Education
+                            // SMART BREAKER: Stop if height doesn't change for 15 consecutive scans
                             if (iterationResults.height === lastHeight) {
                                 stableHeightCount++;
-                                // Increased to 20 to ensure all lazy-loaded categories (e.g., Education) are discovered
-                                if (stableHeightCount >= 20) {
-                                    console.log(`   ✅ Reached bottom of page (height stable for 20 scans). Found ${discoveredSubLinks.size} collections.`);
+                                // 30 scans = ~21 seconds of stability to be absolutely sure all lazy-loaded categories are found
+                                if (stableHeightCount >= 30) {
+                                    console.log(`   ✅ Reached bottom of page (height stable for 30 scans). Found ${discoveredSubLinks.size} collections.`);
                                     break;
                                 }
                             } else {

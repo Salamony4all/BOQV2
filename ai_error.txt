@@ -1,4 +1,0 @@
-ERROR: ReferenceError: brandNames is not defined
-    at file:///C:/Users/Mohamad60025/Desktop/App/BOQ%20-%20v2/server/server.js:1674:112
-    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
-RESPONSE: "N/A"

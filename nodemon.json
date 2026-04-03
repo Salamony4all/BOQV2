@@ -1,17 +1,13 @@
 {
+  "verbose": true,
   "ignore": [
-    "uploads",
-    "server/data",
-    "ai_debug.txt",
-    "ai_error.txt",
-    "scraper-debug.log",
-    "nodemon.json",
-    "FitOt.csv",
-    "FitOutv2.csv",
-    "vercel_response.txt",
-    "api_debug"
+    "server/data/*.json",
+    "server/data/brands/*.json",
+    "public/cache/*.json",
+    "uploads/**/*",
+    "*.test.js",
+    "node_modules"
   ],
-  "watch": ["server/**/*.js", "api/**/*.js", ".env"],
-  "ext": "js,mjs,cjs,json",
-  "delay": "2500"
+  "exec": "node server/server.js",
+  "ext": "js,json"
 }

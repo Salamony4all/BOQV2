@@ -1,0 +1,330 @@
+.overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.88);
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+}
+
+.modal {
+    width: 800px;
+    max-width: 92vw;
+    background: #1e293b;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 20px;
+    box-shadow: 0 25px 60px -12px rgba(0, 0, 0, 0.6);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    max-height: 88vh;
+}
+
+/* ── Header ──────────────────────────────────────── */
+.header {
+    padding: 20px 28px;
+    background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-shrink: 0;
+}
+.header h2 {
+    margin: 0;
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: #f8fafc;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+.activeTierBadge {
+    padding: 5px 14px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: white;
+    border-radius: 100px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+.closeBtn {
+    background: none;
+    border: none;
+    color: #64748b;
+    font-size: 1.6rem;
+    cursor: pointer;
+    line-height: 1;
+    padding: 0;
+    transition: color 0.2s;
+}
+.closeBtn:hover { color: #f8fafc; }
+
+/* ── Content ─────────────────────────────────────── */
+.content {
+    padding: 24px 28px 16px;
+    overflow-y: auto;
+    flex: 1;
+}
+.section {
+    margin-bottom: 28px;
+}
+.sectionTitle {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 14px;
+}
+.countPill {
+    padding: 2px 9px;
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 100px;
+    font-size: 0.7rem;
+    color: #94a3b8;
+    font-weight: 600;
+    letter-spacing: 0;
+    text-transform: none;
+}
+
+/* ── Brand Section Header ────────────────────────── */
+.brandSectionHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+.quickActions {
+    display: flex;
+    gap: 8px;
+}
+.quickBtn {
+    padding: 5px 14px;
+    font-size: 0.73rem;
+    font-weight: 600;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #94a3b8;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+}
+.quickBtn:hover {
+    background: rgba(255, 255, 255, 0.12);
+    color: #f8fafc;
+    transform: translateY(-1px);
+}
+.quickBtnDanger {
+    background: rgba(239, 68, 68, 0.08);
+    border-color: rgba(239, 68, 68, 0.2);
+    color: #fca5a5;
+}
+.quickBtnDanger:hover {
+    background: rgba(239, 68, 68, 0.2);
+    border-color: #ef4444;
+    color: #fef2f2;
+}
+
+/* ── Engine Grid ─────────────────────────────────── */
+.engineGrid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+}
+.engineCard {
+    padding: 16px 12px;
+    background: rgba(15, 23, 42, 0.5);
+    border: 2px solid rgba(255, 255, 255, 0.06);
+    border-radius: 14px;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.engineCard:hover {
+    border-color: rgba(255, 255, 255, 0.2);
+    background: rgba(30, 41, 59, 0.8);
+    transform: translateY(-2px);
+}
+.engineCard.active {
+    border-color: #3b82f6;
+    background: rgba(59, 130, 246, 0.1);
+    box-shadow: 0 0 20px rgba(59, 130, 246, 0.15);
+}
+.engineIcon  { font-size: 1.6rem; margin-bottom: 8px; }
+.engineName  { font-weight: 700; color: #f8fafc; font-size: 0.82rem; margin-bottom: 3px; }
+.engineDesc  { font-size: 0.7rem; color: #64748b; }
+
+/* ── Tier Groups ─────────────────────────────────── */
+.tierGroup {
+    background: rgba(15, 23, 42, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 14px;
+    padding: 16px;
+    margin-bottom: 14px;
+    transition: border-color 0.2s;
+}
+.tierGroupActive {
+    border-width: 1px;
+    border-style: solid;
+    background: rgba(15, 23, 42, 0.5);
+}
+
+.tierHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 14px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+.tierLabel {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 600;
+    font-size: 0.88rem;
+    color: #f8fafc;
+}
+.tierDot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+.activePill {
+    padding: 2px 8px;
+    border-radius: 100px;
+    font-size: 0.65rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+.countBadge {
+    padding: 2px 8px;
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 100px;
+    font-size: 0.68rem;
+    color: #64748b;
+    font-weight: 600;
+}
+.tierActions {
+    display: flex;
+    gap: 6px;
+}
+.tierActions button {
+    padding: 3px 10px;
+    font-size: 0.7rem;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    color: #64748b;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+.tierActions button:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: #f8fafc;
+}
+
+/* ── Brand Grid ─────────────────────────────────── */
+.brandGrid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+}
+.brandItem {
+    padding: 10px 14px;
+    background: rgba(30, 41, 59, 0.5);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    transition: all 0.15s;
+    -webkit-user-select: none;
+    user-select: none;
+}
+.brandItem:hover {
+    background: rgba(51, 65, 85, 0.7);
+    border-color: rgba(255, 255, 255, 0.12);
+}
+.brandItem.checked {
+    font-weight: 600;
+}
+.brandName {
+    color: #cbd5e1;
+    font-size: 0.84rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.brandItem.checked .brandName {
+    color: #f1f5f9;
+}
+
+/* ── Footer ─────────────────────────────────────── */
+.footer {
+    padding: 16px 28px;
+    background: rgba(15, 23, 42, 0.5);
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-shrink: 0;
+}
+.tierHint {
+    flex: 1;
+    font-size: 0.76rem;
+    color: #475569;
+}
+.btnCancel {
+    padding: 10px 22px;
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #64748b;
+    border-radius: 12px;
+    cursor: pointer;
+    font-size: 0.84rem;
+    transition: all 0.2s;
+}
+.btnCancel:hover {
+    border-color: rgba(255, 255, 255, 0.2);
+    color: #f8fafc;
+    background: rgba(255, 255, 255, 0.04);
+}
+.btnConfirm {
+    padding: 10px 26px;
+    background: #8b5cf6;
+    border: none;
+    color: white;
+    border-radius: 12px;
+    font-weight: 700;
+    font-size: 0.84rem;
+    cursor: pointer;
+    transition: all 0.25s;
+    white-space: nowrap;
+}
+.btnConfirm:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+    background: #334155 !important;
+}
+.btnConfirm:not(:disabled):hover {
+    filter: brightness(1.15);
+    transform: translateY(-1px);
+    box-shadow: 0 6px 20px -4px rgba(0, 0, 0, 0.4);
+}
