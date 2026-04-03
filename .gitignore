@@ -36,6 +36,7 @@ server/data/temp/
 scraper-debug.log
 
 # Diagnostic & Secret Files
+.env
 test_ai_key.js
 test_ai_connectivity.js
 *.ps1
