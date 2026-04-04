@@ -385,14 +385,26 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                             aiResult: result
                         };
                         totalSuccess++;
+                    } else if (result.status === 'no_match') {
+                        tierRows[k][i] = { 
+                            ...tierRows[k][i], 
+                            aiStatus: 'no_match', 
+                            aiError: result.message || 'No suitable product found' 
+                        };
+                        totalError++;
                     } else {
                         tierRows[k][i] = { ...tierRows[k][i], aiStatus: 'error', aiError: result.error_message || 'No match found' };
                         totalError++;
                     }
                 } catch (error) {
                     console.error(`[AI] Row ${i} tier ${k} failed:`, error);
+                    const engineLabel = selectedEngine === 'google' ? 'Gemini' : selectedEngine === 'nvidia' ? 'Nvidia' : 'OpenRouter';
                     const msg = error.name === 'AbortError' ? 'Timeout (30s)' : error.message;
-                    tierRows[k][i] = { ...tierRows[k][i], aiStatus: 'error', aiError: msg };
+                    tierRows[k][i] = { 
+                        ...tierRows[k][i], 
+                        aiStatus: 'error', 
+                        aiError: `${engineLabel} failed: ${msg} - Try another engine` 
+                    };
                     totalError++;
                 }
 
@@ -2076,13 +2088,27 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                                                 ✨
                                             </button>
                                         )}
+                                        {row.aiStatus === 'no_match' && (
+                                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
+                                                <span className={styles.aiNoMatchBadge} title={row.aiError}>∅ No Match</span>
+                                                <div className={styles.aiErrorDetail}>Try another brand</div>
+                                                <button
+                                                    className={styles.retryBtn}
+                                                    title="Retry matching"
+                                                    onClick={() => handleRetryRow(index)}
+                                                >
+                                                    ↻ retry
+                                                </button>
+                                            </div>
+                                        )}
                                         {row.aiStatus === 'error' && (
                                             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
-                                                <span className={styles.aiErrorBadge} title={row.aiError}>✗ AI Failed</span>
+                                                <span className={styles.aiErrorBadge} title={row.aiError}>⚠️ {row.aiError.split(' ')[0]} Failed</span>
+                                                <div className={styles.aiErrorDetail}>{row.aiError.split('-')[1] || 'Try another engine'}</div>
                                                 <button
                                                     className={styles.retryBtn}
                                                     title={`Retry: ${row.aiError}`}
-                                                    onClick={() => handleRetryRow(rows.indexOf(row))}
+                                                    onClick={() => handleRetryRow(index)}
                                                 >
                                                     ↻ retry
                                                 </button>

@@ -472,10 +472,10 @@ app.post('/api/auto-match-ai', async (req, res) => {
     }
 
     // All brands exhausted
-    console.warn(`  ❌ [AutoFill] All brands exhausted — no match found for: "${description}"`);
+    console.warn(`  ℹ️ [AutoFill] No match found across all brands for: "${description}"`);
     return res.json({
-      status: 'error',
-      error_message: `Could not identify a matching product from: ${brandCandidates.join(', ')}`
+      status: 'no_match',
+      message: `Could not identify a matching product from current candidate brands.`
     });
 
   } catch (error) {

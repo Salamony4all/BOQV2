@@ -1277,3 +1277,82 @@
     to { transform: rotate(360deg); }
 }
 
+/* AI Status Badges */
+.aiErrorBadge {
+    background: rgba(239, 68, 68, 0.15);
+    color: #ef4444;
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.65rem;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.aiNoMatchBadge {
+    background: rgba(148, 163, 184, 0.15);
+    color: #94a3b8;
+    border: 1px solid rgba(148, 163, 184, 0.3);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.65rem;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.aiErrorDetail {
+    font-size: 0.6rem;
+    color: #94a3b8;
+    text-align: center;
+    max-width: 120px;
+    line-height: 1.2;
+    margin-top: 2px;
+}
+
+.aiProcessingBadge {
+    font-size: 1rem;
+    animation: rotate 2s linear infinite;
+}
+
+@keyframes rotate {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+.aiPulse {
+    animation: pulseBorder 1.5s ease-in-out infinite;
+}
+
+@keyframes pulseBorder {
+    0% { box-shadow: inset 0 0 0 1px rgba(59, 130, 246, 0.2); }
+    50% { box-shadow: inset 0 0 0 1px rgba(59, 130, 246, 0.8); }
+    100% { box-shadow: inset 0 0 0 1px rgba(59, 130, 246, 0.2); }
+}
+
+.aiGlow {
+    box-shadow: inset 0 0 0 1px rgba(16, 185, 129, 0.4);
+    background: rgba(16, 185, 129, 0.02) !important;
+}
+
+.aiErrorBorder {
+    box-shadow: inset 0 0 0 1px rgba(239, 68, 68, 0.4);
+    background: rgba(239, 68, 68, 0.02) !important;
+}
+
+.retryBtn {
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #64748b;
+    font-size: 0.6rem;
+    padding: 1px 6px;
+    border-radius: 3px;
+    cursor: pointer;
+    text-transform: lowercase;
+    transition: all 0.2s;
+}
+
+.retryBtn:hover {
+    background: rgba(255, 255, 255, 0.05);
+    color: #f8fafc;
+    border-color: rgba(255, 255, 255, 0.2);
+}

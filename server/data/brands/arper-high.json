@@ -4464,6 +4464,58 @@
       "price": 0,
       "lastUpdated": "2026-04-03T16:16:29.363Z",
       "source": "AI-Specialist-Discovery"
+    },
+    {
+      "brand": "Arper",
+      "mainCategory": "Furniture",
+      "subCategory": "Meeting Tables",
+      "family": "Cross",
+      "model": "Cross Table Executive",
+      "description": "Cross Table is a table system designed to accommodate various needs and spaces. The Executive version features a larger tabletop and a more substantial base, making it suitable for executive offices or meeting rooms. The table is available in various finishes and materials, including wood, glass, and laminate.",
+      "imageUrl": "https://img.architonic.com/img_pro1-3/136/142/01/cross-table-executive-arper-01.jpg",
+      "productUrl": "https://www.architonic.com/en/product/arper-cross-table-executive/136142",
+      "price": 0,
+      "lastUpdated": "2026-04-03T17:19:37.212Z",
+      "source": "AI-Specialist-Discovery"
+    },
+    {
+      "brand": "Arper",
+      "mainCategory": "Furniture",
+      "subCategory": "Desks",
+      "family": "Catifa",
+      "model": "Catifa Secretary Desk",
+      "description": "Catifa Secretary Desk is a compact workstation designed for the home office or small workspaces. The desk features a compact footprint and a simple, elegant design that can be easily integrated into any environment. The Catifa Secretary Desk is available in a range of finishes and can be customized to meet specific needs.",
+      "imageUrl": "https://img.architonic.com/imgArc/project-1/4/5200948/catifa-secretary-desk-02-b.jpg",
+      "productUrl": "https://www.architonic.com/en/product/arper-catifa-secretary-desk/5200948",
+      "price": 0,
+      "lastUpdated": "2026-04-03T17:21:27.988Z",
+      "source": "AI-Specialist-Discovery"
+    },
+    {
+      "brand": "Arper",
+      "mainCategory": "Furniture",
+      "subCategory": "Lounge Chairs",
+      "family": "Gher",
+      "model": "Gher",
+      "description": "Gher is a collection of lounge chairs and ottomans designed by Peter Traag. The collection features a simple, minimalist design with clean lines and a focus on comfort. The chairs are available in a range of upholstery options and can be customized to suit individual needs.",
+      "imageUrl": "https://img.architonic.com/img_pro1-3/136/142/gher-01-b.jpg",
+      "productUrl": "https://www.architonic.com/en/product/arper-gher/136142",
+      "price": 0,
+      "lastUpdated": "2026-04-03T17:29:04.167Z",
+      "source": "AI-Specialist-Discovery"
+    },
+    {
+      "brand": "Arper",
+      "mainCategory": "Furniture",
+      "subCategory": "Coffee Tables",
+      "family": "Lock",
+      "model": "Lock",
+      "description": "Lock is a coffee table with a minimalist aesthetic and a functional design. The table top is available in various materials and finishes, while the base is made of steel or aluminum. Lock is suitable for both residential and commercial spaces.",
+      "imageUrl": "https://img.architonic.com/imgArc/project-1/4/5200946/lock-01-b.jpg",
+      "productUrl": "https://www.architonic.com/en/product/arper-lock/5200946",
+      "price": 0,
+      "lastUpdated": "2026-04-03T17:33:48.043Z",
+      "source": "AI-Specialist-Discovery"
     }
   ],
   "createdAt": "2025-12-23T12:10:35.207Z"

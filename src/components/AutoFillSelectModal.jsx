@@ -50,9 +50,9 @@ export default function AutoFillSelectModal({ isOpen, onClose, allBrands, active
     const clearAll   = () => setSelectedBrands([]);
 
     const engines = [
-        { id: 'google',     name: 'Gemini 2.5 Flash', desc: 'Web Search · Most Accurate', icon: '💎' },
-        { id: 'openrouter', name: 'Open Router',       desc: 'Gemini 2.0 Flash Lite',      icon: '🚀' },
-        { id: 'nvidia',     name: 'Nvidia NIM',        desc: 'Llama 3.1 405B · Fast',      icon: '🔥' }
+        { id: 'google',     name: 'Gemini 2.5 Flash', desc: 'Google · Higher Precision · Web Search', icon: '💎', color: '#1a73e8' },
+        { id: 'openrouter', name: 'Open Router',       desc: 'Universal · Gemini 2.0 Flash Lite',      icon: '🌌', color: '#8b5cf6' },
+        { id: 'nvidia',     name: 'Nvidia NIM',        desc: 'NVIDIA · Llama 3.3 70B · Ultra Fast',   icon: '🔥', color: '#76b900' }
     ];
 
     const activeMeta = tierMeta[activeTier] || tierMeta.mid;
@@ -74,15 +74,18 @@ export default function AutoFillSelectModal({ isOpen, onClose, allBrands, active
                         <span className={styles.sectionTitle}>1. Choose AI Engine</span>
                         <div className={styles.engineGrid}>
                             {engines.map(engine => (
-                                <div
-                                    key={engine.id}
-                                    className={`${styles.engineCard} ${selectedEngine === engine.id ? styles.active : ''}`}
-                                    onClick={() => setSelectedEngine(engine.id)}
-                                >
-                                    <span className={styles.engineIcon}>{engine.icon}</span>
-                                    <span className={styles.engineName}>{engine.name}</span>
-                                    <span className={styles.engineDesc}>{engine.desc}</span>
-                                </div>
+                                    <div
+                                        key={engine.id}
+                                        className={`${styles.engineCard} ${selectedEngine === engine.id ? styles.active : ''}`}
+                                        onClick={() => setSelectedEngine(engine.id)}
+                                        style={selectedEngine === engine.id ? { borderColor: engine.color, background: engine.color + '10' } : {}}
+                                    >
+                                        <span className={styles.engineIcon} style={{ background: engine.color }}>{engine.icon}</span>
+                                        <div className={styles.engineInfo}>
+                                            <span className={styles.engineName}>{engine.name}</span>
+                                            <span className={styles.engineDesc}>{engine.desc}</span>
+                                        </div>
+                                    </div>
                             ))}
                         </div>
                     </div>

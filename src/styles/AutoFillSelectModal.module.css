@@ -142,30 +142,58 @@
     gap: 12px;
 }
 .engineCard {
-    padding: 16px 12px;
-    background: rgba(15, 23, 42, 0.5);
-    border: 2px solid rgba(255, 255, 255, 0.06);
-    border-radius: 14px;
+    padding: 14px;
+    background: rgba(15, 23, 42, 0.4);
+    border: 2px solid rgba(255, 255, 255, 0.05);
+    border-radius: 16px;
     cursor: pointer;
     display: flex;
-    flex-direction: column;
     align-items: center;
-    text-align: center;
+    gap: 12px;
+    text-align: left;
     transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
 }
 .engineCard:hover {
-    border-color: rgba(255, 255, 255, 0.2);
+    border-color: rgba(255, 255, 255, 0.15);
     background: rgba(30, 41, 59, 0.8);
     transform: translateY(-2px);
 }
-.engineCard.active {
-    border-color: #3b82f6;
-    background: rgba(59, 130, 246, 0.1);
-    box-shadow: 0 0 20px rgba(59, 130, 246, 0.15);
+.engineIcon {
+    width: 44px;
+    height: 44px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.4rem;
+    flex-shrink: 0;
+    transition: transform 0.3s;
 }
-.engineIcon  { font-size: 1.6rem; margin-bottom: 8px; }
-.engineName  { font-weight: 700; color: #f8fafc; font-size: 0.82rem; margin-bottom: 3px; }
-.engineDesc  { font-size: 0.7rem; color: #64748b; }
+.engineCard:hover .engineIcon {
+    transform: scale(1.1) rotate(5deg);
+}
+.engineInfo {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    flex: 1;
+}
+.engineName {
+    font-weight: 700;
+    color: #f8fafc;
+    font-size: 0.82rem;
+}
+.engineDesc {
+    font-size: 0.68rem;
+    color: #64748b;
+    line-height: 1.25;
+}
+.engineCard.active {
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.4);
+}
 
 /* ── Tier Groups ─────────────────────────────────── */
 .tierGroup {
