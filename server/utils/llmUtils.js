@@ -10,9 +10,20 @@ const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
 const NVIDIA_API_KEY = process.env.NVIDIA_API_KEY;
 
 // Model ids
-const GOOGLE_MODEL = process.env.GOOGLE_MODEL || 'gemini-2.5-flash';
+// Valid model names: gemini-1.5-pro, gemini-1.5-flash, gemini-2.0-flash-exp, etc.
+// Default to 2.0-flash-exp if .env is missing or has a typo (like gemini-2.5-pro)
+const VALID_GOOGLE_MODELS = [
+    'gemini-2.5-flash',
+    'gemini-2.5-pro',
+    'gemini-3.1-flash-live-preview',
+    'gemini-2.0-flash-exp', 
+    'gemini-2.0-flash-001', 
+    'gemini-2.0-flash-lite-001'
+];
+const GOOGLE_MODEL = VALID_GOOGLE_MODELS.includes(process.env.GOOGLE_MODEL) ? process.env.GOOGLE_MODEL : 'gemini-2.5-flash';
 const OPENROUTER_MODEL = process.env.OPENROUTER_MODEL || 'google/gemini-2.0-flash-lite-001';
 const NVIDIA_MODEL = process.env.NVIDIA_MODEL || 'meta/llama-3.1-405b-instruct';
+const GROUNDING_MODEL = 'gemini-2.5-flash'; // Standard model for this environment
 
 const genAI = new GoogleGenerativeAI(GOOGLE_API_KEY);
 
@@ -20,14 +31,80 @@ const genAI = new GoogleGenerativeAI(GOOGLE_API_KEY);
 // HELPERS
 // ──────────────────────────────────────────────────────────────────────────────
 
-/** Strip markdown fences, then parse JSON. */
+/** Strip markdown fences, then parse JSON with surgical precision. */
 function safeParseJSON(text) {
     if (!text) throw new Error('Empty AI response');
-    const cleaned = text
-        .replace(/^```(?:json)?\s*/i, '')
-        .replace(/\s*```$/i, '')
-        .trim();
-    return JSON.parse(cleaned);
+    
+    // 1. Structural Anchor Discovery (Regex-based)
+    let cleaned = text;
+    const itemsMatch = text.match(/\{\s*"items"\s*:/);
+    const invMatch = text.match(/\{\s*"inventory"\s*:/);
+    
+    const itemsStartIdx = itemsMatch ? itemsMatch.index : -1;
+    const invStartIdx = invMatch ? invMatch.index : -1;
+    
+    let startIdx = -1;
+    if (itemsStartIdx !== -1 && invStartIdx !== -1) {
+        startIdx = Math.min(itemsStartIdx, invStartIdx);
+    } else {
+        startIdx = itemsStartIdx !== -1 ? itemsStartIdx : invStartIdx;
+    }
+    
+    const lastBraceIdx = text.lastIndexOf('}');
+    
+    // If we have a lot of text before the first '{', find the first '{' that looks like JSON
+    const firstBraceIdx = text.indexOf('{');
+    
+    if (firstBraceIdx !== -1 && lastBraceIdx !== -1 && lastBraceIdx > firstBraceIdx) {
+        cleaned = text.substring(firstBraceIdx, lastBraceIdx + 1);
+    } else {
+        cleaned = text
+            .replace(/^```(?:json)?\s*/i, '')
+            .replace(/\s*```$/i, '')
+            .trim();
+    }
+
+    const attemptParse = (str) => {
+        try {
+            // Further clean: strip control characters that might break JSON.parse
+            const san = str.replace(/[\u0000-\u001F\u007F-\u009F]/g, '');
+            return JSON.parse(san);
+        } catch (e) {
+            return null;
+        }
+    };
+
+    let result = attemptParse(cleaned);
+    if (result) return result;
+
+    console.warn('  ⚠️ [LLM Utils] Standard parse failed, attempting surgical repair...');
+
+    let fixed = cleaned;
+    const quoteMatches = fixed.match(/"/g) || [];
+    if (quoteMatches.length % 2 !== 0) {
+        fixed += '"';
+    }
+
+    const balanceAndParse = (str) => {
+        let stack = [];
+        let finalStr = str;
+        for (let char of str) {
+            if (char === '{') stack.push('}');
+            else if (char === '[') stack.push(']');
+            else if (char === '}') { if (stack[stack.length-1] === '}') stack.pop(); }
+            else if (char === ']') { if (stack[stack.length-1] === ']') stack.pop(); }
+        }
+        finalStr += stack.reverse().join('');
+        return attemptParse(finalStr);
+    };
+
+    result = balanceAndParse(fixed);
+    if (result) return result;
+
+    console.error('  ❌ [LLM Utils] All JSON repair strategies exhausted.');
+    const finalErr = new Error('The AI response was severely malformed or truncated.');
+    finalErr.rawResponse = text;
+    throw finalErr;
 }
 
 /** Generic OpenRouter call expecting JSON object back. */
@@ -63,7 +140,7 @@ async function callNvidia(systemPrompt, userPrompt) {
                 { role: 'user', content: userPrompt }
             ],
             temperature: 0.1,
-            max_tokens: 1024,
+            max_tokens: 16384,
             response_format: { type: 'json_object' }
         },
         {
@@ -75,178 +152,302 @@ async function callNvidia(systemPrompt, userPrompt) {
     return typeof raw === 'string' ? safeParseJSON(raw) : raw;
 }
 
-/** Google Gemini call with optional Grounding (Web Search). */
-async function callGoogle(systemPrompt, userPrompt, useSearch = false) {
+/** Google Gemini call with optional Grounding or specific Model override. */
+export async function callGoogle(systemPrompt, userPrompt, useSearch = false, modelName = null) {
     const tools = useSearch ? [{ googleSearch: {} }] : [];
+    const finalModel = modelName || (useSearch ? GROUNDING_MODEL : GOOGLE_MODEL);
     const model = genAI.getGenerativeModel({
-        model: GOOGLE_MODEL,
+        model: finalModel,
         systemInstruction: systemPrompt,
         tools: tools,
         generationConfig: {
-            temperature: 0.1,
-            responseMimeType: tools.length > 0 ? undefined : 'application/json'
+            temperature: 0.1
         }
     });
     const result = await model.generateContent(userPrompt);
-    return safeParseJSON(result.response.text());
-}
+    const text = result.response.text();
+    
+    // Log for debugging
+    if (process.env.DEBUG_AI === 'true') {
+        console.log(`\n🤖 [AI Raw Response] (${useSearch ? 'Search' : 'Direct'}):\n${text.substring(0, 500)}...`);
+    }
 
-// ──────────────────────────────────────────────────────────────────────────────
-// STAGE 1 ─ IDENTIFY: "What is the best ONE model for [desc] from [brand]?"
-// ──────────────────────────────────────────────────────────────────────────────
-
-const IDENTIFY_SYSTEM = (brand, tier) => `You are a senior FF&E (Furniture, Fixtures & Equipment) procurement specialist.
-
-Your task: Given a "BOQ Item Description" and a specific furniture brand "${brand}", identify the SINGLE BEST product model from that brand that best matches the description.
-
-Rules:
-- Respond with exactly ONE model name — the most precise flagship model.
-- Do NOT invent or hallucinate models. Use your knowledge of ${brand}'s actual catalog.
-- Use web search if needed to confirm the model name.
-- Budget Tier: ${tier} (budgetary = value range, mid = standard office, high = premium/design).
-
-Respond ONLY with valid JSON (no markdown):
-{
-  "brand": "${brand}",
-  "model": "Exact official model name",
-  "confidence": "high | medium | low"
-}`;
-
-/**
- * STAGE 1: Ask AI to identify the single best model for one brand.
- * Returns { brand, model } or throws.
- */
-export async function identifyModel(description, brand, tier, provider = 'google') {
-    const system = IDENTIFY_SYSTEM(brand, tier);
-    const user = `BOQ Item Description: "${description}"\nBrand: ${brand}\nBudget Tier: ${tier}\n\nWhat is the best ONE model from ${brand} for this item?`;
-
-    console.log(`  🔍 [Stage 1 / ${provider}] Identify: "${description.substring(0, 60)}" from ${brand}`);
     try {
-        let parsed;
-        if (provider === 'google') {
-            parsed = await callGoogle(system, user, true); // enable web search
-        } else if (provider === 'openrouter') {
-            parsed = await callOpenRouter(system, user);
-        } else if (provider === 'nvidia') {
-            parsed = await callNvidia(system, user);
-        } else {
-            throw new Error(`Unsupported provider: ${provider}`);
-        }
-
-        if (!parsed.model) throw new Error('AI returned no model name');
-        console.log(`  ✅ [Stage 1] Identified: ${brand} → ${parsed.model} (confidence: ${parsed.confidence || 'unknown'})`);
-        return { status: 'success', brand: parsed.brand || brand, model: parsed.model };
+        return safeParseJSON(text);
     } catch (err) {
-        console.error(`  ❌ [Stage 1 Error]:`, err.message);
-        return { status: 'error', brand: brand, model: '', error_message: err.message };
+        // If it's a search result, sometimes it returns plain text if it failed to find anything.
+        // We handle this at the caller level, but let's try a generic wrapper here.
+        if (text.toLowerCase().includes('failed') || text.toLowerCase().includes('not found')) {
+            return { model: 'FAILED', logic: text };
+        }
+        throw err;
     }
 }
 
-// ──────────────────────────────────────────────────────────────────────────────
-// STAGE 3 ─ FETCH: Get full product details from web when model is missing in DB
-// ──────────────────────────────────────────────────────────────────────────────
+const IDENTIFY_SYSTEM = (brand) => `You are a Senior Furniture Architect.
+Identify the single best real-world product model from ${brand} for this description.
 
-const FETCH_SYSTEM = (brand, model) => `You are a senior FF&E researcher with expert knowledge of furniture brand catalogs (Architonic, brand official sites, etc.).
+Return ONLY valid JSON:
+{ 
+  "brand": "${brand}", 
+  "model": "Exact Model Name",
+  "category": "Standard Category (e.g. Chairs, Tables, Desks, Sofas, Storage)",
+  "logic": "Brief reasoning" 
+}`;
 
-Your task: Find the full product details for "${model}" by ${brand}.
+export async function identifyModel(description, brand, provider = 'google') {
+    const system = IDENTIFY_SYSTEM(brand);
+    const user = `What is the best One Model for "${description}" from "${brand}"?`;
 
-Search Architonic at: https://www.architonic.com/en/search?q=${encodeURIComponent(brand + ' ' + model)}
-Or the brand's official website as fallback.
+    if (process.env.DEBUG_AI === 'true') {
+        console.log(`\n🤖 [AI Stage 1 Prompt] (Brand: ${brand}):\nSystem: ${system.substring(0, 200)}...\nUser: ${user}`);
+    }
+
+    try {
+        // Attempt 1: Search Grounded Identification
+        const parsed = provider === 'google' ? await callGoogle(system, user, true) : await callOpenRouter(system, user);
+        
+        if (parsed && parsed.model && parsed.model !== 'FAILED') {
+            return { 
+                status: 'success', 
+                brand: parsed.brand || brand, 
+                model: parsed.model,
+                category: parsed.category || ''
+            };
+        }
+        
+        throw new Error('Search did not yield a valid model');
+    } catch (err) {
+        console.warn(`  ⚠️ [AI Fallback] Search Identification failed for ${brand}, trying internal knowledge...`);
+        try {
+            // Attempt 2: Internal Knowledge Fallback (Non-Search)
+            const fallbackParsed = await callGoogle(system, user, false);
+            if (fallbackParsed && fallbackParsed.model && fallbackParsed.model !== 'FAILED') {
+                return { 
+                    status: 'success', 
+                    brand: fallbackParsed.brand || brand, 
+                    model: fallbackParsed.model,
+                    category: fallbackParsed.category || ''
+                };
+            }
+        } catch (innerErr) {
+            console.error(`  ❌ [AI Critical] Both search and internal ID failed for ${brand}:`, innerErr.message);
+        }
+        return { status: 'error', brand, model: '', category: '', error_message: err.message };
+    }
+}
+
+const FETCH_SYSTEM = (brand, model) => `You are a senior FF&E researcher specializing in global furniture sourcing.
+
+Your task: Find full product details for "${model}" by ${brand}.
+
+### 🔍 Search Strategy:
+1. **Primary Source (Official Catalog)**: Search for the official brand website (e.g. las.it, ismobil.com, ottimo.ae, teknion.com). This is the "Pillar of Truth".
+2. **Secondary Source (Architonic)**: Use Architonic as a reference library if the official site is restricted or lacks clear imagery.
+3. **Asset Quality**: 
+   - Prioritize DIRECT, functional image URLs. 
+   - AVOID generic thumbnails or broken redirects.
+   - If a brand is missing from Architonic (like Ottimo or LAS), use Google search to find their official catalog index.
 
 Extract and return ONLY valid JSON (no markdown):
 {
   "brand": "${brand}",
   "mainCategory": "Furniture",
-  "subCategory": "Standardized sub-category (e.g. Task Chairs, Lounge Chairs, Meeting Tables, Storage)",
-  "family": "Collection/family name from the brand",
+  "subCategory": "Standardized sub-category",
+  "family": "Collection/Series name",
   "model": "${model}",
-  "description": "Professional product description (2-4 sentences, technical specs)",
-  "imageUrl": "MUST be a direct image URL ending in .jpg, .jpeg, .png, or .webp from the brand CDN or Architonic CDN (NOT a page URL, NOT a thumbnail without extension). Example: https://img.architonic.com/..../image.jpg",
-  "productUrl": "Direct product page URL on Architonic or brand site",
+  "description": "Professional 2-4 sentence description with technical specs.",
+  "imageUrl": "DIRECT functional URL ending in .jpg, .png, or .webp",
+  "productUrl": "Direct product page URL",
   "price": 0
 }
 
-IMPORTANT: For imageUrl, only provide a URL that:
-- Starts with https://
-- Ends with .jpg, .jpeg, .png, or .webp (before any query string)
-- Is a direct image file, NOT a page URL
-- If you cannot find a valid direct image URL, set imageUrl to ""
+IMPORTANT: If no live image is available on ANY official platform, return "imageUrl": "FAILED".`;
 
-If you cannot find the product, respond:
-{ "status": "error", "error_message": "reason" }`;
-
-/**
- * STAGE 3: Fetch full product details from web for a known brand+model.
- * Returns full product object or { status: 'error' }.
- */
 export async function fetchProductDetails(brand, model, tier, provider = 'google') {
     const system = FETCH_SYSTEM(brand, model);
-    const user = `Find full product details for: ${brand} ${model}\nUse Architonic or the brand's official website.`;
+    const user = `Execute deep search for: ${brand} ${model}. Find the direct image URL and product page. Return JSON.`;
 
-    console.log(`  🌐 [Stage 3 / ${provider}] Fetching web details: ${brand} ${model}`);
+    if (process.env.DEBUG_AI === 'true') {
+        console.log(`\n🤖 [AI Stage 3 Prompt] (Fetch: ${brand} ${model}):\nSystem: ${system.substring(0, 200)}...\nUser: ${user}`);
+    }
+
     try {
-        let parsed;
-        if (provider === 'google') {
-            parsed = await callGoogle(system, user, true); // web search enabled
-        } else if (provider === 'openrouter') {
-            parsed = await callOpenRouter(system, user);
-        } else if (provider === 'nvidia') {
-            parsed = await callNvidia(system, user);
-        } else {
-            throw new Error(`Unsupported provider: ${provider}`);
-        }
-
-        if (parsed.status === 'error') return parsed;
-        if (!parsed.model) throw new Error('AI returned no product data');
-
-        console.log(`  ✅ [Stage 3] Fetched: ${brand} ${parsed.model}`);
+        let parsed = provider === 'google' ? await callGoogle(system, user, true) : await callOpenRouter(system, user);
         return { status: 'success', product: parsed };
     } catch (err) {
-        console.error(`  ❌ [Stage 3 Error]:`, err.message);
         return { status: 'error', error_message: err.message };
     }
 }
 
-// ──────────────────────────────────────────────────────────────────────────────
-// LEGACY: getAiMatch (single-step, kept for backward compatibility)
-// ──────────────────────────────────────────────────────────────────────────────
-
 export async function getAiMatch(description, brandTarget, tier, provider = 'google') {
-    // Wrap as single-step: identify + fetch in one prompt
-    const isList = Array.isArray(brandTarget);
-    const brandLabel = isList ? brandTarget.join(', ') : brandTarget;
+    const system = `You are an FF&E Product Matcher.
+Match: "${description}" to ${brandTarget}.
 
-    const system = `You are a senior FF&E procurement specialist. Given a BOQ item description and candidate brands, identify the single best matching product.
+### 🚨 FORBIDDEN MATCHES:
+- **ARMCHAIR** != STOOL (Match by height).
+- **COFFEE TABLE** != MEETING TABLE (Match by size/height).
+- **VISITOR CHAIR** != EXECUTIVE CHAIR (Match by function).
+
+Return JSON ONLY:
+{ 
+  "status": "success", 
+  "product": {
+    "brand": "Selected Brand",
+    "model": "Exact Model Series",
+    "description": "Short justification.",
+    "price": 0
+  }
+}`;
+    const user = `Match: ${description}\nBrands: ${brandTarget}\nTier: ${tier}`;
+    try {
+        return await callGoogle(system, user, false);
+    } catch (err) {
+        return { status: 'error', error_message: err.message };
+    }
+}
+
+/** 
+ * specialized function for rapid, highly-precise matching of fitout items from internal DB.
+ * uses Gemini 2.5 Flash for high-speed lookup.
+ */
+export async function matchFitoutItem(description, internalProducts = [], tier = 'mid') {
+    const system = `You are an Elite Fitout Estimator.
+Match the description to ONE specific item from the internal database below.
+If no exact match exists, pick the one with most similar function/material.
+
+### INTERNAL DATABASE:
+${JSON.stringify(internalProducts, null, 2)}
 
 Return ONLY valid JSON:
 {
   "status": "success",
   "product": {
-    "brand": "exact brand name",
-    "mainCategory": "Furniture",
-    "subCategory": "category",
-    "family": "collection name",
-    "model": "official model name",
-    "description": "technical description",
-    "imageUrl": "direct image URL",
-    "productUrl": "product page URL",
-    "price": 0
+    "brand": "FitOut V2",
+    "model": "Model ID",
+    "description": "Full item description",
+    "price": 0,
+    "mainCategory": "Category",
+    "subCategory": "Sub-category",
+    "matchScore": 0.0 to 1.0
   }
 }`;
 
-    const user = `BOQ Description: ${description}\nBrands to consider: ${brandLabel}\nBudget Tier: ${tier}`;
+    const user = `Find best match for: "${description}" (Tier: ${tier})`;
+    try {
+        // Use gemini-2.5-flash for speed and efficiency as requested.
+        return await callGoogle(system, user, false, 'gemini-2.5-flash');
+    } catch (err) {
+        console.error('  ❌ [Fitout Matcher] Error:', err.message);
+        return { status: 'error', error_message: err.message };
+    }
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// PLAN ANALYZER
+// ──────────────────────────────────────────────────────────────────────────────
+
+const PLAN_ANALYSIS_PROMPT = (includeFitout = false) => `You are an Elite Senior Quantity Surveyor (SQS). Your mission is to extract a high-precision BOQ from architectural drawings.
+
+### 🎯 ACCURACY PROTOCOL - REJECT "LOT":
+You are strictly FORBIDDEN from using units like "Lot", "LS", "Lumpsum", or "Package". Every item MUST have a measurable numerical quantity and unit.
+
+### 📐 QUANTITY CALCULATION DIRECTIVES:
+1. ** Nos (Count)**: Manually count every individual door, chair, desk, and lighting fixture.
+2. ** SQM (Area)**: For Flooring, Ceiling, and Wall Finishes:
+   - Search for room labels with area (e.g., "Office 01 - 15.5m2"). Use that number.
+   - If missing, find the Scale Bar (e.g., 1:100) and estimate dimensions (Length x Width).
+   - If no scale is found, use standard architectural dimensions (e.g., a standard office door is 0.9m, use this to calibrate the room size).
+3. ** LM (Linear)**: For Partitions, Skirting, and Cabinets, calculate the total length of the lines drawn.
+
+### 🏷️ CATEGORIZATION & SCOPE:
+- **Location**: Use the exact room name/number from the drawing.
+- **Categorization**: ${includeFitout ? 'Furniture vs Fitout' : 'Furniture only'}.
+- **Scope**: ${includeFitout ? 'All loose furniture PLUS architectural items (flooring, ceiling, walls, doors).' : 'Loose furniture only (desks, chairs, storage).'}
+
+### 📜 CORE RULES:
+- **VISUAL MAGNIFICATION**: Zoom into every corner. Don't miss tiny text or symbols.
+- **NO BUNDLING**: Break down "Typical Rooms" into individual line items per room.
+- **UNIT STICKINESS**: Only use "Nos", "SQM", or "LM".
+
+### 📦 OUTPUT FORMAT:
+Return ONLY a valid JSON object:
+{
+  "items": [
+    { 
+      "location": "Room Name/Zone", 
+      "scope": "Furniture" | "Fitout", 
+      "description": "Specific naming (e.g., L-Desk, Carpet Type A)", 
+      "qty": 12.5, 
+      "unit": "Nos" | "SQM" | "LM" 
+    }
+  ],
+  "planSummary": "Extraction of $TOTAL_ITEMS items completed."
+}
+`;
+
+const cleanQty = (val) => {
+    if (typeof val === 'number') return val;
+    if (!val) return 1;
+    const s = String(val).toLowerCase().trim();
+    const words = { 'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5, 'six': 6, 'seven': 7, 'eight': 8, 'nine': 9, 'ten': 10 };
+    if (words[s]) return words[s];
+    const match = s.match(/[\d.]+/);
+    return match ? parseFloat(match[0]) : 1;
+};
+
+/**
+ * Perform AI analysis on floor plan drawing(s).
+ * @param {Array} filesData - Array of objects { base64Data, mimeType, originalname }
+ */
+export async function analyzePlan(filesData, options = {}) {
+    const { includeFitout = false } = options;
+    console.log(`\n🏗️ [Plan Analyzer] Analyzing ${filesData.length} sheets...`);
 
     try {
-        let parsed;
-        if (provider === 'google') {
-            parsed = await callGoogle(system, user, false);
-        } else if (provider === 'openrouter') {
-            parsed = await callOpenRouter(system, user);
-        } else {
-            parsed = await callNvidia(system, user);
+        const model = genAI.getGenerativeModel({
+            model: GOOGLE_MODEL,
+            generationConfig: {
+                temperature: 0.1,
+                maxOutputTokens: 16384
+            }
+        });
+
+        const promptText = PLAN_ANALYSIS_PROMPT(includeFitout);
+        
+        // Prepare parts
+        const promptParts = [
+            { text: promptText },
+            ...filesData.map(file => ({
+                inlineData: {
+                    data: file.base64Data,
+                    mimeType: file.mimeType
+                }
+            }))
+        ];
+
+        const result = await model.generateContent({ contents: [{ role: 'user', parts: promptParts }] });
+        const responseText = result.response.text();
+        const parsed = safeParseJSON(responseText);
+
+        let flatItems = [];
+        if (parsed.items && Array.isArray(parsed.items)) {
+            flatItems = parsed.items.map(item => ({
+                location: String(item.location || 'General Area').trim(),
+                scope: String(item.scope || (includeFitout ? 'Fitout' : 'Furniture')).trim(),
+                description: String(item.description).trim(),
+                qty: cleanQty(item.qty),
+                unit: String(item.unit || 'Nos').trim()
+            }));
         }
-        return parsed;
+
+        return {
+            status: 'success',
+            planSummary: parsed.planSummary || `Extracted ${flatItems.length} items.`,
+            items: flatItems
+        };
     } catch (err) {
+        console.error(`  ❌ [Plan Analyzer Error]:`, err.message);
         return { status: 'error', error_message: err.message };
     }
 }

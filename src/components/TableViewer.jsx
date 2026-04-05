@@ -12,30 +12,12 @@ import { useProject } from '../context/ProjectContext';
 import { fixArabic, hasArabic, loadArabicFont } from '../utils/arabicPdfUtils';
 
 import { getApiBase } from '../utils/apiBase';
+import { getFullUrl } from '../utils/urlUtils';
 
 const API_BASE = getApiBase();
 
-const getFullUrl = (url) => {
-    if (!url) return '';
-    let normalizedUrl = url;
-    if (url.startsWith('//')) {
-        normalizedUrl = 'https:' + url;
-    }
-    // Proxy Architonic and Amara Art images to bypass hotlink protection/CORS
-    if (normalizedUrl.includes('amara-art.com') || normalizedUrl.includes('architonic.com')) {
-        // Base64 encode the URL to bypass client-side antivirus/firewall URL inspection
-        try {
-            return `${API_BASE}/api/image-proxy?url=${encodeURIComponent(btoa(normalizedUrl))}`;
-        } catch (e) {
-            return `${API_BASE}/api/image-proxy?url=${encodeURIComponent(normalizedUrl)}`;
-        }
-    }
-    if (normalizedUrl.startsWith('http') || normalizedUrl.startsWith('data:')) return normalizedUrl;
-    return `${API_BASE}${normalizedUrl}`;
-};
 
-
-function TableViewer({ data }) {
+function TableViewer({ data, allBrands }) {
     const profile = useCompanyProfile();
     const { companyName, logoWhite, logoBlue, website } = profile;
     const { project, updateProject } = useProject();
@@ -74,7 +56,7 @@ function TableViewer({ data }) {
 
             // Find rate and amount/total columns
             const rateIdx = header.findIndex(h => /rate|price|unit.*price/i.test(h));
-            const amountIdx = header.findIndex(h => /amount|total/i.test(h));
+            const amountIdx = header.findIndex(h => /amount|total(?!.*(qty|quantity))/i.test(h));
             const qtyIdx = header.findIndex(h => /qty|quantity/i.test(h));
 
             // Calculate totals
@@ -84,7 +66,7 @@ function TableViewer({ data }) {
             let validRows = 0;
 
             table.rows.forEach(row => {
-                if (row.isHeader || row.isSummary) return;
+                if (!row || !row.cells || row.isHeader || row.isSummary) return;
 
                 // Parse rate
                 if (rateIdx !== -1 && row.cells[rateIdx]?.value) {
@@ -134,15 +116,16 @@ function TableViewer({ data }) {
         return tables.map(table => {
             const header = table.header || [];
             const moneyIndices = header.map((h, i) =>
-                /rate|price|amount|total/i.test(h) ? i : -1
+                /rate|price|amount|total(?!.*(qty|quantity))/i.test(h) ? i : -1
             ).filter(i => i !== -1);
 
-            const amountIdx = header.findIndex(h => /amount|total/i.test(h));
+            const amountIdx = header.findIndex(h => /amount|total(?!.*(qty|quantity))/i.test(h));
 
-            const newRows = table.rows.map(row => {
+            const newRows = (table.rows || []).map(row => {
+                if (!row || !row.cells) return row;
                 const newCells = row.cells.map((cell, idx) => {
                     // Only modify money columns
-                    if (moneyIndices.includes(idx) && cell.value) {
+                    if (cell && moneyIndices.includes(idx) && cell.value) {
                         try {
                             const cleanVal = String(cell.value).replace(/,/g, '');
                             const num = parseFloat(cleanVal);
@@ -2650,7 +2633,7 @@ function TableViewer({ data }) {
         const strVal = String(value).trim();
 
         // Only format if the column is a known numeric type
-        const isMoneyCol = /rate|price|amount|total/i.test(header || '');
+        const isMoneyCol = /rate|price|amount|total(?!.*(qty|quantity))/i.test(header || '');
         const isQtyCol = /qty|quantity/i.test(header || '');
 
         // Skip formatting for description/text columns
@@ -2674,6 +2657,32 @@ function TableViewer({ data }) {
             minimumFractionDigits: 2,
             maximumFractionDigits: 3
         });
+    };
+
+    // Helper to get brand logo URL (Clearbit API fallback)
+    const getBrandLogo = (brandName) => {
+        if (!brandName) return null;
+        const cleanName = String(brandName).trim();
+        if (!cleanName || cleanName === '-' || cleanName.toLowerCase() === 'n/a') return null;
+
+        // 1. Try to find website in allBrands first
+        const brandObj = (allBrands || []).find(b => b.name?.toLowerCase() === cleanName.toLowerCase());
+        
+        // 2. Clearbit API with target domain if website exists
+        if (brandObj && brandObj.website) {
+            try {
+                const domain = brandObj.website.replace(/^https?:\/\//, '').split('/')[0];
+                if (domain && domain.includes('.')) {
+                    return `https://logo.clearbit.com/${domain}?size=200`;
+                }
+            } catch (e) {
+                // Ignore parsing errors
+            }
+        }
+
+        // 3. Fallback: Guess domain (works for 90% of global brands like Herman Miller => hermanmiller.com)
+        const guessDomain = cleanName.toLowerCase().replace(/[^a-z0-9]/g, '') + '.com';
+        return `https://logo.clearbit.com/${guessDomain}?size=200`;
     };
 
     // Helper to render a table list
@@ -2703,31 +2712,64 @@ function TableViewer({ data }) {
                         <tbody>
                             {table.rows.map((row, rowIndex) => (
                                 <tr key={rowIndex} className={row.isHeader ? styles.headerRow : ''}>
-                                    {row.cells.map((cell, cellIndex) => {
+                                    {(row.cells || []).map((cell, cellIndex) => {
                                         const CellTag = row.isHeader ? 'th' : 'td';
+                                        const cellValue = cell && cell.value !== undefined ? cell.value : '';
                                         return (
-                                            <CellTag key={cellIndex} className={`${styles.cell} ${cell.images?.length ? styles.imageCell : ''}`}>
-                                                {(cell.images && cell.images.length > 0) || cell.image ? (
-                                                    <div className={(cell.images?.length > 1) ? styles.imageGrid : styles.cellImage}>
-                                                        {(cell.images || [cell.image]).map((imgData, imgIdx) => (
-                                                            <img
-                                                                key={imgIdx}
-                                                                src={getFullUrl(imgData.url)}
-                                                                alt="Thumb"
-                                                                className={styles.image}
-                                                                onClick={() => setSelectedImage(getFullUrl(imgData.url))}
-                                                                style={{ cursor: 'pointer' }}
-                                                            />
-                                                        ))}
-                                                    </div>
-                                                ) : null}
+                                            <CellTag key={cellIndex} className={`${styles.cell} ${cell?.images?.length || /brand\s*(img|logo|image)/i.test(table.header?.[cellIndex]) ? styles.imageCell : ''}`}>
+                                                {(() => {
+                                                    const headerName = table.header?.[cellIndex] || '';
+                                                    const isBrandImgCol = /brand\s*(img|logo|image)/i.test(headerName);
+                                                    
+                                                    if (isBrandImgCol) {
+                                                        // Find the BRAND column name to fetch the correct logo
+                                                        const brandIdx = table.header.findIndex(h => /brand/i.test(h) && !/img|logo|image/i.test(h));
+                                                        const brandName = brandIdx !== -1 ? row.cells[brandIdx]?.value : null;
+                                                        const logo = getBrandLogo(brandName);
+                                                        
+                                                        if (logo) {
+                                                            return (
+                                                                <div className={styles.brandLogoWrapper}>
+                                                                    <img 
+                                                                        src={logo} 
+                                                                        alt={brandName} 
+                                                                        className={styles.brandLogo} 
+                                                                        onClick={() => setSelectedImage(logo)}
+                                                                        onError={(e) => { e.target.style.display = 'none'; }}
+                                                                        style={{ cursor: 'pointer' }}
+                                                                    />
+                                                                </div>
+                                                            );
+                                                        }
+                                                    }
+
+                                                    // Standard extraction image fallback
+                                                    if (cell && ((cell.images && cell.images.length > 0) || cell.image)) {
+                                                        return (
+                                                            <div className={(cell.images?.length > 1) ? styles.imageGrid : styles.cellImage}>
+                                                                {(cell.images || [cell.image]).map((imgData, imgIdx) => (
+                                                                    <img
+                                                                        key={imgIdx}
+                                                                        src={imgData ? getFullUrl(imgData.url) : ''}
+                                                                        alt="Thumb"
+                                                                        className={styles.image}
+                                                                        onClick={() => imgData && setSelectedImage(getFullUrl(imgData.url))}
+                                                                        onError={(e) => { e.target.style.display = 'none'; }}
+                                                                        style={{ cursor: 'pointer' }}
+                                                                    />
+                                                                ))}
+                                                            </div>
+                                                        );
+                                                    }
+                                                    return null;
+                                                })()}
                                                 <div
                                                     className={styles.editableCell}
                                                     contentEditable={!isCosted && !row.isHeader}
                                                     suppressContentEditableWarning
                                                     onBlur={(e) => !isCosted && handleCellChange(tableIndex, rowIndex, cellIndex, e.target.innerText)}
                                                 >
-                                                    {row.isHeader ? cell.value : formatNumber(cell.value, table.header?.[cellIndex])}
+                                                    {row.isHeader ? cellValue : formatNumber(cellValue, table.header?.[cellIndex])}
                                                 </div>
                                             </CellTag>
                                         );
@@ -2915,7 +2957,14 @@ function TableViewer({ data }) {
                 <div className={styles.modalOverlay} onClick={() => setSelectedImage(null)}>
                     <div className={styles.modalContent} onClick={e => e.stopPropagation()}>
                         <button className={styles.innerCloseButton} onClick={() => setSelectedImage(null)}>×</button>
-                        <img src={selectedImage} alt="Full view" className={styles.modalImage} />
+                        <img 
+                            src={selectedImage} 
+                            alt="Full view" 
+                            className={styles.modalImage} 
+                            onError={(e) => {
+                                e.target.src = 'https://placehold.co/600x400?text=Image+Not+Available';
+                            }}
+                        />
                     </div>
                 </div>
             )}

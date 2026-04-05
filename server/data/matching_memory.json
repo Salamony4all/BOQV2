@@ -1,18 +1,6 @@
 {
   "records": [
     {
-      "description": "CHAIRMAN MEETING CHAIR",
-      "match": {
-        "brand": "Arper",
-        "logo": "https://media.architonic.com/m-on/3100610/logo/arper_logo_2bbd6b5f.jpeg?width=320&height=120&fit=inside&crop=true&format=webp&quality=90",
-        "model": "Aava 02 Bar Stool – 4 wood legs #20722946",
-        "description": "Bar stools. Stool on a 4-leg plywood base with a reconstituted oak or walnut finish, available in the following body variants:\n        • Polypropylene body made with",
-        "image": "https://media.architonic.com/m-on/3100610/product/20722946/arper_aava-02-bar-stool---4-wood-legs_0ed86b4b.jpeg?format=webp&quality=75",
-        "price": 0
-      },
-      "count": 1
-    },
-    {
       "description": "HEAD OF CHAIR & FOLLOW UP OFFICE CHAIR",
       "match": {
         "brand": "Arper",
@@ -47,18 +35,6 @@
         "price": 0
       },
       "count": 2
-    },
-    {
-      "description": "STAFF WORKSTATION 2 80 X 160 NO PARTITION",
-      "match": {
-        "brand": "Arper",
-        "logo": "https://media.architonic.com/m-on/3100610/logo/arper_logo_2bbd6b5f.jpeg?width=320&height=120&fit=inside&crop=true&format=webp&quality=90",
-        "model": "Yop #1405654",
-        "description": "Dining tables. H 72 - 59 x 59 cm Designed for flexible utility, Yop is a table for on-demand use. Created for both commercial and residential spaces that demand",
-        "image": "https://media.architonic.com/m-on/3100610/product/1405654/arper_yop_965a7ac2.jpeg?format=webp&quality=75",
-        "price": 0
-      },
-      "count": 5
     },
     {
       "description": "HEAD OF CHAIR",

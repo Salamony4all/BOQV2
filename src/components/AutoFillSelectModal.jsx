@@ -6,9 +6,9 @@ export default function AutoFillSelectModal({ isOpen, onClose, allBrands, active
     const [selectedEngine, setSelectedEngine] = useState('google');
 
     const tierMeta = {
-        budgetary: { label: 'Budgetary', color: '#3b82f6', emoji: '💰' },
-        mid:       { label: 'Mid-Range', color: '#8b5cf6', emoji: '⭐' },
-        high:      { label: 'High-End',  color: '#ec4899', emoji: '👑' }
+        budgetary: { label: 'Budgetary', color: '#3b82f6' },
+        mid:       { label: 'Mid-Range', color: '#8b5cf6' },
+        high:      { label: 'High-End',  color: '#ec4899' }
     };
 
     // Group ALL brands by tier
@@ -50,9 +50,9 @@ export default function AutoFillSelectModal({ isOpen, onClose, allBrands, active
     const clearAll   = () => setSelectedBrands([]);
 
     const engines = [
-        { id: 'google',     name: 'Gemini 2.5 Flash', desc: 'Google · Higher Precision · Web Search', icon: '💎', color: '#1a73e8' },
-        { id: 'openrouter', name: 'Open Router',       desc: 'Universal · Gemini 2.0 Flash Lite',      icon: '🌌', color: '#8b5cf6' },
-        { id: 'nvidia',     name: 'Nvidia NIM',        desc: 'NVIDIA · Llama 3.3 70B · Ultra Fast',   icon: '🔥', color: '#76b900' }
+        { id: 'google',     name: 'Gemini 2.5 Flash', desc: 'Google · Higher Precision · Web Search', icon: 'AI', color: '#1a73e8' },
+        { id: 'openrouter', name: 'Open Router',       desc: 'Universal · Gemini 2.0 Flash Lite',      icon: 'OR', color: '#8b5cf6' },
+        { id: 'nvidia',     name: 'Nvidia NIM',        desc: 'NVIDIA · Llama 3.3 70B · Ultra Fast',   icon: 'NV', color: '#76b900' }
     ];
 
     const activeMeta = tierMeta[activeTier] || tierMeta.mid;
@@ -63,7 +63,7 @@ export default function AutoFillSelectModal({ isOpen, onClose, allBrands, active
 
                 {/* Header */}
                 <div className={styles.header}>
-                    <h2>✨ AI AutoFill</h2>
+                    <h2>AI AutoFill</h2>
                     <button className={styles.closeBtn} onClick={onClose}>×</button>
                 </div>
 
@@ -116,7 +116,7 @@ export default function AutoFillSelectModal({ isOpen, onClose, allBrands, active
                                     <div className={styles.tierHeader}>
                                         <div className={styles.tierLabel}>
                                             <span className={styles.tierDot} style={{ background: meta.color }} />
-                                            <span style={{ color: meta.color }}>{meta.emoji} {meta.label}</span>
+                                            <span style={{ color: meta.color }}>{meta.label}</span>
                                             {isActive && <span className={styles.activePill} style={{ background: meta.color + '30', color: meta.color }}>Active Tab</span>}
                                             <span className={styles.countBadge}>{tierSelected}/{brands.length}</span>
                                         </div>
@@ -152,7 +152,7 @@ export default function AutoFillSelectModal({ isOpen, onClose, allBrands, active
                         disabled={selectedBrands.length === 0}
                         onClick={() => onConfirm(selectedBrands, selectedEngine)}
                     >
-                        🚀 Start AI Batch — {selectedBrands.length} Brand{selectedBrands.length !== 1 ? 's' : ''}
+                        Start AI Batch — {selectedBrands.length} Brand{selectedBrands.length !== 1 ? 's' : ''}
                     </button>
                 </div>
             </div>

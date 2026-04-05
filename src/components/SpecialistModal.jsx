@@ -1,18 +1,32 @@
 import React from 'react';
 import styles from '../styles/SpecialistModal.module.css';
+import { getApiBase } from '../utils/apiBase';
+
+const API_BASE = getApiBase();
 
 const SpecialistModal = ({ isOpen, onClose, data }) => {
     if (!isOpen || !data) return null;
 
     const { product, status, error_message, boqDescription, brand, hardened } = data;
 
+    const getFullUrl = (url) => {
+        if (!url) return '';
+        if (url.startsWith('http') || url.startsWith('data:')) {
+            // For external images, always use proxy in Specialist Modal as it often deals with Architonic/Narbutas
+            if (url.includes('amara-art.com') || url.includes('architonic.com') || url.includes('narbutas.com')) {
+                return `${API_BASE}/api/image-proxy?url=${encodeURIComponent(url)}`;
+            }
+            return url;
+        }
+        return `${API_BASE}${url}`;
+    };
+
     return (
         <div className={styles.overlay} onClick={onClose}>
             <div className={styles.modal} onClick={e => e.stopPropagation()}>
                 <div className={styles.header}>
                     <div className={styles.titleGroup}>
-                        <span className={styles.icon}>🤖</span>
-                        <h3>FF&E Specialist Engine: Quick Check</h3>
+                        <h3>FF&E AI Search Plus: Quick Check</h3>
                     </div>
                     <button className={styles.closeBtn} onClick={onClose}>&times;</button>
                 </div>
@@ -50,7 +64,14 @@ const SpecialistModal = ({ isOpen, onClose, data }) => {
                             <div className={styles.productGrid}>
                                 <div className={styles.imageSection}>
                                     {product.imageUrl ? (
-                                        <img src={`http://localhost:3001/api/image-proxy?url=${encodeURIComponent(product.imageUrl)}`} alt={product.model} className={styles.productImg} />
+                                        <img 
+                                            src={getFullUrl(product.imageUrl)} 
+                                            alt={product.model} 
+                                            className={styles.productImg} 
+                                            onError={(e) => {
+                                                e.target.src = 'https://placehold.co/600x400?text=Image+Not+Available';
+                                            }}
+                                        />
                                     ) : (
                                         <div className={styles.noImage}>No Image Available</div>
                                     )}
@@ -80,7 +101,7 @@ const SpecialistModal = ({ isOpen, onClose, data }) => {
                             <div className={styles.errorIcon}>⚠️</div>
                             <div className={styles.errorText}>
                                 <h3>Match Failed</h3>
-                                <p>{error_message || "The Specialist Engine could not find a verifiable match from this brand that meets the BOQ requirements."}</p>
+                                <p>{error_message || "The AI Search Engine could not find a verifiable match from this brand that meets the BOQ requirements."}</p>
                             </div>
                         </div>
                     )}

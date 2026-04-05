@@ -1,10 +1,11 @@
 
 import { useState, useEffect } from 'react';
 import { upload as blobUpload } from '@vercel/blob/client';
-import FileUpload from './components/FileUpload';
+import ActionCard from './components/ActionCard';
 import ProgressModal from './components/ProgressModal';
 import TableViewer from './components/TableViewer';
 import MultiBudgetModal from './components/MultiBudgetModal';
+import PlanScopeModal from './components/PlanScopeModal';
 import CompanySettings from './components/CompanySettings';
 import { useCompanyProfile, CompanyProvider } from './context/CompanyContext';
 import { ScrapingProvider } from './context/ScrapingContext';
@@ -81,12 +82,22 @@ function AppContent({ onOpenSettings }) {
   const [isMultiBudgetOpen, setMultiBudgetOpen] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [showLanding, setShowLanding] = useState(true);
+  const [isPlanScopeOpen, setIsPlanScopeOpen] = useState(false);
+  const [seededPlanItems, setSeededPlanItems] = useState(null);
+  const [allBrands, setAllBrands] = useState([]);
+  const [currentPlanFiles, setCurrentPlanFiles] = useState([]);
 
   // Reset environment on app load
   useEffect(() => {
     fetch(apiUrl('/api/reset'), { method: 'POST' })
       .then(() => console.log('Environment reset complete'))
       .catch(console.error);
+    
+    // Fetch brands once at the top level
+    fetch(apiUrl('/api/brands'))
+      .then(res => res.json())
+      .then(data => setAllBrands(data))
+      .catch(err => console.error('Failed to load brands', err));
   }, []);
 
   // Image carousel auto-rotate
@@ -231,6 +242,66 @@ function AppContent({ onOpenSettings }) {
     }
   };
 
+  const handlePlanAnalyze = async (scope) => {
+    if (!currentPlanFiles || currentPlanFiles.length === 0) return;
+    
+    setIsPlanScopeOpen(false);
+    setShowLanding(false);
+    setUploading(true);
+    setProgress(10);
+    setStage('Initializing AI Engine...');
+    setError(null);
+
+    const includeFitout = scope === 'both';
+    
+    try {
+      setStage('Analyzing Geometric Data...');
+      setProgress(30);
+
+      const formData = new FormData();
+      currentPlanFiles.forEach((file) => {
+        formData.append('files', file);
+      });
+      formData.append('includeFitout', includeFitout);
+
+      // Heartbeat for progress bar
+      const interval = setInterval(() => {
+        setProgress(prev => (prev < 90 ? prev + 1 : prev));
+      }, 500);
+
+      const response = await fetch(apiUrl('/api/analyze-plan'), {
+        method: 'POST',
+        body: formData
+      });
+
+      clearInterval(interval);
+
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || 'Plan analysis failed');
+      }
+
+      const data = await response.json();
+      if (data && data.items) {
+        setSeededPlanItems(data.items);
+        setProgress(100);
+        setStage('Extraction Complete');
+        setTimeout(() => {
+          setUploading(false);
+          setMultiBudgetOpen(true);
+        }, 500);
+      } else {
+        throw new Error('No items detected in the provided drawings.');
+      }
+    } catch (err) {
+      console.error('Plan analysis error:', err);
+      setError(err.message);
+      setUploading(false);
+    } finally {
+      setCurrentPlanFiles([]);
+    }
+  };
+
   const handleStartNewBOQ = () => {
     setShowLanding(false);
     setMultiBudgetOpen(true);
@@ -240,6 +311,12 @@ function AppContent({ onOpenSettings }) {
     setExtractedData(data);
     setMultiBudgetOpen(false);
     // Smooth scroll will be handled by useEffect
+  };
+
+  const handlePlanSelect = (items) => {
+    setSeededPlanItems(items);
+    setShowLanding(false); // Move to app view
+    setMultiBudgetOpen(true);
   };
 
   // Smooth scroll to top of results when data appears
@@ -265,7 +342,7 @@ function AppContent({ onOpenSettings }) {
                 <span className={styles.hamburgerLine}></span>
                 <span className={styles.hamburgerLine}></span>
               </button>
-              <div className={styles.logoSmall} onClick={() => { setShowLanding(true); setExtractedData(null); }}>
+              <div className={styles.logoSmall} onClick={() => { setShowLanding(true); setExtractedData(null); setSeededPlanItems(null); }}>
                 {logoWhite ? (
                   <img src={logoWhite} alt={companyName} className={styles.headerLogo} />
                 ) : (
@@ -279,18 +356,42 @@ function AppContent({ onOpenSettings }) {
 
             {!extractedData && (
               <div className={styles.homeCardGrid}>
-                <div className={styles.cardWrapper}>
-                  <FileUpload
-                    onFileSelect={handleFileUpload}
-                    disabled={uploading}
-                    title="UPLOAD BOQ"
-                  />
-                </div>
+                {/* 1. UPLOAD BOQ CARD */}
+                <ActionCard
+                  title="UPLOAD BOQ"
+                  iconText="BOQ"
+                  hint="or click to browse"
+                  formats="Supports .xls and .xlsx files (max 50MB)"
+                  accept=".xls,.xlsx,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                  disabled={uploading}
+                  onSelect={handleFileUpload}
+                />
 
-                <div className={styles.newBoqCard} onClick={() => setMultiBudgetOpen(true)}>
-                  <div className={styles.cardTitle}>NEW BOQ</div>
-                  <div className={styles.cardHint}>Start from scratch</div>
-                </div>
+                {/* 2. UPLOAD PLAN (LAYOUT) CARD */}
+                <ActionCard
+                  title="UPLOAD PLAN"
+                  iconText="PLAN"
+                  hint="Extract items from layout"
+                  formats="Supports PDF, PNG, JPG (Multiple files)"
+                  accept=".pdf,.png,.jpg,.jpeg"
+                  multiple={true}
+                  disabled={uploading}
+                  onSelect={(files) => {
+                    if (files && files.length > 0) {
+                      setCurrentPlanFiles(files);
+                      setIsPlanScopeOpen(true);
+                    }
+                  }}
+                />
+
+                {/* 3. NEW BOQ CARD */}
+                <ActionCard
+                  title="NEW BOQ"
+                  iconText="NEW"
+                  hint="Start from scratch"
+                  disabled={uploading}
+                  onSelect={() => setMultiBudgetOpen(true)}
+                />
               </div>
             )}
 
@@ -301,7 +402,7 @@ function AppContent({ onOpenSettings }) {
             )}
 
             {extractedData && (
-              <TableViewer data={extractedData} />
+              <TableViewer data={extractedData} allBrands={allBrands} />
             )}
 
             <MultiBudgetModal
@@ -309,6 +410,16 @@ function AppContent({ onOpenSettings }) {
               onClose={() => setMultiBudgetOpen(false)}
               originalTables={extractedData?.tables || null}
               onApplyFlow={handleMultiBudgetApply}
+              seededItems={seededPlanItems}
+            />
+
+            <PlanScopeModal
+              isOpen={isPlanScopeOpen}
+              onClose={() => {
+                setIsPlanScopeOpen(false);
+                setCurrentPlanFiles([]);
+              }}
+              onSelect={handlePlanAnalyze}
             />
           </div>
 
@@ -351,8 +462,8 @@ function AppContent({ onOpenSettings }) {
             <span className={styles.headlineAccent}>Automate</span> Your Workflow
           </h2>
           <p className={styles.subheadline}>
-            Transform your Bill of Quantities processing with intelligent automation,
-            multi-budget alternatives, and professional offer generation
+            Transform layout drawings and BOQs into professional offers instantly. 
+            Automate Furniture & Fitout estimation, Multi-Budget alternatives, and PM exports (MAS, MIR, WIR).
           </p>
 
           {/* Image Carousel */}
@@ -390,9 +501,26 @@ function AppContent({ onOpenSettings }) {
               />
               Upload BOQ
             </label>
-            <button className={styles.ctaSecondary} onClick={handleStartNewBOQ}>
+            <button className={styles.ctaPrimary} onClick={handleStartNewBOQ}>
               Create New BOQ
             </button>
+            <label className={styles.ctaPrimary}>
+              <input
+                type="file"
+                accept=".pdf,.png,.jpg,.jpeg"
+                style={{ display: 'none' }}
+                multiple
+                onChange={(e) => {
+                  const files = Array.from(e.target.files);
+                  if (files.length > 0) {
+                    setCurrentPlanFiles(files);
+                    setIsPlanScopeOpen(true);
+                  }
+                  e.target.value = '';
+                }}
+              />
+              Upload Plan
+            </label>
           </div>
         </section>
 
@@ -418,34 +546,46 @@ function AppContent({ onOpenSettings }) {
         <section className={styles.featuresSection}>
           <h2 className={styles.sectionTitle}>Everything You Need</h2>
           <div className={styles.featuresGrid}>
-            <div className={styles.featureCard}>
-              <h3 className={styles.featureTitle}>Create Offers</h3>
+            <div className={`${styles.featureCard} ${styles.featureCardFeatured}`}>
+              <h3 className={styles.featureTitle}>✨ AI Match & Autofill</h3>
               <p className={styles.featureDesc}>
-                Generate professional PDF and Excel offers with branded layouts and custom pricing
+                Revolutionize your workflow with intelligent brand synchronization. Our engine automatically matches items to your preferred manufacturers, autofills missing technical specs, and optimizes product costs across multiple budget tiers simultaneously.
               </p>
             </div>
             <div className={styles.featureCard}>
-              <h3 className={styles.featureTitle}>Presentations</h3>
+              <h3 className={styles.featureTitle}>Plan to BOQ</h3>
               <p className={styles.featureDesc}>
-                Beautiful PowerPoint and PDF presentations with product showcases
+                Instantly extract furniture and fitout quantities from layout drawings using specialized AI geometric analysis
               </p>
             </div>
             <div className={styles.featureCard}>
-              <h3 className={styles.featureTitle}>MAS Documents</h3>
+              <h3 className={styles.featureTitle}>Fitout Estimation</h3>
               <p className={styles.featureDesc}>
-                Material Approval Sheets with approval workflows and specifications
+                Specialized module for glass walls, flooring, and ceiling works with deep internal database synchronization
+              </p>
+            </div>
+            <div className={styles.featureCard}>
+              <h3 className={styles.featureTitle}>PM Exports</h3>
+              <p className={styles.featureDesc}>
+                Professional project management bundle: Export MAS, MIR, WIR, and Delivery Notes in one click
               </p>
             </div>
             <div className={styles.featureCard}>
               <h3 className={styles.featureTitle}>Multi-Budget</h3>
               <p className={styles.featureDesc}>
-                Create budgetary, mid-range, and high-end alternatives instantly
+                Create budgetary, mid-range, and high-end alternatives instantly with automated brand matching
               </p>
             </div>
             <div className={styles.featureCard}>
-              <h3 className={styles.featureTitle}>Product Scrapping</h3>
+              <h3 className={styles.featureTitle}>Visual Catalogs</h3>
               <p className={styles.featureDesc}>
-                Automatically fetch product data, images, and specifications from brand websites
+                Beautiful PowerPoint and PDF presentations featuring high-resolution product showcases and specs
+              </p>
+            </div>
+            <div className={styles.featureCard}>
+              <h3 className={styles.featureTitle}>AI Scraping</h3>
+              <p className={styles.featureDesc}>
+                Automatically fetch real-time product data, images, and technical specifications from global brand websites
               </p>
             </div>
           </div>
@@ -463,6 +603,17 @@ function AppContent({ onOpenSettings }) {
           isOpen={isMultiBudgetOpen}
           onClose={() => setMultiBudgetOpen(false)}
           originalTables={extractedData?.tables || null}
+          onApplyFlow={handleMultiBudgetApply}
+          seededItems={seededPlanItems}
+        />
+
+        <PlanScopeModal
+          isOpen={isPlanScopeOpen}
+          onClose={() => {
+            setIsPlanScopeOpen(false);
+            setCurrentPlanFile(null);
+          }}
+          onSelect={handlePlanAnalyze}
         />
 
         <ProgressModal

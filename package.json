@@ -8,7 +8,7 @@
   },
   "scripts": {
     "dev": "vite",
-    "server": "nodemon --max-old-space-size=8192 server/server.js",
+    "server": "nodemon --exec \"node --max-old-space-size=8192\" server/server.js",
     "dev:all": "concurrently \"npm run dev\" \"npm run server\"",
     "build": "vite build",
     "lint": "eslint .",

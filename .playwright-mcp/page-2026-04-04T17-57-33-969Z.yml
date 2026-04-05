@@ -1,0 +1,58 @@
+- generic [ref=e3]:
+  - button "Settings" [ref=e4] [cursor=pointer]
+  - button "☀" [ref=e9] [cursor=pointer]
+  - generic [ref=e10]:
+    - generic [ref=e11]:
+      - generic [ref=e12]: BO
+      - img "Q" [ref=e13]
+      - generic [ref=e14]: FLOW
+    - heading "Automate Your Workflow" [level=2] [ref=e15]
+    - paragraph [ref=e16]: Transform your Bill of Quantities processing with intelligent automation, multi-budget alternatives, and professional offer generation
+    - generic [ref=e17]:
+      - generic [ref=e18]:
+        - img "Workspace 1" [ref=e20]
+        - img "Workspace 2" [ref=e22]
+        - img "Workspace 3" [ref=e24]
+        - img "Workspace 4" [ref=e26]
+        - img "Workspace 5" [ref=e28]
+      - generic [ref=e29]:
+        - button [ref=e30] [cursor=pointer]
+        - button [ref=e31] [cursor=pointer]
+        - button [ref=e32] [cursor=pointer]
+        - button [ref=e33] [cursor=pointer]
+        - button [ref=e34] [cursor=pointer]
+    - generic [ref=e35]:
+      - generic [ref=e36] [cursor=pointer]: Upload BOQ
+      - button "Create New BOQ" [ref=e37] [cursor=pointer]
+      - generic [ref=e38] [cursor=pointer]: Upload Plan
+  - generic [ref=e39]:
+    - generic [ref=e40]:
+      - generic [ref=e41]: 10x
+      - generic [ref=e42]: Faster Processing
+    - generic [ref=e44]:
+      - generic [ref=e45]: Unlimited
+      - generic [ref=e46]: Scalability
+    - generic [ref=e48]:
+      - generic [ref=e49]: 100%
+      - generic [ref=e50]: Accuracy
+  - generic [ref=e51]:
+    - heading "Everything You Need" [level=2] [ref=e52]
+    - generic [ref=e53]:
+      - generic [ref=e54]:
+        - heading "Create Offers" [level=3] [ref=e55]
+        - paragraph [ref=e56]: Generate professional PDF and Excel offers with branded layouts and custom pricing
+      - generic [ref=e57]:
+        - heading "Presentations" [level=3] [ref=e58]
+        - paragraph [ref=e59]: Beautiful PowerPoint and PDF presentations with product showcases
+      - generic [ref=e60]:
+        - heading "MAS Documents" [level=3] [ref=e61]
+        - paragraph [ref=e62]: Material Approval Sheets with approval workflows and specifications
+      - generic [ref=e63]:
+        - heading "Multi-Budget" [level=3] [ref=e64]
+        - paragraph [ref=e65]: Create budgetary, mid-range, and high-end alternatives instantly
+      - generic [ref=e66]:
+        - heading "Product Scrapping" [level=3] [ref=e67]
+        - paragraph [ref=e68]: Automatically fetch product data, images, and specifications from brand websites
+  - contentinfo [ref=e69]:
+    - generic [ref=e70]: BOQFLOW
+    - paragraph [ref=e71]: Intelligent BOQ Extraction, Costing & Proposal Engine

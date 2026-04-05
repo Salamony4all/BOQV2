@@ -1,50 +1,46 @@
-import { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, Fragment } from 'react';
 import AddBrandModal from './AddBrandModal';
 import CostingModal from './CostingModal';
 import SpecialistModal from './SpecialistModal';
 import AutoFillSelectModal from './AutoFillSelectModal';
+import PlanAnalyzerModal from './PlanAnalyzerModal';
+import AIPresentationModal from './AIPresentationModal';
 import styles from '../styles/MultiBudgetModal.module.css';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
 import { useCompanyProfile } from '../context/CompanyContext';
 import { fixArabic, hasArabic, loadArabicFont } from '../utils/arabicPdfUtils';
-
 import { getApiBase } from '../utils/apiBase';
+import { getFullUrl } from '../utils/urlUtils';
 
 const API_BASE = getApiBase();
 
-const getFullUrl = (url) => {
-    if (!url) return '';
-    let normalizedUrl = url;
-    if (url.startsWith('//')) {
-        normalizedUrl = 'https:' + url;
-    }
-    // Proxy Architonic and Amara Art images to bypass hotlink protection/CORS
-    if (normalizedUrl.includes('amara-art.com') || normalizedUrl.includes('architonic.com')) {
-        // Base64 encode the URL to bypass client-side antivirus/firewall URL inspection
-        try {
-            return `${API_BASE}/api/image-proxy?url=${encodeURIComponent(btoa(normalizedUrl))}`;
-        } catch (e) {
-            return `${API_BASE}/api/image-proxy?url=${encodeURIComponent(normalizedUrl)}`;
-        }
-    }
-    if (normalizedUrl.startsWith('http') || normalizedUrl.startsWith('data:')) return normalizedUrl;
-    return `${API_BASE}${normalizedUrl}`;
-};
 
-
-export default function MultiBudgetModal({ isOpen, onClose, originalTables, onApplyFlow }) {
+export default function MultiBudgetModal({ isOpen, onClose, originalTables, onApplyFlow, seededItems = null }) {
     const profile = useCompanyProfile();
     const { companyName, logoWhite, logoBlue, website, updateProfile, processLogoFile } = profile;
     const [activeTier, setActiveTier] = useState('mid'); // budgetary, mid, high
     const [previewImage, setPreviewImage] = useState(null); // URL of image to preview
     const [previewLogo, setPreviewLogo] = useState(null); // URL of brand logo for preview
+    const [previewBrand, setPreviewBrand] = useState(null);
+    const [previewModel, setPreviewModel] = useState(null);
     const [isAutoFilling, setIsAutoFilling] = useState(false);
     const [isAutoFillSelectOpen, setIsAutoFillSelectOpen] = useState(false);
-    const [specialistData, setSpecialistData] = useState(null); // Data for SpecialistModal
     const [aiProgress, setAiProgress] = useState({ current: 0, total: 0 });
     const [aiBatchResult, setAiBatchResult] = useState(null); // { success, error, newlyAdded }
+    
+    // States used by UI actions
+    const [isPlanAnalyzerOpen, setIsPlanAnalyzerOpen] = useState(false);
+    const [isConsolidated, setIsConsolidated] = useState(false);
+    const [specialistData, setSpecialistData] = useState(null);
+
+    // NEW: Per-tier independent processing states for parallel modals
+    const [tierStatuses, setTierStatuses] = useState({
+        budgetary: { active: false, minimized: false, currentItem: null, brand: '...', model: '', image: null, status: 'idle', progress: 0 },
+        mid: { active: false, minimized: false, currentItem: null, brand: '...', model: '', image: null, status: 'idle', progress: 0 },
+        high: { active: false, minimized: false, currentItem: null, brand: '...', model: '', image: null, status: 'idle', progress: 0 }
+    });
     // State stores data + mode PER TIER
     // Structure: { mid: { rows: [...], mode: 'boq'|'new' }, ... }
     const [tierData, setTierData] = useState({
@@ -52,6 +48,32 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
         mid: null,
         high: null
     });
+
+    // Handle seededItems from props (e.g. from Landing Page Plan Upload)
+    useEffect(() => {
+        if (seededItems && seededItems.length > 0) {
+            const newRows = seededItems.map((item, i) => ({
+                id: Date.now() + i,
+                sn: i + 1,
+                imageRef: null,
+                brandImage: '', brandDesc: '',
+                description: `[${item.location || item.Location || 'General'}] ${item.description || item.Description}`,
+                location: item.location || item.Location || '',
+                scope: item.scope || item.Scope || '',
+                qty: item.qty || item.QTY,
+                unit: item.unit || item.Unit || 'Nos',
+                rate: '',
+                amount: '',
+                selectedBrand: '', selectedMainCat: '', selectedSubCat: '', selectedFamily: '', selectedModel: ''
+            }));
+
+            setTierData({
+                budgetary: { rows: newRows.map(r => ({ ...r, id: r.id + 0 })), mode: 'boq' },
+                mid:       { rows: newRows.map(r => ({ ...r, id: r.id + 100000 })), mode: 'boq' },
+                high:      { rows: newRows.map(r => ({ ...r, id: r.id + 200000 })), mode: 'boq' }
+            });
+        }
+    }, [seededItems]);
     // Keep a ref that always reflects the latest tierData so async functions
     // can read it after React's state batching (avoids stale closure)
     const tierDataRef = useRef(tierData);
@@ -140,23 +162,32 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
 
     if (!isOpen) return null;
 
-    // Helper to find column index in original table
     const findCol = (header, regex) => {
         if (!header) return -1;
-        return header.findIndex(h => regex.test(h));
+        return header.findIndex(h => h && regex.test(String(h)));
     };
 
     const buildBoqRows = () => {
         if (!originalTables || originalTables.length === 0) return [];
         const sourceTable = originalTables[0];
         const header = sourceTable.header || [];
-        const idxDesc = findCol(header, /description|desc/i);
-        const idxQty = findCol(header, /qty|quantity/i);
+        
+        let idxDesc = findCol(header, /description|desc/i);
+        if (idxDesc === -1) idxDesc = 1; // Fallback to column 2 if not found
+
+        // Improve Qty detection: prioritize "Qty/Quantity" but ignore if it's clearly a rate/price column
+        let idxQty = findCol(header, /^(?!.*(rate|price|amount)).*(qty|quantity)/i);
+        if (idxQty === -1) idxQty = findCol(header, /qty|quantity/i);
+        
         const idxUnit = findCol(header, /unit|uom/i);
         const idxRate = findCol(header, /rate|price/i);
-        const idxTotal = findCol(header, /total|amount/i);
+        
+        // Improve Total detection: prioritize "Total/Amount" but ignore if it's a qty column
+        let idxTotal = findCol(header, /^(?!.*(qty|quantity)).*(total|amount)/i);
+        if (idxTotal === -1) idxTotal = findCol(header, /amount|total/i);
+
         return sourceTable.rows.map((row, i) => {
-            const getVal = (idx) => idx !== -1 ? (row.cells[idx]?.value || '') : '';
+            const getVal = (idx) => (idx !== -1 && row.cells[idx]) ? (row.cells[idx].value || '') : '';
             const imageCell = row.cells.find(c => c.image || (c.images && c.images.length > 0));
             let imgSrc = imageCell ? (imageCell.image || imageCell.images[0]) : null;
             if (imgSrc && typeof imgSrc === 'object' && imgSrc.url) imgSrc = imgSrc.url;
@@ -189,7 +220,7 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
     };
 
     const handleCreateNewBoq = () => {
-        const emptyRows = Array(5).fill().map((_, i) => ({
+        const emptyRows = Array(10).fill().map((_, i) => ({
             id: Date.now() + i,
             sn: i + 1,
             imageRef: null,
@@ -210,6 +241,33 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
 
     const handleBrandAdded = (newBrand) => {
         setBrands(prev => [...prev, newBrand]);
+    };
+
+    const handlePlanApplied = (planItems) => {
+        if (!planItems || planItems.length === 0) return;
+
+        const newRows = planItems.map((item, i) => ({
+            id: Date.now() + i,
+            sn: i + 1,
+            imageRef: null,
+            brandImage: '', brandDesc: '',
+            // Professional QS formatting: Strip all existing bracketed locations and prepend the official one
+            description: `[${item.location}] ${item.description.replace(/^(\[.*?\]\s*)+/, '').trim()}`,
+            location: item.location,
+            scope: item.scope,
+            qty: item.qty,
+            unit: item.unit || 'Nos',
+            rate: '',
+            amount: '',
+            selectedBrand: '', selectedMainCat: '', selectedSubCat: '', selectedFamily: '', selectedModel: ''
+        }));
+
+        // Seed ALL three tiers similarly to handleGenerateFromBoq
+        setTierData({
+            budgetary: { rows: newRows.map(r => ({ ...r, id: r.id + 0 })), mode: 'boq' },
+            mid:       { rows: newRows.map(r => ({ ...r, id: r.id + 100000 })), mode: 'boq' },
+            high:      { rows: newRows.map(r => ({ ...r, id: r.id + 200000 })), mode: 'boq' }
+        });
     };
 
     const getUniqueValues = (items, keyPath) => {
@@ -253,29 +311,18 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
         setIsAutoFilling(true);
         setAiBatchResult(null);
 
-        // Detect if a row is a table header or BOQ section divider
-        // IMPORTANT: Only explicit column keywords or "HEAD/GROUP/SECTION OF" patterns.
-        // Do NOT use ALL-CAPS heuristic — real BOQ items like "STAFF CHAIR" are ALL CAPS too.
         const isHeader = (desc) => {
             if (!desc || desc.trim() === '') return true;
             const normalized = desc.trim().toLowerCase();
-
-            // 1. Exact column-header keywords (stand-alone labels only)
             const exactHeaders = ['item', 'description', 'desc', 'quantity', 'qty', 'unit', 'uom',
                 'rate', 'price', 'total', 'amount', 's.n.', 'sn', 'sr.no', 'sr no', 'id',
                 'ref', 'area', 'specification', 'specifications', 'remarks', 'location',
                 'description and area', 'description & area'];
             if (exactHeaders.some(kw => normalized === kw || normalized.startsWith(kw + ' '))) return true;
-
-            // 2. "GROUP OF ..." / "SECTION OF ..." / "CATEGORY OF ..." prefix patterns
-            // NOTE: "HEAD OF" is intentionally excluded — in furniture BOQs, "HEAD OF CHAIR",
-            // "HEAD OF DESK", "HEAD OF GUEST CHAIR" are real products for the department head.
             if (/^(group|type|section|category|list)\s+of\s/i.test(normalized)) return true;
-
             return false;
         };
 
-        // Group selected brands by their DB budgetTier
         const brandsByTier = { budgetary: [], mid: [], high: [] };
         for (const brandName of selectedBrands) {
             const dbEntry = brands.find(b => b.name === brandName);
@@ -284,94 +331,89 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
             brandsByTier[key].push(brandName);
         }
 
-        // Build per-tier working row arrays from the ref (latest state)
         const tierKeys = ['budgetary', 'mid', 'high'].filter(k => brandsByTier[k].length > 0 && tierDataRef.current[k]?.rows?.length > 0);
         if (tierKeys.length === 0) {
             setIsAutoFilling(false);
             return;
         }
 
-        // Use the first active tier's rows as the "master" row sequence
-        // All tiers should have the same number of rows (seeded from same BOQ)
         const masterRows = tierDataRef.current[tierKeys[0]].rows;
         const rowCount = masterRows.length;
-
-        // Per-tier local mutable row arrays
-        const tierRows = {};
-        for (const k of tierKeys) {
-            tierRows[k] = [...(tierDataRef.current[k]?.rows || [])];
-        }
-
-        // Count workable rows (skip headers and already-done)
         const workableCount = masterRows.filter(r => !isHeader(r.description) && r.aiStatus !== 'success').length;
-        let processed = 0;
-        setAiProgress({ current: 0, total: workableCount * tierKeys.length });
-
+        
+        let totalProcessed = 0;
         let totalSuccess = 0;
         let totalError = 0;
         let totalNew = 0;
 
-        // ── ROW-FIRST SEQUENTIAL LOOP ────────────────────────────────────────────
-        // Process row 0, then row 1, then row 2 etc. — in ORDER.
-        // For EACH row, ALL active tiers fire their AI call simultaneously (parallel).
-        // This gives sequential visual feedback (rows light up top-to-bottom)
-        // while keeping parallel speed (3 tiers per row at once).
-        for (let i = 0; i < rowCount; i++) {
-            const masterRow = masterRows[i];
+        setAiProgress({ current: 0, total: workableCount * tierKeys.length });
 
-            // Skip headers in all tiers uniformly
-            if (isHeader(masterRow.description)) {
-                for (const k of tierKeys) {
-                    tierRows[k][i] = { ...tierRows[k][i], aiStatus: 'skipped' };
-                    setTierData(prev => ({ ...prev, [k]: { ...prev[k], rows: [...tierRows[k]] } }));
+        // Helper to update per-tier status
+        const updateTierStatus = (tier, delta) => {
+            setTierStatuses(prev => ({
+                ...prev,
+                [tier]: { ...prev[tier], ...delta }
+            }));
+        };
+
+        // ── PARALLEL TIER LOOPS ──────────────────────────────────────────────────
+        await Promise.all(tierKeys.map(async (k) => {
+            updateTierStatus(k, { active: true, minimized: false });
+            const tierRowsLocal = [...(tierDataRef.current[k]?.rows || [])];
+
+            for (let i = 0; i < rowCount; i++) {
+                const row = tierRowsLocal[i];
+                if (isHeader(row.description)) {
+                    tierRowsLocal[i] = { ...tierRowsLocal[i], aiStatus: 'skipped' };
+                    continue;
                 }
-                continue;
-            }
+                if (row.aiStatus === 'success') continue;
 
-            // Skip rows already matched
-            if (masterRow.aiStatus === 'success') continue;
+                updateTierStatus(k, { 
+                    currentItem: row, 
+                    status: 'identifying', 
+                    brand: '...', 
+                    model: 'Finding match...', 
+                    image: null 
+                });
+                
+                tierRowsLocal[i] = { ...tierRowsLocal[i], aiStatus: 'processing' };
+                setTierData(prev => ({ ...prev, [k]: { ...prev[k], rows: [...tierRowsLocal] } }));
 
-            // Mark all tiers' current row as "processing" simultaneously
-            for (const k of tierKeys) {
-                tierRows[k][i] = { ...tierRows[k][i], aiStatus: 'processing' };
-                setTierData(prev => ({ ...prev, [k]: { ...prev[k], rows: [...tierRows[k]] } }));
-            }
-
-            // Fire all tier requests for this row IN PARALLEL with 30s timeout
-            await Promise.all(tierKeys.map(async (k) => {
-                const row = tierRows[k][i];
                 const sizeContext = [row.qty && `Qty: ${row.qty}`, row.unit && `Unit: ${row.unit}`].filter(Boolean).join(', ');
                 const enrichedDesc = sizeContext ? `${row.description} | ${sizeContext}` : row.description;
 
                 try {
-                    const controller = new AbortController();
-                    const timeout = setTimeout(() => controller.abort(), 30000); // 30s timeout
-
                     const response = await fetch(`${API_BASE}/api/auto-match-ai`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        signal: controller.signal,
                         body: JSON.stringify({
                             description: enrichedDesc,
                             tier: k,
                             availableBrands: brandsByTier[k],
-                            provider: selectedEngine
+                            provider: selectedEngine,
+                            scope: row.scope
                         })
                     });
-                    clearTimeout(timeout);
 
-                    if (!response.ok && response.status !== 404) throw new Error(`HTTP ${response.status}`);
                     const result = await response.json();
-
                     if (result.status === 'success' && result.product) {
                         const match = result.product;
                         const matchedBrandName = match.brand || '';
+                        
+                        updateTierStatus(k, { 
+                            status: 'success', 
+                            brand: matchedBrandName, 
+                            model: match.model || '', 
+                            image: match.imageUrl || null 
+                        });
+
                         const localBrandEntry = brands.find(b => b.name.toLowerCase().trim() === matchedBrandName.toLowerCase().trim());
                         const resolvedLogo = localBrandEntry?.logo || '';
                         if (result.source === 'ai-discovery-hardened') totalNew++;
 
-                        tierRows[k][i] = {
-                            ...tierRows[k][i],
+                        tierRowsLocal[i] = {
+                            ...tierRowsLocal[i],
                             selectedBrand: matchedBrandName,
                             selectedMainCat: match.mainCategory,
                             selectedSubCat: String(match.subCategory || ''),
@@ -381,45 +423,36 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                             brandDesc: match.description,
                             brandImage: match.imageUrl,
                             brandLogo: resolvedLogo,
+                            rate: parseFloat(match.price) > 0 ? parseFloat(match.price).toFixed(2) : tierRowsLocal[i].rate || '',
+                            amount: (parseFloat(match.price) * (parseFloat(tierRowsLocal[i].qty) || 0) > 0) 
+                                ? (parseFloat(match.price) * (parseFloat(tierRowsLocal[i].qty) || 0)).toFixed(2) 
+                                : tierRowsLocal[i].amount || '',
                             aiStatus: 'success',
                             aiResult: result
                         };
                         totalSuccess++;
-                    } else if (result.status === 'no_match') {
-                        tierRows[k][i] = { 
-                            ...tierRows[k][i], 
-                            aiStatus: 'no_match', 
-                            aiError: result.message || 'No suitable product found' 
-                        };
-                        totalError++;
                     } else {
-                        tierRows[k][i] = { ...tierRows[k][i], aiStatus: 'error', aiError: result.error_message || 'No match found' };
+                        updateTierStatus(k, { status: 'error' });
                         totalError++;
+                        tierRowsLocal[i] = { ...tierRowsLocal[i], aiStatus: 'error', aiError: result.message || 'No match found' };
                     }
                 } catch (error) {
-                    console.error(`[AI] Row ${i} tier ${k} failed:`, error);
-                    const engineLabel = selectedEngine === 'google' ? 'Gemini' : selectedEngine === 'nvidia' ? 'Nvidia' : 'OpenRouter';
-                    const msg = error.name === 'AbortError' ? 'Timeout (30s)' : error.message;
-                    tierRows[k][i] = { 
-                        ...tierRows[k][i], 
-                        aiStatus: 'error', 
-                        aiError: `${engineLabel} failed: ${msg} - Try another engine` 
-                    };
+                    updateTierStatus(k, { status: 'error' });
                     totalError++;
+                    tierRowsLocal[i] = { ...tierRowsLocal[i], aiStatus: 'error', aiError: error.message };
                 }
 
-                // Live update this tier's row
-                setTierData(prev => ({ ...prev, [k]: { ...prev[k], rows: [...tierRows[k]] } }));
-                processed++;
-                setAiProgress({ current: processed, total: workableCount * tierKeys.length });
-            }));
+                setTierData(prev => ({ ...prev, [k]: { ...prev[k], rows: [...tierRowsLocal] } }));
+                totalProcessed++;
+                setAiProgress(p => ({ ...p, current: totalProcessed }));
 
-            await new Promise(r => setTimeout(r, 150)); // brief pause between rows
-        }
-        // ── END ROW LOOP ─────────────────────────────────────────────────────────
+                // 1 SECOND DELAY as requested to show the found product
+                await new Promise(r => setTimeout(r, 1000));
+            }
+            updateTierStatus(k, { active: false });
+        }));
 
         setIsAutoFilling(false);
-        setAiProgress({});
         setAiBatchResult({ success: totalSuccess, error: totalError, newlyAdded: totalNew });
         fetchBrands();
     };
@@ -522,14 +555,30 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                         row.brandDesc = product.description || product.model;
                         row.brandImage = product.imageUrl || '';
                         const basePrice = parseFloat(product.price) || 0;
-                        row.rate = basePrice.toFixed(2);
+                        row.rate = basePrice > 0 ? basePrice.toFixed(2) : row.rate;
                         row.basePrice = basePrice;
+                        
+                        // Auto-calculate amount if qty exists
+                        const currentQty = parseFloat(row.qty) || 0;
+                        if (currentQty > 0 && basePrice > 0) {
+                            row.amount = (currentQty * basePrice).toFixed(2);
+                        }
+                        
                         if (!row.unit) row.unit = 'Nos';
                     }
                 }
             } else {
                 // Standard Field
                 row[field] = value;
+                
+                // Real-time Amount Calculation
+                if (field === 'qty' || field === 'rate') {
+                    const q = field === 'qty' ? parseFloat(value) : parseFloat(row.qty);
+                    const r = field === 'rate' ? parseFloat(value) : parseFloat(row.rate);
+                    if (!isNaN(q) && !isNaN(r)) {
+                        row.amount = (q * r).toFixed(2);
+                    }
+                }
             }
 
             newRows[rowIndex] = row;
@@ -753,8 +802,8 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
 
         // Define columns based on mode
         const header = isBoqMode
-            ? ['Sr.', 'Ref Image', 'Original Desc', 'Brand Image', 'Brand Desc', 'Qty', 'Unit', 'Rate', 'Amount']
-            : ['Sr.', 'Image', 'Description', 'Qty', 'Unit', 'Rate', 'Amount'];
+            ? ['Sr.', 'Location', 'Scope', 'Ref Image', 'Original Desc', 'Brand Image', 'Brand Desc', 'Qty', 'Unit', 'Rate', 'Amount']
+            : ['Sr.', 'Location', 'Scope', 'Image', 'Description', 'Qty', 'Unit', 'Rate', 'Amount'];
 
         const processedHeader = header.map(h => processText(h));
 
@@ -790,9 +839,31 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
         const body = tier.rows.map((row, i) => {
             const amount = row.amount || (parseFloat(row.qty || 0) * parseFloat(row.rate || 0)).toFixed(2);
             if (isBoqMode) {
-                return [row.sn, '', processText(row.description), '', processText(row.brandDesc), row.qty || '', row.unit || '', row.rate || '', amount];
+                return [
+                    row.sn, 
+                    processText(row.location || '-'), 
+                    processText(row.scope || '-'), 
+                    '', 
+                    processText(row.description), 
+                    '', 
+                    processText(row.brandDesc), 
+                    row.qty || '', 
+                    row.unit || '', 
+                    row.rate || '', 
+                    amount
+                ];
             } else {
-                return [row.sn, '', processText(row.brandDesc), row.qty || '', row.unit || '', row.rate || '', amount];
+                return [
+                    row.sn, 
+                    processText(row.location || '-'), 
+                    processText(row.scope || '-'), 
+                    '', 
+                    processText(row.brandDesc), 
+                    row.qty || '', 
+                    row.unit || '', 
+                    row.rate || '', 
+                    amount
+                ];
             }
         });
 
@@ -804,38 +875,42 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
             theme: 'grid',
             tableWidth: 'auto',
             styles: {
-                fontSize: 8,
-                cellPadding: 2,
+                fontSize: 7, // Smaller font to fit more columns
+                cellPadding: 1.5,
                 overflow: 'linebreak',
                 valign: 'middle',
                 font: arabicLoaded ? 'Almarai' : 'helvetica'
             },
             headStyles: { fillColor: colors.primary, textColor: colors.white, fontStyle: 'bold', font: arabicLoaded ? 'Almarai' : 'helvetica' },
-            // Optimized Portrait Column Widths
+            // Optimized Portrait Column Widths (Reduced to fit 11 columns)
             columnStyles: isBoqMode ? {
-                0: { cellWidth: 8 },   // Sr
-                1: { cellWidth: 20 },  // Ref Image
-                2: { cellWidth: 35 },  // Original Desc
-                3: { cellWidth: 25 },  // Brand Image
-                4: { cellWidth: 35 },  // Brand Desc
-                5: { cellWidth: 10, halign: 'center' },  // Qty
-                6: { cellWidth: 10, halign: 'center' },  // Unit
-                7: { cellWidth: 16, halign: 'right' },   // Rate
-                8: { cellWidth: 18, halign: 'right' }    // Amount
+                0: { cellWidth: 7 },   // Sr
+                1: { cellWidth: 15 },  // Location
+                2: { cellWidth: 12 },  // Scope
+                3: { cellWidth: 18 },  // Ref Image
+                4: { cellWidth: 28 },  // Original Desc
+                5: { cellWidth: 18 },  // Brand Image
+                6: { cellWidth: 28 },  // Brand Desc
+                7: { cellWidth: 8, halign: 'center' },  // Qty
+                8: { cellWidth: 8, halign: 'center' },  // Unit
+                9: { cellWidth: 14, halign: 'right' },   // Rate
+                10: { cellWidth: 16, halign: 'right' }    // Amount
             } : {
-                0: { cellWidth: 8 },
-                1: { cellWidth: 30 },
-                2: { cellWidth: 70 },
-                3: { cellWidth: 15, halign: 'center' }, // Qty
-                4: { cellWidth: 15, halign: 'center' }, // Unit
-                5: { cellWidth: 20, halign: 'right' },  // Rate
-                6: { cellWidth: 25, halign: 'right' }   // Amount
+                0: { cellWidth: 8 },    // Sr
+                1: { cellWidth: 25 },   // Location
+                2: { cellWidth: 20 },   // Scope
+                3: { cellWidth: 30 },   // Image
+                4: { cellWidth: 55 },   // Description
+                5: { cellWidth: 12, halign: 'center' }, // Qty
+                6: { cellWidth: 12, halign: 'center' }, // Unit
+                7: { cellWidth: 16, halign: 'right' },  // Rate
+                8: { cellWidth: 20, halign: 'right' }   // Amount
             },
             didDrawCell: (data) => {
                 if (data.section === 'body') {
                     const rowIdx = data.row.index;
-                    const refImgCol = isBoqMode ? 1 : -1;
-                    const brandImgCol = isBoqMode ? 3 : 1;
+                    const refImgCol = isBoqMode ? 3 : -1;
+                    const brandImgCol = isBoqMode ? 5 : 3;
 
                     // Draw ref image
                     if (data.column.index === refImgCol && imageDataMap[`ref_${rowIdx}`]) {
@@ -851,13 +926,13 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                         const hasLogo = imageDataMap[`logo_${rowIdx}`];
                         const hasBrandImg = imageDataMap[`brand_${rowIdx}`];
 
-                        const logoHeight = 8;
+                        const logoHeight = 6;
                         const padding = 1;
-                        const gap = 2;
+                        const gap = 1;
 
                         if (hasLogo) {
                             const logoImg = imageDataMap[`logo_${rowIdx}`];
-                            const logoFit = calcFitSize(logoImg.width, logoImg.height, data.cell.width - 4, logoHeight);
+                            const logoFit = calcFitSize(logoImg.width, logoImg.height, data.cell.width - 2, logoHeight);
                             const logoX = data.cell.x + (data.cell.width - logoFit.w) / 2;
                             const logoY = data.cell.y + padding;
                             doc.addImage(logoImg.dataUrl, 'PNG', logoX, logoY, logoFit.w, logoFit.h);
@@ -869,7 +944,7 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                             const availableHeight = hasLogo
                                 ? (data.cell.height - logoHeight - gap - padding * 2)
                                 : (data.cell.height - padding * 2);
-                            const fit = calcFitSize(img.width, img.height, data.cell.width - 4, availableHeight);
+                            const fit = calcFitSize(img.width, img.height, data.cell.width - 2, availableHeight);
                             const x = data.cell.x + (data.cell.width - fit.w) / 2;
                             const y = imgStartY + (availableHeight - fit.h) / 2;
                             doc.addImage(img.dataUrl, 'JPEG', x, y, fit.w, fit.h, undefined, 'FAST');
@@ -879,16 +954,17 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
             },
             didParseCell: (data) => {
                 if (data.section === 'body') {
-                    const refImgCol = isBoqMode ? 1 : -1;
-                    const brandImgCol = isBoqMode ? 3 : 1;
+                    const refImgCol = isBoqMode ? 3 : -1;
+                    const brandImgCol = isBoqMode ? 5 : 3;
                     if (data.column.index === brandImgCol) {
-                        data.cell.styles.minCellHeight = 32;
+                        data.cell.styles.minCellHeight = 30;
                     } else if (data.column.index === refImgCol) {
-                        data.cell.styles.minCellHeight = 22;
+                        data.cell.styles.minCellHeight = 20;
                     }
                 }
             }
         });
+
 
         // Add Summary Section
         const subtotal = tier.rows.reduce((sum, row) => sum + (parseFloat(row.amount || (parseFloat(row.qty || 0) * parseFloat(row.rate || 0))) || 0), 0);
@@ -1037,30 +1113,34 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
 
         // Header with proper columns
         const header = isBoqMode
-            ? ['Sr.', 'Ref Image', 'Original Desc', 'Brand Image', 'Brand Desc', 'Qty', 'Unit', 'Rate', 'Amount']
-            : ['Sr.', 'Image', 'Description', 'Qty', 'Unit', 'Rate', 'Amount'];
+            ? ['Sr.', 'Location', 'Scope', 'Ref Image', 'Original Desc', 'Brand Image', 'Brand Desc', 'Qty', 'Unit', 'Rate', 'Amount']
+            : ['Sr.', 'Location', 'Scope', 'Image', 'Description', 'Qty', 'Unit', 'Rate', 'Amount'];
 
         // Set column widths first
         ws.columns = isBoqMode
             ? [
                 { width: 6 },   // Sr
+                { width: 15 },  // Location
+                { width: 12 },  // Scope
                 { width: 15 },  // Ref Image
-                { width: 40 },  // Original Desc
-                { width: 18 },  // Brand Image (wider for logo + image)
-                { width: 40 },  // Brand Desc
+                { width: 35 },  // Original Desc
+                { width: 18 },  // Brand Image
+                { width: 35 },  // Brand Desc
+                { width: 8 },   // Qty
+                { width: 8 },   // Unit
+                { width: 12 },  // Rate
+                { width: 14 }   // Amount
+            ]
+            : [
+                { width: 6 },   // Sr
+                { width: 15 },  // Location
+                { width: 15 },  // Scope
+                { width: 18 },  // Image
+                { width: 55 },  // Description
                 { width: 10 },  // Qty
                 { width: 10 },  // Unit
                 { width: 14 },  // Rate
                 { width: 16 }   // Amount
-            ]
-            : [
-                { width: 6 },   // Sr
-                { width: 18 },  // Image (wider for logo + image)
-                { width: 55 },  // Description
-                { width: 12 },  // Qty
-                { width: 12 },  // Unit
-                { width: 16 },  // Rate
-                { width: 18 }   // Amount
             ];
 
         // Enable RTL if Arabic detected
@@ -1089,8 +1169,30 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
             const brandName = (row.selectedBrand || '').replace(/Explore collections by/i, '').trim();
 
             const dataRow = isBoqMode
-                ? [row.sn, '', row.description || '', '', row.brandDesc || '', row.qty || '', row.unit || '', row.rate || '', amount]
-                : [row.sn, '', row.brandDesc || '', row.qty || '', row.unit || '', row.rate || '', amount];
+                ? [
+                    row.sn, 
+                    row.location || '-', 
+                    row.scope || '-', 
+                    '', 
+                    row.description || '', 
+                    '', 
+                    row.brandDesc || '', 
+                    row.qty || '', 
+                    row.unit || '', 
+                    row.rate || '', 
+                    amount
+                ]
+                : [
+                    row.sn, 
+                    row.location || '-', 
+                    row.scope || '-', 
+                    '', 
+                    row.brandDesc || '', 
+                    row.qty || '', 
+                    row.unit || '', 
+                    row.rate || '', 
+                    amount
+                ];
 
             const excelRow = ws.addRow(dataRow);
             const rowNumber = excelRow.number;
@@ -1102,13 +1204,15 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                 cell.border = {
                     bottom: { style: 'thin', color: { argb: 'E2E8F0' } }
                 };
-                // Description columns - left align
-                if ((isBoqMode && (colNumber === 3 || colNumber === 5)) || (!isBoqMode && colNumber === 3)) {
+                // Description/Location columns - left align for readability
+                // BOQ: Location(2), Scope(3), OriginalDesc(5), BrandDesc(7)
+                // Simple: Location(2), Scope(3), Description(5)
+                if ([2, 3, 5, 7].includes(colNumber)) {
                     cell.alignment = { vertical: 'middle', horizontal: 'left', wrapText: true };
                 }
             });
 
-            // Add reference image (BOQ mode only, column 2)
+            // Add reference image (BOQ mode only, column 4 / index 3)
             if (isBoqMode && row.imageRef) {
                 try {
                     const refUrl = getFullUrl(row.imageRef);
@@ -1121,15 +1225,15 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                         });
                         const fit = calcFitSize(imgData.width, imgData.height, 100, 70);
                         ws.addImage(imageId, {
-                            tl: { col: 1.05, row: rowNumber - 1 + 0.1 },
+                            tl: { col: 3.05, row: rowNumber - 1 + 0.1 },
                             ext: { width: fit.w, height: fit.h }
                         });
                     }
                 } catch (e) { console.log('Ref image error:', e); }
             }
 
-            // Determine brand image column
-            const brandImgCol = isBoqMode ? 3 : 1;
+            // Determine brand image column (BOQ: 5, Simple: 3)
+            const brandImgCol = isBoqMode ? 5 : 3;
 
             // Add brand logo on top of brand image cell
             if (row.brandLogo) {
@@ -1986,6 +2090,7 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                         <th style={{ width: '50px', textAlign: 'center' }}>Sl</th>
                         {isBoqMode && <th style={{ width: '80px', textAlign: 'center' }}>Ref Img</th>}
                         {isBoqMode && <th style={{ width: '200px', textAlign: 'left' }}>Original Desc</th>}
+                        <th style={{ width: '80px', textAlign: 'center' }}>Scope</th>
                         <th style={{ width: '80px', textAlign: 'center' }}>Brand Img</th>
                         <th style={{ width: '200px', textAlign: 'left' }}>Brand Desc</th>
                         <th style={{ width: '50px', textAlign: 'center' }}>Qty</th>
@@ -1997,380 +2102,60 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                     </tr>
                 </thead>
                 <tbody>
-                    {rows.map((row, index) => {
-                        const refImgSrc = row.imageRef ? (String(row.imageRef).startsWith('http') ? row.imageRef : `http://localhost:3001${row.imageRef}`) : null;
-
-                        // Active Data for Dropdowns
-                        const activeBrand = brands.find(b => b.name === row.selectedBrand);
-                        const brandProducts = activeBrand?.products || [];
-
-                        // Filter Logic using Standardized Normalization (with Fallbacks)
-                        let mainCats = getUniqueValues(brandProducts, 'normalization.category');
-                        if (!mainCats || mainCats.length === 0) {
-                            mainCats = getUniqueValues(brandProducts, 'mainCategory');
-                        }
-
-                        let matchingByMain = brandProducts.filter(p => (p.normalization?.category || p.mainCategory) === row.selectedMainCat);
-                        let subCats = getUniqueValues(matchingByMain, 'normalization.subCategory');
-                        if (!subCats || subCats.length === 0) {
-                            subCats = getUniqueValues(matchingByMain, 'subCategory');
-                        }
+                    {(() => {
+                        let displayRows = [...rows];
                         
-                        const families = getUniqueValues(brandProducts.filter(p => 
-                            (p.normalization?.category || p.mainCategory) === row.selectedMainCat && 
-                            (p.normalization?.subCategory || p.subCategory) === row.selectedSubCat
-                        ), 'family');
+                        // Handle Consolidation
+                        if (isConsolidated) {
+                            const consolidated = {};
+                            displayRows.forEach(row => {
+                                const key = (row.brandDesc || row.description || 'N/A').trim().toLowerCase();
+                                if (!consolidated[key]) {
+                                    consolidated[key] = { ...row, qty: 0, location: 'Consolidated', id: `cons_${key}` };
+                                }
+                                consolidated[key].qty += parseFloat(row.qty || 0);
+                            });
+                            displayRows = Object.values(consolidated);
+                        }
 
-                        const allRawModels = brandProducts.filter(p => 
-                            (p.normalization?.category || p.mainCategory) === row.selectedMainCat && 
-                            (p.normalization?.subCategory || p.subCategory) === row.selectedSubCat && 
-                            p.family === row.selectedFamily
-                        );
+                        // Check if any row has location data
+                        const hasLocations = !isConsolidated && displayRows.some(r => r.location);
+                        if (!hasLocations || isConsolidated) {
+                            return displayRows.map((row, idx) => renderRow(row, idx + 1, isBoqMode, idx));
+                        }
 
-                        // De-duplicate based on unique identifier (URL or Image) to prevent React key crashes
-                        const rawModels = [];
-                        const seenUids = new Set();
-                        allRawModels.forEach(p => {
-                            const uid = p.productUrl || p.imageUrl || `id_${p.id || Math.random()}`;
-                            if (!seenUids.has(uid)) {
-                                seenUids.add(uid);
-                                rawModels.push(p);
-                            }
+                        // Group by Scope (FITOUT first, then FURNITURE)
+                        const scopes = ['FITOUT', 'Furniture'];
+                        let globalSn = 1;
+
+                        return scopes.map(scopeLabel => {
+                            const scopeRows = displayRows.filter(r => {
+                                const s = r.scope?.toUpperCase() || 'FURNITURE';
+                                return s === scopeLabel.toUpperCase();
+                            });
+
+                            if (scopeRows.length === 0) return null;
+
+                            // User requested: cancel room sectioning, use AI natural order
+                            const sortedScopeRows = [...scopeRows]; 
+
+                            return (
+                                <Fragment key={scopeLabel}>
+                                    <tr className={styles.locationDivider}>
+                                        <td colSpan={isBoqMode ? 12 : 10}>
+                                            <div className={styles.locationDividerText} style={{ textTransform: 'uppercase', fontSize: '1.2em' }}>
+                                                {scopeLabel} WORKS
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {sortedScopeRows.map((row) => {
+                                        const originalIndex = rows.findIndex(r => r.id === row.id);
+                                        return renderRow(row, globalSn++, isBoqMode, originalIndex);
+                                    })}
+                                </Fragment>
+                            );
                         });
-
-                        const modelGroups = {};
-                        rawModels.forEach(p => {
-                            if (!modelGroups[p.model]) modelGroups[p.model] = [];
-                            modelGroups[p.model].push(p);
-                        });
-
-                        const modelOptions = [];
-                        Object.entries(modelGroups).forEach(([modelName, items]) => {
-                            if (items.length > 1) {
-                                // Add each variant with a snippet of description or unique ID
-                                items.forEach((item, i) => {
-                                    const catSnippet = item.subCategory || item.mainCategory || 'Misc';
-                                    const snippet = item.description ? item.description.substring(0, 25) + '...' : `Variant ${i + 1}`;
-                                    const uniqueVal = item.productUrl || item.imageUrl || `model_${modelName}_${i}`;
-                                    modelOptions.push({
-                                        value: uniqueVal,
-                                        label: `[${catSnippet}] ${modelName} (${snippet})`,
-                                        rawModel: modelName
-                                    });
-                                });
-                            } else {
-                                const item = items[0];
-                                const catSnippet = item.subCategory || item.mainCategory || 'Misc';
-                                const uniqueVal = item.productUrl || item.imageUrl || `model_${modelName}`;
-                                modelOptions.push({
-                                    value: uniqueVal,
-                                    label: `[${catSnippet}] ${modelName}`,
-                                    rawModel: modelName
-                                });
-                            }
-                        });
-
-                        const rowStatusClass = row.aiStatus === 'processing' ? styles.aiPulse :
-                                               row.aiStatus === 'success' ? styles.aiGlow :
-                                               row.aiStatus === 'error' ? styles.aiErrorBorder : '';
-
-                        return (
-                            <tr key={row.id} className={rowStatusClass}>
-                                <td>
-                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
-                                        {row.sn}
-                                        {row.aiStatus === 'success' && row.aiResult && (
-                                            <button
-                                                className={styles.specialistBtn}
-                                                onClick={() => setSpecialistData(row.aiResult)}
-                                                title="View Specialist Reasoning"
-                                            >
-                                                ✨
-                                            </button>
-                                        )}
-                                        {row.aiStatus === 'no_match' && (
-                                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
-                                                <span className={styles.aiNoMatchBadge} title={row.aiError}>∅ No Match</span>
-                                                <div className={styles.aiErrorDetail}>Try another brand</div>
-                                                <button
-                                                    className={styles.retryBtn}
-                                                    title="Retry matching"
-                                                    onClick={() => handleRetryRow(index)}
-                                                >
-                                                    ↻ retry
-                                                </button>
-                                            </div>
-                                        )}
-                                        {row.aiStatus === 'error' && (
-                                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
-                                                <span className={styles.aiErrorBadge} title={row.aiError}>⚠️ {row.aiError.split(' ')[0]} Failed</span>
-                                                <div className={styles.aiErrorDetail}>{row.aiError.split('-')[1] || 'Try another engine'}</div>
-                                                <button
-                                                    className={styles.retryBtn}
-                                                    title={`Retry: ${row.aiError}`}
-                                                    onClick={() => handleRetryRow(index)}
-                                                >
-                                                    ↻ retry
-                                                </button>
-                                            </div>
-                                        )}
-                                        {row.aiStatus === 'processing' && (
-                                            <span className={styles.aiProcessingBadge}>⏳</span>
-                                        )}
-                                    </div>
-                                </td>
-
-                                {/* Ref Image (BOQ Only) */}
-                                {isBoqMode && (
-                                    <td>
-                                        {row.imageRef ? (
-                                            <div className={styles.imgPlaceholder} style={{ background: 'none' }}>
-                                                <img
-                                                    src={refImgSrc}
-                                                    alt="ref"
-                                                    className={styles.tableImg}
-                                                    onClick={() => {
-                                                        setPreviewImage(refImgSrc);
-                                                        setPreviewLogo(null);
-                                                    }}
-                                                />
-                                            </div>
-                                        ) : (
-                                            <div className={styles.imgPlaceholder}>No Img</div>
-                                        )}
-                                    </td>
-                                )}
-
-                                {/* Original Description (BOQ Only) */}
-                                {isBoqMode && (
-                                    <td>
-                                        <textarea
-                                            className={styles.cellInput}
-                                            value={row.description}
-                                            onChange={(e) => handleCellChange(index, 'description', e.target.value)}
-                                            style={{ minHeight: '80px', resize: 'vertical' }}
-                                        />
-                                    </td>
-                                )}
-
-                                {/* Brand Image */}
-                                <td>
-                                    <div className={styles.brandImageCell}>
-                                        {/* Brand Logo Badge */}
-                                        {row.brandLogo && (
-                                            <div className={styles.brandLogoBadge}>
-                                                <img
-                                                    src={getFullUrl(row.brandLogo)}
-                                                    alt=""
-                                                    className={styles.badgeLogo}
-                                                    style={{ objectFit: 'contain', background: 'white', borderRadius: '2px' }}
-                                                    onError={(e) => { e.target.style.display = 'none'; }}
-                                                />
-                                            </div>
-                                        )}
-
-                                        {/* Product Image */}
-                                        {row.brandImage ? (
-                                            <img
-                                                src={getFullUrl(row.brandImage)}
-                                                alt="brand"
-                                                className={styles.tableImg}
-                                                onClick={() => {
-                                                    setPreviewImage(getFullUrl(row.brandImage));
-                                                    setPreviewLogo(getFullUrl(row.brandLogo));
-                                                }}
-                                            />
-                                        ) : (
-                                            <div className={styles.imgPlaceholder}>Select</div>
-                                        )}
-                                    </div>
-                                </td>
-
-                                {/* Brand Description */}
-                                <td>
-                                    <textarea className={styles.cellInput} value={row.brandDesc} onChange={(e) => handleCellChange(index, 'brandDesc', e.target.value)} style={{ minHeight: '80px' }} placeholder="Product details..." />
-                                </td>
-
-                                <td>
-                                    <input className={styles.cellInput} value={row.qty} onChange={(e) => handleCellChange(index, 'qty', e.target.value)} style={{ textAlign: 'center' }} />
-                                </td>
-                                <td>
-                                    <input className={styles.cellInput} value={row.unit} onChange={(e) => handleCellChange(index, 'unit', e.target.value)} />
-                                </td>
-                                <td>
-                                    <input className={styles.cellInput} value={row.rate} onChange={(e) => handleCellChange(index, 'rate', e.target.value)} style={{ textAlign: 'right' }} />
-                                </td>
-                                <td>
-                                    <div style={{ textAlign: 'right', paddingRight: '5px' }}>
-                                        {row.amount || (parseFloat(row.qty || 0) * parseFloat(row.rate || 0)).toFixed(2)}
-                                    </div>
-                                </td>
-
-                                {/* CASCADING DROPDOWNS COLUMN (Moved) */}
-                                <td>
-                                    <div className={styles.dropdownStack}>
-                                        {/* 1. Brand Selector */}
-                                        <div className={styles.brandDropdownContainer}>
-                                            {/* Trigger Button */}
-                                            <button
-                                                className={`${styles.brandTrigger} ${row.selectedBrand ? styles.brandSelected : ''}`}
-                                                onClick={() => setOpenBrandDropdown(openBrandDropdown === index ? null : index)}
-                                            >
-                                                {row.selectedBrand ? (
-                                                    <>
-                                                        {row.brandLogo ? (
-                                                            <img
-                                                                src={getFullUrl(row.brandLogo)}
-                                                                alt=""
-                                                                className={styles.triggerLogo}
-                                                                style={{ objectFit: 'contain', background: 'white', padding: '1px', borderRadius: '2px' }}
-                                                                onError={(e) => {
-                                                                    e.target.style.display = 'none';
-                                                                    // Show initial instead
-                                                                    const bName = brands.find(b => String(b.id) === String(row.selectedBrand))?.name || String(row.selectedBrand);
-                                                                    const initial = document.createElement('span');
-                                                                    initial.className = e.target.closest('button')?.querySelector('span')?.className || '';
-                                                                    initial.textContent = bName.charAt(0) || '?';
-                                                                    e.target.parentNode?.insertBefore(initial, e.target);
-                                                                }}
-                                                            />
-                                                        ) : (
-                                                            <span className={styles.triggerInitial}>
-                                                                {(brands.find(b => String(b.id) === String(row.selectedBrand))?.name || String(row.selectedBrand)).charAt(0)}
-                                                            </span>
-                                                        )}
-                                                        <span className={styles.triggerText}>
-                                                            {brands.find(b => String(b.id) === String(row.selectedBrand))?.name || row.selectedBrand}
-                                                        </span>
-                                                    </>
-                                                ) : (
-                                                    <span className={styles.triggerPlaceholder}>Select Brand...</span>
-                                                )}
-                                                <span className={styles.triggerArrow}>{openBrandDropdown === index ? '▲' : '▼'}</span>
-                                            </button>
-
-                                            {/* Dropdown Panel */}
-                                            {openBrandDropdown === index && (
-                                                <div className={styles.brandDropdownPanel}>
-                                                    {/* Strict UI Segregation: Only show brands belonging to this specific tier */}
-                                                    {brands
-                                                        .filter(b => {
-                                                            const bTier = String(b.budgetTier || 'mid').toLowerCase();
-                                                            const aTier = String(activeTier || 'mid').toLowerCase();
-                                                            
-                                                            // Standardize tags
-                                                            const isBudget = ['budgetary', 'low', 'economy', 'budget'].includes(bTier);
-                                                            const isHigh = ['high', 'high-end', 'premium', 'luxury'].includes(bTier);
-                                                            const isMid = !isBudget && !isHigh;
-
-                                                            if (aTier === 'budgetary') return isBudget;
-                                                            if (aTier === 'high') return isHigh;
-                                                            return isMid;
-                                                        })
-                                                        .sort((a, b) => a.name.localeCompare(b.name))
-                                                        .map((b, bIdx) => (
-                                                            <button
-                                                                key={`${b.id}-${bIdx}`}
-                                                                className={`${styles.brandOption} ${(String(row.selectedBrand) === String(b.name) || String(row.selectedBrand) === String(b.id)) ? styles.brandOptionActive : ''}`}
-                                                                onClick={() => {
-                                                                    // Atomically update all brand metadata
-                                                                    handleCellChange(index, 'selectedBrand', b.name);
-                                                                    handleCellChange(index, 'brandId', b.id);
-                                                                    handleCellChange(index, 'brandLogo', b.logo);
-                                                                    setOpenBrandDropdown(null);
-                                                                }}
-                                                            >
-                                                                <div className={styles.brandOptionMeta}>
-                                                                    <span className={`${styles.tierBadgeSmall} ${styles['tier' + b.budgetTier]}`}>
-                                                                        {b.budgetTier?.charAt(0).toUpperCase()}
-                                                                    </span>
-                                                                </div>
-                                                                {b.logo ? (
-                                                                    <img
-                                                                        src={getFullUrl(b.logo)}
-                                                                        alt=""
-                                                                        className={styles.optionLogo}
-                                                                        style={{ objectFit: 'contain', background: 'white', padding: '1px', borderRadius: '2px' }}
-                                                                        onError={(e) => {
-                                                                            e.target.style.display = 'none';
-                                                                        }}
-                                                                    />
-                                                                ) : (
-                                                                    <span className={styles.optionInitial}>{b.name.charAt(0)}</span>
-                                                                )}
-                                                                <span className={styles.optionName}>
-                                                                    {b.name.replace(/Explore collections by/i, '').trim()}
-                                                                </span>
-                                                            </button>
-                                                        ))
-                                                    }
-                                                </div>
-                                            )}
-                                        </div>
-
-                                        {/* 2. Main Category */}
-                                        {row.selectedBrand && (
-                                            <select className={styles.productSelect} value={row.selectedMainCat} onChange={(e) => handleCellChange(index, 'selectedMainCat', e.target.value)}>
-                                                <option value="">Select Category...</option>
-                                                {(mainCats || []).map(c => <option key={c} value={c}>{c}</option>)}
-                                            </select>
-                                        )}
-
-                                        {/* 3. Sub Category */}
-                                        {row.selectedMainCat && (
-                                            <select className={styles.productSelect} value={row.selectedSubCat} onChange={(e) => handleCellChange(index, 'selectedSubCat', e.target.value)}>
-                                                <option value="">Select Sub-Category...</option>
-                                                {(subCats || []).map(c => <option key={c} value={c}>{c}</option>)}
-                                            </select>
-                                        )}
-
-                                        {/* 4. Family */}
-                                        {row.selectedSubCat && (
-                                            <select className={styles.productSelect} value={row.selectedFamily} onChange={(e) => handleCellChange(index, 'selectedFamily', e.target.value)}>
-                                                <option value="">Select Family...</option>
-                                                {(families || []).map(c => <option key={c} value={c}>{c}</option>)}
-                                            </select>
-                                        )}
-
-                                        {/* 5. Model (With Variant Support) */}
-                                        {row.selectedFamily && (
-                                            <select
-                                                className={styles.productSelect}
-                                                value={row.selectedModelUrl || ''}
-                                                onChange={(e) => {
-                                                    const opt = modelOptions.find(o => o.value === e.target.value);
-                                                    handleCellChange(index, 'selectedModel', {
-                                                        model: opt?.rawModel || '',
-                                                        url: e.target.value
-                                                    });
-                                                }}
-                                            >
-                                                <option value="">Select Model/Variant...</option>
-                                                {modelOptions.map(opt => (
-                                                    <option key={opt.value} value={opt.value}>{opt.label}</option>
-                                                ))}
-                                            </select>
-                                        )}
-                                    </div>
-                                </td>
-
-                                <td>
-                                    <div className={styles.actionCell}>
-                                        {/* Clear auto-matched data */}
-                                        {row.selectedBrand && (
-                                            <button
-                                                className={`${styles.actionBtn} ${styles.clearBtn}`}
-                                                onClick={() => handleClearRowMatch(index)}
-                                                title="Clear selection"
-                                            >⊘</button>
-                                        )}
-                                        <button className={`${styles.actionBtn} ${styles.addBtn}`} onClick={() => handleAddRow(index)}>+</button>
-                                        <button className={`${styles.actionBtn} ${styles.removeBtn}`} onClick={() => handleRemoveRow(index)}>×</button>
-                                    </div>
-                                </td>
-                            </tr>
-                        );
-                    })}
+                    })()}
                 </tbody>
                 <tfoot>
                     <tr className={styles.summarySubtotalRow}>
@@ -2390,6 +2175,299 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                     </tr>
                 </tfoot>
             </table>
+        );
+    };
+
+    const renderRow = (row, sn, isBoqMode, index) => {
+        const refImgSrc = row.imageRef ? (String(row.imageRef).startsWith('http') ? row.imageRef : `${API_BASE}${row.imageRef}`) : null;
+        
+        const activeBrand = brands.find(b => b.name === row.selectedBrand);
+        const brandProducts = activeBrand?.products || [];
+
+        // Category/Family logic
+        let mainCats = getUniqueValues(brandProducts, 'normalization.category') || getUniqueValues(brandProducts, 'mainCategory');
+        let matchingByMain = brandProducts.filter(p => (p.normalization?.category || p.mainCategory) === row.selectedMainCat);
+        let subCats = getUniqueValues(matchingByMain, 'normalization.subCategory') || getUniqueValues(matchingByMain, 'subCategory');
+        const families = getUniqueValues(brandProducts.filter(p => 
+            (p.normalization?.category || p.mainCategory) === row.selectedMainCat && 
+            (p.normalization?.subCategory || p.subCategory) === row.selectedSubCat
+        ), 'family');
+
+        const allRawModels = brandProducts.filter(p => 
+            (p.normalization?.category || p.mainCategory) === row.selectedMainCat && 
+            (p.normalization?.subCategory || p.subCategory) === row.selectedSubCat && 
+            p.family === row.selectedFamily
+        );
+
+        const rawModels = [];
+        const seenUids = new Set();
+        allRawModels.forEach(p => {
+            const uid = p.productUrl || p.imageUrl || `id_${p.id || Math.random()}`;
+            if (!seenUids.has(uid)) {
+                seenUids.add(uid);
+                rawModels.push(p);
+            }
+        });
+
+        const modelGroups = {};
+        rawModels.forEach(p => {
+            if (!modelGroups[p.model]) modelGroups[p.model] = [];
+            modelGroups[p.model].push(p);
+        });
+
+        const modelOptions = [];
+        Object.entries(modelGroups).forEach(([modelName, items]) => {
+            items.forEach((item, i) => {
+                const catSnippet = item.subCategory || item.mainCategory || 'Misc';
+                const snippet = item.description ? item.description.substring(0, 25) + '...' : `Variant ${i + 1}`;
+                const uniqueVal = item.productUrl || item.imageUrl || `model_${modelName}_${i}`;
+                modelOptions.push({
+                    value: uniqueVal,
+                    label: items.length > 1 ? `[${catSnippet}] ${modelName} (${snippet})` : `[${catSnippet}] ${modelName}`,
+                    rawModel: modelName
+                });
+            });
+        });
+
+        const rowStatusClass = row.aiStatus === 'processing' ? styles.aiPulse :
+                                row.aiStatus === 'success' ? styles.aiGlow :
+                                row.aiStatus === 'error' ? styles.aiErrorBorder : '';
+
+        return (
+            <tr key={row.id} className={`${rowStatusClass} ${row.aiStatus === 'skipped' ? styles.skippedRow : ''}`}>
+                <td>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+                        {sn}
+                        {row.aiStatus === 'success' && row.aiResult && (
+                            <button
+                                className={styles.specialistBtn}
+                                onClick={() => setSpecialistData(row.aiResult)}
+                                title="AI Search Plus Detail"
+                            >
+                                AI Search Plus
+                            </button>
+                        )}
+                    </div>
+                </td>
+
+                {isBoqMode && (
+                    <td>
+                        {row.imageRef ? (
+                            <div className={styles.imgPlaceholder} style={{ background: 'none' }}>
+                                <img
+                                    src={refImgSrc}
+                                    alt="ref"
+                                    className={styles.tableImg}
+                                    onClick={() => {
+                                        setPreviewImage(refImgSrc);
+                                        setPreviewLogo(null);
+                                        setPreviewBrand('Original Reference');
+                                        setPreviewModel(row.description);
+                                    }}
+                                />
+                            </div>
+                        ) : (
+                            <div className={styles.imgPlaceholder}>No Img</div>
+                        )}
+                    </td>
+                )}
+
+                {isBoqMode && (
+                    <td>
+                        <textarea
+                            className={styles.cellInput}
+                            value={row.description}
+                            onChange={(e) => handleCellChange(index, 'description', e.target.value)}
+                            style={{ minHeight: '80px', resize: 'vertical' }}
+                        />
+                    </td>
+                )}
+
+                <td>
+                    <span className={`${styles.rowScopeTag} ${row.scope?.toLowerCase() === 'fitout' ? styles.fitoutTag : styles.furnitureTag}`}>
+                        {row.scope || 'Furniture'}
+                    </span>
+                </td>
+
+                <td>
+                    <div className={styles.brandImageCell}>
+                        {row.brandLogo && (
+                            <div className={styles.brandLogoBadge}>
+                                <img
+                                    src={getFullUrl(row.brandLogo)}
+                                    alt=""
+                                    className={styles.badgeLogo}
+                                    onError={(e) => { e.target.style.display = 'none'; }}
+                                />
+                            </div>
+                        )}
+                        {row.brandImage ? (
+                            <div className={styles.tableImgContainer}>
+                                <img
+                                    src={getFullUrl(row.brandImage)}
+                                    alt="brand"
+                                    className={styles.tableImg}
+                                    onError={(e) => { 
+                                        e.target.style.display = 'none';
+                                        const sibling = e.target.nextSibling;
+                                        if (sibling) sibling.style.display = 'flex';
+                                    }}
+                                    onClick={() => {
+                                        setPreviewImage(getFullUrl(row.brandImage));
+                                        setPreviewLogo(getFullUrl(row.brandLogo));
+                                        setPreviewBrand(row.selectedBrand);
+                                        setPreviewModel(row.selectedModel);
+                                    }}
+                                />
+                                <div className={styles.imgPlaceholder} style={{ display: 'none' }}>
+                                    Broken
+                                </div>
+                            </div>
+                        ) : (
+                            <div className={styles.imgPlaceholder}>Select</div>
+                        )}
+                    </div>
+                </td>
+
+                <td>
+                    <textarea 
+                        className={styles.cellInput} 
+                        value={row.brandDesc} 
+                        onChange={(e) => handleCellChange(index, 'brandDesc', e.target.value)} 
+                        style={{ minHeight: '80px' }} 
+                        placeholder="Product details..." 
+                    />
+                </td>
+
+                <td>
+                    <input className={styles.cellInput} value={row.qty} onChange={(e) => handleCellChange(index, 'qty', e.target.value)} style={{ textAlign: 'center' }} />
+                </td>
+                <td>
+                    <input className={styles.cellInput} value={row.unit} onChange={(e) => handleCellChange(index, 'unit', e.target.value)} />
+                </td>
+                <td>
+                    <input className={styles.cellInput} value={row.rate} onChange={(e) => handleCellChange(index, 'rate', e.target.value)} style={{ textAlign: 'right' }} />
+                </td>
+                <td>
+                    <input 
+                        type="text"
+                        value={row.rate && parseFloat(row.rate) > 0 
+                            ? (parseFloat(row.qty || 0) * parseFloat(row.rate || 0)).toFixed(2) 
+                            : (row.amount || '')}
+                        onChange={(e) => handleCellChange(index, 'amount', e.target.value)}
+                        className={styles.cellInput}
+                        style={{ textAlign: 'right', opacity: row.rate && parseFloat(row.rate) > 0 ? 0.7 : 1 }}
+                        disabled={row.rate && parseFloat(row.rate) > 0}
+                        placeholder="0.00"
+                    />
+                </td>
+
+                <td>
+                    <div className={styles.dropdownStack}>
+                        <div className={styles.brandDropdownContainer}>
+                            {row.aiStatus === 'processing' ? (
+                                <div className={styles.aiLoadingCell}>
+                                    <div className={styles.tinySpinner}></div>
+                                    <span>AI Searching...</span>
+                                </div>
+                            ) : (
+                                <button
+                                    className={`${styles.brandTrigger} ${row.selectedBrand ? styles.brandSelected : ''}`}
+                                    onClick={() => setOpenBrandDropdown(openBrandDropdown === index ? null : index)}
+                                >
+                                    {row.selectedBrand ? (
+                                        <>
+                                            {row.brandLogo && (
+                                                <img
+                                                    src={getFullUrl(row.brandLogo)}
+                                                    alt=""
+                                                    className={styles.triggerLogo}
+                                                    onError={(e) => { e.target.style.display = 'none'; }}
+                                                />
+                                            )}
+                                            <span className={styles.triggerText}>
+                                                {row.selectedBrand}
+                                            </span>
+                                        </>
+                                    ) : (
+                                        <span className={styles.triggerPlaceholder}>Select Brand...</span>
+                                    )}
+                                    <span className={styles.triggerArrow}>{openBrandDropdown === index ? '▲' : '▼'}</span>
+                                </button>
+                            )}
+
+                            {openBrandDropdown === index && (
+                                <div className={styles.brandDropdownPanel}>
+                                    {brands
+                                        .filter(b => {
+                                            const bTier = (b.budgetTier || 'mid').toLowerCase();
+                                            const aTier = activeTier.toLowerCase();
+                                            if (aTier === 'budgetary') return ['budgetary', 'low'].includes(bTier);
+                                            if (aTier === 'high') return ['high', 'high-end', 'premium'].includes(bTier);
+                                            return !['budgetary', 'low', 'high', 'high-end', 'premium'].includes(bTier);
+                                        })
+                                        .map((b, bIdx) => (
+                                            <button
+                                                key={bIdx}
+                                                className={styles.brandOption}
+                                                onClick={() => {
+                                                    handleCellChange(index, 'selectedBrand', b.name);
+                                                    setOpenBrandDropdown(null);
+                                                }}
+                                            >
+                                                {b.name}
+                                            </button>
+                                        ))
+                                    }
+                                </div>
+                            )}
+                        </div>
+                        {row.selectedBrand && (
+                            <select className={styles.productSelect} value={row.selectedMainCat} onChange={(e) => handleCellChange(index, 'selectedMainCat', e.target.value)}>
+                                <option value="">Category...</option>
+                                {(mainCats || []).map(c => <option key={c} value={c}>{c}</option>)}
+                            </select>
+                        )}
+                        {row.selectedMainCat && (
+                            <select className={styles.productSelect} value={row.selectedSubCat} onChange={(e) => handleCellChange(index, 'selectedSubCat', e.target.value)}>
+                                <option value="">Sub-Category...</option>
+                                {(subCats || []).map(c => <option key={c} value={c}>{c}</option>)}
+                            </select>
+                        )}
+                        {row.selectedSubCat && (
+                            <select className={styles.productSelect} value={row.selectedFamily} onChange={(e) => handleCellChange(index, 'selectedFamily', e.target.value)}>
+                                <option value="">Family...</option>
+                                {(families || []).map(c => <option key={c} value={c}>{c}</option>)}
+                            </select>
+                        )}
+                        {row.selectedFamily && (
+                            <select
+                                className={styles.productSelect}
+                                value={row.selectedModelUrl || ''}
+                                onChange={(e) => {
+                                    const opt = modelOptions.find(o => o.value === e.target.value);
+                                    handleCellChange(index, 'selectedModel', {
+                                        model: opt?.rawModel || '',
+                                        url: e.target.value
+                                    });
+                                }}
+                            >
+                                <option value="">Model Variant...</option>
+                                {modelOptions.map(opt => (
+                                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                ))}
+                            </select>
+                        )}
+                    </div>
+                </td>
+
+                <td>
+                    <div className={styles.actionCell}>
+                        <button className={`${styles.actionBtn} ${styles.addBtn}`} onClick={() => handleAddRow(index)}>+</button>
+                        <button className={`${styles.actionBtn} ${styles.removeBtn}`} onClick={() => handleRemoveRow(index)}>×</button>
+                    </div>
+                </td>
+            </tr>
         );
     };
 
@@ -2422,8 +2500,25 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                     {sampleRows.map((row, i) => (
                         <tr key={row.sn || i}>
                             <td className={styles.compName}>
-                                <strong>#{row.sn}</strong>
-                                <p style={{ marginTop: '5px' }}>{row.description}</p>
+                                <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
+                                    {row.imageRef && (
+                                        <img 
+                                            src={getFullUrl(row.imageRef)} 
+                                            className={styles.compImg} 
+                                            style={{ height: '50px', width: '50px', minWidth: '50px', objectFit: 'cover', borderRadius: '4px', cursor: 'zoom-in' }} 
+                                            onClick={() => {
+                                                setPreviewImage(getFullUrl(row.imageRef));
+                                                setPreviewLogo(null);
+                                                setPreviewBrand('Original Reference');
+                                                setPreviewModel(row.description);
+                                            }}
+                                        />
+                                    )}
+                                    <div style={{ flex: 1 }}>
+                                        <strong>#{row.sn}</strong>
+                                        <p style={{ marginTop: '3px', fontSize: '0.65rem', color: 'var(--text-secondary)' }}>{row.description}</p>
+                                    </div>
+                                </div>
                             </td>
                             {['budgetary', 'mid', 'high'].map(tierKey => {
                                 const match = tierData[tierKey]?.rows[i];
@@ -2432,7 +2527,18 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                                         {match && match.selectedBrand ? (
                                             <div className={styles.comparisonCell}>
                                                 {match.brandImage && (
-                                                    <img src={getFullUrl(match.brandImage)} alt="" className={styles.compImg} />
+                                                    <img 
+                                                        src={getFullUrl(match.brandImage)} 
+                                                        alt="" 
+                                                        className={styles.compImg} 
+                                                        onClick={() => {
+                                                            setPreviewImage(getFullUrl(match.brandImage));
+                                                            setPreviewLogo(getFullUrl(match.brandLogo));
+                                                            setPreviewBrand(match.selectedBrand);
+                                                            setPreviewModel(match.selectedModel);
+                                                        }}
+                                                        style={{ cursor: 'zoom-in' }}
+                                                    />
                                                 )}
                                                 <div className={styles.compName}>
                                                     {match.selectedBrand} - {match.selectedModel}
@@ -2461,7 +2567,7 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
         if (!currentData) {
             return (
                 <div style={{ flex: 1, display: 'flex', width: '100%', height: '100%', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#64748b' }}>
-                    <div style={{ fontSize: '3rem', opacity: 0.2 }}>📋</div>
+                    <div style={{ fontSize: '3rem', opacity: 0.2 }}>BOQ</div>
                     <div style={{ marginTop: '1rem' }}>No table data yet. Click "Generate from BOQ" or "Create New BOQ".</div>
                 </div>
             );
@@ -2470,7 +2576,7 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
     };
 
     return (
-        <div className={styles.overlay} onClick={onClose}>
+        <div className={styles.overlay}>
             <div className={styles.modalContainer} onClick={e => e.stopPropagation()}>
 
                 {/* Header */}
@@ -2487,42 +2593,56 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                     {/* Fixed Top Section: Actions + Tabs */}
                     <div className={styles.topSection}>
                         <div className={styles.mainActions}>
-                            <button className={styles.actionCard} onClick={handleGenerateFromBoq}>
-                                📝 Generate from BOQ
+                            <button className={`${styles.actionCard} ${styles.genBoqBtn}`} onClick={handleGenerateFromBoq}>
+                                <span style={{fontSize: '1.4rem'}}>📋</span>
+                                <span>Generate from BOQ</span>
                             </button>
-                            <button className={styles.actionCard} onClick={handleCreateNewBoq}>
-                                ➕ Create New BOQ
+                            <button className={`${styles.actionCard} ${styles.genPlanBtn}`} onClick={() => setIsPlanAnalyzerOpen(true)}>
+                                <span style={{fontSize: '1.4rem'}}>📐</span>
+                                <span>Generate from Plan</span>
                             </button>
-                            <button className={styles.actionCard} onClick={handleAddBrand}>
-                                🌐 Add Brand
+                            <button className={`${styles.actionCard} ${styles.createNewBtn}`} onClick={handleCreateNewBoq}>
+                                <span style={{fontSize: '1.4rem'}}>➕</span>
+                                <span>Create New BOQ</span>
                             </button>
-                                <button
-                                    className={`${styles.actionCard} ${styles.aiAutoFillBtn} ${isAutoFilling ? styles.aiAutoFilling : ''}`}
-                                    onClick={handleAutoFillAI}
-                                    disabled={isAutoFilling}
-                                >
+                            <button className={`${styles.actionCard} ${styles.consolidateBtn} ${isConsolidated ? styles.consolidateBtnActive : ''}`} onClick={() => setIsConsolidated(!isConsolidated)}>
+                                <span style={{fontSize: '1.4rem'}}>{isConsolidated ? '🏠' : '📦'}</span>
+                                <span>{isConsolidated ? 'Room Wise' : 'Consolidated'}</span>
+                            </button>
+                            <button className={`${styles.actionCard} ${styles.addBrandBtn}`} onClick={handleAddBrand}>
+                                <span style={{fontSize: '1.4rem'}}>🏢</span>
+                                <span>Add Brand</span>
+                            </button>
+                            <button
+                                className={`${styles.actionCard} ${styles.aiAutoFillBtn} ${isAutoFilling ? styles.aiAutoFilling : ''}`}
+                                onClick={handleAutoFillAI}
+                                disabled={isAutoFilling}
+                            >
+                                <span style={{fontSize: '1.4rem'}}>✨</span>
+                                <span>
                                     {isAutoFilling
-                                        ? `⏳ AI Processing${aiProgress.total > 0 ? ` (${aiProgress.current}/${aiProgress.total})` : '...'}`
-                                        : '✨ AI AUTO-FILL'
+                                        ? `Processing${aiProgress.total > 0 ? ` (${aiProgress.current}/${aiProgress.total})` : '...'}`
+                                        : 'AI SEARCH PLUS'
                                     }
-                                </button>
-                            </div>
+                                </span>
+                            </button>
+                        </div>
 
                         <div className={styles.tabsContainer}>
                             <div className={styles.topTabs}>
                                 <button className={`${styles.tab} ${activeTier === 'budgetary' ? styles.activeTabBudgetary : ''}`} onClick={() => setActiveTier('budgetary')}>
-                                    💰 Budgetary
+                                    Budgetary
                                 </button>
                                 <button className={`${styles.tab} ${activeTier === 'mid' ? styles.activeTabMid : ''}`} onClick={() => setActiveTier('mid')}>
-                                    ⭐ Mid-Range
+                                    Mid-Range
                                 </button>
                                 <button className={`${styles.tab} ${activeTier === 'high' ? styles.activeTabHigh : ''}`} onClick={() => setActiveTier('high')}>
-                                    👑 High-End
+                                    High-End
                                 </button>
                             </div>
                             <div className={styles.bottomTabs}>
                                 <button className={`${styles.tab} ${styles.comparisonTab} ${activeTier === 'comparison' ? styles.activeTabComparison : ''}`} onClick={() => setActiveTier('comparison')}>
-                                    📊 Comparison View
+                                    Comparison View
                                 </button>
                             </div>
                         </div>
@@ -2531,15 +2651,14 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
 
                     {/* Scrollable Table Area */}
                     <div className={styles.tableContainer}>
-                        {/* Batch completion notification */}
-                        {aiBatchResult && !isAutoFilling && (
-                            <div className={styles.aiBatchNotification}>
+                            {/* Batch completion notification */}
+                        {aiBatchResult && (
+                            <div className={`${styles.aiBatchNotification} ${aiBatchResult.error > 0 ? styles.aiBatchNotificationError : styles.aiBatchNotificationSuccess}`}>
                                 <span>
-                                    ✅ AI Batch Complete — <strong>{aiBatchResult.success}</strong> matched
-                                    {aiBatchResult.error > 0 && <span className={styles.batchErrorCount}>, {aiBatchResult.error} failed</span>}
-                                    {aiBatchResult.newlyAdded > 0 && <span className={styles.batchNewCount}> · ✨ {aiBatchResult.newlyAdded} new products discovered</span>}
+                                    AI Batch Complete — <strong>{aiBatchResult.success || 0}</strong> matched, <strong>{aiBatchResult.error || 0}</strong> failed
+                                    {aiBatchResult.newlyAdded > 0 && ` (${aiBatchResult.newlyAdded} new brands added)`}
                                 </span>
-                                <button className={styles.batchDismissBtn} onClick={() => setAiBatchResult(null)}>×</button>
+                                <button className={styles.notificationClose} onClick={() => setAiBatchResult(null)}>×</button>
                             </div>
                         )}
                         {renderActiveView()}
@@ -2548,17 +2667,17 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                     {/* Fixed Footer */}
                     <div className={styles.footer}>
                         <button className={styles.applyCostingBtn} onClick={() => setIsCostingOpen(true)}>
-                            💰 Apply Costing & Review
+                            Apply Costing & Review
                         </button>
 
                         <div style={{ width: '100%', borderTop: '1px solid rgba(255,255,255,0.1)' }} />
 
                         <div className={styles.exportGroup}>
-                            <button className={styles.exportBtn} onClick={handleExportPDF}>📄 Offer PDF</button>
-                            <button className={styles.exportBtn} onClick={handleExportExcel}>📊 Offer Excel</button>
-                            <button className={styles.exportBtn} onClick={handleExportPPTX}>📽️ Presentation</button>
-                            <button className={styles.exportBtn} onClick={handleExportPresentationPDF}>📑 PDF</button>
-                            <button className={styles.exportBtn} onClick={handleExportMAS}>📋 MAS</button>
+                            <button className={styles.exportBtn} onClick={handleExportPDF}>Offer PDF</button>
+                            <button className={styles.exportBtn} onClick={handleExportExcel}>Offer Excel</button>
+                            <button className={styles.exportBtn} onClick={handleExportPPTX}>Presentation</button>
+                            <button className={styles.exportBtn} onClick={handleExportPresentationPDF}>PDF</button>
+                            <button className={styles.exportBtn} onClick={handleExportMAS}>MAS</button>
                         </div>
                     </div>
                 </div>
@@ -2566,24 +2685,42 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
 
             {/* Image Preview Overlay */}
             {previewImage && (
-                <div className={styles.previewOverlay} onClick={(e) => { e.stopPropagation(); setPreviewImage(null); setPreviewLogo(null); }}>
+                <div className={styles.previewOverlay} onClick={(e) => { e.stopPropagation(); setPreviewImage(null); setPreviewLogo(null); setPreviewBrand(null); setPreviewModel(null); }}>
                     <div className={styles.previewContent} onClick={e => e.stopPropagation()}>
-                        <button className={styles.previewCloseBtn} onClick={() => { setPreviewImage(null); setPreviewLogo(null); }}>×</button>
-
-                        {/* Brand Logo Badge in Modal */}
-                        {previewLogo && (
-                            <div className={styles.previewLogoBadge}>
-                                <img
-                                    src={getFullUrl(previewLogo)}
-                                    alt="brand logo"
-                                    className={styles.previewBadgeLogo}
-                                    style={{ objectFit: 'contain', background: 'white', padding: '4px', borderRadius: '4px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}
-                                    onError={(e) => { e.target.parentNode.style.display = 'none'; }}
-                                />
+                        <div className={styles.previewMain}>
+                            {previewLogo && (
+                                <div className={styles.previewLogoBadge}>
+                                    <img
+                                        src={getFullUrl(previewLogo)}
+                                        alt="brand logo"
+                                        className={styles.previewBadgeLogo}
+                                        style={{ objectFit: 'contain', background: 'white', padding: '4px', borderRadius: '4px', boxShadow: '0 2px 8px rgba(0,0,0,0.2)' }}
+                                        onError={(e) => { e.target.parentNode.style.display = 'none'; }}
+                                    />
+                                </div>
+                            )}
+                            <img 
+                                src={previewImage} 
+                                alt="Full view" 
+                                className={styles.previewImage} 
+                                onError={(e) => {
+                                    e.target.src = 'https://placehold.co/600x400?text=Image+Not+Available';
+                                }}
+                            />
+                        </div>
+                        
+                        <div className={styles.previewFooter}>
+                            <div className={styles.previewDetails}>
+                                <div className={styles.previewTitle}>{previewBrand || 'Product View'}</div>
+                                <div className={styles.previewSubtitle}>{previewModel || ''}</div>
                             </div>
-                        )}
-
-                        <img src={previewImage} alt="Full view" className={styles.previewImage} />
+                            <button 
+                                className={styles.previewCloseBtn} 
+                                onClick={() => { setPreviewImage(null); setPreviewLogo(null); setPreviewBrand(null); setPreviewModel(null); }}
+                            >
+                                <i className="ri-close-line"></i>
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}
@@ -2614,6 +2751,67 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                 initialFactors={costingFactors}
                 onApply={handleApplyCosting}
             />
+            <PlanAnalyzerModal
+                isOpen={isPlanAnalyzerOpen}
+                onClose={() => setIsPlanAnalyzerOpen(false)}
+                onApply={handlePlanApplied}
+                allBrands={brands}
+            />
+            {/* Parallel AI Discovery Modals */}
+            {['budgetary', 'mid', 'high'].map((tierKey, idx) => {
+                const status = tierStatuses[tierKey];
+                if (!status.active && !aiBatchResult) return null;
+                
+                // Position logic: side-by-side if multiple are active
+                const activeCount = Object.values(tierStatuses).filter(s => s.active).length;
+                let alignment = 'center';
+                if (activeCount > 1) {
+                    if (tierKey === 'budgetary') alignment = 'left';
+                    if (tierKey === 'mid') alignment = 'center-narrow';
+                    if (tierKey === 'high') alignment = 'right';
+                }
+
+                // Minimized stacking logic
+                const activeTiers = ['high', 'mid', 'budgetary'].filter(k => tierStatuses[k].active);
+                const minimizedIndex = activeTiers.indexOf(tierKey);
+                const minimizedOffset = minimizedIndex * 340 + 24; // 320 width + 20 gap
+
+                const handleMinimizeAll = (val) => {
+                    setTierStatuses(prev => {
+                        const next = { ...prev };
+                        Object.keys(next).forEach(k => {
+                            if (next[k].active) next[k] = { ...next[k], minimized: val };
+                        });
+                        return next;
+                    });
+                };
+
+                return (
+                    <AIPresentationModal 
+                        key={tierKey}
+                        isOpen={status.active || (aiBatchResult && idx === 1)} // Show batch result in center one
+                        onClose={() => {
+                            setTierStatuses(prev => ({ ...prev, [tierKey]: { ...prev[tierKey], active: false } }));
+                            if (idx === 1) setAiBatchResult(null);
+                        }}
+                        tier={tierKey}
+                        alignment={alignment}
+                        currentItem={status.currentItem}
+                        batchResult={idx === 1 ? aiBatchResult : null}
+                        brand={status.brand}
+                        foundModel={status.model}
+                        foundImage={status.image}
+                        progress={aiProgress.total > 0 ? (aiProgress.current / aiProgress.total) * 100 : 0}
+                        status={status.status}
+                        isMinimized={status.minimized}
+                        minimizedOffset={minimizedOffset}
+                        onToggleMinimize={(val) => {
+                            setTierStatuses(prev => ({ ...prev, [tierKey]: { ...prev[tierKey], minimized: val } }));
+                        }}
+                        onMinimizeAll={handleMinimizeAll}
+                    />
+                );
+            })}
         </div>
     );
 }

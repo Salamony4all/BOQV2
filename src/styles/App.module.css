@@ -266,6 +266,7 @@
   flex-direction: column;
   gap: 5px;
   transition: all 0.2s ease;
+  -webkit-backdrop-filter: blur(8px);
   backdrop-filter: blur(8px);
   box-shadow: var(--card-shadow);
 }
@@ -317,18 +318,19 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 1rem 2.5rem;
+  padding: 1rem 2rem;
+  min-width: 220px;
   background: linear-gradient(135deg, var(--accent) 0%, #d97706 100%);
   color: white;
-  font-size: 1.1rem;
+  font-size: 1rem;
   font-weight: 700;
   border: none;
-  border-radius: 10px;
+  border-radius: 12px;
   cursor: pointer;
-  transition: all 0.3s ease;
-  box-shadow: 0 8px 30px rgba(245, 158, 11, 0.3);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 10px 30px rgba(245, 158, 11, 0.3);
   text-transform: uppercase;
-  letter-spacing: 1px;
+  letter-spacing: 1.5px;
 }
 
 .ctaPrimary:hover {
@@ -357,6 +359,29 @@
   background: rgba(255, 255, 255, 0.08);
   border-color: var(--primary);
   transform: translateY(-3px);
+}
+
+.ctaPlan {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem 2.5rem;
+  background: linear-gradient(135deg, #0ea5e9 0%, #2563eb 100%);
+  color: white;
+  font-size: 1.1rem;
+  font-weight: 700;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 8px 30px rgba(14, 165, 233, 0.3);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.ctaPlan:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 40px rgba(14, 165, 233, 0.4);
 }
 
 /* Stats Section */
@@ -415,26 +440,68 @@
   color: var(--text-primary);
 }
 
-/* Features Grid - 5 columns large, 2 columns medium, 1 column small */
+/* Features Grid */
 .featuresGrid {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: 1.5rem;
-  max-width: 1400px;
+  max-width: 1200px;
   margin: 0 auto;
+}
+
+.featureCardFeatured {
+  grid-column: 1 / -1;
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(245, 158, 11, 0.1) 100%) !important;
+  border: 2px solid var(--accent) !important;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: 4rem 3rem !important;
+  margin-bottom: 1rem;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.featureCardFeatured:hover {
+  border-color: var(--accent-light) !important;
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.15) 0%, rgba(245, 158, 11, 0.15) 100%) !important;
+  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.5), 0 0 20px rgba(245, 158, 11, 0.2);
+}
+
+.featureCardFeatured .featureDesc {
+  font-size: 1.15rem !important;
+  max-width: 850px;
+  line-height: 1.8;
+  margin: 0 auto;
+}
+
+.featureCardFeatured .featureTitle {
+  font-size: 2.2rem !important;
+  background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: 1.5rem;
+  letter-spacing: -0.5px;
 }
 
 @media (max-width: 1200px) {
   .featuresGrid {
     grid-template-columns: repeat(2, 1fr);
-    max-width: 700px;
   }
+  .featureCardFeatured {
+    grid-column: span 2;
+  }
+}
 
-  /* Center the 5th card when we have 2 columns and odd number */
-  .featuresGrid>*:last-child:nth-child(odd) {
-    grid-column: 1 / -1;
-    max-width: 340px;
-    margin: 0 auto;
+@media (max-width: 768px) {
+  .featuresGrid {
+    grid-template-columns: 1fr;
+  }
+  .featureCardFeatured {
+    grid-column: span 1;
+    padding: 2rem 1.5rem !important;
   }
 }
 
@@ -471,9 +538,11 @@
 }
 
 .featureCard:hover {
-  background: rgba(255, 255, 255, 0.06);
-  border-color: rgba(255, 255, 255, 0.2);
-  transform: translateY(-4px);
+  background: rgba(255, 255, 255, 0.08);
+  border-color: var(--primary);
+  transform: translateY(-6px);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.4), 0 0 15px rgba(59, 130, 246, 0.1);
+  z-index: 2;
 }
 
 .featureCard:hover::before {
@@ -577,6 +646,7 @@
 .newBoqCard {
   background: var(--bg-card);
   /* Use variable */
+  -webkit-backdrop-filter: blur(10px);
   backdrop-filter: blur(10px);
   border: 2px dashed rgba(148, 163, 184, 0.4);
   /* Visible border default */
@@ -741,7 +811,7 @@
 
   .hero {
     padding: 2rem 1rem;
-    min-height: auto;
+    min-height: initial;
   }
 
   .carouselSection {
@@ -761,7 +831,8 @@
   }
 
   .ctaPrimary,
-  .ctaSecondary {
+  .ctaSecondary,
+  .ctaPlan {
     width: 100%;
     max-width: 100%;
     padding: 1rem 1.5rem;

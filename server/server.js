@@ -6,21 +6,20 @@ import multer from 'multer';
 import path from 'path';
 import { promises as fs } from 'fs';
 import { fileURLToPath } from 'url';
+import { extractExcelData } from './fastExtractor.js';
 import { CleanupService } from './cleanupService.js';
 import { put, del } from '@vercel/blob';
 import { handleUpload } from '@vercel/blob/client';
 import axios from 'axios';
 import { ExcelDbManager } from './excelManager.js';
 import { brandStorage } from './storageProvider.js';
-import { getAiMatch, identifyModel, fetchProductDetails } from './utils/llmUtils.js';
-import ExcelJS from 'exceljs';
+import { getAiMatch, identifyModel, fetchProductDetails, analyzePlan, matchFitoutItem } from './utils/llmUtils.js';
 
 // Restored Scraper Engine Imports
 import ScraperService from './scraper.js';
 import StructureScraper from './structureScraper.js';
 import BrowserlessScraper from './browserlessScraper.js';
 import ScrapingBeeScraper from './scrapingBeeScraper.js';
-import { extractExcelData } from './fastExtractor.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -98,6 +97,24 @@ const upload = multer({
   limits: { fileSize: 50 * 1024 * 1024 }
 });
 
+const planUpload = multer({
+  storage: storage,
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = [
+      'application/pdf',
+      'image/png',
+      'image/jpeg',
+      'image/jpg'
+    ];
+    if (allowedTypes.includes(file.mimetype) || file.originalname.match(/\.(pdf|png|jpg|jpeg)$/i)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only PDF and Image files are allowed.'));
+    }
+  },
+  limits: { fileSize: 20 * 1024 * 1024 }
+});
+
 // --- Railway Sidecar & Task Helpers ---
 const isJsScraperAvailable = () => !!JS_SCRAPER_SERVICE_URL;
 
@@ -136,53 +153,40 @@ async function pollJsScraperTask(taskId, onProgress = null, maxWaitMs = 3600000)
 // Health check
 app.get('/api/health', (req, res) => res.json({ status: 'OK', version: '2.0.0-classic' }));
 
-// Basic BOQ Extraction (Manual Version)
-// This replaces the complex AI-assisted fastExtractor
+// Upload and extract endpoint
 app.post('/api/upload', upload.single('file'), async (req, res) => {
   try {
-    if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
 
-    console.log(`[Upload] Processing: ${req.file.originalname}`);
-    const workbook = new ExcelJS.Workbook();
-    await workbook.xlsx.readFile(req.file.path);
-    const worksheet = workbook.getWorksheet(1);
-    
-    const tables = [];
-    const rows = [];
-    
-    worksheet.eachRow((row, rowNumber) => {
-      const vals = row.values;
-      // Skip very empty rows
-      if (vals.filter(Boolean).length < 2) return;
-      
-      // Basic heuristic to identify headers vs data
-      // For now, we just take everything and let the user clean it in the UI
-      rows.push({
-        id: rowNumber,
-        originalRowNumber: rowNumber,
-        cells: vals.slice(1).map((v, i) => ({
-          value: v,
-          column: String.fromCharCode(65 + i)
-        }))
-      });
+    const filePath = req.file.path;
+    const sessionId = req.headers['x-session-id'] || 'default';
+
+    console.log(`[Upload] Processing: ${req.file.originalname} via fastExtractor`);
+
+    // Track file for cleanup
+    cleanupService.trackFile(sessionId, filePath);
+
+    // Extract data from Excel (pass callback to track blobs)
+    const extractedData = await extractExcelData(filePath, () => { }, (url) => {
+      cleanupService.trackBlob(sessionId, url);
     });
 
-    tables.push({
-        name: 'Sheet 1',
-        rows: rows.slice(0, 500) // Limit preview for performance
-    });
-
+    // Send final result
     res.json({
       success: true,
-      data: {
-        filename: req.file.originalname,
-        tables: tables
-      }
+      data: extractedData,
+      progress: 100,
+      stage: 'Complete'
     });
 
   } catch (error) {
-    console.error('Error processing upload:', error);
-    res.status(500).json({ error: 'Failed to process Excel file', details: error.message });
+    console.error('Error processing file:', error);
+    res.status(500).json({
+      error: 'Failed to process Excel file',
+      details: error.message
+    });
   }
 });
 
@@ -250,7 +254,7 @@ app.delete('/api/brands/:id', async (req, res) => {
  * Fuzzy model matching: strips catalog ID suffixes (#12345678) and normalizes.
  * Returns the matching product entry or null.
  */
-function fuzzyFindModel(products, targetModelName) {
+function fuzzyFindModel(products, targetModelName, targetCategory = '') {
     if (!products || !products.length || !targetModelName) return null;
 
     const normalize = (s) => String(s)
@@ -262,12 +266,26 @@ function fuzzyFindModel(products, targetModelName) {
 
     const target = normalize(targetModelName);
 
+    // Filter by category if possible to prevent "Chair" description matching a "Desk" product
+    let filteredProducts = products;
+    if (targetCategory && targetCategory.length > 2) {
+        const cat = targetCategory.toLowerCase().trim();
+        const matchesCat = products.filter(p => {
+            const mc = (p.mainCategory || '').toLowerCase();
+            const sc = (p.subCategory || '').toLowerCase();
+            return mc.includes(cat) || sc.includes(cat) || cat.includes(mc) || cat.includes(sc);
+        });
+        if (matchesCat.length > 0) {
+            filteredProducts = matchesCat;
+        }
+    }
+
     // 1. Exact match after normalization
-    let found = products.find(p => normalize(p.model) === target);
+    let found = filteredProducts.find(p => normalize(p.model) === target);
     if (found) return found;
 
     // 2. One contains the other
-    found = products.find(p => {
+    found = filteredProducts.find(p => {
         const pn = normalize(p.model);
         return pn.includes(target) || target.includes(pn);
     });
@@ -279,7 +297,7 @@ function fuzzyFindModel(products, targetModelName) {
 
     let bestScore = 0;
     let bestMatch = null;
-    for (const p of products) {
+    for (const p of filteredProducts) {
         const pWords = normalize(p.model).split(' ').filter(w => w.length > 2);
         const intersection = pWords.filter(w => targetWords.has(w)).length;
         const score = intersection / Math.max(targetWords.size, pWords.length);
@@ -299,10 +317,59 @@ app.post('/api/auto-match-ai', async (req, res) => {
       budgetTier,
       availableBrands = [],
       brand,            // single brand legacy param
-      provider = 'google'
+      provider = 'google',
+      scope = 'Furniture' // Default to furniture
     } = req.body;
 
     const finalTier = tier || budgetTier || 'mid';
+
+    // ── SPECIALIZED FITOUT WORKFLOW ─────────────────────────────────────────
+    if (scope?.toLowerCase() === 'fitout') {
+      console.log(`\n🏗️ [Fitout Logic] Match: "${description.substring(0, 50)}..." against internal DB...`);
+      
+      try {
+        // Load the specific fitout database file
+        let dbName = `fitout_v2-${finalTier}.json`;
+        let dbPath = path.join(__dirname, 'data', 'brands', dbName);
+
+        // Fallback to mid if the specific tier file is missing
+        try {
+          await fs.access(dbPath);
+        } catch {
+          dbPath = path.join(__dirname, 'data', 'brands', 'fitout_v2-mid.json');
+        }
+
+        const dbRaw = await fs.readFile(dbPath, 'utf-8');
+        const dbData = JSON.parse(dbRaw);
+        const internalProducts = dbData.products || [];
+
+        // Match using Gemini 2.5 Flash
+        const matchResult = await matchFitoutItem(description, internalProducts, finalTier);
+
+        if (matchResult && matchResult.status === 'success' && matchResult.product) {
+          console.log(`  ✅ [Fitout Logic] Match found: ${matchResult.product.model} @ AED ${matchResult.product.price}`);
+          return res.json({
+            status: 'success',
+            product: {
+              ...matchResult.product,
+              brand: 'FitOut V2',
+              brandLogo: '' // No logo for internal fitout DB
+            },
+            source: 'internal-fitout-db',
+            identifiedModel: matchResult.product.model
+          });
+        }
+      } catch (err) {
+        console.error('  ❌ [Fitout Logic] Database error:', err.message);
+      }
+
+      // Fallback if no match found in internal DB
+      return res.json({
+        status: 'no_match',
+        message: 'No suitable item found in local Fitout database.'
+      });
+    }
+    // ── END FITOUT WORKFLOW ─────────────────────────────────────────────────
 
     // Normalize brand candidates: support both array and single string
     const brandCandidates = Array.isArray(availableBrands)
@@ -360,38 +427,37 @@ app.post('/api/auto-match-ai', async (req, res) => {
     // Try each tier-validated brand candidate in order
     // ─────────────────────────────────────────────
     for (const candidateBrand of tierIsolatedCandidates) {
+      // STAGE 1: IDENTIFY MODEL (AI Context)
+      // 💡 Abstracted: We use the raw description (no Qty/Unit) to prevent hallucinations.
+      console.log(`\n  🔎 [Stage 1] Identification Engine → "${candidateBrand}" best model for: "${description.substring(0, 60)}"...`);
+      const identity = await identifyModel(description, candidateBrand, provider);
 
-      // ── STAGE 1: Ask AI for ONE model name ──────
-      console.log(`\n  🔎 [Stage 1] Asking AI: best model for "${enrichedDescription.substring(0,60)}" from ${candidateBrand}...`);
-      const identity = await identifyModel(enrichedDescription, candidateBrand, finalTier, provider);
-
-      if (identity.status !== 'success' || !identity.model) {
-        console.warn(`  ⚠️  [Stage 1] No model identified for ${candidateBrand}. Trying next brand...`);
+      if (identity.status !== 'success' || !identity.model || identity.model === 'FAILED') {
+        console.warn(`  ⚠️  [Stage 1] Identification failed for ${candidateBrand}. Trying next candidate if available...`);
         continue;
       }
 
       const identifiedModel = identity.model.trim();
       const identifiedBrand = identity.brand || candidateBrand;
-      console.log(`  ✅ [Stage 1] AI says: ${identifiedBrand} → "${identifiedModel}"`);
+      const identifiedCategory = identity.category || '';
+      console.log(`  ✅ [Stage 1] AI Identification complete: ${identifiedBrand} → "${identifiedModel}" [${identifiedCategory}]`);
 
-      // ── STAGE 2: Fuzzy search in local DB ───────
-      console.log(`  📂 [Stage 2] Searching local DB for "${identifiedModel}" under "${identifiedBrand}"...`);
-
-      // Find the matching brand entry — flexible: match by name (any tier first, then active tier)
+      // ── STAGE 2: LOCAL DB SEARCH (Zero-Cost Cache) ──
+      console.log(`  📂 [Stage 2] Searching verified local DB cache for "${identifiedModel}"...`);
+      
       const brandMatches = allLocalBrands.filter(b =>
         b.name.toLowerCase().trim() === identifiedBrand.toLowerCase().trim()
       );
 
-      // Prefer tier match, fall back to any tier
       const localBrand =
         brandMatches.find(b => (b.budgetTier || 'mid').toLowerCase() === finalTier.toLowerCase()) ||
         brandMatches[0];
 
       if (localBrand && localBrand.products && localBrand.products.length > 0) {
-        const dbProduct = fuzzyFindModel(localBrand.products, identifiedModel);
+        const dbProduct = fuzzyFindModel(localBrand.products, identifiedModel, identifiedCategory);
 
         if (dbProduct) {
-          console.log(`  ✨ [Stage 2] FOUND in local DB: "${dbProduct.model}" ← (searched for "${identifiedModel}")`);
+          console.log(`  ✨ [Stage 2] CACHE HIT: "${dbProduct.model}" loaded instantly.`);
           return res.json({
             status: 'success',
             product: {
@@ -402,35 +468,33 @@ app.post('/api/auto-match-ai', async (req, res) => {
             source: 'local-database',
             identifiedModel
           });
-        } else {
-          console.log(`  ⚠️  [Stage 2] "${identifiedModel}" NOT found in ${identifiedBrand} local DB (${localBrand.products.length} products). Triggering web fetch...`);
         }
-      } else {
-        console.log(`  ⚠️  [Stage 2] No local DB entry for brand "${identifiedBrand}". Triggering web fetch...`);
       }
 
-      // ── STAGE 3: Web fetch → persist ────────────
-      console.log(`  🌐 [Stage 3] Fetching product details from web: ${identifiedBrand} ${identifiedModel}...`);
+      // ── STAGE 3: DEEP SEARCH (Web Discovery) ─────
+      console.log(`  🌐 [Stage 3] Deep Discovery Engine engaged: searching live web for ${identifiedBrand} ${identifiedModel}...`);
       const webResult = await fetchProductDetails(identifiedBrand, identifiedModel, finalTier, provider);
 
       if (webResult.status === 'success' && webResult.product) {
-      const newProduct = (() => {
-          const p = { ...webResult.product, brand: identifiedBrand, lastUpdated: new Date().toISOString(), source: 'AI-Web-Discovery' };
+        const newProduct = { 
+          ...webResult.product, 
+          brand: identifiedBrand, 
+          mainCategory: webResult.product.mainCategory || identifiedCategory || 'Furniture',
+          lastUpdated: new Date().toISOString(), 
+          source: 'AI-Discovery-Engine' 
+        };
 
-          // Validate imageUrl — must be absolute HTTPS pointing to an image file
-          const rawImg = p.imageUrl || '';
-          const isValidImage = (
-              rawImg.startsWith('https://') &&
-              !rawImg.includes('localhost') &&
-              /\.(jpg|jpeg|png|webp|svg)(\?|$)/i.test(rawImg)
-          );
-          if (!isValidImage) {
-              console.warn(`  ⚠️  [Stage 3] Invalid imageUrl rejected: "${rawImg.substring(0, 80)}"`);
-              p.imageUrl = localBrand?.logo || '';  // fall back to brand logo
-          }
-
-          return p;
-      })();
+        // Validate imageUrl — must be absolute HTTPS pointing to an image file
+        const rawImg = newProduct.imageUrl || '';
+        const isValidImage = (
+          rawImg.startsWith('https://') &&
+          !rawImg.includes('localhost') &&
+          /\.(jpg|jpeg|png|webp|svg)(\?|$)/i.test(rawImg)
+        );
+        if (!isValidImage) {
+          console.warn(`  ⚠️  [Stage 3] Invalid imageUrl rejected: "${rawImg.substring(0, 80)}"`);
+          newProduct.imageUrl = localBrand?.logo || '';  // fall back to brand logo
+        }
 
         // Persist to local DB permanently
         try {
@@ -439,12 +503,11 @@ app.post('/api/auto-match-ai', async (req, res) => {
             console.log(`  💾 [Stage 3] Saved "${identifiedModel}" to ${identifiedBrand} DB permanently.`);
           } else {
             console.warn(`  ⚠️  [Stage 3] Cannot persist — brand "${identifiedBrand}" has no local DB entry yet. Creating...`);
-            // Create a minimal brand entry so the product is saved
             const newBrand = {
               id: Date.now(),
               name: identifiedBrand,
               logo: '',
-              budgetTier: finalTier,
+              budgetTier: localBrand?.budgetTier || finalTier,
               origin: 'AI-Discovery',
               products: [newProduct],
               createdAt: new Date().toISOString()
@@ -477,7 +540,6 @@ app.post('/api/auto-match-ai', async (req, res) => {
       status: 'no_match',
       message: `Could not identify a matching product from current candidate brands.`
     });
-
   } catch (error) {
     console.error('🔥 [AI Endpoint Error]:', error.message, error.stack);
     res.status(500).json({ status: 'error', error_message: error.message });
@@ -712,6 +774,53 @@ app.post('/api/scrape-scrapling', async (req, res) => {
   }
 });
 
+// --- Plan Analysis ---
+app.post('/api/analyze-plan', planUpload.array('files', 10), async (req, res) => {
+  if (!req.files || req.files.length === 0) {
+    return res.status(400).json({ error: 'No files uploaded' });
+  }
+
+  try {
+    const filesData = await Promise.all(req.files.map(async (file) => {
+      const fileBuffer = await fs.readFile(file.path);
+      return {
+        base64Data: fileBuffer.toString('base64'),
+        mimeType: file.mimetype,
+        originalname: file.originalname,
+        path: file.path
+      };
+    }));
+
+    console.log(`🏗️  Received ${filesData.length} plan(s) for analysis: ${filesData.map(f => f.originalname).join(', ')}`);
+    
+    // Check if includeFitout flag is present (passed from the client)
+    const includeFitout = req.body.includeFitout === 'true';
+
+    const result = await analyzePlan(filesData, { includeFitout });
+
+    // Clean up temporary files
+    for (const file of req.files) {
+      try {
+        await fs.unlink(file.path);
+      } catch (e) {
+        console.warn('Could not delete temp plan file:', e.message);
+      }
+    }
+
+    if (result.status === 'success') {
+      res.json(result);
+    } else {
+      res.status(500).json({ error: result.error_message || 'Analysis failed' });
+    }
+  } catch (error) {
+    console.error('🔥 Plan analysis error:', error);
+    res.status(500).json({ 
+      error: error.message || 'Internal server error',
+      stack: error.stack 
+    });
+  }
+});
+
 // Reset & Cleanup
 app.post('/api/reset', async (req, res) => {
   await cleanupService.cleanupAll();
@@ -730,10 +839,20 @@ app.use((error, req, res, next) => {
   res.status(500).json({ error: error.message || 'Internal server error' });
 });
 
-const server = app.listen(PORT, () => {
-  console.log(`🚀 BOQFLOW Classic Server running on http://localhost:${PORT}`);
-  // Initial cleanup
-  cleanupService.cleanupAll().catch(console.error);
+console.log('--- Starting BOQFLOW Server ---');
+const server = app.listen(PORT, '0.0.0.0', () => {
+  console.log(`🚀 BOQFLOW Classic Server actively listening on: http://localhost:${PORT}`);
+  console.log('--- Triggering Initial Cleanup ---');
+  cleanupService.cleanupAll()
+    .then(() => console.log('✅ Initial cleanup completed.'))
+    .catch(err => console.error('❌ Cleanup failed:', err));
+});
+
+server.on('error', (err) => {
+  console.error('SERVER ERROR:', err);
+  if (err.code === 'EADDRINUSE') {
+    console.error(`Port ${PORT} is already in use. Please kill the process manually.`);
+  }
 });
 
 export default server;
