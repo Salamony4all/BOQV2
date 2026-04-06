@@ -217,104 +217,100 @@
 }
 
 .mainActions {
-    display: grid;
-    grid-template-columns: repeat(6, 1fr);
-    gap: 0.8rem;
-    margin-bottom: 0.8rem;
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    padding: 0.5rem;
+    background: transparent;
+    border-radius: 12px;
+    margin-bottom: 0.5rem;
+    scrollbar-width: none;
+}
+
+.mainActions::-webkit-scrollbar {
+    display: none;
 }
 
 .actionCard {
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.12);
+    flex: 1;
+    min-width: 140px;
+    height: 70px;
+    background: var(--bg-secondary);
+    border: 1.5px solid var(--border-color);
     border-radius: 12px;
-    padding: 0.8rem 1rem;
-    color: var(--text-primary);
-    font-weight: 700;
-    cursor: pointer;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
-    text-transform: uppercase;
-    font-size: 0.72rem;
+    padding: 1rem;
     display: flex;
     flex-direction: column;
-    justify-content: center;
     align-items: center;
-    gap: 0.5rem;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    justify-content: center;
+    gap: 0.4rem;
+    cursor: pointer;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
     position: relative;
     overflow: hidden;
-    min-height: 85px;
-    text-align: center;
+    color: var(--text-primary);
+    font-size: 0.75rem;
+    font-weight: 700;
 }
 
-.actionCard::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: linear-gradient(45deg, rgba(255,255,255,0.1), transparent);
-    opacity: 0;
-    transition: opacity 0.3s;
+.actionCard span {
+    z-index: 2;
+    transition: transform 0.2s;
 }
 
 .actionCard:hover {
-    transform: translateY(-5px) scale(1.02);
-    border-color: rgba(255, 255, 255, 0.45);
-    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.6);
+    transform: translateY(-3px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+    border-color: currentColor;
 }
 
-.actionCard:hover::before {
-    opacity: 1;
-}
-
-/* Specific Action Variants */
+/* Specific Action Variants - Refactored for Unification */
 .genBoqBtn {
-    background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
-    border-color: rgba(59, 130, 246, 0.5);
-    color: #fff;
-    box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);
+    border-color: rgba(59, 130, 246, 0.4);
+    color: #3b82f6;
 }
 
 .genBoqBtn:hover {
-    background: linear-gradient(135deg, #4b92ff 0%, #2563eb 100%);
+    background: rgba(59, 130, 246, 0.05);
+    border-color: #3b82f6;
 }
 
 .genPlanBtn {
-    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-    border-color: rgba(16, 185, 129, 0.5);
-    color: #fff;
-    box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
+    border-color: rgba(16, 185, 129, 0.4);
+    color: #10b981;
 }
 
 .genPlanBtn:hover {
-    background: linear-gradient(135deg, #10cf91 0%, #05a676 100%);
+    background: rgba(16, 185, 129, 0.05);
+    border-color: #10b981;
 }
 
 .createNewBtn {
-    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-    border-color: rgba(245, 158, 11, 0.5);
-    color: #fff;
-    box-shadow: 0 4px 15px rgba(245, 158, 11, 0.3);
+    border-color: rgba(245, 158, 11, 0.4);
+    color: #f59e0b;
 }
 
 .createNewBtn:hover {
-    background: linear-gradient(135deg, #fbbf24 0%, #ea580c 100%);
+    background: rgba(245, 158, 11, 0.05);
+    border-color: #f59e0b;
 }
 
 .consolidateBtn {
-    background: rgba(30, 41, 59, 0.7);
-    border-color: rgba(148, 163, 184, 0.3);
+    border-color: rgba(99, 102, 241, 0.4);
+    color: #6366f1;
 }
 
 .consolidateBtn:hover {
-    background: rgba(45, 55, 72, 0.9);
+    background: rgba(99, 102, 241, 0.05);
+    border-color: #6366f1;
 }
 
 .consolidateBtnActive {
-    background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
-    border-color: rgba(99, 102, 241, 0.5);
-    box-shadow: 0 0 20px rgba(99, 102, 241, 0.4);
+    background: #6366f1 !important;
+    color: white !important;
+    border-color: #6366f1 !important;
+    box-shadow: 0 0 15px rgba(99, 102, 241, 0.4);
 }
 
 .consolidateBtnActive:hover {
@@ -322,63 +318,52 @@
 }
 
 .addBrandBtn {
-    background: rgba(255, 255, 255, 0.03);
-    border: 1px dashed rgba(255, 255, 255, 0.2);
+    border-style: solid;
+    border-color: var(--border-color);
 }
 
 .addBrandBtn:hover {
-    border-style: solid;
-    background: rgba(255, 255, 255, 0.1);
+    background: var(--bg-tertiary);
+    border-color: var(--text-secondary);
 }
 
 .aiAutoFillBtn {
-    background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
-    border: 1px solid rgba(168, 85, 247, 0.4);
-    color: #fff !important;
-    box-shadow: 0 8px 25px rgba(99, 102, 241, 0.4);
-    animation: glowFloat 3s infinite ease-in-out;
-    position: relative;
-    overflow: hidden;
-    letter-spacing: 0.2px;
-    font-weight: 700 !important;
-    text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
 }
 
 .aiAutoFillBtn:hover {
-    background: linear-gradient(135deg, #4f46e5 0%, #9333ea 100%);
-    transform: translateY(-5px) scale(1.05);
-    box-shadow: 0 15px 35px rgba(139, 92, 246, 0.6);
+    background: rgba(139, 92, 246, 0.05);
+    border-color: #8b5cf6;
+    transform: translateY(-3px);
 }
 
-.aiAutoFillBtn::after {
-    content: '';
-    position: absolute;
-    top: 0; left: -100%;
-    width: 60%;
-    height: 100%;
-    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
-    transition: left 0.5s ease;
-}
-
-.aiAutoFillBtn:hover::after {
-    left: 150%;
-}
-
-@keyframes glowFloat {
-    0%, 100% { box-shadow: 0 8px 25px rgba(139, 92, 246, 0.4); transform: translateY(0); }
-    50% { box-shadow: 0 12px 35px rgba(139, 92, 246, 0.6); transform: translateY(-4px); }
+@keyframes aiMotion {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.02); filter: brightness(1.1); box-shadow: 0 0 15px currentColor; }
+    100% { transform: scale(1); }
 }
 
 .aiAutoFilling {
-    background: linear-gradient(90deg, #6d28d9, #9333ea, #6d28d9);
-    background-size: 200% 100%;
-    animation: moveGradient 2s linear infinite;
+    background: #8b5cf6 !important;
+    color: white !important;
+    animation: aiMotion 2s infinite ease-in-out;
 }
 
-@keyframes moveGradient {
-    0% { background-position: 0% 50%; }
-    100% { background-position: 100% 50%; }
+.fitoutAutoFillBtn {
+    border-color: rgba(249, 115, 22, 0.4);
+    color: #f97316;
+}
+
+.fitoutAutoFillBtn:hover {
+    background: rgba(249, 115, 22, 0.05);
+    border-color: #f97316;
+    transform: translateY(-3px);
+}
+
+.fitoutAutoFilling {
+    background: #f97316 !important;
+    color: white !important;
+    animation: aiMotion 2s infinite ease-in-out;
 }
 
 .stopBtn {

@@ -273,7 +273,7 @@ const PlanAnalyzerModal = ({ isOpen, onClose, onApply, initialFile, selectedFile
                                             <tr key={idx}>
                                                 <td className={styles.locationCell}>{item.location}</td>
                                                 <td>
-                                                    <span className={`${styles.scopeTag} ${item.scope?.toLowerCase() === 'fitout' ? styles.fitoutScope : styles.furnitureScope}`}>
+                                                    <span className={`${styles.scopeTag} ${item.scope?.toLowerCase().includes('fitout') ? styles.fitoutScope : styles.furnitureScope}`}>
                                                         {item.scope}
                                                     </span>
                                                 </td>

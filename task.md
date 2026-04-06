@@ -38,3 +38,18 @@ Last Updated: 2026-04-03
 ### Low Priority
 - `[ ]` **CSS Lint Cleanup** — Remove deprecated `-webkit-overflow-scrolling` and add `scrollbar-width`/`scrollbar-color` vendor prefixes or feature queries
 - `[ ]` **Duplicate `app.listen`** — Remove the second `app.listen(3001)` call in `server.js` (harmless but messy)
+
+---
+
+## 🔄 Server Restart (Clean Test)
+
+- [x] Terminate Processes
+  - [x] `node.exe`
+  - [x] `python.exe`
+- [/] Update Dependencies
+  - [ ] Root: `npm install`
+  - [ ] `js-scraper-service`: `npm install`
+  - [ ] `python-scraper`: `pip install -r requirements.txt`
+- [ ] Clean Environment
+- [ ] Restart Servers
+- [ ] Verification

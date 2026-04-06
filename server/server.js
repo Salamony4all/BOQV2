@@ -48,6 +48,70 @@ const scrapingBeeScraper = new ScrapingBeeScraper();
 const JS_SCRAPER_SERVICE_URL = process.env.JS_SCRAPER_SERVICE_URL;
 const tasks = new Map();
 
+// --- Stable Railway Helpers ---
+const isJsScraperAvailable = () => !!JS_SCRAPER_SERVICE_URL;
+
+async function callJsScraperService(endpoint, payload, timeout = 300000) {
+  if (!JS_SCRAPER_SERVICE_URL) {
+    throw new Error('JS_SCRAPER_SERVICE_URL not configured');
+  }
+  const url = `${JS_SCRAPER_SERVICE_URL}${endpoint}`;
+  console.log(`🌐 Calling JS Scraper Service: ${url}`);
+
+  const response = await axios.post(url, payload, {
+    timeout,
+    headers: { 'Content-Type': 'application/json' }
+  });
+  return response.data;
+}
+
+async function pollJsScraperTask(taskId, onProgress = null, maxWaitMs = 3600000) {
+  const startTime = Date.now();
+  const pollInterval = 3000;
+  let consecutiveErrors = 0;
+  const maxConsecutiveErrors = 20;
+  let lastProgress = 0;
+
+  console.log(`🔄 Starting poll for Railway task: ${taskId} (timeout: ${maxWaitMs / 60000} mins)`);
+
+  while (Date.now() - startTime < maxWaitMs) {
+    try {
+      const response = await axios.get(`${JS_SCRAPER_SERVICE_URL}/tasks/${taskId}`, { timeout: 10000 });
+      const task = response.data;
+      consecutiveErrors = 0;
+
+      if (onProgress && task.progress) {
+        onProgress(task.progress, task.stage || 'Processing...', task.brandName);
+        if (Math.abs(task.progress - lastProgress) >= 5 || task.status === 'completed') {
+          console.log(`   📊 Task ${taskId}: ${task.progress}% - ${task.stage} (Status: ${task.status})`);
+          lastProgress = task.progress;
+        }
+      }
+
+      if (task.status === 'completed') {
+        console.log(`✅ Task ${taskId} COMPLETED with ${task.productCount || 0} products`);
+        return task;
+      } else if (task.status === 'failed') {
+        throw new Error(task.error || 'JS Scraper task failed');
+      } else if (task.status === 'cancelled') {
+        throw new Error('Task was cancelled');
+      }
+
+      await new Promise(resolve => setTimeout(resolve, pollInterval));
+    } catch (error) {
+      if (error.response?.status === 404) {
+        console.warn(`⚠️ Task ${taskId} not found (404).`);
+        throw new Error('Task not found on JS Scraper service');
+      }
+      consecutiveErrors++;
+      console.warn(`⚠️ Poll error (${consecutiveErrors}/${maxConsecutiveErrors}): ${error.message}`);
+      if (consecutiveErrors >= maxConsecutiveErrors) throw new Error(`Too many polling errors: ${error.message}`);
+      await new Promise(resolve => setTimeout(resolve, Math.min(pollInterval * consecutiveErrors, 10000)));
+    }
+  }
+  throw new Error('JS Scraper task timed out in polling loop');
+}
+
 // Middleware
 app.use(cors());
 app.use(express.json({ limit: '20mb' }));
@@ -115,45 +179,32 @@ const planUpload = multer({
   limits: { fileSize: 20 * 1024 * 1024 }
 });
 
-// --- Railway Sidecar & Task Helpers ---
-const isJsScraperAvailable = () => !!JS_SCRAPER_SERVICE_URL;
-
-async function callJsScraperService(endpoint, payload, timeout = 300000) {
-  if (!JS_SCRAPER_SERVICE_URL) throw new Error('JS_SCRAPER_SERVICE_URL not configured');
-  const url = `${JS_SCRAPER_SERVICE_URL}${endpoint}`;
-  console.log(`🌐 Calling Railway Service: ${url}`);
-  const response = await axios.post(url, payload, { timeout, headers: { 'Content-Type': 'application/json' } });
-  return response.data;
-}
-
-async function pollJsScraperTask(taskId, onProgress = null, maxWaitMs = 3600000) {
-  const startTime = Date.now();
-  const pollInterval = 3000;
-  let consecutiveErrors = 0;
-  while (Date.now() - startTime < maxWaitMs) {
-    try {
-      const response = await axios.get(`${JS_SCRAPER_SERVICE_URL}/tasks/${taskId}`, { timeout: 10000 });
-      const task = response.data;
-      consecutiveErrors = 0;
-      if (onProgress && task.progress) onProgress(task.progress, task.stage || 'Processing...');
-      if (task.status === 'completed') return task;
-      if (task.status === 'failed') throw new Error(task.error || 'Railway task failed');
-      await new Promise(r => setTimeout(r, pollInterval));
-    } catch (error) {
-      consecutiveErrors++;
-      if (consecutiveErrors >= 10) throw new Error(`Polling failed: ${error.message}`);
-      await new Promise(r => setTimeout(r, pollInterval * 2));
-    }
-  }
-  throw new Error('Task timed out');
-}
-
 // --- API Endpoints ---
 
 // Health check
-app.get('/api/health', (req, res) => res.json({ status: 'OK', version: '2.0.0-classic' }));
+app.get('/api/status', (req, res) => {
+  res.json({ 
+    status: 'online', 
+    version: '2.0.1 (Classic)',
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'development'
+  });
+});
 
-// Upload and extract endpoint
+app.get('/api/scraper-config', (req, res) => {
+  res.json({
+    methods: [
+      { id: 'standard', name: 'Standard (Deep Gallery Scan)', description: 'Best for standard e-commerce galleries' },
+      { id: 'ai', name: 'Specialized Scraper (Optimized for Architonic)', description: 'Fast, intelligent mapping for complex sites' },
+      { id: 'scrapling', name: 'Scrapling Engine (Ultra High Speed)', description: 'Fastest product collection' }
+    ],
+    engines: [
+      { id: 'railway', name: 'Railway Service (Recommended - Stable)', description: 'Cloud-based execution with proxy support' },
+      { id: 'local', name: 'Local Instance (Developer / Internal)', description: 'Use your local machine resources' }
+    ],
+    dashboardUrl: process.env.RAILWAY_DASHBOARD_URL || 'https://railway.app'
+  });
+});
 app.post('/api/upload', upload.single('file'), async (req, res) => {
   try {
     if (!req.file) {
@@ -324,7 +375,7 @@ app.post('/api/auto-match-ai', async (req, res) => {
     const finalTier = tier || budgetTier || 'mid';
 
     // ── SPECIALIZED FITOUT WORKFLOW ─────────────────────────────────────────
-    if (scope?.toLowerCase() === 'fitout') {
+    if (scope?.toLowerCase().includes('fitout')) {
       console.log(`\n🏗️ [Fitout Logic] Match: "${description.substring(0, 50)}..." against internal DB...`);
       
       try {
@@ -343,17 +394,19 @@ app.post('/api/auto-match-ai', async (req, res) => {
         const dbData = JSON.parse(dbRaw);
         const internalProducts = dbData.products || [];
 
-        // Match using Gemini 2.5 Flash
+        // Match using specialized local matcher
         const matchResult = await matchFitoutItem(description, internalProducts, finalTier);
 
         if (matchResult && matchResult.status === 'success' && matchResult.product) {
           console.log(`  ✅ [Fitout Logic] Match found: ${matchResult.product.model} @ AED ${matchResult.product.price}`);
           return res.json({
             status: 'success',
+            isFitout: true, 
             product: {
               ...matchResult.product,
               brand: 'FitOut V2',
-              brandLogo: '' // No logo for internal fitout DB
+              brandLogo: '',
+              imageUrl: matchResult.product.imageUrl || ''
             },
             source: 'internal-fitout-db',
             identifiedModel: matchResult.product.model
@@ -366,6 +419,7 @@ app.post('/api/auto-match-ai', async (req, res) => {
       // Fallback if no match found in internal DB
       return res.json({
         status: 'no_match',
+        isFitout: true,
         message: 'No suitable item found in local Fitout database.'
       });
     }
@@ -630,147 +684,169 @@ app.get('/api/image-proxy', async (req, res) => {
   }
 });
 
-// --- Brand Harvesting Endpoints ---
-app.post('/api/scrape-brand', async (req, res) => {
-  try {
-    const { url, name, origin = 'UNKNOWN', budgetTier = 'mid', scraperSource } = req.body;
-    const isArchitonic = url.toLowerCase().includes('architonic.com');
-    const forceLocal = scraperSource === 'local';
-    
-    // Set up task
-    const taskId = `scrape_${Date.now()}`;
-    tasks.set(taskId, { id: taskId, status: 'processing', progress: 10, stage: 'Starting harvest...', brandName: name || 'Detecting...' });
+// --- Unified Scraper Engine ---
+async function handleScrapeRequest(req, res, method = 'standard') {
+  const { name, url, origin, budgetTier, scraperSource } = req.body;
+  const taskId = `task-${Date.now()}`;
 
-    // Handle orchestration (Railway vs Local vs Cloud Providers)
-    (async () => {
-      try {
-        let result;
-        if (JS_SCRAPER_SERVICE_URL && !forceLocal) {
-          const scraperEndpoint = isArchitonic ? '/scrape-architonic' : '/scrape';
-          const taskResult = await callJsScraperService(scraperEndpoint, { url, name, sync: false });
-          
-          tasks.set(taskId, { ...tasks.get(taskId), railwayTaskId: taskResult.taskId });
+  if (!name || !url) {
+    return res.status(400).json({ error: 'Missing brand name or website URL' });
+  }
 
-          const railwayResult = await pollJsScraperTask(taskResult.taskId, (progress, stage) => {
-            tasks.set(taskId, { ...tasks.get(taskId), progress, stage: `Railway: ${stage}` });
+  // Initialize task
+  const initialTask = {
+    id: taskId,
+    status: 'pending',
+    progress: 0,
+    stage: 'Starting...',
+    brandName: name,
+    brandUrl: url,
+    method,
+    startTime: new Date().toISOString()
+  };
+  tasks.set(taskId, initialTask);
+
+  // Send immediate response so UI can start polling
+  res.json({ success: true, taskId });
+
+  // EXECUTION WRAPPER
+  const runScraper = async () => {
+    try {
+      let results = { products: [] };
+      const isArchitonic = url.toLowerCase().includes('architonic.com');
+
+      // 🚂 DELEGATION: RAILWAY CLOUD
+      // Use Railway if source is railway OR if it's Architonic (which is better handled by specialized cloud scraper)
+      if ((scraperSource === 'railway' || isArchitonic) && isJsScraperAvailable()) {
+        console.log(`🚂 [DELEGATING] Task ${taskId} (${name}) to Railway Cloud...`);
+        const endpointMap = {
+          'standard': isArchitonic ? '/scrape-architonic' : '/scrape',
+          'ai': '/scrape-structure',
+          'scrapling': '/scrape'
+        };
+        const railwayEndpoint = endpointMap[method] || '/scrape';
+        
+        try {
+          const delegation = await callJsScraperService(railwayEndpoint, {
+            name, url, origin, budgetTier,
+            options: { method }
           });
-          result = railwayResult;
-        } else {
-          // Use local scraper service
-          if (isArchitonic) {
-             result = await structureScraper.scrape(url, (progress, stage) => {
-                tasks.set(taskId, { ...tasks.get(taskId), progress, stage: `Local Architonic: ${stage}` });
-             });
-          } else {
-             result = await scraperService.scrapeBrand(url, (progress, stage) => {
-                tasks.set(taskId, { ...tasks.get(taskId), progress, stage });
-             });
-          }
-        }
 
-        const brandNameFound = result.brandInfo?.name || name || 'New Brand';
-        const newBrand = {
-          id: Date.now(),
-          name: brandNameFound,
-          url,
-          origin,
-          budgetTier,
-          logo: result.brandInfo?.logo || '',
-          products: result.products || [],
-          createdAt: new Date(),
+          if (delegation && delegation.taskId) {
+            console.log(`🌐 [RAILWAY] Proxying task: ${delegation.taskId}`);
+            const finalResult = await pollJsScraperTask(delegation.taskId, (progress, stage) => {
+              tasks.set(taskId, { ...initialTask, status: 'processing', progress, stage });
+            });
+            results = finalResult;
+          } else {
+            throw new Error('Railway service failed to return a taskId');
+          }
+        } catch (delegationErr) {
+          console.error(`❌ [DELEGATION FAILED] falling back to local: ${delegationErr.message}`);
+          // If NOT explicitly railway, we can try local fallback. 
+          // But for now, let's treat it as a hard failure if delegation was expected.
+          throw delegationErr;
+        }
+      } 
+      // 🏠 EXECUTION: LOCAL ENGINE
+      else {
+        console.log(`🏠 [LOCAL] Executing task ${taskId} (${name}) on local engine...`);
+        const onProgress = (progress, stage) => {
+          tasks.set(taskId, { ...initialTask, status: 'processing', progress, stage });
         };
 
-        await brandStorage.saveBrand(newBrand);
-        tasks.set(taskId, { 
-           id: taskId, 
-           status: 'completed', 
-           progress: 100, 
-           stage: 'Complete!', 
-           brand: newBrand,
-           productCount: newBrand.products.length,
-           brandName: brandNameFound
-        });
-      } catch (err) {
-        console.error('Scraping error:', err);
-        tasks.set(taskId, { id: taskId, status: 'failed', error: err.message });
+        if (method === 'ai') {
+          results = await structureScraper.scrape(url, { onProgress, brandName: name, origin, budgetTier });
+        } else if (method === 'scrapling') {
+          results = await scraperService.scrape(url, { onProgress, brandName: name, origin, budgetTier, useScrapling: true });
+        } else {
+          results = await scraperService.scrape(url, { onProgress, brandName: name, origin, budgetTier });
+        }
       }
-    })();
 
-    res.json({ success: true, taskId });
+      // Finalize Brand Entry
+      const finalBrand = {
+        id: name.toLowerCase().replace(/[^a-z0-9]/g, '-'),
+        name,
+        website: url,
+        origin: origin || 'Unknown',
+        budgetTier: budgetTier || 'mid',
+        products: results.products || [],
+        lastScraped: new Date().toISOString()
+      };
+
+      await brandStorage.saveBrand(finalBrand);
+      
+      tasks.set(taskId, { 
+        ...initialTask, 
+        status: 'completed', 
+        progress: 100, 
+        stage: 'Finished!', 
+        brand: finalBrand,
+        resultCount: finalBrand.products.length 
+      });
+
+      console.log(`✅ [SUCCESS] Task ${taskId} finished with ${finalBrand.products.length} items.`);
+
+    } catch (err) {
+      console.error(`❌ [TASK FAILED] ${taskId}:`, err);
+      tasks.set(taskId, { 
+        ...initialTask, 
+        status: 'failed', 
+        error: err.message, 
+        stage: 'Error occurred' 
+      });
+    }
+  };
+
+  // Start execution in background
+  runScraper();
+}
+
+app.post('/api/scrape-brand', async (req, res) => handleScrapeRequest(req, res, 'standard'));
+app.post('/api/scrape-ai', async (req, res) => handleScrapeRequest(req, res, 'ai'));
+app.post('/api/scrape-scrapling', async (req, res) => handleScrapeRequest(req, res, 'scrapling'));
+
+// Batch Fitout Matching
+app.post('/api/ai/match-fitout', async (req, res) => {
+  try {
+    const { items, tier = 'mid' } = req.body;
+    if (!items || !Array.isArray(items)) {
+      return res.status(400).json({ error: 'Items array required' });
+    }
+
+    console.log(`\n🏗️  [Batch Fitout] Matching ${items.length} items (Tier: ${tier})...`);
+
+    let dbName = `fitout_v2-${tier}.json`;
+    let dbPath = path.join(__dirname, 'data', 'brands', dbName);
+
+    try {
+      await fs.access(dbPath);
+    } catch {
+      dbPath = path.join(__dirname, 'data', 'brands', 'fitout_v2-mid.json');
+    }
+
+    const dbRaw = await fs.readFile(dbPath, 'utf-8');
+    const dbData = JSON.parse(dbRaw);
+    const internalProducts = dbData.products || [];
+
+    const results = await Promise.all(items.map(async (item) => {
+      try {
+        const matchResult = await matchFitoutItem(item.description, internalProducts, tier);
+        return {
+          originalItem: item,
+          match: matchResult.status === 'success' ? matchResult.product : null,
+          status: matchResult.status
+        };
+      } catch (err) {
+        return { originalItem: item, match: null, status: 'error', error: err.message };
+      }
+    }));
+
+    res.json({ success: true, results });
   } catch (error) {
+    console.error('🔥 [Batch Fitout Error]:', error.message);
     res.status(500).json({ error: error.message });
-  }
-});
-
-app.post('/api/scrape-ai', async (req, res) => {
-  // AI-Powered Fast Multi-Page Scraper (Architonic optimized)
-  try {
-     const { url, name, budgetTier = 'mid', origin = 'UNKNOWN' } = req.body;
-     const taskId = `ai_scrape_${Date.now()}`;
-     tasks.set(taskId, { id: taskId, status: 'processing', progress: 5, stage: 'Initializing AI Engine...', brandName: name });
-
-     (async () => {
-       try {
-         // This usually delegates to structureScraper or specialized logic
-         const result = await structureScraper.scrape(url, (progress, stage) => {
-           tasks.set(taskId, { ...tasks.get(taskId), progress, stage });
-         });
-
-         const newBrand = {
-           id: Date.now(),
-           name: result.brandInfo?.name || name,
-           url, origin, budgetTier,
-           logo: result.brandInfo?.logo || '',
-           products: result.products || [],
-           createdAt: new Date(),
-         };
-
-         await brandStorage.saveBrand(newBrand);
-         tasks.set(taskId, { id: taskId, status: 'completed', progress: 100, stage: 'Success!', brand: newBrand });
-       } catch (err) {
-         tasks.set(taskId, { id: taskId, status: 'failed', error: err.message });
-       }
-     })();
-
-     res.json({ success: true, taskId });
-  } catch (error) {
-     res.status(500).json({ error: error.message });
-  }
-});
-
-app.post('/api/scrape-scrapling', async (req, res) => {
-  try {
-     const { url, name, budgetTier = 'mid', origin = 'UNKNOWN' } = req.body;
-     const taskId = `scrapling_${Date.now()}`;
-     tasks.set(taskId, { id: taskId, status: 'processing', progress: 5, stage: 'Waking up Scrapling Engine...', brandName: name });
-
-     (async () => {
-       try {
-         // Scrapling usually delegates to a python sidecar or a specialized scraper
-         // For now we use the browsing scrapers as fallback or delegation
-         const result = await browserlessScraper.scrapeBrand(url, (progress, stage) => {
-           tasks.set(taskId, { ...tasks.get(taskId), progress, stage: `Scrapling: ${stage}` });
-         });
-
-         const newBrand = {
-           id: Date.now(),
-           name: result.brandInfo?.name || name,
-           url, origin, budgetTier,
-           logo: result.brandInfo?.logo || '',
-           products: result.products || [],
-           createdAt: new Date(),
-         };
-
-         await brandStorage.saveBrand(newBrand);
-         tasks.set(taskId, { id: taskId, status: 'completed', progress: 100, stage: 'Scrapling Success!', brand: newBrand });
-       } catch (err) {
-         tasks.set(taskId, { id: taskId, status: 'failed', error: err.message });
-       }
-     })();
-
-     res.json({ success: true, taskId });
-  } catch (error) {
-     res.status(500).json({ error: error.message });
   }
 });
 
@@ -792,19 +868,11 @@ app.post('/api/analyze-plan', planUpload.array('files', 10), async (req, res) =>
     }));
 
     console.log(`🏗️  Received ${filesData.length} plan(s) for analysis: ${filesData.map(f => f.originalname).join(', ')}`);
-    
-    // Check if includeFitout flag is present (passed from the client)
     const includeFitout = req.body.includeFitout === 'true';
-
     const result = await analyzePlan(filesData, { includeFitout });
 
-    // Clean up temporary files
     for (const file of req.files) {
-      try {
-        await fs.unlink(file.path);
-      } catch (e) {
-        console.warn('Could not delete temp plan file:', e.message);
-      }
+      try { await fs.unlink(file.path); } catch (e) {}
     }
 
     if (result.status === 'success') {
@@ -814,10 +882,7 @@ app.post('/api/analyze-plan', planUpload.array('files', 10), async (req, res) =>
     }
   } catch (error) {
     console.error('🔥 Plan analysis error:', error);
-    res.status(500).json({ 
-      error: error.message || 'Internal server error',
-      stack: error.stack 
-    });
+    res.status(500).json({ error: error.message || 'Internal server error' });
   }
 });
 

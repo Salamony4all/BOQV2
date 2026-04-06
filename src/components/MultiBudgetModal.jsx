@@ -3,13 +3,16 @@ import AddBrandModal from './AddBrandModal';
 import CostingModal from './CostingModal';
 import SpecialistModal from './SpecialistModal';
 import AutoFillSelectModal from './AutoFillSelectModal';
+import FitoutAutoFillModal from './FitoutAutoFillModal';
 import PlanAnalyzerModal from './PlanAnalyzerModal';
 import AIPresentationModal from './AIPresentationModal';
+import AIFitoutPresentationModal from './AIFitoutPresentationModal';
 import styles from '../styles/MultiBudgetModal.module.css';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
 import { useCompanyProfile } from '../context/CompanyContext';
+import { useTheme } from '../context/ThemeContext';
 import { fixArabic, hasArabic, loadArabicFont } from '../utils/arabicPdfUtils';
 import { getApiBase } from '../utils/apiBase';
 import { getFullUrl } from '../utils/urlUtils';
@@ -17,30 +20,50 @@ import { getFullUrl } from '../utils/urlUtils';
 const API_BASE = getApiBase();
 
 
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
 export default function MultiBudgetModal({ isOpen, onClose, originalTables, onApplyFlow, seededItems = null }) {
     const profile = useCompanyProfile();
+    const { theme } = useTheme();
     const { companyName, logoWhite, logoBlue, website, updateProfile, processLogoFile } = profile;
     const [activeTier, setActiveTier] = useState('mid'); // budgetary, mid, high
     const [previewImage, setPreviewImage] = useState(null); // URL of image to preview
     const [previewLogo, setPreviewLogo] = useState(null); // URL of brand logo for preview
     const [previewBrand, setPreviewBrand] = useState(null);
     const [previewModel, setPreviewModel] = useState(null);
-    const [isAutoFilling, setIsAutoFilling] = useState(false);
+    const [isFurnitureAutoFilling, setIsFurnitureAutoFilling] = useState(false);
+    const [isFitoutAutoFilling, setIsFitoutAutoFilling] = useState(false);
     const [isAutoFillSelectOpen, setIsAutoFillSelectOpen] = useState(false);
-    const [aiProgress, setAiProgress] = useState({ current: 0, total: 0 });
-    const [aiBatchResult, setAiBatchResult] = useState(null); // { success, error, newlyAdded }
+    const [isFitoutAutoFillOpen, setIsFitoutAutoFillOpen] = useState(false);
+    const [furnitureProgress, setFurnitureProgress] = useState({ current: 0, total: 0 });
+    const [fitoutProgress, setFitoutProgress] = useState({ current: 0, total: 0 });
+    const [furnitureBatchResult, setFurnitureBatchResult] = useState(null);
+    const [fitoutBatchResult, setFitoutBatchResult] = useState(null);
     
     // States used by UI actions
     const [isPlanAnalyzerOpen, setIsPlanAnalyzerOpen] = useState(false);
     const [isConsolidated, setIsConsolidated] = useState(false);
     const [specialistData, setSpecialistData] = useState(null);
 
-    // NEW: Per-tier independent processing states for parallel modals
-    const [tierStatuses, setTierStatuses] = useState({
-        budgetary: { active: false, minimized: false, currentItem: null, brand: '...', model: '', image: null, status: 'idle', progress: 0 },
-        mid: { active: false, minimized: false, currentItem: null, brand: '...', model: '', image: null, status: 'idle', progress: 0 },
-        high: { active: false, minimized: false, currentItem: null, brand: '...', model: '', image: null, status: 'idle', progress: 0 }
+    // AI processing states split per type and tier
+    const [furnitureStatuses, setFurnitureStatuses] = useState({
+        budgetary: { active: false, status: 'idle', currentItem: null, brand: '', model: '', image: null, minimized: false },
+        mid:       { active: false, status: 'idle', currentItem: null, brand: '', model: '', image: null, minimized: false },
+        high:      { active: false, status: 'idle', currentItem: null, brand: '', model: '', image: null, minimized: false }
     });
+    const [fitoutStatuses, setFitoutStatuses] = useState({
+        budgetary: { active: false, status: 'idle', currentItem: null, brand: '', model: '', image: null, minimized: false },
+        mid:       { active: false, status: 'idle', currentItem: null, brand: '', model: '', image: null, minimized: false },
+        high:      { active: false, status: 'idle', currentItem: null, brand: '', model: '', image: null, minimized: false }
+    });
+
+    const updateFurnitureStatus = (tier, delta) => {
+        setFurnitureStatuses(prev => ({ ...prev, [tier]: { ...prev[tier], ...delta } }));
+    };
+    const updateFitoutStatus = (tier, delta) => {
+        setFitoutStatuses(prev => ({ ...prev, [tier]: { ...prev[tier], ...delta } }));
+    };
+
     // State stores data + mode PER TIER
     // Structure: { mid: { rows: [...], mode: 'boq'|'new' }, ... }
     const [tierData, setTierData] = useState({
@@ -52,20 +75,28 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
     // Handle seededItems from props (e.g. from Landing Page Plan Upload)
     useEffect(() => {
         if (seededItems && seededItems.length > 0) {
-            const newRows = seededItems.map((item, i) => ({
-                id: Date.now() + i,
-                sn: i + 1,
-                imageRef: null,
-                brandImage: '', brandDesc: '',
-                description: `[${item.location || item.Location || 'General'}] ${item.description || item.Description}`,
-                location: item.location || item.Location || '',
-                scope: item.scope || item.Scope || '',
-                qty: item.qty || item.QTY,
-                unit: item.unit || item.Unit || 'Nos',
-                rate: '',
-                amount: '',
-                selectedBrand: '', selectedMainCat: '', selectedSubCat: '', selectedFamily: '', selectedModel: ''
-            }));
+            const newRows = seededItems.map((item, i) => {
+                const desc = item.description || item.Description || '';
+                const loc = item.location || item.Location || 'General';
+                const code = item.code || '';
+                const displayDesc = code ? `[${code}] ${desc}` : `[${loc}] ${desc}`;
+                
+                return {
+                    id: Date.now() + i,
+                    sn: i + 1,
+                    imageRef: null,
+                    brandImage: '', brandDesc: '',
+                    description: displayDesc,
+                    code: code,
+                    location: loc,
+                    scope: item.scope || item.Scope || '',
+                    qty: item.qty || item.QTY,
+                    unit: item.unit || item.Unit || 'Nos',
+                    rate: '',
+                    amount: '',
+                    selectedBrand: '', selectedMainCat: '', selectedSubCat: '', selectedFamily: '', selectedModel: ''
+                };
+            });
 
             setTierData({
                 budgetary: { rows: newRows.map(r => ({ ...r, id: r.id + 0 })), mode: 'boq' },
@@ -140,7 +171,13 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                                             if (product && parseFloat(product.price) > 0 && currentRate === 0) {
                                                 const basePrice = parseFloat(product.price);
                                                 console.log(`Auto-updating ${row.selectedModel} price to ${basePrice}`);
-                                                return { ...row, rate: basePrice.toFixed(2), basePrice: basePrice };
+                                                
+                                                // Protected update: don't overwrite AI matches that already have descriptions
+                                                const updatedRow = { ...row, rate: basePrice.toFixed(2), basePrice: basePrice };
+                                                if (!updatedRow.brandDesc && product.description) {
+                                                    updatedRow.brandDesc = product.description;
+                                                }
+                                                return updatedRow;
                                             }
                                         }
                                     }
@@ -306,19 +343,194 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
         setIsAutoFillSelectOpen(true);
     };
 
-    const executeAutoFillAI = async (selectedBrands, selectedEngine) => {
-        setIsAutoFillSelectOpen(false);
-        setIsAutoFilling(true);
-        setAiBatchResult(null);
+    const handleFitoutAutoFill = () => {
+        setIsFitoutAutoFillOpen(true);
+    };
 
-        const isHeader = (desc) => {
+    const executeFitoutAutoFillAI = async (selectedBrands, selectedEngine) => {
+        setIsFitoutAutoFillOpen(false);
+        
+        // PRE-CHECK: Are there any eligible fitout rows?
+        const currentTierKey = activeTier;
+        const currentTierRows = [...(tierDataRef.current[currentTierKey]?.rows || [])];
+        const isHeaderRowCheck = (desc, row = {}) => {
+            if (!desc || desc.trim() === '') return true;
+            return /item|description|qty|rate|total|s\.n\.|sn|area|spec|specifications|remarks|location/i.test(desc.trim().toLowerCase());
+        };
+        const fitoutRows = currentTierRows.filter(r => r.scope && r.scope.toUpperCase().includes('FITOUT') && !isHeaderRowCheck(r.description, r) && !r.selectedBrand);
+        
+        if (fitoutRows.length === 0) {
+            alert("No eligible Fitout rows found or they are already matched.");
+            return;
+        }
+
+        setIsFitoutAutoFilling(true);
+        setFitoutBatchResult(null);
+
+        const isHeaderRow = (desc, row = {}) => {
             if (!desc || desc.trim() === '') return true;
             const normalized = desc.trim().toLowerCase();
-            const exactHeaders = ['item', 'description', 'desc', 'quantity', 'qty', 'unit', 'uom',
+            const exactHeaders = [
+                'item', 'description', 'desc', 'quantity', 'qty', 'unit', 'uom',
                 'rate', 'price', 'total', 'amount', 's.n.', 'sn', 'sr.no', 'sr no', 'id',
                 'ref', 'area', 'specification', 'specifications', 'remarks', 'location',
-                'description and area', 'description & area'];
+                'description and area', 'description & area', 'room', 'floor', 'block', 'zone',
+                'subtotal', 'total amount', 'grand total', 'net total', 'discount'
+            ];
+            
             if (exactHeaders.some(kw => normalized === kw || normalized.startsWith(kw + ' '))) return true;
+            if (/location|area|floor|block|zone|room|item\s*no|s\.no|ref/i.test(normalized)) return true;
+
+            const qtyVal = String(row.qty || '').trim();
+            const rateVal = String(row.rate || '').trim();
+            const unitVal = String(row.unit || '').trim();
+            if (!qtyVal && !rateVal && !unitVal && normalized.length > 0) return true;
+
+            if (/^(group|type|section|category|list)\s+of\s/i.test(normalized)) return true;
+            return false;
+        };
+
+        const sleep = ms => new Promise(res => setTimeout(res, ms));
+
+        const processTable = async (tierKey, rows) => {
+            const fitoutRows = rows.filter(r => r.scope && r.scope.toUpperCase().includes('FITOUT') && !isHeaderRow(r.description, r) && !r.selectedBrand);
+            if (fitoutRows.length === 0) return { updatedRows: rows, successCount: 0, errorCount: 0, newlyAddedCount: 0 };
+
+            setFitoutProgress({ current: 0, total: fitoutRows.length });
+
+            let updatedRows = [...rows];
+            let successCount = 0;
+            let errorCount = 0;
+            let newlyAddedCount = 0;
+
+            updateFitoutStatus(tierKey, { active: true, minimized: false });
+
+            for (let i = 0; i < fitoutRows.length; i++) {
+                const targetRow = fitoutRows[i];
+                updateFitoutStatus(tierKey, { 
+                    currentItem: targetRow, 
+                    status: 'identifying', 
+                    brand: '...', 
+                    model: 'Matching Fitout...', 
+                    image: null 
+                });
+
+                const cleanDesc = (targetRow.description || '').replace(/^\[.*?\]\s*/, '').trim();
+                console.log(`[Fitout AI] Querying row: ${cleanDesc}`);
+
+                try {
+                    const params = {
+                        description: cleanDesc,
+                        qty: targetRow.qty,
+                        unit: targetRow.unit,
+                        tier: tierKey,
+                        availableBrands: selectedBrands,
+                        provider: selectedEngine,
+                        scope: 'Fitout',
+                        type: 'fitout'
+                    };
+
+                    const response = await fetch(`${API_BASE}/api/auto-match-ai`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(params)
+                    });
+
+                    const data = await response.json();
+                    if (data.status === 'success' && data.product) {
+                        const product = data.product;
+                        const mainCat = product.mainCategory || product.category || 'Fitout';
+                        const subCat = product.subCategory || 'Details';
+                        const family = product.family || 'Element';
+                        
+                        const rawFinalPrice = parseFloat(product.price || 0);
+                        const finalPrice = Math.ceil(rawFinalPrice);
+
+                        updateFitoutStatus(tierKey, { 
+                            status: 'success', 
+                            brand: product.brand || 'FitOut V2', 
+                            model: product.model || '', 
+                            image: product.imageUrl || targetRow.imageRef || null 
+                        });
+
+                        updatedRows = updatedRows.map(r => {
+                            if (r.id === targetRow.id) {
+                                return {
+                                    ...r,
+                                    selectedBrand: product.brand || 'FitOut V2',
+                                    brandDesc: product.description || product.model,
+                                    brandImage: product.imageUrl || r.imageRef || r.brandImage,
+                                    selectedModel: product.model,
+                                    selectedMainCat: mainCat,
+                                    selectedSubCat: subCat,
+                                    selectedFamily: family,
+                                    type: 'fitout',
+                                    rate: finalPrice,
+                                    amount: r.qty ? (parseFloat(r.qty) * finalPrice) : finalPrice
+                                };
+                            }
+                            return r;
+                        });
+
+                        setTierData(prev => ({
+                            ...prev,
+                            [tierKey]: { ...prev[tierKey], rows: updatedRows }
+                        }));
+                        
+                        successCount++;
+                        if (data.newlyAdded) newlyAddedCount++;
+                    } else {
+                        errorCount++;
+                    }
+                } catch (e) {
+                    console.error('Fitout match error:', e);
+                    updateFitoutStatus(tierKey, { status: 'error' });
+                    errorCount++;
+                }
+
+                setFitoutProgress({ current: i + 1, total: fitoutRows.length });
+                await sleep(1000); // Wait to show result as in furniture
+            }
+            updateFitoutStatus(tierKey, { active: false });
+
+            return { updatedRows, successCount, errorCount, newlyAddedCount };
+        };
+
+        try {
+            const { successCount, errorCount, newlyAddedCount } = await processTable(currentTierKey, currentTierRows);
+            setFitoutBatchResult({ success: successCount, error: errorCount, newlyAdded: newlyAddedCount });
+        } catch (error) {
+            setFitoutBatchResult({ error: 1 });
+        } finally {
+            setIsFitoutAutoFilling(false);
+            setTimeout(() => setFitoutBatchResult(null), 8000);
+        }
+    };
+
+    const executeAutoFillAI = async (selectedBrands, selectedEngine) => {
+        setIsAutoFillSelectOpen(false);
+        setIsFurnitureAutoFilling(true);
+        setFurnitureBatchResult(null);
+
+        const isHeaderRow = (desc, row = {}) => {
+            if (!desc || desc.trim() === '') return true;
+            const normalized = desc.trim().toLowerCase();
+            const exactHeaders = [
+                'item', 'description', 'desc', 'quantity', 'qty', 'unit', 'uom',
+                'rate', 'price', 'total', 'amount', 's.n.', 'sn', 'sr.no', 'sr no', 'id',
+                'ref', 'area', 'specification', 'specifications', 'remarks', 'location',
+                'description and area', 'description & area', 'room', 'floor', 'block', 'zone',
+                'subtotal', 'total amount', 'grand total', 'net total', 'discount'
+            ];
+            
+            if (exactHeaders.some(kw => normalized === kw || normalized.startsWith(kw + ' '))) return true;
+            if (/location|area|floor|block|zone|room|item\s*no|s\.no|ref/i.test(normalized)) return true;
+
+            const qtyVal = String(row.qty || '').trim();
+            const rateVal = String(row.rate || '').trim();
+            const unitVal = String(row.unit || '').trim();
+            if (!qtyVal && !rateVal && !unitVal && normalized.length > 0) return true;
+
             if (/^(group|type|section|category|list)\s+of\s/i.test(normalized)) return true;
             return false;
         };
@@ -331,130 +543,188 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
             brandsByTier[key].push(brandName);
         }
 
-        const tierKeys = ['budgetary', 'mid', 'high'].filter(k => brandsByTier[k].length > 0 && tierDataRef.current[k]?.rows?.length > 0);
+        let tierKeys = ['budgetary', 'mid', 'high'].filter(k => brandsByTier[k].length > 0 && tierDataRef.current[k]?.rows?.length > 0);
+        
+        // ACTIVE TIER FIRST: Sort so the tier user is currently looking at processes first for better UX
+        tierKeys.sort((a, b) => {
+            if (a === activeTier) return -1;
+            if (b === activeTier) return 1;
+            return 0;
+        });
+
         if (tierKeys.length === 0) {
-            setIsAutoFilling(false);
+            setIsFurnitureAutoFilling(false);
             return;
         }
 
         const masterRows = tierDataRef.current[tierKeys[0]].rows;
         const rowCount = masterRows.length;
-        const workableCount = masterRows.filter(r => !isHeader(r.description) && r.aiStatus !== 'success').length;
+        const workableRows = masterRows.filter(r => !isHeaderRow(r.description, r) && r.aiStatus !== 'success' && (!r.scope || !r.scope.toUpperCase().includes('FITOUT')));
+        const workableCount = workableRows.length;
         
         let totalProcessed = 0;
         let totalSuccess = 0;
         let totalError = 0;
         let totalNew = 0;
 
-        setAiProgress({ current: 0, total: workableCount * tierKeys.length });
+        setFurnitureProgress({ current: 0, total: workableCount * tierKeys.length });
 
-        // Helper to update per-tier status
-        const updateTierStatus = (tier, delta) => {
-            setTierStatuses(prev => ({
-                ...prev,
-                [tier]: { ...prev[tier], ...delta }
-            }));
-        };
+        // AUTO-TAB SWITCH: Navigate to the first tier being processed to show progress
+        if (tierKeys.length > 0) {
+            setActiveTier(tierKeys[0]);
+        }
 
-        // ── PARALLEL TIER LOOPS ──────────────────────────────────────────────────
-        await Promise.all(tierKeys.map(async (k) => {
-            updateTierStatus(k, { active: true, minimized: false });
-            const tierRowsLocal = [...(tierDataRef.current[k]?.rows || [])];
+        // ── SEQUENTIAL TIER PROCESSING (Prioritizes Active View) ──────────────────
+        try {
+            for (const k of tierKeys) {
+                updateFurnitureStatus(k, { active: true, minimized: false });
+                const tierRowCount = tierDataRef.current[k]?.rows?.length || 0;
 
-            for (let i = 0; i < rowCount; i++) {
-                const row = tierRowsLocal[i];
-                if (isHeader(row.description)) {
-                    tierRowsLocal[i] = { ...tierRowsLocal[i], aiStatus: 'skipped' };
-                    continue;
-                }
-                if (row.aiStatus === 'success') continue;
+                for (let i = 0; i < tierRowCount; i++) {
+                    // Atomic fetch of the latest row state by finding ID in latest Ref
+                    let row = tierDataRef.current[k].rows[i];
+                    if (!row) continue;
+                    
+                    const rowId = String(row.id);
+                    if (isHeaderRow(row.description, row) || (row.scope && row.scope.toUpperCase().includes('FITOUT'))) {
+                        setTierData(prev => {
+                            const updatedRows = [...prev[k].rows];
+                            updatedRows[i] = { ...updatedRows[i], aiStatus: 'skipped' };
+                            return { ...prev, [k]: { ...prev[k], rows: updatedRows } };
+                        });
+                        continue;
+                    }
+                    if (row.aiStatus === 'success') continue;
 
-                updateTierStatus(k, { 
-                    currentItem: row, 
-                    status: 'identifying', 
-                    brand: '...', 
-                    model: 'Finding match...', 
-                    image: null 
-                });
-                
-                tierRowsLocal[i] = { ...tierRowsLocal[i], aiStatus: 'processing' };
-                setTierData(prev => ({ ...prev, [k]: { ...prev[k], rows: [...tierRowsLocal] } }));
-
-                const sizeContext = [row.qty && `Qty: ${row.qty}`, row.unit && `Unit: ${row.unit}`].filter(Boolean).join(', ');
-                const enrichedDesc = sizeContext ? `${row.description} | ${sizeContext}` : row.description;
-
-                try {
-                    const response = await fetch(`${API_BASE}/api/auto-match-ai`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            description: enrichedDesc,
-                            tier: k,
-                            availableBrands: brandsByTier[k],
-                            provider: selectedEngine,
-                            scope: row.scope
-                        })
+                    updateFurnitureStatus(k, { 
+                        currentItem: row, 
+                        status: 'identifying', 
+                        brand: '...', 
+                        model: 'Finding match...', 
+                        image: null 
+                    });
+                    
+                    setTierData(prev => {
+                        const updatedRows = [...prev[k].rows];
+                        updatedRows[i] = { ...updatedRows[i], aiStatus: 'processing' };
+                        return { ...prev, [k]: { ...prev[k], rows: updatedRows } };
                     });
 
-                    const result = await response.json();
-                    if (result.status === 'success' && result.product) {
-                        const match = result.product;
-                        const matchedBrandName = match.brand || '';
-                        
-                        updateTierStatus(k, { 
-                            status: 'success', 
-                            brand: matchedBrandName, 
-                            model: match.model || '', 
-                            image: match.imageUrl || null 
+                    const sizeContext = [row.qty && `Qty: ${row.qty}`, row.unit && `Unit: ${row.unit}`].filter(Boolean).join(', ');
+                    const enrichedDesc = sizeContext ? `${row.description} | ${sizeContext}` : row.description;
+
+                    try {
+                        const response = await fetch(`${API_BASE}/api/auto-match-ai`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                description: enrichedDesc,
+                                tier: k,
+                                availableBrands: brandsByTier[k],
+                                provider: selectedEngine,
+                                scope: row.scope,
+                                type: 'furniture'
+                            })
                         });
 
-                        const localBrandEntry = brands.find(b => b.name.toLowerCase().trim() === matchedBrandName.toLowerCase().trim());
-                        const resolvedLogo = localBrandEntry?.logo || '';
-                        if (result.source === 'ai-discovery-hardened') totalNew++;
+                        const result = await response.json();
+                        if (result.status === 'success' && result.product) {
+                            const match = result.product;
+                            const matchedBrandName = match.brand || '';
+                            
+                            updateFurnitureStatus(k, { 
+                                status: 'success', 
+                                brand: matchedBrandName, 
+                                model: match.model || '', 
+                                image: match.imageUrl || null 
+                            });
 
-                        tierRowsLocal[i] = {
-                            ...tierRowsLocal[i],
-                            selectedBrand: matchedBrandName,
-                            selectedMainCat: match.mainCategory,
-                            selectedSubCat: String(match.subCategory || ''),
-                            selectedFamily: String(match.family || ''),
-                            selectedModel: match.model,
-                            selectedModelUrl: match.productUrl,
-                            brandDesc: match.description,
-                            brandImage: match.imageUrl,
-                            brandLogo: resolvedLogo,
-                            rate: parseFloat(match.price) > 0 ? parseFloat(match.price).toFixed(2) : tierRowsLocal[i].rate || '',
-                            amount: (parseFloat(match.price) * (parseFloat(tierRowsLocal[i].qty) || 0) > 0) 
-                                ? (parseFloat(match.price) * (parseFloat(tierRowsLocal[i].qty) || 0)).toFixed(2) 
-                                : tierRowsLocal[i].amount || '',
-                            aiStatus: 'success',
-                            aiResult: result
-                        };
-                        totalSuccess++;
-                    } else {
-                        updateTierStatus(k, { status: 'error' });
+                            const localBrandEntry = brands.find(b => b.name.toLowerCase().trim() === matchedBrandName.toLowerCase().trim());
+                            const resolvedLogo = localBrandEntry?.logo || '';
+                            if (result.source === 'ai-discovery-hardened') totalNew++;
+
+                            // Fallback description logic
+                            let finalBrandDesc = match.description || '';
+                            if (!finalBrandDesc && match.model) {
+                                finalBrandDesc = `Model: ${match.model}`;
+                            } else if (!finalBrandDesc) {
+                                finalBrandDesc = row.description; // Last resort fallback
+                            }
+
+                            // Create the updated row object
+                            const updatedRow = {
+                                ...row,
+                                selectedBrand: matchedBrandName,
+                                selectedMainCat: match.mainCategory,
+                                selectedSubCat: String(match.subCategory || ''),
+                                selectedFamily: String(match.family || ''),
+                                selectedModel: match.model,
+                                selectedModelUrl: match.productUrl,
+                                brandDesc: finalBrandDesc,
+                                brandImage: match.imageUrl,
+                                brandLogo: resolvedLogo,
+                                type: 'furniture',
+                                rate: parseFloat(match.price) > 0 ? parseFloat(match.price).toFixed(2) : (row.rate || '0.00'),
+                                amount: (parseFloat(match.price) * (parseFloat(row.qty) || 0) > 0)
+                                    ? (parseFloat(match.price) * (parseFloat(row.qty) || 0)).toFixed(2)
+                                    : (row.amount || '0.00'),
+                                aiStatus: 'success',
+                                aiResult: result
+                            };
+
+                            // ATOMIC UPDATE FOR THIS ROW (Match by ID, not index)
+                            setTierData(prev => {
+                                if (!prev[k]) return prev;
+                                const updatedRows = prev[k].rows.map(r => 
+                                    String(r.id) === rowId ? updatedRow : r
+                                );
+                                console.log(`[Furniture AI] Updated state for row ${rowId} in tier ${k}`);
+                                return { ...prev, [k]: { ...prev[k], rows: updatedRows } };
+                            });
+
+                            totalSuccess++;
+                        } else {
+                            updateFurnitureStatus(k, { status: 'error' });
+                            totalError++;
+                            
+                            setTierData(prev => {
+                                if (!prev[k]) return prev;
+                                const updatedRows = prev[k].rows.map(r => 
+                                    String(r.id) === rowId ? { ...r, aiStatus: 'error', aiError: result.message || 'No match found' } : r
+                                );
+                                return { ...prev, [k]: { ...prev[k], rows: updatedRows } };
+                            });
+                        }
+                    } catch (error) {
+                        console.error('Furniture row match error:', error);
+                        updateFurnitureStatus(k, { status: 'error' });
                         totalError++;
-                        tierRowsLocal[i] = { ...tierRowsLocal[i], aiStatus: 'error', aiError: result.message || 'No match found' };
+                        
+                        setTierData(prev => {
+                            if (!prev[k]) return prev;
+                            const updatedRows = prev[k].rows.map(r => 
+                                String(r.id) === rowId ? { ...r, aiStatus: 'error', aiError: error.message } : r
+                            );
+                            return { ...prev, [k]: { ...prev[k], rows: updatedRows } };
+                        });
                     }
-                } catch (error) {
-                    updateTierStatus(k, { status: 'error' });
-                    totalError++;
-                    tierRowsLocal[i] = { ...tierRowsLocal[i], aiStatus: 'error', aiError: error.message };
+                    
+                    totalProcessed++;
+                    setFurnitureProgress({ current: totalProcessed, total: workableCount * tierKeys.length });
+                    await sleep(1000); // UI delay
                 }
-
-                setTierData(prev => ({ ...prev, [k]: { ...prev[k], rows: [...tierRowsLocal] } }));
-                totalProcessed++;
-                setAiProgress(p => ({ ...p, current: totalProcessed }));
-
-                // 1 SECOND DELAY as requested to show the found product
-                await new Promise(r => setTimeout(r, 1000));
+                updateFurnitureStatus(k, { active: false });
             }
-            updateTierStatus(k, { active: false });
-        }));
-
-        setIsAutoFilling(false);
-        setAiBatchResult({ success: totalSuccess, error: totalError, newlyAdded: totalNew });
-        fetchBrands();
+            
+            setFurnitureBatchResult({ success: totalSuccess, error: totalError, newlyAdded: totalNew });
+        } catch (err) {
+            console.error("AI Batch Error:", err);
+            setFurnitureBatchResult({ error: 1 });
+        } finally {
+            setIsFurnitureAutoFilling(false);
+            setTimeout(() => setFurnitureBatchResult(null), 8000);
+            fetchBrands();
+        }
     };
 
 
@@ -831,7 +1101,7 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                 try {
                     const result = await getImageData(row.brandLogo, { format: 'image/png', maxWidth: 400 });
                     if (result) imageDataMap[`logo_${i}`] = result;
-                } catch (e) { console.log('Logo load error:', e); }
+                } catch (e) { console.log('Logo error:', e); }
             }
         }
 
@@ -2109,7 +2379,8 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                         if (isConsolidated) {
                             const consolidated = {};
                             displayRows.forEach(row => {
-                                const key = (row.brandDesc || row.description || 'N/A').trim().toLowerCase();
+                                const scopeValue = (row.scope || 'Furniture').trim().toLowerCase();
+                                const key = (row.brandDesc || row.description || 'N/A').trim().toLowerCase() + '::' + scopeValue;
                                 if (!consolidated[key]) {
                                     consolidated[key] = { ...row, qty: 0, location: 'Consolidated', id: `cons_${key}` };
                                 }
@@ -2118,26 +2389,24 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                             displayRows = Object.values(consolidated);
                         }
 
-                        // Check if any row has location data
-                        const hasLocations = !isConsolidated && displayRows.some(r => r.location);
-                        if (!hasLocations || isConsolidated) {
-                            return displayRows.map((row, idx) => renderRow(row, idx + 1, isBoqMode, idx));
-                        }
+                        // Group dynamically by Scope (FITOUT first, then FURNITURE)
+                        const allScopesSet = new Set(displayRows.map(r => r.scope || 'Furniture'));
+                        let scopes = Array.from(allScopesSet);
+                        
+                        scopes.sort((a, b) => {
+                             const aUpper = a.toUpperCase();
+                             const bUpper = b.toUpperCase();
+                             if(aUpper.includes('FITOUT') && bUpper.includes('FURNITURE')) return -1;
+                             if(aUpper.includes('FURNITURE') && bUpper.includes('FITOUT')) return 1;
+                             return a.localeCompare(b);
+                        });
 
-                        // Group by Scope (FITOUT first, then FURNITURE)
-                        const scopes = ['FITOUT', 'Furniture'];
                         let globalSn = 1;
 
                         return scopes.map(scopeLabel => {
-                            const scopeRows = displayRows.filter(r => {
-                                const s = r.scope?.toUpperCase() || 'FURNITURE';
-                                return s === scopeLabel.toUpperCase();
-                            });
+                            const scopeRows = displayRows.filter(r => (r.scope || 'Furniture') === scopeLabel);
 
                             if (scopeRows.length === 0) return null;
-
-                            // User requested: cancel room sectioning, use AI natural order
-                            const sortedScopeRows = [...scopeRows]; 
 
                             return (
                                 <Fragment key={scopeLabel}>
@@ -2148,9 +2417,20 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                                             </div>
                                         </td>
                                     </tr>
-                                    {sortedScopeRows.map((row) => {
-                                        const originalIndex = rows.findIndex(r => r.id === row.id);
-                                        return renderRow(row, globalSn++, isBoqMode, originalIndex);
+                                    {scopeRows.map((row) => {
+                                         // Find exact row or the first underlying row for consolidated items
+                                         let originalIndex = -1;
+                                         if (isConsolidated && String(row.id).startsWith('cons_')) {
+                                             const displayKey = String(row.id).replace('cons_', '');
+                                             originalIndex = rows.findIndex(r => {
+                                                 const rScope = (r.scope || 'Furniture').trim().toLowerCase();
+                                                 const rKey = (r.brandDesc || r.description || 'N/A').trim().toLowerCase() + '::' + rScope;
+                                                 return rKey === displayKey;
+                                             });
+                                         } else {
+                                             originalIndex = rows.findIndex(r => String(r.id) === String(row.id));
+                                         }
+                                         return renderRow(row, globalSn++, isBoqMode, originalIndex);
                                     })}
                                 </Fragment>
                             );
@@ -2284,7 +2564,7 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                 )}
 
                 <td>
-                    <span className={`${styles.rowScopeTag} ${row.scope?.toLowerCase() === 'fitout' ? styles.fitoutTag : styles.furnitureTag}`}>
+                    <span className={`${styles.rowScopeTag} ${row.scope?.toLowerCase().includes('fitout') ? styles.fitoutTag : styles.furnitureTag}`}>
                         {row.scope || 'Furniture'}
                     </span>
                 </td>
@@ -2400,11 +2680,28 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                                 <div className={styles.brandDropdownPanel}>
                                     {brands
                                         .filter(b => {
+                                            // 1. Budget Tier Filtering
                                             const bTier = (b.budgetTier || 'mid').toLowerCase();
                                             const aTier = activeTier.toLowerCase();
-                                            if (aTier === 'budgetary') return ['budgetary', 'low'].includes(bTier);
-                                            if (aTier === 'high') return ['high', 'high-end', 'premium'].includes(bTier);
-                                            return !['budgetary', 'low', 'high', 'high-end', 'premium'].includes(bTier);
+                                            let tierMatch = false;
+                                            if (aTier === 'budgetary') tierMatch = ['budgetary', 'low'].includes(bTier);
+                                            else if (aTier === 'high') tierMatch = ['high', 'high-end', 'premium'].includes(bTier);
+                                            else tierMatch = !['budgetary', 'low', 'high', 'high-end', 'premium'].includes(bTier);
+
+                                            if (!tierMatch) return false;
+
+                                            // 2. Type/Scope Filtering (Fitout vs Furniture)
+                                            const rowScope = (row.scope || 'Furniture').toLowerCase();
+                                            // Robust detection: use type tag or name-based fallback
+                                            const brandType = (b.type || (b.name.toLowerCase().includes('fitout') ? 'fitout' : 'furniture')).toLowerCase();
+                                            
+                                            // Mapping: if row scope contains 'fitout', only show 'fitout' brands
+                                            if (rowScope.includes('fitout')) {
+                                                return brandType === 'fitout';
+                                            } else {
+                                                // Exclude fitout brands from furniture rows
+                                                return brandType !== 'fitout';
+                                            }
                                         })
                                         .map((b, bIdx) => (
                                             <button
@@ -2577,7 +2874,7 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
 
     return (
         <div className={styles.overlay}>
-            <div className={styles.modalContainer} onClick={e => e.stopPropagation()}>
+            <div className={`${styles.modalContainer} ${theme === 'light' ? styles.light : ''}`} onClick={e => e.stopPropagation()}>
 
                 {/* Header */}
                 <div className={styles.header}>
@@ -2607,22 +2904,35 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                             </button>
                             <button className={`${styles.actionCard} ${styles.consolidateBtn} ${isConsolidated ? styles.consolidateBtnActive : ''}`} onClick={() => setIsConsolidated(!isConsolidated)}>
                                 <span style={{fontSize: '1.4rem'}}>{isConsolidated ? '🏠' : '📦'}</span>
-                                <span>{isConsolidated ? 'Room Wise' : 'Consolidated'}</span>
+                                <span>{isConsolidated ? 'Room Wise' : 'Consolidate Items'}</span>
                             </button>
                             <button className={`${styles.actionCard} ${styles.addBrandBtn}`} onClick={handleAddBrand}>
                                 <span style={{fontSize: '1.4rem'}}>🏢</span>
                                 <span>Add Brand</span>
                             </button>
                             <button
-                                className={`${styles.actionCard} ${styles.aiAutoFillBtn} ${isAutoFilling ? styles.aiAutoFilling : ''}`}
+                                className={`${styles.actionCard} ${styles.aiAutoFillBtn} ${isFurnitureAutoFilling ? styles.aiAutoFilling : ''}`}
                                 onClick={handleAutoFillAI}
-                                disabled={isAutoFilling}
+                                disabled={isFurnitureAutoFilling}
                             >
                                 <span style={{fontSize: '1.4rem'}}>✨</span>
                                 <span>
-                                    {isAutoFilling
-                                        ? `Processing${aiProgress.total > 0 ? ` (${aiProgress.current}/${aiProgress.total})` : '...'}`
-                                        : 'AI SEARCH PLUS'
+                                    {isFurnitureAutoFilling
+                                        ? `AI FURNITURE${furnitureProgress.total > 0 ? ` (${furnitureProgress.current}/${furnitureProgress.total})` : '...'}`
+                                        : 'AI FURNITURE'
+                                    }
+                                </span>
+                            </button>
+                            <button 
+                                className={`${styles.actionCard} ${styles.fitoutAutoFillBtn} ${isFitoutAutoFilling ? styles.fitoutAutoFilling : ''}`} 
+                                onClick={handleFitoutAutoFill}
+                                disabled={isFitoutAutoFilling}
+                            >
+                                <span style={{fontSize: '1.4rem'}}>🛠️</span>
+                                <span>
+                                    {isFitoutAutoFilling
+                                        ? `AI FITOUT${fitoutProgress.total > 0 ? ` (${fitoutProgress.current}/${fitoutProgress.total})` : '...'}`
+                                        : 'AI FITOUT'
                                     }
                                 </span>
                             </button>
@@ -2652,13 +2962,24 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                     {/* Scrollable Table Area */}
                     <div className={styles.tableContainer}>
                             {/* Batch completion notification */}
-                        {aiBatchResult && (
-                            <div className={`${styles.aiBatchNotification} ${aiBatchResult.error > 0 ? styles.aiBatchNotificationError : styles.aiBatchNotificationSuccess}`}>
+                        {/* Batch completion notification - Furniture */}
+                        {furnitureBatchResult && (
+                            <div className={`${styles.aiBatchNotification} ${furnitureBatchResult.error > 0 ? styles.aiBatchNotificationError : styles.aiBatchNotificationSuccess}`}>
                                 <span>
-                                    AI Batch Complete — <strong>{aiBatchResult.success || 0}</strong> matched, <strong>{aiBatchResult.error || 0}</strong> failed
-                                    {aiBatchResult.newlyAdded > 0 && ` (${aiBatchResult.newlyAdded} new brands added)`}
+                                    Furniture Batch Complete — <strong>{furnitureBatchResult.success || 0}</strong> matched, <strong>{furnitureBatchResult.error || 0}</strong> failed
+                                    {furnitureBatchResult.newlyAdded > 0 && ` (${furnitureBatchResult.newlyAdded} new brands added)`}
                                 </span>
-                                <button className={styles.notificationClose} onClick={() => setAiBatchResult(null)}>×</button>
+                                <button className={styles.notificationClose} onClick={() => setFurnitureBatchResult(null)}>×</button>
+                            </div>
+                        )}
+                        {/* Batch completion notification - Fitout */}
+                        {fitoutBatchResult && (
+                            <div className={`${styles.aiBatchNotification} ${fitoutBatchResult.error > 0 ? styles.aiBatchNotificationError : styles.aiBatchNotificationSuccess}`}>
+                                <span>
+                                    Fitout Batch Complete — <strong>{fitoutBatchResult.success || 0}</strong> matched, <strong>{fitoutBatchResult.error || 0}</strong> failed
+                                    {fitoutBatchResult.newlyAdded > 0 && ` (${fitoutBatchResult.newlyAdded} new brands added)`}
+                                </span>
+                                <button className={styles.notificationClose} onClick={() => setFitoutBatchResult(null)}>×</button>
                             </div>
                         )}
                         {renderActiveView()}
@@ -2744,6 +3065,13 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                 activeTier={activeTier}
                 onConfirm={executeAutoFillAI}
             />
+            <FitoutAutoFillModal
+                isOpen={isFitoutAutoFillOpen}
+                onClose={() => setIsFitoutAutoFillOpen(false)}
+                allBrands={brands}
+                activeTier={activeTier}
+                onConfirm={executeFitoutAutoFillAI}
+            />
             {/* Costing Modal */}
             <CostingModal
                 isOpen={isCostingOpen}
@@ -2757,61 +3085,96 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                 onApply={handlePlanApplied}
                 allBrands={brands}
             />
-            {/* Parallel AI Discovery Modals */}
-            {['budgetary', 'mid', 'high'].map((tierKey, idx) => {
-                const status = tierStatuses[tierKey];
-                if (!status.active && !aiBatchResult) return null;
-                
-                // Position logic: side-by-side if multiple are active
-                const activeCount = Object.values(tierStatuses).filter(s => s.active).length;
-                let alignment = 'center';
-                if (activeCount > 1) {
-                    if (tierKey === 'budgetary') alignment = 'left';
-                    if (tierKey === 'mid') alignment = 'center-narrow';
-                    if (tierKey === 'high') alignment = 'right';
-                }
-
-                // Minimized stacking logic
-                const activeTiers = ['high', 'mid', 'budgetary'].filter(k => tierStatuses[k].active);
-                const minimizedIndex = activeTiers.indexOf(tierKey);
-                const minimizedOffset = minimizedIndex * 340 + 24; // 320 width + 20 gap
-
-                const handleMinimizeAll = (val) => {
-                    setTierStatuses(prev => {
-                        const next = { ...prev };
-                        Object.keys(next).forEach(k => {
-                            if (next[k].active) next[k] = { ...next[k], minimized: val };
-                        });
-                        return next;
-                    });
+            {/* Parallel AI Discovery Modals - Refactored for global stacking */}
+            {(() => {
+                const getActiveModals = (statuses, type, batchResult, progress, setStatuses, setBatchResult) => {
+                    const activeTiers = ['high', 'mid', 'budgetary'].filter(k => statuses[k]?.active);
+                    if (activeTiers.length > 0) {
+                        return activeTiers.map(t => ({ 
+                            type, 
+                            tier: t, 
+                            status: statuses[t], 
+                            progress, 
+                            setStatuses, 
+                            setBatchResult,
+                            isResult: false
+                        }));
+                    }
+                    if (batchResult) {
+                        return [{ 
+                            type, 
+                            tier: 'mid', 
+                            status: {}, 
+                            batchResult, 
+                            progress, 
+                            setStatuses, 
+                            setBatchResult,
+                            isResult: true
+                        }];
+                    }
+                    return [];
                 };
 
-                return (
-                    <AIPresentationModal 
-                        key={tierKey}
-                        isOpen={status.active || (aiBatchResult && idx === 1)} // Show batch result in center one
-                        onClose={() => {
-                            setTierStatuses(prev => ({ ...prev, [tierKey]: { ...prev[tierKey], active: false } }));
-                            if (idx === 1) setAiBatchResult(null);
-                        }}
-                        tier={tierKey}
-                        alignment={alignment}
-                        currentItem={status.currentItem}
-                        batchResult={idx === 1 ? aiBatchResult : null}
-                        brand={status.brand}
-                        foundModel={status.model}
-                        foundImage={status.image}
-                        progress={aiProgress.total > 0 ? (aiProgress.current / aiProgress.total) * 100 : 0}
-                        status={status.status}
-                        isMinimized={status.minimized}
-                        minimizedOffset={minimizedOffset}
-                        onToggleMinimize={(val) => {
-                            setTierStatuses(prev => ({ ...prev, [tierKey]: { ...prev[tierKey], minimized: val } }));
-                        }}
-                        onMinimizeAll={handleMinimizeAll}
-                    />
-                );
-            })}
+                const furnitureModals = getActiveModals(furnitureStatuses, 'furniture', furnitureBatchResult, furnitureProgress, setFurnitureStatuses, setFurnitureBatchResult);
+                const fitoutModals = getActiveModals(fitoutStatuses, 'fitout', fitoutBatchResult, fitoutProgress, setFitoutStatuses, setFitoutBatchResult);
+                const globalModals = [...furnitureModals, ...fitoutModals];
+
+                return globalModals.map((modalData, idx) => {
+                    const { type, tier, status, progress, setStatuses, setBatchResult, isResult, batchResult: bRes } = modalData;
+                    const ModalComponent = type === 'fitout' ? AIFitoutPresentationModal : AIPresentationModal;
+                    
+                    // Horizontal alignment for full modals
+                    let alignment = 'center';
+                    if (globalModals.length > 1 && !status.minimized) {
+                        if (globalModals.length === 2) {
+                            alignment = idx === 0 ? 'left' : 'right';
+                        } else if (globalModals.length === 3) {
+                            if (idx === 0) alignment = 'left';
+                            if (idx === 1) alignment = 'center-narrow';
+                            if (idx === 2) alignment = 'right';
+                        } else {
+                            // More than 3 modals: distribution logic
+                            const pos = (idx / (globalModals.length - 1)) * 100;
+                            if (pos < 30) alignment = 'left';
+                            else if (pos > 70) alignment = 'right';
+                            else alignment = 'center-narrow';
+                        }
+                    }
+
+                    // Global minimized offset
+                    const minimizedOffset = idx * 340 + 24;
+
+                    return (
+                        <ModalComponent 
+                            key={`${type}-${tier}-${isResult ? 'result' : 'discovery'}`}
+                            type={type}
+                            isOpen={true} 
+                            onClose={() => {
+                                if (isResult) {
+                                    setBatchResult(null);
+                                } else {
+                                    setStatuses(prev => ({ ...prev, [tier]: { ...prev[tier], active: false } }));
+                                }
+                            }}
+                            tier={tier}
+                            alignment={alignment}
+                            currentItem={status.currentItem}
+                            batchResult={isResult ? bRes : null}
+                            brand={status.brand}
+                            foundModel={status.model}
+                            foundImage={status.image}
+                            progress={progress.total > 0 ? (progress.current / progress.total) * 100 : 0}
+                            status={status.status}
+                            isMinimized={status.minimized}
+                            onToggleMinimize={(val) => {
+                                if (isResult) return; 
+                                setStatuses(prev => ({ ...prev, [tier]: { ...prev[tier], minimized: val } }));
+                            }}
+                            minimizedOffset={minimizedOffset}
+                        />
+                    );
+                });
+            })()}
         </div>
     );
 }

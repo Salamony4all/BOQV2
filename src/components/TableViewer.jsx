@@ -58,6 +58,7 @@ function TableViewer({ data, allBrands }) {
             const rateIdx = header.findIndex(h => /rate|price|unit.*price/i.test(h));
             const amountIdx = header.findIndex(h => /amount|total(?!.*(qty|quantity))/i.test(h));
             const qtyIdx = header.findIndex(h => /qty|quantity/i.test(h));
+            const unitIdx = header.findIndex(h => /unit|uom/i.test(h));
 
             // Calculate totals
             let totalRate = 0;
@@ -67,6 +68,13 @@ function TableViewer({ data, allBrands }) {
 
             table.rows.forEach(row => {
                 if (!row || !row.cells || row.isHeader || row.isSummary) return;
+
+                const qtyValStr = qtyIdx !== -1 ? String(row.cells[qtyIdx]?.value || '').trim() : '';
+                const rateValStr = rateIdx !== -1 ? String(row.cells[rateIdx]?.value || '').trim() : '';
+                const unitValStr = unitIdx !== -1 ? String(row.cells[unitIdx]?.value || '').trim() : '';
+                
+                // Skip rows that are clearly section titles (text only, no qty/rate/unit)
+                if (!qtyValStr && !rateValStr && !unitValStr) return;
 
                 // Parse rate
                 if (rateIdx !== -1 && row.cells[rateIdx]?.value) {

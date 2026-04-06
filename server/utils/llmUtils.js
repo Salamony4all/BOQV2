@@ -288,6 +288,7 @@ Match: "${description}" to ${brandTarget}.
 - **ARMCHAIR** != STOOL (Match by height).
 - **COFFEE TABLE** != MEETING TABLE (Match by size/height).
 - **VISITOR CHAIR** != EXECUTIVE CHAIR (Match by function).
+- **FLOORING** == TILES (Ignore suffix mismatches for Carpets/Vinyl if functional category matches).
 
 Return JSON ONLY:
 { 
@@ -329,9 +330,14 @@ Return ONLY valid JSON:
     "price": 0,
     "mainCategory": "Category",
     "subCategory": "Sub-category",
-    "matchScore": 0.0 to 1.0
+    "matchScore": 0.0 to 1.0,
+    "logic": "Functional match reason"
   }
-}`;
+}
+
+### CRITICAL RULES:
+- Ignore suffix mismatches like "Flooring" vs "Tiles" for Carpets/Vinyl. If the Material matches, it is a Match.
+- Match by Material/Finish if exact model name differs slightly (e.g. Model v1 vs Model v2).`;
 
     const user = `Find best match for: "${description}" (Tier: ${tier})`;
     try {
@@ -363,9 +369,14 @@ You are strictly FORBIDDEN from using units like "Lot", "LS", "Lumpsum", or "Pac
 ### 🏷️ CATEGORIZATION & SCOPE:
 - **Location**: Use the exact room name/number from the drawing.
 - **Categorization**: ${includeFitout ? 'Furniture vs Fitout' : 'Furniture only'}.
-- **Scope**: ${includeFitout ? 'All loose furniture PLUS architectural items (flooring, ceiling, walls, doors).' : 'Loose furniture only (desks, chairs, storage).'}
+- **Scope**: ${includeFitout ? 'All loose furniture PLUS architectural items (flooring, ceiling, walls, doors) AND MEP/AV items (lighting, electrical, plumbing, screens).' : 'Loose furniture only (desks, chairs, storage).'}
+- **Special Rule (Joinery)**: Doors and all wood works (wooden cabinets, counters, wall claddings) MUST be categorized STRICTLY as "Fitout (Joinery)".
+- **Special Rule (MEP)**: Mechanical, electrical, and plumbing MUST be categorized STRICTLY as "Fitout (MEP)".
+- **Special Rule (Lighting & AV)**: All lighting fixtures MUST be "Fitout (Lighting)". Audio/Visual equipment (screens, projectors, speakers) MUST be "Fitout (AV)".
 
 ### 📜 CORE RULES:
+- **EXHAUSTIVE EXTRACTION (NO SHORTCUTS)**: You MUST extract absolutely EVERY SINGLE ITEM visible across the ENTIRE plan. Do not stop after 10 items. Do not provide a "sample". If there are 150 items, output 150 JSON items.
+- **FULL FLOOR PLAN COVERAGE**: Segregate Fitout items cleanly with their respective scope subheaders ("Fitout (Architectural)", "Fitout (MEP)", etc). Absolutely ensure ALL loose furniture is completely isolated from the Fitout items and categorized strictly as "Furniture".
 - **VISUAL MAGNIFICATION**: Zoom into every corner. Don't miss tiny text or symbols.
 - **NO BUNDLING**: Break down "Typical Rooms" into individual line items per room.
 - **UNIT STICKINESS**: Only use "Nos", "SQM", or "LM".
@@ -376,8 +387,9 @@ Return ONLY a valid JSON object:
   "items": [
     { 
       "location": "Room Name/Zone", 
-      "scope": "Furniture" | "Fitout", 
-      "description": "Specific naming (e.g., L-Desk, Carpet Type A)", 
+      "scope": "Fitout (Architectural)" | "Fitout (MEP)" | "Fitout (Joinery)" | "Fitout (AV)" | "Fitout (Lighting)" | "Furniture", 
+      "code": "e.g., CH-01",
+      "description": "Specific naming (e.g., Ergonomic Task Chair, Carpet Type A)", 
       "qty": 12.5, 
       "unit": "Nos" | "SQM" | "LM" 
     }
@@ -435,6 +447,7 @@ export async function analyzePlan(filesData, options = {}) {
             flatItems = parsed.items.map(item => ({
                 location: String(item.location || 'General Area').trim(),
                 scope: String(item.scope || (includeFitout ? 'Fitout' : 'Furniture')).trim(),
+                code: item.code ? String(item.code).trim() : '',
                 description: String(item.description).trim(),
                 qty: cleanQty(item.qty),
                 unit: String(item.unit || 'Nos').trim()

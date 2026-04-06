@@ -11,12 +11,16 @@ export default function AutoFillSelectModal({ isOpen, onClose, allBrands, active
         high:      { label: 'High-End',  color: '#ec4899' }
     };
 
-    // Group ALL brands by tier
+    // Group ALL furniture brands by tier (exclude specialized fitout brands)
+    const furnitureBrands = useMemo(() => {
+        return allBrands.filter(b => !b.name.toLowerCase().includes('fitout'));
+    }, [allBrands]);
+
     const groupedBrands = useMemo(() => ({
-        budgetary: allBrands.filter(b => (b.budgetTier || '').toLowerCase() === 'budgetary'),
-        mid:       allBrands.filter(b => (b.budgetTier || 'mid').toLowerCase() === 'mid'),
-        high:      allBrands.filter(b => ['high', 'premium'].includes((b.budgetTier || '').toLowerCase()))
-    }), [allBrands]);
+        budgetary: furnitureBrands.filter(b => (b.budgetTier || '').toLowerCase() === 'budgetary'),
+        mid:       furnitureBrands.filter(b => (b.budgetTier || 'mid').toLowerCase() === 'mid'),
+        high:      furnitureBrands.filter(b => ['high', 'premium'].includes((b.budgetTier || '').toLowerCase()))
+    }), [furnitureBrands]);
 
     // Reset to empty on open
     useEffect(() => {
@@ -46,7 +50,7 @@ export default function AutoFillSelectModal({ isOpen, onClose, allBrands, active
         setSelectedBrands(prev => prev.filter(b => !names.includes(b)));
     };
 
-    const selectAll  = () => setSelectedBrands(allBrands.map(b => b.name));
+    const selectAll  = () => setSelectedBrands(furnitureBrands.map(b => b.name));
     const clearAll   = () => setSelectedBrands([]);
 
     const engines = [
