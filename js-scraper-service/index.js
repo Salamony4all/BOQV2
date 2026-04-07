@@ -537,39 +537,52 @@ app.get('/dashboard', (req, res) => {
         <head>
             <title>Railway Volume Manager</title>
             <style>
-                body { font-family: -apple-system, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; background: #1a1a1a; color: #fff; }
-                h1 { border-bottom: 1px solid #333; padding-bottom: 10px; }
-                .card { background: #2a2a2a; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
-                .file-list { list-style: none; padding: 0; }
-                .file-item { display: flex; justify-content: space-between; padding: 10px; border-bottom: 1px solid #333; align-items: center; }
+                :root { --bg: #0f172a; --card: #1e293b; --border: #334155; --text: #f8fafc; --primary: #3b82f6; --danger: #ef4444; --success: #10b981; }
+                body { font-family: 'Inter', -apple-system, sans-serif; max-width: 900px; margin: 0 auto; padding: 40px 20px; background: var(--bg); color: var(--text); line-height: 1.5; }
+                header { display: flex; align-items: center; gap: 15px; margin-bottom: 30px; border-bottom: 1px solid var(--border); padding-bottom: 20px; }
+                h1 { margin: 0; font-size: 1.5rem; font-weight: 700; background: linear-gradient(to right, #fff, #94a3b8); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+                .card { background: var(--card); padding: 24px; border-radius: 12px; border: 1px solid var(--border); margin-bottom: 24px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); }
+                .file-list { list-style: none; padding: 0; margin: 0; }
+                .file-item { display: flex; justify-content: space-between; padding: 16px; border-bottom: 1px solid var(--border); align-items: center; transition: background 0.2s; }
+                .file-item:hover { background: rgba(255, 255, 255, 0.02); }
                 .file-item:last-child { border-bottom: none; }
-                .btn { padding: 5px 10px; border-radius: 4px; text-decoration: none; cursor: pointer; border: none; font-size: 14px; }
-                .btn-download { background: #3b82f6; color: white; }
-                .btn-delete { background: #ef4444; color: white; margin-left: 10px; }
-                .btn-refresh { background: #10b981; color: white; margin-bottom: 10px; display: inline-block; }
-                .drop-zone { border: 2px dashed #444; padding: 40px; text-align: center; border-radius: 8px; margin-bottom: 20px; transition: 0.2s; }
-                .drop-zone.hover { border-color: #3b82f6; background: #222; }
-                pre { background: #111; padding: 10px; overflow: auto; max-height: 200px; font-size: 12px; }
-                .timestamp { color: #888; font-size: 12px; margin-left: 10px; }
+                .btn { padding: 8px 16px; border-radius: 6px; text-decoration: none; cursor: pointer; border: none; font-size: 0.875rem; font-weight: 600; transition: all 0.2s; display: inline-flex; align-items: center; gap: 6px; }
+                .btn:active { transform: translateY(1px); }
+                .btn-download { background: var(--primary); color: white; }
+                .btn-download:hover { background: #2563eb; box-shadow: 0 0 15px rgba(59, 130, 246, 0.3); }
+                .btn-delete { background: rgba(239, 68, 68, 0.1); color: var(--danger); border: 1px solid rgba(239, 68, 68, 0.2); margin-left: 10px; }
+                .btn-delete:hover { background: var(--danger); color: white; }
+                .btn-refresh { background: var(--success); color: white; margin-bottom: 15px; }
+                .btn-refresh:hover { background: #059669; box-shadow: 0 0 15px rgba(16, 185, 129, 0.3); }
+                .drop-zone { border: 2px dashed var(--border); padding: 40px; text-align: center; border-radius: 12px; margin-bottom: 10px; transition: all 0.3s; cursor: pointer; color: #64748b; background: rgba(255,255,255,0.01); }
+                .drop-zone:hover { border-color: var(--primary); background: rgba(59, 130, 246, 0.05); color: var(--text); }
+                .timestamp { color: #64748b; font-size: 0.75rem; }
+                .file-info { display: flex; flex-direction: column; gap: 4px; }
+                .file-name { font-weight: 600; color: #93c5fd; }
+                .file-meta { font-size: 0.8rem; color: #94a3b8; }
+                #loading { text-align: center; padding: 20px; color: #64748b; }
             </style>
         </head>
         <body>
-            <h1>📦 persistent-storage/brands</h1>
+            <header>
+                <div style="font-size: 2rem;">📦</div>
+                <h1>persistent-storage/brands</h1>
+            </header>
             
             <div class="card">
-                <h3>📤 Upload Recovery File</h3>
+                <h3 style="margin-top:0">📤 Upload Recovery File</h3>
                 <div class="drop-zone" id="dropZone">
-                    Drag & Drop JSON files here or click to upload
+                    Drag & Drop JSON files here or <span style="color:var(--primary); text-decoration:underline">browse files</span>
                     <input type="file" id="fileInput" style="display: none" accept=".json">
                 </div>
             </div>
 
             <div class="card">
-                <div style="display:flex; justify-content:space-between; align-items:center">
-                    <h3>📂 Saved Files</h3>
-                    <a href="#" onclick="loadFiles(); return false;" class="btn btn-refresh">🔄 Refresh</a>
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px">
+                    <h3 style="margin:0">📂 Saved Files</h3>
+                    <a href="#" onclick="loadFiles(); return false;" class="btn btn-refresh">🔄 Refresh List</a>
                 </div>
-                <div id="loading">Loading...</div>
+                <div id="loading">Scanning volume...</div>
                 <ul class="file-list" id="fileList"></ul>
             </div>
 
@@ -597,12 +610,14 @@ app.get('/dashboard', (req, res) => {
                             li.className = 'file-item';
                             const date = new Date(file.completedAt).toLocaleString();
                             li.innerHTML = \`
-                                <div>
-                                    <strong>\${file.name}</strong> 
-                                    <span class="timestamp">(\${file.productCount} products)</span>
-                                    <br>
-                                    <small style="color:#666">\${file.filename}</small>
-                                    <span class="timestamp">\${date}</span>
+                                <div class="file-info">
+                                    <div class="file-name">\${file.name}</div> 
+                                    <div class="file-meta">
+                                        <span>\${file.productCount} products</span>
+                                        <span style="margin: 0 8px">|</span>
+                                        <span>\${date}</span>
+                                    </div>
+                                    <small style="color:#475569; font-family:monospace; font-size:0.7rem">\${file.filename}</small>
                                 </div>
                                 <div>
                                     <a href="/brands/\${file.filename}" target="_blank" class="btn btn-download">⬇️ JSON</a>

@@ -22,6 +22,7 @@ export default function AddBrandModal({ isOpen, onClose, onBrandAdded, onBrandUp
     const [allBrands, setAllBrands] = useState([]);
     const [importingId, setImportingId] = useState(null);
     const [deletingId, setDeletingId] = useState(null);
+    const [deletingRailway, setDeletingRailway] = useState(null);
     const fileInputRef = useRef(null);
 
     // Global scraping context - polling is handled by context, not this component
@@ -74,6 +75,23 @@ export default function AddBrandModal({ isOpen, onClose, onBrandAdded, onBrandUp
             alert(`Recovery Failed: ${e.message}`);
         } finally {
             setImportingRailway(null);
+        }
+    };
+
+    const handleDeleteRailway = async (filename) => {
+        if (!confirm(`Permanently delete cloud backup "${filename}"?`)) return;
+        setDeletingRailway(filename);
+        try {
+            const res = await fetch(`${API_BASE}/api/railway-brands/${filename}`, { method: 'DELETE' });
+            if (res.ok) {
+                setRailwayFiles(prev => prev.filter(f => f.filename !== filename));
+            } else {
+                throw new Error('Delete failed');
+            }
+        } catch (e) {
+            alert(`Delete Failed: ${e.message}`);
+        } finally {
+            setDeletingRailway(null);
         }
     };
 
@@ -294,7 +312,7 @@ export default function AddBrandModal({ isOpen, onClose, onBrandAdded, onBrandUp
                 <div className={styles.description}>
                     Restore scraped data that is safely saved in the cloud (persistent volume).
                 </div>
-                <div className={`${styles.brandListContainer} ${styles.cloudList}`} style={{ marginBottom: '25px', maxHeight: '150px' }}>
+                <div className={`${styles.brandListContainer} ${styles.cloudList}`} style={{ marginBottom: '25px' }}>
                     {railwayFiles.length === 0 ? (
                         <div className={styles.emptyList}>No cloud backups found.</div>
                     ) : (
@@ -311,11 +329,19 @@ export default function AddBrandModal({ isOpen, onClose, onBrandAdded, onBrandUp
                                         <button
                                             className={`${styles.actionBtn} ${styles.miniUploadBtn}`}
                                             onClick={() => handleImportRailway(file.filename)}
-                                            disabled={importingRailway === file.filename}
+                                            disabled={importingRailway === file.filename || deletingRailway === file.filename}
                                             style={{ background: '#3b82f6', color: 'white' }}
                                             title="Import to Local DB"
                                         >
                                             {importingRailway === file.filename ? '⏳' : '📥 Recover'}
+                                        </button>
+                                        <button
+                                            className={`${styles.actionBtn} ${styles.miniDeleteBtn}`}
+                                            onClick={() => handleDeleteRailway(file.filename)}
+                                            disabled={importingRailway === file.filename || deletingRailway === file.filename}
+                                            title="Delete permanently from cloud"
+                                        >
+                                            {deletingRailway === file.filename ? '...' : '🗑️ Delete'}
                                         </button>
                                     </div>
                                 </div>

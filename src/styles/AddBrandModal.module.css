@@ -9,6 +9,7 @@
   justify-content: center;
   align-items: center;
   z-index: 2000;
+  -webkit-backdrop-filter: blur(4px);
   backdrop-filter: blur(4px);
 }
 
@@ -218,6 +219,13 @@
   /* max-height: 250px; Removed to prevent nested scroll */
   /* overflow-y: auto; Removed for single main scroll */
   margin-top: 0.5rem;
+}
+
+.cloudList {
+  max-height: 200px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  border: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .brandList {

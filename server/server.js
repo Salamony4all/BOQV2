@@ -203,7 +203,7 @@ app.get('/api/scraper-config', (req, res) => {
       { id: 'railway', name: 'Railway Service (Recommended - Stable)', description: 'Cloud-based execution with proxy support' },
       { id: 'local', name: 'Local Instance (Developer / Internal)', description: 'Use your local machine resources' }
     ],
-    dashboardUrl: process.env.RAILWAY_DASHBOARD_URL || 'https://railway.app'
+    dashboardUrl: process.env.RAILWAY_DASHBOARD_URL || (JS_SCRAPER_SERVICE_URL ? `${JS_SCRAPER_SERVICE_URL}/dashboard` : 'https://railway.app')
   });
 });
 app.post('/api/upload', upload.single('file'), async (req, res) => {
@@ -745,6 +745,16 @@ app.post('/api/railway-brands/import/:filename', async (req, res) => {
     res.json({ success: true, count: restoredBrand.products.length, brandName: restoredBrand.name });
   } catch (e) {
     res.status(500).json({ error: e.message });
+  }
+});
+
+app.delete('/api/railway-brands/:filename', async (req, res) => {
+  if (!JS_SCRAPER_SERVICE_URL) return res.status(404).json({ error: 'Cloud service not configured' });
+  try {
+    await axios.delete(`${JS_SCRAPER_SERVICE_URL}/brands/${req.params.filename}`, { timeout: 10000 });
+    res.json({ success: true, message: 'Cloud backup deleted' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
   }
 });
 
