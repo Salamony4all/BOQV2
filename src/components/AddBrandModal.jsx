@@ -344,21 +344,46 @@ export default function AddBrandModal({ isOpen, onClose, onBrandAdded, onBrandUp
                                                 {file.productCount || 0} Products • {file.completedAt ? new Date(file.completedAt).toLocaleDateString() : 'N/A'}
                                             </div>
                                         </div>
-                                        <div className={styles.brandActions}>
+                                        <div className={styles.brandActions} style={{ display: 'flex', gap: '4px' }}>
                                             <button
                                                 className={`${styles.actionBtn} ${styles.miniUploadBtn}`}
                                                 onClick={() => handleImportRailway(file.filename)}
                                                 disabled={importingRailway === file.filename || deletingRailway === file.filename}
-                                                style={{ background: '#3b82f6', color: 'white', padding: '4px 10px', borderRadius: '4px' }}
+                                                style={{ 
+                                                    background: '#3b82f6', 
+                                                    color: 'white', 
+                                                    padding: '2px 8px', 
+                                                    borderRadius: '4px', 
+                                                    fontSize: '11px',
+                                                    height: '24px',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    gap: '4px',
+                                                    border: 'none',
+                                                    cursor: 'pointer'
+                                                }}
                                                 title="Import to Local DB"
                                             >
-                                                {importingRailway === file.filename ? '⏳' : '📥 Recover'}
+                                                {importingRailway === file.filename ? '⏳' : '📥'} <span>Recover</span>
                                             </button>
                                             <button
                                                 className={`${styles.actionBtn} ${styles.miniDeleteBtn}`}
                                                 onClick={() => handleDeleteRailway(file.filename)}
                                                 disabled={importingRailway === file.filename || deletingRailway === file.filename}
-                                                style={{ background: '#ef4444', color: 'white', padding: '4px 10px', borderRadius: '4px', marginLeft: '5px' }}
+                                                style={{ 
+                                                    background: '#ef4444', 
+                                                    color: 'white', 
+                                                    padding: '2px 6px', 
+                                                    borderRadius: '4px', 
+                                                    fontSize: '11px',
+                                                    height: '24px',
+                                                    width: '28px',
+                                                    display: 'flex',
+                                                    justifyContent: 'center',
+                                                    alignItems: 'center',
+                                                    border: 'none',
+                                                    cursor: 'pointer'
+                                                }}
                                                 title="Delete permanently from cloud"
                                             >
                                                 {deletingRailway === file.filename ? '...' : '🗑️'}

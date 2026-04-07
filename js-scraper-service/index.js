@@ -686,6 +686,68 @@ app.get('/dashboard', (req, res) => {
     `);
 });
 
+// ===================== BRANDS VOLUME MANAGEMENT =====================
+const BRANDS_DIR = path.join(__dirname, 'persistent-storage', 'brands');
+
+// Initial directory check
+(async () => {
+    try {
+        await fs.mkdir(BRANDS_DIR, { recursive: true });
+    } catch (e) {}
+})();
+
+// List all brands
+app.get('/brands', async (req, res) => {
+    try {
+        const files = await fs.readdir(BRANDS_DIR);
+        const jsonFiles = files.filter(f => f.endsWith('.json'));
+        
+        const brands = await Promise.all(jsonFiles.map(async (file) => {
+            try {
+                const filePath = path.join(BRANDS_DIR, file);
+                const stats = await fs.stat(filePath);
+                const content = await fs.readFile(filePath, 'utf-8');
+                const data = JSON.parse(content);
+                
+                return {
+                    name: data.brandInfo?.name || data.name || file.replace('.json', ''),
+                    filename: file,
+                    productCount: (data.products || []).length,
+                    completedAt: stats.mtime
+                };
+            } catch (e) {
+                return null;
+            }
+        }));
+        
+        res.json({ brands: brands.filter(b => b !== null) });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to list brands', brands: [] });
+    }
+});
+
+// Get single brand JSON
+app.get('/brands/:filename', async (req, res) => {
+    try {
+        const filePath = path.join(BRANDS_DIR, req.params.filename);
+        const data = await fs.readFile(filePath, 'utf-8');
+        res.json(JSON.parse(data));
+    } catch (error) {
+        res.status(404).json({ error: 'Brand file not found' });
+    }
+});
+
+// Delete brand backup
+app.delete('/brands/:filename', async (req, res) => {
+    try {
+        const filePath = path.join(BRANDS_DIR, req.params.filename);
+        await fs.unlink(filePath);
+        res.json({ success: true });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to delete file' });
+    }
+});
+
 // Upload endpoint for the dashboard
 app.post('/brands/upload', express.text({ limit: '50mb' }), async (req, res) => {
     try {
