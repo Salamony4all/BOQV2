@@ -87,9 +87,9 @@ class StructureScraper {
         if (onProgress) onProgress(20, 'Scanning main categories...', brandName);
 
         const crawler = new PlaywrightCrawler({
-            maxConcurrency: 2, // Reduced for CPU stability
-            maxRequestsPerCrawl: 300,
-            navigationTimeoutSecs: 60,
+            maxConcurrency: 1,       // Serialise — scroll loops + Playwright are CPU-heavy
+            maxRequestsPerCrawl: 1000, // Allow all sub-categories to be visited
+            navigationTimeoutSecs: 90, // Longer timeout for scroll-heavy pages
             // Ensure headless on production (Railway), optional debug locally
             headless: true,
 
@@ -243,16 +243,81 @@ class StructureScraper {
                         }]);
                     }
                 } else if (label === 'CATEGORY') {
-                    // Extract Products + Look for subcategories or pagination
+                    // ── SCROLL LOOP: force lazy-loaded products into the DOM ──
+                    console.log(`      ⏬ Scrolling to load all products on: ${currentUrl}`);
+                    let lastCount = 0;
+                    let stableCycles = 0;
+                    for (let i = 0; i < 60; i++) {  // max 60 × 800ms = 48s
+                        await page.evaluate(() => window.scrollBy(0, window.innerHeight * 1.5));
+                        await page.waitForTimeout(800);
+
+                        const currentCount = await page.evaluate(() =>
+                            document.querySelectorAll(
+                                'a[href*="/en/p/"], a[href*="/p/"], .size-full.relative, [class*="product-card"]'
+                            ).length
+                        );
+
+                        // Try to click "Load more" / "Show more" buttons if present
+                        try {
+                            await page.evaluate(() => {
+                                const loadMore = Array.from(document.querySelectorAll('button, a')).find(el => {
+                                    const t = (el.innerText || '').toLowerCase();
+                                    return t.includes('load more') || t.includes('show more') || t.includes('mehr laden');
+                                });
+                                if (loadMore) { loadMore.scrollIntoView(); loadMore.click(); }
+                            });
+                        } catch (e) { }
+
+                        if (currentCount === lastCount) {
+                            stableCycles++;
+                            if (stableCycles >= 6) break;  // 6 × 800ms = 4.8s of no new items
+                        } else {
+                            stableCycles = 0;
+                        }
+                        lastCount = currentCount;
+                    }
+                    await page.evaluate(() => window.scrollTo(0, 0));
+                    console.log(`      ✅ Scroll done — ${lastCount} product elements found in DOM`);
+
+                    // Extract products now that DOM is fully populated
                     const pageProducts = await this.extractProductsFromPage(page, brandName, category, subCategory || category);
                     products.push(...pageProducts);
                     console.log(`      ✓ Extracted ${pageProducts.length} products from ${category}`);
 
-                    // Look for pagination (Next > or numbers)
+                    // Discover nested sub-categories on this page and enqueue them
+                    const subCats = await page.evaluate(({ baseUrl, currentUrl }) => {
+                        const seen = new Set();
+                        seen.add(currentUrl);
+                        const links = [];
+                        document.querySelectorAll('a[href]').forEach(a => {
+                            const href = a.href;
+                            if (!href || !href.startsWith(baseUrl)) return;
+                            if (seen.has(href)) return;
+                            // Only enqueue Architonic category/collection hierarchy pages (not product detail pages)
+                            if (
+                                (href.includes('/en/pg/') || href.includes('/collection/') || href.includes('/category/')) &&
+                                !href.includes('/en/p/')  // exclude product detail pages
+                            ) {
+                                seen.add(href);
+                                links.push({ url: href, title: (a.innerText || '').trim().slice(0, 60) });
+                            }
+                        });
+                        return links;
+                    }, { baseUrl, currentUrl });
+
+                    for (const sub of subCats) {
+                        if (!visitedUrls.has(sub.url)) {
+                            await crawler.addRequests([{
+                                url: sub.url,
+                                userData: { label: 'CATEGORY', category: sub.title || category, subCategory: sub.title || subCategory || category }
+                            }]);
+                        }
+                    }
+
+                    // Look for pagination (Next > or page numbers)
                     const pagination = await this.findPagination(page, baseUrl);
                     for (const pg of pagination) {
                         if (!visitedUrls.has(pg)) {
-                            // High priority to finish the category
                             await crawler.addRequests([{
                                 url: pg,
                                 userData: { label: 'CATEGORY', category, subCategory }
@@ -491,7 +556,8 @@ class StructureScraper {
                 const linkEl = el.querySelector('a[href]');
                 const productUrl = linkEl ? linkEl.href : '';
 
-                if (!imageUrl || !productUrl) return;
+                // Only require a product URL; image may still be loading (lazy)
+                if (!productUrl) return;
 
                 seen.add(title);
                 items.push({

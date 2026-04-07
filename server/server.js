@@ -845,11 +845,13 @@ async function handleScrapeRequest(req, res, method = 'standard') {
       if ((scraperSource === 'railway' || isArchitonic) && isJsScraperAvailable()) {
         console.log(`🚂 [DELEGATING] Task ${taskId} (${name}) to Railway Cloud...`);
         const endpointMap = {
-          'standard': isArchitonic ? '/scrape-architonic' : '/scrape',
+          'standard': '/scrape',
           'ai': '/scrape-structure',
           'scrapling': '/scrape'
         };
-        const railwayEndpoint = endpointMap[method] || '/scrape';
+        // Architonic ALWAYS uses its dedicated endpoint (scraper.js) regardless of method —
+        // scrapeArchitonic() has scroll loops + collection discovery the structure scraper lacks.
+        const railwayEndpoint = isArchitonic ? '/scrape-architonic' : (endpointMap[method] || '/scrape');
         
         try {
           const delegation = await callJsScraperService(railwayEndpoint, {
