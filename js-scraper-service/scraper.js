@@ -12,7 +12,6 @@
 
 import axios from 'axios';
 import * as cheerio from 'cheerio';
-import { PlaywrightCrawler, CheerioCrawler, Configuration, log } from 'crawlee';
 import { promises as fs } from 'fs';
 import path from 'path';
 
@@ -24,6 +23,9 @@ class ScraperService {
             maxRequestsPerCrawl: 500,
             userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
         };
+
+        this.initialized = false;
+        this.crawlee = null;
 
         // Common product URL patterns for furniture sites
         this.productUrlPatterns = [
@@ -69,19 +71,39 @@ class ScraperService {
             '.product-image img', '.product-img img',
             '[class*="product-image"] img', '[class*="ProductImage"] img'
         ];
+    }
 
-        // === MEMORY OPTIMIZATION FOR VERCEL HOBBY PLAN (2048 MB) ===
-        log.setLevel(log.LEVELS.WARNING);
+    /**
+     * Lazy-load Crawlee and its dependencies only when needed.
+     */
+    async ensureInitialized() {
+        if (this.initialized) return this.crawlee;
 
-        // Configure Crawlee for low-memory environment
-        process.env.CRAWLEE_MEMORY_MB = '1800'; // Leave headroom below 2048 limit
-        process.env.CRAWLEE_AVAILABLE_MEMORY_RATIO = '0.85'; // Conservative ratio
+        try {
+            console.log('🔄 Initializing Scraper engine (Lazy Load)...');
+            const crawlee = await import('crawlee');
+            const { Configuration, log } = crawlee;
 
-        const config = Configuration.getGlobalConfig();
-        config.set('logLevel', 'WARNING');
-        config.set('maxUsedMemoryRatio', 0.80); // Start throttling at 80% to prevent OOM
-        config.set('maxRequestRetries', 1); // Fail faster if memory is tight
-        config.set('persistStorage', false); // Don't persist to disk (read-only on Vercel)
+            // === MEMORY OPTIMIZATION FOR CLOUD (RAILWAY/VERCEL) ===
+            log.setLevel(log.LEVELS.WARNING);
+
+            // Configure Crawlee for low-memory environment
+            process.env.CRAWLEE_MEMORY_MB = '1800'; // Leave headroom below 2048 MB limit
+            process.env.CRAWLEE_AVAILABLE_MEMORY_RATIO = '0.85'; 
+
+            const config = Configuration.getGlobalConfig();
+            config.set('logLevel', 'WARNING');
+            config.set('maxUsedMemoryRatio', 0.80); // Start throttling at 80% to prevent OOM
+            config.set('maxRequestRetries', 1); // Fail faster if memory is tight
+            config.set('persistStorage', false); // Don't persist to disk
+
+            this.crawlee = crawlee;
+            this.initialized = true;
+            return this.crawlee;
+        } catch (error) {
+            console.error('❌ Failed to initialize Crawlee:', error.message);
+            throw new Error('Web scraping is not available in the current environment. Please ensure all dependencies are installed.');
+        }
     }
 
     // ===================== UTILITIES =====================
@@ -384,6 +406,9 @@ class ScraperService {
         const baseUrl = new URL(url).origin;
         const parsedUrl = new URL(url);
 
+        // Ensure initialized
+        const { PlaywrightCrawler, Configuration } = await this.ensureInitialized();
+
         if (onProgress) onProgress(15, 'Extracting Brand Identity...');
         const brandInfo = await this.extractBrandInfo(url);
         const brandName = brandInfo.name || this.capitalize(parsedUrl.host.replace('www.', '').split('.')[0]);
@@ -585,6 +610,9 @@ class ScraperService {
         const allProducts = [];
         let brandName = 'Architonic Brand';
         let brandLogo = '';
+
+        // Ensure initialized
+        const { PlaywrightCrawler, Configuration } = await this.ensureInitialized();
 
         const storageId = `architonic_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
 

@@ -5,13 +5,15 @@
 
 import axios from 'axios';
 import * as cheerio from 'cheerio';
-import { PlaywrightCrawler, Configuration, log } from 'crawlee';
 import { promises as fs } from 'fs';
 
 class StructureScraper {
     constructor() {
         this.userAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
         this.timeout = 30000;
+
+        this.initialized = false;
+        this.crawlee = null;
 
         // Product keywords to identify product links
         this.productKeywords = ['product', 'item', 'furniture', 'chair', 'desk', 'table', 'office', 'collection', 'catalog', 'series', 'seating', 'workstation', 'storage', 'meeting'];
@@ -24,10 +26,46 @@ class StructureScraper {
     }
 
     /**
+     * Lazy-load Crawlee and its dependencies only when needed.
+     */
+    async ensureInitialized() {
+        if (this.initialized) return this.crawlee;
+
+        try {
+            console.log('🔄 Initializing Structure Scraper engine (Lazy Load)...');
+            const crawlee = await import('crawlee');
+            const { Configuration, log } = crawlee;
+
+            // === MEMORY OPTIMIZATION ===
+            log.setLevel(log.LEVELS.WARNING);
+
+            // Configure Crawlee for low-memory environment
+            process.env.CRAWLEE_MEMORY_MB = '1800'; 
+            process.env.CRAWLEE_AVAILABLE_MEMORY_RATIO = '0.85'; 
+
+            const config = Configuration.getGlobalConfig();
+            config.set('logLevel', 'WARNING');
+            config.set('maxUsedMemoryRatio', 0.80);
+            config.set('maxRequestRetries', 1);
+            config.set('persistStorage', false);
+
+            this.crawlee = crawlee;
+            this.initialized = true;
+            return this.crawlee;
+        } catch (error) {
+            console.error('❌ Failed to initialize Crawlee:', error.message);
+            throw new Error('Web scraping is not available in the current environment.');
+        }
+    }
+
+    /**
      * Main entry point
      */
     async scrapeBrand(url, brandNameOverride = null, onProgress = null) {
         console.log(`\n🏗️ [Structure Scraper] Starting hierarchical harvest for: ${url}`);
+
+        // Ensure initialized
+        const { PlaywrightCrawler, Configuration } = await this.ensureInitialized();
 
         // Check if running on Vercel serverless (Playwright won't work)
         const isVercel = process.env.VERCEL === '1';
