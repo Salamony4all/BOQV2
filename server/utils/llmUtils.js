@@ -14,17 +14,17 @@ const NVIDIA_API_KEY = process.env.NVIDIA_API_KEY;
 // Valid model names: gemini-1.5-pro, gemini-1.5-flash, gemini-2.0-flash-exp, etc.
 // Default to 2.0-flash-exp if .env is missing or has a typo (like gemini-2.5-pro)
 const VALID_GOOGLE_MODELS = [
-    'gemini-2.5-flash',
+    'gemini-2.0-flash',
     'gemini-1.5-flash',
     'gemini-1.5-flash-002',
     'gemini-1.5-pro',
     'gemini-2.0-flash', 
     'gemini-2.0-flash-exp'
 ];
-const GOOGLE_MODEL = VALID_GOOGLE_MODELS.includes(process.env.GOOGLE_MODEL) ? process.env.GOOGLE_MODEL : 'gemini-2.5-flash';
+const GOOGLE_MODEL = VALID_GOOGLE_MODELS.includes(process.env.GOOGLE_MODEL) ? process.env.GOOGLE_MODEL : 'gemini-2.0-flash';
 const OPENROUTER_MODEL = process.env.OPENROUTER_MODEL || 'google/gemini-2.0-flash-lite-001';
 const NVIDIA_MODEL = process.env.NVIDIA_MODEL || 'meta/llama-3.1-405b-instruct';
-const GROUNDING_MODEL = process.env.GOOGLE_MODEL || 'gemini-2.5-flash'; // Standard model for this environment
+const GROUNDING_MODEL = process.env.GOOGLE_MODEL || 'gemini-2.0-flash'; // Standard model for this environment
 
 const genAI = new GoogleGenerativeAI(GOOGLE_API_KEY);
 
@@ -341,7 +341,7 @@ export async function fetchProductDetails(brand, model, tier, provider = 'google
     const user = `Perform a deep search for: ${brand} ${model}. Find its high-res image, official product page, and correct category on Architonic or ${brand} site.`;
 
     try {
-        // Use gemini-2.5-flash or configured model for its strong web grounding capabilities
+        // Use gemini-2.0-flash or configured model for its strong web grounding capabilities
         let parsed = await callGoogle(system, user, true, GOOGLE_MODEL);
         
         // Stage 3.5: Image Verification & Surgical Recovery
@@ -455,7 +455,7 @@ Return JSON ONLY:
 
 /** 
  * specialized function for rapid, highly-precise matching of fitout items from internal DB.
- * uses Gemini 2.5 Flash for high-speed lookup.
+ * uses Gemini 2.0 Flash for high-speed lookup.
  */
 export async function matchFitoutItem(description, internalProducts = [], tier = 'mid') {
     const system = `You are an Elite Fitout Estimator.
@@ -487,7 +487,7 @@ Return ONLY valid JSON:
     const user = `Find best match for: "${description}" (Tier: ${tier})`;
     try {
         // Use gemini-2.5-flash for speed and efficiency as requested.
-        return await callGoogle(system, user, false, 'gemini-2.5-flash');
+        return await callGoogle(system, user, false, 'gemini-2.0-flash');
     } catch (err) {
         console.error('  ❌ [Fitout Matcher] Error:', err.message);
         return { status: 'error', error_message: err.message };

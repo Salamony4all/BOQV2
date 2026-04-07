@@ -16,8 +16,8 @@ class StructureScraper {
         this.crawlee = null;
 
         // Product keywords to identify product links
-        this.productKeywords = ['product', 'item', 'furniture', 'chair', 'desk', 'table', 'office', 'collection', 'catalog', 'series', 'seating', 'workstation', 'storage', 'meeting'];
-        this.categoryKeywords = ['category', 'collection', 'products', 'furniture', 'office', 'catalogue', 'series'];
+        this.productKeywords = ['product', 'item', 'furniture', 'chair', 'desk', 'table', 'office', 'collection', 'catalog', 'series', 'seating', 'workstation', 'storage', 'meeting', 'education', 'school', 'learning', 'university', 'scientific', 'laboratory'];
+        this.categoryKeywords = ['category', 'collection', 'products', 'furniture', 'office', 'catalogue', 'series', 'education', 'school', 'learning', 'university'];
         this.excludeKeywords = [
             'contact', 'about', 'login', 'cart', 'privacy', 'social', 'news', 'blog', 'terms', 'careers', 'account', 'faq', 'help',
             'project', 'history', 'download', 'press', 'event', 'exhibition', 'case-study', 'award', 'designer', 'sustainability',
@@ -387,7 +387,9 @@ class StructureScraper {
             '[class*="product-item"]', '[class*="product-card"]', '[class*="ProductCard"]',
             '.grid-item', '.catalog-item', '.collection-item', '.shop-item',
             '.card', '.item-card', '.furniture-item',
-            '[data-product]', '[data-item]'
+            '[data-product]', '[data-item]',
+            'a[href*="/en/p/"]', '.size-full.relative', 
+            'div:has(> a[href*="/p/"])'
         ];
 
         const titleSelectors = [
@@ -434,7 +436,7 @@ class StructureScraper {
             }
             results.sort((a, b) => b.score - a.score);
             return results.slice(0, 1); // Best match
-        }, { containerSelectors, titleSelectors });
+        }, { containerSelectors: productContainerSelectors, titleSelectors });
     }
 
     async extractProducts(page, selector, brandName, category, subCategory) {
@@ -446,9 +448,20 @@ class StructureScraper {
             containers.forEach(el => {
                 // Extract Title
                 let title = '';
-                const titleEl = el.querySelector('h2, h3, h4, .title, .name, [class*="product-title"]');
-                if (titleEl) title = titleEl.innerText.trim();
-                if (!title) title = el.getAttribute('title') || '';
+                const titleSelectors = ['h2', 'h3', 'h4', '.title', '.name', '[class*="product-title"]', 'p', 'span'];
+                for (const sel of titleSelectors) {
+                    try {
+                        const elTitle = el.querySelector(sel);
+                        if (elTitle && elTitle.innerText.trim().length > 2) {
+                            title = elTitle.innerText.trim();
+                            break;
+                        }
+                    } catch (e) {}
+                }
+                if (!title) title = el.getAttribute('title') || el.innerText.trim() || '';
+                
+                // Clean up title (remove common Architonic boilerplate like "18 Products")
+                title = title.replace(/\s*\d+\s*Products.*$/i, '').trim();
 
                 if (!title || title.length < 2 || seen.has(title)) return;
 
@@ -456,20 +469,29 @@ class StructureScraper {
                 let imageUrl = '';
                 const img = el.querySelector('img');
                 if (img) {
-                    imageUrl = img.getAttribute('src') || img.getAttribute('data-src') || img.getAttribute('data-lazy-src') || '';
-                    if (imageUrl && !imageUrl.startsWith('http')) {
-                        // Will fix in Node
+                    imageUrl = img.getAttribute('src') || 
+                               img.getAttribute('data-src') || 
+                               img.getAttribute('data-lazy-src') || 
+                               img.src || '';
+                    
+                    // Handle srcset if src is low quality or missing
+                    const srcset = img.getAttribute('srcset');
+                    if (srcset && (!imageUrl || imageUrl.includes('placeholder') || imageUrl.length < 5)) {
+                        const parts = srcset.split(',').map(s => s.trim().split(' ')[0]);
+                        if (parts.length > 0) imageUrl = parts[parts.length - 1]; // Use largest
                     }
                 }
-                if (!imageUrl) return;
+
+                // Resolve absolute URLs
+                if (imageUrl && !imageUrl.startsWith('http')) {
+                    try { imageUrl = new URL(imageUrl, window.location.href).href; } catch (e) { }
+                }
 
                 // Extract Link
                 const linkEl = el.querySelector('a[href]');
                 const productUrl = linkEl ? linkEl.href : '';
 
-                const lowerImg = imageUrl.toLowerCase();
-                const ignore = ['logo', 'icon', 'arrow', 'placeholder', 'blank', 'loading'];
-                if (ignore.some(k => lowerImg.includes(k))) return;
+                if (!imageUrl || !productUrl) return;
 
                 seen.add(title);
                 items.push({

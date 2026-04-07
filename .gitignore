@@ -44,3 +44,10 @@ test_ai_connectivity.js
 *.ps1
 tmp/
 *.log
+
+# Browser Artifacts (Playwright/MCP)
+.playwright-mcp/
+page-*.yml
+page-*.png
+page-*.jpeg
+page-*.json

@@ -233,9 +233,10 @@ class ScraperService {
                         results.push({
                             selector,
                             count: elements.length,
-                            score,
+                            score: Math.min(100, score),
                             hasTitle: hasTitle / elements.length > 0.5,
-                            hasImage: hasImage / elements.length > 0.5
+                            hasImage: hasImage / elements.length > 0.5,
+                            hasLink: hasLink / elements.length > 0.5
                         });
                     }
                 } catch (e) { }
@@ -246,6 +247,12 @@ class ScraperService {
             return results.slice(0, 3); // Top 3 candidates
 
         }, this.productContainerSelectors, this.titleSelectors);
+
+        if (analysis.length > 0) {
+            console.log(`      ⚡ Intelligent selector found: "${analysis[0].selector}" (score: ${analysis[0].score.toFixed(0)}, items: ${analysis[0].count})`);
+        } else {
+            console.log('      🔍 No clear product structure detected via intelligent analysis.');
+        }
 
         return analysis;
     }
@@ -303,7 +310,15 @@ class ScraperService {
                 let productUrl = '';
                 const linkEl = el.querySelector('a[href]');
                 if (linkEl) {
-                    productUrl = linkEl.getAttribute('href') || '';
+                    // Use .href property to get absolute URL automatically in browser context
+                    productUrl = linkEl.href || '';
+                }
+
+                // Resolve image to absolute URL immediately
+                if (imageUrl && !imageUrl.startsWith('http')) {
+                    try {
+                        imageUrl = new URL(imageUrl, window.location.href).href;
+                    } catch (e) { }
                 }
 
                 // Skip if no image or invalid
@@ -824,10 +839,12 @@ class ScraperService {
                                 return '';
                             });
 
-                            // Clean up WebP parameters for PDF compatibility
-                            if (brandLogo && brandLogo.includes('media.architonic.com') && brandLogo.includes('?')) {
-                                brandLogo = brandLogo.split('?')[0];
-                                console.log(`   🧹 Cleaned logo URL (removed webp params)`);
+                            if (brandLogo && brandLogo.includes('media.architonic.com')) {
+                                // Deeper cleaning for Architonic images to ensure high-res JPG/PNG
+                                const urlObj = new URL(brandLogo);
+                                urlObj.search = ''; // Remove all query params (webp, size, etc)
+                                brandLogo = urlObj.toString();
+                                console.log(`   🧹 Cleaned logo URL: ${brandLogo}`);
                             }
 
                             if (brandLogo) {
@@ -877,8 +894,8 @@ class ScraperService {
 
                             const iterationResults = await page.evaluate(async (currentUrl) => {
                                 // Dynamic scroll amount based on page height
-                                window.scrollBy(0, 3500); // Increased scroll distance further
-                                await new Promise(r => setTimeout(r, 500)); 
+                                window.scrollBy(0, 4000); // Increased scroll distance further for large brands
+                                await new Promise(r => setTimeout(r, 600)); 
 
                                 // 1. Find Load More
                                 const elements = Array.from(document.querySelectorAll('button, a, span, div'));
@@ -900,17 +917,19 @@ class ScraperService {
 
                                 // === COLLECTIONS-ONLY: Filter to ONLY collection URLs ===
                                 const collections = allLinks
-                                    .map(el => el.href)
-                                    .filter(href => {
+                                    .map(el => ({ href: el.href, text: el.innerText.toLowerCase() }))
+                                    .filter(link => {
+                                        const { href, text } = link;
                                         if (!href || !href.includes('architonic.com')) return false;
-                                        // STRICT: Only allow /collection/ or /category/ URLs, NEVER /products/
                                         if (href.includes('/products/')) return false;
                                         const normalizedHref = href.replace(/\/$/, '');
                                         const isSamePage = normalizedHref === normalizedCurrent;
-                                        const isCollectionLink = href.includes('/collection/') || href.includes('/category/') || href.includes('/group/');
+                                        const isEducation = text.includes('education') || text.includes('school') || text.includes('learning') || text.includes('university') || text.includes('educational');
+                                        const isCollectionLink = isEducation || href.includes('/collection/') || href.includes('/category/') || href.includes('/group/');
                                         const isUtility = href.endsWith('/collections') || href.endsWith('/products') || !href.includes('/b/') || href.includes('search?');
                                         return !isSamePage && !href.includes('#') && isCollectionLink && !isUtility;
-                                    });
+                                    })
+                                    .map(l => l.href);
 
                                 // Only collect products that are directly on this page (not from /products/ pages)
                                 const products = allLinks
@@ -929,9 +948,9 @@ class ScraperService {
                             // SMART BREAKER: Stop if height doesn't change for 15 consecutive scans
                             if (iterationResults.height === lastHeight) {
                                 stableHeightCount++;
-                                // 30 scans = ~21 seconds of stability to be absolutely sure all lazy-loaded categories are found
-                                if (stableHeightCount >= 30) {
-                                    console.log(`   ✅ Reached bottom of page (height stable for 30 scans). Found ${discoveredSubLinks.size} collections.`);
+                                // 40 scans = ~30 seconds of stability to be absolutely sure all lazy-loaded categories (like Education) are found
+                                if (stableHeightCount >= 40) {
+                                    console.log(`   ✅ Reached bottom of page (height stable for 40 scans). Found ${discoveredSubLinks.size} collections.`);
                                     break;
                                 }
                             } else {
@@ -1094,30 +1113,72 @@ class ScraperService {
                         }
                     });
 
-                    // === STEP 4: Extract ALL product links with comprehensive Architonic URL patterns ===
-                    const productLinks = await page.$$eval('a', (els) => {
-                        return els
-                            .map(el => el.href)
-                            .filter(href => {
-                                if (!href || !href.includes('architonic.com')) return false;
-                                // Architonic product URL patterns:
-                                // /en/p/model-name-12345  — primary format
-                                // /p/model-name-12345     — short format
-                                // /product/...            — legacy format
-                                const isProduct = (
-                                    /\/(?:en|de|fr|es|it|nl|pt|zh|ja|ko)\/p\/[a-z0-9-]+/i.test(href) ||
-                                    /\/p\/[a-z0-9-]+/i.test(href) ||
-                                    href.includes('/product/')
-                                ) && !href.includes('/collection/') && !href.includes('/b/');
-                                return isProduct;
-                            });
+                                        // === STEP 4: Extract ALL product links and basic metadata as fallback ===
+                    const discoveredProducts = await page.evaluate(() => {
+                        const items = [];
+                        // 1. Target links with specific classes used by Architonic for product cards
+                        const cardLinks = Array.from(document.querySelectorAll('a[href*="/product/"], a[href*="/p/"]'));
+
+                        cardLinks.forEach(el => {
+                            const url = el.href;
+                            const img = el.querySelector('img');
+                            const imageUrl = img ? (img.getAttribute('data-src') || img.getAttribute('data-lazy-src') || img.src) : '';
+
+                            // Extract name from title attribute or nested text
+                            let name = '';
+                            const nameEl = el.querySelector('div[class*="Name"], .title, h3, h4');
+                            if (nameEl) name = nameEl.innerText.trim();
+                            if (!name) name = el.getAttribute('title') || el.innerText.trim() || '';
+
+                            // Robust cleaning of product name
+                            name = name.replace(/\s*\d+\s*Products.*$/i, '')
+                                .replace(/Collections by.*$/i, '')
+                                .trim();
+
+                            if (url && (name.length > 2 || imageUrl) && !url.includes('/b/') && !url.includes('/collection/')) {
+                                items.push({ url, name, imageUrl });
+                            }
+                        });
+                        return items;
                     });
 
-                    // Deduplicate: only enqueue URLs we haven't seen before
-                    const newLinks = [...new Set(productLinks)].filter(href => !queuedProductUrls.has(href));
-                    newLinks.forEach(href => queuedProductUrls.add(href));
+                    // Deduplicate discovered products by URL
+                    const uniqueDiscovered = [];
+                    const seenUrls = new Set();
+                    for (const p of discoveredProducts) {
+                        if (!seenUrls.has(p.url)) {
+                            seenUrls.add(p.url);
+                            uniqueDiscovered.push(p);
+                        }
+                    }
 
-                    console.log(`   ✨ Found ${productLinks.length} items in "${collectionName}" (${newLinks.length} new, ${productLinks.length - newLinks.length} already queued)`);
+                    console.log(`   ✨ Found ${uniqueDiscovered.length} items in "${collectionName}"`);
+
+                    // Add to allProducts immediately as fallback
+                    for (const prod of uniqueDiscovered) {
+                        const alreadyIn = allProducts.some(p => p.productUrl === prod.url);
+                        if (!alreadyIn && prod.name) {
+                            // Extract category from collection name
+                            let category = collectionName || 'General';
+                            
+                            // Clean image URL
+                            let finalImageUrl = prod.imageUrl || 'https://via.placeholder.com/400x400?text=No+Image';
+                            if (finalImageUrl.includes('media.architonic.com') && finalImageUrl.includes('?')) {
+                                finalImageUrl = finalImageUrl.split('?')[0];
+                            }
+
+                            allProducts.push({
+                                mainCategory: 'Furniture',
+                                subCategory: category,
+                                family: brandName,
+                                model: prod.name,
+                                description: prod.name,
+                                imageUrl: finalImageUrl,
+                                productUrl: prod.url,
+                                price: 0
+                            });
+                        }
+                    }
 
                     // === STEP 5: Recursive sub-collection discovery ===
                     const subCollectionLinks = await page.$$eval('a', (els) => {
@@ -1137,9 +1198,13 @@ class ScraperService {
                         });
                     }
 
-                    if (newLinks.length > 0) {
+                    // Still enqueue individual product pages for detail extraction if possible
+                    const newProductLinks = uniqueDiscovered.map(p => p.url).filter(url => !queuedProductUrls.has(url));
+                    newProductLinks.forEach(url => queuedProductUrls.add(url));
+
+                    if (newProductLinks.length > 0) {
                         await enqueueLinks({
-                            urls: newLinks,
+                            urls: newProductLinks,
                             userData: { label: 'PRODUCT', _brand: brandName, _coll: collectionName }
                         });
                     }
