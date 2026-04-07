@@ -326,40 +326,47 @@ export default function AddBrandModal({ isOpen, onClose, onBrandAdded, onBrandUp
                 <div className={styles.description}>
                     Restore scraped data that is safely saved in the cloud (persistent volume).
                 </div>
-                <div className={`${styles.brandListContainer} ${styles.cloudList}`} style={{ marginBottom: '25px' }}>
-                    {railwayFiles.length === 0 ? (
-                        <div className={styles.emptyList}>No cloud backups found.</div>
+                <div className={`${styles.brandListContainer} ${styles.cloudList}`} style={{ marginBottom: '25px', minHeight: '50px' }}>
+                    {(!railwayFiles || railwayFiles.length === 0) ? (
+                        <div className={styles.emptyList} style={{ color: '#64748b', padding: '20px', textAlign: 'center' }}>
+                            No cloud backups found.
+                        </div>
                     ) : (
                         <div className={styles.brandList}>
-                            {railwayFiles.map(file => (
-                                <div key={file.filename} className={styles.brandItem} style={{ background: '#1e293b' }}>
-                                    <div className={styles.brandInfo}>
-                                        <div className={styles.brandNameText} style={{ color: '#93c5fd' }}>{file.name || file.filename}</div>
-                                        <div className={styles.brandStats} style={{ color: '#64748b' }}>
-                                            {file.productCount} Products • {new Date(file.completedAt).toLocaleDateString()}
+                            {railwayFiles.map((file) => {
+                                return (
+                                    <div key={file.filename} className={styles.brandItem} style={{ background: '#1e293b', borderBottom: '1px solid #334155' }}>
+                                        <div className={styles.brandInfo}>
+                                            <div className={styles.brandNameText} style={{ color: '#93c5fd', fontWeight: '600' }}>
+                                                {file.name || file.filename || "Unnamed Backup"}
+                                            </div>
+                                            <div className={styles.brandStats} style={{ color: '#94a3b8', fontSize: '12px' }}>
+                                                {file.productCount || 0} Products • {file.completedAt ? new Date(file.completedAt).toLocaleDateString() : 'N/A'}
+                                            </div>
+                                        </div>
+                                        <div className={styles.brandActions}>
+                                            <button
+                                                className={`${styles.actionBtn} ${styles.miniUploadBtn}`}
+                                                onClick={() => handleImportRailway(file.filename)}
+                                                disabled={importingRailway === file.filename || deletingRailway === file.filename}
+                                                style={{ background: '#3b82f6', color: 'white', padding: '4px 10px', borderRadius: '4px' }}
+                                                title="Import to Local DB"
+                                            >
+                                                {importingRailway === file.filename ? '⏳' : '📥 Recover'}
+                                            </button>
+                                            <button
+                                                className={`${styles.actionBtn} ${styles.miniDeleteBtn}`}
+                                                onClick={() => handleDeleteRailway(file.filename)}
+                                                disabled={importingRailway === file.filename || deletingRailway === file.filename}
+                                                style={{ background: '#ef4444', color: 'white', padding: '4px 10px', borderRadius: '4px', marginLeft: '5px' }}
+                                                title="Delete permanently from cloud"
+                                            >
+                                                {deletingRailway === file.filename ? '...' : '🗑️'}
+                                            </button>
                                         </div>
                                     </div>
-                                    <div className={styles.brandActions}>
-                                        <button
-                                            className={`${styles.actionBtn} ${styles.miniUploadBtn}`}
-                                            onClick={() => handleImportRailway(file.filename)}
-                                            disabled={importingRailway === file.filename || deletingRailway === file.filename}
-                                            style={{ background: '#3b82f6', color: 'white' }}
-                                            title="Import to Local DB"
-                                        >
-                                            {importingRailway === file.filename ? '⏳' : '📥 Recover'}
-                                        </button>
-                                        <button
-                                            className={`${styles.actionBtn} ${styles.miniDeleteBtn}`}
-                                            onClick={() => handleDeleteRailway(file.filename)}
-                                            disabled={importingRailway === file.filename || deletingRailway === file.filename}
-                                            title="Delete permanently from cloud"
-                                        >
-                                            {deletingRailway === file.filename ? '...' : '🗑️ Delete'}
-                                        </button>
-                                    </div>
-                                </div>
-                            ))}
+                                );
+                            })}
                         </div>
                     )}
                 </div>
