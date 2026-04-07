@@ -21,10 +21,10 @@ const VALID_GOOGLE_MODELS = [
     'gemini-2.0-flash', 
     'gemini-2.0-flash-exp'
 ];
-const GOOGLE_MODEL = VALID_GOOGLE_MODELS.includes(process.env.GOOGLE_MODEL) ? process.env.GOOGLE_MODEL : 'gemini-1.5-flash';
+const GOOGLE_MODEL = VALID_GOOGLE_MODELS.includes(process.env.GOOGLE_MODEL) ? process.env.GOOGLE_MODEL : 'gemini-2.5-flash';
 const OPENROUTER_MODEL = process.env.OPENROUTER_MODEL || 'google/gemini-2.0-flash-lite-001';
 const NVIDIA_MODEL = process.env.NVIDIA_MODEL || 'meta/llama-3.1-405b-instruct';
-const GROUNDING_MODEL = process.env.GOOGLE_MODEL || 'gemini-1.5-flash'; // Standard model for this environment
+const GROUNDING_MODEL = process.env.GOOGLE_MODEL || 'gemini-2.5-flash'; // Standard model for this environment
 
 const genAI = new GoogleGenerativeAI(GOOGLE_API_KEY);
 
