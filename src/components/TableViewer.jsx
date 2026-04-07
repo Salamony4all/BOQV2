@@ -519,8 +519,10 @@ function TableViewer({ data, allBrands }) {
                     textColor: colors.white,
                     fontStyle: 'bold',
                     halign: 'center',
-                    fontSize: 7,
-                    cellPadding: 3
+                    fontSize: 10,
+                    font: arabicLoaded ? 'Almarai' : 'helvetica',
+                    cellPadding: 1.5,
+                    minCellHeight: 7
                 },
                 alternateRowStyles: {
                     fillColor: [250, 250, 250]
@@ -1029,7 +1031,9 @@ function TableViewer({ data, allBrands }) {
                         fillColor: colors.primary,
                         textColor: colors.white,
                         fontStyle: 'bold',
-                        fontSize: 9
+                        fontSize: 9,
+                        cellPadding: 1.5,
+                        minCellHeight: 7
                     },
                     alternateRowStyles: { fillColor: colors.lightBg },
                     columnStyles: { 0: { cellWidth: 40, fontStyle: 'bold' } }
@@ -1316,7 +1320,14 @@ function TableViewer({ data, allBrands }) {
                     ],
                     theme: 'striped',
                     styles: { fontSize: 8, cellPadding: 2.5, textColor: colors.text, overflow: 'linebreak', font: arabicLoaded ? 'Almarai' : 'helvetica' },
-                    headStyles: { fillColor: colors.accent, textColor: colors.white, fontStyle: 'bold', fontSize: 8 },
+                    headStyles: { 
+                        fillColor: colors.accent, 
+                        textColor: colors.white, 
+                        fontStyle: 'bold', 
+                        fontSize: 8,
+                        cellPadding: 1.5,
+                        minCellHeight: 7 
+                    },
                     alternateRowStyles: { fillColor: colors.lightBg },
                     columnStyles: { 0: { cellWidth: 48, fontStyle: 'bold' } }
                 });
@@ -1338,7 +1349,16 @@ function TableViewer({ data, allBrands }) {
                     body: [[processText(project.originatorName || ''), processText(project.originatorDesignation || ''), '']],
                     theme: 'grid',
                     styles: { fontSize: 7.5, cellPadding: 2, textColor: colors.text, font: arabicLoaded ? 'Almarai' : 'helvetica' },
-                    headStyles: { fillColor: [248, 250, 252], textColor: colors.text, fontStyle: 'bold', halign: 'center', lineWidth: 0.1, lineColor: colors.border },
+                    headStyles: { 
+                        fillColor: [248, 250, 252], 
+                        textColor: colors.text, 
+                        fontStyle: 'bold', 
+                        halign: 'center', 
+                        lineWidth: 0.1, 
+                        lineColor: colors.border,
+                        cellPadding: 1.5,
+                        minCellHeight: 7
+                    },
                     bodyStyles: { minCellHeight: 6 },
                     columnStyles: { 0: { cellWidth: 55 }, 1: { cellWidth: 55 }, 2: { cellWidth: 'auto' } }
                 });
@@ -1666,7 +1686,14 @@ function TableViewer({ data, allBrands }) {
                     ],
                     theme: 'striped',
                     styles: { fontSize: 8, cellPadding: 2.5, textColor: colors.text, overflow: 'linebreak', font: arabicLoaded ? 'Almarai' : 'helvetica' },
-                    headStyles: { fillColor: colors.accent, textColor: colors.white, fontStyle: 'bold', fontSize: 8 },
+                    headStyles: { 
+                        fillColor: colors.accent, 
+                        textColor: colors.white, 
+                        fontStyle: 'bold', 
+                        fontSize: 8,
+                        cellPadding: 1.5,
+                        minCellHeight: 7
+                    },
                     alternateRowStyles: { fillColor: colors.lightBg },
                     columnStyles: { 0: { cellWidth: 48, fontStyle: 'bold' } }
                 });
@@ -1688,7 +1715,16 @@ function TableViewer({ data, allBrands }) {
                     body: [[processText(project.originatorName || ''), processText(project.originatorDesignation || ''), '']],
                     theme: 'grid',
                     styles: { fontSize: 7.5, cellPadding: 2, textColor: colors.text, font: arabicLoaded ? 'Almarai' : 'helvetica' },
-                    headStyles: { fillColor: [248, 250, 252], textColor: colors.text, fontStyle: 'bold', halign: 'center', lineWidth: 0.1, lineColor: colors.border },
+                    headStyles: { 
+                        fillColor: [248, 250, 252], 
+                        textColor: colors.text, 
+                        fontStyle: 'bold', 
+                        halign: 'center', 
+                        lineWidth: 0.1, 
+                        lineColor: colors.border,
+                        cellPadding: 1.5,
+                        minCellHeight: 7
+                    },
                     bodyStyles: { minCellHeight: 6 },
                     columnStyles: { 0: { cellWidth: 55 }, 1: { cellWidth: 55 }, 2: { cellWidth: 'auto' } }
                 });
@@ -1925,7 +1961,15 @@ function TableViewer({ data, allBrands }) {
             body: allRows,
             theme: 'striped',
             styles: { fontSize: 7.5, cellPadding: 2.5, textColor: colors.text, overflow: 'linebreak', font: arabicLoaded ? 'Almarai' : 'helvetica', valign: 'middle' },
-            headStyles: { fillColor: colors.accent, textColor: colors.white, fontStyle: 'bold', fontSize: 7.5, halign: 'center' },
+            headStyles: { 
+                fillColor: colors.accent, 
+                textColor: colors.white, 
+                fontStyle: 'bold', 
+                fontSize: 7.5, 
+                halign: 'center',
+                cellPadding: 1.5,
+                minCellHeight: 7
+            },
             alternateRowStyles: { fillColor: colors.lightBg },
             columnStyles: {
                 0: { cellWidth: 9, halign: 'center' },

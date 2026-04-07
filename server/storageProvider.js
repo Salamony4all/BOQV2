@@ -218,9 +218,10 @@ export const brandStorage = {
             return true; 
         }
 
-        // Append new product with metadata
+        // Append new product with metadata, cleaning up AI internal fields
+        const { status, logic, error_message, ...cleanProduct } = product;
         targetBrand.products.push({
-            ...product,
+            ...cleanProduct,
             lastUpdated: new Date().toISOString(),
             source: 'AI-Specialist-Discovery'
         });

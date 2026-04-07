@@ -11,9 +11,10 @@ import { CleanupService } from './cleanupService.js';
 import { put, del } from '@vercel/blob';
 import { handleUpload } from '@vercel/blob/client';
 import axios from 'axios';
+import https from 'https';
 import { ExcelDbManager } from './excelManager.js';
 import { brandStorage } from './storageProvider.js';
-import { getAiMatch, identifyModel, fetchProductDetails, analyzePlan, matchFitoutItem } from './utils/llmUtils.js';
+import { getAiMatch, identifyModel, fetchProductDetails, searchAndEnrichModel, analyzePlan, matchFitoutItem } from './utils/llmUtils.js';
 
 // Restored Scraper Engine Imports
 import ScraperService from './scraper.js';
@@ -282,6 +283,43 @@ app.post('/api/brands', async (req, res) => {
   }
 });
 
+/**
+ * 💎 AI ENRICHMENT & HARDENING ENDPOINT
+ * Triggers online search and saves results permanently to the brand database.
+ */
+app.post('/api/models/enrich', async (req, res) => {
+  const { brandName, modelName, budgetTier = 'mid' } = req.body;
+  
+  if (!brandName || !modelName) {
+    return res.status(400).json({ error: 'Brand name and Model name are required' });
+  }
+
+  console.log(`🌐 [API] Enrichment request for: ${brandName} "${modelName}" (${budgetTier})`);
+
+  try {
+    const enrichment = await searchAndEnrichModel(brandName, modelName, budgetTier);
+    
+    if (enrichment.status === 'success' && enrichment.product) {
+      // PERMANENTLY SAVE TO DATABASE
+      const saved = await brandStorage.addProductToBrand(brandName, budgetTier, enrichment.product);
+      
+      return res.json({ 
+        status: 'success', 
+        product: enrichment.product,
+        hardened: saved
+      });
+    }
+
+    res.status(404).json({ 
+      status: 'error', 
+      message: enrichment.error_message || 'Model details not found online.' 
+    });
+  } catch (err) {
+    console.error('❌ [API] Enrichment failed:', err.message);
+    res.status(500).json({ status: 'error', message: err.message });
+  }
+});
+
 app.delete('/api/brands/:id', async (req, res) => {
   try {
     await brandStorage.deleteBrand(req.params.id);
@@ -295,63 +333,100 @@ app.delete('/api/brands/:id', async (req, res) => {
 // FF&E SPECIALIST AI ENDPOINT — 3-Stage Workflow
 // ──────────────────────────────────────────────────────────────────────────────
 //
-//  Stage 1: AI (with web search) → "Best ONE model for [desc] from [brand]?"
+//  Stage 1: AI (with web search) → \"Best ONE model for [desc] from [brand]?\"
 //  Stage 2: Fuzzy search in local brand DB JSON for that model name
-//  Stage 3: If missing → AI fetches full product from web → saves permanently to DB
+//  Stage 3: If missing or price is 0 → AI fetches full product from web → saves permanently
 //
 // ──────────────────────────────────────────────────────────────────────────────
-
-/**
- * Fuzzy model matching: strips catalog ID suffixes (#12345678) and normalizes.
- * Returns the matching product entry or null.
- */
 function fuzzyFindModel(products, targetModelName, targetCategory = '') {
-    if (!products || !products.length || !targetModelName) return null;
+    if (!products || !Array.isArray(products) || !targetModelName) return null;
 
-    const normalize = (s) => String(s)
+    const SYNONYMS = {
+        'stool': ['chair', 'seat', 'barstool', 'bench'],
+        'chair': ['stool', 'seat', 'armchair', 'sidechair'],
+        'desk': ['table', 'workstation', 'bench'],
+        'table': ['desk', 'workstation', 'bench'],
+        'sofa': ['couch', 'bench', 'ottoman', 'pouf'],
+        'cabinet': ['cupboard', 'storage', 'wardrobe']
+    };
+
+    const normalize = (s) => String(s || '')
         .toLowerCase()
-        .replace(/#\d+/g, '')          // strip Architonic IDs like #20732680
-        .replace(/[^a-z0-9\s]/g, ' ')  // strip special chars
-        .replace(/\s+/g, ' ')
+        .replace(/#\d+/g, '')          // strip Architonic IDs
+        .replace(/[^a-z0-9]/g, ' ')   // swap special chars for spaces
+        .replace(/\s+/g, ' ')         // collapse spaces
         .trim();
 
     const target = normalize(targetModelName);
+    if (!target) return null;
 
-    // Filter by category if possible to prevent "Chair" description matching a "Desk" product
-    let filteredProducts = products;
+    // 1. Exact match after normalization
+    let found = products.find(p => normalize(p.model) === target);
+    if (found) return found;
+
+    // 2. Exact or Substring Matching
+    let filteredProducts = products.filter(p => {
+        const m = normalize(p.model);
+        return m.includes(target) || target.includes(m);
+    });
+
+    // 3. Synonym-Aware Search (if no direct substring matches)
+    if (filteredProducts.length === 0) {
+        const targetWords = target.split(' ');
+        filteredProducts = products.filter(p => {
+            const m = normalize(p.model);
+            const mWords = m.split(' ');
+            return targetWords.some(tw => {
+                if (mWords.includes(tw)) return true;
+                const syns = SYNONYMS[tw] || [];
+                return syns.some(s => mWords.includes(s));
+            });
+        });
+    }
+
+    if (filteredProducts.length === 0) return null;
+
+    // 4. Category Awareness (Weighted Scoring)
     if (targetCategory && targetCategory.length > 2) {
         const cat = targetCategory.toLowerCase().trim();
-        const matchesCat = products.filter(p => {
+        const categorized = filteredProducts.filter(p => {
             const mc = (p.mainCategory || '').toLowerCase();
             const sc = (p.subCategory || '').toLowerCase();
             return mc.includes(cat) || sc.includes(cat) || cat.includes(mc) || cat.includes(sc);
         });
-        if (matchesCat.length > 0) {
-            filteredProducts = matchesCat;
+        if (categorized.length > 0) {
+            filteredProducts = categorized;
         }
     }
 
-    // 1. Exact match after normalization
-    let found = filteredProducts.find(p => normalize(p.model) === target);
-    if (found) return found;
-
-    // 2. One contains the other
-    found = filteredProducts.find(p => {
-        const pn = normalize(p.model);
-        return pn.includes(target) || target.includes(pn);
-    });
-    if (found) return found;
-
-    // 3. Word-intersection (>=50% overlap)
-    const targetWords = new Set(target.split(' ').filter(w => w.length > 2));
-    if (targetWords.size === 0) return null;
+    // 5. Final Best Match (Word-intersection scoring)
+    // Filter: words length > 2 OR matches numbers (critical for models like 'Stool 80')
+    const targetWords = new Set(target.split(' ').filter(w => w.length > 2 || /^\d+$/.test(w)));
+    if (targetWords.size === 0) return filteredProducts[0]; 
 
     let bestScore = 0;
     let bestMatch = null;
     for (const p of filteredProducts) {
-        const pWords = normalize(p.model).split(' ').filter(w => w.length > 2);
+        const pModel = normalize(p.model);
+        if (pModel === target) return p; 
+
+        const pWords = pModel.split(' ').filter(w => w.length > 2 || /^\d+$/.test(w));
         const intersection = pWords.filter(w => targetWords.has(w)).length;
-        const score = intersection / Math.max(targetWords.size, pWords.length);
+        
+        let score = (intersection / Math.max(targetWords.size, pWords.length));
+
+        // Bonus for synonym matches if direct intersection is missing words
+        if (intersection < targetWords.size) {
+            const pAllWords = pModel.split(' ');
+            const tAllWords = target.split(' ');
+            tAllWords.forEach(tw => {
+                if (targetWords.has(tw) && !pWords.includes(tw)) {
+                    const syns = SYNONYMS[tw] || [];
+                    if (syns.some(s => pAllWords.includes(s))) score += 0.25;
+                }
+            });
+        }
+
         if (score > bestScore) { bestScore = score; bestMatch = p; }
     }
 
@@ -477,52 +552,70 @@ app.post('/api/auto-match-ai', async (req, res) => {
     console.log(`  ✅ [Tier Filter] Allowed brands (${finalTier}): ${tierIsolatedCandidates.join(', ')}`);
     // ── END TIER ISOLATION ─────────────────────────────────────────────────────
 
-    // ─────────────────────────────────────────────
-    // Try each tier-validated brand candidate in order
-    // ─────────────────────────────────────────────
-    for (const candidateBrand of tierIsolatedCandidates) {
-      // STAGE 1: IDENTIFY MODEL (AI Context)
-      // 💡 Abstracted: We use the raw description (no Qty/Unit) to prevent hallucinations.
-      console.log(`\n  🔎 [Stage 1] Identification Engine → "${candidateBrand}" best model for: "${description.substring(0, 60)}"...`);
-      const identity = await identifyModel(description, candidateBrand, provider);
+    // ── OPTIMIZED BRAND PROCESSING ──────────────────
+    console.log(`\n  ⚡ [Optimization] Running parallel identification for ${tierIsolatedCandidates.length} brands...`);
+    
+    // 1. Run Identification (Stage 1) for ALL brands in parallel with Natural Taxonomy awareness
+    const identificationPromises = tierIsolatedCandidates.map(async (candidateBrand) => {
+      try {
+        const dbEntry = allLocalBrands.find(b => 
+          b.name.toLowerCase().trim() === candidateBrand.toLowerCase().trim()
+        );
+        const products = dbEntry?.products || [];
+        const knownCategories = [...new Set(products.map(p => p.subCategory).filter(Boolean))];
+        const modelList = products.map(p => p.model);
+        const budgetTier = dbEntry?.budgetTier || 'mid';
 
-      if (identity.status !== 'success' || !identity.model || identity.model === 'FAILED') {
-        console.warn(`  ⚠️  [Stage 1] Identification failed for ${candidateBrand}. Trying next candidate if available...`);
-        continue;
+        const identity = await identifyModel(enrichedDescription, candidateBrand, provider, knownCategories, modelList, budgetTier);
+        return { candidateBrand, identity, knownCategories };
+      } catch (err) {
+        return { candidateBrand, identity: { status: 'error' }, knownCategories: [] };
       }
+    });
 
+    const identificationResults = await Promise.all(identificationPromises);
+    const validIdentities = identificationResults.filter(r => 
+      r.identity.status === 'success' && r.identity.model && r.identity.model !== 'FAILED'
+    );
+
+    if (validIdentities.length === 0) {
+      console.warn(`  ℹ️ [AutoFill] No brands matched at Stage 1 for: "${description}"`);
+      return res.json({
+        status: 'no_match',
+        message: `Could not identify a matching product from current candidate brands.`
+      });
+    }
+
+    // 2. Sequential Processing of Validated Identities (Prioritizing Order)
+    for (const { candidateBrand, identity, knownCategories } of validIdentities) {
       const identifiedModel = identity.model.trim();
       const identifiedBrand = identity.brand || candidateBrand;
-      const identifiedCategory = identity.category || '';
-      console.log(`  ✅ [Stage 1] AI Identification complete: ${identifiedBrand} → "${identifiedModel}" [${identifiedCategory}]`);
+      const identifiedCategory = identity.mainCategory || '';
+      const identifiedSubCategory = identity.subCategory || '';
+      
+      console.log(`\n  🎯 [Processing] ${identifiedBrand} → "${identifiedModel}" (Nat. Cat: ${identifiedSubCategory})`);
 
       // ── STAGE 2: LOCAL DB SEARCH (Zero-Cost Cache) ──
       console.log(`  📂 [Stage 2] Searching verified local DB cache for "${identifiedModel}"...`);
-      
       const brandMatches = allLocalBrands.filter(b =>
         b.name.toLowerCase().trim() === identifiedBrand.toLowerCase().trim()
       );
+      const localBrand = brandMatches.find(b => (b.budgetTier || 'mid').toLowerCase() === finalTier.toLowerCase()) || brandMatches[0];
 
-      const localBrand =
-        brandMatches.find(b => (b.budgetTier || 'mid').toLowerCase() === finalTier.toLowerCase()) ||
-        brandMatches[0];
-
-      if (localBrand && localBrand.products && localBrand.products.length > 0) {
+      if (localBrand && localBrand.products?.length > 0) {
         const dbProduct = fuzzyFindModel(localBrand.products, identifiedModel, identifiedCategory);
-
+        
         if (dbProduct) {
-          console.log(`  ✨ [Stage 2] CACHE HIT: "${dbProduct.model}" loaded instantly.`);
+          console.log(`  ✨ [Stage 2] CACHE HIT: "${dbProduct.model}" loaded from local DB.`);
           return res.json({
             status: 'success',
-            product: {
-              ...dbProduct,
-              brand: identifiedBrand,
-              brandLogo: localBrand.logo || ''
-            },
+            product: { ...dbProduct, brand: identifiedBrand, brandLogo: localBrand.logo || '' },
             source: 'local-database',
             identifiedModel
           });
         }
+
+        console.log(`  📂 [Stage 2] Miss: No validated local entry for "${identifiedModel}".`);
       }
 
       // ── STAGE 3: DEEP SEARCH (Web Discovery) ─────
@@ -538,54 +631,46 @@ app.post('/api/auto-match-ai', async (req, res) => {
           source: 'AI-Discovery-Engine' 
         };
 
-        // Validate imageUrl — must be absolute HTTPS pointing to an image file
+        // Validate imageUrl
         const rawImg = newProduct.imageUrl || '';
-        const isValidImage = (
-          rawImg.startsWith('https://') &&
-          !rawImg.includes('localhost') &&
-          /\.(jpg|jpeg|png|webp|svg)(\?|$)/i.test(rawImg)
-        );
+        const isValidImage = rawImg.startsWith('https://') && !rawImg.includes('localhost') && /\.(jpg|jpeg|png|webp|svg)(\?|$)/i.test(rawImg);
         if (!isValidImage) {
-          console.warn(`  ⚠️  [Stage 3] Invalid imageUrl rejected: "${rawImg.substring(0, 80)}"`);
-          newProduct.imageUrl = localBrand?.logo || '';  // fall back to brand logo
+          newProduct.imageUrl = localBrand?.logo || ''; 
         }
 
         // Persist to local DB permanently
         try {
           if (localBrand) {
+            console.log(`  💾 [Stage 3] Permanently adding "${newProduct.model}" to ${identifiedBrand}...`);
             await brandStorage.addProductToBrand(identifiedBrand, localBrand.budgetTier || finalTier, newProduct);
-            console.log(`  💾 [Stage 3] Saved "${identifiedModel}" to ${identifiedBrand} DB permanently.`);
           } else {
-            console.warn(`  ⚠️  [Stage 3] Cannot persist — brand "${identifiedBrand}" has no local DB entry yet. Creating...`);
+            console.log(`  💾 [Stage 3] Creating NEW brand "${identifiedBrand}" for permanence...`);
             const newBrand = {
               id: Date.now(),
               name: identifiedBrand,
               logo: '',
-              budgetTier: localBrand?.budgetTier || finalTier,
+              budgetTier: finalTier,
               origin: 'AI-Discovery',
               products: [newProduct],
               createdAt: new Date().toISOString()
             };
             await brandStorage.saveBrand(newBrand);
-            console.log(`  💾 [Stage 3] Created new brand entry for "${identifiedBrand}" and saved product.`);
           }
         } catch (saveErr) {
-          console.error(`  ⚠️  [Stage 3] Persistence failed (non-fatal):`, saveErr.message);
+          console.error(`  ⚠️  [Stage 3] Persistence failed:`, saveErr.message);
         }
+
+        const proxyBase = `${req.protocol}://${req.get('host')}/api/image-proxy?url=`;
+        newProduct.imageUrl = `${proxyBase}${encodeURIComponent(newProduct.imageUrl)}`;
 
         return res.json({
           status: 'success',
-          product: {
-            ...newProduct,
-            brandLogo: localBrand?.logo || ''
-          },
+          product: { ...newProduct, brandLogo: localBrand?.logo || '' },
           source: 'ai-discovery-hardened',
           identifiedModel
         });
       }
-
-      console.warn(`  ❌ [Stage 3] Web fetch failed for ${identifiedBrand} ${identifiedModel}: ${webResult.error_message}`);
-      // Continue to next brand candidate if this one failed
+      console.warn(`  ❌ [Stage 3] Web fetch failed for ${identifiedBrand}.`);
     }
 
     // All brands exhausted
@@ -663,26 +748,66 @@ app.post('/api/railway-brands/import/:filename', async (req, res) => {
   }
 });
 
-// Image Proxy
+// Image Proxy with robust error handling
 app.get('/api/image-proxy', async (req, res) => {
+  let imageUrl = req.query.url;
   try {
-    let imageUrl = req.query.url;
     if (!imageUrl) return res.status(400).send('URL required');
-    if (!imageUrl.startsWith('http')) imageUrl = Buffer.from(imageUrl, 'base64').toString('utf-8');
+    
+    // Support base64 encoded URLs if they don't start with http
+    if (!imageUrl.startsWith('http')) {
+      try {
+        imageUrl = Buffer.from(imageUrl, 'base64').toString('utf-8');
+      } catch (e) {
+        return res.status(400).send('Invalid URL format');
+      }
+    }
+
+    const urlObj = new URL(imageUrl);
+    const origin = `${urlObj.protocol}//${urlObj.hostname}/`;
+
+    // Create a robust HTTPS agent that can handle some common SSL issues if needed
+    const httpsAgent = new https.Agent({ 
+      rejectUnauthorized: false, // Bypass some SSL issues for proxying
+      keepAlive: true 
+    });
 
     const response = await axios.get(imageUrl, {
       responseType: 'arraybuffer',
-      timeout: 10000,
-      headers: { 'User-Agent': 'Mozilla/5.0' }
+      timeout: 15000, 
+      httpsAgent,
+      headers: { 
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Referer': origin,
+        'Cache-Control': 'no-cache',
+        'Pragma': 'no-cache'
+      }
     });
 
-    res.set('Content-Type', response.headers['content-type'] || 'image/jpeg');
+    const contentType = response.headers['content-type'] || 'image/jpeg';
+    res.set('Content-Type', contentType);
     res.set('Cache-Control', 'public, max-age=31536000');
     res.send(response.data);
+
   } catch (error) {
-    res.status(502).send('Image fetch failed');
+    const status = error.response?.status || 502;
+    const code = error.code || 'UNKNOWN_ERROR';
+    const msg = error.response?.statusText || error.message;
+    
+    console.error(`🖼️  [Image Proxy] Failed: ${imageUrl?.substring(0, 80)}... | Status: ${status} | Code: ${code} | Msg: ${msg}`);
+    
+    if (status === 404) {
+      res.status(404).send('Image not found');
+    } else if (status === 403) {
+      res.status(403).send('Access forbidden by target site');
+    } else {
+      res.status(502).send(`Gateway Error: ${code} - ${msg}`);
+    }
   }
 });
+
 
 // --- Unified Scraper Engine ---
 async function handleScrapeRequest(req, res, method = 'standard') {

@@ -605,6 +605,13 @@ function AppContent({ onOpenSettings }) {
           originalTables={extractedData?.tables || null}
           onApplyFlow={handleMultiBudgetApply}
           seededItems={seededPlanItems}
+          onUploadBoq={handleFileUpload}
+          onUploadPlan={(files) => {
+            if (files && files.length > 0) {
+              setCurrentPlanFiles(files);
+              setIsPlanScopeOpen(true);
+            }
+          }}
         />
 
         <PlanScopeModal

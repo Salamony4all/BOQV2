@@ -3328,15 +3328,15 @@
     },
     {
       "brand": "Ottimo Furniture",
-      "mainCategory": "Furniture",
-      "subCategory": "Ergonomic Office Chair",
-      "family": "Ottimo",
-      "model": "Ottimo Ergonomic Office Chair",
-      "description": "The Ottimo ergonomic office chair is an evolution of the popular Ergonovis chair, redesigned by EVIS to blend modern style with advanced ergonomics. It features a comfortable, breathable mesh, multi-angle recline mechanism with 3 locking positions, a height-adjustable backrest with 4 levels for full spinal support, 4D ergonomic armrests, customizable neck support, dynamic butterfly panel lumbar support, and an integrated footrest for enhanced comfort and productivity during long workdays.",
+      "model": "Zuna Low Back Leather Visitor Chair",
       "imageUrl": "https://ottimouae.com/wp-content/uploads/2022/08/ottimo-logo-retina.png",
-      "productUrl": "https://evisliving.com/products/evis-ottimo-ergonomic-chair",
-      "price": 279,
-      "lastUpdated": "2026-04-06T17:13:58.479Z",
+      "websiteUrl": "https://smartofficefurniture.ae/product/zuna-low-back-leather-visitor-chair/",
+      "mainCategory": "Office Seating",
+      "subCategory": "Visitor Chair",
+      "family": "Zuna Chair",
+      "price": 258.66,
+      "description": "Minimalist design leather visitor chair with high-quality foam cushion and aluminum sled base for office spaces.",
+      "lastUpdated": "2026-04-07T07:31:21.193Z",
       "source": "AI-Specialist-Discovery"
     }
   ],

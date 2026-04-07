@@ -21,10 +21,24 @@ export const getFullUrl = (url) => {
         'sedus.com',
         'hermanmiller.com',
         'steelcase.com',
-        'vitra.com'
+        'vitra.com',
+        'las.it',
+        'ismobil.com',
+        'teknion.com',
+        'haworth.com',
+        'knoll.com',
+        'interstuhl.com',
+        'wilkhahn.com',
+        'bossdesign.com'
     ];
 
-    const needsProxy = proxyDomains.some(domain => normalizedUrl.includes(domain));
+    const needsProxy = proxyDomains.some(domain => normalizedUrl.includes(domain)) || 
+                      (normalizedUrl.startsWith('http') && 
+                       !normalizedUrl.includes('images.unsplash.com') && 
+                       !normalizedUrl.includes('googleusercontent.com') &&
+                       !normalizedUrl.includes('localhost') &&
+                       !normalizedUrl.includes(window.location.hostname));
+
 
     if (needsProxy) {
         // We use base64 for common domains to bypass some filters, or just raw for others

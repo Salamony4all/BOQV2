@@ -1,6 +1,7 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import axios from 'axios';
 import 'dotenv/config';
+import { TAXONOMY } from './normalizer.js';
 
 // ──────────────────────────────────────────────────────────────────────────────
 // CONFIGURATION
@@ -14,16 +15,16 @@ const NVIDIA_API_KEY = process.env.NVIDIA_API_KEY;
 // Default to 2.0-flash-exp if .env is missing or has a typo (like gemini-2.5-pro)
 const VALID_GOOGLE_MODELS = [
     'gemini-2.5-flash',
-    'gemini-2.5-pro',
-    'gemini-3.1-flash-live-preview',
-    'gemini-2.0-flash-exp', 
-    'gemini-2.0-flash-001', 
-    'gemini-2.0-flash-lite-001'
+    'gemini-1.5-flash',
+    'gemini-1.5-flash-002',
+    'gemini-1.5-pro',
+    'gemini-2.0-flash', 
+    'gemini-2.0-flash-exp'
 ];
-const GOOGLE_MODEL = VALID_GOOGLE_MODELS.includes(process.env.GOOGLE_MODEL) ? process.env.GOOGLE_MODEL : 'gemini-2.5-flash';
+const GOOGLE_MODEL = VALID_GOOGLE_MODELS.includes(process.env.GOOGLE_MODEL) ? process.env.GOOGLE_MODEL : 'gemini-1.5-flash';
 const OPENROUTER_MODEL = process.env.OPENROUTER_MODEL || 'google/gemini-2.0-flash-lite-001';
 const NVIDIA_MODEL = process.env.NVIDIA_MODEL || 'meta/llama-3.1-405b-instruct';
-const GROUNDING_MODEL = 'gemini-2.5-flash'; // Standard model for this environment
+const GROUNDING_MODEL = process.env.GOOGLE_MODEL || 'gemini-1.5-flash'; // Standard model for this environment
 
 const genAI = new GoogleGenerativeAI(GOOGLE_API_KEY);
 
@@ -184,20 +185,44 @@ export async function callGoogle(systemPrompt, userPrompt, useSearch = false, mo
     }
 }
 
-const IDENTIFY_SYSTEM = (brand) => `You are a Senior Furniture Architect.
-Identify the single best real-world product model from ${brand} for this description.
+// ──────────────────────────────────────────────────────────────────────────────
+// SYSTEM PROMPTS
+// ──────────────────────────────────────────────────────────────────────────────
+
+const ALLOWED_CATEGORIES = Object.keys(TAXONOMY).join(', ');
+const ALLOWED_SUB_CATEGORIES = Object.values(TAXONOMY).flatMap(cat => Object.keys(cat)).join(', ');
+
+const IDENTIFY_SYSTEM = (brand, knownCategories = [], modelList = [], tier = 'mid-range') => `You are an expert Furniture Specialist for Boqify.
+Your task is to identify furniture products from user descriptions for the brand "${brand}".
+
+### 🏢 BRAND PROFILE:
+- Brand Name: ${brand}
+- Segment: ${tier.toUpperCase()} ${tier === 'budgetary' ? '(Prioritize simple, functional, value-driven models)' : '(Look for iconic, design-led, unique names)'}
+
+${modelList.length > 0 ? `### 📦 KNOWN PRODUCT CATALOG:
+The following models ARE available for this brand. You MUST prioritize matching to one of these if the description fits:
+- ${modelList.slice(0, 500).join('\n- ')}` : ''}
+
+### 🏷️ NATURAL TAXONOMY HINTS (Brand's Existing Categories):
+${knownCategories.length > 0 ? `Prefer these categories if they match logically: ${knownCategories.join(', ')}` : 'No specific brand categories provided, use global taxonomy.'}
+
+### 🌍 GLOBAL CATEGORY MAPPING:
+If the brand categories above don't fit, you MUST map to one of these:
+Main Categories: ${ALLOWED_CATEGORIES}
+Sub-Categories: ${ALLOWED_SUB_CATEGORIES}
 
 Return ONLY valid JSON:
 { 
   "brand": "${brand}", 
   "model": "Exact Model Name",
-  "category": "Standard Category (e.g. Chairs, Tables, Desks, Sofas, Storage)",
+  "mainCategory": "Main Category",
+  "subCategory": "Sub-Category",
   "logic": "Brief reasoning" 
-}`;
+} (Use the most descriptive name found on Architonic or official site)`;
 
-export async function identifyModel(description, brand, provider = 'google') {
-    const system = IDENTIFY_SYSTEM(brand);
-    const user = `What is the best One Model for "${description}" from "${brand}"?`;
+export async function identifyModel(description, brand, provider = 'google', knownCategories = [], modelList = [], tier = 'mid-range') {
+    const system = IDENTIFY_SYSTEM(brand, knownCategories, modelList, tier);
+    const user = `what is the best One "Model" for "${description}" from "${brand}"?`;
 
     if (process.env.DEBUG_AI === 'true') {
         console.log(`\n🤖 [AI Stage 1 Prompt] (Brand: ${brand}):\nSystem: ${system.substring(0, 200)}...\nUser: ${user}`);
@@ -212,7 +237,7 @@ export async function identifyModel(description, brand, provider = 'google') {
                 status: 'success', 
                 brand: parsed.brand || brand, 
                 model: parsed.model,
-                category: parsed.category || ''
+                mainCategory: parsed.mainCategory || ''
             };
         }
         
@@ -227,7 +252,7 @@ export async function identifyModel(description, brand, provider = 'google') {
                     status: 'success', 
                     brand: fallbackParsed.brand || brand, 
                     model: fallbackParsed.model,
-                    category: fallbackParsed.category || ''
+                    mainCategory: fallbackParsed.mainCategory || ''
                 };
             }
         } catch (innerErr) {
@@ -237,48 +262,168 @@ export async function identifyModel(description, brand, provider = 'google') {
     }
 }
 
-const FETCH_SYSTEM = (brand, model) => `You are a senior FF&E researcher specializing in global furniture sourcing.
+/**
+ * Verifies if an image URL is alive and accessible.
+ * Optimized with 'Smart Trust' to prevent common Forbidden errors on known brand sites.
+ */
+async function verifyImageUrl(url, brand = '') {
+    if (!url || url === 'FAILED' || !url.startsWith('http')) return false;
 
-Your task: Find full product details for "${model}" by ${brand}.
+    // 1. Extension and Trusted Domain Fast-Path
+    const isImageFile = /\.(jpg|jpeg|png|webp|gif|svg)$/i.test(url.split('?')[0]);
+    const trustedDomains = ['narbutas.com', 'steelcase.com', 'hermanmiller.com', 'knoll.com', 'vitra.com', 'muuto.com', 'haworth.com'];
+    const lowerUrl = url.toLowerCase();
+    const isTrusted = trustedDomains.some(d => lowerUrl.includes(d)) || (brand && lowerUrl.includes(brand.toLowerCase()));
 
-### 🔍 Search Strategy:
-1. **Primary Source (Official Catalog)**: Search for the official brand website (e.g. las.it, ismobil.com, ottimo.ae, teknion.com). This is the "Pillar of Truth".
-2. **Secondary Source (Architonic)**: Use Architonic as a reference library if the official site is restricted or lacks clear imagery.
-3. **Asset Quality**: 
-   - Prioritize DIRECT, functional image URLs. 
-   - AVOID generic thumbnails or broken redirects.
-   - If a brand is missing from Architonic (like Ottimo or LAS), use Google search to find their official catalog index.
-
-Extract and return ONLY valid JSON (no markdown):
-{
-  "brand": "${brand}",
-  "mainCategory": "Furniture",
-  "subCategory": "Standardized sub-category",
-  "family": "Collection/Series name",
-  "model": "${model}",
-  "description": "Professional 2-4 sentence description with technical specs.",
-  "imageUrl": "DIRECT functional URL ending in .jpg, .png, or .webp",
-  "productUrl": "Direct product page URL",
-  "price": 0
+    try {
+        const res = await axios.head(url, {
+            timeout: 5000,
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8'
+            }
+        });
+        const contentType = res.headers['content-type'] || '';
+        if (res.status >= 200 && res.status < 400 && contentType.startsWith('image/')) return true;
+        
+        // 2. HEAD blocked? Fallback to small GET
+        const resGet = await axios.get(url, {
+            timeout: 5000,
+            range: 'bytes=0-1024',
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+            }
+        });
+        return resGet.status >= 200 && resGet.status < 400;
+    } catch (err) {
+        // 3. WAF / 403 Protection Bypass: If it's a known image link from a trusted domain, trust it.
+        if (isImageFile && isTrusted) {
+            console.log(`  ✅ [Stage 3.5] Smart Trust applied for: "${url.substring(0, 50)}..." (Domain/Ext Verified)`);
+            return true;
+        }
+        return false;
+    }
 }
 
-IMPORTANT: If no live image is available on ANY official platform, return "imageUrl": "FAILED".`;
+const FETCH_SYSTEM = (brand, model) => `You are a Furniture Detail Specialist for Boqify.
+Your task is to find the official 'imageUrl' (direct high-resolution image file) and 'websiteUrl' for the product: "${brand} ${model}".
+
+### 🔍 DISCOVERY PROTOCOL (Strict Order):
+1. **Architonic**: This is the mandatory first source for European/Global furniture brands.
+2. **Official Brand Website**: Use this for technical specifications and direct product links.
+3. **Stylepark**: Use as a fallback for high-end design items.
+
+### 🏷️ CATEGORY & DATA:
+- Search for "Architonic ${brand} ${model}" to find the correct family and description.
+- Ensure the 'imageUrl' is a direct link to the image file (jpg/png/webp), not a page.
+- "mainCategory" and "subCategory" should align with our global taxonomy if possible: ${Object.keys(TAXONOMY).join(', ')}.
+
+### 💰 PRICING:
+Return the actual currency-converted price if found (USD/EUR). If not available, set price to 0.
+
+Return ONLY valid JSON:
+{
+  "brand": "${brand}",
+  "model": "${model}",
+  "imageUrl": "Direct URL to high-res image file",
+  "websiteUrl": "Link to direct model product page",
+  "mainCategory": "Main Category",
+  "subCategory": "Sub-Category",
+  "family": "Collection/Series Name",
+  "price": 0,
+  "description": "Short technical description (max 20 words)",
+  "logic": "Brief reasoning explaining why this is the best match from Architonic/Brand Site"
+}
+`;
 
 export async function fetchProductDetails(brand, model, tier, provider = 'google') {
     const system = FETCH_SYSTEM(brand, model);
-    const user = `Execute deep search for: ${brand} ${model}. Find the direct image URL and product page. Return JSON.`;
-
-    if (process.env.DEBUG_AI === 'true') {
-        console.log(`\n🤖 [AI Stage 3 Prompt] (Fetch: ${brand} ${model}):\nSystem: ${system.substring(0, 200)}...\nUser: ${user}`);
-    }
+    const user = `Perform a deep search for: ${brand} ${model}. Find its high-res image, official product page, and correct category on Architonic or ${brand} site.`;
 
     try {
-        let parsed = provider === 'google' ? await callGoogle(system, user, true) : await callOpenRouter(system, user);
-        return { status: 'success', product: parsed };
+        // Use gemini-2.5-flash or configured model for its strong web grounding capabilities
+        let parsed = await callGoogle(system, user, true, GOOGLE_MODEL);
+        
+        // Stage 3.5: Image Verification & Surgical Recovery
+        if (parsed && parsed.imageUrl && parsed.imageUrl !== 'FAILED') {
+            const isAlive = await verifyImageUrl(parsed.imageUrl, brand);
+            
+            if (!isAlive) {
+                console.warn(`  ⚠️  [Stage 3.5] Image verification failed for: "${parsed.imageUrl.substring(0, 50)}...". Triggering recovery...`);
+                
+                const recoveryPrompt = `Find a high-quality, DIRECT image URL and product page for: "${brand} ${model}".`;
+                const recoveryResult = await callGoogle(system, recoveryPrompt, true);
+                
+                if (recoveryResult && recoveryResult.imageUrl && await verifyImageUrl(recoveryResult.imageUrl, brand)) {
+                    console.log(`  ✅ [Stage 3.5] Recovery successful: Found valid image for ${model}.`);
+                    parsed = { ...parsed, ...recoveryResult };
+                } else {
+                    console.error(`  ❌ [Stage 3.5] Recovery failed for ${model}. No valid visual reference found.`);
+                    parsed.imageUrl = 'FAILED';
+                }
+            }
+        }
+
+        // Final sanitation: Ensure we have at least partial data
+        if (parsed) {
+            parsed.brand = parsed.brand || brand;
+            parsed.model = parsed.model || model;
+            parsed.price = parseFloat(parsed.price) || 0;
+            return { status: 'success', product: parsed };
+        }
+        
+        throw new Error('AI returned empty or invalid response');
     } catch (err) {
+        console.error(`  ❌ [Fetch Details Error] for ${brand} ${model}:`, err.message);
         return { status: 'error', error_message: err.message };
     }
 }
+
+/**
+ * Comprehensive Enrichment: Deep search + Verification + Data Shaping.
+ * This is the core logic for the "Always Strengthen DB" requirement.
+ */
+export async function searchAndEnrichModel(brandName, modelName, expectedTier = 'mid') {
+    console.log(`\n💎 [Enrichment] Starting discovery for: ${brandName} "${modelName}" (Tier: ${expectedTier})`);
+
+    try {
+        const result = await fetchProductDetails(brandName, modelName, expectedTier);
+        
+        if (result.status === 'success' && result.product) {
+            const p = result.product;
+            
+            // Normalize categories just in case AI deviated from protocol
+            const mainCat = Object.keys(TAXONOMY).find(c => c.toLowerCase() === (p.mainCategory || '').toLowerCase()) || 'Furniture';
+            const subCats = TAXONOMY[mainCat] ? Object.keys(TAXONOMY[mainCat]) : [];
+            const subCat = subCats.find(s => s.toLowerCase() === (p.subCategory || '').toLowerCase()) || (subCats[0] || 'General');
+
+            const enrichmentData = {
+                id: `ai_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+                brand: brandName,
+                model: p.model || modelName,
+                family: p.family || (p.model || modelName),
+                description: p.description || `Official ${brandName} ${modelName} extracted via AI Discovery.`,
+                imageUrl: p.imageUrl,
+                websiteUrl: p.websiteUrl,
+                mainCategory: mainCat,
+                subCategory: subCat,
+                price: parseFloat(p.price) || 0,
+                currency: 'USD', // Default for now
+                lastUpdated: new Date().toISOString(),
+                source: 'AI-Enrichment'
+            };
+
+            console.log(`  ✅ [Enrichment] Success: Found ${enrichmentData.model} in ${mainCat} > ${subCat}`);
+            return { status: 'success', product: enrichmentData };
+        }
+        
+        return { status: 'error', error_message: result.error_message || 'Model details not found online.' };
+    } catch (err) {
+        console.error(`  ❌ [Enrichment Error]:`, err.message);
+        return { status: 'error', error_message: err.message };
+    }
+}
+
 
 export async function getAiMatch(description, brandTarget, tier, provider = 'google') {
     const system = `You are an FF&E Product Matcher.
@@ -365,21 +510,14 @@ You are strictly FORBIDDEN from using units like "Lot", "LS", "Lumpsum", or "Pac
    - If missing, find the Scale Bar (e.g., 1:100) and estimate dimensions (Length x Width).
    - If no scale is found, use standard architectural dimensions (e.g., a standard office door is 0.9m, use this to calibrate the room size).
 3. ** LM (Linear)**: For Partitions, Skirting, and Cabinets, calculate the total length of the lines drawn.
+4. If a description mentions a group of items (e.g., '6 workstations'), set quantity to 6.
+5. CATEGORY MAPPING: You MUST map every item to one of these valid Main Categories: ${ALLOWED_CATEGORIES}.
+6. SEPARATION OF CONCERNS:
+   - FURNITURE: Includes chairs, desks, tables, storage, pods, and mobile accessories.
+   - FITOUT: Includes architectural elements like 'Partition Wall', 'Tile Flooring', 'Gypsum Ceiling', 'Curtain Wall', 'Carpeting', 'Wall Cladding', or any fixed MEP/HVAC elements. 
+   - IMPORTANT: If an item is an architectural element (Fixed Partition, Flooring, Ceiling), it belongs to FITOUT.
 
-### 🏷️ CATEGORIZATION & SCOPE:
-- **Location**: Use the exact room name/number from the drawing.
-- **Categorization**: ${includeFitout ? 'Furniture vs Fitout' : 'Furniture only'}.
-- **Scope**: ${includeFitout ? 'All loose furniture PLUS architectural items (flooring, ceiling, walls, doors) AND MEP/AV items (lighting, electrical, plumbing, screens).' : 'Loose furniture only (desks, chairs, storage).'}
-- **Special Rule (Joinery)**: Doors and all wood works (wooden cabinets, counters, wall claddings) MUST be categorized STRICTLY as "Fitout (Joinery)".
-- **Special Rule (MEP)**: Mechanical, electrical, and plumbing MUST be categorized STRICTLY as "Fitout (MEP)".
-- **Special Rule (Lighting & AV)**: All lighting fixtures MUST be "Fitout (Lighting)". Audio/Visual equipment (screens, projectors, speakers) MUST be "Fitout (AV)".
-
-### 📜 CORE RULES:
-- **EXHAUSTIVE EXTRACTION (NO SHORTCUTS)**: You MUST extract absolutely EVERY SINGLE ITEM visible across the ENTIRE plan. Do not stop after 10 items. Do not provide a "sample". If there are 150 items, output 150 JSON items.
-- **FULL FLOOR PLAN COVERAGE**: Segregate Fitout items cleanly with their respective scope subheaders ("Fitout (Architectural)", "Fitout (MEP)", etc). Absolutely ensure ALL loose furniture is completely isolated from the Fitout items and categorized strictly as "Furniture".
-- **VISUAL MAGNIFICATION**: Zoom into every corner. Don't miss tiny text or symbols.
-- **NO BUNDLING**: Break down "Typical Rooms" into individual line items per room.
-- **UNIT STICKINESS**: Only use "Nos", "SQM", or "LM".
+Return ONLY the JSON. No conversational text.
 
 ### 📦 OUTPUT FORMAT:
 Return ONLY a valid JSON object:
