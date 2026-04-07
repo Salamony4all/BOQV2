@@ -32,7 +32,7 @@ export default function AddBrandModal({ isOpen, onClose, onBrandAdded, onBrandUp
         if (isOpen) {
             fetchBrands();
             fetchRailwayFiles();
-            fetch(`${API_BASE}/api/scraper-config`)
+            fetch(`${API_BASE}/api/scraper-config?t=${Date.now()}`)
                 .then(r => r.json())
                 .then(d => setDashboardUrl(d.dashboardUrl))
                 .catch(e => console.error('Config fetch failed', e));
@@ -40,13 +40,18 @@ export default function AddBrandModal({ isOpen, onClose, onBrandAdded, onBrandUp
     }, [isOpen]);
 
     const fetchRailwayFiles = async () => {
+        setRailwayFiles([]); // Clear old list while loading
         try {
-            const res = await fetch(`${API_BASE}/api/railway-brands`);
+            const res = await fetch(`${API_BASE}/api/railway-brands?t=${Date.now()}`);
             if (res.ok) {
                 const data = await res.json();
+                console.log('☁️ Cloud Backups fetched:', data);
                 if (data.brands && Array.isArray(data.brands)) {
                     setRailwayFiles(data.brands.sort((a, b) => new Date(b.completedAt) - new Date(a.completedAt)));
                 }
+            } else {
+                const errData = await res.json();
+                console.error('❌ Cloud fetch error:', errData);
             }
         } catch (err) {
             console.error('Failed to fetch railway backups:', err);
@@ -301,7 +306,16 @@ export default function AddBrandModal({ isOpen, onClose, onBrandAdded, onBrandUp
 
                 {/* Cloud Recovery */}
                 <div className={styles.sectionTitle} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span>☁️ Cloud Backups (Railway)</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <span>☁️ Cloud Backups (Railway)</span>
+                        <button 
+                            onClick={(e) => { e.preventDefault(); fetchRailwayFiles(); }}
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '14px', padding: 0 }}
+                            title="Force Refresh Cloud List"
+                        >
+                            🔄
+                        </button>
+                    </div>
                     {dashboardUrl && (
                         <a href={dashboardUrl} target="_blank" rel="noopener noreferrer"
                             style={{ fontSize: '12px', background: '#334155', color: 'white', padding: '4px 8px', borderRadius: '4px', textDecoration: 'none', border: '1px solid #475569' }}>

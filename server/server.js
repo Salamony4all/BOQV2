@@ -705,12 +705,22 @@ app.delete('/api/tasks/:id', (req, res) => {
 
 // --- Railway Cloud Recovery ---
 app.get('/api/railway-brands', async (req, res) => {
-  if (!JS_SCRAPER_SERVICE_URL) return res.json({ brands: [] });
+  if (!JS_SCRAPER_SERVICE_URL) {
+    console.warn('⚠️ JS_SCRAPER_SERVICE_URL not set');
+    return res.json({ brands: [], warning: 'Service URL not configured' });
+  }
   try {
-    const response = await axios.get(`${JS_SCRAPER_SERVICE_URL}/brands`, { timeout: 5000 });
+    const url = `${JS_SCRAPER_SERVICE_URL}/brands`;
+    console.log(`📡 Proxying fetch to: ${url}`);
+    const response = await axios.get(url, { timeout: 10000 });
     res.json(response.data);
   } catch (error) {
-    res.json({ brands: [] });
+    console.error('❌ Failed to fetch from Railway:', error.message);
+    res.status(500).json({ 
+      brands: [], 
+      error: error.message,
+      targetUrl: `${JS_SCRAPER_SERVICE_URL}/brands`
+    });
   }
 });
 
