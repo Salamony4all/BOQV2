@@ -686,15 +686,7 @@ app.get('/dashboard', (req, res) => {
     `);
 });
 
-// ===================== BRANDS VOLUME MANAGEMENT =====================
-const BRANDS_DIR = path.join(__dirname, 'persistent-storage', 'brands');
-
-// Initial directory check
-(async () => {
-    try {
-        await fs.mkdir(BRANDS_DIR, { recursive: true });
-    } catch (e) {}
-})();
+// Initial directory check is handled by initStorage() at the top.
 
 // List all brands
 app.get('/brands', async (req, res) => {
