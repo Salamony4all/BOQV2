@@ -911,22 +911,25 @@ class ScraperService {
                                 const allLinks = Array.from(document.querySelectorAll('a'));
                                 const normalizedCurrent = currentUrl.replace(/\/$/, '');
 
-                                // REMOVED: Generic /products/ tabs cause "Products by Brand" categories
-                                // We now SKIP these entirely and only focus on actual collection pages
+                                // === COLLECTIONS-ONLY: Filter to ONLY collection/category/group URLs ===
                                 const tabs = []; // Intentionally empty - don't enqueue generic product tabs
-
-                                // === COLLECTIONS-ONLY: Filter to ONLY collection URLs ===
                                 const collections = allLinks
                                     .map(el => ({ href: el.href, text: el.innerText.toLowerCase() }))
                                     .filter(link => {
-                                        const { href, text } = link;
+                                        const { href } = link;
                                         if (!href || !href.includes('architonic.com')) return false;
                                         if (href.includes('/products/')) return false;
                                         const normalizedHref = href.replace(/\/$/, '');
                                         const isSamePage = normalizedHref === normalizedCurrent;
-                                        const isEducation = text.includes('education') || text.includes('school') || text.includes('learning') || text.includes('university') || text.includes('educational');
-                                        const isCollectionLink = isEducation || href.includes('/collection/') || href.includes('/category/') || href.includes('/group/');
-                                        const isUtility = href.endsWith('/collections') || href.endsWith('/products') || !href.includes('/b/') || href.includes('search?');
+                                        // Broaden: include /collection/, /category/, /group/ — all valid Architonic paths
+                                        const isCollectionLink =
+                                            href.includes('/collection/') ||
+                                            href.includes('/category/') ||
+                                            href.includes('/group/');
+                                        // Exclude pure listing/utility pages with no slug depth
+                                        const isUtility =
+                                            /\/(collections|products|categories|groups)\/?$/.test(href) ||
+                                            href.includes('search?');
                                         return !isSamePage && !href.includes('#') && isCollectionLink && !isUtility;
                                     })
                                     .map(l => l.href);
@@ -945,12 +948,15 @@ class ScraperService {
                             iterationResults.products.forEach(l => discoveredProductLinks.add(l));
 
 
-                            // SMART BREAKER: Stop if height doesn't change for 15 consecutive scans
+                            // SMART BREAKER: Stop when height is stable.
+                            // Use a higher threshold when no collections found yet (keep looking)
+                            // and a lower threshold once we have found some (they load in batches).
                             if (iterationResults.height === lastHeight) {
                                 stableHeightCount++;
-                                // 40 scans = ~30 seconds of stability to be absolutely sure all lazy-loaded categories (like Education) are found
-                                if (stableHeightCount >= 40) {
-                                    console.log(`   ✅ Reached bottom of page (height stable for 40 scans). Found ${discoveredSubLinks.size} collections.`);
+                                const hasSomeCollections = discoveredSubLinks.size > 0;
+                                const stableThreshold = hasSomeCollections ? 25 : 60;
+                                if (stableHeightCount >= stableThreshold) {
+                                    console.log(`   ✅ Scroll complete (stable for ${stableHeightCount} scans). Found ${discoveredSubLinks.size} collections.`);
                                     break;
                                 }
                             } else {
@@ -960,9 +966,10 @@ class ScraperService {
                         }
                         await page.evaluate(() => window.scrollTo(0, 0));
 
-                        // === COLLECTIONS-ONLY: Filter out /products/ URLs completely ===
+                        // Accept all collection/category/group URLs (not just /collection/)
                         const collectionOnlyLinks = [...discoveredSubLinks].filter(url =>
-                            !url.includes('/products/') && url.includes('/collection/')
+                            !url.includes('/products/') &&
+                            (url.includes('/collection/') || url.includes('/category/') || url.includes('/group/'))
                         );
                         const uniqueProductLinks = [...discoveredProductLinks];
 
@@ -1098,17 +1105,17 @@ class ScraperService {
                             } else {
                                 // Count ALL product link patterns Architonic uses
                                 const currentCount = document.querySelectorAll(
-                                    'a[href*="/p/"], a[href*="/product/"], a[href*="/en/p/"]'
+                                    'a[href*="/p/"], a[href*="/product/"], a[href*="/en/p/"], a[href*="/collection/"], a[href*="/category/"]'
                                 ).length;
                                 if (currentCount === lastCount) {
                                     stableCycles++;
                                 } else {
-                                    stableCycles = 0;
+                                    stableCycles = 0; // New items appeared — reset counter
                                 }
                                 lastCount = currentCount;
 
-                                // Wait for 6 stable cycles (not 3) to avoid cutting off lazy-loaded items
-                                if (stableCycles >= 6) break;
+                                // 12 stable cycles × 600ms = 7.2s — more forgiving for slow lazy-loaders
+                                if (stableCycles >= 12) break;
                             }
                         }
                     });
