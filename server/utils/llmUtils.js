@@ -124,47 +124,65 @@ function safeParseJSON(text) {
 
 /** Generic OpenRouter call expecting JSON object back. */
 async function callOpenRouter(systemPrompt, userPrompt, modelName = null) {
-    const res = await axios.post(
-        'https://openrouter.ai/api/v1/chat/completions',
-        {
-            model: modelName || OPENROUTER_MODEL,
-            messages: [
-                { role: 'system', content: systemPrompt },
-                { role: 'user', content: userPrompt }
-            ],
-            temperature: 0.1,
-            response_format: { type: 'json_object' }
-        },
-        {
-            headers: { 'Authorization': `Bearer ${OPENROUTER_API_KEY}`, 'Content-Type': 'application/json' },
-            timeout: 60000
-        }
-    );
-    const raw = res.data.choices[0].message.content;
-    return typeof raw === 'string' ? safeParseJSON(raw) : raw;
+    try {
+        const res = await axios.post(
+            'https://openrouter.ai/api/v1/chat/completions',
+            {
+                model: modelName || OPENROUTER_MODEL,
+                messages: [
+                    { role: 'system', content: systemPrompt },
+                    { role: 'user', content: userPrompt }
+                ],
+                temperature: 0.1,
+                response_format: { type: 'json_object' }
+            },
+            {
+                headers: { 
+                    'Authorization': `Bearer ${OPENROUTER_API_KEY}`, 
+                    'Content-Type': 'application/json',
+                    'HTTP-Referer': 'https://boqv2.vercel.app',
+                    'X-Title': 'Boqify'
+                },
+                timeout: 60000
+            }
+        );
+        const raw = res.data.choices[0].message.content;
+        return typeof raw === 'string' ? safeParseJSON(raw) : raw;
+    } catch (err) {
+        console.error(`  ❌ [OpenRouter] Status: ${err.response?.status}, Message: ${err.response?.data?.error?.message || err.message}`);
+        throw err;
+    }
 }
 
 /** Generic NVIDIA NIM call expecting JSON object back. */
 async function callNvidia(systemPrompt, userPrompt, modelName = null) {
-    const res = await axios.post(
-        'https://integrate.api.nvidia.com/v1/chat/completions',
-        {
-            model: modelName || NVIDIA_MODEL,
-            messages: [
-                { role: 'system', content: systemPrompt },
-                { role: 'user', content: userPrompt }
-            ],
-            temperature: 0.1,
-            max_tokens: 16384,
-            response_format: { type: 'json_object' }
-        },
-        {
-            headers: { 'Authorization': `Bearer ${NVIDIA_API_KEY}`, 'Content-Type': 'application/json' },
-            timeout: 60000
-        }
-    );
-    const raw = res.data.choices[0].message.content;
-    return typeof raw === 'string' ? safeParseJSON(raw) : raw;
+    try {
+        const res = await axios.post(
+            'https://integrate.api.nvidia.com/v1/chat/completions',
+            {
+                model: modelName || NVIDIA_MODEL,
+                messages: [
+                    { role: 'system', content: systemPrompt },
+                    { role: 'user', content: userPrompt }
+                ],
+                temperature: 0.1,
+                max_tokens: 16384,
+                response_format: { type: 'json_object' }
+            },
+            {
+                headers: { 
+                    'Authorization': `Bearer ${NVIDIA_API_KEY}`, 
+                    'Content-Type': 'application/json'
+                },
+                timeout: 60000
+            }
+        );
+        const raw = res.data.choices[0].message.content;
+        return typeof raw === 'string' ? safeParseJSON(raw) : raw;
+    } catch (err) {
+        console.error(`  ❌ [NVIDIA] Status: ${err.response?.status}, Model: ${modelName || NVIDIA_MODEL}, Message: ${err.response?.data?.detail || err.response?.data?.error?.message || err.message}`);
+        throw err;
+    }
 }
 
 /** Google Gemini call with optional Grounding or specific Model override. */
