@@ -359,7 +359,7 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
         setIsFitoutAutoFillOpen(true);
     };
 
-    const executeFitoutAutoFillAI = async (availableBrands, selectedEngine) => {
+    const executeFitoutAutoFillAI = async (availableBrands, selectedEngine, providerModel = null) => {
         setIsFitoutAutoFillOpen(false);
         setIsFitoutAutoFilling(true);
         setFitoutBatchResult(null);
@@ -392,7 +392,7 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                 const response = await fetch(`${API_BASE}/api/auto-match-ai`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ description: cleanDesc, qty: row.qty, unit: row.unit, tier: tierKey, availableBrands, provider: selectedEngine, scope: 'Fitout', type: 'fitout' })
+                    body: JSON.stringify({ description: cleanDesc, qty: row.qty, unit: row.unit, tier: tierKey, availableBrands, provider: selectedEngine, providerModel, scope: 'Fitout', type: 'fitout' })
                 });
 
                 const data = await response.json();

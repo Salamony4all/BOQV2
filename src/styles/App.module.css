@@ -145,8 +145,8 @@
   height: 0.95em;
   width: auto;
   /* Pull closer to O and F to look like one word */
-  margin-left: -15px;
-  margin-right: -5px;
+  margin-left: -0.2em;
+  margin-right: -0.08em;
   margin-top: 0.05em;
   /* Optical alignment */
   object-fit: contain;
@@ -793,8 +793,8 @@
   }
 
   .logoImage {
-    margin-left: -8px;
-    margin-right: -3px;
+    margin-left: -0.2em;
+    margin-right: -0.08em;
   }
 
   .headline {

@@ -1241,7 +1241,9 @@ app.post('/api/analyze-plan', planUpload.array('files', 10), async (req, res) =>
 
     console.log(`🏗️  Received ${filesData.length} plan(s) for analysis: ${filesData.map(f => f.originalname).join(', ')}`);
     const includeFitout = req.body.includeFitout === 'true';
-    const result = await analyzePlan(filesData, { includeFitout });
+    const provider = req.body.provider || 'google';
+    const providerModel = req.body.providerModel || undefined;
+    const result = await analyzePlan(filesData, { includeFitout, provider, providerModel });
 
     for (const file of req.files) {
       try { await fs.unlink(file.path); } catch (e) {}

@@ -21,23 +21,45 @@ export const VALID_GOOGLE_MODELS = [
     'gemini-1.5-pro'
 ];
 export const VALID_OPENROUTER_MODELS = [
+    // Google Vision Models
     'google/gemini-2.5-flash-lite-001',
     'google/gemini-4-31b-it:free',
     'google/gemma-4-26b-a4b-it:free',
     'google/gemma-4-31b-it:free',
+    'google/gemini-2.5-pro',
+    // Anthropic Vision Models
+    'anthropic/claude-opus-4.6-fast',
+    'anthropic/claude-opus-4',
+    'anthropic/claude-sonnet-4-20250514',
+    // OpenAI Vision Models
+    'openai/gpt-4-vision-preview',
+    'openai/gpt-4-turbo-vision',
+    // Other vision models
     'z-ai/glm-5.1',
     'cohere/rerank-4-pro'
 ];
 export const VALID_NVIDIA_MODELS = [
-    'meta/llama-3.1-405b-instruct',
-    'meta/llama-3.1-70b-instruct',
-    'meta/llama-3.3-70b-instruct',
+    'nvidia/llama-3.3-70b-instruct',
+    'nvidia/llama-3.1-70b-instruct',
     'nvidia/nemotron-3-super-120b-a12b',
-    'nvidia/gemma-4-31b-it'
+    'nvidia/gemma-4-31b-it',
+    'nvidia/cosmos-transfer2_5-2b',
+    // Vision models
+    'nvidia/neva-22b',
+    'nvidia/vila',
+    'nvidia/vlia',
+    'nvidia/llama-3.1-nemotron-nano-vl-8b-v1',
+    'nvidia/nemotron-nano-12b-v2-vl',
+    // Other free/paid models
+    'nvidia/llama-3.1-nemotron-nano-8b-v1',
+    'nvidia/llama-3.1-nemotron-70b-reward',
+    'nvidia/llama-3.1-nemotron-ultra-253b-v1',
+    'nvidia/llama-3.3-nemotron-super-49b-v1',
+    'nvidia/llama-3.3-nemotron-super-49b-v1.5'
 ];
 export const GOOGLE_MODEL = VALID_GOOGLE_MODELS.includes(process.env.GOOGLE_MODEL) ? process.env.GOOGLE_MODEL : 'gemini-2.5-flash';
 export const OPENROUTER_MODEL = process.env.OPENROUTER_MODEL || 'google/gemini-2.5-flash-lite-001';
-export const NVIDIA_MODEL = process.env.NVIDIA_MODEL || 'meta/llama-3.1-405b-instruct';
+export const NVIDIA_MODEL = process.env.NVIDIA_MODEL || 'nvidia/llama-3.3-70b-instruct';
 export const GROUNDING_MODEL = process.env.GOOGLE_MODEL || 'gemini-2.5-flash'; // Standard model for this environment
 
 const genAI = new GoogleGenerativeAI(GOOGLE_API_KEY);
@@ -567,39 +589,122 @@ const cleanQty = (val) => {
 };
 
 /**
+ * Call OpenAI-compatible API (OpenRouter/NVIDIA) with vision support.
+ */
+async function callVisionAPI(systemPrompt, userPrompt, imageBase64, imageMimeType, modelName, apiEndpoint, apiKey) {
+    try {
+        const res = await axios.post(
+            apiEndpoint,
+            {
+                model: modelName,
+                messages: [
+                    { role: 'system', content: systemPrompt },
+                    {
+                        role: 'user',
+                        content: [
+                            { type: 'text', text: userPrompt },
+                            {
+                                type: 'image_url',
+                                image_url: {
+                                    url: `data:${imageMimeType};base64,${imageBase64}`
+                                }
+                            }
+                        ]
+                    }
+                ],
+                temperature: 0.1,
+                max_tokens: 16384,
+                response_format: { type: 'json_object' }
+            },
+            {
+                headers: {
+                    'Authorization': `Bearer ${apiKey}`,
+                    'Content-Type': 'application/json'
+                },
+                timeout: 120000
+            }
+        );
+        const raw = res.data.choices[0].message.content;
+        return typeof raw === 'string' ? safeParseJSON(raw) : raw;
+    } catch (err) {
+        console.error(`  ❌ [Vision API Error] Model: ${modelName}, Status: ${err.response?.status}, Message: ${err.response?.data?.error?.message || err.message}`);
+        throw new Error(`${modelName} failed: ${err.response?.data?.error?.message || err.message}`);
+    }
+}
+
+/**
  * Perform AI analysis on floor plan drawing(s).
  * @param {Array} filesData - Array of objects { base64Data, mimeType, originalname }
  */
 export async function analyzePlan(filesData, options = {}) {
-    const { includeFitout = false } = options;
-    console.log(`\n🏗️ [Plan Analyzer] Analyzing ${filesData.length} sheets...`);
+    const { includeFitout = false, provider = 'google', providerModel = null } = options;
+    console.log(`\n🏗️ [Plan Analyzer] Analyzing ${filesData.length} sheets with provider=${provider}, model=${providerModel || ''}...`);
+
+    if (!filesData || filesData.length === 0) {
+        return { status: 'error', error_message: 'No files provided for analysis' };
+    }
 
     try {
-        const model = genAI.getGenerativeModel({
-            model: GOOGLE_MODEL,
-            generationConfig: {
-                temperature: 0.1,
-                maxOutputTokens: 16384
-            }
-        });
-
         const promptText = PLAN_ANALYSIS_PROMPT(includeFitout);
-        
-        // Prepare parts
-        const promptParts = [
-            { text: promptText },
-            ...filesData.map(file => ({
-                inlineData: {
-                    data: file.base64Data,
-                    mimeType: file.mimeType
-                }
-            }))
-        ];
+        const file = filesData[0];
 
-        const result = await model.generateContent({ contents: [{ role: 'user', parts: promptParts }] });
-        const responseText = result.response.text();
-        const parsed = safeParseJSON(responseText);
+        let parsed;
 
+        if (provider === 'google') {
+            // Use Google Gemini SDK with multimodal support
+            const modelName = providerModel || GOOGLE_MODEL;
+            console.log(`  📍 Using Google model: ${modelName}`);
+            
+            const model = genAI.getGenerativeModel({
+                model: modelName,
+                generationConfig: { temperature: 0.1, maxOutputTokens: 16384 }
+            });
+
+            const promptParts = [
+                { text: promptText },
+                ...filesData.map(f => ({
+                    inlineData: { data: f.base64Data, mimeType: f.mimeType }
+                }))
+            ];
+
+            const result = await model.generateContent({ contents: [{ role: 'user', parts: promptParts }] });
+            parsed = safeParseJSON(result.response.text());
+
+        } else if (provider === 'openrouter') {
+            // Use OpenRouter API with multimodal support
+            const modelName = providerModel || OPENROUTER_MODEL;
+            console.log(`  📍 Using OpenRouter model: ${modelName}`);
+            
+            parsed = await callVisionAPI(
+                promptText,
+                'Analyze this floor plan PDF and extract BOQ items as JSON',
+                file.base64Data,
+                file.mimeType,
+                modelName,
+                'https://openrouter.ai/api/v1/chat/completions',
+                OPENROUTER_API_KEY
+            );
+
+        } else if (provider === 'nvidia') {
+            // Use NVIDIA NIM API with multimodal support
+            const modelName = providerModel || NVIDIA_MODEL;
+            console.log(`  📍 Using NVIDIA model: ${modelName}`);
+            
+            parsed = await callVisionAPI(
+                promptText,
+                'Analyze this floor plan PDF and extract BOQ items as JSON',
+                file.base64Data,
+                file.mimeType,
+                modelName,
+                'https://integrate.api.nvidia.com/v1/chat/completions',
+                NVIDIA_API_KEY
+            );
+
+        } else {
+            throw new Error(`Unknown provider: ${provider}. Supported: google, openrouter, nvidia`);
+        }
+
+        // Process extracted items
         let flatItems = [];
         if (parsed.items && Array.isArray(parsed.items)) {
             flatItems = parsed.items.map(item => ({
@@ -615,10 +720,19 @@ export async function analyzePlan(filesData, options = {}) {
         return {
             status: 'success',
             planSummary: parsed.planSummary || `Extracted ${flatItems.length} items.`,
-            items: flatItems
+            items: flatItems,
+            provider: provider,
+            model: providerModel || (provider === 'google' ? GOOGLE_MODEL : provider === 'openrouter' ? OPENROUTER_MODEL : NVIDIA_MODEL)
         };
+
     } catch (err) {
-        console.error(`  ❌ [Plan Analyzer Error]:`, err.message);
-        return { status: 'error', error_message: err.message };
+        const errorMsg = err.message || 'Unknown error during plan analysis';
+        console.error(`  ❌ [Plan Analyzer Error]:`, errorMsg);
+        return {
+            status: 'error',
+            error_message: `Failed to analyze plan with ${provider}${providerModel ? ` (${providerModel})` : ''}: ${errorMsg}. Please try another provider/model.`,
+            provider: provider,
+            model: providerModel
+        };
     }
 }

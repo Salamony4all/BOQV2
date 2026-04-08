@@ -4,12 +4,25 @@ import styles from '../styles/AutoFillSelectModal.module.css';
 export default function FitoutAutoFillModal({ isOpen, onClose, allBrands = [], activeTier, onConfirm }) {
     const [selectedBrands, setSelectedBrands] = useState([]);
     const [selectedEngine, setSelectedEngine] = useState('google');
+    const [selectedModel, setSelectedModel] = useState('gemini-2.5-flash');
+
+    const modelOptions = {
+        google: ['gemini-2.5-flash', 'gemini-2.0-flash-exp', 'gemini-1.5-flash', 'gemini-1.5-flash-002', 'gemini-1.5-pro'],
+        openrouter: ['google/gemini-4-31b-it:free', 'google/gemma-4-26b-a4b-it:free', 'google/gemma-4-31b-it:free', 'anthropic/claude-opus-4.6-fast', 'anthropic/claude-opus-4', 'anthropic/claude-sonnet-4-20250514'],
+        nvidia: ['nvidia/llama-3.3-70b-instruct', 'nvidia/llama-3.1-70b-instruct', 'nvidia/nemotron-3-super-120b-a12b', 'nvidia/gemma-4-31b-it', 'nvidia/cosmos-transfer2_5-2b', 'nvidia/llama-3.1-nemotron-nano-8b-v1', 'nvidia/llama-3.1-nemotron-70b-reward', 'nvidia/llama-3.1-nemotron-ultra-253b-v1', 'nvidia/llama-3.3-nemotron-super-49b-v1', 'nvidia/llama-3.3-nemotron-super-49b-v1.5']
+    };
 
     const tierMeta = {
         budgetary: { label: 'Budgetary', color: '#3b82f6' },
         mid:       { label: 'Mid-Range', color: '#8b5cf6' },
         high:      { label: 'High-End',  color: '#ec4899' }
     };
+
+    const engines = [
+        { id: 'google',     name: 'Gemini Text',       desc: 'Google · Text-only furniture/fitout',        icon: 'AI', color: '#1a73e8' },
+        { id: 'openrouter', name: 'OpenRouter Text',    desc: 'OpenRouter · Text-only model gateway',      icon: 'OR', color: '#8b5cf6' },
+        { id: 'nvidia',     name: 'Nvidia Text',        desc: 'NVIDIA · Text-only model support',          icon: 'NV', color: '#76b900' }
+    ];
 
     // Filter brands containing 'fitout' or tagged as fitout (case-insensitive)
     const fitoutBrands = useMemo(() => {
@@ -33,8 +46,13 @@ export default function FitoutAutoFillModal({ isOpen, onClose, allBrands = [], a
                 setSelectedBrands(fitoutBrands.map(b => b.name));
             }
             setSelectedEngine('google');
+            setSelectedModel(modelOptions.google[0]);
         }
     }, [isOpen, fitoutBrands]);
+
+    useEffect(() => {
+        setSelectedModel(modelOptions[selectedEngine][0]);
+    }, [selectedEngine]);
 
     if (!isOpen) return null;
 
@@ -45,10 +63,6 @@ export default function FitoutAutoFillModal({ isOpen, onClose, allBrands = [], a
                 : [...prev, brandName]
         );
     };
-
-    const engines = [
-        { id: 'google',     name: 'Gemini 2.5 Flash', desc: 'Google · Higher Precision · Web Search', icon: 'AI', color: '#1a73e8' }
-    ];
 
     const activeMeta = tierMeta[activeTier] || tierMeta.mid;
 
@@ -82,6 +96,20 @@ export default function FitoutAutoFillModal({ isOpen, onClose, allBrands = [], a
                                         </div>
                                     </div>
                             ))}
+                        </div>
+
+                        <div className={styles.modelSection}>
+                            <span className={styles.sectionSubtitle}>Select Model</span>
+                            <select
+                                className={styles.modelSelect}
+                                value={selectedModel}
+                                onChange={(event) => setSelectedModel(event.target.value)}
+                            >
+                                {modelOptions[selectedEngine].map((model) => (
+                                    <option key={model} value={model}>{model}</option>
+                                ))}
+                            </select>
+                            <p className={styles.modelHint}>Choose the model used for the fitout processing workflow.</p>
                         </div>
                     </div>
 
@@ -125,7 +153,7 @@ export default function FitoutAutoFillModal({ isOpen, onClose, allBrands = [], a
                     <button
                         className={styles.btnConfirm}
                         disabled={selectedBrands.length === 0}
-                        onClick={() => onConfirm(selectedBrands, selectedEngine)}
+                        onClick={() => onConfirm(selectedBrands, selectedEngine, selectedModel)}
                         style={{ background: activeMeta.color }}
                     >
                         Start Fitout AI Batch

@@ -244,7 +244,7 @@ function AppContent({ onOpenSettings }) {
     }
   };
 
-  const handlePlanAnalyze = async (scope) => {
+  const handlePlanAnalyze = async (scope, provider = 'google', providerModel = 'gemini-2.5-flash') => {
     if (!currentPlanFiles || currentPlanFiles.length === 0) return;
     
     setIsPlanScopeOpen(false);
@@ -270,6 +270,9 @@ function AppContent({ onOpenSettings }) {
       const interval = setInterval(() => {
         setProgress(prev => (prev < 90 ? prev + 1 : prev));
       }, 500);
+
+      formData.append('provider', provider);
+      formData.append('providerModel', providerModel);
 
       const response = await fetch(apiUrl('/api/analyze-plan'), {
         method: 'POST',

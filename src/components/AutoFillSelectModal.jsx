@@ -8,8 +8,8 @@ export default function AutoFillSelectModal({ isOpen, onClose, allBrands, active
 
     const modelOptions = {
         google: ['gemini-2.5-flash', 'gemini-2.0-flash-exp', 'gemini-1.5-flash', 'gemini-1.5-flash-002', 'gemini-1.5-pro'],
-        openrouter: ['google/gemini-2.5-flash-lite-001', 'google/gemini-4-31b-it:free', 'google/gemma-4-26b-a4b-it:free', 'google/gemma-4-31b-it:free', 'z-ai/glm-5.1', 'cohere/rerank-4-pro'],
-        nvidia: ['meta/llama-3.1-405b-instruct', 'meta/llama-3.1-70b-instruct', 'meta/llama-3.3-70b-instruct', 'nvidia/nemotron-3-super-120b-a12b', 'nvidia/gemma-4-31b-it']
+        openrouter: ['google/gemini-4-31b-it:free', 'google/gemma-4-26b-a4b-it:free', 'google/gemma-4-31b-it:free', 'anthropic/claude-opus-4.6-fast', 'anthropic/claude-opus-4', 'anthropic/claude-sonnet-4-20250514'],
+        nvidia: ['nvidia/llama-3.3-70b-instruct', 'nvidia/llama-3.1-70b-instruct', 'nvidia/nemotron-3-super-120b-a12b', 'nvidia/gemma-4-31b-it', 'nvidia/cosmos-transfer2_5-2b', 'nvidia/llama-3.1-nemotron-nano-8b-v1', 'nvidia/llama-3.1-nemotron-70b-reward', 'nvidia/llama-3.1-nemotron-ultra-253b-v1', 'nvidia/llama-3.3-nemotron-super-49b-v1', 'nvidia/llama-3.3-nemotron-super-49b-v1.5']
     };
 
     const tierMeta = {
@@ -66,9 +66,9 @@ export default function AutoFillSelectModal({ isOpen, onClose, allBrands, active
     const clearAll   = () => setSelectedBrands([]);
 
     const engines = [
-        { id: 'google',     name: 'Gemini 2.5 Flash', desc: 'Google · Higher Precision · Web Search', icon: 'AI', color: '#1a73e8' },
-        { id: 'openrouter', name: 'Open Router',       desc: 'Universal · Gemini 2.0 Flash Lite',      icon: 'OR', color: '#8b5cf6' },
-        { id: 'nvidia',     name: 'Nvidia NIM',        desc: 'NVIDIA · Llama 3.3 70B · Ultra Fast',   icon: 'NV', color: '#76b900' }
+        { id: 'google',     name: 'Gemini Text',       desc: 'Google · Text-only furniture/fitout',        icon: 'AI', color: '#1a73e8' },
+        { id: 'openrouter', name: 'OpenRouter Text',    desc: 'OpenRouter · Text-only model gateway',      icon: 'OR', color: '#8b5cf6' },
+        { id: 'nvidia',     name: 'Nvidia Text',        desc: 'NVIDIA · Text-only model support',          icon: 'NV', color: '#76b900' }
     ];
 
     const activeMeta = tierMeta[activeTier] || tierMeta.mid;

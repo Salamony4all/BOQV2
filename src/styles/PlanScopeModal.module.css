@@ -41,6 +41,110 @@
     color: #94a3b8;
 }
 
+.content {
+    padding: 0 30px 30px;
+}
+
+.section {
+    margin-bottom: 24px;
+}
+
+.sectionTitle {
+    display: block;
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #f8fafc;
+    margin-bottom: 14px;
+}
+
+.sectionSubtitle {
+    display: block;
+    font-size: 0.9rem;
+    color: #cbd5e1;
+    margin-bottom: 10px;
+}
+
+.engineGrid {
+    display: flex;
+    gap: 14px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+}
+
+.engineCard {
+    flex: 1;
+    min-width: 150px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 14px;
+    padding: 16px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.engineCard:hover {
+    transform: translateY(-2px);
+    border-color: rgba(59, 130, 246, 0.4);
+}
+
+.engineIcon {
+    width: 42px;
+    height: 42px;
+    border-radius: 12px;
+    display: grid;
+    place-items: center;
+    color: white;
+    font-weight: 700;
+    font-size: 1rem;
+}
+
+.engineInfo {
+    display: flex;
+    flex-direction: column;
+}
+
+.engineName {
+    font-size: 0.97rem;
+    font-weight: 700;
+    color: #f8fafc;
+}
+
+.engineDesc {
+    font-size: 0.85rem;
+    color: #94a3b8;
+}
+
+.active {
+    border-color: #7c3aed;
+    background: rgba(124, 58, 237, 0.08);
+}
+
+.modelSection {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 14px;
+    padding: 18px 16px;
+}
+
+.modelSelect {
+    width: 100%;
+    border-radius: 12px;
+    border: 1px solid rgba(148, 163, 184, 0.35);
+    background: #0f172a;
+    color: #f8fafc;
+    padding: 12px 14px;
+    font-size: 0.95rem;
+}
+
+.modelHint {
+    margin-top: 10px;
+    font-size: 0.84rem;
+    color: #94a3b8;
+}
+
 .cards {
     display: flex;
     gap: 20px;
