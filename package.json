@@ -54,6 +54,6 @@
     "globals": "^16.5.0",
     "nodemon": "^3.1.11",
     "vite": "^7.2.4",
-    "@vercel/static-build": "^5.0.0"
+    "@vercel/static-build": "^2.9.10"
   }
 }
