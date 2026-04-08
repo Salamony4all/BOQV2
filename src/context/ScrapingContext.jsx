@@ -174,7 +174,7 @@ export function ScrapingProvider({ children }) {
                     consecutiveErrors: currentErrorCount,
                     isConnected: !isDisconnected,
                     stage: isDisconnected
-                        ? `⚠️ Connection unstable (retrying... ${currentErrorCount})`
+                        ? `[!] Connection unstable (retrying... ${currentErrorCount})`
                         : prev.stage
                 }));
 
@@ -182,9 +182,9 @@ export function ScrapingProvider({ children }) {
                 if (currentErrorCount > 2) {
                     const savedFile = await checkForSavedFile(brandName);
                     if (savedFile) {
-                        try {apiBase = getApiBase();
-                            const fileRes = await fetch(`${apiBase
-                            const fileRes = await fetch(`${API_BASE}/api/railway-brands/${savedFile.filename}`);
+                        try {
+                            const apiBase = getApiBase();
+                            const fileRes = await fetch(`${apiBase}/api/railway-brands/${savedFile.filename}`);
                             if (fileRes.ok) {
                                 const fileData = await fileRes.json();
 
