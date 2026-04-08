@@ -786,7 +786,7 @@ app.post('/api/auto-match-ai', async (req, res) => {
 
       // ── STAGE 3: DEEP SEARCH (Web Discovery) ─────
       console.log(`  🌐 [Stage 3] Deep Discovery Engine engaged: searching live web for ${identifiedBrand} ${identifiedModel}...`);
-      const webResult = await fetchProductDetails(identifiedBrand, identifiedModel, finalTier, provider);
+      const webResult = await fetchProductDetails(identifiedBrand, identifiedModel, finalTier, provider, providerModel);
 
       if (webResult.status === 'success' && webResult.product) {
         const newProduct = { 

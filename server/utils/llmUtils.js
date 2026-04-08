@@ -243,7 +243,7 @@ export async function identifyModel(description, brand, provider = 'google', kno
     }
 
     try {
-        // Attempt 1: Search Grounded Identification
+        // Attempt 1: Search Grounded Identification with the selected provider only
         let parsed;
         if (provider === 'google') {
             parsed = await callGoogle(system, user, true, providerModel || GOOGLE_MODEL);
@@ -252,33 +252,19 @@ export async function identifyModel(description, brand, provider = 'google', kno
         } else {
             parsed = await callOpenRouter(system, user, providerModel || OPENROUTER_MODEL);
         }
-        
+
         if (parsed && parsed.model && parsed.model !== 'FAILED') {
-            return { 
-                status: 'success', 
-                brand: parsed.brand || brand, 
+            return {
+                status: 'success',
+                brand: parsed.brand || brand,
                 model: parsed.model,
                 mainCategory: parsed.mainCategory || ''
             };
         }
-        
-        throw new Error('Search did not yield a valid model');
+
+        throw new Error('Provider did not return a valid model');
     } catch (err) {
-        console.warn(`  ⚠️ [AI Fallback] Search Identification failed for ${brand}, trying internal knowledge...`);
-        try {
-            // Attempt 2: Internal Knowledge Fallback (Non-Search)
-            const fallbackParsed = await callGoogle(system, user, false);
-            if (fallbackParsed && fallbackParsed.model && fallbackParsed.model !== 'FAILED') {
-                return { 
-                    status: 'success', 
-                    brand: fallbackParsed.brand || brand, 
-                    model: fallbackParsed.model,
-                    mainCategory: fallbackParsed.mainCategory || ''
-                };
-            }
-        } catch (innerErr) {
-            console.error(`  ❌ [AI Critical] Both search and internal ID failed for ${brand}:`, innerErr.message);
-        }
+        console.error(`  ❌ [AI Error] ${provider.toUpperCase()} identification failed for ${brand}:`, err.message);
         return { status: 'error', brand, model: '', category: '', error_message: err.message };
     }
 }
@@ -357,45 +343,40 @@ Return ONLY valid JSON:
 }
 `;
 
-export async function fetchProductDetails(brand, model, tier, provider = 'google') {
+export async function fetchProductDetails(brand, model, tier, provider = 'google', providerModel = null) {
     const system = FETCH_SYSTEM(brand, model);
     const user = `Perform a deep search for: ${brand} ${model}. Find its high-res image, official product page, and correct category on Architonic or ${brand} site.`;
 
     try {
-        // Use gemini-2.5-flash or configured model for its strong web grounding capabilities
-        let parsed = await callGoogle(system, user, true, GOOGLE_MODEL);
-        
-        // Stage 3.5: Image Verification & Surgical Recovery
-        if (parsed && parsed.imageUrl && parsed.imageUrl !== 'FAILED') {
+        let parsed;
+        if (provider === 'google') {
+            parsed = await callGoogle(system, user, true, providerModel || GOOGLE_MODEL);
+        } else if (provider === 'nvidia') {
+            parsed = await callNvidia(system, user, providerModel || NVIDIA_MODEL);
+        } else {
+            parsed = await callOpenRouter(system, user, providerModel || OPENROUTER_MODEL);
+        }
+
+        if (!parsed || parsed === 'FAILED') {
+            throw new Error(`${provider.toUpperCase()} did not return valid product details`);
+        }
+
+        // Stage 3.5: Image verification if the provider returned an image URL
+        if (parsed.imageUrl && parsed.imageUrl !== 'FAILED') {
             const isAlive = await verifyImageUrl(parsed.imageUrl, brand);
-            
             if (!isAlive) {
-                console.warn(`  ⚠️  [Stage 3.5] Image verification failed for: "${parsed.imageUrl.substring(0, 50)}...". Triggering recovery...`);
-                
-                const recoveryPrompt = `Find a high-quality, DIRECT image URL and product page for: "${brand} ${model}".`;
-                const recoveryResult = await callGoogle(system, recoveryPrompt, true);
-                
-                if (recoveryResult && recoveryResult.imageUrl && await verifyImageUrl(recoveryResult.imageUrl, brand)) {
-                    console.log(`  ✅ [Stage 3.5] Recovery successful: Found valid image for ${model}.`);
-                    parsed = { ...parsed, ...recoveryResult };
-                } else {
-                    console.error(`  ❌ [Stage 3.5] Recovery failed for ${model}. No valid visual reference found.`);
-                    parsed.imageUrl = 'FAILED';
-                }
+                console.warn(`  ⚠️  [Stage 3.5] Image verification failed for: "${parsed.imageUrl.substring(0, 50)}...".`);
+                parsed.imageUrl = 'FAILED';
             }
         }
 
         // Final sanitation: Ensure we have at least partial data
-        if (parsed) {
-            parsed.brand = parsed.brand || brand;
-            parsed.model = parsed.model || model;
-            parsed.price = parseFloat(parsed.price) || 0;
-            return { status: 'success', product: parsed };
-        }
-        
-        throw new Error('AI returned empty or invalid response');
+        parsed.brand = parsed.brand || brand;
+        parsed.model = parsed.model || model;
+        parsed.price = parseFloat(parsed.price) || 0;
+        return { status: 'success', product: parsed };
     } catch (err) {
-        console.error(`  ❌ [Fetch Details Error] for ${brand} ${model}:`, err.message);
+        console.error(`  ❌ [Fetch Details Error] for ${brand} ${model} using ${provider.toUpperCase()}:`, err.message);
         return { status: 'error', error_message: err.message };
     }
 }
