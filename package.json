@@ -12,7 +12,8 @@
     "dev:all": "concurrently \"npm run dev\" \"npm run server\"",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "sync:brands": "node scripts/sync-brands-to-blob.js"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
