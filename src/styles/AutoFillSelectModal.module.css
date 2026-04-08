@@ -161,6 +161,45 @@
     gap: 16px;
 }
 
+.modelSection {
+    margin-top: 22px;
+    padding: 20px;
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+}
+
+.sectionSubtitle {
+    font-size: 0.85rem;
+    font-weight: 800;
+    color: var(--text-primary);
+    margin-bottom: 10px;
+    display: block;
+}
+
+.modelSelect {
+    width: 100%;
+    padding: 12px 14px;
+    border-radius: 14px;
+    border: 1px solid var(--border-color);
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    font-size: 0.92rem;
+    transition: border-color 0.2s ease;
+}
+
+.modelSelect:focus {
+    outline: none;
+    border-color: var(--accent-color);
+}
+
+.modelHint {
+    margin-top: 10px;
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    line-height: 1.4;
+}
+
 .engineCard {
     padding: 20px;
     background: var(--bg-secondary);

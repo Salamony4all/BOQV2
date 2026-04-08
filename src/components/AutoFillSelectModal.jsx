@@ -4,6 +4,13 @@ import styles from '../styles/AutoFillSelectModal.module.css';
 export default function AutoFillSelectModal({ isOpen, onClose, allBrands, activeTier, onConfirm }) {
     const [selectedBrands, setSelectedBrands] = useState([]);
     const [selectedEngine, setSelectedEngine] = useState('google');
+    const [selectedModel, setSelectedModel] = useState('gemini-2.5-flash');
+
+    const modelOptions = {
+        google: ['gemini-2.5-flash', 'gemini-2.0-flash-exp', 'gemini-1.5-flash', 'gemini-1.5-flash-002', 'gemini-1.5-pro'],
+        openrouter: ['google/gemini-2.5-flash-lite-001', 'google/gemini-4-31b-it:free', 'google/gemma-4-26b-a4b-it:free', 'google/gemma-4-31b-it:free', 'z-ai/glm-5.1', 'cohere/rerank-4-pro'],
+        nvidia: ['meta/llama-3.1-405b-instruct', 'meta/llama-3.1-70b-instruct', 'meta/llama-3.3-70b-instruct', 'nvidia/nemotron-3-super-120b-a12b', 'nvidia/gemma-4-31b-it']
+    };
 
     const tierMeta = {
         budgetary: { label: 'Budgetary', color: '#3b82f6' },
@@ -27,8 +34,13 @@ export default function AutoFillSelectModal({ isOpen, onClose, allBrands, active
         if (isOpen) {
             setSelectedBrands([]);
             setSelectedEngine('google');
+            setSelectedModel(modelOptions.google[0]);
         }
     }, [isOpen]);
+
+    useEffect(() => {
+        setSelectedModel(modelOptions[selectedEngine][0]);
+    }, [selectedEngine]);
 
     if (!isOpen) return null;
 
@@ -92,6 +104,20 @@ export default function AutoFillSelectModal({ isOpen, onClose, allBrands, active
                                     </div>
                             ))}
                         </div>
+
+                        <div className={styles.modelSection}>
+                            <span className={styles.sectionSubtitle}>Select Model</span>
+                            <select
+                                className={styles.modelSelect}
+                                value={selectedModel}
+                                onChange={(event) => setSelectedModel(event.target.value)}
+                            >
+                                {modelOptions[selectedEngine].map((model) => (
+                                    <option key={model} value={model}>{model}</option>
+                                ))}
+                            </select>
+                            <p className={styles.modelHint}>Choose the exact model name used by the selected AI provider.</p>
+                        </div>
                     </div>
 
                     {/* 2. Brand Selection — all tiers */}
@@ -154,7 +180,7 @@ export default function AutoFillSelectModal({ isOpen, onClose, allBrands, active
                     <button
                         className={styles.btnConfirm}
                         disabled={selectedBrands.length === 0}
-                        onClick={() => onConfirm(selectedBrands, selectedEngine)}
+                        onClick={() => onConfirm(selectedBrands, selectedEngine, selectedModel)}
                     >
                         Start AI Batch — {selectedBrands.length} Brand{selectedBrands.length !== 1 ? 's' : ''}
                     </button>

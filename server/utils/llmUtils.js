@@ -11,20 +11,34 @@ const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
 const NVIDIA_API_KEY = process.env.NVIDIA_API_KEY;
 
 // Model ids
-// Valid model names: gemini-1.5-pro, gemini-1.5-flash, gemini-2.0-flash-exp, etc.
-// Default to 2.0-flash-exp if .env is missing or has a typo (like gemini-2.5-pro)
-const VALID_GOOGLE_MODELS = [
-    'gemini-2.0-flash',
+// Valid model names: gemini-1.5-pro, gemini-1.5-flash, gemini-2.5-flash, gemini-2.0-flash-exp, etc.
+// Default to 2.5-flash if .env is missing or has a typo
+export const VALID_GOOGLE_MODELS = [
+    'gemini-2.5-flash',
+    'gemini-2.0-flash-exp',
     'gemini-1.5-flash',
     'gemini-1.5-flash-002',
-    'gemini-1.5-pro',
-    'gemini-2.0-flash', 
-    'gemini-2.0-flash-exp'
+    'gemini-1.5-pro'
 ];
-const GOOGLE_MODEL = VALID_GOOGLE_MODELS.includes(process.env.GOOGLE_MODEL) ? process.env.GOOGLE_MODEL : 'gemini-2.0-flash';
-const OPENROUTER_MODEL = process.env.OPENROUTER_MODEL || 'google/gemini-2.0-flash-lite-001';
-const NVIDIA_MODEL = process.env.NVIDIA_MODEL || 'meta/llama-3.1-405b-instruct';
-const GROUNDING_MODEL = process.env.GOOGLE_MODEL || 'gemini-2.0-flash'; // Standard model for this environment
+export const VALID_OPENROUTER_MODELS = [
+    'google/gemini-2.5-flash-lite-001',
+    'google/gemini-4-31b-it:free',
+    'google/gemma-4-26b-a4b-it:free',
+    'google/gemma-4-31b-it:free',
+    'z-ai/glm-5.1',
+    'cohere/rerank-4-pro'
+];
+export const VALID_NVIDIA_MODELS = [
+    'meta/llama-3.1-405b-instruct',
+    'meta/llama-3.1-70b-instruct',
+    'meta/llama-3.3-70b-instruct',
+    'nvidia/nemotron-3-super-120b-a12b',
+    'nvidia/gemma-4-31b-it'
+];
+export const GOOGLE_MODEL = VALID_GOOGLE_MODELS.includes(process.env.GOOGLE_MODEL) ? process.env.GOOGLE_MODEL : 'gemini-2.5-flash';
+export const OPENROUTER_MODEL = process.env.OPENROUTER_MODEL || 'google/gemini-2.5-flash-lite-001';
+export const NVIDIA_MODEL = process.env.NVIDIA_MODEL || 'meta/llama-3.1-405b-instruct';
+export const GROUNDING_MODEL = process.env.GOOGLE_MODEL || 'gemini-2.5-flash'; // Standard model for this environment
 
 const genAI = new GoogleGenerativeAI(GOOGLE_API_KEY);
 
@@ -109,11 +123,11 @@ function safeParseJSON(text) {
 }
 
 /** Generic OpenRouter call expecting JSON object back. */
-async function callOpenRouter(systemPrompt, userPrompt) {
+async function callOpenRouter(systemPrompt, userPrompt, modelName = null) {
     const res = await axios.post(
         'https://openrouter.ai/api/v1/chat/completions',
         {
-            model: OPENROUTER_MODEL,
+            model: modelName || OPENROUTER_MODEL,
             messages: [
                 { role: 'system', content: systemPrompt },
                 { role: 'user', content: userPrompt }
@@ -131,11 +145,11 @@ async function callOpenRouter(systemPrompt, userPrompt) {
 }
 
 /** Generic NVIDIA NIM call expecting JSON object back. */
-async function callNvidia(systemPrompt, userPrompt) {
+async function callNvidia(systemPrompt, userPrompt, modelName = null) {
     const res = await axios.post(
         'https://integrate.api.nvidia.com/v1/chat/completions',
         {
-            model: NVIDIA_MODEL,
+            model: modelName || NVIDIA_MODEL,
             messages: [
                 { role: 'system', content: systemPrompt },
                 { role: 'user', content: userPrompt }
@@ -220,7 +234,7 @@ Return ONLY valid JSON:
   "logic": "Brief reasoning" 
 } (Use the most descriptive name found on Architonic or official site)`;
 
-export async function identifyModel(description, brand, provider = 'google', knownCategories = [], modelList = [], tier = 'mid-range') {
+export async function identifyModel(description, brand, provider = 'google', knownCategories = [], modelList = [], tier = 'mid-range', providerModel = null) {
     const system = IDENTIFY_SYSTEM(brand, knownCategories, modelList, tier);
     const user = `what is the best One "Model" for "${description}" from "${brand}"?`;
 
@@ -230,7 +244,14 @@ export async function identifyModel(description, brand, provider = 'google', kno
 
     try {
         // Attempt 1: Search Grounded Identification
-        const parsed = provider === 'google' ? await callGoogle(system, user, true) : await callOpenRouter(system, user);
+        let parsed;
+        if (provider === 'google') {
+            parsed = await callGoogle(system, user, true, providerModel || GOOGLE_MODEL);
+        } else if (provider === 'nvidia') {
+            parsed = await callNvidia(system, user, providerModel || NVIDIA_MODEL);
+        } else {
+            parsed = await callOpenRouter(system, user, providerModel || OPENROUTER_MODEL);
+        }
         
         if (parsed && parsed.model && parsed.model !== 'FAILED') {
             return { 
@@ -341,7 +362,7 @@ export async function fetchProductDetails(brand, model, tier, provider = 'google
     const user = `Perform a deep search for: ${brand} ${model}. Find its high-res image, official product page, and correct category on Architonic or ${brand} site.`;
 
     try {
-        // Use gemini-2.0-flash or configured model for its strong web grounding capabilities
+        // Use gemini-2.5-flash or configured model for its strong web grounding capabilities
         let parsed = await callGoogle(system, user, true, GOOGLE_MODEL);
         
         // Stage 3.5: Image Verification & Surgical Recovery
@@ -487,7 +508,7 @@ Return ONLY valid JSON:
     const user = `Find best match for: "${description}" (Tier: ${tier})`;
     try {
         // Use gemini-2.5-flash for speed and efficiency as requested.
-        return await callGoogle(system, user, false, 'gemini-2.0-flash');
+        return await callGoogle(system, user, false, 'gemini-2.5-flash');
     } catch (err) {
         console.error('  ❌ [Fitout Matcher] Error:', err.message);
         return { status: 'error', error_message: err.message };

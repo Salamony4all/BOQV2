@@ -14,7 +14,7 @@ import axios from 'axios';
 import https from 'https';
 import { ExcelDbManager } from './excelManager.js';
 import { brandStorage } from './storageProvider.js';
-import { getAiMatch, identifyModel, fetchProductDetails, searchAndEnrichModel, analyzePlan, matchFitoutItem } from './utils/llmUtils.js';
+import { getAiMatch, identifyModel, fetchProductDetails, searchAndEnrichModel, analyzePlan, matchFitoutItem, VALID_GOOGLE_MODELS, VALID_OPENROUTER_MODELS, VALID_NVIDIA_MODELS, GOOGLE_MODEL, OPENROUTER_MODEL, NVIDIA_MODEL } from './utils/llmUtils.js';
 
 // Restored Scraper Engine Imports
 import ScraperService from './scraper.js';
@@ -434,6 +434,20 @@ app.get('/api/brands/sync/status', async (req, res) => {
   }
 });
 
+// Provide the current available model lists for frontend selection
+app.get('/api/models/available', (req, res) => {
+  res.json({
+    google: VALID_GOOGLE_MODELS,
+    openrouter: VALID_OPENROUTER_MODELS,
+    nvidia: VALID_NVIDIA_MODELS,
+    defaults: {
+      google: GOOGLE_MODEL,
+      openrouter: OPENROUTER_MODEL,
+      nvidia: NVIDIA_MODEL
+    }
+  });
+});
+
 /**
  * 💎 AI ENRICHMENT & HARDENING ENDPOINT
  * Triggers online search and saves results permanently to the brand database.
@@ -595,6 +609,7 @@ app.post('/api/auto-match-ai', async (req, res) => {
       availableBrands = [],
       brand,            // single brand legacy param
       provider = 'google',
+      providerModel = null,
       scope = 'Furniture' // Default to furniture
     } = req.body;
 
@@ -717,7 +732,7 @@ app.post('/api/auto-match-ai', async (req, res) => {
         const modelList = products.map(p => p.model);
         const budgetTier = dbEntry?.budgetTier || 'mid';
 
-        const identity = await identifyModel(enrichedDescription, candidateBrand, provider, knownCategories, modelList, budgetTier);
+        const identity = await identifyModel(enrichedDescription, candidateBrand, provider, knownCategories, modelList, budgetTier, providerModel);
         return { candidateBrand, identity, knownCategories };
       } catch (err) {
         return { candidateBrand, identity: { status: 'error' }, knownCategories: [] };

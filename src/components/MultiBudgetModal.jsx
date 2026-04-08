@@ -455,7 +455,7 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
     };
 
 
-    const executeAutoFillAI = async (selectedBrands, selectedEngine) => {
+    const executeAutoFillAI = async (selectedBrands, selectedEngine, providerModel = null) => {
         setIsAutoFillSelectOpen(false);
         setIsFurnitureAutoFilling(true);
         setFurnitureBatchResult(null);
@@ -534,6 +534,7 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                         tier: tierKey,
                         availableBrands: brandsByTier[tierKey],
                         provider: selectedEngine,
+                        providerModel,
                         scope: row.scope,
                         type: 'furniture'
                     })

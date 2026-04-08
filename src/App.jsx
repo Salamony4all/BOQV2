@@ -21,6 +21,8 @@ const CAROUSEL_IMAGES = [
   'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=800&q=80', // Sofa design
 ];
 
+const LOGO_Q_IMAGE = `${import.meta.env.BASE_URL}geared_q.png`;
+
 import { getApiBase } from './utils/apiBase';
 
 const API_BASE = getApiBase();
@@ -453,7 +455,12 @@ function AppContent({ onOpenSettings }) {
           {/* Logo with Image Q */}
           <div className={styles.logoContainer}>
             <span className={styles.logoTextBlue}>BO</span>
-            <img src="/geared_q.png" alt="Q" className={styles.logoImage} />
+            <img
+              src={LOGO_Q_IMAGE}
+              alt="Q"
+              className={styles.logoImage}
+              onError={(event) => event.currentTarget.style.display = 'none'}
+            />
             <span className={styles.logoTextGold}>FLOW</span>
           </div>
 
