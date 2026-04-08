@@ -359,6 +359,81 @@ app.post('/api/brands', async (req, res) => {
   }
 });
 
+// Sync local brands database to Vercel Blob storage
+app.post('/api/brands/sync/to-blob', async (req, res) => {
+  try {
+    if (!process.env.BLOB_READ_WRITE_TOKEN) {
+      return res.status(400).json({ error: 'Blob storage not configured' });
+    }
+
+    const brandsPath = isVercel ? '/tmp/data/brands' : path.join(process.cwd(), 'server/data/brands');
+    
+    try {
+      await fs.mkdir(brandsPath, { recursive: true });
+    } catch (e) {}
+
+    const files = await fs.readdir(brandsPath);
+    const jsonFiles = files.filter(f => f.endsWith('.json'));
+
+    let syncedCount = 0;
+    const results = [];
+
+    for (const file of jsonFiles) {
+      try {
+        const filePath = path.join(brandsPath, file);
+        const content = await fs.readFile(filePath, 'utf8');
+        const parsed = JSON.parse(content);
+
+        // Upload to Blob with brands-db/ prefix
+        await put(`brands-db/${file}`, content, {
+          access: 'public',
+          contentType: 'application/json'
+        });
+
+        syncedCount++;
+        results.push({ file, status: 'synced' });
+        console.log(`✅ [Sync] Uploaded ${file} to Blob`);
+      } catch (fileErr) {
+        console.error(`❌ [Sync] Failed to sync ${file}:`, fileErr.message);
+        results.push({ file, status: 'failed', error: fileErr.message });
+      }
+    }
+
+    res.json({
+      success: true,
+      message: `Synced ${syncedCount}/${jsonFiles.length} brand files to Blob storage`,
+      synced: syncedCount,
+      total: jsonFiles.length,
+      results
+    });
+  } catch (error) {
+    console.error('❌ [Sync] Sync operation failed:', error.message);
+    res.status(500).json({ error: 'Sync failed', details: error.message });
+  }
+});
+
+// Get sync status
+app.get('/api/brands/sync/status', async (req, res) => {
+  try {
+    if (!process.env.BLOB_READ_WRITE_TOKEN) {
+      return res.json({ status: 'not-configured' });
+    }
+
+    const { blobs } = await list({ prefix: 'brands-db/', limit: 1000 });
+    const localBrands = await brandStorage.getAllBrands();
+
+    res.json({
+      status: 'synced',
+      blobCount: blobs.length,
+      localCount: localBrands.length,
+      synced: blobs.length === localBrands.length,
+      blobs: blobs.map(b => ({ pathname: b.pathname, size: b.size }))
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to get sync status', details: error.message });
+  }
+});
+
 /**
  * 💎 AI ENRICHMENT & HARDENING ENDPOINT
  * Triggers online search and saves results permanently to the brand database.
