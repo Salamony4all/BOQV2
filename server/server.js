@@ -919,6 +919,65 @@ app.delete('/api/railway-brands/:filename', async (req, res) => {
   }
 });
 
+app.post('/api/railway-brands/sync-to-blob', async (req, res) => {
+  if (!JS_SCRAPER_SERVICE_URL) {
+    return res.status(500).json({ error: 'Railway service not configured' });
+  }
+  if (!process.env.BLOB_READ_WRITE_TOKEN) {
+    return res.status(500).json({ error: 'Blob storage token not configured' });
+  }
+
+  try {
+    const listRes = await axios.get(`${JS_SCRAPER_SERVICE_URL}/brands`, { timeout: 15000 });
+    const files = listRes.data.brands || [];
+    const results = [];
+    let synced = 0;
+    let skipped = 0;
+
+    for (const fileMeta of files) {
+      const filename = fileMeta.filename;
+      try {
+        const response = await axios.get(`${JS_SCRAPER_SERVICE_URL}/brands/${filename}`, { timeout: 20000 });
+        const data = response.data;
+
+        const brandName = data.brandInfo?.name || filename.replace(/_/g, ' ');
+        const brand = {
+          id: data.brandInfo?.id || Date.now() + Math.floor(Math.random() * 1000),
+          name: brandName,
+          logo: data.brandInfo?.logo || '',
+          origin: 'Railway-Volume-Recovery',
+          budgetTier: data.budgetTier || 'mid',
+          products: data.products || [],
+          sourceUrl: data.sourceUrl || '',
+          completedAt: data.completedAt || new Date().toISOString()
+        };
+
+        const saved = await brandStorage.saveBrand(brand);
+        if (saved) {
+          synced += 1;
+          results.push({ filename, status: 'synced', brand: brand.name });
+        } else {
+          skipped += 1;
+          results.push({ filename, status: 'skipped', error: 'saveBrand returned false' });
+        }
+      } catch (importErr) {
+        results.push({ filename, status: 'failed', error: importErr.message });
+      }
+    }
+
+    res.json({
+      success: true,
+      total: files.length,
+      synced,
+      skipped,
+      files: results
+    });
+  } catch (error) {
+    console.error('❌ Railway sync-to-blob failed:', error.message);
+    res.status(500).json({ error: 'Railway sync failed', details: error.message });
+  }
+});
+
 // Image Proxy with robust error handling
 app.get('/api/image-proxy', async (req, res) => {
   let imageUrl = req.query.url;
