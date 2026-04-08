@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import styles from '../styles/BlobDashboard.module.css';
+import { getApiBase } from '../utils/apiBase';
 
 const BlobDashboard = ({ isOpen, onClose }) => {
     const [blobs, setBlobs] = useState([]);
@@ -16,7 +17,8 @@ const BlobDashboard = ({ isOpen, onClose }) => {
     const fetchBlobs = async () => {
         setLoading(true);
         try {
-            const response = await fetch('http://localhost:3001/api/blobs');
+            const apiBase = getApiBase();
+            const response = await fetch(`${apiBase}/api/blobs`);
             const data = await response.json();
             if (data.success) {
                 // Sort by date created (descending) if available
@@ -36,7 +38,8 @@ const BlobDashboard = ({ isOpen, onClose }) => {
         if (!window.confirm('Are you sure you want to delete this file permanently?')) return;
         
         try {
-            const response = await fetch('http://localhost:3001/api/blobs/delete', {
+            const apiBase = getApiBase();
+            const response = await fetch(`${apiBase}/api/blobs/delete`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ url })
@@ -60,7 +63,8 @@ const BlobDashboard = ({ isOpen, onClose }) => {
         formData.append('file', file);
 
         try {
-            const response = await fetch('http://localhost:3001/api/blobs/upload', {
+            const apiBase = getApiBase();
+            const response = await fetch(`${apiBase}/api/blobs/upload`, {
                 method: 'POST',
                 body: formData
             });

@@ -2243,7 +2243,8 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
             // ===== REFERENCE IMAGE (BOQ mode, small on right) =====
             let refImgOffset = 0;
             if (isBoqMode && row.imageRef) {
-                const refUrl = row.imageRef.startsWith('http') ? row.imageRef : `http://localhost:3001${row.imageRef}`;
+                const apiBase = getApiBase();
+                const refUrl = row.imageRef.startsWith('http') ? row.imageRef : `${apiBase}${row.imageRef}`;
                 try {
                     const refImg = await getImageData(refUrl);
                     if (refImg) {

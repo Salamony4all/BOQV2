@@ -8,7 +8,7 @@ import { promises as fs } from 'fs';
 import { fileURLToPath } from 'url';
 import { extractExcelData } from './fastExtractor.js';
 import { CleanupService } from './cleanupService.js';
-import { put, del } from '@vercel/blob';
+import { put, del, list } from '@vercel/blob';
 import { handleUpload } from '@vercel/blob/client';
 import axios from 'axios';
 import https from 'https';
@@ -243,9 +243,42 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
 });
 
 // Blob Management API (for Blob Dashboard)
+app.get('/api/admin/blobs', async (req, res) => {
+  try {
+    const { blobs } = await list({ limit: 1000 });
+    
+    // Transform Vercel Blob response to match BlobDashboard expectations
+    const formattedBlobs = blobs.map(blob => ({
+      url: blob.url,
+      pathname: blob.pathname,
+      size: blob.size,
+      uploadedAt: blob.uploadedAt || new Date(blob.ctime * 1000).toISOString(),
+      downloadUrl: blob.downloadUrl
+    }));
+    
+    res.json(formattedBlobs);
+  } catch (error) {
+    console.error('❌ [Blob API] List failed:', error.message);
+    res.status(500).json({ error: 'Failed to list blobs', details: error.message });
+  }
+});
+
+app.delete('/api/admin/blobs', async (req, res) => {
+  const { url } = req.body;
+  if (!url) return res.status(400).json({ error: 'URL is required' });
+  try {
+    await del(url);
+    res.json({ success: true });
+  } catch (error) {
+    console.error('❌ [Blob API] Delete failed:', error.message);
+    res.status(500).json({ error: 'Failed to delete blob', details: error.message });
+  }
+});
+
+// Legacy blob endpoints for backward compatibility
 app.get('/api/blobs', async (req, res) => {
   try {
-    const { blobs } = await list();
+    const { blobs } = await list({ limit: 1000 });
     res.json({ success: true, blobs });
   } catch (error) {
     console.error('❌ [Blob API] List failed:', error.message);

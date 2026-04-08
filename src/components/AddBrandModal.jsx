@@ -1,9 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import styles from '../styles/AddBrandModal.module.css';
 import { useScraping } from '../context/ScrapingContext';
+import { getApiBase } from '../utils/apiBase';
 import BlobDashboard from './BlobDashboard';
-
-const API_BASE = window.location.hostname === 'localhost' ? 'http://localhost:3001' : '';
 
 export default function AddBrandModal({ isOpen, onClose, onBrandAdded, onBrandUpdated }) {
     const [name, setName] = useState('');
@@ -34,7 +33,8 @@ export default function AddBrandModal({ isOpen, onClose, onBrandAdded, onBrandUp
         if (isOpen) {
             fetchBrands();
             fetchRailwayFiles();
-            fetch(`${API_BASE}/api/scraper-config?t=${Date.now()}`)
+            const apiBase = getApiBase();
+            fetch(`${apiBase}/api/scraper-config?t=${Date.now()}`)
                 .then(r => r.json())
                 .then(d => setDashboardUrl(d.dashboardUrl))
                 .catch(e => console.error('Config fetch failed', e));
@@ -44,7 +44,8 @@ export default function AddBrandModal({ isOpen, onClose, onBrandAdded, onBrandUp
     const fetchRailwayFiles = async () => {
         setRailwayFiles([]); // Clear old list while loading
         try {
-            const res = await fetch(`${API_BASE}/api/railway-brands?t=${Date.now()}`);
+            const apiBase = getApiBase();
+            const res = await fetch(`${apiBase}/api/railway-brands?t=${Date.now()}`);
             if (res.ok) {
                 const data = await res.json();
                 console.log('☁️ Cloud Backups fetched:', data);
@@ -64,13 +65,14 @@ export default function AddBrandModal({ isOpen, onClose, onBrandAdded, onBrandUp
         if (!confirm(`Recover "${filename}" into local storage? (This will move it from the cloud)`)) return;
         setImportingRailway(filename);
         try {
+            const apiBase = getApiBase();
             // 1. Import
-            const res = await fetch(`${API_BASE}/api/railway-brands/import/${filename}`, { method: 'POST' });
+            const res = await fetch(`${apiBase}/api/railway-brands/import/${filename}`, { method: 'POST' });
             const data = await res.json();
 
             if (data.success) {
                 // 2. Delete from Railway (Move operation)
-                await fetch(`${API_BASE}/api/railway-brands/${filename}`, { method: 'DELETE' });
+                await fetch(`${apiBase}/api/railway-brands/${filename}`, { method: 'DELETE' });
 
                 alert(`✅ Moved "${data.brandName}" to local storage!`);
                 fetchBrands();
@@ -89,7 +91,8 @@ export default function AddBrandModal({ isOpen, onClose, onBrandAdded, onBrandUp
         if (!confirm(`Permanently delete cloud backup "${filename}"?`)) return;
         setDeletingRailway(filename);
         try {
-            const res = await fetch(`${API_BASE}/api/railway-brands/${filename}`, { method: 'DELETE' });
+            const apiBase = getApiBase();
+            const res = await fetch(`${apiBase}/api/railway-brands/${filename}`, { method: 'DELETE' });
             if (res.ok) {
                 setRailwayFiles(prev => prev.filter(f => f.filename !== filename));
             } else {
@@ -104,7 +107,8 @@ export default function AddBrandModal({ isOpen, onClose, onBrandAdded, onBrandUp
 
     const fetchBrands = async () => {
         try {
-            const res = await fetch(`${API_BASE}/api/brands`);
+            const apiBase = getApiBase();
+            const res = await fetch(`${apiBase}/api/brands`);
             const data = await res.json();
             if (Array.isArray(data)) {
                 setAllBrands(data.sort((a, b) => a.name.localeCompare(b.name)));
@@ -124,10 +128,11 @@ export default function AddBrandModal({ isOpen, onClose, onBrandAdded, onBrandUp
         onClose();
 
         try {
+            const apiBase = getApiBase();
             let endpoint;
-            if (scrapingMethod === 'ai') endpoint = `${API_BASE}/api/scrape-ai`;
-            else if (scrapingMethod === 'scrapling') endpoint = `${API_BASE}/api/scrape-scrapling`;
-            else endpoint = `${API_BASE}/api/scrape-brand`;
+            if (scrapingMethod === 'ai') endpoint = `${apiBase}/api/scrape-ai`;
+            else if (scrapingMethod === 'scrapling') endpoint = `${apiBase}/api/scrape-scrapling`;
+            else endpoint = `${apiBase}/api/scrape-brand`;
 
             const res = await fetch(endpoint, {
                 method: 'POST',
@@ -162,7 +167,8 @@ export default function AddBrandModal({ isOpen, onClose, onBrandAdded, onBrandUp
     };
 
     const handleDownloadDB = (brandId) => {
-        window.open(`${API_BASE}/api/brands/${brandId}/export`, '_blank');
+        const apiBase = getApiBase();
+        window.open(`${apiBase}/api/brands/${brandId}/export`, '_blank');
     };
 
     const handleUploadClick = (brandId) => {
@@ -180,7 +186,8 @@ export default function AddBrandModal({ isOpen, onClose, onBrandAdded, onBrandUp
         formData.append('file', file);
 
         try {
-            const res = await fetch(`${API_BASE}/api/brands/${importingId}/import`, {
+            const apiBase = getApiBase();
+            const res = await fetch(`${apiBase}/api/brands/${importingId}/import`, {
                 method: 'POST',
                 body: formData
             });
@@ -211,7 +218,8 @@ export default function AddBrandModal({ isOpen, onClose, onBrandAdded, onBrandUp
         setDeletingId(brand.id);
 
         try {
-            const res = await fetch(`${API_BASE}/api/brands/${brand.id}`, {
+            const apiBase = getApiBase();
+            const res = await fetch(`${apiBase}/api/brands/${brand.id}`, {
                 method: 'DELETE'
             });
             const data = await res.json();

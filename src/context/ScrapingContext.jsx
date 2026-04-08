@@ -1,9 +1,8 @@
 import { createContext, useContext, useState, useRef, useCallback, useEffect } from 'react';
 import styles from '../styles/AddBrandModal.module.css';
+import { getApiBase } from '../utils/apiBase';
 
 const ScrapingContext = createContext(null);
-
-const API_BASE = window.location.hostname === 'localhost' ? 'http://localhost:3001' : '';
 
 export function ScrapingProvider({ children }) {
     const [scrapingState, setScrapingState] = useState({
@@ -44,8 +43,9 @@ export function ScrapingProvider({ children }) {
         try {
             // normalizing name for comparison
             const targetName = brandName.toLowerCase().trim();
+            const apiBase = getApiBase();
 
-            const res = await fetch(`${API_BASE}/api/railway-brands`);
+            const res = await fetch(`${apiBase}/api/railway-brands`);
             if (!res.ok) return null;
 
             const data = await res.json();
@@ -91,8 +91,9 @@ export function ScrapingProvider({ children }) {
                 // Longer timeout - Railway can be slow under load
                 const controller = new AbortController();
                 const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout
+                const apiBase = getApiBase();
 
-                const res = await fetch(`${API_BASE}/api/tasks/${taskId}`, {
+                const res = await fetch(`${apiBase}/api/tasks/${taskId}`, {
                     signal: controller.signal
                 });
 
@@ -181,7 +182,8 @@ export function ScrapingProvider({ children }) {
                 if (currentErrorCount > 2) {
                     const savedFile = await checkForSavedFile(brandName);
                     if (savedFile) {
-                        try {
+                        try {apiBase = getApiBase();
+                            const fileRes = await fetch(`${apiBase
                             const fileRes = await fetch(`${API_BASE}/api/railway-brands/${savedFile.filename}`);
                             if (fileRes.ok) {
                                 const fileData = await fileRes.json();
@@ -305,7 +307,8 @@ export function ScrapingProvider({ children }) {
 
         if (scrapingState.taskId) {
             try {
-                await fetch(`${API_BASE}/api/tasks/${scrapingState.taskId}`, {
+                const apiBase = getApiBase();
+                await fetch(`${apiBase}/api/tasks/${scrapingState.taskId}`, {
                     method: 'DELETE'
                 });
             } catch (e) {
