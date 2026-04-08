@@ -242,49 +242,6 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
   }
 });
 
-// Blob Management API (for Blob Dashboard)
-app.get('/api/blobs', async (req, res) => {
-  try {
-    const { blobs } = await list();
-    res.json({ success: true, blobs });
-  } catch (error) {
-    console.error('❌ [Blob API] List failed:', error.message);
-    res.status(500).json({ error: 'Failed to list blobs', details: error.message });
-  }
-});
-
-app.post('/api/blobs/delete', async (req, res) => {
-  const { url } = req.body;
-  if (!url) return res.status(400).json({ error: 'URL is required' });
-  try {
-    await del(url);
-    res.json({ success: true });
-  } catch (error) {
-    console.error('❌ [Blob API] Delete failed:', error.message);
-    res.status(500).json({ error: 'Failed to delete blob', details: error.message });
-  }
-});
-
-app.post('/api/blobs/upload', planUpload.single('file'), async (req, res) => {
-  try {
-    if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
-    
-    const fileBuffer = await fs.readFile(req.file.path);
-    const blob = await put(`manual-upload/${Date.now()}-${req.file.originalname}`, fileBuffer, {
-      access: 'public',
-      contentType: req.file.mimetype
-    });
-
-    // Cleanup local temp file
-    try { await fs.unlink(req.file.path); } catch (e) {}
-
-    res.json({ success: true, blob });
-  } catch (error) {
-    console.error('❌ [Blob API] Upload failed:', error.message);
-    res.status(500).json({ error: 'Failed to upload blob', details: error.message });
-  }
-});
-
 // Vercel Blob Token Handler
 app.post('/api/upload/blob-token', async (req, res) => {
   try {

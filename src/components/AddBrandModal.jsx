@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import styles from '../styles/AddBrandModal.module.css';
 import { useScraping } from '../context/ScrapingContext';
+import BlobDashboard from './BlobDashboard';
 
 const API_BASE = window.location.hostname === 'localhost' ? 'http://localhost:3001' : '';
 
@@ -23,6 +24,7 @@ export default function AddBrandModal({ isOpen, onClose, onBrandAdded, onBrandUp
     const [importingId, setImportingId] = useState(null);
     const [deletingId, setDeletingId] = useState(null);
     const [deletingRailway, setDeletingRailway] = useState(null);
+    const [isBlobDashboardOpen, setIsBlobDashboardOpen] = useState(false);
     const fileInputRef = useRef(null);
 
     // Global scraping context - polling is handled by context, not this component
@@ -234,7 +236,13 @@ export default function AddBrandModal({ isOpen, onClose, onBrandAdded, onBrandUp
             <div className={styles.modal} onClick={e => e.stopPropagation()}>
                 <div className={styles.header}>
                     <div className={styles.title}>➕ Brand Management</div>
-                    <button className={styles.closeBtn} onClick={onClose}>×</button>
+                    <div style={{ display: 'flex', alignItems: 'center' }}>
+                        <button className={styles.blobDbBtn} onClick={() => setIsBlobDashboardOpen(true)}>
+                            <i className="ri-database-2-line"></i>
+                            <span>Blob DB</span>
+                        </button>
+                        <button className={styles.closeBtn} onClick={onClose}>×</button>
+                    </div>
                 </div>
 
                 <div className={styles.content}>
@@ -452,6 +460,11 @@ export default function AddBrandModal({ isOpen, onClose, onBrandAdded, onBrandUp
                     style={{ display: 'none' }}
                     accept=".xlsx, .xls"
                     onChange={handleFileChange}
+                />
+
+                <BlobDashboard 
+                    isOpen={isBlobDashboardOpen}
+                    onClose={() => setIsBlobDashboardOpen(false)}
                 />
             </div>
         </div>

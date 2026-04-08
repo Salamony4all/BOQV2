@@ -1754,3 +1754,29 @@
 .specialistBtn:active {
     transform: translateY(0) scale(0.95);
 }
+
+.blobDbBtn {
+    background: linear-gradient(135deg, #ff8c00 0%, #f59e0b 100%);
+    color: white;
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.blobDbBtn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(245, 158, 11, 0.4);
+    filter: brightness(1.1);
+}
+
+.blobDbBtn i {
+    font-size: 1rem;
+}

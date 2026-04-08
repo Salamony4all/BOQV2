@@ -55,7 +55,6 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
     const [furnitureBatchResult, setFurnitureBatchResult] = useState(null);
     const [fitoutBatchResult, setFitoutBatchResult] = useState(null);
     
-    // States used by UI actions
     const [isPlanAnalyzerOpen, setIsPlanAnalyzerOpen] = useState(false);
     const [isConsolidated, setIsConsolidated] = useState(false);
     const [specialistData, setSpecialistData] = useState(null);
