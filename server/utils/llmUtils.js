@@ -45,7 +45,6 @@ export const VALID_NVIDIA_MODELS = [
     'nvidia/gemma-4-31b-it',
     'nvidia/cosmos-transfer2_5-2b',
     // Vision models
-    'nvidia/neva-22b',
     'nvidia/vila',
     'nvidia/vlia',
     'nvidia/llama-3.1-nemotron-nano-vl-8b-v1',
@@ -63,6 +62,14 @@ export const NVIDIA_MODEL = process.env.NVIDIA_MODEL || 'nvidia/llama-3.3-70b-in
 export const GROUNDING_MODEL = process.env.GOOGLE_MODEL || 'gemini-2.5-flash'; // Standard model for this environment
 
 const genAI = new GoogleGenerativeAI(GOOGLE_API_KEY);
+
+const isValidProviderModel = (provider, model) => {
+    if (!model) return false;
+    if (provider === 'google') return VALID_GOOGLE_MODELS.includes(model);
+    if (provider === 'openrouter') return VALID_OPENROUTER_MODELS.includes(model);
+    if (provider === 'nvidia') return VALID_NVIDIA_MODELS.includes(model);
+    return false;
+};
 
 // ──────────────────────────────────────────────────────────────────────────────
 // HELPERS
@@ -642,6 +649,18 @@ export async function analyzePlan(filesData, options = {}) {
 
     if (!filesData || filesData.length === 0) {
         return { status: 'error', error_message: 'No files provided for analysis' };
+    }
+
+    const selectedModel = providerModel || (provider === 'google' ? GOOGLE_MODEL : provider === 'openrouter' ? OPENROUTER_MODEL : NVIDIA_MODEL);
+    if (!isValidProviderModel(provider, selectedModel)) {
+        const invalidMsg = `Invalid model for provider ${provider}: ${selectedModel}. Please choose a supported model.`;
+        console.error(`  ❌ [Plan Analyzer Validation] ${invalidMsg}`);
+        return {
+            status: 'error',
+            error_message: invalidMsg,
+            provider,
+            model: selectedModel
+        };
     }
 
     try {

@@ -21,7 +21,7 @@ const CAROUSEL_IMAGES = [
   'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=800&q=80', // Sofa design
 ];
 
-const LOGO_Q_IMAGE = `${import.meta.env.BASE_URL}geared_q.png`;
+const LOGO_Q_IMAGE = new URL('/geared_q.png', import.meta.url).href;
 
 import { getApiBase } from './utils/apiBase';
 

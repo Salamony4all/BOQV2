@@ -8,7 +8,7 @@ const PlanScopeModal = ({ isOpen, onClose, onSelect }) => {
     const modelOptions = {
         google: ['gemini-2.5-flash', 'gemini-2.0-flash-exp', 'gemini-1.5-flash', 'gemini-1.5-flash-002', 'gemini-1.5-pro'],
         openrouter: ['google/gemini-2.5-flash-lite-001', 'anthropic/claude-opus-4.6-fast', 'anthropic/claude-opus-4', 'anthropic/claude-sonnet-4-20250514', 'openai/gpt-4-vision-preview', 'openai/gpt-4-turbo-vision'],
-        nvidia: ['nvidia/neva-22b', 'nvidia/vila', 'nvidia/vlia', 'nvidia/llama-3.1-nemotron-nano-vl-8b-v1', 'nvidia/nemotron-nano-12b-v2-vl']
+        nvidia: ['nvidia/vila', 'nvidia/vlia', 'nvidia/llama-3.1-nemotron-nano-vl-8b-v1', 'nvidia/nemotron-nano-12b-v2-vl']
     };
 
     const engines = [
