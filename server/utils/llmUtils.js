@@ -45,6 +45,7 @@ export const VALID_NVIDIA_MODELS = [
     'nvidia/gemma-4-31b-it',
     'nvidia/cosmos-transfer2_5-2b',
     // Vision models
+    'nvidia/neva-22b',
     'nvidia/vila',
     'nvidia/vlia',
     'nvidia/llama-3.1-nemotron-nano-vl-8b-v1',
