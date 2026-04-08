@@ -41,7 +41,7 @@ function TableViewer({ data, allBrands }) {
     useEffect(() => {
         if (data && data.tables) {
             setTables(JSON.parse(JSON.stringify(data.tables)));
-            
+
             // Allow pre-initialized costing factors from parent (e.g. from MultiBudgetModal)
             if (data.costingFactors) {
                 setCostingFactors(data.costingFactors);
@@ -72,7 +72,7 @@ function TableViewer({ data, allBrands }) {
                 const qtyValStr = qtyIdx !== -1 ? String(row.cells[qtyIdx]?.value || '').trim() : '';
                 const rateValStr = rateIdx !== -1 ? String(row.cells[rateIdx]?.value || '').trim() : '';
                 const unitValStr = unitIdx !== -1 ? String(row.cells[unitIdx]?.value || '').trim() : '';
-                
+
                 // Skip rows that are clearly section titles (text only, no qty/rate/unit)
                 if (!qtyValStr && !rateValStr && !unitValStr) return;
 
@@ -384,7 +384,7 @@ function TableViewer({ data, allBrands }) {
         // Footer on Cover
         doc.setFontSize(9);
         doc.setTextColor(150, 150, 150);
-        const footerText = profile.website || profile.companyName || 'BOQFLOW - Intelligent Estimation System';
+        const footerText = profile.website || profile.companyName || 'BOQ FLOW - Intelligent Estimation System';
         const isArabicFooter = hasArabic(footerText);
         doc.setFont(isArabicFooter && arabicLoaded ? 'Almarai' : 'helvetica', 'normal');
         doc.text(isArabicFooter ? fixArabic(footerText) : footerText, pageWidth / 2, pageHeight - 15, { align: 'center' });
@@ -1320,13 +1320,13 @@ function TableViewer({ data, allBrands }) {
                     ],
                     theme: 'striped',
                     styles: { fontSize: 8, cellPadding: 2.5, textColor: colors.text, overflow: 'linebreak', font: arabicLoaded ? 'Almarai' : 'helvetica' },
-                    headStyles: { 
-                        fillColor: colors.accent, 
-                        textColor: colors.white, 
-                        fontStyle: 'bold', 
+                    headStyles: {
+                        fillColor: colors.accent,
+                        textColor: colors.white,
+                        fontStyle: 'bold',
                         fontSize: 8,
                         cellPadding: 1.5,
-                        minCellHeight: 7 
+                        minCellHeight: 7
                     },
                     alternateRowStyles: { fillColor: colors.lightBg },
                     columnStyles: { 0: { cellWidth: 48, fontStyle: 'bold' } }
@@ -1349,12 +1349,12 @@ function TableViewer({ data, allBrands }) {
                     body: [[processText(project.originatorName || ''), processText(project.originatorDesignation || ''), '']],
                     theme: 'grid',
                     styles: { fontSize: 7.5, cellPadding: 2, textColor: colors.text, font: arabicLoaded ? 'Almarai' : 'helvetica' },
-                    headStyles: { 
-                        fillColor: [248, 250, 252], 
-                        textColor: colors.text, 
-                        fontStyle: 'bold', 
-                        halign: 'center', 
-                        lineWidth: 0.1, 
+                    headStyles: {
+                        fillColor: [248, 250, 252],
+                        textColor: colors.text,
+                        fontStyle: 'bold',
+                        halign: 'center',
+                        lineWidth: 0.1,
                         lineColor: colors.border,
                         cellPadding: 1.5,
                         minCellHeight: 7
@@ -1686,10 +1686,10 @@ function TableViewer({ data, allBrands }) {
                     ],
                     theme: 'striped',
                     styles: { fontSize: 8, cellPadding: 2.5, textColor: colors.text, overflow: 'linebreak', font: arabicLoaded ? 'Almarai' : 'helvetica' },
-                    headStyles: { 
-                        fillColor: colors.accent, 
-                        textColor: colors.white, 
-                        fontStyle: 'bold', 
+                    headStyles: {
+                        fillColor: colors.accent,
+                        textColor: colors.white,
+                        fontStyle: 'bold',
                         fontSize: 8,
                         cellPadding: 1.5,
                         minCellHeight: 7
@@ -1715,12 +1715,12 @@ function TableViewer({ data, allBrands }) {
                     body: [[processText(project.originatorName || ''), processText(project.originatorDesignation || ''), '']],
                     theme: 'grid',
                     styles: { fontSize: 7.5, cellPadding: 2, textColor: colors.text, font: arabicLoaded ? 'Almarai' : 'helvetica' },
-                    headStyles: { 
-                        fillColor: [248, 250, 252], 
-                        textColor: colors.text, 
-                        fontStyle: 'bold', 
-                        halign: 'center', 
-                        lineWidth: 0.1, 
+                    headStyles: {
+                        fillColor: [248, 250, 252],
+                        textColor: colors.text,
+                        fontStyle: 'bold',
+                        halign: 'center',
+                        lineWidth: 0.1,
                         lineColor: colors.border,
                         cellPadding: 1.5,
                         minCellHeight: 7
@@ -1961,11 +1961,11 @@ function TableViewer({ data, allBrands }) {
             body: allRows,
             theme: 'striped',
             styles: { fontSize: 7.5, cellPadding: 2.5, textColor: colors.text, overflow: 'linebreak', font: arabicLoaded ? 'Almarai' : 'helvetica', valign: 'middle' },
-            headStyles: { 
-                fillColor: colors.accent, 
-                textColor: colors.white, 
-                fontStyle: 'bold', 
-                fontSize: 7.5, 
+            headStyles: {
+                fillColor: colors.accent,
+                textColor: colors.white,
+                fontStyle: 'bold',
+                fontSize: 7.5,
                 halign: 'center',
                 cellPadding: 1.5,
                 minCellHeight: 7
@@ -2719,7 +2719,7 @@ function TableViewer({ data, allBrands }) {
 
         // 1. Try to find website in allBrands first
         const brandObj = (allBrands || []).find(b => b.name?.toLowerCase() === cleanName.toLowerCase());
-        
+
         // 2. Clearbit API with target domain if website exists
         if (brandObj && brandObj.website) {
             try {
@@ -2772,20 +2772,20 @@ function TableViewer({ data, allBrands }) {
                                                 {(() => {
                                                     const headerName = table.header?.[cellIndex] || '';
                                                     const isBrandImgCol = /brand\s*(img|logo|image)/i.test(headerName);
-                                                    
+
                                                     if (isBrandImgCol) {
                                                         // Find the BRAND column name to fetch the correct logo
                                                         const brandIdx = table.header.findIndex(h => /brand/i.test(h) && !/img|logo|image/i.test(h));
                                                         const brandName = brandIdx !== -1 ? row.cells[brandIdx]?.value : null;
                                                         const logo = getBrandLogo(brandName);
-                                                        
+
                                                         if (logo) {
                                                             return (
                                                                 <div className={styles.brandLogoWrapper}>
-                                                                    <img 
-                                                                        src={logo} 
-                                                                        alt={brandName} 
-                                                                        className={styles.brandLogo} 
+                                                                    <img
+                                                                        src={logo}
+                                                                        alt={brandName}
+                                                                        className={styles.brandLogo}
                                                                         onClick={() => setSelectedImage(logo)}
                                                                         onError={(e) => { e.target.style.display = 'none'; }}
                                                                         style={{ cursor: 'pointer' }}
@@ -3009,10 +3009,10 @@ function TableViewer({ data, allBrands }) {
                 <div className={styles.modalOverlay} onClick={() => setSelectedImage(null)}>
                     <div className={styles.modalContent} onClick={e => e.stopPropagation()}>
                         <button className={styles.innerCloseButton} onClick={() => setSelectedImage(null)}>×</button>
-                        <img 
-                            src={selectedImage} 
-                            alt="Full view" 
-                            className={styles.modalImage} 
+                        <img
+                            src={selectedImage}
+                            alt="Full view"
+                            className={styles.modalImage}
                             onError={(e) => {
                                 e.target.src = 'https://placehold.co/600x400?text=Image+Not+Available';
                             }}

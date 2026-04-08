@@ -42,19 +42,19 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
     const [isFitoutAutoFilling, setIsFitoutAutoFilling] = useState(false);
     const [isAutoFillSelectOpen, setIsAutoFillSelectOpen] = useState(false);
     const [isFitoutAutoFillOpen, setIsFitoutAutoFillOpen] = useState(false);
-    const [furnitureProgress, setFurnitureProgress] = useState({ 
-        budgetary: { current: 0, total: 0 }, 
-        mid: { current: 0, total: 0 }, 
-        high: { current: 0, total: 0 } 
+    const [furnitureProgress, setFurnitureProgress] = useState({
+        budgetary: { current: 0, total: 0 },
+        mid: { current: 0, total: 0 },
+        high: { current: 0, total: 0 }
     });
-    const [fitoutProgress, setFitoutProgress] = useState({ 
-        budgetary: { current: 0, total: 0 }, 
-        mid: { current: 0, total: 0 }, 
-        high: { current: 0, total: 0 } 
+    const [fitoutProgress, setFitoutProgress] = useState({
+        budgetary: { current: 0, total: 0 },
+        mid: { current: 0, total: 0 },
+        high: { current: 0, total: 0 }
     });
     const [furnitureBatchResult, setFurnitureBatchResult] = useState(null);
     const [fitoutBatchResult, setFitoutBatchResult] = useState(null);
-    
+
     const [isPlanAnalyzerOpen, setIsPlanAnalyzerOpen] = useState(false);
     const [isConsolidated, setIsConsolidated] = useState(false);
     const [specialistData, setSpecialistData] = useState(null);
@@ -63,13 +63,13 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
     // AI processing states split per type and tier
     const [furnitureStatuses, setFurnitureStatuses] = useState({
         budgetary: { active: false, status: 'idle', currentItem: null, brand: '', model: '', image: null, minimized: false },
-        mid:       { active: false, status: 'idle', currentItem: null, brand: '', model: '', image: null, minimized: false },
-        high:      { active: false, status: 'idle', currentItem: null, brand: '', model: '', image: null, minimized: false }
+        mid: { active: false, status: 'idle', currentItem: null, brand: '', model: '', image: null, minimized: false },
+        high: { active: false, status: 'idle', currentItem: null, brand: '', model: '', image: null, minimized: false }
     });
     const [fitoutStatuses, setFitoutStatuses] = useState({
         budgetary: { active: false, status: 'idle', currentItem: null, brand: '', model: '', image: null, minimized: false },
-        mid:       { active: false, status: 'idle', currentItem: null, brand: '', model: '', image: null, minimized: false },
-        high:      { active: false, status: 'idle', currentItem: null, brand: '', model: '', image: null, minimized: false }
+        mid: { active: false, status: 'idle', currentItem: null, brand: '', model: '', image: null, minimized: false },
+        high: { active: false, status: 'idle', currentItem: null, brand: '', model: '', image: null, minimized: false }
     });
 
     const updateFurnitureStatus = (tier, delta) => {
@@ -95,7 +95,7 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                 const loc = item.location || item.Location || 'General';
                 const code = item.code || '';
                 const displayDesc = code ? `[${code}] ${desc}` : `[${loc}] ${desc}`;
-                
+
                 return {
                     id: Date.now() + i,
                     sn: i + 1,
@@ -115,8 +115,8 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
 
             setTierData({
                 budgetary: { rows: newRows.map(r => ({ ...r, id: r.id + 0 })), mode: 'boq' },
-                mid:       { rows: newRows.map(r => ({ ...r, id: r.id + 100000 })), mode: 'boq' },
-                high:      { rows: newRows.map(r => ({ ...r, id: r.id + 200000 })), mode: 'boq' }
+                mid: { rows: newRows.map(r => ({ ...r, id: r.id + 100000 })), mode: 'boq' },
+                high: { rows: newRows.map(r => ({ ...r, id: r.id + 200000 })), mode: 'boq' }
             });
         }
     }, [seededItems]);
@@ -189,7 +189,7 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                                             if (product && parseFloat(product.price) > 0 && currentRate === 0) {
                                                 const basePrice = parseFloat(product.price);
                                                 console.log(`Auto-updating ${row.selectedModel} price to ${basePrice}`);
-                                                
+
                                                 // Protected update: don't overwrite AI matches that already have descriptions
                                                 const updatedRow = { ...row, rate: basePrice.toFixed(2), basePrice: basePrice };
                                                 if (!updatedRow.brandDesc && product.description) {
@@ -226,17 +226,17 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
         if (!originalTables || originalTables.length === 0) return [];
         const sourceTable = originalTables[0];
         const header = sourceTable.header || [];
-        
+
         let idxDesc = findCol(header, /description|desc/i);
         if (idxDesc === -1) idxDesc = 1; // Fallback to column 2 if not found
 
         // Improve Qty detection: prioritize "Qty/Quantity" but ignore if it's clearly a rate/price column
         let idxQty = findCol(header, /^(?!.*(rate|price|amount)).*(qty|quantity)/i);
         if (idxQty === -1) idxQty = findCol(header, /qty|quantity/i);
-        
+
         const idxUnit = findCol(header, /unit|uom/i);
         const idxRate = findCol(header, /rate|price/i);
-        
+
         // Improve Total detection: prioritize "Total/Amount" but ignore if it's a qty column
         let idxTotal = findCol(header, /^(?!.*(qty|quantity)).*(total|amount)/i);
         if (idxTotal === -1) idxTotal = findCol(header, /amount|total/i);
@@ -314,8 +314,8 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
         // Seed ALL three tiers similarly to handleGenerateFromBoq
         setTierData({
             budgetary: { rows: newRows.map(r => ({ ...r, id: r.id + 0 })), mode: 'boq' },
-            mid:       { rows: newRows.map(r => ({ ...r, id: r.id + 100000 })), mode: 'boq' },
-            high:      { rows: newRows.map(r => ({ ...r, id: r.id + 200000 })), mode: 'boq' }
+            mid: { rows: newRows.map(r => ({ ...r, id: r.id + 100000 })), mode: 'boq' },
+            high: { rows: newRows.map(r => ({ ...r, id: r.id + 200000 })), mode: 'boq' }
         });
     };
 
@@ -340,16 +340,16 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
             if (!rows.length) { console.warn("No data available to auto-fill."); return; }
             setTierData({
                 budgetary: { rows: rows.map(r => ({ ...r, id: r.id + 0 })), mode: 'boq' },
-                mid:       { rows: rows.map(r => ({ ...r, id: r.id + 100000 })), mode: 'boq' },
-                high:      { rows: rows.map(r => ({ ...r, id: r.id + 200000 })), mode: 'boq' }
+                mid: { rows: rows.map(r => ({ ...r, id: r.id + 100000 })), mode: 'boq' },
+                high: { rows: rows.map(r => ({ ...r, id: r.id + 200000 })), mode: 'boq' }
             });
         } else {
             // Only seed tiers that are still empty
             const rows = buildBoqRows();
             setTierData(prev => ({
                 budgetary: prev.budgetary?.rows?.length ? prev.budgetary : { rows: rows.map(r => ({ ...r, id: r.id + 0 })), mode: 'boq' },
-                mid:       prev.mid?.rows?.length       ? prev.mid       : { rows: rows.map(r => ({ ...r, id: r.id + 100000 })), mode: 'boq' },
-                high:      prev.high?.rows?.length      ? prev.high      : { rows: rows.map(r => ({ ...r, id: r.id + 200000 })), mode: 'boq' }
+                mid: prev.mid?.rows?.length ? prev.mid : { rows: rows.map(r => ({ ...r, id: r.id + 100000 })), mode: 'boq' },
+                high: prev.high?.rows?.length ? prev.high : { rows: rows.map(r => ({ ...r, id: r.id + 200000 })), mode: 'boq' }
             }));
         }
         setIsAutoFillSelectOpen(true);
@@ -399,7 +399,7 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                 if (data.status === 'success' && data.product) {
                     const product = data.product;
                     const finalPrice = Math.ceil(parseFloat(product.price || 0));
-                    
+
                     updateFitoutStatus(tierKey, { status: 'success', brand: product.brand || 'FitOut V2', model: product.model || '', image: product.imageUrl || row.imageRef || null });
 
                     const updatedRow = {
@@ -508,14 +508,14 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
             if (!row || isHeaderRow(row.description, row) || (row.scope && row.scope.toUpperCase().includes('FITOUT')) || row.aiStatus === 'success') return;
 
             const rowId = String(row.id);
-            updateFurnitureStatus(tierKey, { 
-                currentItem: row, 
-                status: 'identifying', 
-                brand: '...', 
-                model: 'Finding match...', 
-                image: null 
+            updateFurnitureStatus(tierKey, {
+                currentItem: row,
+                status: 'identifying',
+                brand: '...',
+                model: 'Finding match...',
+                image: null
             });
-            
+
             setTierData(prev => {
                 const updatedRows = [...prev[tierKey].rows];
                 updatedRows[rowIndex] = { ...updatedRows[rowIndex], aiStatus: 'processing' };
@@ -544,12 +544,12 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                 if (result.status === 'success' && result.product) {
                     const match = result.product;
                     const matchedBrandName = match.brand || '';
-                    
-                    updateFurnitureStatus(tierKey, { 
-                        status: 'success', 
-                        brand: matchedBrandName, 
-                        model: match.model || '', 
-                        image: match.imageUrl || null 
+
+                    updateFurnitureStatus(tierKey, {
+                        status: 'success',
+                        brand: matchedBrandName,
+                        model: match.model || '',
+                        image: match.imageUrl || null
                     });
 
                     const localBrandEntry = brands.find(b => b.name.toLowerCase().trim() === matchedBrandName.toLowerCase().trim());
@@ -569,9 +569,9 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                         const normalize = (s) => String(s || '').toLowerCase().replace(/#\d+/g, '').replace(/[^a-z0-9]/g, ' ').replace(/\s+/g, ' ').trim();
                         const target = normalize(finalModel);
                         const matches = products.filter(p => normalize(p.model).includes(target) || target.includes(normalize(p.model)));
-                        
+
                         if (matches.length > 0) {
-                            const ranked = matches.sort((a,b) => (parseFloat(b.price)||0) - (parseFloat(a.price)||0));
+                            const ranked = matches.sort((a, b) => (parseFloat(b.price) || 0) - (parseFloat(a.price) || 0));
                             const bestP = ranked[0];
                             finalMainCat = bestP.mainCategory || bestP.category || finalMainCat;
                             finalSubCat = bestP.subCategory || finalSubCat;
@@ -612,7 +612,7 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                     const newStatus = result.status === 'no_match' ? 'no_match' : 'error';
                     updateFurnitureStatus(tierKey, { status: newStatus });
                     if (newStatus === 'error') globalStats.error++;
-                    
+
                     setTierData(prev => ({
                         ...prev,
                         [tierKey]: { ...prev[tierKey], rows: prev[tierKey].rows.map(r => String(r.id) === rowId ? { ...r, aiStatus: newStatus, aiError: result.message } : r) }
@@ -626,20 +626,20 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                     [tierKey]: { ...prev[tierKey], rows: prev[tierKey].rows.map(r => String(r.id) === rowId ? { ...r, aiStatus: 'error', aiError: error.message } : r) }
                 }));
             }
-            
+
             setFurnitureProgress(prev => ({
                 ...prev,
                 [tierKey]: { ...prev[tierKey], current: prev[tierKey].current + 1 }
             }));
-            await sleep(1000); 
+            await sleep(1000);
         };
 
         const processTier = async (tierKey) => {
             updateFurnitureStatus(tierKey, { active: true, minimized: false });
             const rows = tierDataRef.current[tierKey].rows || [];
-            const workableIndices = rows.map((r, i) => i).filter(i => 
-                !isHeaderRow(rows[i].description, rows[i]) && 
-                rows[i].aiStatus !== 'success' && 
+            const workableIndices = rows.map((r, i) => i).filter(i =>
+                !isHeaderRow(rows[i].description, rows[i]) &&
+                rows[i].aiStatus !== 'success' &&
                 (!rows[i].scope || !rows[i].scope.toUpperCase().includes('FITOUT'))
             );
 
@@ -740,41 +740,41 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                             // Structure from render: `model_${modelName}_${i}` or `model_${modelName}`
                             if (url && url.startsWith('model_')) {
                                 const parts = url.split('_');    // ── MANUAL ENRICHMENT (HARDENING) ─────────────────────────────────────────
-    const handleManualEnrich = async (row, index, tierKey) => {
-        const brandName = prompt("Enter Brand Name (e.g., Herman Miller):", row.selectedBrand || "");
-        if (!brandName) return;
-        const modelName = prompt("Enter Model Name (e.g., Aeron):", row.selectedModel || "");
-        if (!modelName) return;
+                                const handleManualEnrich = async (row, index, tierKey) => {
+                                    const brandName = prompt("Enter Brand Name (e.g., Herman Miller):", row.selectedBrand || "");
+                                    if (!brandName) return;
+                                    const modelName = prompt("Enter Model Name (e.g., Aeron):", row.selectedModel || "");
+                                    if (!modelName) return;
 
-        setEnrichingRowId(row.id);
-        try {
-            const response = await fetch(`${API_BASE}/api/models/enrich`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ brandName, modelName, budgetTier: tierKey })
-            });
-            const data = await response.json();
-            
-            if (data.status === 'success' && data.product) {
-                const p = data.product;
-                handleCellChange(index, 'selectedModel', p.model, tierKey);
-                handleCellChange(index, 'selectedBrand', p.brand, tierKey);
-                handleCellChange(index, 'brandImage', p.imageUrl, tierKey);
-                handleCellChange(index, 'brandLogo', p.brandLogo || '', tierKey);
-                handleCellChange(index, 'rate', p.price || 0, tierKey);
-                handleCellChange(index, 'mainCategory', p.mainCategory, tierKey);
-                handleCellChange(index, 'subCategory', p.subCategory, tierKey);
-                handleCellChange(index, 'aiStatus', 'success', tierKey);
-                alert(`Successfully enriched and saved ${p.model} to ${p.brand} database!`);
-            } else {
-                alert(`Enrichment failed: ${data.message || 'Product not found.'}`);
-            }
-        } catch (err) {
-            alert(`Enrichment Error: ${err.message}`);
-        } finally {
-            setEnrichingRowId(null);
-        }
-    };
+                                    setEnrichingRowId(row.id);
+                                    try {
+                                        const response = await fetch(`${API_BASE}/api/models/enrich`, {
+                                            method: 'POST',
+                                            headers: { 'Content-Type': 'application/json' },
+                                            body: JSON.stringify({ brandName, modelName, budgetTier: tierKey })
+                                        });
+                                        const data = await response.json();
+
+                                        if (data.status === 'success' && data.product) {
+                                            const p = data.product;
+                                            handleCellChange(index, 'selectedModel', p.model, tierKey);
+                                            handleCellChange(index, 'selectedBrand', p.brand, tierKey);
+                                            handleCellChange(index, 'brandImage', p.imageUrl, tierKey);
+                                            handleCellChange(index, 'brandLogo', p.brandLogo || '', tierKey);
+                                            handleCellChange(index, 'rate', p.price || 0, tierKey);
+                                            handleCellChange(index, 'mainCategory', p.mainCategory, tierKey);
+                                            handleCellChange(index, 'subCategory', p.subCategory, tierKey);
+                                            handleCellChange(index, 'aiStatus', 'success', tierKey);
+                                            alert(`Successfully enriched and saved ${p.model} to ${p.brand} database!`);
+                                        } else {
+                                            alert(`Enrichment failed: ${data.message || 'Product not found.'}`);
+                                        }
+                                    } catch (err) {
+                                        alert(`Enrichment Error: ${err.message}`);
+                                    } finally {
+                                        setEnrichingRowId(null);
+                                    }
+                                };
                                 // If 3 parts (model, CODE, index), try to parse index
                                 if (parts.length >= 3) {
                                     const possibleIndex = parseInt(parts[parts.length - 1]);
@@ -798,13 +798,13 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                         const basePrice = parseFloat(product.price) || 0;
                         row.rate = basePrice > 0 ? basePrice.toFixed(2) : row.rate;
                         row.basePrice = basePrice;
-                        
+
                         // Auto-calculate amount if qty exists
                         const currentQty = parseFloat(row.qty) || 0;
                         if (currentQty > 0 && basePrice > 0) {
                             row.amount = (currentQty * basePrice).toFixed(2);
                         }
-                        
+
                         if (!row.unit) row.unit = 'Nos';
                     }
                 }
@@ -822,7 +822,7 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                     const mainCats = Array.from(new Set(brandProducts.flatMap(p => [p.normalization?.category, p.mainCategory]).filter(Boolean))).filter(v => v !== 'null' && v !== 'undefined');
                     if (mainCats && mainCats.length === 1) {
                         currentRow.selectedMainCat = mainCats[0];
-                        autoSelectNextLevel(currentRow); 
+                        autoSelectNextLevel(currentRow);
                         return;
                     }
                 }
@@ -833,15 +833,15 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                     const subCats = Array.from(new Set(matchingByMain.flatMap(p => [p.normalization?.subCategory, p.subCategory]).filter(Boolean))).filter(v => v !== 'null' && v !== 'undefined');
                     if (subCats && subCats.length === 1) {
                         currentRow.selectedSubCat = subCats[0];
-                        autoSelectNextLevel(currentRow); 
+                        autoSelectNextLevel(currentRow);
                         return;
                     }
                 }
 
                 // 3. Auto-select Family if only one
                 if (currentRow.selectedSubCat && !currentRow.selectedFamily) {
-                    const matchingBySub = brandProducts.filter(p => 
-                        (p.normalization?.category || p.mainCategory) === currentRow.selectedMainCat && 
+                    const matchingBySub = brandProducts.filter(p =>
+                        (p.normalization?.category || p.mainCategory) === currentRow.selectedMainCat &&
                         (p.normalization?.subCategory || p.subCategory) === currentRow.selectedSubCat
                     );
                     const families = getUniqueValues(matchingBySub, 'family');
@@ -854,9 +854,9 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
 
                 // 4. Auto-select Model if only one Variant
                 if (currentRow.selectedFamily && !currentRow.selectedModel) {
-                    const allRawModels = brandProducts.filter(p => 
-                        (p.normalization?.category || p.mainCategory) === currentRow.selectedMainCat && 
-                        (p.normalization?.subCategory || p.subCategory) === currentRow.selectedSubCat && 
+                    const allRawModels = brandProducts.filter(p =>
+                        (p.normalization?.category || p.mainCategory) === currentRow.selectedMainCat &&
+                        (p.normalization?.subCategory || p.subCategory) === currentRow.selectedSubCat &&
                         p.family === currentRow.selectedFamily
                     );
 
@@ -873,7 +873,7 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                     if (variants.length === 1) {
                         const product = variants[0];
                         const uniqueVal = product.productUrl || product.imageUrl || `model_${product.model}_0`;
-                        
+
                         currentRow.selectedModel = product.model;
                         currentRow.selectedModelUrl = uniqueVal;
                         currentRow.brandDesc = product.description || product.model;
@@ -899,7 +899,7 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
             else {
                 // Standard Field
                 row[field] = value;
-                
+
                 // Real-time Amount Calculation
                 if (field === 'qty' || field === 'rate') {
                     const q = field === 'qty' ? parseFloat(value) : parseFloat(row.qty);
@@ -1169,28 +1169,28 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
             const amount = row.amount || (parseFloat(row.qty || 0) * parseFloat(row.rate || 0)).toFixed(2);
             if (isBoqMode) {
                 return [
-                    row.sn, 
-                    processText(row.location || '-'), 
-                    processText(row.scope || '-'), 
-                    '', 
-                    processText(row.description), 
-                    '', 
-                    processText(row.brandDesc), 
-                    row.qty || '', 
-                    row.unit || '', 
-                    row.rate || '', 
+                    row.sn,
+                    processText(row.location || '-'),
+                    processText(row.scope || '-'),
+                    '',
+                    processText(row.description),
+                    '',
+                    processText(row.brandDesc),
+                    row.qty || '',
+                    row.unit || '',
+                    row.rate || '',
                     amount
                 ];
             } else {
                 return [
-                    row.sn, 
-                    processText(row.location || '-'), 
-                    processText(row.scope || '-'), 
-                    '', 
-                    processText(row.brandDesc), 
-                    row.qty || '', 
-                    row.unit || '', 
-                    row.rate || '', 
+                    row.sn,
+                    processText(row.location || '-'),
+                    processText(row.scope || '-'),
+                    '',
+                    processText(row.brandDesc),
+                    row.qty || '',
+                    row.unit || '',
+                    row.rate || '',
                     amount
                 ];
             }
@@ -1210,10 +1210,10 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                 valign: 'middle',
                 font: arabicLoaded ? 'Almarai' : 'helvetica'
             },
-            headStyles: { 
-                fillColor: colors.primary, 
-                textColor: colors.white, 
-                fontStyle: 'bold', 
+            headStyles: {
+                fillColor: colors.primary,
+                textColor: colors.white,
+                fontStyle: 'bold',
                 font: arabicLoaded ? 'Almarai' : 'helvetica',
                 minCellHeight: 7
             },
@@ -1505,27 +1505,27 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
 
             const dataRow = isBoqMode
                 ? [
-                    row.sn, 
-                    row.location || '-', 
-                    row.scope || '-', 
-                    '', 
-                    row.description || '', 
-                    '', 
-                    row.brandDesc || '', 
-                    row.qty || '', 
-                    row.unit || '', 
-                    row.rate || '', 
+                    row.sn,
+                    row.location || '-',
+                    row.scope || '-',
+                    '',
+                    row.description || '',
+                    '',
+                    row.brandDesc || '',
+                    row.qty || '',
+                    row.unit || '',
+                    row.rate || '',
                     amount
                 ]
                 : [
-                    row.sn, 
-                    row.location || '-', 
-                    row.scope || '-', 
-                    '', 
-                    row.brandDesc || '', 
-                    row.qty || '', 
-                    row.unit || '', 
-                    row.rate || '', 
+                    row.sn,
+                    row.location || '-',
+                    row.scope || '-',
+                    '',
+                    row.brandDesc || '',
+                    row.qty || '',
+                    row.unit || '',
+                    row.rate || '',
                     amount
                 ];
 
@@ -2442,7 +2442,7 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                 <tbody>
                     {(() => {
                         let displayRows = [...rows];
-                        
+
                         // Handle Consolidation
                         if (isConsolidated) {
                             const consolidated = {};
@@ -2460,13 +2460,13 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                         // Group dynamically by Scope (FITOUT first, then FURNITURE)
                         const allScopesSet = new Set(displayRows.map(r => r.scope || 'Furniture'));
                         let scopes = Array.from(allScopesSet);
-                        
+
                         scopes.sort((a, b) => {
-                             const aUpper = a.toUpperCase();
-                             const bUpper = b.toUpperCase();
-                             if(aUpper.includes('FITOUT') && bUpper.includes('FURNITURE')) return -1;
-                             if(aUpper.includes('FURNITURE') && bUpper.includes('FITOUT')) return 1;
-                             return a.localeCompare(b);
+                            const aUpper = a.toUpperCase();
+                            const bUpper = b.toUpperCase();
+                            if (aUpper.includes('FITOUT') && bUpper.includes('FURNITURE')) return -1;
+                            if (aUpper.includes('FURNITURE') && bUpper.includes('FITOUT')) return 1;
+                            return a.localeCompare(b);
                         });
 
                         let globalSn = 1;
@@ -2486,19 +2486,19 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                                         </td>
                                     </tr>
                                     {scopeRows.map((row) => {
-                                         // Find exact row or the first underlying row for consolidated items
-                                         let originalIndex = -1;
-                                         if (isConsolidated && String(row.id).startsWith('cons_')) {
-                                             const displayKey = String(row.id).replace('cons_', '');
-                                             originalIndex = rows.findIndex(r => {
-                                                 const rScope = (r.scope || 'Furniture').trim().toLowerCase();
-                                                 const rKey = (r.brandDesc || r.description || 'N/A').trim().toLowerCase() + '::' + rScope;
-                                                 return rKey === displayKey;
-                                             });
-                                         } else {
-                                             originalIndex = rows.findIndex(r => String(r.id) === String(row.id));
-                                         }
-                                         return renderRow(row, globalSn++, isBoqMode, originalIndex);
+                                        // Find exact row or the first underlying row for consolidated items
+                                        let originalIndex = -1;
+                                        if (isConsolidated && String(row.id).startsWith('cons_')) {
+                                            const displayKey = String(row.id).replace('cons_', '');
+                                            originalIndex = rows.findIndex(r => {
+                                                const rScope = (r.scope || 'Furniture').trim().toLowerCase();
+                                                const rKey = (r.brandDesc || r.description || 'N/A').trim().toLowerCase() + '::' + rScope;
+                                                return rKey === displayKey;
+                                            });
+                                        } else {
+                                            originalIndex = rows.findIndex(r => String(r.id) === String(row.id));
+                                        }
+                                        return renderRow(row, globalSn++, isBoqMode, originalIndex);
                                     })}
                                 </Fragment>
                             );
@@ -2528,7 +2528,7 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
 
     const renderRow = (row, sn, isBoqMode, index) => {
         const refImgSrc = row.imageRef ? (String(row.imageRef).startsWith('http') ? row.imageRef : `${API_BASE}${row.imageRef}`) : null;
-        
+
         const activeBrand = brands.find(b => b.name === row.selectedBrand);
         const brandProducts = activeBrand?.products || [];
 
@@ -2547,14 +2547,14 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
         const mainCats = mergeUnique(brandProducts, 'normalization.category', 'mainCategory');
         const matchingByMain = brandProducts.filter(p => (p.normalization?.category || p.mainCategory) === row.selectedMainCat);
         const subCats = mergeUnique(matchingByMain, 'normalization.subCategory', 'subCategory');
-        const families = getUniqueValues(brandProducts.filter(p => 
-            (p.normalization?.category || p.mainCategory) === row.selectedMainCat && 
+        const families = getUniqueValues(brandProducts.filter(p =>
+            (p.normalization?.category || p.mainCategory) === row.selectedMainCat &&
             (p.normalization?.subCategory || p.subCategory) === row.selectedSubCat
         ), 'family');
 
-        const allRawModels = brandProducts.filter(p => 
-            (p.normalization?.category || p.mainCategory) === row.selectedMainCat && 
-            (p.normalization?.subCategory || p.subCategory) === row.selectedSubCat && 
+        const allRawModels = brandProducts.filter(p =>
+            (p.normalization?.category || p.mainCategory) === row.selectedMainCat &&
+            (p.normalization?.subCategory || p.subCategory) === row.selectedSubCat &&
             (p.family || '') === (row.selectedFamily || '')
         );
 
@@ -2589,8 +2589,8 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
         });
 
         const rowStatusClass = row.aiStatus === 'processing' ? styles.aiPulse :
-                                row.aiStatus === 'success' ? styles.aiGlow :
-                                row.aiStatus === 'error' ? styles.aiErrorBorder : '';
+            row.aiStatus === 'success' ? styles.aiGlow :
+                row.aiStatus === 'error' ? styles.aiErrorBorder : '';
 
         return (
             <tr key={row.id} className={`${rowStatusClass} ${row.aiStatus === 'skipped' ? styles.skippedRow : ''}`}>
@@ -2677,7 +2677,7 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                                     src={getFullUrl(row.brandImage)}
                                     alt="brand"
                                     className={styles.tableImg}
-                                    onError={(e) => { 
+                                    onError={(e) => {
                                         e.target.style.display = 'none';
                                         const sibling = e.target.nextSibling;
                                         if (sibling) sibling.style.display = 'flex';
@@ -2700,12 +2700,12 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                 </td>
 
                 <td>
-                    <textarea 
-                        className={styles.cellInput} 
-                        value={row.brandDesc} 
-                        onChange={(e) => handleCellChange(index, 'brandDesc', e.target.value)} 
-                        style={{ minHeight: '80px' }} 
-                        placeholder="Product details..." 
+                    <textarea
+                        className={styles.cellInput}
+                        value={row.brandDesc}
+                        onChange={(e) => handleCellChange(index, 'brandDesc', e.target.value)}
+                        style={{ minHeight: '80px' }}
+                        placeholder="Product details..."
                     />
                 </td>
 
@@ -2719,10 +2719,10 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                     <input className={styles.cellInput} value={row.rate} onChange={(e) => handleCellChange(index, 'rate', e.target.value)} style={{ textAlign: 'right' }} />
                 </td>
                 <td>
-                    <input 
+                    <input
                         type="text"
-                        value={row.rate && parseFloat(row.rate) > 0 
-                            ? (parseFloat(row.qty || 0) * parseFloat(row.rate || 0)).toFixed(2) 
+                        value={row.rate && parseFloat(row.rate) > 0
+                            ? (parseFloat(row.qty || 0) * parseFloat(row.rate || 0)).toFixed(2)
                             : (row.amount || '')}
                         onChange={(e) => handleCellChange(index, 'amount', e.target.value)}
                         className={styles.cellInput}
@@ -2784,7 +2784,7 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                                             const rowScope = (row.scope || 'Furniture').toLowerCase();
                                             // Robust detection: use type tag or name-based fallback
                                             const brandType = (b.type || (b.name.toLowerCase().includes('fitout') ? 'fitout' : 'furniture')).toLowerCase();
-                                            
+
                                             // Mapping: if row scope contains 'fitout', only show 'fitout' brands
                                             if (rowScope.includes('fitout')) {
                                                 return brandType === 'fitout';
@@ -2862,10 +2862,10 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
         const budgetaryRows = tierData.budgetary?.rows || [];
         const midRows = tierData.mid?.rows || [];
         const highRows = tierData.high?.rows || [];
-        
+
         // Find whichever has rows (usually all if auto-filled)
         const sampleRows = budgetaryRows.length > 0 ? budgetaryRows : midRows.length > 0 ? midRows : highRows;
-        
+
         if (sampleRows.length === 0) return (
             <div className={styles.emptyState}>
                 <div style={{ fontSize: '3rem', opacity: 0.2 }}>🔍</div>
@@ -2889,10 +2889,10 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                             <td className={styles.compName}>
                                 <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
                                     {row.imageRef && (
-                                        <img 
-                                            src={getFullUrl(row.imageRef)} 
-                                            className={styles.compImg} 
-                                            style={{ height: '50px', width: '50px', minWidth: '50px', objectFit: 'cover', borderRadius: '4px', cursor: 'zoom-in' }} 
+                                        <img
+                                            src={getFullUrl(row.imageRef)}
+                                            className={styles.compImg}
+                                            style={{ height: '50px', width: '50px', minWidth: '50px', objectFit: 'cover', borderRadius: '4px', cursor: 'zoom-in' }}
                                             onClick={() => {
                                                 setPreviewImage(getFullUrl(row.imageRef));
                                                 setPreviewLogo(null);
@@ -2914,10 +2914,10 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                                         {match && match.selectedBrand ? (
                                             <div className={styles.comparisonCell}>
                                                 {match.brandImage && (
-                                                    <img 
-                                                        src={getFullUrl(match.brandImage)} 
-                                                        alt="" 
-                                                        className={styles.compImg} 
+                                                    <img
+                                                        src={getFullUrl(match.brandImage)}
+                                                        alt=""
+                                                        className={styles.compImg}
                                                         onClick={() => {
                                                             setPreviewImage(getFullUrl(match.brandImage));
                                                             setPreviewLogo(getFullUrl(match.brandLogo));
@@ -2981,23 +2981,23 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                     <div className={styles.topSection}>
                         <div className={styles.mainActions}>
                             <button className={`${styles.actionCard} ${styles.genBoqBtn}`} onClick={handleGenerateFromBoq}>
-                                <span style={{fontSize: '1.4rem'}}>📋</span>
+                                <span style={{ fontSize: '1.4rem' }}>📋</span>
                                 <span>Generate from BOQ</span>
                             </button>
                             <button className={`${styles.actionCard} ${styles.genPlanBtn}`} onClick={() => planInputRef.current?.click()}>
-                                <span style={{fontSize: '1.4rem'}}>📐</span>
+                                <span style={{ fontSize: '1.4rem' }}>📐</span>
                                 <span>Generate from Plan</span>
                             </button>
                             <button className={`${styles.actionCard} ${styles.createNewBtn}`} onClick={handleCreateNewBoq}>
-                                <span style={{fontSize: '1.4rem'}}>➕</span>
+                                <span style={{ fontSize: '1.4rem' }}>➕</span>
                                 <span>Create New BOQ</span>
                             </button>
                             <button className={`${styles.actionCard} ${styles.consolidateBtn} ${isConsolidated ? styles.consolidateBtnActive : ''}`} onClick={() => setIsConsolidated(!isConsolidated)}>
-                                <span style={{fontSize: '1.4rem'}}>{isConsolidated ? '🏠' : '📦'}</span>
+                                <span style={{ fontSize: '1.4rem' }}>{isConsolidated ? '🏠' : '📦'}</span>
                                 <span>{isConsolidated ? 'Room Wise' : 'Consolidate Items'}</span>
                             </button>
                             <button className={`${styles.actionCard} ${styles.addBrandBtn}`} onClick={handleAddBrand}>
-                                <span style={{fontSize: '1.4rem'}}>🏢</span>
+                                <span style={{ fontSize: '1.4rem' }}>🏢</span>
                                 <span>Add Brand</span>
                             </button>
                             <button
@@ -3005,7 +3005,7 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                                 onClick={handleAutoFillAI}
                                 disabled={isFurnitureAutoFilling}
                             >
-                                <span style={{fontSize: '1.4rem'}}>✨</span>
+                                <span style={{ fontSize: '1.4rem' }}>✨</span>
                                 <span>
                                     {isFurnitureAutoFilling
                                         ? `AI FURNITURE${furnitureProgress.total > 0 ? ` (${furnitureProgress.current}/${furnitureProgress.total})` : '...'}`
@@ -3013,12 +3013,12 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                                     }
                                 </span>
                             </button>
-                            <button 
-                                className={`${styles.actionCard} ${styles.fitoutAutoFillBtn} ${isFitoutAutoFilling ? styles.fitoutAutoFilling : ''}`} 
+                            <button
+                                className={`${styles.actionCard} ${styles.fitoutAutoFillBtn} ${isFitoutAutoFilling ? styles.fitoutAutoFilling : ''}`}
                                 onClick={handleFitoutAutoFill}
                                 disabled={isFitoutAutoFilling}
                             >
-                                <span style={{fontSize: '1.4rem'}}>🛠️</span>
+                                <span style={{ fontSize: '1.4rem' }}>🛠️</span>
                                 <span>
                                     {isFitoutAutoFilling
                                         ? `AI FITOUT${fitoutProgress.total > 0 ? ` (${fitoutProgress.current}/${fitoutProgress.total})` : '...'}`
@@ -3079,7 +3079,7 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
 
                     {/* Scrollable Table Area */}
                     <div className={styles.tableContainer}>
-                            {/* Batch completion notification */}
+                        {/* Batch completion notification */}
                         {/* Batch completion notification - Furniture */}
                         {furnitureBatchResult && (
                             <div className={`${styles.aiBatchNotification} ${furnitureBatchResult.error > 0 ? styles.aiBatchNotificationError : styles.aiBatchNotificationSuccess}`}>
@@ -3138,23 +3138,23 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                                     />
                                 </div>
                             )}
-                            <img 
-                                src={previewImage} 
-                                alt="Full view" 
-                                className={styles.previewImage} 
+                            <img
+                                src={previewImage}
+                                alt="Full view"
+                                className={styles.previewImage}
                                 onError={(e) => {
                                     e.target.src = 'https://placehold.co/600x400?text=Image+Not+Available';
                                 }}
                             />
                         </div>
-                        
+
                         <div className={styles.previewFooter}>
                             <div className={styles.previewDetails}>
                                 <div className={styles.previewTitle}>{previewBrand || 'Product View'}</div>
                                 <div className={styles.previewSubtitle}>{previewModel || ''}</div>
                             </div>
-                            <button 
-                                className={styles.previewCloseBtn} 
+                            <button
+                                className={styles.previewCloseBtn}
                                 onClick={() => { setPreviewImage(null); setPreviewLogo(null); setPreviewBrand(null); setPreviewModel(null); }}
                             >
                                 <i className="ri-close-line"></i>
@@ -3171,12 +3171,12 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                 onBrandUpdated={fetchBrands}
             />
             {/* Specialist Audit Modal */}
-            <SpecialistModal 
-                isOpen={!!specialistData} 
-                onClose={() => setSpecialistData(null)} 
-                data={specialistData} 
+            <SpecialistModal
+                isOpen={!!specialistData}
+                onClose={() => setSpecialistData(null)}
+                data={specialistData}
             />
-            <AutoFillSelectModal 
+            <AutoFillSelectModal
                 isOpen={isAutoFillSelectOpen}
                 onClose={() => setIsAutoFillSelectOpen(false)}
                 allBrands={brands}
@@ -3208,24 +3208,24 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                 const getActiveModals = (statuses, type, batchResult, progress, setStatuses, setBatchResult) => {
                     const activeTiers = ['high', 'mid', 'budgetary'].filter(k => statuses[k]?.active);
                     if (activeTiers.length > 0) {
-                        return activeTiers.map(t => ({ 
-                            type, 
-                            tier: t, 
-                            status: statuses[t], 
-                            progress, 
-                            setStatuses, 
+                        return activeTiers.map(t => ({
+                            type,
+                            tier: t,
+                            status: statuses[t],
+                            progress,
+                            setStatuses,
                             setBatchResult,
                             isResult: false
                         }));
                     }
                     if (batchResult) {
-                        return [{ 
-                            type, 
-                            tier: 'mid', 
-                            status: {}, 
-                            batchResult, 
-                            progress, 
-                            setStatuses, 
+                        return [{
+                            type,
+                            tier: 'mid',
+                            status: {},
+                            batchResult,
+                            progress,
+                            setStatuses,
                             setBatchResult,
                             isResult: true
                         }];
@@ -3240,7 +3240,7 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                 return globalModals.map((modalData, idx) => {
                     const { type, tier, status, progress, setStatuses, setBatchResult, isResult, batchResult: bRes } = modalData;
                     const ModalComponent = type === 'fitout' ? AIFitoutPresentationModal : AIPresentationModal;
-                    
+
                     // Horizontal alignment for full modals
                     let alignment = 'center';
                     if (globalModals.length > 1 && !status.minimized) {
@@ -3263,10 +3263,10 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                     const minimizedOffset = idx * 340 + 24;
 
                     return (
-                        <ModalComponent 
+                        <ModalComponent
                             key={`${type}-${tier}-${isResult ? 'result' : 'discovery'}`}
                             type={type}
-                            isOpen={true} 
+                            isOpen={true}
                             onClose={() => {
                                 if (isResult) {
                                     setBatchResult(null);
@@ -3285,7 +3285,7 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                             status={status.status}
                             isMinimized={status.minimized}
                             onToggleMinimize={(val) => {
-                                if (isResult) return; 
+                                if (isResult) return;
                                 setStatuses(prev => ({ ...prev, [tier]: { ...prev[tier], minimized: val } }));
                             }}
                             minimizedOffset={minimizedOffset}

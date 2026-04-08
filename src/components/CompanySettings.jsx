@@ -86,7 +86,7 @@ export default function CompanySettings({ isModal = false, onClose = null }) {
                 {/* Header */}
                 <div className={styles.header}>
                     <h2 className={styles.title}>
-                        {isModal ? 'Welcome to BOQFLOW' : 'Company Settings'}
+                        {isModal ? 'Welcome to BOQ FLOW' : 'Company Settings'}
                     </h2>
                     {isModal && (
                         <p className={styles.subtitle}>

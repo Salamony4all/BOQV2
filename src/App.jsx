@@ -94,7 +94,7 @@ function AppContent({ onOpenSettings }) {
     fetch(apiUrl('/api/reset'), { method: 'POST' })
       .then(() => console.log('Environment reset complete'))
       .catch(console.error);
-    
+
     // Fetch brands once at the top level
     fetch(apiUrl('/api/brands'))
       .then(res => res.json())
@@ -246,7 +246,7 @@ function AppContent({ onOpenSettings }) {
 
   const handlePlanAnalyze = async (scope, provider = 'google', providerModel = 'gemini-2.5-flash') => {
     if (!currentPlanFiles || currentPlanFiles.length === 0) return;
-    
+
     setIsPlanScopeOpen(false);
     setShowLanding(false);
     setUploading(true);
@@ -255,7 +255,7 @@ function AppContent({ onOpenSettings }) {
     setError(null);
 
     const includeFitout = scope === 'both';
-    
+
     try {
       setStage('Analyzing Geometric Data...');
       setProgress(30);
@@ -329,7 +329,7 @@ function AppContent({ onOpenSettings }) {
     if (extractedData) {
       setTimeout(() => {
         window.scrollTo({
-          top: 0, 
+          top: 0,
           behavior: 'smooth'
         });
       }, 100);
@@ -340,298 +340,93 @@ function AppContent({ onOpenSettings }) {
   if (!showLanding || extractedData) {
     return (
       <div className={styles.app}>
-          <div className={styles.container}>
-            <header className={styles.headerCompact}>
-              <button className={styles.hamburgerBtn} onClick={onOpenSettings} title="Settings">
-                <span className={styles.hamburgerLine}></span>
-                <span className={styles.hamburgerLine}></span>
-                <span className={styles.hamburgerLine}></span>
-              </button>
-              <div className={styles.logoSmall} onClick={() => { setShowLanding(true); setExtractedData(null); setSeededPlanItems(null); }}>
-                {logoWhite ? (
-                  <img src={logoWhite} alt={companyName} className={styles.headerLogo} />
-                ) : (
-                  <span className={styles.logoTextSmall}>{companyName || 'BOQFLOW'}</span>
-                )}
-              </div>
-              <div style={{ marginLeft: 'auto', marginRight: '1rem' }}>
-                <ThemeToggle />
-              </div>
-            </header>
-
-            {!extractedData && (
-              <div className={styles.homeCardGrid}>
-                {/* 1. UPLOAD BOQ CARD */}
-                <ActionCard
-                  title="UPLOAD BOQ"
-                  iconText="BOQ"
-                  hint="or click to browse"
-                  formats="Supports .xls and .xlsx files (max 50MB)"
-                  accept=".xls,.xlsx,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                  disabled={uploading}
-                  onSelect={handleFileUpload}
-                />
-
-                {/* 2. UPLOAD PLAN (LAYOUT) CARD */}
-                <ActionCard
-                  title="UPLOAD PLAN"
-                  iconText="PLAN"
-                  hint="Extract items from layout"
-                  formats="Supports PDF, PNG, JPG (Multiple files)"
-                  accept=".pdf,.png,.jpg,.jpeg"
-                  multiple={true}
-                  disabled={uploading}
-                  onSelect={(files) => {
-                    if (files && files.length > 0) {
-                      setCurrentPlanFiles(files);
-                      setIsPlanScopeOpen(true);
-                    }
-                  }}
-                />
-
-                {/* 3. NEW BOQ CARD */}
-                <ActionCard
-                  title="NEW BOQ"
-                  iconText="NEW"
-                  hint="Start from scratch"
-                  disabled={uploading}
-                  onSelect={() => setMultiBudgetOpen(true)}
-                />
-              </div>
-            )}
-
-            {error && (
-              <div className={styles.error}>
-                {error}
-              </div>
-            )}
-
-            {extractedData && (
-              <TableViewer data={extractedData} allBrands={allBrands} />
-            )}
-
-            <MultiBudgetModal
-              isOpen={isMultiBudgetOpen}
-              onClose={() => setMultiBudgetOpen(false)}
-              originalTables={extractedData?.tables || null}
-              onApplyFlow={handleMultiBudgetApply}
-              seededItems={seededPlanItems}
-            />
-
-            <PlanScopeModal
-              isOpen={isPlanScopeOpen}
-              onClose={() => {
-                setIsPlanScopeOpen(false);
-                setCurrentPlanFiles([]);
-              }}
-              onSelect={handlePlanAnalyze}
-            />
-          </div>
-
-          <ProgressModal
-            isOpen={uploading}
-            progress={progress}
-            stage={stage}
-          />
-        </div>
-    );
-  }
-
-  // Landing Page
-  return (
-    <div className={styles.landingPage}>
-        {/* Hamburger Menu - Fixed Top Left */}
-        <button className={styles.hamburgerFixed} onClick={onOpenSettings} title="Settings">
-          <span className={styles.hamburgerLine}></span>
-          <span className={styles.hamburgerLine}></span>
-          <span className={styles.hamburgerLine}></span>
-        </button>
-
-        {/* Theme Toggle - Fixed Top Right */}
-        <div style={{ position: 'fixed', top: '20px', right: '20px', zIndex: 100 }}>
-          <ThemeToggle />
-        </div>
-
-        {/* Hero Section */}
-        <section className={styles.hero}>
-          {/* Logo */}
-          {/* Logo with Image Q */}
-          <div className={styles.logoContainer}>
-            <span className={styles.logoTextBlue}>BO</span>
-            <img
-              src={LOGO_Q_IMAGE}
-              alt="Q"
-              className={styles.logoImage}
-              onError={(event) => event.currentTarget.style.display = 'none'}
-            />
-            <span className={styles.logoTextGold}>FLOW</span>
-          </div>
-
-          {/* Main Headline */}
-          <h2 className={styles.headline}>
-            <span className={styles.headlineAccent}>Automate</span> Your Workflow
-          </h2>
-          <p className={styles.subheadline}>
-            Transform layout drawings and BOQs into professional offers instantly. 
-            Automate Furniture & Fitout estimation, Multi-Budget alternatives, and PM exports (MAS, MIR, WIR).
-          </p>
-
-          {/* Image Carousel */}
-          <div className={styles.carouselSection}>
-            <div className={styles.carouselWrapper}>
-              {CAROUSEL_IMAGES.map((img, idx) => (
-                <div
-                  key={idx}
-                  className={`${styles.carouselSlide} ${idx === currentImageIndex ? styles.active : ''}`}
-                >
-                  <img src={img} alt={`Workspace ${idx + 1}`} className={styles.carouselImage} />
-                </div>
-              ))}
-            </div>
-            {/* Carousel Indicators */}
-            <div className={styles.carouselIndicators}>
-              {CAROUSEL_IMAGES.map((_, idx) => (
-                <button
-                  key={idx}
-                  className={`${styles.indicator} ${idx === currentImageIndex ? styles.activeIndicator : ''}`}
-                  onClick={() => setCurrentImageIndex(idx)}
-                />
-              ))}
-            </div>
-          </div>
-
-          {/* CTA Buttons */}
-          <div className={styles.ctaGroup}>
-            <label className={styles.ctaPrimary}>
-              <input
-                type="file"
-                accept=".xlsx,.xls,.pdf"
-                style={{ display: 'none' }}
-                onChange={(e) => e.target.files[0] && handleFileUpload(e.target.files[0])}
-              />
-              Upload BOQ
-            </label>
-            <button className={styles.ctaPrimary} onClick={handleStartNewBOQ}>
-              Create New BOQ
+        <div className={styles.container}>
+          <header className={styles.headerCompact}>
+            <button className={styles.hamburgerBtn} onClick={onOpenSettings} title="Settings">
+              <span className={styles.hamburgerLine}></span>
+              <span className={styles.hamburgerLine}></span>
+              <span className={styles.hamburgerLine}></span>
             </button>
-            <label className={styles.ctaPrimary}>
-              <input
-                type="file"
+            <div className={styles.logoSmall} onClick={() => { setShowLanding(true); setExtractedData(null); setSeededPlanItems(null); }}>
+              {logoWhite ? (
+                <img src={logoWhite} alt={companyName} className={styles.headerLogo} />
+              ) : (
+                <span className={styles.logoTextSmall}>{companyName || 'BOQFLOW'}</span>
+              )}
+            </div>
+            <div style={{ marginLeft: 'auto', marginRight: '1rem' }}>
+              <ThemeToggle />
+            </div>
+          </header>
+
+          {!extractedData && (
+            <div className={styles.homeCardGrid}>
+              {/* 1. UPLOAD BOQ CARD */}
+              <ActionCard
+                title="UPLOAD BOQ"
+                iconText="BOQ"
+                hint="or click to browse"
+                formats="Supports .xls and .xlsx files (max 50MB)"
+                accept=".xls,.xlsx,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                disabled={uploading}
+                onSelect={handleFileUpload}
+              />
+
+              {/* 2. UPLOAD PLAN (LAYOUT) CARD */}
+              <ActionCard
+                title="UPLOAD PLAN"
+                iconText="PLAN"
+                hint="Extract items from layout"
+                formats="Supports PDF, PNG, JPG (Multiple files)"
                 accept=".pdf,.png,.jpg,.jpeg"
-                style={{ display: 'none' }}
-                multiple
-                onChange={(e) => {
-                  const files = Array.from(e.target.files);
-                  if (files.length > 0) {
+                multiple={true}
+                disabled={uploading}
+                onSelect={(files) => {
+                  if (files && files.length > 0) {
                     setCurrentPlanFiles(files);
                     setIsPlanScopeOpen(true);
                   }
-                  e.target.value = '';
                 }}
               />
-              Upload Plan
-            </label>
-          </div>
-        </section>
 
-        {/* Stats Section */}
-        <section className={styles.statsSection}>
-          <div className={styles.stat}>
-            <div className={styles.statValue}>10x</div>
-            <div className={styles.statLabel}>Faster Processing</div>
-          </div>
-          <div className={styles.statDivider} />
-          <div className={styles.stat}>
-            <div className={styles.statValue}>Unlimited</div>
-            <div className={styles.statLabel}>Scalability</div>
-          </div>
-          <div className={styles.statDivider} />
-          <div className={styles.stat}>
-            <div className={styles.statValue}>100%</div>
-            <div className={styles.statLabel}>Accuracy</div>
-          </div>
-        </section>
+              {/* 3. NEW BOQ CARD */}
+              <ActionCard
+                title="NEW BOQ"
+                iconText="NEW"
+                hint="Start from scratch"
+                disabled={uploading}
+                onSelect={() => setMultiBudgetOpen(true)}
+              />
+            </div>
+          )}
 
-        {/* Features Section */}
-        <section className={styles.featuresSection}>
-          <h2 className={styles.sectionTitle}>Everything You Need</h2>
-          <div className={styles.featuresGrid}>
-            <div className={`${styles.featureCard} ${styles.featureCardFeatured}`}>
-              <h3 className={styles.featureTitle}>✨ AI Match & Autofill</h3>
-              <p className={styles.featureDesc}>
-                Revolutionize your workflow with intelligent brand synchronization. Our engine automatically matches items to your preferred manufacturers, autofills missing technical specs, and optimizes product costs across multiple budget tiers simultaneously.
-              </p>
+          {error && (
+            <div className={styles.error}>
+              {error}
             </div>
-            <div className={styles.featureCard}>
-              <h3 className={styles.featureTitle}>Plan to BOQ</h3>
-              <p className={styles.featureDesc}>
-                Instantly extract furniture and fitout quantities from layout drawings using specialized AI geometric analysis
-              </p>
-            </div>
-            <div className={styles.featureCard}>
-              <h3 className={styles.featureTitle}>Fitout Estimation</h3>
-              <p className={styles.featureDesc}>
-                Specialized module for glass walls, flooring, and ceiling works with deep internal database synchronization
-              </p>
-            </div>
-            <div className={styles.featureCard}>
-              <h3 className={styles.featureTitle}>PM Exports</h3>
-              <p className={styles.featureDesc}>
-                Professional project management bundle: Export MAS, MIR, WIR, and Delivery Notes in one click
-              </p>
-            </div>
-            <div className={styles.featureCard}>
-              <h3 className={styles.featureTitle}>Multi-Budget</h3>
-              <p className={styles.featureDesc}>
-                Create budgetary, mid-range, and high-end alternatives instantly with automated brand matching
-              </p>
-            </div>
-            <div className={styles.featureCard}>
-              <h3 className={styles.featureTitle}>Visual Catalogs</h3>
-              <p className={styles.featureDesc}>
-                Beautiful PowerPoint and PDF presentations featuring high-resolution product showcases and specs
-              </p>
-            </div>
-            <div className={styles.featureCard}>
-              <h3 className={styles.featureTitle}>AI Scraping</h3>
-              <p className={styles.featureDesc}>
-                Automatically fetch real-time product data, images, and technical specifications from global brand websites
-              </p>
-            </div>
-          </div>
-        </section>
+          )}
 
-        {/* Footer */}
-        <footer className={styles.footer}>
-          <div className={styles.footerLogo}>BOQFLOW</div>
-          <p className={styles.footerText}>
-            Intelligent BOQ Extraction, Costing & Proposal Engine
-          </p>
-        </footer>
+          {extractedData && (
+            <TableViewer data={extractedData} allBrands={allBrands} />
+          )}
 
-        <MultiBudgetModal
-          isOpen={isMultiBudgetOpen}
-          onClose={() => setMultiBudgetOpen(false)}
-          originalTables={extractedData?.tables || null}
-          onApplyFlow={handleMultiBudgetApply}
-          seededItems={seededPlanItems}
-          onUploadBoq={handleFileUpload}
-          onUploadPlan={(files) => {
-            if (files && files.length > 0) {
-              setCurrentPlanFiles(files);
-              setIsPlanScopeOpen(true);
-            }
-          }}
-        />
+          <MultiBudgetModal
+            isOpen={isMultiBudgetOpen}
+            onClose={() => setMultiBudgetOpen(false)}
+            originalTables={extractedData?.tables || null}
+            onApplyFlow={handleMultiBudgetApply}
+            seededItems={seededPlanItems}
+          />
 
-        <PlanScopeModal
-          isOpen={isPlanScopeOpen}
-          onClose={() => {
-            setIsPlanScopeOpen(false);
-            setCurrentPlanFile(null);
-          }}
-          onSelect={handlePlanAnalyze}
-        />
+          <PlanScopeModal
+            isOpen={isPlanScopeOpen}
+            onClose={() => {
+              setIsPlanScopeOpen(false);
+              setCurrentPlanFiles([]);
+            }}
+            onSelect={handlePlanAnalyze}
+          />
+        </div>
 
         <ProgressModal
           isOpen={uploading}
@@ -639,6 +434,205 @@ function AppContent({ onOpenSettings }) {
           stage={stage}
         />
       </div>
+    );
+  }
+
+  // Landing Page
+  return (
+    <div className={styles.landingPage}>
+      {/* Hamburger Menu - Fixed Top Left */}
+      <button className={styles.hamburgerFixed} onClick={onOpenSettings} title="Settings">
+        <span className={styles.hamburgerLine}></span>
+        <span className={styles.hamburgerLine}></span>
+        <span className={styles.hamburgerLine}></span>
+      </button>
+
+      {/* Theme Toggle - Fixed Top Right */}
+      <div style={{ position: 'fixed', top: '20px', right: '20px', zIndex: 100 }}>
+        <ThemeToggle />
+      </div>
+
+      {/* Hero Section */}
+      <section className={styles.hero}>
+        {/* Logo */}
+        {/* Logo with Image Q */}
+        <div className={styles.logoContainer}>
+          <span className={styles.logoTextBlue}>BOQ</span>
+          <span className={styles.logoTextGold}> FLOW</span>
+        </div>
+
+        {/* Main Headline */}
+        <h2 className={styles.headline}>
+          <span className={styles.headlineAccent}>Automate</span> Your Workflow
+        </h2>
+        <p className={styles.subheadline}>
+          Transform layout drawings and BOQs into professional offers instantly.
+          Automate Furniture & Fitout estimation, Multi-Budget alternatives, and PM exports (MAS, MIR, WIR).
+        </p>
+
+        {/* Image Carousel */}
+        <div className={styles.carouselSection}>
+          <div className={styles.carouselWrapper}>
+            {CAROUSEL_IMAGES.map((img, idx) => (
+              <div
+                key={idx}
+                className={`${styles.carouselSlide} ${idx === currentImageIndex ? styles.active : ''}`}
+              >
+                <img src={img} alt={`Workspace ${idx + 1}`} className={styles.carouselImage} />
+              </div>
+            ))}
+          </div>
+          {/* Carousel Indicators */}
+          <div className={styles.carouselIndicators}>
+            {CAROUSEL_IMAGES.map((_, idx) => (
+              <button
+                key={idx}
+                className={`${styles.indicator} ${idx === currentImageIndex ? styles.activeIndicator : ''}`}
+                onClick={() => setCurrentImageIndex(idx)}
+              />
+            ))}
+          </div>
+        </div>
+
+        {/* CTA Buttons */}
+        <div className={styles.ctaGroup}>
+          <label className={styles.ctaPrimary}>
+            <input
+              type="file"
+              accept=".xlsx,.xls,.pdf"
+              style={{ display: 'none' }}
+              onChange={(e) => e.target.files[0] && handleFileUpload(e.target.files[0])}
+            />
+            Upload BOQ
+          </label>
+          <button className={styles.ctaPrimary} onClick={handleStartNewBOQ}>
+            Create New BOQ
+          </button>
+          <label className={styles.ctaPrimary}>
+            <input
+              type="file"
+              accept=".pdf,.png,.jpg,.jpeg"
+              style={{ display: 'none' }}
+              multiple
+              onChange={(e) => {
+                const files = Array.from(e.target.files);
+                if (files.length > 0) {
+                  setCurrentPlanFiles(files);
+                  setIsPlanScopeOpen(true);
+                }
+                e.target.value = '';
+              }}
+            />
+            Upload Plan
+          </label>
+        </div>
+      </section>
+
+      {/* Stats Section */}
+      <section className={styles.statsSection}>
+        <div className={styles.stat}>
+          <div className={styles.statValue}>10x</div>
+          <div className={styles.statLabel}>Faster Processing</div>
+        </div>
+        <div className={styles.statDivider} />
+        <div className={styles.stat}>
+          <div className={styles.statValue}>Unlimited</div>
+          <div className={styles.statLabel}>Scalability</div>
+        </div>
+        <div className={styles.statDivider} />
+        <div className={styles.stat}>
+          <div className={styles.statValue}>100%</div>
+          <div className={styles.statLabel}>Accuracy</div>
+        </div>
+      </section>
+
+      {/* Features Section */}
+      <section className={styles.featuresSection}>
+        <h2 className={styles.sectionTitle}>Everything You Need</h2>
+        <div className={styles.featuresGrid}>
+          <div className={`${styles.featureCard} ${styles.featureCardFeatured}`}>
+            <h3 className={styles.featureTitle}>✨ AI Match & Autofill</h3>
+            <p className={styles.featureDesc}>
+              Revolutionize your workflow with intelligent brand synchronization. Our engine automatically matches items to your preferred manufacturers, autofills missing technical specs, and optimizes product costs across multiple budget tiers simultaneously.
+            </p>
+          </div>
+          <div className={styles.featureCard}>
+            <h3 className={styles.featureTitle}>Plan to BOQ</h3>
+            <p className={styles.featureDesc}>
+              Instantly extract furniture and fitout quantities from layout drawings using specialized AI geometric analysis
+            </p>
+          </div>
+          <div className={styles.featureCard}>
+            <h3 className={styles.featureTitle}>Fitout Estimation</h3>
+            <p className={styles.featureDesc}>
+              Specialized module for glass walls, flooring, and ceiling works with deep internal database synchronization
+            </p>
+          </div>
+          <div className={styles.featureCard}>
+            <h3 className={styles.featureTitle}>PM Exports</h3>
+            <p className={styles.featureDesc}>
+              Professional project management bundle: Export MAS, MIR, WIR, and Delivery Notes in one click
+            </p>
+          </div>
+          <div className={styles.featureCard}>
+            <h3 className={styles.featureTitle}>Multi-Budget</h3>
+            <p className={styles.featureDesc}>
+              Create budgetary, mid-range, and high-end alternatives instantly with automated brand matching
+            </p>
+          </div>
+          <div className={styles.featureCard}>
+            <h3 className={styles.featureTitle}>Visual Catalogs</h3>
+            <p className={styles.featureDesc}>
+              Beautiful PowerPoint and PDF presentations featuring high-resolution product showcases and specs
+            </p>
+          </div>
+          <div className={styles.featureCard}>
+            <h3 className={styles.featureTitle}>AI Scraping</h3>
+            <p className={styles.featureDesc}>
+              Automatically fetch real-time product data, images, and technical specifications from global brand websites
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* Footer */}
+      <footer className={styles.footer}>
+        <div className={styles.footerLogo}>BOQFLOW</div>
+        <p className={styles.footerText}>
+          Intelligent BOQ Extraction, Costing & Proposal Engine
+        </p>
+      </footer>
+
+      <MultiBudgetModal
+        isOpen={isMultiBudgetOpen}
+        onClose={() => setMultiBudgetOpen(false)}
+        originalTables={extractedData?.tables || null}
+        onApplyFlow={handleMultiBudgetApply}
+        seededItems={seededPlanItems}
+        onUploadBoq={handleFileUpload}
+        onUploadPlan={(files) => {
+          if (files && files.length > 0) {
+            setCurrentPlanFiles(files);
+            setIsPlanScopeOpen(true);
+          }
+        }}
+      />
+
+      <PlanScopeModal
+        isOpen={isPlanScopeOpen}
+        onClose={() => {
+          setIsPlanScopeOpen(false);
+          setCurrentPlanFile(null);
+        }}
+        onSelect={handlePlanAnalyze}
+      />
+
+      <ProgressModal
+        isOpen={uploading}
+        progress={progress}
+        stage={stage}
+      />
+    </div>
   );
 }
 
@@ -650,7 +644,7 @@ function AppWithSetup() {
     return (
       <div className={styles.loadingScreen}>
         <div className={styles.loadingContent}>
-          <h1 className={styles.loadingLogo}>BOQFLOW</h1>
+          <h1 className={styles.loadingLogo}>BOQ FLOW</h1>
           <p className={styles.loadingText}>Loading...</p>
         </div>
       </div>
