@@ -152,6 +152,9 @@ export const brandStorage = {
                 await put(filename, JSON.stringify(brand, null, 2), { access: 'public', addRandomSuffix: false });
                 // Invalidate brand list cache
                 BlobCache.invalidate('brands-db/');
+            } catch (error) { 
+                console.error('[Storage] Blob save failed:', error); 
+            }
         }
 
         // Local / Try-Hard Strategy
