@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import styles from '../styles/PlanAnalyzerModal.module.css';
 
-const PlanAnalyzerModal = ({ isOpen, onClose, onApply, initialFile, selectedFiles = [] }) => {
+const PlanAnalyzerModal = ({ isOpen, onClose, onApply }) => {
     const fileInputRef = React.useRef(null);
     const [files, setFiles] = useState([]);
     const [stage, setStage] = useState('upload'); // upload, uploading, scope, processing, results
@@ -9,6 +9,13 @@ const PlanAnalyzerModal = ({ isOpen, onClose, onApply, initialFile, selectedFile
     const [progress, setProgress] = useState('');
     const [results, setResults] = useState(null);
     const [error, setError] = useState(null);
+    const [selectedEngine, setSelectedEngine] = useState('google');
+    const [hasAutoApplied, setHasAutoApplied] = useState(false);
+
+    const engines = [
+        { id: 'google', name: 'Google Vision AI', desc: 'Enterprise-grade Google Vision engine (Cloud)', icon: 'AI', color: '#1a73e8' },
+        { id: 'local',  name: 'Local Vision Engine', desc: 'Secure offline scanning (Local GPU)', icon: 'LL', color: '#b91c1c' }
+    ];
 
     // Only reset state on initial open/close
     useEffect(() => {
@@ -18,6 +25,7 @@ const PlanAnalyzerModal = ({ isOpen, onClose, onApply, initialFile, selectedFile
             setResults(null);
             setError(null);
             setUploadProgress(0);
+            setHasAutoApplied(false);
         }
     }, [isOpen]);
 
@@ -66,6 +74,7 @@ const PlanAnalyzerModal = ({ isOpen, onClose, onApply, initialFile, selectedFile
                 const formData = new FormData();
                 formData.append('file', file);
                 formData.append('includeFitout', includeFitout);
+                formData.append('provider', selectedEngine);
 
                 const response = await fetch('/api/analyze-plan', {
                     method: 'POST',
@@ -88,12 +97,17 @@ const PlanAnalyzerModal = ({ isOpen, onClose, onApply, initialFile, selectedFile
             }
 
             if (allItems.length > 0) {
-                setResults({
+                const extractedResults = {
                     items: allItems,
                     summary: `Unified extraction complete across ${files.length} document(s).`,
                     itemCount: allItems.length,
                     roomCount: new Set(allItems.map(i => i.location)).size
-                });
+                };
+                setResults(extractedResults);
+                if (!hasAutoApplied && typeof onApply === 'function') {
+                    onApply(extractedResults.items);
+                    setHasAutoApplied(true);
+                }
                 setStage('results');
             } else {
                 throw new Error('No items detected in the provided drawings.');
@@ -111,9 +125,12 @@ const PlanAnalyzerModal = ({ isOpen, onClose, onApply, initialFile, selectedFile
 
     const handleApplyResults = () => {
         if (results && results.items) {
-            onApply(results.items);
-            handleClose();
+            if (!hasAutoApplied && typeof onApply === 'function') {
+                onApply(results.items);
+                setHasAutoApplied(true);
+            }
         }
+        handleClose();
     };
 
     const updateQty = (idx, newQty) => {
@@ -201,9 +218,28 @@ const PlanAnalyzerModal = ({ isOpen, onClose, onApply, initialFile, selectedFile
                     {/* Step 2: Scope Selection */}
                     {stage === 'scope' && (
                         <div className={styles.scopeSelectionArea}>
-                            <h3>Define Extraction Scope</h3>
-                            <p>Select the layer categories to process from the uploaded plan.</p>
+                            <h3>Analysis Configuration</h3>
+                            <p>Configure how AI should process your drawings</p>
                             
+                            <div className={styles.sectionTitle}>1. Choose AI Processing Engine</div>
+                            <div className={styles.engineGrid}>
+                                {engines.map(engine => (
+                                    <div
+                                        key={engine.id}
+                                        className={`${styles.engineCard} ${selectedEngine === engine.id ? styles.active : ''}`}
+                                        onClick={() => setSelectedEngine(engine.id)}
+                                        style={selectedEngine === engine.id ? { borderColor: engine.color, background: engine.color + '18' } : {}}
+                                    >
+                                        <span className={styles.engineIcon} style={{ background: engine.color }}>{engine.icon}</span>
+                                        <div className={styles.engineInfo}>
+                                            <span className={styles.engineName}>{engine.name}</span>
+                                            <span className={styles.engineDesc}>{engine.desc}</span>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+
+                            <div className={styles.sectionTitle} style={{ marginTop: '1.5rem', width: '100%', maxWidth: '800px', textAlign: 'left' }}>2. Select Extraction Scope</div>
                             <div className={styles.scopeCards}>
                                 <div className={styles.scopeCard} onClick={() => startAnalysis('furniture')}>
                                     <div className={styles.scopeIcon}>🛋️</div>
@@ -212,7 +248,7 @@ const PlanAnalyzerModal = ({ isOpen, onClose, onApply, initialFile, selectedFile
                                 </div>
                                 
                                 <div className={styles.scopeCard} onClick={() => startAnalysis('both')}>
-                                    <div className={styles.scopeIcon}>📐</div>
+                                    <div className={styles.scopeIcon}>🏗️</div>
                                     <div className={styles.scopeTitle}>Furniture & Fitout</div>
                                     <div className={styles.scopeDesc}>Comprehensive extraction including partitions, walls, and flooring.</div>
                                 </div>
@@ -308,7 +344,7 @@ const PlanAnalyzerModal = ({ isOpen, onClose, onApply, initialFile, selectedFile
                     
                     {stage === 'results' && (
                         <button className={styles.applyBtn} onClick={handleApplyResults}>
-                            Apply to Project BOQ ⚡
+                            {hasAutoApplied ? 'Done' : 'Apply to Project BOQ ⚡'}
                         </button>
                     )}
                 </div>

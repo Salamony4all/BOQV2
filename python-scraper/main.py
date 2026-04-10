@@ -8,16 +8,18 @@ Features:
 - Background task processing with polling
 """
 
-from fastapi import FastAPI, HTTPException, BackgroundTasks
+from fastapi import FastAPI, HTTPException, BackgroundTasks, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 import logging
 import os
 import asyncio
 import uuid
 import json
 from datetime import datetime
+from vision_engine import vision_engine
+import ollama
 
 # Configure logging
 logging.basicConfig(
@@ -348,6 +350,42 @@ async def scrape_architonic_endpoint(req: ScrapeRequest, background_tasks: Backg
         "message": "Architonic scraping started",
         "taskId": task_id
     }
+
+@app.post("/analyze-vision")
+async def analyze_vision(file: UploadFile = File(...)):
+    # ... (existing code handles this well enough for now)
+    try:
+        content = await file.read()
+        logger.info(f"📁 Received vision analysis request: {file.filename} ({len(content)} bytes)")
+        
+        result = vision_engine.process_floorplan(content)
+        
+        if "error" in result:
+            raise HTTPException(status_code=500, detail=result["error"])
+            
+        return result
+    except Exception as e:
+        logger.error(f"Vision analysis endpoint failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+class LLMRequest(BaseModel):
+    system_prompt: str
+    user_prompt: str
+    model: str = "llama3.2"
+
+@app.post("/llm")
+async def local_llm(req: LLMRequest):
+    """General purpose local LLM access for matching, categorization, etc."""
+    try:
+        logger.info(f"🦙 LLM Request for model: {req.model}")
+        response = ollama.chat(model=req.model, messages=[
+            {'role': 'system', 'content': req.system_prompt},
+            {'role': 'user', 'content': req.user_prompt},
+        ])
+        return {"content": response['message']['content']}
+    except Exception as e:
+        logger.error(f"Local LLM failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 # ===================== STARTUP =====================
 

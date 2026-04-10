@@ -3,16 +3,46 @@ import styles from '../styles/PlanScopeModal.module.css';
 
 const PlanScopeModal = ({ isOpen, onClose, onSelect }) => {
     const [selectedEngine, setSelectedEngine] = useState('google');
-    const [selectedModel, setSelectedModel] = useState('gemini-2.5-flash');
+    const [selectedModel, setSelectedModel] = useState('gemma-4-31b-it');
 
     const modelOptions = {
-        google: ['gemini-2.5-flash', 'gemini-2.0-flash-exp', 'gemini-1.5-flash', 'gemini-1.5-flash-002', 'gemini-1.5-pro'],
+        google: {
+            gemma: [
+                'gemma-4-31b-it',
+                'gemma-4-26b-a4b-it',
+                'gemma-3-27b-it',
+                'gemma-3-12b-it',
+                'gemma-3-4b-it',
+                'gemma-3n-e4b-it',
+                'gemma-3n-e2b-it'
+            ],
+            gemini: [
+                'gemini-2.5-pro',
+                'gemini-2.5-flash',
+                'gemini-2.0-flash',
+                'gemini-2.0-flash-lite',
+                'gemini-3-flash-preview',
+                'gemini-3.1-pro-preview',
+                'gemini-flash-latest',
+                'gemini-1.5-pro',
+                'gemini-1.5-flash'
+            ],
+            paid: [
+                'gemini-1.5-pro-001',
+                'gemini-1.5-pro-002',
+                'gemini-1.5-flash-001',
+                'gemini-1.5-flash-002',
+                'gemini-1.0-pro'
+            ]
+        },
         openrouter: ['google/gemini-2.5-flash-lite-001', 'anthropic/claude-opus-4.6-fast', 'anthropic/claude-opus-4', 'anthropic/claude-sonnet-4-20250514', 'openai/gpt-4-vision-preview', 'openai/gpt-4-turbo-vision'],
-        nvidia: ['nvidia/neva-22b', 'nvidia/vila', 'nvidia/vlia', 'nvidia/llama-3.1-nemotron-nano-vl-8b-v1', 'nvidia/nemotron-nano-12b-v2-vl']
+        nvidia: ['nvidia/neva-22b', 'nvidia/vila', 'nvidia/vlia', 'nvidia/llama-3.1-nemotron-nano-vl-8b-v1', 'nvidia/nemotron-nano-12b-v2-vl'],
+        local: ['local/yolov8-llama3.2']
     };
 
     const engines = [
-        { id: 'google',     name: 'Gemini Vision',      desc: 'Google · Vision + PDF extraction', icon: 'AI', color: '#1a73e8' },
+        { id: 'google',     name: 'Google Vision',      desc: 'Google · Vision + PDF extraction', icon: 'AI', color: '#1a73e8' },
+        { id: 'local',      name: 'Local Vision',       desc: 'YOLOv8 + Llama 3.2 · Privacy-First', icon: 'LV', color: '#b91c1c' },
         { id: 'openrouter', name: 'OpenRouter Vision',  desc: 'OpenRouter · Vision-enabled gateway', icon: 'OR', color: '#8b5cf6' },
         { id: 'nvidia',     name: 'Nvidia Vision',      desc: 'NVIDIA · Vision-capable models',      icon: 'NV', color: '#76b900' }
     ];
@@ -20,12 +50,17 @@ const PlanScopeModal = ({ isOpen, onClose, onSelect }) => {
     useEffect(() => {
         if (isOpen) {
             setSelectedEngine('google');
-            setSelectedModel(modelOptions.google[0]);
+            setSelectedModel(modelOptions.google.gemma[0]);
         }
     }, [isOpen]);
 
     useEffect(() => {
-        setSelectedModel(modelOptions[selectedEngine][0]);
+        const engineOptions = modelOptions[selectedEngine];
+        if (selectedEngine === 'google') {
+            setSelectedModel(engineOptions.gemma[0]);
+        } else {
+            setSelectedModel(engineOptions[0]);
+        }
     }, [selectedEngine]);
 
     if (!isOpen) return null;
@@ -66,26 +101,46 @@ const PlanScopeModal = ({ isOpen, onClose, onSelect }) => {
                                 value={selectedModel}
                                 onChange={(event) => setSelectedModel(event.target.value)}
                             >
-                                {modelOptions[selectedEngine].map((model) => (
-                                    <option key={model} value={model}>{model}</option>
-                                ))}
+                                {selectedEngine === 'google' ? (
+                                    <>
+                                        <optgroup label="Free List (Gemma Family)">
+                                            {modelOptions.google.gemma.map((model) => (
+                                                <option key={model} value={model}>{model}</option>
+                                            ))}
+                                        </optgroup>
+                                        <optgroup label="Free List (Gemini Family)">
+                                            {modelOptions.google.gemini.map((model) => (
+                                                <option key={model} value={model}>{model}</option>
+                                            ))}
+                                        </optgroup>
+                                        <optgroup label="Paid List (Billed Key)">
+                                            {modelOptions.google.paid.map((model) => (
+                                                <option key={model} value={model}>{model}</option>
+                                            ))}
+                                        </optgroup>
+                                    </>
+                                ) : (
+                                    modelOptions[selectedEngine].map((model) => (
+                                        <option key={model} value={model}>{model}</option>
+                                    ))
+                                )}
                             </select>
                             <p className={styles.modelHint}>Choose the provider/model used to process the uploaded plan.</p>
                         </div>
                     </div>
-                </div>
 
-                <div className={styles.cards}>
-                    <div className={styles.card} onClick={() => onSelect('furniture', selectedEngine, selectedModel)}>
-                        <div className={styles.icon}>🛋️</div>
-                        <h3 className={styles.cardTitle}>Furniture Only</h3>
-                        <p className={styles.cardDesc}>Extract desks, chairs, sofas, and standalone items.</p>
-                    </div>
+                    <div className={styles.cards}>
+                        <div className={styles.card} onClick={() => onSelect('furniture', selectedEngine, selectedModel)}>
+                            <div className={styles.icon}>🛋️</div>
+                            <h3 className={styles.cardTitle}>Furniture Only</h3>
+                            <p className={styles.cardDesc}>Extract desks, chairs, sofas, and standalone items.</p>
+                        </div>
 
-                    <div className={styles.card} onClick={() => onSelect('both', selectedEngine, selectedModel)}>
-                        <div className={styles.icon}>📐</div>
-                        <h3 className={styles.cardTitle}>Furniture & Fitout</h3>
-                        <p className={styles.cardDesc}>Comprehensive extraction including partitions, walls, and flooring.</p>
+                        <div className={styles.card} onClick={() => onSelect('both', selectedEngine, selectedModel)}>
+                            <div className={styles.icon}>📐</div>
+                            <h3 className={styles.cardTitle}>Furniture & Fitout</h3>
+                            <p className={styles.cardDesc}>Comprehensive extraction including partitions, walls, and flooring.</p>
+                        </div>
                     </div>
                 </div>
 

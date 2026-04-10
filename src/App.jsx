@@ -244,7 +244,7 @@ function AppContent({ onOpenSettings }) {
     }
   };
 
-  const handlePlanAnalyze = async (scope, provider = 'google', providerModel = 'gemini-2.5-flash') => {
+  const handlePlanAnalyze = async (scope, provider = 'google', providerModel = 'gemma-4-31b-it') => {
     if (!currentPlanFiles || currentPlanFiles.length === 0) return;
 
     setIsPlanScopeOpen(false);
@@ -283,7 +283,8 @@ function AppContent({ onOpenSettings }) {
 
       if (!response.ok) {
         const errData = await response.json().catch(() => ({}));
-        throw new Error(errData.error || 'Plan analysis failed');
+        const errorMessage = errData.error?.toString().trim() || 'Plan analysis failed';
+        throw new Error(errorMessage);
       }
 
       const data = await response.json();

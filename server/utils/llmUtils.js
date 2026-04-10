@@ -7,19 +7,66 @@ import { TAXONOMY } from './normalizer.js';
 // CONFIGURATION
 // ──────────────────────────────────────────────────────────────────────────────
 const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY;
+const GOOGLE_FREE_KEY = process.env.GOOGLE_FREE_KEY || process.env.GEMINI_FREE_KEY || process.env.GEMINI_API_KEY_FREE;
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
 const NVIDIA_API_KEY = process.env.NVIDIA_API_KEY;
+const FORCE_FREE_GOOGLE = process.env.FORCE_FREE_GOOGLE_KEY === 'true';
+
+export const FREE_GOOGLE_MODELS = [
+    // Gemma Family (Top)
+    'gemma-4-31b-it',
+    'gemma-4-26b-a4b-it',
+    'gemma-3-27b-it',
+    'gemma-3-12b-it',
+    'gemma-3-4b-it',
+    'gemma-3n-e4b-it',
+    'gemma-3n-e2b-it',
+    // Gemini Family
+    'gemini-2.5-pro',
+    'gemini-2.5-flash',
+    'gemini-2.0-flash',
+    'gemini-2.0-flash-lite',
+    'gemini-3-flash-preview',
+    'gemini-3.1-pro-preview',
+    'gemini-flash-latest',
+    'gemini-1.5-pro',
+    'gemini-1.5-flash'
+];
+
+export const PAID_GOOGLE_MODELS = [
+    'gemini-1.5-pro-001',
+    'gemini-1.5-pro-002',
+    'gemini-1.5-flash-001',
+    'gemini-1.5-flash-002',
+    'gemini-1.0-pro'
+];
+
+export const VALID_GOOGLE_MODELS = [...FREE_GOOGLE_MODELS, ...PAID_GOOGLE_MODELS];
+
+function getGoogleAI(modelName) {
+    const isFreeModel = FREE_GOOGLE_MODELS.includes(modelName) || (modelName && modelName.toLowerCase().includes('gemma'));
+    
+    // 1. Force Free protocol if requested via environment variable
+    if (FORCE_FREE_GOOGLE) {
+        if (!GOOGLE_FREE_KEY) throw new Error('FORCE_FREE_GOOGLE set but GOOGLE_FREE_KEY is missing.');
+        if (process.env.DEBUG_AI === 'true') console.log(`  🛡️ [LLM Utils] Forcing FREE Google Key for model: ${modelName}`);
+        return new GoogleGenerativeAI(GOOGLE_FREE_KEY);
+    }
+
+    // 2. Strict Logic: Routing based on tier
+    if (isFreeModel) {
+        if (!GOOGLE_FREE_KEY) throw new Error(`Model "${modelName}" requires a Google Free Key (GOOGLE_FREE_KEY/GEMINI_FREE_KEY) which is missing in .env.`);
+        if (process.env.DEBUG_AI === 'true') console.log(`  💎 [LLM Utils] Free Tier model detected: Using FREE Key for "${modelName}".`);
+        return new GoogleGenerativeAI(GOOGLE_FREE_KEY);
+    } else {
+        if (!GOOGLE_API_KEY) throw new Error(`Model "${modelName}" requires a Google Billed Key (GOOGLE_API_KEY) which is missing in .env.`);
+        if (process.env.DEBUG_AI === 'true') console.log(`  💰 [LLM Utils] Billed Tier model detected: Using Billed Key for "${modelName}".`);
+        return new GoogleGenerativeAI(GOOGLE_API_KEY);
+    }
+}
 
 // Model ids
-// Valid model names: gemini-1.5-pro, gemini-1.5-flash, gemini-2.5-flash, gemini-2.0-flash-exp, etc.
-// Default to 2.5-flash if .env is missing or has a typo
-export const VALID_GOOGLE_MODELS = [
-    'gemini-2.5-flash',
-    'gemini-2.0-flash-exp',
-    'gemini-1.5-flash',
-    'gemini-1.5-flash-002',
-    'gemini-1.5-pro'
-];
+// Default to 2.5-pro (most powerful) if .env is missing or has a typo
 export const VALID_OPENROUTER_MODELS = [
     // Google Vision Models
     'google/gemini-2.5-flash-lite-001',
@@ -57,15 +104,22 @@ export const VALID_NVIDIA_MODELS = [
     'nvidia/llama-3.3-nemotron-super-49b-v1',
     'nvidia/llama-3.3-nemotron-super-49b-v1.5'
 ];
-export const GOOGLE_MODEL = VALID_GOOGLE_MODELS.includes(process.env.GOOGLE_MODEL) ? process.env.GOOGLE_MODEL : 'gemini-2.5-flash';
+export const VALID_LOCAL_MODELS = [
+    'local/yolov8-llama3.2'
+];
+export const GOOGLE_MODEL = VALID_GOOGLE_MODELS.includes(process.env.GOOGLE_MODEL) ? process.env.GOOGLE_MODEL : 'gemma-4-31b-it';
 export const OPENROUTER_MODEL = process.env.OPENROUTER_MODEL || 'google/gemini-2.5-flash-lite-001';
 export const NVIDIA_MODEL = process.env.NVIDIA_MODEL || 'nvidia/llama-3.3-70b-instruct';
-export const GROUNDING_MODEL = process.env.GOOGLE_MODEL || 'gemini-2.5-flash'; // Standard model for this environment
+export const LOCAL_MODEL = 'local/yolov8-llama3.2';
+export const PYTHON_SERVICE_URL = process.env.PYTHON_SERVICE_URL || 'http://localhost:8001';
+export const GROUNDING_MODEL = process.env.GOOGLE_MODEL || 'gemma-4-31b-it'; // Standard model for this environment
 
+// Deprecated: use getGoogleAI(modelName) instead
 const genAI = new GoogleGenerativeAI(GOOGLE_API_KEY);
 
 const isValidProviderModel = (provider, model) => {
     if (!model) return false;
+    if (provider === 'local') return true; // Local engine handles its own model routing
     if (provider === 'google') return VALID_GOOGLE_MODELS.includes(model);
     if (provider === 'openrouter') return VALID_OPENROUTER_MODELS.includes(model);
     if (provider === 'nvidia') return VALID_NVIDIA_MODELS.includes(model);
@@ -219,7 +273,8 @@ async function callNvidia(systemPrompt, userPrompt, modelName = null) {
 export async function callGoogle(systemPrompt, userPrompt, useSearch = false, modelName = null) {
     const tools = useSearch ? [{ googleSearch: {} }] : [];
     const finalModel = modelName || (useSearch ? GROUNDING_MODEL : GOOGLE_MODEL);
-    const model = genAI.getGenerativeModel({
+    const genAIInstance = getGoogleAI(finalModel);
+    const model = genAIInstance.getGenerativeModel({
         model: finalModel,
         systemInstruction: systemPrompt,
         tools: tools,
@@ -297,6 +352,10 @@ export async function identifyModel(description, brand, provider = 'google', kno
             parsed = await callGoogle(system, user, true, providerModel || GOOGLE_MODEL);
         } else if (provider === 'nvidia') {
             parsed = await callNvidia(system, user, providerModel || NVIDIA_MODEL);
+        } else if (provider === 'local') {
+            console.log(`  📍 Using Local LLM (Llama 3.2) for identification...`);
+            const responseText = await callLocalLLM(system, user, 'llama3.2');
+            parsed = safeParseJSON(responseText);
         } else {
             parsed = await callOpenRouter(system, user, providerModel || OPENROUTER_MODEL);
         }
@@ -475,7 +534,7 @@ export async function searchAndEnrichModel(brandName, modelName, expectedTier = 
 }
 
 
-export async function getAiMatch(description, brandTarget, tier, provider = 'google') {
+export async function getAiMatch(description, brandTarget, tier, provider = 'google', providerModel = null) {
     const system = `You are an FF&E Product Matcher.
 Match: "${description}" to ${brandTarget}.
 
@@ -497,7 +556,16 @@ Return JSON ONLY:
 }`;
     const user = `Match: ${description}\nBrands: ${brandTarget}\nTier: ${tier}`;
     try {
-        return await callGoogle(system, user, false);
+        if (provider === 'google') {
+            return await callGoogle(system, user, false, providerModel);
+        } else if (provider === 'local') {
+            console.log(`  📍 Using Local LLM (Llama 3.2) for matching...`);
+            const responseText = await callLocalLLM(system, user, 'llama3.2');
+            return safeParseJSON(responseText);
+        } else {
+            // Default to Google for matching if provider is openrouter/nvidia and no explicit support yet in getAiMatch
+            return await callGoogle(system, user, false, providerModel);
+        }
     } catch (err) {
         return { status: 'error', error_message: err.message };
     }
@@ -505,12 +573,12 @@ Return JSON ONLY:
 
 /** 
  * specialized function for rapid, highly-precise matching of fitout items from internal DB.
- * uses Gemini 2.0 Flash for high-speed lookup.
+ * uses the selected AI model for high-speed lookup.
  */
-export async function matchFitoutItem(description, internalProducts = [], tier = 'mid') {
+export async function matchFitoutItem(description, internalProducts = [], tier = 'mid', provider = 'google', providerModel = 'gemini-1.5-flash') {
     const system = `You are an Elite Fitout Estimator.
 Match the description to ONE specific item from the internal database below.
-If no exact match exists, pick the one with most similar function/material.
+If no exact match exists, pick the one with most similar function/material (e.g. "Commercial Grade Flooring" -> "Flooring - Stone" or "Flooring - Wood").
 
 ### INTERNAL DATABASE:
 ${JSON.stringify(internalProducts, null, 2)}
@@ -520,24 +588,41 @@ Return ONLY valid JSON:
   "status": "success",
   "product": {
     "brand": "FitOut V2",
-    "model": "Model ID",
-    "description": "Full item description",
+    "model": "EXACT Model Name from matched item",
+    "description": "EXACT Description from matched item",
     "price": 0,
-    "mainCategory": "Category",
-    "subCategory": "Sub-category",
-    "matchScore": 0.0 to 1.0,
-    "logic": "Functional match reason"
+    "mainCategory": "EXACT mainCategory from matched item",
+    "subCategory": "EXACT subCategory from matched item",
+    "family": "EXACT family from matched item",
+    "unit": "EXACT unit from matched item",
+    "matchScore": 0.0,
+    "logic": "Brief explanation"
   }
 }
 
 ### CRITICAL RULES:
-- Ignore suffix mismatches like "Flooring" vs "Tiles" for Carpets/Vinyl. If the Material matches, it is a Match.
-- Match by Material/Finish if exact model name differs slightly (e.g. Model v1 vs Model v2).`;
+- If the item is generic (e.g. "Carpeting", "Flooring"), match it to the most professional entry in the database.
+- For Carpet: Descriptions including "Carpet", "Flooring Carpet", "Floor Finish (Carpet)", or similar MUST map to items in the "Carpet Tiles" sub-category.
+- For Floor Finish: Map "Main Floor Finish" or "Flooring" to specific materials if mentioned (Stone, Wood, etc.). If "Carpet/Tile" or "Carpet" is mentioned, prioritize "Carpet Tiles".
+- Ignore suffix mismatches like "Flooring" vs "Tiles" for Carpets/Vinyl. If the main Material matches, it is a Match.
+- Match by Material/Finish if exact model name differs slightly (e.g. Model v1 vs Model v2).
+- Ensure the Price is realistic for the tier provided.`;
 
     const user = `Find best match for: "${description}" (Tier: ${tier})`;
     try {
-        // Use gemini-2.5-flash for speed and efficiency as requested.
-        return await callGoogle(system, user, false, 'gemini-2.5-flash');
+        if (provider === 'google') {
+            return await callGoogle(system, user, false, providerModel);
+        } else if (provider === 'openrouter') {
+            return await callOpenRouter(system, user, providerModel);
+        } else if (provider === 'nvidia') {
+            return await callNvidia(system, user, providerModel);
+        } else if (provider === 'local') {
+            const responseText = await callLocalLLM(system, user, 'llama3.2');
+            return safeParseJSON(responseText);
+        } else {
+            // Default payload for safety
+            return await callGoogle(system, user, false, 'gemini-1.5-flash');
+        }
     } catch (err) {
         console.error('  ❌ [Fitout Matcher] Error:', err.message);
         return { status: 'error', error_message: err.message };
@@ -565,6 +650,7 @@ You are strictly FORBIDDEN from using units like "Lot", "LS", "Lumpsum", or "Pac
 6. SEPARATION OF CONCERNS:
    - FURNITURE: Includes chairs, desks, tables, storage, pods, and mobile accessories.
    - FITOUT: Includes architectural elements like 'Partition Wall', 'Tile Flooring', 'Gypsum Ceiling', 'Curtain Wall', 'Carpeting', 'Wall Cladding', or any fixed MEP/HVAC elements. 
+   - FLOORING & CARPET: Items like 'Carpet Tile', 'Floor Carpet', 'Vinyl', or 'Main Floor Finish' MUST be identified as FITOUT.
    - IMPORTANT: If an item is an architectural element (Fixed Partition, Flooring, Ceiling), it belongs to FITOUT.
 
 Return ONLY the JSON. No conversational text.
@@ -641,6 +727,52 @@ async function callVisionAPI(systemPrompt, userPrompt, imageBase64, imageMimeTyp
 }
 
 /**
+ * Call Local Python Vision Service.
+ */
+async function callLocalVision(imageBase64, imageMimeType) {
+    try {
+        const FormData = (await import('form-data')).default;
+        const formData = new FormData();
+        
+        // Convert base64 to Buffer for Node.js
+        const buffer = Buffer.from(imageBase64, 'base64');
+        
+        formData.append('file', buffer, {
+            filename: 'floorplan.png',
+            contentType: imageMimeType
+        });
+
+        const res = await axios.post(`${PYTHON_SERVICE_URL}/analyze-vision`, formData, {
+            headers: { ...formData.getHeaders() },
+            timeout: 180000 // 3 minutes for local heavy models
+        });
+
+        return res.data.boq;
+    } catch (err) {
+        const statusDetail = err.response?.data?.detail || err.response?.data?.error || err.response?.data?.message;
+        const statusCode = err.response?.status ? `HTTP ${err.response.status}` : null;
+        const code = err.code || null;
+        const message = statusDetail || err.message || code || JSON.stringify(err) || 'Unknown local vision error';
+        console.error(`  ❌ [Local Vision Error] ${statusCode || ''} ${message}`);
+        throw new Error(`Local Vision Engine failed: ${message}`);
+    }
+}
+
+async function callLocalLLM(systemPrompt, userPrompt, model = 'llama3.2') {
+    try {
+        const res = await axios.post(`${PYTHON_SERVICE_URL}/llm`, {
+            system_prompt: systemPrompt,
+            user_prompt: userPrompt,
+            model: model
+        });
+        return res.data.content;
+    } catch (err) {
+        console.error(`  ❌ [Local LLM Error] Message: ${err.message}`);
+        throw new Error(`Local LLM Engine failed: ${err.message}`);
+    }
+}
+
+/**
  * Perform AI analysis on floor plan drawing(s).
  * @param {Array} filesData - Array of objects { base64Data, mimeType, originalname }
  */
@@ -675,7 +807,8 @@ export async function analyzePlan(filesData, options = {}) {
             const modelName = providerModel || GOOGLE_MODEL;
             console.log(`  📍 Using Google model: ${modelName}`);
             
-            const model = genAI.getGenerativeModel({
+            const genAIInstance = getGoogleAI(modelName);
+            const model = genAIInstance.getGenerativeModel({
                 model: modelName,
                 generationConfig: { temperature: 0.1, maxOutputTokens: 16384 }
             });
@@ -719,6 +852,10 @@ export async function analyzePlan(filesData, options = {}) {
                 'https://integrate.api.nvidia.com/v1/chat/completions',
                 NVIDIA_API_KEY
             );
+
+        } else if (provider === 'local') {
+            console.log(`  📍 Using Local Vision Engine (YOLOv8 + Llama 3.2)`);
+            parsed = await callLocalVision(file.base64Data, file.mimeType);
 
         } else {
             throw new Error(`Unknown provider: ${provider}. Supported: google, openrouter, nvidia`);

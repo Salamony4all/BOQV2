@@ -367,10 +367,20 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
         const isHeaderRow = (desc, row = {}) => {
             if (!desc || desc.trim() === '') return true;
             const normalized = desc.trim().toLowerCase();
+            
+            // If it has a code pattern like [FL-01], it's definitely an item
+            if (/^\[.*?\]/.test(normalized)) return false;
+
+            // If it has quantity or unit, it's definitely an item
+            const hasData = String(row.qty || '').trim() || String(row.unit || '').trim() || String(row.rate || '').trim();
+            if (hasData) return false;
+
             const exactHeaders = ['item', 'description', 'desc', 'quantity', 'qty', 'unit', 'uom', 'rate', 'price', 'total', 'amount', 's.n.', 'sn', 'sr.no', 'sr no', 'id', 'ref', 'area', 'specification', 'specifications', 'remarks', 'location', 'description and area', 'description & area', 'room', 'floor', 'block', 'zone', 'subtotal', 'total amount', 'grand total', 'net total', 'discount'];
             if (exactHeaders.some(kw => normalized === kw || normalized.startsWith(kw + ' '))) return true;
-            if (/location|area|floor|block|zone|room|item\s*no|s\.no|ref/i.test(normalized)) return true;
-            if (!String(row.qty || '').trim() && !String(row.rate || '').trim() && !String(row.unit || '').trim() && normalized.length > 0) return true;
+
+            // More restrictive regex for generic markers
+            if (/^(location|area|floor|block|zone|room|item\s*no|s\.no|ref)$/i.test(normalized)) return true;
+            
             return false;
         };
 
@@ -378,6 +388,7 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
         if (tierKeys.length > 1) setActiveTier('comparison');
 
         let globalStats = { success: 0, error: 0, newlyAdded: 0 };
+        const matchCache = new Map(); // description -> responseData object
 
         const processRow = async (tierKey, rowIndex) => {
             const row = tierDataRef.current[tierKey].rows[rowIndex];
@@ -386,47 +397,143 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
             const rowId = String(row.id);
             updateFitoutStatus(tierKey, { currentItem: row, status: 'identifying', brand: '...', model: 'Matching Fitout...', image: null });
 
-            const cleanDesc = (row.description || '').replace(/^\[.*?\]\s*/, '').trim();
+            // Set uniform loading effect
+            setTierData(prev => {
+                const updatedRows = [...prev[tierKey].rows];
+                updatedRows[rowIndex] = { ...updatedRows[rowIndex], aiStatus: 'processing' };
+                return { ...prev, [tierKey]: { ...prev[tierKey], rows: updatedRows } };
+            });
 
             try {
-                const response = await fetch(`${API_BASE}/api/auto-match-ai`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ description: cleanDesc, qty: row.qty, unit: row.unit, tier: tierKey, availableBrands, provider: selectedEngine, providerModel, scope: 'Fitout', type: 'fitout' })
-                });
+                const cleanDesc = (row.description || '').replace(/^\[.*?\]\s*/, '').trim();
+                
+                let product = null;
+                let newlyAdded = false;
+                let currentMatchData = null;
 
-                const data = await response.json();
-                if (data.status === 'success' && data.product) {
-                    const product = data.product;
+                if (matchCache.has(cleanDesc)) {
+                    console.log(`  ♻️ [Fitout Logic] Reusing cached match for: "${cleanDesc}"`);
+                    currentMatchData = matchCache.get(cleanDesc);
+                    product = currentMatchData.product;
+                    newlyAdded = !!currentMatchData.newlyAdded;
+                } else {
+                    // Extract only brands that were selected for THIS specific tier
+                    // availableBrands format is now: ["BrandName|budgetary", "BrandName|mid", ...]
+                    const brandsForThisTier = availableBrands
+                        .filter(s => s.endsWith(`|${tierKey}`))
+                        .map(s => s.split('|')[0]);
+
+                    // Skip if Fitout V2 specifically WAS NOT selected for this tier
+                    // (Assuming Fitout V2 is the primarily used one)
+                    if (brandsForThisTier.length === 0) {
+                        console.log(`  ⏭️ [Fitout Logic] Skipping tier ${tierKey} because no brands were selected for it.`);
+                        return;
+                    }
+
+                    const response = await fetch(`${API_BASE}/api/auto-match-ai`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ 
+                            description: cleanDesc, 
+                            qty: row.qty, 
+                            unit: row.unit, 
+                            tier: tierKey, 
+                            availableBrands: brandsForThisTier, 
+                            provider: selectedEngine, 
+                            providerModel, 
+                            scope: 'Fitout', 
+                            type: 'fitout' 
+                        })
+                    });
+
+                    currentMatchData = await response.json();
+                    if (currentMatchData.status === 'success' && currentMatchData.product) {
+                        product = currentMatchData.product;
+                        newlyAdded = !!currentMatchData.newlyAdded;
+                        matchCache.set(cleanDesc, currentMatchData);
+                    }
+                }
+
+                if (product) {
                     const finalPrice = Math.ceil(parseFloat(product.price || 0));
-
                     updateFitoutStatus(tierKey, { status: 'success', brand: product.brand || 'FitOut V2', model: product.model || '', image: product.imageUrl || row.imageRef || null });
 
-                    const updatedRow = {
-                        ...row,
-                        selectedBrand: product.brand || 'FitOut V2',
-                        brandDesc: product.description || product.model,
-                        brandImage: product.imageUrl || row.imageRef || row.brandImage,
-                        selectedModel: product.model,
-                        selectedMainCat: product.mainCategory || product.category || 'Fitout',
-                        selectedSubCat: product.subCategory || 'Details',
-                        selectedFamily: product.family || 'Element',
-                        type: 'fitout',
-                        rate: finalPrice,
-                        amount: row.qty ? (parseFloat(row.qty) * finalPrice) : finalPrice,
-                        aiStatus: 'success'
-                    };
+                    setTierData(prev => {
+                        const next = { ...prev };
+                        
+                        const updatedRow = {
+                            selectedBrand: product.brand || 'FitOut V2',
+                            brandDesc: product.description || product.model,
+                            brandImage: product.imageUrl || row.imageRef || row.brandImage,
+                            selectedModel: product.model,
+                            selectedMainCat: product.mainCategory || product.category || 'Partition Wall',
+                            selectedSubCat: product.subCategory || 'full height partition wall',
+                            selectedFamily: product.family || 'Element',
+                            type: 'fitout',
+                            rate: finalPrice,
+                            aiStatus: 'success',
+                            aiResult: currentMatchData
+                        };
 
-                    setTierData(prev => ({ ...prev, [tierKey]: { ...prev[tierKey], rows: prev[tierKey].rows.map(r => String(r.id) === rowId ? updatedRow : r) } }));
+                        // 1. Update primary tier
+                        if (next[tierKey]) {
+                            next[tierKey].rows = next[tierKey].rows.map((r, idx) => {
+                                if (idx === rowIndex) {
+                                    return { 
+                                        ...r, 
+                                        ...updatedRow,
+                                        amount: r.qty ? (parseFloat(r.qty) * finalPrice) : finalPrice
+                                    };
+                                }
+                                return r;
+                            });
+                        }
+
+                        // 2. Clone to OTHER rows in the SAME tier for identical descriptions
+                        [tierKey].forEach(tKey => {
+                            if (!next[tKey]) return;
+                            next[tKey].rows = next[tKey].rows.map((r) => {
+                                const otherClean = (r.description || '').replace(/^\[.*?\]\s*/, '').trim();
+                                if (otherClean === cleanDesc && !r.selectedBrand) {
+                                    console.log(`  👯 [Fitout Logic] Cloning match to ${tKey} tier for: "${cleanDesc}"`);
+                                    return { 
+                                        ...r, 
+                                        ...updatedRow,
+                                        amount: r.qty ? (parseFloat(r.qty) * finalPrice) : finalPrice
+                                    };
+                                }
+                                return r;
+                            });
+                        });
+
+                        return next;
+                    });
+
                     globalStats.success++;
-                    if (data.newlyAdded) globalStats.newlyAdded++;
+                    if (newlyAdded) globalStats.newlyAdded++;
                 } else {
+                    const newStatus = currentMatchData?.status === 'no_match' ? 'no_match' : 'error';
                     globalStats.error++;
-                    updateFitoutStatus(tierKey, { status: 'error' });
+                    updateFitoutStatus(tierKey, { status: newStatus });
+                    
+                    setTierData(prev => ({
+                        ...prev,
+                        [tierKey]: { 
+                            ...prev[tierKey], 
+                            rows: prev[tierKey].rows.map(r => String(r.id) === rowId ? { ...r, aiStatus: newStatus, aiError: currentMatchData?.message } : r) 
+                        }
+                    }));
                 }
             } catch (e) {
                 updateFitoutStatus(tierKey, { status: 'error' });
                 globalStats.error++;
+                setTierData(prev => ({
+                    ...prev,
+                    [tierKey]: { 
+                        ...prev[tierKey], 
+                        rows: prev[tierKey].rows.map(r => String(r.id) === rowId ? { ...r, aiStatus: 'error', aiError: e.message } : r) 
+                    }
+                }));
             }
 
             setFitoutProgress(prev => ({ ...prev, [tierKey]: { ...prev[tierKey], current: prev[tierKey].current + 1 } }));
@@ -463,6 +570,14 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
         const isHeaderRow = (desc, row = {}) => {
             if (!desc || desc.trim() === '') return true;
             const normalized = desc.trim().toLowerCase();
+            
+            // If it has a code pattern like [FL-01], it's definitely an item
+            if (/^\[.*?\]/.test(normalized)) return false;
+
+            // If it has quantity or unit, it's definitely an item
+            const hasData = String(row.qty || '').trim() || String(row.unit || '').trim() || String(row.rate || '').trim();
+            if (hasData) return false;
+
             const exactHeaders = [
                 'item', 'description', 'desc', 'quantity', 'qty', 'unit', 'uom',
                 'rate', 'price', 'total', 'amount', 's.n.', 'sn', 'sr.no', 'sr no', 'id',
@@ -471,11 +586,10 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                 'subtotal', 'total amount', 'grand total', 'net total', 'discount'
             ];
             if (exactHeaders.some(kw => normalized === kw || normalized.startsWith(kw + ' '))) return true;
-            if (/location|area|floor|block|zone|room|item\s*no|s\.no|ref/i.test(normalized)) return true;
-            const qtyVal = String(row.qty || '').trim();
-            const rateVal = String(row.rate || '').trim();
-            const unitVal = String(row.unit || '').trim();
-            if (!qtyVal && !rateVal && !unitVal && normalized.length > 0) return true;
+
+            // More restrictive regex for generic markers
+            if (/^(location|area|floor|block|zone|room|item\s*no|s\.no|ref)$/i.test(normalized)) return true;
+            
             if (/^(group|type|section|category|list)\s+of\s/i.test(normalized)) return true;
             return false;
         };
@@ -557,8 +671,8 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                     if (result.source === 'ai-discovery-hardened') globalStats.newlyAdded++;
 
                     let finalBrandDesc = match.description || (match.model ? `Model: ${match.model}` : row.description);
-                    let finalMainCat = match.mainCategory || '';
-                    let finalSubCat = String(match.subCategory || '');
+                    let finalMainCat = match.mainCategory || 'Office Seating';
+                    let finalSubCat = String(match.subCategory || 'Staff Chairs');
                     let finalFamily = String(match.family || '');
                     let finalModel = match.model || '';
                     let finalImageUrl = match.imageUrl || '';
@@ -2529,7 +2643,12 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
     const renderRow = (row, sn, isBoqMode, index) => {
         const refImgSrc = row.imageRef ? (String(row.imageRef).startsWith('http') ? row.imageRef : `${API_BASE}${row.imageRef}`) : null;
 
-        const activeBrand = brands.find(b => b.name === row.selectedBrand);
+        const activeBrand = brands.find(b => {
+            if (b.type === 'fitout' || b.name === 'FitOut V2') {
+                return b.name === row.selectedBrand && (b.budgetTier === activeTier || !b.budgetTier);
+            }
+            return b.name === row.selectedBrand;
+        }) || brands.find(b => b.name === row.selectedBrand);
         const brandProducts = activeBrand?.products || [];
 
         // Category/Family logic: Merge and deduplicate to avoid "confusing branches"
@@ -2601,9 +2720,9 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                             <button
                                 className={styles.specialistBtn}
                                 onClick={() => setSpecialistData(row.aiResult)}
-                                title="AI Search Plus Detail"
+                                title="AI Detail"
                             >
-                                AI Search Plus
+                                AI
                             </button>
                         )}
                         {row.aiStatus === 'no_match' && (

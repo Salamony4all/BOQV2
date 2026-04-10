@@ -312,8 +312,8 @@ const AIPresentationModal = ({
                                             <div className={`${styles.imageWrapper} ${isTransitioning ? styles.isScanning : ''}`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0, 0, 0, 0.4)', backdropFilter: 'blur(10px)', border: '1px solid rgba(138, 43, 226, 0.2)' }}>
                                                 <div style={{ textAlign: 'center', padding: '20px' }}>
                                                     <span style={{ color: '#8a2be2', fontSize: '3rem', display: 'block', marginBottom: '15px' }}>{modeIcon}</span>
-                                                    <h3 style={{ color: '#fff', margin: 0, fontSize: '1.2rem', letterSpacing: '0.5px' }}>{memoizedDisplay.model || foundModel}</h3>
-                                                    <div style={{ color: '#aaa', fontSize: '0.8rem', marginTop: '8px', textTransform: 'uppercase' }}>{memoizedDisplay.brand || brand}</div>
+                                                    <h3 style={{ color: theme === 'light' ? '#0f172a' : '#fff', margin: 0, fontSize: '1.2rem', letterSpacing: '0.5px' }}>{memoizedDisplay.model || foundModel}</h3>
+                                                    <div style={{ color: theme === 'light' ? '#475569' : '#aaa', fontSize: '0.8rem', marginTop: '8px', textTransform: 'uppercase' }}>{memoizedDisplay.brand || brand}</div>
                                                 </div>
                                                 {isTransitioning && (
                                                     <div className={styles.authOverlay}>

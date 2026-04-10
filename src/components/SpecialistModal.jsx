@@ -26,7 +26,7 @@ const SpecialistModal = ({ isOpen, onClose, data }) => {
             <div className={styles.modal} onClick={e => e.stopPropagation()}>
                 <div className={styles.header}>
                     <div className={styles.titleGroup}>
-                        <h3>FF&E AI Search Plus: Quick Check</h3>
+                        <h3>AI Search: Quick Check</h3>
                     </div>
                     <button className={styles.closeBtn} onClick={onClose}>&times;</button>
                 </div>

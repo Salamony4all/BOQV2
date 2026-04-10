@@ -2755,6 +2755,19 @@
       "imageUrl": "https://media.architonic.com/m-on/3100100/product/1199896/nurus_cube-h567-movable-pedestal_240b8c55.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/nurus-cube-h56.7-movable-pedestal-1199896/",
       "price": 0
+    },
+    {
+      "brand": "Nurus",
+      "model": "Patrick",
+      "imageUrl": "https://image.architonic.com/imgArc/20508001/pro/1_1_nurus-patrick-fabric-easy-chair-with-armrests.jpg",
+      "websiteUrl": "https://www.architonic.com/en/product/nurus-patrick-fabric-easy-chair-with-armrests/20508001",
+      "mainCategory": "Office Seating",
+      "subCategory": "Lounge Chairs",
+      "family": "Patrick",
+      "price": 0,
+      "description": "Fabric easy chair with armrests, designed by Favaretto&Partners, suitable for various environments with adjustable back options.",
+      "lastUpdated": "2026-04-09T09:56:38.318Z",
+      "source": "AI-Specialist-Discovery"
     }
   ],
   "createdAt": "2025-12-21T14:45:44.595Z"

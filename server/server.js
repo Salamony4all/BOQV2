@@ -9,12 +9,13 @@ import { fileURLToPath } from 'url';
 import { extractExcelData } from './fastExtractor.js';
 import { CleanupService } from './cleanupService.js';
 import { put, del, list } from '@vercel/blob';
+import { BlobCache } from './utils/blobCache.js';
 import { handleUpload } from '@vercel/blob/client';
 import axios from 'axios';
 import https from 'https';
 import { ExcelDbManager } from './excelManager.js';
 import { brandStorage } from './storageProvider.js';
-import { getAiMatch, identifyModel, fetchProductDetails, searchAndEnrichModel, analyzePlan, matchFitoutItem, VALID_GOOGLE_MODELS, VALID_OPENROUTER_MODELS, VALID_NVIDIA_MODELS, GOOGLE_MODEL, OPENROUTER_MODEL, NVIDIA_MODEL } from './utils/llmUtils.js';
+import { getAiMatch, identifyModel, fetchProductDetails, searchAndEnrichModel, analyzePlan, matchFitoutItem, FREE_GOOGLE_MODELS, PAID_GOOGLE_MODELS, VALID_GOOGLE_MODELS, VALID_OPENROUTER_MODELS, VALID_NVIDIA_MODELS, GOOGLE_MODEL, OPENROUTER_MODEL, NVIDIA_MODEL } from './utils/llmUtils.js';
 
 // Restored Scraper Engine Imports
 import ScraperService from './scraper.js';
@@ -192,6 +193,18 @@ app.get('/api/status', (req, res) => {
   });
 });
 
+app.get('/api/models/available', (req, res) => {
+  res.json({
+    google: {
+      free: FREE_GOOGLE_MODELS,
+      paid: PAID_GOOGLE_MODELS
+    },
+    openrouter: VALID_OPENROUTER_MODELS,
+    nvidia: VALID_NVIDIA_MODELS,
+    local: ['local/yolov8-llama3.2']
+  });
+});
+
 app.get('/api/scraper-config', (req, res) => {
   res.json({
     methods: [
@@ -245,7 +258,8 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
 // Blob Management API (for Blob Dashboard)
 app.get('/api/admin/blobs', async (req, res) => {
   try {
-    const { blobs } = await list({ limit: 1000 });
+    const forceRefresh = req.query.refresh === 'true';
+    const { blobs } = await BlobCache.list({ limit: 1000 }, forceRefresh);
     
     // Transform Vercel Blob response to match BlobDashboard expectations
     const formattedBlobs = blobs.map(blob => ({
@@ -268,6 +282,7 @@ app.delete('/api/admin/blobs', async (req, res) => {
   if (!url) return res.status(400).json({ error: 'URL is required' });
   try {
     await del(url);
+    BlobCache.invalidate(); // Clear all as we don't know the prefix easily here
     res.json({ success: true });
   } catch (error) {
     console.error('❌ [Blob API] Delete failed:', error.message);
@@ -275,10 +290,10 @@ app.delete('/api/admin/blobs', async (req, res) => {
   }
 });
 
-// Legacy blob endpoints for backward compatibility
 app.get('/api/blobs', async (req, res) => {
   try {
-    const { blobs } = await list({ limit: 1000 });
+    const forceRefresh = req.query.refresh === 'true';
+    const { blobs } = await BlobCache.list({ limit: 1000 }, forceRefresh);
     res.json({ success: true, blobs });
   } catch (error) {
     console.error('❌ [Blob API] List failed:', error.message);
@@ -291,6 +306,7 @@ app.post('/api/blobs/delete', async (req, res) => {
   if (!url) return res.status(400).json({ error: 'URL is required' });
   try {
     await del(url);
+    BlobCache.invalidate();
     res.json({ success: true });
   } catch (error) {
     console.error('❌ [Blob API] Delete failed:', error.message);
@@ -390,6 +406,9 @@ app.post('/api/brands/sync/to-blob', async (req, res) => {
           contentType: 'application/json'
         });
 
+        // Invalidate cache
+        BlobCache.invalidate('brands-db/');
+
         syncedCount++;
         results.push({ file, status: 'synced' });
         console.log(`✅ [Sync] Uploaded ${file} to Blob`);
@@ -419,7 +438,8 @@ app.get('/api/brands/sync/status', async (req, res) => {
       return res.json({ status: 'not-configured' });
     }
 
-    const { blobs } = await list({ prefix: 'brands-db/', limit: 1000 });
+    const forceRefresh = req.query.refresh === 'true';
+    const { blobs } = await BlobCache.list({ prefix: 'brands-db/', limit: 1000 }, forceRefresh);
     const localBrands = await brandStorage.getAllBrands();
 
     res.json({
@@ -636,7 +656,7 @@ app.post('/api/auto-match-ai', async (req, res) => {
         const internalProducts = dbData.products || [];
 
         // Match using specialized local matcher
-        const matchResult = await matchFitoutItem(description, internalProducts, finalTier);
+        const matchResult = await matchFitoutItem(description, internalProducts, finalTier, provider, providerModel);
 
         if (matchResult && matchResult.status === 'success' && matchResult.product) {
           console.log(`  ✅ [Fitout Logic] Match found: ${matchResult.product.model} @ AED ${matchResult.product.price}`);

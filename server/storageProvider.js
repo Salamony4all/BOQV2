@@ -1,5 +1,5 @@
-import { createClient } from '@vercel/kv';
 import { put, list, del } from '@vercel/blob';
+import { BlobCache } from './utils/blobCache.js';
 import axios from 'axios';
 import path from 'path';
 import { promises as fs } from 'fs';
@@ -88,7 +88,7 @@ export const brandStorage = {
         // 2. Load Blob Brands (Persistent Storage Layer for Vercel without KV)
         if (!kv && process.env.BLOB_READ_WRITE_TOKEN) {
             try {
-                const { blobs } = await list({ prefix: 'brands-db/' });
+                const { blobs } = await BlobCache.list({ prefix: 'brands-db/' });
                 // Parallel fetch of all brand files
                 const blobPromises = blobs.map(async (blob) => {
                     try {
@@ -150,7 +150,8 @@ export const brandStorage = {
             try {
                 const filename = `brands-db/${brand.id}.json`;
                 await put(filename, JSON.stringify(brand, null, 2), { access: 'public', addRandomSuffix: false });
-            } catch (error) { console.error('[Storage] Blob save failed:', error); }
+                // Invalidate brand list cache
+                BlobCache.invalidate('brands-db/');
         }
 
         // Local / Try-Hard Strategy
@@ -242,10 +243,12 @@ export const brandStorage = {
         if (process.env.BLOB_READ_WRITE_TOKEN) {
             try {
                 const filename = `brands-db/${brandId}.json`;
-                const { blobs } = await list({ prefix: 'brands-db/' });
+                const { blobs } = await BlobCache.list({ prefix: 'brands-db/' });
                 const blobToDelete = blobs.find(b => b.pathname === filename);
                 if (blobToDelete) {
                     await del(blobToDelete.url);
+                    // Invalidate cache
+                    BlobCache.invalidate('brands-db/');
                     return true;
                 }
             } catch (e) { console.error('Blob delete error', e); }

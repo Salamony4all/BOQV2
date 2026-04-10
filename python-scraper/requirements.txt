@@ -7,3 +7,15 @@ patchright
 requests
 camoufox
 msgspec
+opencv-python-headless
+ollama
+numpy
+python-multipart
+Pillow
+pytesseract
+easyocr
+layoutparser
+pdf2image
+torch
+torchvision
+detectron2@git+https://github.com/facebookresearch/detectron2.git

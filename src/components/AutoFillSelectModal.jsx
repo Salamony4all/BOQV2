@@ -4,12 +4,41 @@ import styles from '../styles/AutoFillSelectModal.module.css';
 export default function AutoFillSelectModal({ isOpen, onClose, allBrands, activeTier, onConfirm }) {
     const [selectedBrands, setSelectedBrands] = useState([]);
     const [selectedEngine, setSelectedEngine] = useState('google');
-    const [selectedModel, setSelectedModel] = useState('gemini-2.5-flash');
+    const [selectedModel, setSelectedModel] = useState('gemma-4-31b-it');
 
     const modelOptions = {
-        google: ['gemini-2.5-flash', 'gemini-2.0-flash-exp', 'gemini-1.5-flash', 'gemini-1.5-flash-002', 'gemini-1.5-pro'],
-        openrouter: ['google/gemini-4-31b-it:free', 'google/gemma-4-26b-a4b-it:free', 'google/gemma-4-31b-it:free', 'anthropic/claude-opus-4.6-fast', 'anthropic/claude-opus-4', 'anthropic/claude-sonnet-4-20250514'],
-        nvidia: ['nvidia/llama-3.3-70b-instruct', 'nvidia/llama-3.1-70b-instruct', 'nvidia/nemotron-3-super-120b-a12b', 'nvidia/gemma-4-31b-it', 'nvidia/cosmos-transfer2_5-2b', 'nvidia/llama-3.1-nemotron-nano-8b-v1', 'nvidia/llama-3.1-nemotron-70b-reward', 'nvidia/llama-3.1-nemotron-ultra-253b-v1', 'nvidia/llama-3.3-nemotron-super-49b-v1', 'nvidia/llama-3.3-nemotron-super-49b-v1.5']
+        google: {
+            gemma: [
+                'gemma-4-31b-it',
+                'gemma-4-26b-a4b-it',
+                'gemma-3-27b-it',
+                'gemma-3-12b-it',
+                'gemma-3-4b-it',
+                'gemma-3n-e4b-it',
+                'gemma-3n-e2b-it'
+            ],
+            gemini: [
+                'gemini-2.5-pro',
+                'gemini-2.5-flash',
+                'gemini-2.0-flash',
+                'gemini-2.0-flash-lite',
+                'gemini-3-flash-preview',
+                'gemini-3.1-pro-preview',
+                'gemini-flash-latest',
+                'gemini-1.5-pro',
+                'gemini-1.5-flash'
+            ],
+            paid: [
+                'gemini-1.5-pro-001',
+                'gemini-1.5-pro-002',
+                'gemini-1.5-flash-001',
+                'gemini-1.5-flash-002',
+                'gemini-1.0-pro'
+            ]
+        },
+        openrouter: ['google/gemini-2.5-flash-lite-001', 'anthropic/claude-opus-4.6-fast', 'anthropic/claude-opus-4', 'anthropic/claude-sonnet-4-20250514', 'openai/gpt-4-vision-preview', 'openai/gpt-4-turbo-vision'],
+        nvidia: ['nvidia/llama-3.3-70b-instruct', 'nvidia/llama-3.1-70b-instruct', 'nvidia/nemotron-3-super-120b-a12b', 'nvidia/gemma-4-31b-it', 'nvidia/cosmos-transfer2_5-2b', 'nvidia/llama-3.1-nemotron-nano-8b-v1', 'nvidia/llama-3.1-nemotron-70b-reward', 'nvidia/llama-3.1-nemotron-ultra-253b-v1', 'nvidia/llama-3.3-nemotron-super-49b-v1', 'nvidia/llama-3.3-nemotron-super-49b-v1.5'],
+        local: ['llama3.2']
     };
 
     const tierMeta = {
@@ -34,12 +63,17 @@ export default function AutoFillSelectModal({ isOpen, onClose, allBrands, active
         if (isOpen) {
             setSelectedBrands([]);
             setSelectedEngine('google');
-            setSelectedModel(modelOptions.google[0]);
+            setSelectedModel(modelOptions.google.gemma[0]);
         }
     }, [isOpen]);
 
     useEffect(() => {
-        setSelectedModel(modelOptions[selectedEngine][0]);
+        const engineOptions = modelOptions[selectedEngine];
+        if (selectedEngine === 'google') {
+            setSelectedModel(engineOptions.gemma[0]);
+        } else {
+            setSelectedModel(engineOptions[0]);
+        }
     }, [selectedEngine]);
 
     if (!isOpen) return null;
@@ -66,7 +100,8 @@ export default function AutoFillSelectModal({ isOpen, onClose, allBrands, active
     const clearAll   = () => setSelectedBrands([]);
 
     const engines = [
-        { id: 'google',     name: 'Gemini Text',       desc: 'Google · Text-only furniture/fitout',        icon: 'AI', color: '#1a73e8' },
+        { id: 'google',     name: 'Google Text',       desc: 'Google · Text-only furniture/fitout',        icon: 'AI', color: '#1a73e8' },
+        { id: 'local',      name: 'Local LLM',         desc: 'Llama 3.2 · Offline Capability',             icon: 'LL', color: '#b91c1c' },
         { id: 'openrouter', name: 'OpenRouter Text',    desc: 'OpenRouter · Text-only model gateway',      icon: 'OR', color: '#8b5cf6' },
         { id: 'nvidia',     name: 'Nvidia Text',        desc: 'NVIDIA · Text-only model support',          icon: 'NV', color: '#76b900' }
     ];
@@ -112,9 +147,29 @@ export default function AutoFillSelectModal({ isOpen, onClose, allBrands, active
                                 value={selectedModel}
                                 onChange={(event) => setSelectedModel(event.target.value)}
                             >
-                                {modelOptions[selectedEngine].map((model) => (
-                                    <option key={model} value={model}>{model}</option>
-                                ))}
+                                {selectedEngine === 'google' ? (
+                                    <>
+                                        <optgroup label="Free List (Gemma Family)">
+                                            {modelOptions.google.gemma.map((model) => (
+                                                <option key={model} value={model}>{model}</option>
+                                            ))}
+                                        </optgroup>
+                                        <optgroup label="Free List (Gemini Family)">
+                                            {modelOptions.google.gemini.map((model) => (
+                                                <option key={model} value={model}>{model}</option>
+                                            ))}
+                                        </optgroup>
+                                        <optgroup label="Paid List (Billed Key)">
+                                            {modelOptions.google.paid.map((model) => (
+                                                <option key={model} value={model}>{model}</option>
+                                            ))}
+                                        </optgroup>
+                                    </>
+                                ) : (
+                                    modelOptions[selectedEngine].map((model) => (
+                                        <option key={model} value={model}>{model}</option>
+                                    ))
+                                )}
                             </select>
                             <p className={styles.modelHint}>Choose the exact model name used by the selected AI provider.</p>
                         </div>

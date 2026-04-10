@@ -13,7 +13,8 @@ export const TAXONOMY = {
     "Sofas": /sofa|couch|modular sofa|ottoman|pouf|waiting bench|lounge bench/i
   },
   "Desk & Table": {
-    "Coffee Tables": /coffee table|side table|low table|breakout table|center table|sky lounge table/i,
+    "Coffee Tables": /coffee table|side table|low table|breakout table|center table|sky lounge table|occasional table/i,
+    "Lounge Tables": /lounge table|informal meeting table|soft seating table/i,
     "Conference Tables": /conference table|meeting table|boardroom table|discussion table|collaborative table|project table/i,
     "Desk System": /desk system|modular desk|workstation system|bench system|staff workstation|bench type|workstation/i,
     "Reception Desks": /reception desk|\bcounter\b(?! stool)|front desk/i,
@@ -57,6 +58,99 @@ export const TAXONOMY = {
   },
   "Materials/Fabrics": {
     "Fabrics": /fabric|textile|upholstery|leather|mesh|wool|polyester|narbutas era|berta|synergy|step melange/i
+  },
+  "Ceiling": {
+    "Suspended Ceiling": /suspended|grid|mineral fiber|acoustic tile/i,
+    "Gypsum Ceiling": /gypsum ceiling|plasterboard|plain ceiling/i,
+    "Open Cell": /open cell|baffle/i
+  },
+  "Flooring": {
+    "Carpet Tiles": /carpet tile|floor carpet|carpeting|\bcarpet\b/i,
+    "Broadloom": /broadloom|roll carpet|wall-to-wall carpet/i,
+    "Luxury Vinyl Tiles": /lvt|vinyl tile|vinyl floor|spc flooring/i,
+    "Raised Floor": /raised floor|access floor|computer floor/i,
+    "Ceramic/Porcelain": /tile|ceramic|porcelain|wet work/i,
+    "Parquet": /parquet|wood flooring|timber floor|laminate flooring/i
+  },
+  "Wall Finishes": {
+    "Paint": /paint|emulsion/i,
+    "Wall Cladding": /wall cladding|wall paneling/i,
+    "Wallpaper": /wallpaper|wall covering/i
+  },
+  "Joinery": {
+    "Custom Cabinet": /cabinet|wardrobe|storage/i,
+    "Wall Panelling": /wall panel|cladding/i,
+    "Counter": /reception counter|pantry counter/i
+  },
+  "Lighting": {
+    "General Lighting": /led panel|recessed light/i,
+    "Decorative Lighting": /pendant|chandelier|wall lamp/i,
+    "Emergency Lighting": /emergency|exit sign/i
+  },
+  "MEP": {
+    "HVAC": /ac|air conditioning|duct|diffuser/i,
+    "Fire Fighting": /sprinkler|fire alarm/i,
+    "Electrical": /db|distribution board|wiring/i,
+    "Plumbing": /plumbing|drainage|water/i
+  },
+  "General Requirements": {
+    "Site Setup": /site setup|office setup|storage/i,
+    "Utilities": /utility|utilities|water|electricity/i,
+    "Health & Safety": /hse|safety|ppe/i,
+    "Logistics": /logistics|housekeeping|disposal/i,
+    "Final Works": /cleaning|handover/i,
+    "Insurance": /insurance|all-risk/i
+  },
+  "Flooring & Wet Works": {
+    "Stone Flooring": /stone|marble|granite|screed/i,
+    "Carpet Tiles": /carpet tile|floor carpet|carpeting|\bcarpet\b/i,
+    "Preparation": /self leveling|screed|leveling/i,
+    "Finishing": /trim|skirting|transition/i,
+    "Wet Works": /tiling|ceramic|porcelain|cement/i
+  },
+  "Partitions & Wall Cladding": {
+    "Glass Partitions": /glass partition|toughened glass/i,
+    "Wood Cladding": /wood cladding|veneer|fluted/i,
+    "Metal Cladding": /metal cladding|stainless steel/i,
+    "Acoustic Partitions": /acoustic partition/i,
+    "Specialized Glass": /frosted glass|decorative glass/i,
+    "Masonry & Gypsum": /drywall|masonry|gypsum/i,
+    "Temporary Works": /temporary partition/i
+  },
+  "Ceiling Works": {
+    "Acoustic Ceiling": /acoustic panel|fabric ceiling/i,
+    "Wood Ceilings": /wood slat|suspended wood/i,
+    "Painting": /paint|emulsion/i
+  },
+  "Doors & Windows": {
+    "Window Treatments": /curtain|blind/i,
+    "Specialized Doors": /sliding door|glass door/i,
+    "Standard Doors": /swing door|wooden door/i
+  },
+  "Finishes (Painting & Decoration)": {
+    "Painting": /paint|matte finish/i,
+    "Wallpaper": /wallpaper/i,
+    "Skirting": /skirting/i,
+    "Mirrors": /mirror/i,
+    "Artwork": /art work|artwork/i
+  },
+  "Pantry & Cabinetry": {
+    "Custom Cabinets": /cabinet|pantry/i,
+    "Furniture": /coffee table|fixed table/i,
+    "Specialized Units": /whiteboard|artificial plant/i
+  },
+  "Electrical & Mechanical (MEP)": {
+    "Lighting": /led|strip light|light/i,
+    "Plumbing": /ablution|faucet|sink/i,
+    "Sanitary": /stone ledge|counter top/i
+  },
+  "Furniture": {
+    "Conference Tables": /conference table/i,
+    "Conference Chairs": /meeting chair|conference chair/i,
+    "Office Desks": /desk|workstation/i,
+    "Office Chairs": /task chair|executive chair/i,
+    "Sofa": /sofa|lounge/i,
+    "Coffee Table": /coffee table/i
   }
 };
 
