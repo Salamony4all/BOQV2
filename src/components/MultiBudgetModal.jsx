@@ -29,7 +29,7 @@ const batch = async (items, limit, fn) => {
 };
 
 
-export default function MultiBudgetModal({ isOpen, onClose, originalTables, onApplyFlow, seededItems = null, onUploadBoq, onUploadPlan }) {
+export default function MultiBudgetModal({ isOpen, onClose, originalTables, onApplyFlow, seededItems = null, onUploadBoq, onUploadPlan, planPreviewUrl = null, planPreviewType = null, planPreviewName = null }) {
     const profile = useCompanyProfile();
     const { theme } = useTheme();
     const { companyName, logoWhite, logoBlue, website, updateProfile, processLogoFile } = profile;
@@ -38,6 +38,7 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
     const [previewLogo, setPreviewLogo] = useState(null); // URL of brand logo for preview
     const [previewBrand, setPreviewBrand] = useState(null);
     const [previewModel, setPreviewModel] = useState(null);
+    const [planPreviewOpen, setPlanPreviewOpen] = useState(false);
     const [isFurnitureAutoFilling, setIsFurnitureAutoFilling] = useState(false);
     const [isFitoutAutoFilling, setIsFitoutAutoFilling] = useState(false);
     const [isAutoFillSelectOpen, setIsAutoFillSelectOpen] = useState(false);
@@ -87,6 +88,8 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
         high: null
     });
 
+    const [pendingSeedTier, setPendingSeedTier] = useState(null);
+
     // Handle seededItems from props (e.g. from Landing Page Plan Upload)
     useEffect(() => {
         if (seededItems && seededItems.length > 0) {
@@ -120,6 +123,18 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
             });
         }
     }, [seededItems]);
+
+    // Handle auto-seeding after background upload in modal
+    useEffect(() => {
+        if (pendingSeedTier && originalTables && originalTables.length > 0) {
+            const rows = buildBoqRows(originalTables);
+            setTierData(prev => ({
+                ...prev,
+                [pendingSeedTier]: { rows, mode: 'boq' }
+            }));
+            setPendingSeedTier(null);
+        }
+    }, [originalTables, pendingSeedTier]);
     // Keep a ref that always reflects the latest tierData so async functions
     // can read it after React's state batching (avoids stale closure)
     const tierDataRef = useRef(tierData);
@@ -222,9 +237,9 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
         return header.findIndex(h => h && regex.test(String(h)));
     };
 
-    const buildBoqRows = () => {
-        if (!originalTables || originalTables.length === 0) return [];
-        const sourceTable = originalTables[0];
+    const buildBoqRows = (tables = originalTables) => {
+        if (!tables || tables.length === 0) return [];
+        const sourceTable = tables[0];
         const header = sourceTable.header || [];
 
         let idxDesc = findCol(header, /description|desc/i);
@@ -263,8 +278,27 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
     };
 
     const handleGenerateFromBoq = () => {
+        if (!originalTables || originalTables.length === 0) {
+            alert("No extracted BOQ data found. Please Upload BOQ first.");
+            return;
+        }
+        const rows = buildBoqRows(originalTables);
+        setTierData(prev => ({
+            ...prev,
+            [activeTier]: { rows, mode: 'boq' }
+        }));
+    };
+
+    const handleUploadBoqTrigger = () => {
+        setPendingSeedTier(activeTier);
         if (boqInputRef.current) {
             boqInputRef.current.click();
+        }
+    };
+
+    const handleUploadPlanTrigger = () => {
+        if (planInputRef.current) {
+            planInputRef.current.click();
         }
     };
 
@@ -3099,18 +3133,34 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                     {/* Fixed Top Section: Actions + Tabs */}
                     <div className={styles.topSection}>
                         <div className={styles.mainActions}>
+                            <button className={`${styles.actionCard} ${styles.uploadBoqBtn}`} onClick={handleUploadBoqTrigger}>
+                                <span style={{ fontSize: '1.4rem' }}>📤</span>
+                                <span>Upload BOQ</span>
+                            </button>
                             <button className={`${styles.actionCard} ${styles.genBoqBtn}`} onClick={handleGenerateFromBoq}>
                                 <span style={{ fontSize: '1.4rem' }}>📋</span>
                                 <span>Generate from BOQ</span>
                             </button>
-                            <button className={`${styles.actionCard} ${styles.genPlanBtn}`} onClick={() => planInputRef.current?.click()}>
+                            <button className={`${styles.actionCard} ${styles.genPlanBtn}`} onClick={handleUploadPlanTrigger}>
                                 <span style={{ fontSize: '1.4rem' }}>📐</span>
-                                <span>Generate from Plan</span>
+                                <span>Upload Plan</span>
                             </button>
                             <button className={`${styles.actionCard} ${styles.createNewBtn}`} onClick={handleCreateNewBoq}>
                                 <span style={{ fontSize: '1.4rem' }}>➕</span>
                                 <span>Create New BOQ</span>
                             </button>
+                            {planPreviewUrl && (
+                                <button className={`${styles.actionCard} ${styles.planPreviewBtn}`} onClick={() => setPlanPreviewOpen(true)}>
+                                    <div className={styles.planPreviewThumb}>
+                                        {planPreviewType === 'application/pdf' ? (
+                                            <span className={styles.planPreviewPdfIcon} role="img" aria-label="PDF">📄</span>
+                                        ) : (
+                                            <img src={planPreviewUrl} alt={planPreviewName || 'Plan preview'} className={styles.planPreviewThumbImg} />
+                                        )}
+                                    </div>
+                                    <span>Preview Plan</span>
+                                </button>
+                            )}
                             <button className={`${styles.actionCard} ${styles.consolidateBtn} ${isConsolidated ? styles.consolidateBtnActive : ''}`} onClick={() => setIsConsolidated(!isConsolidated)}>
                                 <span style={{ fontSize: '1.4rem' }}>{isConsolidated ? '🏠' : '📦'}</span>
                                 <span>{isConsolidated ? 'Room Wise' : 'Consolidate Items'}</span>
@@ -3157,8 +3207,8 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                             onChange={(e) => {
                                 if (e.target.files && e.target.files[0]) {
                                     onUploadBoq(e.target.files[0]);
-                                    onClose();
                                 }
+                                e.target.value = ''; // Clear selection to allow re-uploading same file
                             }}
                         />
                         <input
@@ -3170,8 +3220,8 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                             onChange={(e) => {
                                 if (e.target.files && e.target.files.length > 0) {
                                     onUploadPlan(e.target.files);
-                                    onClose();
                                 }
+                                e.target.value = ''; // Clear selection
                             }}
                         />
 
@@ -3275,6 +3325,41 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                             <button
                                 className={styles.previewCloseBtn}
                                 onClick={() => { setPreviewImage(null); setPreviewLogo(null); setPreviewBrand(null); setPreviewModel(null); }}
+                            >
+                                <i className="ri-close-line"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {planPreviewOpen && planPreviewUrl && (
+                <div className={styles.previewOverlay} onClick={() => setPlanPreviewOpen(false)}>
+                    <div className={styles.previewContent} onClick={e => e.stopPropagation()}>
+                        <div className={styles.previewMain}>
+                            {planPreviewType === 'application/pdf' ? (
+                                <object data={planPreviewUrl} type="application/pdf" className={styles.previewImage}>
+                                    <div className={styles.previewFallback}>PDF preview unavailable</div>
+                                </object>
+                            ) : (
+                                <img
+                                    src={planPreviewUrl}
+                                    alt={planPreviewName || 'Plan preview'}
+                                    className={styles.previewImage}
+                                    onError={(e) => {
+                                        e.target.src = 'https://placehold.co/900x600?text=Preview+Not+Available';
+                                    }}
+                                />
+                            )}
+                        </div>
+
+                        <div className={styles.previewFooter}>
+                            <div className={styles.previewDetails}>
+                                <div className={styles.previewTitle}>Uploaded Plan</div>
+                                <div className={styles.previewSubtitle}>{planPreviewName || ''}</div>
+                            </div>
+                            <button
+                                className={styles.previewCloseBtn}
+                                onClick={() => setPlanPreviewOpen(false)}
                             >
                                 <i className="ri-close-line"></i>
                             </button>

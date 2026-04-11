@@ -88,6 +88,10 @@ function AppContent({ onOpenSettings }) {
   const [seededPlanItems, setSeededPlanItems] = useState(null);
   const [allBrands, setAllBrands] = useState([]);
   const [currentPlanFiles, setCurrentPlanFiles] = useState([]);
+  const [uploadedPlanFile, setUploadedPlanFile] = useState(null);
+  const [planPreviewUrl, setPlanPreviewUrl] = useState(null);
+  const [planPreviewType, setPlanPreviewType] = useState(null);
+  const [planPreviewName, setPlanPreviewName] = useState(null);
 
   // Reset environment on app load
   useEffect(() => {
@@ -109,6 +113,21 @@ function AppContent({ onOpenSettings }) {
     }, 4000);
     return () => clearInterval(interval);
   }, []);
+
+  // Generate preview URL for the uploaded plan file
+  useEffect(() => {
+    if (!uploadedPlanFile) return undefined;
+
+    const objectUrl = URL.createObjectURL(uploadedPlanFile);
+    setPlanPreviewUrl(objectUrl);
+    setPlanPreviewType(uploadedPlanFile.type || '');
+    setPlanPreviewName(uploadedPlanFile.name || 'Uploaded plan');
+
+    return () => {
+      URL.revokeObjectURL(objectUrl);
+    };
+  }, [uploadedPlanFile]);
+
   const handleFileUpload = async (file) => {
     setShowLanding(false);
     setUploading(true);
@@ -261,7 +280,7 @@ function AppContent({ onOpenSettings }) {
       setProgress(30);
 
       const formData = new FormData();
-      currentPlanFiles.forEach((file) => {
+      Array.from(currentPlanFiles).forEach((file) => {
         formData.append('files', file);
       });
       formData.append('includeFitout', includeFitout);
@@ -385,6 +404,7 @@ function AppContent({ onOpenSettings }) {
                 onSelect={(files) => {
                   if (files && files.length > 0) {
                     setCurrentPlanFiles(files);
+                    setUploadedPlanFile(files[0]);
                     setIsPlanScopeOpen(true);
                   }
                 }}
@@ -417,6 +437,18 @@ function AppContent({ onOpenSettings }) {
             originalTables={extractedData?.tables || null}
             onApplyFlow={handleMultiBudgetApply}
             seededItems={seededPlanItems}
+            onUploadBoq={handleFileUpload}
+            onUploadPlan={(files) => {
+              const fileArray = Array.from(files);
+              if (fileArray.length > 0) {
+                setCurrentPlanFiles(fileArray);
+                setUploadedPlanFile(fileArray[0]);
+                setIsPlanScopeOpen(true);
+              }
+            }}
+            planPreviewUrl={planPreviewUrl}
+            planPreviewType={planPreviewType}
+            planPreviewName={planPreviewName}
           />
 
           <PlanScopeModal
@@ -424,6 +456,9 @@ function AppContent({ onOpenSettings }) {
             onClose={() => {
               setIsPlanScopeOpen(false);
               setCurrentPlanFiles([]);
+              setPlanPreviewUrl(null);
+              setPlanPreviewType(null);
+              setPlanPreviewName(null);
             }}
             onSelect={handlePlanAnalyze}
           />
@@ -433,6 +468,9 @@ function AppContent({ onOpenSettings }) {
           isOpen={uploading}
           progress={progress}
           stage={stage}
+          planPreviewUrl={planPreviewUrl}
+          planPreviewType={planPreviewType}
+          planPreviewName={planPreviewName}
         />
       </div>
     );
@@ -519,6 +557,7 @@ function AppContent({ onOpenSettings }) {
                 const files = Array.from(e.target.files);
                 if (files.length > 0) {
                   setCurrentPlanFiles(files);
+                  setUploadedPlanFile(files[0]);
                   setIsPlanScopeOpen(true);
                 }
                 e.target.value = '';
@@ -612,18 +651,27 @@ function AppContent({ onOpenSettings }) {
         seededItems={seededPlanItems}
         onUploadBoq={handleFileUpload}
         onUploadPlan={(files) => {
-          if (files && files.length > 0) {
-            setCurrentPlanFiles(files);
+          const fileArray = Array.from(files);
+          if (fileArray.length > 0) {
+            setCurrentPlanFiles(fileArray);
+            setUploadedPlanFile(fileArray[0]);
             setIsPlanScopeOpen(true);
           }
         }}
+        planPreviewUrl={planPreviewUrl}
+        planPreviewType={planPreviewType}
+        planPreviewName={planPreviewName}
       />
 
       <PlanScopeModal
         isOpen={isPlanScopeOpen}
         onClose={() => {
           setIsPlanScopeOpen(false);
-          setCurrentPlanFile(null);
+          setCurrentPlanFiles([]);
+          setUploadedPlanFile(null);
+          setPlanPreviewUrl(null);
+          setPlanPreviewType(null);
+          setPlanPreviewName(null);
         }}
         onSelect={handlePlanAnalyze}
       />
@@ -632,6 +680,9 @@ function AppContent({ onOpenSettings }) {
         isOpen={uploading}
         progress={progress}
         stage={stage}
+        planPreviewUrl={planPreviewUrl}
+        planPreviewType={planPreviewType}
+        planPreviewName={planPreviewName}
       />
     </div>
   );
