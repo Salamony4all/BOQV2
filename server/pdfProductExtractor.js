@@ -39,12 +39,57 @@ export async function extractProductBoqFromPdf(filePath, progressCallback = () =
 
     const data = await fs.readFile(filePath);
 
-    // ─── VERCEL PATH: bypass pdfjs, send PDF directly to Gemini ───────────────
+    // ─── VERCEL PATH: mupdf for images + Gemma for BOQ text ───────────────────
     if (process.env.VERCEL === '1') {
-        console.log(`   ☁️  Vercel mode: bypassing pdfjs — sending PDF to Gemini directly`);
-        progressCallback({ percent: 10, message: 'Sending PDF to Gemini AI...' });
+        console.log(`   ☁️  Vercel mode: mupdf image extraction + Gemma BOQ parsing`);
+        progressCallback({ percent: 5, message: 'Extracting embedded images...' });
 
-        // Use Gemma 4 (gemma-4-26b-a4b-it) — multimodal, supports PDF inline data, uses free key
+        // ── STEP 1: Extract embedded images via mupdf (WASM, no native binaries) ──
+        const imageRefs = [];
+        try {
+            const mupdf = await import('mupdf');
+            const doc = mupdf.Document.openDocument(new Uint8Array(data), 'application/pdf');
+            let imgCounter = 1;
+
+            for (let pageIdx = 0; pageIdx < doc.countPages(); pageIdx++) {
+                const page = doc.loadPage(pageIdx);
+                const pageImgs = [];
+
+                page.toStructuredText('preserve-images').walk({
+                    onImageBlock(bbox, _transform, image) {
+                        try {
+                            const pixmap = image.toPixmap(
+                                mupdf.Matrix.identity,
+                                mupdf.ColorSpace.DeviceRGB,
+                                false  // no alpha channel
+                            );
+                            const pngBytes = pixmap.asPNG();
+                            // bbox = [x0, y0, x1, y1] — y0 is top in mupdf coords
+                            pageImgs.push({ y: bbox[1], data: Buffer.from(pngBytes) });
+                        } catch (imgErr) {
+                            console.warn(`  ⚠️ Image skip p${pageIdx + 1}:`, imgErr.message);
+                        }
+                    }
+                });
+
+                // Sort top-to-bottom (ascending y)
+                pageImgs.sort((a, b) => a.y - b.y);
+
+                for (const img of pageImgs) {
+                    const refId = `p${pageIdx + 1}_img${imgCounter}_${Date.now()}`;
+                    tempImageStore.set(refId, img.data);
+                    imageRefs.push({ ref: imgCounter, url: `/api/temp-image/${refId}` });
+                    imgCounter++;
+                }
+            }
+            console.log(`   📸 mupdf extracted ${imageRefs.length} embedded images`);
+        } catch (imgErr) {
+            console.warn(`   ⚠️ mupdf image extraction skipped:`, imgErr.message);
+        }
+
+        progressCallback({ percent: 20, message: 'Sending PDF to Gemma AI...' });
+
+        // ── STEP 2: Extract BOQ data using Gemma 4 (native PDF multimodal) ────────
         const apiKey = process.env.GOOGLE_FREE_KEY || process.env.GEMINI_FREE_KEY ||
                        process.env.GEMINI_API_KEY_FREE || process.env.GOOGLE_API_KEY ||
                        process.env.GEMINI_API_KEY;
@@ -56,7 +101,7 @@ export async function extractProductBoqFromPdf(filePath, progressCallback = () =
             generationConfig: {
                 temperature: 0.1,
                 maxOutputTokens: 16384
-                // NOTE: Gemma does not support responseMimeType — use prompt engineering instead
+                // NOTE: Gemma does not support responseMimeType — use prompt engineering
             }
         });
 
@@ -124,17 +169,21 @@ Rules:
                 throw new Error('Gemma returned no items from PDF');
             }
 
-            const rows = items.map((item, index) => ({
-                cells: [
-                    { value: '', image: null },
-                    { value: item.sn ? String(item.sn) : String(index + 1) },
-                    { value: item.description || '' },
-                    { value: item.qty != null ? String(item.qty) : '' },
-                    { value: item.unit || '' },
-                    { value: item.rate != null ? String(item.rate) : '' },
-                    { value: item.total != null ? String(item.total) : '' }
-                ]
-            }));
+            // Map extracted images to rows by sequence (image 1 → row 1, etc.)
+            const rows = items.map((item, index) => {
+                const imgMatch = imageRefs[index] || null;
+                return {
+                    cells: [
+                        { value: '', image: imgMatch ? { url: imgMatch.url } : null },
+                        { value: item.sn ? String(item.sn) : String(index + 1) },
+                        { value: item.description || '' },
+                        { value: item.qty != null ? String(item.qty) : '' },
+                        { value: item.unit || '' },
+                        { value: item.rate != null ? String(item.rate) : '' },
+                        { value: item.total != null ? String(item.total) : '' }
+                    ]
+                };
+            });
 
             progressCallback({ percent: 100, message: 'Done' });
 
@@ -148,10 +197,12 @@ Rules:
                 totalTables: 1
             };
         } catch (err) {
-            console.error(`   ❌ Gemini PDF extraction failed:`, err.message);
+            console.error(`   ❌ Gemma PDF extraction failed:`, err.message);
             throw err;
         }
     }
+
+
 
     // ─── LOCAL DEV PATH: full pdfjs text + image extraction pipeline ──────────
     console.log(`   🖥️  Local mode: using pdfjs extraction pipeline`);

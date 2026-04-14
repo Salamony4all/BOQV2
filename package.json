@@ -33,6 +33,7 @@
     "jspdf": "^3.0.4",
     "jspdf-autotable": "^5.0.2",
     "multer": "^2.0.2",
+    "mupdf": "^1.27.0",
     "node-fetch": "^3.3.2",
     "pdf-parse": "^2.4.5",
     "pdfjs-dist": "^5.4.449",
@@ -42,7 +43,6 @@
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "scrapingbee": "^1.8.2",
-    "sharp": "^0.34.5",
     "xlsx": "^0.18.5",
     "xml2js": "^0.6.2"
   },

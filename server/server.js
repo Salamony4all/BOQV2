@@ -2,7 +2,6 @@ console.log('🏁 [Server] Loading dependencies...');
 import 'dotenv/config';
 import './nodePolyfills.js'; // MUST be before pdfjs — patches DOMMatrix etc. on globalThis
 import express from 'express';
-import sharp from 'sharp';
 import cors from 'cors';
 import multer from 'multer';
 import path from 'path';
@@ -427,28 +426,12 @@ app.get('/api/lazy-image/:uploadId/:page/:rowId', async (req, res) => {
             }
         }
 
-        const cropY = Math.max(0, Math.round(targetY - 40));
-        const cropX = 50; 
-        const cropWidth = 500;
+        // Sharp has been removed — images are now extracted natively by mupdf in pdfProductExtractor.
+        // This lazy-image route only runs in local dev; in that case the PNG was pre-extracted by pdfjs.
+        // If the file doesn't exist at this point, serve a 404 instead of crashing.
+        console.warn(`    ⚠️ [Lazy Image] Pre-extracted file not found for P${pNum} R${rIdx} — no crop fallback (sharp removed).`);
+        return res.status(404).json({ error: 'Image not pre-extracted. Use mupdf path.' });
 
-        console.log(`    ✂️ [Lazy Image] FALLBACK Sharp Crop P${pNum} R${rIdx} at Y=${cropY}`);
-        
-        const image = sharp(fullPagePath);
-        const imgMeta = await image.metadata();
-        const finalW = Math.min(cropWidth, imgMeta.width - cropX);
-        const finalH = Math.min(dynamicHeight, imgMeta.height - cropY);
-
-        if (finalW <= 0 || finalH <= 0) throw new Error("Crop bounds invalid");
-
-        await image.extract({
-            left: Math.round(cropX),
-            top: Math.round(cropY),
-            width: Math.round(finalW),
-            height: Math.round(finalH)
-        }).toFile(imgPath);
-
-        console.log(`    ✅ [Lazy Image] FALLBACK crop created: ${imgPath}`);
-        res.sendFile(imgPath);
 
     } catch (err) {
         console.error(`    ❌ [Lazy Image] Error: ${err.message}`);
