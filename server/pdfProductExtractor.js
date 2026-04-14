@@ -12,17 +12,21 @@ import { callGoogleMultimodalFallback } from './utils/llmPDFTable.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Ensure correct worker path: use CDN on Vercel, local file for dev
-const PDFJS_VERSION = pdfjs.version || '4.4.168';
+// Worker configuration:
+// - Vercel / Node.js serverless: set workerSrc = '' to force pdfjs into
+//   "fake worker" / main-thread mode. Node.js ESM loader CANNOT load https:// URLs
+//   as workers, and serverless environments have no worker threads anyway.
+// - Local dev: use local file:// path to the bundled worker.
 if (process.env.VERCEL === '1') {
-    // On Vercel serverless, use the CDN worker to avoid filesystem issues.
-    // Setting disableRange and disableStream helps avoid network-related issues.
-    pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${PDFJS_VERSION}/legacy/build/pdf.worker.min.mjs`;
+    // Empty string = main-thread mode (no separate worker thread). 
+    // This is the correct approach for Node.js / serverless environments.
+    pdfjs.GlobalWorkerOptions.workerSrc = '';
+    console.log('📌 [PdfProductExtractor] Vercel mode: pdfjs running on main thread (no worker)');
 } else {
     const workerPath = path.join(__dirname, '../node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs');
     pdfjs.GlobalWorkerOptions.workerSrc = pathToFileURL(workerPath).href;
+    console.log(`📌 [PdfProductExtractor] Dev mode: workerSrc = ${pdfjs.GlobalWorkerOptions.workerSrc}`);
 }
-console.log(`📌 [PdfProductExtractor] PDF.js workerSrc: ${pdfjs.GlobalWorkerOptions.workerSrc}`);
 
 // Global Store for temporary session images
 export const tempImageStore = new Map();
