@@ -52,8 +52,8 @@ Return ONLY valid JSON:
 /**
  * Main entry point for Vision BOQ Extraction
  */
-export async function extractVisionBOQData(filePath, mimeType, progressCallback = () => {}) {
-    console.log(`\n🖼️ [Vision Extractor] Processing file: ${path.basename(filePath)} (${mimeType})`);
+export async function extractVisionBOQData(filePath, mimeType, progressCallback = () => {}, modelName = null) {
+    console.log(`\n🖼️ [Vision Extractor] Processing file: ${path.basename(filePath)} (${mimeType})${modelName ? ` using ${modelName}` : ''}`);
     
     let imageBuffers = [];
     
@@ -76,7 +76,7 @@ export async function extractVisionBOQData(filePath, mimeType, progressCallback 
             VISION_BOQ_SYSTEM,
             `Extract the BOQ from this page. If you find product images, provide their bounding boxes.`,
             [{ base64Data: base64, mimeType: 'image/png' }],
-            null, // Use fallback models
+            modelName || 'gemma-4-26b-a4b-it', // Pass modelName
             true // jsonMode
         );
 

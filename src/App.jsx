@@ -11,6 +11,7 @@ import { useCompanyProfile, CompanyProvider } from './context/CompanyContext';
 import { ScrapingProvider } from './context/ScrapingContext';
 import styles from './styles/App.module.css';
 import { useTheme } from './context/ThemeContext';
+import PdfModelModal from './components/PdfModelModal';
 
 // Modern workspace images for carousel
 const CAROUSEL_IMAGES = [
@@ -93,6 +94,8 @@ function AppContent({ onOpenSettings }) {
   const [planPreviewUrl, setPlanPreviewUrl] = useState(null);
   const [planPreviewType, setPlanPreviewType] = useState(null);
   const [planPreviewName, setPlanPreviewName] = useState(null);
+  const [isPdfModalOpen, setIsPdfModalOpen] = useState(false);
+  const [pendingPdfFile, setPendingPdfFile] = useState(null);
 
   // Reset environment on app load
   useEffect(() => {
@@ -129,7 +132,14 @@ function AppContent({ onOpenSettings }) {
     };
   }, [uploadedPlanFile]);
 
-  const handleFileUpload = async (file) => {
+  const handleFileUpload = async (file, modelName = null) => {
+    // If it's a PDF and no model is selected yet, show the model selection modal
+    if (file && file.name.toLowerCase().endsWith('.pdf') && !modelName) {
+      setPendingPdfFile(file);
+      setIsPdfModalOpen(true);
+      return;
+    }
+
     setShowLanding(false);
     setUploading(true);
     setProgress(0);
@@ -231,6 +241,9 @@ function AppContent({ onOpenSettings }) {
         xhr.open('POST', uploadUrl);
         xhr.setRequestHeader('x-session-id', sessionId);
         xhr.setRequestHeader('x-extraction-mode', 'parallel'); // Request Parallel High-Fidelity Extraction
+        if (modelName) {
+          xhr.setRequestHeader('x-model-name', modelName);
+        }
 
         const progressInterval = setInterval(() => {
           setProgress(prev => {
@@ -467,6 +480,20 @@ function AppContent({ onOpenSettings }) {
               setPlanPreviewName(null);
             }}
             onSelect={handlePlanAnalyze}
+          />
+          
+          <PdfModelModal
+            isOpen={isPdfModalOpen}
+            onClose={() => {
+              setIsPdfModalOpen(false);
+              setPendingPdfFile(null);
+            }}
+            onExtract={(modelName) => {
+              const file = pendingPdfFile;
+              setIsPdfModalOpen(false);
+              setPendingPdfFile(null);
+              handleFileUpload(file, modelName);
+            }}
           />
         </div>
 

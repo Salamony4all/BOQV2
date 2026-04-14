@@ -63,7 +63,7 @@ async function _saveAndPairImage(matchedImage, row, pageNum, tempDir, uploadId) 
     }
 }
 
-export async function extractParallelBOQData(filePath, mimeType, progressCallback = () => {}) {
+export async function extractParallelBOQData(filePath, mimeType, progressCallback = () => {}, modelName = null) {
     const isVercel = process.env.VERCEL === '1';
     const uploadId = crypto.randomUUID();
     
@@ -73,7 +73,7 @@ export async function extractParallelBOQData(filePath, mimeType, progressCallbac
     
     await fs.mkdir(tempDir, { recursive: true });
 
-    console.log(`  ⏱️ [Parallel Extractor] Launching concurrent processes... Environment: ${isVercel ? 'Vercel' : 'Local'}`);
+    console.log(`  ⏱️ [Parallel Extractor] Launching concurrent processes... Environment: ${isVercel ? 'Vercel' : 'Local'}${modelName ? ` | Model: ${modelName}` : ''}`);
     
     // Kick off fast screenshot rendering for AI
     const simpleImages = await renderPDFToSimpleImages(filePath);
@@ -98,7 +98,7 @@ export async function extractParallelBOQData(filePath, mimeType, progressCallbac
                 PARALLEL_BOQ_SYSTEM,
                 `MANDATORY: Convert Page ${pageNum} to JSON. Capture EVERY row verbatim INCLUDING the original Serial Number (S.N) column. Output JSON only starting with {`,
                 [{ base64Data: base64, mimeType: 'image/png' }],
-                'gemma-4-26b-a4b-it',
+                modelName || 'gemma-4-26b-a4b-it',
                 true 
             );
             

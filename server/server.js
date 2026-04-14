@@ -478,8 +478,9 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
     const sessionId = req.headers['x-session-id'] || 'default';
 
     const extractionMode = req.headers['x-extraction-mode'] || 'parallel';
+    const modelName = req.headers['x-model-name'];
 
-    console.log(`[Upload] Processing: ${fileName} | Mode: ${extractionMode}`);
+    console.log(`[Upload] Processing: ${fileName} | Mode: ${extractionMode}${modelName ? ` | Model: ${modelName}` : ''}`);
 
     // Track file for cleanup
     cleanupService.trackFile(sessionId, filePath);
@@ -489,10 +490,10 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
         if (isVercel) {
             console.log(`[Upload] Running in Vercel - Using light extraction (pdfjs)`);
             const { extractProductBoqFromPdf } = await getPdfProductExtractor();
-            extractedData = await extractProductBoqFromPdf(filePath);
+            extractedData = await extractProductBoqFromPdf(filePath, () => {}, modelName);
         } else if (extractionMode === 'parallel') {
             const { extractParallelBOQData } = await getParallelBOQExtractor();
-            extractedData = await extractParallelBOQData(filePath, 'application/pdf');
+            extractedData = await extractParallelBOQData(filePath, 'application/pdf', modelName);
         } else {
             // Legacy vision path
             const { extractVisionBOQData } = await getVisionBOQExtractor();
@@ -540,8 +541,9 @@ app.post('/api/extract/vision', planUpload.single('file'), async (req, res) => {
     // Track file for cleanup
     cleanupService.trackFile(sessionId, filePath);
 
+    const modelName = req.headers['x-model-name'];
     const { extractVisionBOQData } = await getVisionBOQExtractor();
-    const extractedData = await extractVisionBOQData(filePath, req.file.mimetype);
+    const extractedData = await extractVisionBOQData(filePath, req.file.mimetype, () => {}, modelName);
 
     res.json({
       success: true,

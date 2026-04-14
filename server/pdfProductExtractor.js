@@ -34,14 +34,14 @@ export const tempImageStore = new Map();
  *
  * On local dev: use the full pdfjs text-extraction + image-anchoring pipeline.
  */
-export async function extractProductBoqFromPdf(filePath, progressCallback = () => {}) {
-    console.log(`\n🚀 [PdfProductExtractor] Starting Extraction: ${path.basename(filePath)}`);
+export async function extractProductBoqFromPdf(filePath, progressCallback = () => {}, modelName = null) {
+    console.log(`\n🚀 [PdfProductExtractor] Starting Extraction: ${path.basename(filePath)}${modelName ? ` using ${modelName}` : ''}`);
 
     const data = await fs.readFile(filePath);
 
     // ─── VERCEL PATH: mupdf for images + Gemma for BOQ text ───────────────────
     if (process.env.VERCEL === '1') {
-        console.log(`   ☁️  Vercel mode: mupdf image extraction + Gemma BOQ parsing`);
+        console.log(`   ☁️  Vercel mode: mupdf image extraction + ${modelName || 'Gemma'} BOQ parsing`);
         progressCallback({ percent: 5, message: 'Extracting embedded images...' });
 
         // ── STEP 1: Extract embedded images via mupdf (WASM, no native binaries) ──
@@ -87,9 +87,9 @@ export async function extractProductBoqFromPdf(filePath, progressCallback = () =
             console.warn(`   ⚠️ mupdf image extraction skipped:`, imgErr.message);
         }
 
-        progressCallback({ percent: 20, message: 'Sending PDF to Gemma AI...' });
+        progressCallback({ percent: 20, message: `Sending PDF to ${modelName || 'Gemma'} AI...` });
 
-        // ── STEP 2: Extract BOQ data using Gemma 4 (native PDF multimodal) ────────
+        // ── STEP 2: Extract BOQ data using selected model ────────
         const apiKey = process.env.GOOGLE_FREE_KEY || process.env.GEMINI_FREE_KEY ||
                        process.env.GEMINI_API_KEY_FREE || process.env.GOOGLE_API_KEY ||
                        process.env.GEMINI_API_KEY;
@@ -97,11 +97,10 @@ export async function extractProductBoqFromPdf(filePath, progressCallback = () =
 
         const genAI = new GoogleGenerativeAI(apiKey);
         const model = genAI.getGenerativeModel({
-            model: 'gemma-4-26b-a4b-it',
+            model: modelName || 'gemma-4-26b-a4b-it',
             generationConfig: {
                 temperature: 0.1,
                 maxOutputTokens: 16384
-                // NOTE: Gemma does not support responseMimeType — use prompt engineering
             }
         });
 
