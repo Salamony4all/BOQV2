@@ -24,33 +24,119 @@ console.log(`📌 [PdfProductExtractor] workerSrc = ${pdfjs.GlobalWorkerOptions.
 export const tempImageStore = new Map();
 
 /**
- * ENHANCED PDF PRODUCT EXTRACTOR (V3 - SEQUENCE ANCHORED)
+ * VERCEL-SAFE PDF BOQ EXTRACTOR
+ *
+ * On Vercel: pdfjs.getDocument() hangs indefinitely because @napi-rs/canvas
+ * (a native binary) is not available in the serverless environment.
+ * Solution: bypass pdfjs entirely — send the raw PDF bytes to Gemini which
+ * reads PDFs natively using its multimodal vision API.
+ *
+ * On local dev: use the full pdfjs text-extraction + image-anchoring pipeline.
  */
 export async function extractProductBoqFromPdf(filePath, progressCallback = () => {}) {
-    console.log(`\n🚀 [PdfProductExtractor] Starting Sequenced Extraction: ${path.basename(filePath)}`);
-    
+    console.log(`\n🚀 [PdfProductExtractor] Starting Extraction: ${path.basename(filePath)}`);
+
     const data = await fs.readFile(filePath);
-    const loadingTask = pdfjs.getDocument({ 
+
+    // ─── VERCEL PATH: bypass pdfjs, send PDF directly to Gemini ───────────────
+    if (process.env.VERCEL === '1') {
+        console.log(`   ☁️  Vercel mode: bypassing pdfjs — sending PDF to Gemini directly`);
+        progressCallback({ percent: 10, message: 'Sending PDF to Gemini AI...' });
+
+        const systemPrompt = `You are a professional furniture procurement expert and BOQ analyst. 
+Extract the complete Bill of Quantities (BOQ) table from the uploaded PDF document.
+Return ONLY valid JSON — no markdown, no explanation, no code fences.`;
+
+        const userPrompt = `Read the entire PDF and extract ALL BOQ rows into this exact JSON schema:
+{
+  "items": [
+    {
+      "sn": "1",
+      "description": "Full item description",
+      "qty": 10,
+      "unit": "Nos",
+      "rate": 250.00,
+      "total": 2500.00
+    }
+  ]
+}
+
+Rules:
+- Include every row from every page
+- Numeric fields (qty, rate, total) must be numbers, not strings
+- If a value is missing, use null
+- Do NOT include header rows, footers, or page numbers
+- Return only the JSON object, nothing else`;
+
+        try {
+            const aiResponse = await callGoogleMultimodalFallback(
+                systemPrompt,
+                userPrompt,
+                [{ base64Data: data.toString('base64'), mimeType: 'application/pdf' }],
+                null,
+                true
+            );
+
+            progressCallback({ percent: 90, message: 'Building table...' });
+
+            const items = aiResponse?.items || aiResponse?.rows || [];
+            if (!Array.isArray(items) || items.length === 0) {
+                throw new Error('Gemini returned no items from PDF');
+            }
+
+            const rows = items.map((item, index) => ({
+                cells: [
+                    { value: '', image: null },
+                    { value: item.sn ? String(item.sn) : String(index + 1) },
+                    { value: item.description || '' },
+                    { value: item.qty != null ? String(item.qty) : '' },
+                    { value: item.unit || '' },
+                    { value: item.rate != null ? String(item.rate) : '' },
+                    { value: item.total != null ? String(item.total) : '' }
+                ]
+            }));
+
+            progressCallback({ percent: 100, message: 'Done' });
+
+            return {
+                tables: [{
+                    sheetName: 'AI PDF BOQ',
+                    header: ['Image', 'S.N', 'Description', 'Qty', 'Unit', 'Rate', 'Total'],
+                    rows,
+                    columnCount: 7
+                }],
+                totalTables: 1
+            };
+        } catch (err) {
+            console.error(`   ❌ Gemini PDF extraction failed:`, err.message);
+            throw err;
+        }
+    }
+
+    // ─── LOCAL DEV PATH: full pdfjs text + image extraction pipeline ──────────
+    console.log(`   🖥️  Local mode: using pdfjs extraction pipeline`);
+
+    const loadingTask = pdfjs.getDocument({
         data: new Uint8Array(data),
         useSystemFonts: true,
         stopAtErrors: false
     });
     const pdf = await loadingTask.promise;
     console.log(`   📂 PDF Loaded: ${pdf.numPages} pages.`);
-    
+
     let allExtractedRows = [];
 
     for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
         console.log(`   📄 Processing Page ${pageNum}/${pdf.numPages}...`);
         const page = await pdf.getPage(pageNum);
-        
+
         // --- 1. Extract Text with Coordinates ---
         const textContent = await page.getTextContent();
         const textClusters = {};
-        const yTolerance = 10; 
+        const yTolerance = 10;
 
         textContent.items.forEach(item => {
-            const y = Math.round(item.transform[5]); 
+            const y = Math.round(item.transform[5]);
             let targetY = Object.keys(textClusters).find(keyY => Math.abs(parseInt(keyY) - y) <= yTolerance);
             if (!targetY) {
                 targetY = y;
@@ -70,12 +156,12 @@ export async function extractProductBoqFromPdf(filePath, progressCallback = () =
         }).filter(l => l.text.length > 0);
 
         // --- 2. FIND HEADER ANCHOR ---
-        const headerKeywords = ["sl.no", "description", "qty", "item", "unit", "total"];
-        const headerLine = lineMetadata.find(l => 
+        const headerKeywords = ['sl.no', 'description', 'qty', 'item', 'unit', 'total'];
+        const headerLine = lineMetadata.find(l =>
             headerKeywords.some(k => l.text.toLowerCase().includes(k))
         );
         const headerY = headerLine ? headerLine.y : 9999;
-        
+
         const pageTextBlob = lineMetadata.map(l => l.text).join('\n');
 
         // --- 3. Extract Images Below Anchor ---
@@ -83,15 +169,15 @@ export async function extractProductBoqFromPdf(filePath, progressCallback = () =
         const operatorList = await page.getOperatorList();
         const OPS = pdfjs.OPS || {};
         let currentTransform = [1, 0, 0, 1, 0, 0];
-        
+
         for (let i = 0; i < operatorList.fnArray.length; i++) {
             const fn = operatorList.fnArray[i];
             const args = operatorList.argsArray[i];
-            
+
             if (fn === OPS.paintImageXObject || fn === OPS.paintInlineImageXObject) {
                 const imgName = args[0];
                 const imgY = Math.round(currentTransform[5]);
-                
+
                 if (imgY < headerY - 5) {
                     try {
                         const imgObj = await new Promise((resolve, reject) => {
@@ -115,7 +201,6 @@ export async function extractProductBoqFromPdf(filePath, progressCallback = () =
 
         console.log(`      📸 Found ${allImagesOnPage.length} potential product images on p${pageNum}`);
 
-        // Sort Top-to-Bottom
         const sortedImages = allImagesOnPage.sort((a, b) => b.y - a.y);
         const imageRefs = sortedImages.map((img, idx) => {
             const refId = `p${pageNum}_ref${idx + 1}_${Date.now()}`;
@@ -125,7 +210,6 @@ export async function extractProductBoqFromPdf(filePath, progressCallback = () =
 
         // --- 4. AI Extraction ---
         const systemPrompt = `You are a professional furniture procurement expert. Extract ONLY the BOQ table from the uploaded PDF. Do not include any header text, footers, or page numbers. Use the exact table structure present in the document.`;
-
         const userPrompt = `Read the PDF content and return only valid JSON with a top-to-bottom row order. Each row should include imageRef where applicable so the stored product images can be anchored to the same row.
 
 Expected schema:
@@ -154,19 +238,17 @@ ${pageTextBlob}`;
                 systemPrompt,
                 userPrompt,
                 [{ base64Data: data.toString('base64'), mimeType: 'application/pdf' }],
-                null, // Use fallback models
+                null,
                 true
             );
 
             const items = aiResponse?.items || aiResponse?.rows || [];
             if (Array.isArray(items)) {
                 items.forEach((item, index) => {
-                    // --- COORDINATE MATCHING ---
-                    // Try to find the SN in text metadata to get its Y coordinate
                     const snValue = item.sn ? String(item.sn).trim() : null;
                     const normalize = (s) => String(s).replace(/[^a-z0-9]/gi, '').toLowerCase();
                     const targetSN = snValue ? normalize(snValue) : null;
-                    
+
                     const snLine = targetSN ? lineMetadata.find(l => l.items.some(it => {
                         const itNorm = normalize(it.str);
                         return itNorm === targetSN || (itNorm.length > 0 && targetSN.startsWith(itNorm));
@@ -175,11 +257,9 @@ ${pageTextBlob}`;
 
                     let imgMatch = null;
                     if (targetY !== null) {
-                        // Find image vertically near that SN
                         imgMatch = imageRefs.find(r => Math.abs(r.coordY - targetY) < 40);
                     }
 
-                    // Fallback to original imageRef or sequence
                     if (!imgMatch) {
                         let imageRef = item.imageRef ?? item.image_ref ?? null;
                         if (typeof imageRef === 'string' && imageRef.trim().length) {
@@ -211,8 +291,8 @@ ${pageTextBlob}`;
 
     return {
         tables: [{
-            sheetName: "AI PDF BOQ",
-            header: ["Image", "S.N", "Description", "Qty", "Unit", "Rate", "Total"],
+            sheetName: 'AI PDF BOQ',
+            header: ['Image', 'S.N', 'Description', 'Qty', 'Unit', 'Rate', 'Total'],
             rows: allExtractedRows,
             columnCount: 7
         }],
