@@ -1,73 +1,7 @@
-// ─── Node.js polyfills for pdfjs-dist browser APIs ───────────────────────────
-// pdfjs-dist uses DOM APIs that don't exist in Node.js / Vercel serverless.
-// These minimal stubs prevent "DOMMatrix is not defined" and similar crashes.
-if (typeof globalThis.DOMMatrix === 'undefined') {
-    globalThis.DOMMatrix = class DOMMatrix {
-        constructor(init) {
-            this.a = 1; this.b = 0; this.c = 0; this.d = 1; this.e = 0; this.f = 0;
-            this.m11 = 1; this.m12 = 0; this.m13 = 0; this.m14 = 0;
-            this.m21 = 0; this.m22 = 1; this.m23 = 0; this.m24 = 0;
-            this.m31 = 0; this.m32 = 0; this.m33 = 1; this.m34 = 0;
-            this.m41 = 0; this.m42 = 0; this.m43 = 0; this.m44 = 1;
-            this.is2D = true; this.isIdentity = true;
-        }
-        multiply(o) { return new DOMMatrix(); }
-        translate(tx, ty, tz) { return new DOMMatrix(); }
-        scale(sx, sy, sz) { return new DOMMatrix(); }
-        rotate(rx, ry, rz) { return new DOMMatrix(); }
-        inverse() { return new DOMMatrix(); }
-        transformPoint(p) { return p || { x: 0, y: 0, z: 0, w: 1 }; }
-        static fromMatrix(o) { return new DOMMatrix(); }
-        static fromFloat32Array(a) { return new DOMMatrix(); }
-        static fromFloat64Array(a) { return new DOMMatrix(); }
-    };
-}
-if (typeof globalThis.DOMRect === 'undefined') {
-    globalThis.DOMRect = class DOMRect {
-        constructor(x = 0, y = 0, w = 0, h = 0) {
-            this.x = x; this.y = y; this.width = w; this.height = h;
-        }
-        get left() { return this.x; }
-        get top() { return this.y; }
-        get right() { return this.x + this.width; }
-        get bottom() { return this.y + this.height; }
-        static fromRect(o) { return new DOMRect(o?.x, o?.y, o?.width, o?.height); }
-    };
-}
-if (typeof globalThis.DOMPoint === 'undefined') {
-    globalThis.DOMPoint = class DOMPoint {
-        constructor(x = 0, y = 0, z = 0, w = 1) { this.x = x; this.y = y; this.z = z; this.w = w; }
-        static fromPoint(o) { return new DOMPoint(o?.x, o?.y, o?.z, o?.w); }
-    };
-}
-if (typeof globalThis.ImageData === 'undefined') {
-    globalThis.ImageData = class ImageData {
-        constructor(dataOrWidth, heightOrWidth, settings) {
-            if (typeof dataOrWidth === 'number') {
-                this.width = dataOrWidth; this.height = heightOrWidth;
-                this.data = new Uint8ClampedArray(dataOrWidth * heightOrWidth * 4);
-            } else {
-                this.data = dataOrWidth; this.width = heightOrWidth; this.height = dataOrWidth.length / (heightOrWidth * 4);
-            }
-        }
-    };
-}
-if (typeof globalThis.OffscreenCanvas === 'undefined') {
-    globalThis.OffscreenCanvas = class OffscreenCanvas {
-        constructor(w, h) { this.width = w; this.height = h; }
-        getContext() { return null; }
-        transferToImageBitmap() { return null; }
-    };
-}
-if (typeof globalThis.Path2D === 'undefined') {
-    globalThis.Path2D = class Path2D {
-        constructor(path) {}
-        addPath() {} closePath() {} moveTo() {} lineTo() {}
-        bezierCurveTo() {} quadraticCurveTo() {} arc() {}
-        arcTo() {} ellipse() {} rect() {}
-    };
-}
-// ─────────────────────────────────────────────────────────────────────────────
+// NOTE: browser API polyfills (DOMMatrix, DOMRect, etc.) are applied in
+// server/nodePolyfills.js which is imported at server.js startup — BEFORE
+// this module is lazily loaded. Do NOT add polyfills here (ES module hoisting
+// means code above `import` statements never runs first).
 
 import * as pdfjs from 'pdfjs-dist/legacy/build/pdf.mjs';
 import { promises as fs } from 'fs';
