@@ -1,4 +1,4 @@
-
+console.log('🏁 [Server] Loading dependencies...');
 import 'dotenv/config';
 import express from 'express';
 import sharp from 'sharp';
@@ -49,6 +49,13 @@ const dbManager = new ExcelDbManager();
 
 // Restored Scraper Instances
 const scraperService = new ScraperService();
+
+console.log('✅ [Server] All services initialized.');
+
+// Health check route
+app.get('/api/health', (req, res) => {
+    res.json({ status: 'ok', time: new Date().toISOString(), vercel: !!process.env.VERCEL });
+});
 const structureScraper = new StructureScraper();
 const browserlessScraper = new BrowserlessScraper();
 const scrapingBeeScraper = new ScrapingBeeScraper();
