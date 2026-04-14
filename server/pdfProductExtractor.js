@@ -8,6 +8,7 @@ import { promises as fs } from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { callGoogleMultimodalFallback } from './utils/llmPDFTable.js';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -43,11 +44,26 @@ export async function extractProductBoqFromPdf(filePath, progressCallback = () =
         console.log(`   ☁️  Vercel mode: bypassing pdfjs — sending PDF to Gemini directly`);
         progressCallback({ percent: 10, message: 'Sending PDF to Gemini AI...' });
 
-        const systemPrompt = `You are a professional furniture procurement expert and BOQ analyst. 
-Extract the complete Bill of Quantities (BOQ) table from the uploaded PDF document.
-Return ONLY valid JSON — no markdown, no explanation, no code fences.`;
+        // Use gemini-2.0-flash directly: it supports PDF inline data (Gemma does NOT)
+        // gemini-2.0-flash is free-tier and fast for this use case
+        const apiKey = process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY ||
+                       process.env.GOOGLE_FREE_KEY || process.env.GEMINI_FREE_KEY ||
+                       process.env.GEMINI_API_KEY_FREE;
+        if (!apiKey) throw new Error('No Google API key found. Set GOOGLE_API_KEY or GEMINI_API_KEY in Vercel environment variables.');
 
-        const userPrompt = `Read the entire PDF and extract ALL BOQ rows into this exact JSON schema:
+        const genAI = new GoogleGenerativeAI(apiKey);
+        const model = genAI.getGenerativeModel({
+            model: 'gemini-2.0-flash',
+            generationConfig: {
+                temperature: 0.1,
+                maxOutputTokens: 16384,
+                responseMimeType: 'application/json'
+            }
+        });
+
+        const prompt = `You are a BOQ extraction expert. Read the uploaded PDF and extract ALL Bill of Quantities rows.
+
+Return ONLY a JSON object in this exact schema (no markdown, no explanation):
 {
   "items": [
     {
@@ -62,20 +78,34 @@ Return ONLY valid JSON — no markdown, no explanation, no code fences.`;
 }
 
 Rules:
-- Include every row from every page
-- Numeric fields (qty, rate, total) must be numbers, not strings
-- If a value is missing, use null
-- Do NOT include header rows, footers, or page numbers
-- Return only the JSON object, nothing else`;
+- Include ALL rows from ALL pages
+- qty/rate/total must be numbers (not strings)
+- Use null for missing numeric values
+- Skip header rows, footers, page numbers
+- Return ONLY the JSON object`;
 
         try {
-            const aiResponse = await callGoogleMultimodalFallback(
-                systemPrompt,
-                userPrompt,
-                [{ base64Data: data.toString('base64'), mimeType: 'application/pdf' }],
-                null,
-                true
-            );
+            console.log(`   🤖 Calling gemini-2.0-flash with PDF (${Math.round(data.length / 1024)}KB)...`);
+            const result = await model.generateContent({
+                contents: [{
+                    role: 'user',
+                    parts: [
+                        { text: prompt },
+                        { inlineData: { data: data.toString('base64'), mimeType: 'application/pdf' } }
+                    ]
+                }]
+            });
+            const responseText = result.response.text();
+            console.log(`   ✅ Gemini responded, parsing JSON...`);
+            let aiResponse;
+            try {
+                aiResponse = JSON.parse(responseText);
+            } catch (parseErr) {
+                // Try to extract JSON block if model added any surrounding text
+                const match = responseText.match(/\{[\s\S]*\}/);
+                if (match) aiResponse = JSON.parse(match[0]);
+                else throw new Error(`Cannot parse Gemini response: ${responseText.substring(0, 200)}`);
+            }
 
             progressCallback({ percent: 90, message: 'Building table...' });
 
