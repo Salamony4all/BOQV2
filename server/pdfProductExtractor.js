@@ -7,9 +7,17 @@ import { callGoogleMultimodalFallback } from './utils/llmPDFTable.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Ensure the correct worker is used to avoid version mismatch (Fix for v5.4.449)
-const workerPath = path.join(__dirname, '../node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs');
-pdfjs.GlobalWorkerOptions.workerSrc = pathToFileURL(workerPath).href;
+// Ensure correct worker path: use CDN on Vercel, local file for dev
+if (process.env.VERCEL === '1') {
+    // On Vercel, use the bundled worker via a relative import path
+    pdfjs.GlobalWorkerOptions.workerSrc = new URL(
+        '../../node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs',
+        import.meta.url
+    ).href;
+} else {
+    const workerPath = path.join(__dirname, '../node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs');
+    pdfjs.GlobalWorkerOptions.workerSrc = pathToFileURL(workerPath).href;
+}
 console.log(`📌 [PdfProductExtractor] PDF.js workerSrc set to: ${pdfjs.GlobalWorkerOptions.workerSrc}`);
 
 // Global Store for temporary session images

@@ -24,11 +24,41 @@ import { brandStorage } from './storageProvider.js';
 import { getAiMatch, identifyModel, fetchProductDetails, searchAndEnrichModel, analyzePlan, matchFitoutItem, FREE_GOOGLE_MODELS, PAID_GOOGLE_MODELS, VALID_GOOGLE_MODELS, VALID_OPENROUTER_MODELS, VALID_NVIDIA_MODELS, GOOGLE_MODEL, OPENROUTER_MODEL, NVIDIA_MODEL } from './utils/llmUtils.js';
 import { renderSinglePageFull } from './utils/pdfRenderer.js';
 
-// Restored Scraper Engine Imports
-import ScraperService from './scraper.js';
-import StructureScraper from './structureScraper.js';
-import BrowserlessScraper from './browserlessScraper.js';
-import ScrapingBeeScraper from './scrapingBeeScraper.js';
+// Scraper imports are LAZY (dynamic) to prevent Vercel serverless boot crash
+// Playwright/Crawlee/Puppeteer-core cannot be imported at module level on Vercel
+let _ScraperService = null;
+let _StructureScraper = null;
+let _BrowserlessScraper = null;
+let _ScrapingBeeScraper = null;
+
+async function getScraperService() {
+    if (!_ScraperService) {
+        const m = await import('./scraper.js');
+        _ScraperService = m.default;
+    }
+    return new _ScraperService();
+}
+async function getStructureScraper() {
+    if (!_StructureScraper) {
+        const m = await import('./structureScraper.js');
+        _StructureScraper = m.default;
+    }
+    return new _StructureScraper();
+}
+async function getBrowserlessScraper() {
+    if (!_BrowserlessScraper) {
+        const m = await import('./browserlessScraper.js');
+        _BrowserlessScraper = m.default;
+    }
+    return new _BrowserlessScraper();
+}
+async function getScrapingBeeScraper() {
+    if (!_ScrapingBeeScraper) {
+        const m = await import('./scrapingBeeScraper.js');
+        _ScrapingBeeScraper = m.default;
+    }
+    return new _ScrapingBeeScraper();
+}
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -47,18 +77,12 @@ const PORT = 3001;
 const cleanupService = new CleanupService();
 const dbManager = new ExcelDbManager();
 
-// Restored Scraper Instances
-const scraperService = new ScraperService();
-
 console.log('✅ [Server] All services initialized.');
 
 // Health check route
 app.get('/api/health', (req, res) => {
     res.json({ status: 'ok', time: new Date().toISOString(), vercel: !!process.env.VERCEL });
 });
-const structureScraper = new StructureScraper();
-const browserlessScraper = new BrowserlessScraper();
-const scrapingBeeScraper = new ScrapingBeeScraper();
 
 // --- Configuration & Tasks ---
 const JS_SCRAPER_SERVICE_URL = process.env.JS_SCRAPER_SERVICE_URL;
@@ -1422,11 +1446,14 @@ async function handleScrapeRequest(req, res, method = 'standard') {
         };
 
         if (method === 'ai') {
-          results = await structureScraper.scrape(url, { onProgress, brandName: name, origin, budgetTier });
+          const sc = await getStructureScraper();
+          results = await sc.scrape(url, { onProgress, brandName: name, origin, budgetTier });
         } else if (method === 'scrapling') {
-          results = await scraperService.scrape(url, { onProgress, brandName: name, origin, budgetTier, useScrapling: true });
+          const sc = await getScraperService();
+          results = await sc.scrape(url, { onProgress, brandName: name, origin, budgetTier, useScrapling: true });
         } else {
-          results = await scraperService.scrape(url, { onProgress, brandName: name, origin, budgetTier });
+          const sc = await getScraperService();
+          results = await sc.scrape(url, { onProgress, brandName: name, origin, budgetTier });
         }
       }
 

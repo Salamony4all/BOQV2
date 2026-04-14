@@ -4,6 +4,15 @@
     { "src": "package.json", "use": "@vercel/static-build" },
     { "src": "api/index.js", "use": "@vercel/node" }
   ],
+  "headers": [
+    {
+      "source": "/manifest.json",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" },
+        { "key": "Content-Type", "value": "application/manifest+json" }
+      ]
+    }
+  ],
   "routes": [
     {
       "src": "/api/(.*)",
@@ -14,12 +23,16 @@
       "dest": "/api/index.js"
     },
     {
+      "src": "/manifest\\.json",
+      "dest": "/manifest.json"
+    },
+    {
       "src": "/assets/(.*)",
       "dest": "/assets/$1"
     },
     {
-      "src": "\\.(js|css|svg|png|jpg|jpeg|gif|ico|woff|woff2|ttf|eot|json|pdf|xlsx)$",
-      "dest": "/$0"
+      "src": "/(.*\\.(js|css|svg|png|jpg|jpeg|gif|ico|woff|woff2|ttf|eot|webp|pdf|xlsx))",
+      "dest": "/$1"
     },
     {
       "src": "/(.*)",
