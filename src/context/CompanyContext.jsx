@@ -45,7 +45,15 @@ export function CompanyProvider({ children }) {
                     delete parsed.logoWhite;
                     delete parsed.logoBlue;
                 }
-                setProfile(parsed);
+                // Merge with defaults to ensure missing fields (like website) are filled
+                setProfile(prev => ({
+                    ...DEFAULT_PROFILE,
+                    ...parsed,
+                    // If stored strings are empty, keep the defaults
+                    companyName: parsed.companyName || DEFAULT_PROFILE.companyName,
+                    website: parsed.website || DEFAULT_PROFILE.website,
+                    logo: (parsed.logo && parsed.logo.base64) ? parsed.logo : DEFAULT_PROFILE.logo
+                }));
                 setShowSetupModal(!parsed.setupComplete);
             } else {
                 // If no profile is stored, use the defaults we've set (which now include setupComplete: true)

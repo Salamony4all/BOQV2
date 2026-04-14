@@ -16,13 +16,26 @@ export default function CompanySettings({ isModal = false, onClose = null }) {
     } = useCompanyProfile();
     const { theme } = useTheme();
 
-    const [name, setName] = useState(companyName || '');
-    const [website, setWebsite] = useState(storedWebsite || '');
-    const [logo, setLogo] = useState(storedLogo || null); // This is the logo object {base64, width, height, isLight, whiteLogo}
+    const [name, setName] = useState(companyName || 'Alshaya Enterprises');
+    const [website, setWebsite] = useState(storedWebsite || 'https://alshayaenterprises.com/');
+    const [logo, setLogo] = useState(storedLogo || {
+        base64: logoOriginal || '',
+        width: 1561,
+        height: 865,
+        isLight: false,
+        whiteLogo: logoWhite || ''
+    });
     const [error, setError] = useState(null);
     const [success, setSuccess] = useState(null);
     const [isProcessing, setIsProcessing] = useState(false);
     const fileInputRef = useRef(null);
+
+    // Sync from context when it loads
+    useEffect(() => {
+        if (companyName) setName(companyName);
+        if (storedWebsite) setWebsite(storedWebsite);
+        if (storedLogo) setLogo(storedLogo);
+    }, [companyName, storedWebsite, storedLogo]);
 
     const handleLogoUpload = async (e, type = 'original') => {
         const file = e.target.files?.[0];
@@ -112,7 +125,7 @@ export default function CompanySettings({ isModal = false, onClose = null }) {
     };
 
     const handleSkip = () => {
-        updateProfile(name.trim() || 'My Company', logo, website.trim());
+        updateProfile(name.trim() || 'Alshaya Enterprises', logo, website.trim() || 'https://alshayaenterprises.com/');
         if (onClose) onClose();
     };
 
