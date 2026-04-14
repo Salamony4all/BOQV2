@@ -174,6 +174,13 @@ Only two conditions trigger header detection:
 
 ## Session History
 
+### Apr 14, 2026 — Branding Standardization & Hygiene
+- **Default Profile**: Set Alshaya Enterprises as the hardcoded default in `CompanyContext`.
+- **Asset Integration**: Integrated high-res logos and verified dimensions (1561x865).
+- **Dynamic Documents**: Decoupled `TableViewer` exports from hardcoded branding; now uses Context API.
+- **Git Hygiene**: Updated `.gitignore` to protect scratch/temp files and source logos.
+- **Automatic Setup**: Initialized default profile with `setupComplete: true` to streamline landing flow.
+
 ### Apr 3, 2026 — AI Autofill Hardening
 - Rewrote `executeAutoFillAI` to row-first sequential loop with tier-parallel execution
 - Added 30s AbortController timeout per fetch (prevents frozen state)
