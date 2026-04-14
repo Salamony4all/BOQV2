@@ -9,10 +9,6 @@ import { promises as fs } from 'fs';
 import fs_sync from 'fs';
 import { fileURLToPath } from 'url';
 import { extractExcelData } from './fastExtractor.js';
-import { extractProductBoqFromPdf, tempImageStore } from './pdfProductExtractor.js';
-
-import { extractParallelBOQData } from './parallelBOQExtractor.js';
-import { extractVisionBOQData } from './visionBOQExtractor.js';
 import { CleanupService } from './cleanupService.js';
 import { put, del, list } from '@vercel/blob';
 import { BlobCache } from './utils/blobCache.js';
@@ -22,7 +18,38 @@ import https from 'https';
 import { ExcelDbManager } from './excelManager.js';
 import { brandStorage } from './storageProvider.js';
 import { getAiMatch, identifyModel, fetchProductDetails, searchAndEnrichModel, analyzePlan, matchFitoutItem, FREE_GOOGLE_MODELS, PAID_GOOGLE_MODELS, VALID_GOOGLE_MODELS, VALID_OPENROUTER_MODELS, VALID_NVIDIA_MODELS, GOOGLE_MODEL, OPENROUTER_MODEL, NVIDIA_MODEL } from './utils/llmUtils.js';
-import { renderSinglePageFull } from './utils/pdfRenderer.js';
+
+// ALL heavy PDF/Vision extractors are LAZY to prevent Vercel boot crash
+// (pdfProductExtractor uses pdfjs, visionBOQExtractor uses Playwright)
+let _pdfProductExtractor = null;
+let _parallelBOQExtractor = null;
+let _visionBOQExtractor = null;
+let _pdfRenderer = null;
+
+async function getPdfProductExtractor() {
+    if (!_pdfProductExtractor) {
+        _pdfProductExtractor = await import('./pdfProductExtractor.js');
+    }
+    return _pdfProductExtractor;
+}
+async function getParallelBOQExtractor() {
+    if (!_parallelBOQExtractor) {
+        _parallelBOQExtractor = await import('./parallelBOQExtractor.js');
+    }
+    return _parallelBOQExtractor;
+}
+async function getVisionBOQExtractor() {
+    if (!_visionBOQExtractor) {
+        _visionBOQExtractor = await import('./visionBOQExtractor.js');
+    }
+    return _visionBOQExtractor;
+}
+async function getPdfRenderer() {
+    if (!_pdfRenderer) {
+        _pdfRenderer = await import('./utils/pdfRenderer.js');
+    }
+    return _pdfRenderer;
+}
 
 // Scraper imports are LAZY (dynamic) to prevent Vercel serverless boot crash
 // Playwright/Crawlee/Puppeteer-core cannot be imported at module level on Vercel
@@ -241,8 +268,9 @@ app.get('/api/status', (req, res) => {
 });
 
 // Serve temporary extracted images
-app.get('/api/temp-image/:id', (req, res) => {
+app.get('/api/temp-image/:id', async (req, res) => {
     const { id } = req.params;
+    const { tempImageStore } = await getPdfProductExtractor();
     const imageBuffer = tempImageStore.get(id);
     
     if (!imageBuffer) {
@@ -359,6 +387,7 @@ app.get('/api/lazy-image/:uploadId/:page/:rowId', async (req, res) => {
         // 4. On-Demand Render of the full page if missing
         if (!fs_sync.existsSync(fullPagePath)) {
             console.log(`    📸 [Lazy Image] Full page missing, rendering on-demand: ${fullPagePath}`);
+            const { renderSinglePageFull } = await getPdfRenderer();
             await renderSinglePageFull(metadata.pdfPath, pNum, fullPagePath);
         }
 
@@ -475,15 +504,19 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
     if (isPdf) {
         if (isVercel) {
             console.log(`[Upload] Running in Vercel - Using light extraction (pdfjs)`);
+            const { extractProductBoqFromPdf } = await getPdfProductExtractor();
             extractedData = await extractProductBoqFromPdf(filePath);
         } else if (extractionMode === 'parallel') {
+            const { extractParallelBOQData } = await getParallelBOQExtractor();
             extractedData = await extractParallelBOQData(filePath, 'application/pdf');
         } else {
             // Legacy vision path
+            const { extractVisionBOQData } = await getVisionBOQExtractor();
             extractedData = await extractVisionBOQData(filePath, 'application/pdf');
         }
     } else if (isImage) {
         // Handle images directly uploaded to BOQ flow
+        const { extractVisionBOQData } = await getVisionBOQExtractor();
         extractedData = await extractVisionBOQData(filePath, req.file.mimetype);
     } else {
         // Extract data from Excel
@@ -523,6 +556,7 @@ app.post('/api/extract/vision', planUpload.single('file'), async (req, res) => {
     // Track file for cleanup
     cleanupService.trackFile(sessionId, filePath);
 
+    const { extractVisionBOQData } = await getVisionBOQExtractor();
     const extractedData = await extractVisionBOQData(filePath, req.file.mimetype);
 
     res.json({
