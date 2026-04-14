@@ -716,6 +716,16 @@ function AppContent({ onOpenSettings }) {
         onSelect={handlePlanAnalyze}
       />
 
+      <PdfModelModal
+        isOpen={isPdfModalOpen}
+        onClose={() => setIsPdfModalOpen(false)}
+        fileName={pendingPdfFile?.name}
+        onExtract={(model) => {
+          setIsPdfModalOpen(false);
+          handleFileUpload(pendingPdfFile, model);
+        }}
+      />
+
       <ProgressModal
         isOpen={uploading}
         progress={progress}
