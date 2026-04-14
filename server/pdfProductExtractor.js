@@ -44,26 +44,27 @@ export async function extractProductBoqFromPdf(filePath, progressCallback = () =
         console.log(`   ☁️  Vercel mode: bypassing pdfjs — sending PDF to Gemini directly`);
         progressCallback({ percent: 10, message: 'Sending PDF to Gemini AI...' });
 
-        // Use gemini-2.0-flash directly: it supports PDF inline data (Gemma does NOT)
-        // gemini-2.0-flash is free-tier and fast for this use case
-        const apiKey = process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY ||
-                       process.env.GOOGLE_FREE_KEY || process.env.GEMINI_FREE_KEY ||
-                       process.env.GEMINI_API_KEY_FREE;
-        if (!apiKey) throw new Error('No Google API key found. Set GOOGLE_API_KEY or GEMINI_API_KEY in Vercel environment variables.');
+        // Use Gemma 4 (gemma-4-26b-a4b-it) — multimodal, supports PDF inline data, uses free key
+        const apiKey = process.env.GOOGLE_FREE_KEY || process.env.GEMINI_FREE_KEY ||
+                       process.env.GEMINI_API_KEY_FREE || process.env.GOOGLE_API_KEY ||
+                       process.env.GEMINI_API_KEY;
+        if (!apiKey) throw new Error('No Google API key found. Set GOOGLE_FREE_KEY or GEMINI_API_KEY in Vercel environment variables.');
 
         const genAI = new GoogleGenerativeAI(apiKey);
         const model = genAI.getGenerativeModel({
-            model: 'gemini-2.0-flash',
+            model: 'gemma-4-26b-a4b-it',
             generationConfig: {
                 temperature: 0.1,
-                maxOutputTokens: 16384,
-                responseMimeType: 'application/json'
+                maxOutputTokens: 16384
+                // NOTE: Gemma does not support responseMimeType — use prompt engineering instead
             }
         });
 
         const prompt = `You are a BOQ extraction expert. Read the uploaded PDF and extract ALL Bill of Quantities rows.
 
-Return ONLY a JSON object in this exact schema (no markdown, no explanation):
+You MUST respond with ONLY a raw JSON object. No markdown. No code blocks. No explanation. No prose. Start your response with { and end with }.
+
+Required JSON schema:
 {
   "items": [
     {
@@ -82,36 +83,45 @@ Rules:
 - qty/rate/total must be numbers (not strings)
 - Use null for missing numeric values
 - Skip header rows, footers, page numbers
-- Return ONLY the JSON object`;
+- Your entire response must be valid JSON starting with {`;
 
         try {
-            console.log(`   🤖 Calling gemini-2.0-flash with PDF (${Math.round(data.length / 1024)}KB)...`);
+            console.log(`   🤖 Calling gemma-4-26b-a4b-it with PDF (${Math.round(data.length / 1024)}KB)...`);
             const result = await model.generateContent({
                 contents: [{
                     role: 'user',
                     parts: [
-                        { text: prompt },
-                        { inlineData: { data: data.toString('base64'), mimeType: 'application/pdf' } }
+                        { inlineData: { data: data.toString('base64'), mimeType: 'application/pdf' } },
+                        { text: prompt }
                     ]
                 }]
             });
             const responseText = result.response.text();
-            console.log(`   ✅ Gemini responded, parsing JSON...`);
+            console.log(`   ✅ Gemma responded (${responseText.length} chars), extracting JSON...`);
+
+            // Robust JSON extraction: strip any accidental markdown fences or prose
             let aiResponse;
+            const cleaned = responseText
+                .replace(/^```(?:json)?\s*/im, '')
+                .replace(/\s*```$/im, '')
+                .trim();
+            const firstBrace = cleaned.indexOf('{');
+            const lastBrace = cleaned.lastIndexOf('}');
+            const jsonStr = firstBrace !== -1 && lastBrace > firstBrace
+                ? cleaned.substring(firstBrace, lastBrace + 1)
+                : cleaned;
             try {
-                aiResponse = JSON.parse(responseText);
+                aiResponse = JSON.parse(jsonStr);
             } catch (parseErr) {
-                // Try to extract JSON block if model added any surrounding text
-                const match = responseText.match(/\{[\s\S]*\}/);
-                if (match) aiResponse = JSON.parse(match[0]);
-                else throw new Error(`Cannot parse Gemini response: ${responseText.substring(0, 200)}`);
+                console.error(`   ❌ JSON parse failed. Response preview: ${responseText.substring(0, 300)}`);
+                throw new Error(`Gemma response could not be parsed as JSON: ${parseErr.message}`);
             }
 
             progressCallback({ percent: 90, message: 'Building table...' });
 
             const items = aiResponse?.items || aiResponse?.rows || [];
             if (!Array.isArray(items) || items.length === 0) {
-                throw new Error('Gemini returned no items from PDF');
+                throw new Error('Gemma returned no items from PDF');
             }
 
             const rows = items.map((item, index) => ({
