@@ -19,7 +19,7 @@ const API_BASE = getApiBase();
 
 function TableViewer({ data, allBrands }) {
     const profile = useCompanyProfile();
-    const { companyName, logoWhite, logoBlue, website } = profile;
+    const { companyName, logoOriginal, logoWhite, website } = profile;
     const { project, updateProject } = useProject();
     const [selectedImage, setSelectedImage] = useState(null);
     const [tables, setTables] = useState([]); // Base Data
@@ -27,6 +27,8 @@ function TableViewer({ data, allBrands }) {
     const [isCostingOpen, setCostingOpen] = useState(false);
     const [isMultiBudgetOpen, setMultiBudgetOpen] = useState(false);
     const [isProjectPanelOpen, setProjectPanelOpen] = useState(false);
+    // Per-table VAT rate for extracted summary (GCC default = 5%)
+    const [vatRates, setVatRates] = useState({});
 
     // Close on Escape
     useEffect(() => {
@@ -41,6 +43,7 @@ function TableViewer({ data, allBrands }) {
     useEffect(() => {
         if (data && data.tables) {
             setTables(JSON.parse(JSON.stringify(data.tables)));
+            setVatRates({}); // Reset VAT selections on new upload (defaults back to 5%)
 
             // Allow pre-initialized costing factors from parent (e.g. from MultiBudgetModal)
             if (data.costingFactors) {
@@ -55,10 +58,12 @@ function TableViewer({ data, allBrands }) {
             const header = table.header || [];
 
             // Find rate and amount/total columns
-            const rateIdx = header.findIndex(h => /rate|price|unit.*price/i.test(h));
+            const rateIdx = header.findIndex(h => /rate|price|unit.*price|unit.*rate/i.test(h));
             const amountIdx = header.findIndex(h => /amount|total(?!.*(qty|quantity))/i.test(h));
-            const qtyIdx = header.findIndex(h => /qty|quantity/i.test(h));
+            const qtyIdx = header.findIndex(h => /qty|quantity|qt/i.test(h));
             const unitIdx = header.findIndex(h => /unit|uom/i.test(h));
+            const descIdx = header.findIndex(h => /description|desc|disc|item|product/i.test(h));
+            const imgIdx = header.findIndex(h => /image|photo|picture|img|pic|ref/i.test(h));
 
             // Calculate totals
             let totalRate = 0;
@@ -316,7 +321,7 @@ function TableViewer({ data, allBrands }) {
         doc.rect(0, 100, pageWidth, 2, 'F');
 
         // Add Company Logo to Header if available
-        const coverLogo = logoWhite || logoBlue;
+        const coverLogo = logoWhite || logoOriginal;
         if (coverLogo) {
             try {
                 const docLogo = await getImageData(coverLogo, { format: 'image/png', maxWidth: 800 });
@@ -402,7 +407,7 @@ function TableViewer({ data, allBrands }) {
             doc.text(sheetTitle, 10, 13);
 
             // Company Logo in Header
-            const headerLogo = logoWhite || logoBlue;
+            const headerLogo = logoWhite || logoOriginal;
             if (headerLogo) {
                 try {
                     const docLogo = await getImageData(headerLogo, { format: 'image/png', maxWidth: 400 });
@@ -415,14 +420,26 @@ function TableViewer({ data, allBrands }) {
 
             // Find column indices
             const header = table.header || [];
-            const imgColIdx = header.findIndex(h => /image|photo|picture/i.test(h));
-            const descColIdx = header.findIndex(h => /description|desc/i.test(h));
-            const snColIdx = header.findIndex(h => /s\.?n|no|#|sr/i.test(h));
-            const qtyColIdx = header.findIndex(h => /qty|quantity/i.test(h));
-            const rateColIdx = header.findIndex(h => /rate|price|unit/i.test(h));
-            const amountColIdx = header.findIndex(h => /amount|total/i.test(h));
+            let imgColIdx = header.findIndex(h => /image|photo|picture|img|pic|ref/i.test(h));
+            
+            // Robust check: if no "Image" header, find column that actually has images
+            if (imgColIdx === -1) {
+                for (let i = 0; i < header.length; i++) {
+                    const hasImages = table.rows.some(r => r.cells?.[i]?.images?.length > 0 || r.cells?.[i]?.image);
+                    if (hasImages) {
+                        imgColIdx = i;
+                        break;
+                    }
+                }
+            }
+
+            const descColIdx = header.findIndex(h => /description|desc|disc|item|product/i.test(h));
+            const snColIdx = header.findIndex(h => /s\.?n|no|#|sr|item|sl/i.test(h));
+            const qtyColIdx = header.findIndex(h => /qty|quantity|qt/i.test(h));
+            const rateColIdx = header.findIndex(h => /rate|price|unit.*price|unit.*rate/i.test(h));
+            const amountColIdx = header.findIndex(h => /amount|total(?!.*(qty|quantity))/i.test(h));
             const brandColIdx = header.findIndex(h => /brand|maker|country|origin/i.test(h));
-            const uomColIdx = header.findIndex(h => /uom|unit of/i.test(h));
+            const uomColIdx = header.findIndex(h => /uom|unit/i.test(h));
 
             // Dynamic column widths - larger for images and descriptions
             const colWidths = {};
@@ -438,21 +455,21 @@ function TableViewer({ data, allBrands }) {
 
             pdfHeader.forEach((h, i) => {
                 if (i === snColIdx || (i === 0 && snColIdx === -1)) {
-                    colWidths[i] = { cellWidth: 8, halign: 'center' };
+                    colWidths[i] = { cellWidth: 7, halign: 'center' };
                 } else if (i === imgColIdx) {
-                    colWidths[i] = { cellWidth: 35, halign: 'center' }; // Larger for images
+                    colWidths[i] = { cellWidth: 30, halign: 'center' };
                 } else if (i === descColIdx) {
-                    colWidths[i] = { cellWidth: 55, halign: 'left' }; // Larger for description
+                    colWidths[i] = { cellWidth: 50, halign: 'left' };
                 } else if (i === brandColIdx) {
-                    colWidths[i] = { cellWidth: 28, halign: 'left' };
+                    colWidths[i] = { cellWidth: 25, halign: 'left' };
                 } else if (i === qtyColIdx) {
-                    colWidths[i] = { cellWidth: 12, halign: 'center' };
+                    colWidths[i] = { cellWidth: 10, halign: 'center' };
                 } else if (i === uomColIdx) {
-                    colWidths[i] = { cellWidth: 12, halign: 'center' };
+                    colWidths[i] = { cellWidth: 10, halign: 'center' };
                 } else if (i === rateColIdx) {
-                    colWidths[i] = { cellWidth: 18, halign: 'right' };
+                    colWidths[i] = { cellWidth: 16, halign: 'right' };
                 } else if (i === amountColIdx) {
-                    colWidths[i] = { cellWidth: 22, halign: 'right' };
+                    colWidths[i] = { cellWidth: 20, halign: 'right' };
                 } else {
                     colWidths[i] = { cellWidth: 'auto' };
                 }
@@ -657,8 +674,20 @@ function TableViewer({ data, allBrands }) {
             });
 
             const header = table.header || [];
-            const imgColIdx = header.findIndex(h => /image|photo|picture/i.test(h));
-            const descColIdx = header.findIndex(h => /description|desc/i.test(h));
+            let imgColIdx = header.findIndex(h => /image|photo|picture|img|pic|ref/i.test(h));
+
+            // Robust check: if no "Image" header, find column that actually has images
+            if (imgColIdx === -1) {
+                for (let i = 0; i < header.length; i++) {
+                    const hasImages = table.rows.some(r => r.cells?.[i]?.images?.length > 0 || r.cells?.[i]?.image);
+                    if (hasImages) {
+                        imgColIdx = i;
+                        break;
+                    }
+                }
+            }
+
+            const descColIdx = header.findIndex(h => /description|desc|disc|item|product/i.test(h));
 
             const hasArInHeader = header.some(h => hasArabic(h));
             const hasArInBody = table.rows.some(r => r.cells.some(c => hasArabic(c.value)));
@@ -891,7 +920,7 @@ function TableViewer({ data, allBrands }) {
                 doc.text('MATERIAL APPROVAL SHEET', pageWidth / 2, 15, { align: 'center' });
 
                 // Company Logo in Header
-                const masHeaderLogo = logoWhite || logoBlue;
+                const masHeaderLogo = logoWhite || logoOriginal;
                 if (masHeaderLogo) {
                     try {
                         const docLogo = await getImageData(masHeaderLogo, { format: 'image/png', maxWidth: 400 });
@@ -1115,13 +1144,13 @@ function TableViewer({ data, allBrands }) {
 
         for (const table of sourceTables) {
             const header = table.header || [];
-            const descIdx = header.findIndex(h => /description|desc/i.test(h));
+            const descIdx = header.findIndex(h => /description|desc|disc|item|product/i.test(h));
             const brandIdx = header.findIndex(h => /brand|maker|origin/i.test(h));
             let qtyIdx = header.findIndex(h => /revised.*qty|revised.*quantity|actual.*qty|actual.*quantity/i.test(h));
-            if (qtyIdx === -1) qtyIdx = header.findIndex(h => /qty|quantity/i.test(h));
+            if (qtyIdx === -1) qtyIdx = header.findIndex(h => /qty|quantity|qt/i.test(h));
             const uomIdx = header.findIndex(h => /uom|unit/i.test(h));
-            const snIdx = header.findIndex(h => /s\.?n|no\.|#/i.test(h));
-            const codeIdx = header.findIndex(h => /code|item.*code/i.test(h));
+            const snIdx = header.findIndex(h => /s\.?n|no\.|#|sr|item|sl/i.test(h));
+            const codeIdx = header.findIndex(h => /code|item.*code|ref/i.test(h));
 
             for (const row of table.rows) {
                 if (!row.cells.some(c => c.value)) continue;
@@ -1140,8 +1169,7 @@ function TableViewer({ data, allBrands }) {
                 doc.setFillColor(...colors.accent);
                 doc.rect(0, 22, pageWidth, 2, 'F');
 
-                // Logo
-                const mirLogo = logoWhite || logoBlue;
+                const mirLogo = logoWhite || logoOriginal;
                 if (mirLogo) {
                     try {
                         const dl = await getImageData(mirLogo, { format: 'image/png', maxWidth: 400 });
@@ -1171,7 +1199,7 @@ function TableViewer({ data, allBrands }) {
                 doc.setFont('helvetica', 'normal');
                 doc.text(`Ref: ${rowMirRef}   |   Item ${displayTitle}   |   Date: ${today}`, pageWidth / 2, 18, { align: 'center' });
 
-                // ── PROJECT INFO BOX ──
+                // ── PROJECT INFO ──
                 const pY = 25;
                 doc.setFillColor(...colors.lightBg);
                 doc.setDrawColor(...colors.border);
@@ -1208,11 +1236,9 @@ function TableViewer({ data, allBrands }) {
                 const brand = project.brandOrigin ? project.brandOrigin : (brandIdx > -1 ? row.cells[brandIdx].value : '');
                 const qty = qtyIdx > -1 ? row.cells[qtyIdx].value : 'As per BOQ';
                 const uom = project.unitOfMeasure ? project.unitOfMeasure : (uomIdx > -1 ? row.cells[uomIdx].value : '');
-                const sn = snIdx > -1 ? row.cells[snIdx].value : String(itemNumber);
 
                 let contentY = 49;
 
-                // Item title band
                 doc.setFillColor(...colors.accent);
                 doc.roundedRect(8, contentY, pageWidth - 16, 7, 1, 1, 'F');
                 doc.setTextColor(...colors.white);
@@ -1221,90 +1247,48 @@ function TableViewer({ data, allBrands }) {
                 doc.text(`ITEM ${displayTitle} — MATERIAL INSPECTION`, 12, contentY + 4.8);
                 contentY += 10;
 
-                // ── IMAGES ──
-                const imageGroups = [];
-                for (let idx = 0; idx < row.cells.length; idx++) {
-                    const c = row.cells[idx];
-                    const colName = header[idx] || '';
-                    if (c.images?.length > 0 || c.image) {
-                        const imgs = c.images || [c.image];
-                        const groupImgs = [];
-                        for (const img of imgs) {
-                            if (img?.url) {
-                                try {
-                                    const ir = await getImageData(getFullUrl(img.url), { maxWidth: 800, format: 'image/jpeg' });
-                                    if (ir) groupImgs.push(ir);
-                                } catch (e) { }
-                            }
-                        }
-                        if (groupImgs.length > 0) {
-                            imageGroups.push({ title: colName, images: groupImgs });
+                // ── UNIFIED IMAGES GRID ──
+                const allImages = [];
+                for (const cell of row.cells) {
+                    const imgs = cell.images || (cell.image ? [cell.image] : []);
+                    for (const img of imgs) {
+                        if (img?.url) {
+                            try {
+                                const ir = await getImageData(getFullUrl(img.url), { maxWidth: 800, format: 'image/jpeg' });
+                                if (ir) allImages.push(ir);
+                            } catch (e) { }
                         }
                     }
                 }
 
-                if (imageGroups.length > 0) {
+                if (allImages.length > 0) {
                     const imgAreaW = pageWidth - 16;
                     const imgAreaH = 65;
-                    const gap = 4;
-                    const groupW = (imgAreaW - (imageGroups.length - 1) * gap) / imageGroups.length;
+                    const numImgs = allImages.length;
+                    
+                    let cols = numImgs === 1 ? 1 : (numImgs <= 4 ? 2 : 3);
+                    let rows2 = Math.ceil(numImgs / cols);
+                    if (rows2 > 3) rows2 = 3;
+                    
+                    const pad = 2;
+                    const cW = (imgAreaW - (cols - 1) * pad) / cols;
+                    const cH = (imgAreaH - (rows2 - 1) * pad) / rows2;
 
-                    imageGroups.forEach((group, gIdx) => {
-                        const gX = 8 + gIdx * (groupW + gap);
-                        const gY = contentY;
+                    doc.setFillColor(252, 252, 252);
+                    doc.setDrawColor(...colors.border);
+                    doc.roundedRect(8, contentY, imgAreaW, imgAreaH, 2, 2, 'FD');
 
-                        doc.setFillColor(252, 252, 252);
-                        doc.setDrawColor(...colors.border);
-                        doc.roundedRect(gX, gY, groupW, imgAreaH, 2, 2, 'FD');
-
-                        // Title for the group
-                        doc.setFontSize(7.5);
-                        doc.setTextColor(80, 80, 80);
-                        doc.setFont('helvetica', 'bold');
-                        const titleText = doc.splitTextToSize(processText(String(group.title || '').toUpperCase()), groupW - 4);
-                        doc.text(titleText[0], gX + groupW / 2, gY + 4.5, { align: 'center' });
-
-                        // Line under title
-                        doc.setDrawColor(...colors.border);
-                        doc.setLineWidth(0.3);
-                        doc.line(gX + 2, gY + 6, gX + groupW - 2, gY + 6);
-
-                        // Grid for images in this group
-                        const numImgs = group.images.length;
-                        let cols = 1, rows2 = 1;
-                        if (numImgs === 1) { cols = 1; rows2 = 1; }
-                        else if (numImgs === 2) { cols = 2; rows2 = 1; }
-                        else if (numImgs <= 4) { cols = 2; rows2 = 2; }
-                        else if (numImgs <= 6) { cols = 3; rows2 = 2; }
-                        else if (numImgs <= 9) { cols = 3; rows2 = 3; }
-                        else {
-                            cols = Math.ceil(Math.sqrt(numImgs));
-                            rows2 = Math.ceil(numImgs / cols);
-                        }
-
-                        const pad = 2;
-                        const availW = groupW - pad * 2;
-                        const availH = imgAreaH - 8 - pad * 2; // 8 is reserved for the head title area
-
-                        const cW = (availW - (cols - 1) * pad) / cols;
-                        const cH = (availH - (rows2 - 1) * pad) / rows2;
-
-                        group.images.forEach((img, iIdx) => {
-                            const c = iIdx % cols;
-                            const r = Math.floor(iIdx / cols);
-                            const fit = calcFitSize(img.width, img.height, cW, cH);
-
-                            const imgX = gX + pad + c * (cW + pad) + (cW - fit.w) / 2;
-                            const imgY = gY + 8 + pad + r * (cH + pad) + (cH - fit.h) / 2;
-
-                            doc.addImage(img.dataUrl, 'JPEG', imgX, imgY, fit.w, fit.h, '', 'FAST');
-                        });
+                    allImages.slice(0, 9).forEach((img, iIdx) => {
+                        const c = iIdx % cols;
+                        const r = Math.floor(iIdx / cols);
+                        const fit = calcFitSize(img.width, img.height, cW, cH);
+                        const imgX = 8 + pad + c * (cW + pad) + (cW - fit.w) / 2;
+                        const imgY = contentY + pad + r * (cH + pad) + (cH - fit.h) / 2;
+                        doc.addImage(img.dataUrl, 'JPEG', imgX, imgY, fit.w, fit.h, '', 'FAST');
                     });
-
                     contentY += imgAreaH + 4;
                 }
 
-                // ── SPECIFICATION TABLE ──
                 autoTable(doc, {
                     startY: contentY,
                     margin: { left: 8, right: 8 },
@@ -1332,7 +1316,6 @@ function TableViewer({ data, allBrands }) {
                     columnStyles: { 0: { cellWidth: 48, fontStyle: 'bold' } }
                 });
 
-                // ── ORIGINATOR'S INFORMATION ──
                 const clY = doc.lastAutoTable.finalY + 2;
                 doc.setDrawColor(...colors.border);
                 doc.setFillColor(...colors.lightBg);
@@ -1363,7 +1346,6 @@ function TableViewer({ data, allBrands }) {
                     columnStyles: { 0: { cellWidth: 55 }, 1: { cellWidth: 55 }, 2: { cellWidth: 'auto' } }
                 });
 
-                // ── COMMENTS ──
                 const comY = doc.lastAutoTable.finalY;
                 doc.setFillColor(...colors.lightBg);
                 doc.rect(8, comY, pageWidth - 16, 5, 'FD');
@@ -1371,27 +1353,18 @@ function TableViewer({ data, allBrands }) {
                 doc.setFont('helvetica', 'bold');
                 doc.text("COMMENTS:", 12, comY + 3.8);
 
-                // Comment box white space
                 doc.setFillColor(255, 255, 255);
                 doc.rect(8, comY + 5, pageWidth - 16, 13, 'FD');
 
-                // Approvals checkboxes 
                 const appY = comY + 18;
                 doc.setFillColor(255, 255, 255);
                 doc.rect(8, appY, pageWidth - 16, 6, 'FD');
                 doc.setFontSize(7);
                 doc.setFont('helvetica', 'bold');
+                doc.rect(30, appY + 2, 2, 2); doc.text('A. Approved', 34, appY + 4);
+                doc.rect(85, appY + 2, 2, 2); doc.text('B. Approved as Noted', 89, appY + 4);
+                doc.rect(145, appY + 2, 2, 2); doc.text('C. Revise and Resubmit', 149, appY + 4);
 
-                doc.rect(30, appY + 2, 2, 2);
-                doc.text('A. Approved', 34, appY + 4);
-
-                doc.rect(85, appY + 2, 2, 2);
-                doc.text('B. Approved as Noted', 89, appY + 4);
-
-                doc.rect(145, appY + 2, 2, 2);
-                doc.text('C. Revise and Resubmit', 149, appY + 4);
-
-                // ── REVIEWED AND APPROVED BY ──
                 const sigY = appY + 6 + 1.5;
                 if (sigY + 22 < pageHeight - 8) {
                     doc.setFillColor(...colors.primary);
@@ -1418,38 +1391,27 @@ function TableViewer({ data, allBrands }) {
                         doc.rect(x, boxY, boxW, boxH, 'FD');
                         doc.setFillColor(...colors.accent);
                         doc.rect(x, boxY, boxW, 5.5, 'F');
-
                         const parts = name.split('\n');
-
                         doc.setTextColor(...colors.white);
                         doc.setFontSize(6.5);
                         doc.setFont('helvetica', 'bold');
                         doc.text(parts[0] || '', x + boxW / 2, boxY + 4, { align: 'center' });
-
                         doc.setTextColor(...colors.text);
                         doc.setFontSize(6);
                         doc.setFont('helvetica', 'normal');
                         doc.text(parts[1] || '', x + boxW / 2, boxY + 8.5, { align: 'center' });
-
-                        if (parts[2]) {
-                            doc.text(parts[2], x + boxW / 2, boxY + 11.5, { align: 'center' });
-                        }
-                        if (parts[3]) {
-                            doc.setFontSize(5.5);
-                            doc.text(parts[3], x + boxW / 2, boxY + 14.5, { align: 'center' });
-                        }
-
+                        if (parts[2]) doc.text(parts[2], x + boxW / 2, boxY + 11.5, { align: 'center' });
+                        if (parts[3]) { doc.setFontSize(5.5); doc.text(parts[3], x + boxW / 2, boxY + 14.5, { align: 'center' }); }
                         doc.setFontSize(6);
                         doc.text('Date: __________', x + boxW / 2, boxY + boxH - 2, { align: 'center' });
                     });
                 }
 
-                // ── FOOTER ──
                 doc.setFillColor(...colors.primary);
                 doc.rect(0, pageHeight - 8, pageWidth, 8, 'F');
                 doc.setTextColor(...colors.white);
                 doc.setFontSize(6);
-                doc.text(`Material Inspection Request | ${rowMirRef}  |  Page ${itemNumber}`, pageWidth / 2, pageHeight - 3, { align: 'center' });
+                doc.text(`Material Inspection Request | ${rowMirRef}  |  Item ${displayTitle}`, pageWidth / 2, pageHeight - 3, { align: 'center' });
 
                 itemNumber++;
             }
@@ -1482,13 +1444,13 @@ function TableViewer({ data, allBrands }) {
 
         for (const table of sourceTables) {
             const header = table.header || [];
-            const descIdx = header.findIndex(h => /description|desc/i.test(h));
+            const descIdx = header.findIndex(h => /description|desc|disc|item|product/i.test(h));
             const brandIdx = header.findIndex(h => /brand|maker|origin/i.test(h));
             let qtyIdx = header.findIndex(h => /revised.*qty|revised.*quantity|actual.*qty|actual.*quantity/i.test(h));
-            if (qtyIdx === -1) qtyIdx = header.findIndex(h => /qty|quantity/i.test(h));
+            if (qtyIdx === -1) qtyIdx = header.findIndex(h => /qty|quantity|qt/i.test(h));
             const uomIdx = header.findIndex(h => /uom|unit/i.test(h));
-            const snIdx = header.findIndex(h => /s\.?n|no\.|#/i.test(h));
-            const codeIdx = header.findIndex(h => /code|item.*code/i.test(h));
+            const snIdx = header.findIndex(h => /s\.?n|no\.|#|sr|item|sl/i.test(h));
+            const codeIdx = header.findIndex(h => /code|item.*code|ref/i.test(h));
 
             for (const row of table.rows) {
                 if (!row.cells.some(c => c.value)) continue;
@@ -1507,7 +1469,7 @@ function TableViewer({ data, allBrands }) {
                 doc.setFillColor(...colors.accent);
                 doc.rect(0, 22, pageWidth, 2, 'F');
 
-                const wirLogo = logoWhite || logoBlue;
+                const wirLogo = logoWhite || logoOriginal;
                 if (wirLogo) {
                     try {
                         const dl = await getImageData(wirLogo, { format: 'image/png', maxWidth: 400 });
@@ -1574,11 +1536,9 @@ function TableViewer({ data, allBrands }) {
                 const brand = brandIdx > -1 ? row.cells[brandIdx].value : 'N/A';
                 const qty = qtyIdx > -1 ? row.cells[qtyIdx].value : 'As per BOQ';
                 const uom = uomIdx > -1 ? row.cells[uomIdx].value : 'No.';
-                const sn = snIdx > -1 ? row.cells[snIdx].value : String(itemNumber);
 
                 let contentY = 49;
 
-                // Item title band
                 doc.setFillColor(...colors.accent);
                 doc.roundedRect(8, contentY, pageWidth - 16, 7, 1, 1, 'F');
                 doc.setTextColor(...colors.white);
@@ -1587,90 +1547,48 @@ function TableViewer({ data, allBrands }) {
                 doc.text(`ITEM ${displayTitle} — WORK INSPECTION`, 12, contentY + 4.8);
                 contentY += 10;
 
-                // ── IMAGES ──
-                const imageGroups = [];
-                for (let idx = 0; idx < row.cells.length; idx++) {
-                    const c = row.cells[idx];
-                    const colName = header[idx] || '';
-                    if (c.images?.length > 0 || c.image) {
-                        const imgs = c.images || [c.image];
-                        const groupImgs = [];
-                        for (const img of imgs) {
-                            if (img?.url) {
-                                try {
-                                    const ir = await getImageData(getFullUrl(img.url), { maxWidth: 800, format: 'image/jpeg' });
-                                    if (ir) groupImgs.push(ir);
-                                } catch (e) { }
-                            }
-                        }
-                        if (groupImgs.length > 0) {
-                            imageGroups.push({ title: colName, images: groupImgs });
+                // ── UNIFIED IMAGES GRID ──
+                const allImages = [];
+                for (const cell of row.cells) {
+                    const imgs = cell.images || (cell.image ? [cell.image] : []);
+                    for (const img of imgs) {
+                        if (img?.url) {
+                            try {
+                                const ir = await getImageData(getFullUrl(img.url), { maxWidth: 800, format: 'image/jpeg' });
+                                if (ir) allImages.push(ir);
+                            } catch (e) { }
                         }
                     }
                 }
 
-                if (imageGroups.length > 0) {
+                if (allImages.length > 0) {
                     const imgAreaW = pageWidth - 16;
                     const imgAreaH = 65;
-                    const gap = 4;
-                    const groupW = (imgAreaW - (imageGroups.length - 1) * gap) / imageGroups.length;
+                    const numImgs = allImages.length;
+                    
+                    let cols = numImgs === 1 ? 1 : (numImgs <= 4 ? 2 : 3);
+                    let rows2 = Math.ceil(numImgs / cols);
+                    if (rows2 > 3) rows2 = 3;
+                    
+                    const pad = 2;
+                    const cW = (imgAreaW - (cols - 1) * pad) / cols;
+                    const cH = (imgAreaH - (rows2 - 1) * pad) / rows2;
 
-                    imageGroups.forEach((group, gIdx) => {
-                        const gX = 8 + gIdx * (groupW + gap);
-                        const gY = contentY;
+                    doc.setFillColor(252, 252, 252);
+                    doc.setDrawColor(...colors.border);
+                    doc.roundedRect(8, contentY, imgAreaW, imgAreaH, 2, 2, 'FD');
 
-                        doc.setFillColor(252, 252, 252);
-                        doc.setDrawColor(...colors.border);
-                        doc.roundedRect(gX, gY, groupW, imgAreaH, 2, 2, 'FD');
-
-                        // Title for the group
-                        doc.setFontSize(7.5);
-                        doc.setTextColor(80, 80, 80);
-                        doc.setFont('helvetica', 'bold');
-                        const titleText = doc.splitTextToSize(processText(String(group.title || '').toUpperCase()), groupW - 4);
-                        doc.text(titleText[0], gX + groupW / 2, gY + 4.5, { align: 'center' });
-
-                        // Line under title
-                        doc.setDrawColor(...colors.border);
-                        doc.setLineWidth(0.3);
-                        doc.line(gX + 2, gY + 6, gX + groupW - 2, gY + 6);
-
-                        // Grid for images in this group
-                        const numImgs = group.images.length;
-                        let cols = 1, rows2 = 1;
-                        if (numImgs === 1) { cols = 1; rows2 = 1; }
-                        else if (numImgs === 2) { cols = 2; rows2 = 1; }
-                        else if (numImgs <= 4) { cols = 2; rows2 = 2; }
-                        else if (numImgs <= 6) { cols = 3; rows2 = 2; }
-                        else if (numImgs <= 9) { cols = 3; rows2 = 3; }
-                        else {
-                            cols = Math.ceil(Math.sqrt(numImgs));
-                            rows2 = Math.ceil(numImgs / cols);
-                        }
-
-                        const pad = 2;
-                        const availW = groupW - pad * 2;
-                        const availH = imgAreaH - 8 - pad * 2; // 8 is reserved for the head title area
-
-                        const cW = (availW - (cols - 1) * pad) / cols;
-                        const cH = (availH - (rows2 - 1) * pad) / rows2;
-
-                        group.images.forEach((img, iIdx) => {
-                            const c = iIdx % cols;
-                            const r = Math.floor(iIdx / cols);
-                            const fit = calcFitSize(img.width, img.height, cW, cH);
-
-                            const imgX = gX + pad + c * (cW + pad) + (cW - fit.w) / 2;
-                            const imgY = gY + 8 + pad + r * (cH + pad) + (cH - fit.h) / 2;
-
-                            doc.addImage(img.dataUrl, 'JPEG', imgX, imgY, fit.w, fit.h, '', 'FAST');
-                        });
+                    allImages.slice(0, 9).forEach((img, iIdx) => {
+                        const c = iIdx % cols;
+                        const r = Math.floor(iIdx / cols);
+                        const fit = calcFitSize(img.width, img.height, cW, cH);
+                        const imgX = 8 + pad + c * (cW + pad) + (cW - fit.w) / 2;
+                        const imgY = contentY + pad + r * (cH + pad) + (cH - fit.h) / 2;
+                        doc.addImage(img.dataUrl, 'JPEG', imgX, imgY, fit.w, fit.h, '', 'FAST');
                     });
-
                     contentY += imgAreaH + 4;
                 }
 
-                // ── SPECIFICATION TABLE ──
                 autoTable(doc, {
                     startY: contentY,
                     margin: { left: 8, right: 8 },
@@ -1698,7 +1616,6 @@ function TableViewer({ data, allBrands }) {
                     columnStyles: { 0: { cellWidth: 48, fontStyle: 'bold' } }
                 });
 
-                // ── ORIGINATOR'S INFORMATION ──
                 const clY = doc.lastAutoTable.finalY + 2;
                 doc.setDrawColor(...colors.border);
                 doc.setFillColor(...colors.lightBg);
@@ -1729,7 +1646,6 @@ function TableViewer({ data, allBrands }) {
                     columnStyles: { 0: { cellWidth: 55 }, 1: { cellWidth: 55 }, 2: { cellWidth: 'auto' } }
                 });
 
-                // ── COMMENTS ──
                 const comY = doc.lastAutoTable.finalY;
                 doc.setFillColor(...colors.lightBg);
                 doc.rect(8, comY, pageWidth - 16, 5, 'FD');
@@ -1737,27 +1653,18 @@ function TableViewer({ data, allBrands }) {
                 doc.setFont('helvetica', 'bold');
                 doc.text("COMMENTS:", 12, comY + 3.8);
 
-                // Comment box white space
                 doc.setFillColor(255, 255, 255);
                 doc.rect(8, comY + 5, pageWidth - 16, 13, 'FD');
 
-                // Approvals checkboxes 
                 const appY = comY + 18;
                 doc.setFillColor(255, 255, 255);
                 doc.rect(8, appY, pageWidth - 16, 6, 'FD');
                 doc.setFontSize(7);
                 doc.setFont('helvetica', 'bold');
+                doc.rect(30, appY + 2, 2, 2); doc.text('A. Approved', 34, appY + 4);
+                doc.rect(85, appY + 2, 2, 2); doc.text('B. Approved as Noted', 89, appY + 4);
+                doc.rect(145, appY + 2, 2, 2); doc.text('C. Revise and Resubmit', 149, appY + 4);
 
-                doc.rect(30, appY + 2, 2, 2);
-                doc.text('A. Approved', 34, appY + 4);
-
-                doc.rect(85, appY + 2, 2, 2);
-                doc.text('B. Approved as Noted', 89, appY + 4);
-
-                doc.rect(145, appY + 2, 2, 2);
-                doc.text('C. Revise and Resubmit', 149, appY + 4);
-
-                // ── REVIEWED AND APPROVED BY ──
                 const sigY = appY + 6 + 1.5;
                 if (sigY + 22 < pageHeight - 8) {
                     doc.setFillColor(...colors.primary);
@@ -1784,38 +1691,27 @@ function TableViewer({ data, allBrands }) {
                         doc.rect(x, boxY, boxW, boxH, 'FD');
                         doc.setFillColor(...colors.accent);
                         doc.rect(x, boxY, boxW, 5.5, 'F');
-
                         const parts = name.split('\n');
-
                         doc.setTextColor(...colors.white);
                         doc.setFontSize(6.5);
                         doc.setFont('helvetica', 'bold');
                         doc.text(parts[0] || '', x + boxW / 2, boxY + 4, { align: 'center' });
-
                         doc.setTextColor(...colors.text);
                         doc.setFontSize(6);
                         doc.setFont('helvetica', 'normal');
                         doc.text(parts[1] || '', x + boxW / 2, boxY + 8.5, { align: 'center' });
-
-                        if (parts[2]) {
-                            doc.text(parts[2], x + boxW / 2, boxY + 11.5, { align: 'center' });
-                        }
-                        if (parts[3]) {
-                            doc.setFontSize(5.5);
-                            doc.text(parts[3], x + boxW / 2, boxY + 14.5, { align: 'center' });
-                        }
-
+                        if (parts[2]) doc.text(parts[2], x + boxW / 2, boxY + 11.5, { align: 'center' });
+                        if (parts[3]) { doc.setFontSize(5.5); doc.text(parts[3], x + boxW / 2, boxY + 14.5, { align: 'center' }); }
                         doc.setFontSize(6);
                         doc.text('Date: __________', x + boxW / 2, boxY + boxH - 2, { align: 'center' });
                     });
                 }
 
-                // ── FOOTER ──
                 doc.setFillColor(...colors.primary);
                 doc.rect(0, pageHeight - 8, pageWidth, 8, 'F');
                 doc.setTextColor(...colors.white);
                 doc.setFontSize(6);
-                doc.text(`Work Inspection Request | ${rowWirRef}  |  Page ${itemNumber}`, pageWidth / 2, pageHeight - 3, { align: 'center' });
+                doc.text(`Work Inspection Request | ${rowWirRef}  |  Item ${displayTitle}`, pageWidth / 2, pageHeight - 3, { align: 'center' });
 
                 itemNumber++;
             }
@@ -1823,7 +1719,7 @@ function TableViewer({ data, allBrands }) {
         doc.save('WIR_export.pdf');
     };
 
-    // ===================== DELIVERY NOTE — ALL ITEMS IN ONE TABLE =====================
+    // ===================== DELIVERY NOTE — 1 PAGE PER ITEM =====================
     const handleGenerateDeliveryNote = async (sourceTables) => {
         const doc = new jsPDF({ orientation: 'portrait' });
         const pageWidth = doc.internal.pageSize.getWidth();
@@ -1831,234 +1727,184 @@ function TableViewer({ data, allBrands }) {
         const arabicLoaded = await loadArabicFont(doc);
 
         const colors = {
-            primary: [30, 41, 59],
-            accent: [99, 102, 241],       // Indigo 500
-            gold: [245, 158, 11],
+            primary: [30, 41, 59],         // Slate 800
+            accent: [37, 99, 235],        // Blue 600
             text: [51, 65, 85],
-            lightBg: [238, 242, 255],      // Indigo 50
-            border: [199, 210, 254],      // Indigo 200
+            lightBg: [248, 250, 252],
+            border: [203, 213, 225],
             white: [255, 255, 255]
         };
 
         const processText = (txt) => (arabicLoaded && hasArabic(txt)) ? fixArabic(txt) : String(txt || '');
         const today = new Date().toLocaleDateString('en-GB');
-        const dnRef = `DN-${Date.now().toString().slice(-6)}`;
+        const dnRef = project.dnReference || `DN-${Date.now().toString().slice(-6)}`;
+        
+        // Pre-load logos
+        const [whiteLogoInfo, colorLogoInfo] = await Promise.all([
+            logoWhite ? getImageData(logoWhite, { format: 'image/png', maxWidth: 400 }).catch(() => null) : Promise.resolve(null),
+            logoOriginal ? getImageData(logoOriginal, { format: 'image/png', maxWidth: 400 }).catch(() => null) : Promise.resolve(null)
+        ]);
 
-        // ── HEADER ──
-        doc.setFillColor(...colors.primary);
-        doc.rect(0, 0, pageWidth, 30, 'F');
-        doc.setFillColor(...colors.accent);
-        doc.rect(0, 30, pageWidth, 2, 'F');
+        // Header Helper
+        const drawHeader = () => {
+            doc.setFillColor(...colors.primary);
+            doc.rect(0, 0, pageWidth, 40, 'F');
+            doc.setFillColor(...colors.accent);
+            doc.rect(0, 40, pageWidth, 2, 'F');
 
-        const dnLogo = logoWhite || logoBlue;
-        if (dnLogo) {
-            try {
-                const dl = await getImageData(dnLogo, { format: 'image/png', maxWidth: 400 });
-                if (dl) {
-                    const fit = calcFitSize(dl.width, dl.height, 35, 15);
-                    doc.addImage(dl.dataUrl, 'PNG', 10, 7, fit.w, fit.h);
-                }
-            } catch (e) { }
-        }
+            const dlWhite = whiteLogoInfo || colorLogoInfo;
+            if (dlWhite) {
+                const fit = calcFitSize(dlWhite.width, dlWhite.height, 45, 20);
+                doc.addImage(dlWhite.dataUrl, 'PNG', 10, 10, fit.w, fit.h);
+            }
 
-        if (project.clientLogo) {
-            try {
-                const cdl = await getImageData(project.clientLogo, { format: 'image/png', maxWidth: 400 });
-                if (cdl) {
-                    const cfit = calcFitSize(cdl.width, cdl.height, 35, 15);
-                    doc.addImage(cdl.dataUrl, 'PNG', pageWidth - 10 - cfit.w, 7, cfit.w, cfit.h);
-                }
-            } catch (e) { }
-        }
+            doc.setTextColor(...colors.white);
+            doc.setFontSize(22);
+            doc.setFont('helvetica', 'bold');
+            doc.text('DELIVERY NOTE', pageWidth - 10, 20, { align: 'right' });
 
-        doc.setTextColor(...colors.white);
-        doc.setFontSize(18);
-        doc.setFont('helvetica', 'bold');
-        doc.text('DELIVERY NOTE', pageWidth / 2, 14, { align: 'center' });
+            doc.setFontSize(10);
+            doc.setFont('helvetica', 'normal');
+            doc.text(`Reference: ${dnRef}`, pageWidth - 10, 28, { align: 'right' });
+            doc.text(`Date: ${today}`, pageWidth - 10, 34, { align: 'right' });
+        };
 
-        doc.setFontSize(8.5);
-        doc.setFont('helvetica', 'normal');
-        doc.text(`Ref: ${dnRef}   |   Date: ${today}   |   Rev: ${project.revision || 'Rev 0'}`, pageWidth / 2, 23, { align: 'center' });
+        drawHeader();
 
-        // ── PROJECT INFO BOX (2 columns) ──
-        const pY = 36;
+        // Project Info
+        let currentY = 50;
         doc.setFillColor(...colors.lightBg);
         doc.setDrawColor(...colors.border);
-        doc.setLineWidth(0.3);
-        doc.roundedRect(8, pY, pageWidth - 16, 30, 2, 2, 'FD');
-
-        const leftCol = 12, rightCol = pageWidth / 2 + 4;
-        const rowH = 5.5;
-        doc.setFontSize(8);
-        doc.setTextColor(...colors.text);
-
-        const pRow3 = [];
-        if (project.includeContractor !== false) pRow3.push('Contractor:', project.contractor || '—');
-        if (project.includeConsultant !== false) pRow3.push('Consultant:', project.consultant || '—');
-        while (pRow3.length < 4) pRow3.push('', '');
+        doc.roundedRect(10, currentY, pageWidth - 20, 35, 2, 2, 'FD');
 
         const pRows = [
-            ['Project Name:', project.projectName || '—', 'Project No:', project.projectNumber || '—'],
-            ['Client / Owner:', project.clientName || '—', 'Location:', project.locationZone || '—'],
-            pRow3,
-            ['Site Engineer:', project.siteEngineer || '—', 'Delivery Date:', today],
+            ['Project:', project.projectName || '—', 'Client:', project.clientName || '—'],
+            ['Location:', project.locationZone || '—', 'Project No:', project.projectNumber || '—'],
+            ['Contractor:', project.contractor || '—', 'Consultant:', project.consultant || '—'],
+            ['Delivery Mode:', 'Road Transport', 'Status:', 'Good Condition'],
         ];
 
         pRows.forEach((r, i) => {
-            const y = pY + 8 + i * rowH;
-            doc.setFont('helvetica', 'bold'); doc.text(r[0], leftCol, y);
-            doc.setFont('helvetica', 'normal'); doc.text(processText(r[1]), leftCol + 28, y);
-            doc.setFont('helvetica', 'bold'); doc.text(r[2], rightCol, y);
-            doc.setFont('helvetica', 'normal'); doc.text(processText(r[3]), rightCol + 26, y);
+            const y = currentY + 8 + i * 7;
+            doc.setFontSize(9);
+            doc.setFont('helvetica', 'bold'); doc.setTextColor(...colors.primary); doc.text(r[0], 15, y);
+            doc.setFont('helvetica', 'normal'); doc.setTextColor(...colors.text); doc.text(processText(r[1]), 42, y);
+            doc.setFont('helvetica', 'bold'); doc.setTextColor(...colors.primary); doc.text(r[2], pageWidth / 2 + 5, y);
+            doc.setFont('helvetica', 'normal'); doc.setTextColor(...colors.text); doc.text(processText(r[3]), pageWidth / 2 + 38, y);
         });
 
-        // ── DELIVERY TABLE (ALL ITEMS) ──
-        let contentY = pY + 34;
+        currentY += 45;
 
-        // Collect all rows across tables
-        const allRows = [];
-        let rowCounter = 1;
-        for (const table of sourceTables) {
+        // Collect Items
+        const allItems = [];
+        sourceTables.forEach(table => {
             const header = table.header || [];
-            const descIdx = header.findIndex(h => /description|desc/i.test(h));
+            const descIdx = header.findIndex(h => /description|desc|disc|item|product/i.test(h));
+            const qtyIdx = header.findIndex(h => /qty|quantity|qt/i.test(h));
+            const unitIdx = header.findIndex(h => /unit|uom/i.test(h));
             const brandIdx = header.findIndex(h => /brand|maker|origin/i.test(h));
-            const qtyIdx = header.findIndex(h => /qty|quantity/i.test(h));
-            const uomIdx = header.findIndex(h => /uom|unit/i.test(h));
 
-            for (const row of table.rows) {
-                if (!row.cells.some(c => c.value)) continue;
-                const desc = descIdx > -1 ? row.cells[descIdx].value : '';
-                const brand = brandIdx > -1 ? row.cells[brandIdx].value : '';
-                const qty = qtyIdx > -1 ? row.cells[qtyIdx].value : '';
-                const uom = uomIdx > -1 ? row.cells[uomIdx].value : '';
-                if (!desc && !brand) continue;
-                allRows.push([
-                    String(rowCounter++).padStart(3, '0'),
-                    processText(desc),
-                    processText(brand),
-                    processText(qty),
-                    processText(uom),
-                    '', // Delivered Qty — to be filled
-                    '', // Condition
-                    '', // Notes
-                ]);
-            }
-        }
+            table.rows.forEach(row => {
+                if (row.isHeader || row.isSummary || !row.cells.some(c => c.value)) return;
+                const qtyVal = qtyIdx > -1 ? parseFloat(String(row.cells[qtyIdx]?.value || '0').replace(/,/g, '')) : 0;
+                if (isNaN(qtyVal) || qtyVal <= 0) return;
+
+                allItems.push({
+                    description: descIdx > -1 ? String(row.cells[descIdx]?.value || '') : 'N/A',
+                    brand: brandIdx > -1 ? String(row.cells[brandIdx]?.value || '') : '—',
+                    qty: qtyVal,
+                    unit: unitIdx > -1 ? String(row.cells[unitIdx]?.value || '') : 'No.'
+                });
+            });
+        });
 
         autoTable(doc, {
-            startY: contentY,
-            margin: { left: 8, right: 8 },
-            head: [[
-                '#',
-                'Item Description',
-                'Brand / Origin',
-                'Ordered Qty',
-                'UOM',
-                'Delivered Qty',
-                'Condition',
-                'Notes',
-            ]],
-            body: allRows,
-            theme: 'striped',
-            styles: { fontSize: 7.5, cellPadding: 2.5, textColor: colors.text, overflow: 'linebreak', font: arabicLoaded ? 'Almarai' : 'helvetica', valign: 'middle' },
+            startY: currentY,
+            margin: { top: 30, left: 10, right: 10 },
+            head: [['S.N', 'Material Description', 'Brand / Origin', 'Unit', 'Delivered Qty', 'Remarks']],
+            body: allItems.map((item, i) => [
+                i + 1,
+                processText(item.description),
+                processText(item.brand),
+                processText(item.unit),
+                item.qty,
+                ''
+            ]),
+            theme: 'grid',
+            styles: {
+                fontSize: 8,
+                cellPadding: 3,
+                font: arabicLoaded ? 'Almarai' : 'helvetica',
+                valign: 'middle'
+            },
             headStyles: {
-                fillColor: colors.accent,
+                fillColor: colors.primary,
                 textColor: colors.white,
                 fontStyle: 'bold',
-                fontSize: 7.5,
-                halign: 'center',
-                cellPadding: 1.5,
-                minCellHeight: 7
+                halign: 'center'
             },
-            alternateRowStyles: { fillColor: colors.lightBg },
             columnStyles: {
-                0: { cellWidth: 9, halign: 'center' },
-                1: { cellWidth: 55, halign: 'left' },
-                2: { cellWidth: 28, halign: 'left' },
-                3: { cellWidth: 16, halign: 'center' },
-                4: { cellWidth: 12, halign: 'center' },
-                5: { cellWidth: 18, halign: 'center' },
-                6: { cellWidth: 18, halign: 'center' },
-                7: { cellWidth: 'auto' },
+                0: { cellWidth: 10, halign: 'center' },
+                1: { cellWidth: 'auto' },
+                2: { cellWidth: 35 },
+                3: { cellWidth: 15, halign: 'center' },
+                4: { cellWidth: 25, halign: 'center' },
+                5: { cellWidth: 25 }
             },
             didDrawPage: (data) => {
-                // Re-draw header band on overflow pages
-                doc.setFillColor(...colors.primary);
-                doc.rect(0, 0, pageWidth, 10, 'F');
-                doc.setTextColor(...colors.white);
+                // For pages > 1, add the colored logo on white background
+                if (doc.internal.getNumberOfPages() > 1) {
+                    const dlCol = colorLogoInfo || whiteLogoInfo;
+                    if (dlCol) {
+                        const fit = calcFitSize(dlCol.width, dlCol.height, 35, 12);
+                        doc.addImage(dlCol.dataUrl, 'PNG', 10, 8, fit.w, fit.h);
+                    }
+                }
+                
                 doc.setFontSize(8);
-                doc.setFont('helvetica', 'bold');
-                doc.text(`DELIVERY NOTE — ${dnRef}`, pageWidth / 2, 7, { align: 'center' });
-
-                // Footer
-                doc.setFontSize(7);
-                doc.setFont('helvetica', 'normal');
                 doc.setTextColor(150, 150, 150);
-                doc.text(`Page ${doc.internal.getNumberOfPages()}`, pageWidth - 10, pageHeight - 5, { align: 'right' });
-                const fText = website || companyName || 'BOQFlow';
-                doc.text(processText(fText), 10, pageHeight - 5);
+                doc.text(`Reference: ${dnRef} | Page ${doc.internal.getNumberOfPages()}`, pageWidth / 2, pageHeight - 10, { align: 'center' });
             }
         });
 
-        // ── SUMMARY BAR ──
-        const finalY = doc.lastAutoTable.finalY + 5;
-        doc.setFillColor(...colors.lightBg);
-        doc.setDrawColor(...colors.border);
-        doc.roundedRect(8, finalY, pageWidth - 16, 10, 2, 2, 'FD');
-        doc.setFontSize(8);
-        doc.setFont('helvetica', 'bold');
-        doc.setTextColor(...colors.text);
-        doc.text(`Total Items: ${allRows.length}`, 14, finalY + 6.5);
-        doc.setFont('helvetica', 'normal');
-        doc.text('Received in Good Condition: ☐ YES   ☐ NO', pageWidth / 2, finalY + 6.5, { align: 'center' });
-
-        // ── SIGNATURES ──
-        const sigY = finalY + 18;
-        if (sigY + 28 < pageHeight - 8) {
-            doc.setFillColor(...colors.primary);
-            doc.rect(8, sigY, pageWidth - 16, 7, 'F');
-            doc.setTextColor(...colors.white);
+        let lastY = doc.lastAutoTable.finalY + 20;
+        if (lastY > pageHeight - 40) {
+            doc.addPage();
+            lastY = 30; // Start below logo
+            
+            // Add Logo to manual page
+            const dlCol = colorLogoInfo || whiteLogoInfo;
+            if (dlCol) {
+                const fit = calcFitSize(dlCol.width, dlCol.height, 35, 12);
+                doc.addImage(dlCol.dataUrl, 'PNG', 10, 8, fit.w, fit.h);
+            }
+            
+            // Add Footer to manual page
             doc.setFontSize(8);
-            doc.setFont('helvetica', 'bold');
-            doc.text('DELIVERY CONFIRMATION', pageWidth / 2, sigY + 4.8, { align: 'center' });
-
-            const sigParties = [
-                { name: 'Delivered By\n(Supplier)', keep: true },
-                { name: 'Received By\n(Contractor)', keep: project.includeContractor !== false },
-                { name: 'Verified By\n(Consultant)', keep: project.includeConsultant !== false }
-            ].filter(p => p.keep).map(p => p.name);
-
-            const boxW = 54, boxH = 22, boxY = sigY + 9;
-            const gap = sigParties.length > 1 ? (pageWidth - 16 - boxW * sigParties.length) / (sigParties.length - 1) : 0;
-
-            sigParties.forEach((name, i) => {
-                const x = 8 + i * (boxW + gap);
-                doc.setFillColor(...colors.white);
-                doc.setDrawColor(...colors.border);
-                doc.setLineWidth(0.3);
-                doc.rect(x, boxY, boxW, boxH, 'FD');
-                doc.setFillColor(...colors.accent);
-                doc.rect(x, boxY, boxW, 6, 'F');
-                doc.setTextColor(...colors.white);
-                doc.setFontSize(6.5);
-                doc.setFont('helvetica', 'bold');
-                doc.text(name.split('\n')[0], x + boxW / 2, boxY + 4, { align: 'center' });
-                doc.setTextColor(...colors.text);
-                doc.setFontSize(6);
-                doc.setFont('helvetica', 'normal');
-                doc.text(name.split('\n')[1] || '', x + boxW / 2, boxY + 9, { align: 'center' });
-                doc.text('Date: __________', x + boxW / 2, boxY + boxH - 2, { align: 'center' });
-            });
+            doc.setTextColor(150, 150, 150);
+            doc.text(`Reference: ${dnRef} | Page ${doc.internal.getNumberOfPages()}`, pageWidth / 2, pageHeight - 10, { align: 'center' });
         }
 
-        // ── FOOTER ──
-        doc.setFillColor(...colors.primary);
-        doc.rect(0, pageHeight - 8, pageWidth, 8, 'F');
-        doc.setTextColor(...colors.white);
-        doc.setFontSize(6);
-        doc.text(`BOQFlow | Delivery Note | ${dnRef}  |  Powered by BOQFlow`, pageWidth / 2, pageHeight - 3, { align: 'center' });
+        // Signatures
+        const sigNames = ['Prepared By', 'Authorized By', 'Customer Signature'];
+        const sigW = 55, sigH = 25;
+        const sigGap = (pageWidth - 20 - sigW * 3) / 2;
 
-        doc.save('DeliveryNote_export.pdf');
+        sigNames.forEach((name, i) => {
+            const x = 10 + i * (sigW + sigGap);
+            doc.setDrawColor(...colors.border);
+            doc.rect(x, lastY, sigW, sigH);
+            doc.setFontSize(8);
+            doc.setFont('helvetica', 'bold');
+            doc.setTextColor(...colors.primary);
+            doc.text(name, x + sigW / 2, lastY + 5, { align: 'center' });
+            doc.line(x + 5, lastY + sigH - 8, x + sigW - 5, lastY + sigH - 8);
+            doc.setFontSize(7);
+            doc.setFont('helvetica', 'normal');
+            doc.text('Signature & Date', x + sigW / 2, lastY + sigH - 3, { align: 'center' });
+        });
+
+        doc.save(`DeliveryNote_${dnRef}.pdf`);
     };
 
     // ===================== PREMIUM POWERPOINT PRESENTATION (LIGHT THEME) =====================
@@ -2091,16 +1937,28 @@ function TableViewer({ data, allBrands }) {
                 // Gold accent line
                 { rect: { x: 0, y: 0.7, w: '100%', h: 0.04, fill: { color: brandColors.accent } } },
                 // Footer background
-                { rect: { x: 0, y: 5.3, w: '100%', h: 0.2, fill: { color: brandColors.lightBg } } }
+                { rect: { x: 0, y: 5.3, w: '100%', h: 0.2, fill: { color: brandColors.lightBg } } },
+                // Logo in header
+                ...( (logoWhite || logoOriginal) ? [{ 
+                    image: { x: 0.15, y: 0.1, w: 1.2, h: 0.5, path: getFullUrl(logoWhite || logoOriginal) } 
+                }] : [] )
             ]
         });
 
         // Title Slide
         const titleSlide = pres.addSlide({ masterName: 'BOQ_MASTER' });
         titleSlide.addText('PRODUCT SHOWCASE', {
-            x: 0.5, y: 1.8, w: 9, h: 0.7,
+            x: 0.5, y: 2.1, w: 9, h: 0.7,
             fontSize: 36, bold: true, color: brandColors.primary, fontFace: 'Arial'
         });
+        
+        // Add prominent logo to cover
+        if (logoOriginal || logoWhite) {
+            titleSlide.addImage({
+                path: getFullUrl(logoOriginal || logoWhite),
+                x: 0.5, y: 1.1, w: 2.2, h: 0.8
+            });
+        }
         titleSlide.addText('Bill of Quantities - Product Presentation', {
             x: 0.5, y: 2.5, w: 9, h: 0.4,
             fontSize: 14, color: brandColors.lightText, fontFace: 'Arial'
@@ -2115,9 +1973,9 @@ function TableViewer({ data, allBrands }) {
 
         for (const table of sourceTables) {
             const header = table.header || [];
-            const descIdx = header.findIndex(h => /description|desc/i.test(h));
+            const descIdx = header.findIndex(h => /description|desc|disc|item|product/i.test(h));
             const brandIdx = header.findIndex(h => /brand|maker|origin/i.test(h));
-            const qtyIdx = header.findIndex(h => /qty|quantity/i.test(h));
+            const qtyIdx = header.findIndex(h => /qty|quantity|qt/i.test(h));
             const finishIdx = header.findIndex(h => /finish|color|material/i.test(h));
 
             for (const row of table.rows) {
@@ -2146,7 +2004,7 @@ function TableViewer({ data, allBrands }) {
 
                 // Company logo area (top right)
                 // PPT master has a white background in the logo area, so prefer original logo
-                const pptLogo = logoBlue || logoWhite;
+                const pptLogo = logoWhite || logoOriginal;
                 if (pptLogo) {
                     try {
                         const logoImg = await getImageData(pptLogo, { format: 'image/png', maxWidth: 400 });
@@ -2382,7 +2240,7 @@ function TableViewer({ data, allBrands }) {
                 });
 
                 // Page URL/reference
-                slide.addText('https://alshayaenterprises.com', {
+                slide.addText(website || 'https://alshayaenterprises.com', {
                     x: 3.5, y: 5.32, w: 3, h: 0.15,
                     fontSize: 7, color: brandColors.primary, align: 'center'
                 });
@@ -2495,7 +2353,7 @@ function TableViewer({ data, allBrands }) {
 
                 // Company logo area (top right)
                 // This PDF version has a white background in the header area, so prefer original logo
-                const pptPdfLogo = logoBlue || logoWhite;
+                const pptPdfLogo = logoWhite || logoOriginal;
                 if (pptPdfLogo) {
                     try {
                         const logoImg = await getImageData(pptPdfLogo);
@@ -2802,11 +2660,17 @@ function TableViewer({ data, allBrands }) {
                                                                 {(cell.images || [cell.image]).map((imgData, imgIdx) => (
                                                                     <img
                                                                         key={imgIdx}
-                                                                        src={imgData ? getFullUrl(imgData.url) : ''}
+                                                                        src={getFullUrl(imgData)}
                                                                         alt="Thumb"
                                                                         className={styles.image}
-                                                                        onClick={() => imgData && setSelectedImage(getFullUrl(imgData.url))}
-                                                                        onError={(e) => { e.target.style.display = 'none'; }}
+                                                                        onClick={() => imgData && setSelectedImage(getFullUrl(imgData))}
+                                                                        onError={(e) => {
+                                                                            e.target.style.display = 'none';
+                                                                            const ph = document.createElement('div');
+                                                                            ph.className = styles.imgNoData;
+                                                                            ph.textContent = 'No Image';
+                                                                            e.target.parentNode.appendChild(ph);
+                                                                        }}
                                                                         style={{ cursor: 'pointer' }}
                                                                     />
                                                                 ))}
@@ -2856,28 +2720,46 @@ function TableViewer({ data, allBrands }) {
                     </div>
                 )}
 
-                {!isCosted && table.extractedSummary && (
-                    <div className={styles.summarySection} style={{ borderColor: '#3b82f6' }}>
-                        <div className={styles.summaryDetailRow}>
-                            <span>Total Items:</span>
-                            <span>{table.extractedSummary.itemCount}</span>
-                        </div>
-                        <div className={styles.summaryDetailRow}>
-                            <span>Total Quantity:</span>
-                            <span>{parseFloat(table.extractedSummary.totalQty).toLocaleString()}</span>
-                        </div>
-                        {parseFloat(table.extractedSummary.totalRate) > 0 && (
+                {!isCosted && table.extractedSummary && (() => {
+                    const vatPct = vatRates[tableIndex] !== undefined ? vatRates[tableIndex] : 5;
+                    const totalAmt = parseFloat(table.extractedSummary.totalAmount) || 0;
+                    const vatAmt = totalAmt * (vatPct / 100);
+                    const grandTotal = totalAmt + vatAmt;
+                    return (
+                        <div className={styles.summarySection} style={{ borderColor: '#3b82f6' }}>
                             <div className={styles.summaryDetailRow}>
-                                <span>Sum of Rates:</span>
-                                <span>{parseFloat(table.extractedSummary.totalRate).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                <span>Total:</span>
+                                <span style={{ color: '#3b82f6', fontWeight: 600 }}>{totalAmt.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                             </div>
-                        )}
-                        <div className={styles.summaryTotal} style={{ color: '#3b82f6' }}>
-                            <span>Total Amount:</span>
-                            <span>{parseFloat(table.extractedSummary.totalAmount).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                            <div className={styles.summaryDetailRow} style={{ alignItems: 'center' }}>
+                                <span>VAT:</span>
+                                <select
+                                    value={vatPct}
+                                    onChange={e => setVatRates(prev => ({ ...prev, [tableIndex]: parseFloat(e.target.value) }))}
+                                    style={{
+                                        background: '#1e293b',
+                                        border: '1px solid #3b82f6',
+                                        borderRadius: '6px',
+                                        color: '#e2e8f0',
+                                        padding: '3px 8px',
+                                        fontSize: '0.85rem',
+                                        cursor: 'pointer',
+                                    }}
+                                >
+                                    <option value={5}>5%</option>
+                                    <option value={0}>0%</option>
+                                    <option value={9}>9%</option>
+                                    <option value={15}>15%</option>
+                                </select>
+                                <span style={{ color: '#94a3b8', marginLeft: '8px' }}>{vatAmt.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                            </div>
+                            <div className={styles.summaryTotal} style={{ color: '#3b82f6' }}>
+                                <span>Grand Total:</span>
+                                <span>{grandTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                            </div>
                         </div>
-                    </div>
-                )}
+                    );
+                })()}
             </div>
         ))
     );
@@ -3008,15 +2890,20 @@ function TableViewer({ data, allBrands }) {
             {selectedImage && (
                 <div className={styles.modalOverlay} onClick={() => setSelectedImage(null)}>
                     <div className={styles.modalContent} onClick={e => e.stopPropagation()}>
-                        <button className={styles.innerCloseButton} onClick={() => setSelectedImage(null)}>×</button>
-                        <img
-                            src={selectedImage}
-                            alt="Full view"
-                            className={styles.modalImage}
-                            onError={(e) => {
-                                e.target.src = 'https://placehold.co/600x400?text=Image+Not+Available';
-                            }}
-                        />
+                        <div className={styles.modalMain}>
+                            <img
+                                src={selectedImage}
+                                alt="Full view"
+                                className={styles.modalImage}
+                                onError={(e) => {
+                                    e.target.src = 'https://placehold.co/600x400?text=Image+Not+Available';
+                                }}
+                            />
+                        </div>
+                        <div className={styles.modalFooter}>
+                            <span className={styles.modalFooterLabel}>Image Preview</span>
+                            <button className={styles.innerCloseButton} onClick={() => setSelectedImage(null)}>×</button>
+                        </div>
                     </div>
                 </div>
             )}

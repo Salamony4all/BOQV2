@@ -1,4 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import ALSHAYA_COLOR from '../assets/alshaya-color.png';
+import ALSHAYA_WHITE from '../assets/alshaya-white.png';
 
 // Create the context
 const CompanyContext = createContext(null);
@@ -6,12 +8,17 @@ const CompanyContext = createContext(null);
 // Storage key
 const STORAGE_KEY = 'boqflow_company_profile';
 
-// Default empty profile
 const DEFAULT_PROFILE = {
-    companyName: '',
-    website: '',
-    logo: null, // { base64, width, height, isLight, whiteLogo }
-    setupComplete: false
+    companyName: 'Alshaya Enterprises',
+    website: 'https://alshayaenterprises.com/',
+    logo: {
+        base64: ALSHAYA_COLOR,
+        width: 1561,
+        height: 865,
+        isLight: false,
+        whiteLogo: ALSHAYA_WHITE
+    },
+    setupComplete: true
 };
 
 // Provider component
@@ -41,7 +48,8 @@ export function CompanyProvider({ children }) {
                 setProfile(parsed);
                 setShowSetupModal(!parsed.setupComplete);
             } else {
-                setShowSetupModal(true);
+                // If no profile is stored, use the defaults we've set (which now include setupComplete: true)
+                setShowSetupModal(false);
             }
         } catch (error) {
             console.error('Failed to load company profile:', error);
@@ -183,8 +191,9 @@ export function CompanyProvider({ children }) {
         website: profile.website || '',
         logo: profile.logo,
         logoWhite: profile.logo?.whiteLogo,
-        logoBlue: profile.logo?.base64,
+        logoBlue: profile.logo?.base64, // Keep for backward compatibility/internal naming
         logoOriginal: profile.logo?.base64,
+        logoVariants: profile.logo, // Provide the full logo object
         setupComplete: profile.setupComplete,
 
         // State
