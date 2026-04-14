@@ -6,27 +6,19 @@
 import * as pdfjs from 'pdfjs-dist/legacy/build/pdf.mjs';
 import { promises as fs } from 'fs';
 import path from 'path';
-import { fileURLToPath, pathToFileURL } from 'url';
+import { fileURLToPath } from 'url';
 import { callGoogleMultimodalFallback } from './utils/llmPDFTable.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Worker configuration:
-// - Vercel / Node.js serverless: set workerSrc = '' to force pdfjs into
-//   "fake worker" / main-thread mode. Node.js ESM loader CANNOT load https:// URLs
-//   as workers, and serverless environments have no worker threads anyway.
-// - Local dev: use local file:// path to the bundled worker.
-if (process.env.VERCEL === '1') {
-    // Empty string = main-thread mode (no separate worker thread). 
-    // This is the correct approach for Node.js / serverless environments.
-    pdfjs.GlobalWorkerOptions.workerSrc = '';
-    console.log('📌 [PdfProductExtractor] Vercel mode: pdfjs running on main thread (no worker)');
-} else {
-    const workerPath = path.join(__dirname, '../node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs');
-    pdfjs.GlobalWorkerOptions.workerSrc = pathToFileURL(workerPath).href;
-    console.log(`📌 [PdfProductExtractor] Dev mode: workerSrc = ${pdfjs.GlobalWorkerOptions.workerSrc}`);
-}
+// Worker configuration for Node.js / Vercel serverless:
+// Node.js ESM only supports file:// URLs for dynamic module loading.
+// Vercel bundles node_modules into the serverless function, so this path resolves correctly.
+// We use import.meta.url to get an absolute file:// URL regardless of CWD.
+const workerUrl = new URL('../node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs', import.meta.url);
+pdfjs.GlobalWorkerOptions.workerSrc = workerUrl.href;
+console.log(`📌 [PdfProductExtractor] workerSrc = ${pdfjs.GlobalWorkerOptions.workerSrc}`);
 
 // Global Store for temporary session images
 export const tempImageStore = new Map();
