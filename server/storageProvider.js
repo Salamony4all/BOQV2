@@ -1,4 +1,6 @@
 import { put, list, del } from '@vercel/blob';
+import { createClient as createKvClient } from '@vercel/kv';
+import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 import { BlobCache } from './utils/blobCache.js';
 import axios from 'axios';
 import path from 'path';
@@ -9,6 +11,20 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const isVercel = process.env.VERCEL === '1';
+
+// Initialize Supabase if credentials are provided
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_ANON_KEY;
+let supabase = null;
+
+if (supabaseUrl && supabaseKey) {
+    try {
+        supabase = createSupabaseClient(supabaseUrl, supabaseKey);
+        console.log('✅ [StorageProvider] Supabase client initialized.');
+    } catch (err) {
+        console.error('❌ [StorageProvider] Failed to initialize Supabase:', err.message);
+    }
+}
 
 // Support multiple Vercel environment naming conventions
 const KV_URL = process.env.KV_REST_API_URL || process.env.STORAGE_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL || process.env.KV_URL;
@@ -21,9 +37,10 @@ let isBlobHealthy = true;
 let kv = null;
 if (KV_URL && KV_TOKEN) {
     try {
-        kv = createClient({ url: KV_URL, token: KV_TOKEN });
-    } catch (e) {
-        console.error('[Storage] Failed to initialize KV client:', e.message);
+        kv = createKvClient({ url: KV_URL, token: KV_TOKEN });
+        console.log('✅ [StorageProvider] KV client initialized.');
+    } catch (err) {
+        console.error('❌ [StorageProvider] Failed to initialize KV:', err.message);
     }
 }
 

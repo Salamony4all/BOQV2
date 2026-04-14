@@ -64,12 +64,16 @@ async function _saveAndPairImage(matchedImage, row, pageNum, tempDir, uploadId) 
 }
 
 export async function extractParallelBOQData(filePath, mimeType, progressCallback = () => {}) {
-
+    const isVercel = process.env.VERCEL === '1';
     const uploadId = crypto.randomUUID();
-    const tempDir = path.join(process.cwd(), 'public', 'temp', 'extracted_images', uploadId);
+    
+    // Choose writable directory
+    const baseTempDir = isVercel ? '/tmp/extracted_images' : path.join(process.cwd(), 'public', 'temp', 'extracted_images');
+    const tempDir = path.join(baseTempDir, uploadId);
+    
     await fs.mkdir(tempDir, { recursive: true });
 
-    console.log(`  ⏱️ [Parallel Extractor] Launching concurrent processes...`);
+    console.log(`  ⏱️ [Parallel Extractor] Launching concurrent processes... Environment: ${isVercel ? 'Vercel' : 'Local'}`);
     
     // Kick off fast screenshot rendering for AI
     const simpleImages = await renderPDFToSimpleImages(filePath);

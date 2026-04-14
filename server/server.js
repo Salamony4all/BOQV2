@@ -9,7 +9,7 @@ import { promises as fs } from 'fs';
 import fs_sync from 'fs';
 import { fileURLToPath } from 'url';
 import { extractExcelData } from './fastExtractor.js';
-import { tempImageStore } from './pdfProductExtractor.js';
+import { extractProductBoqFromPdf, tempImageStore } from './pdfProductExtractor.js';
 
 import { extractParallelBOQData } from './parallelBOQExtractor.js';
 import { extractVisionBOQData } from './visionBOQExtractor.js';
@@ -230,7 +230,8 @@ app.get('/api/lazy-image/:uploadId/:page/:rowId', async (req, res) => {
     
     console.log(`🖼️ [Lazy Image] Request for Upload: ${uploadId} | Page: ${page} | Row: ${rowId}`);
 
-    const tempDir = path.join(process.cwd(), 'public', 'temp', 'extracted_images', uploadId);
+    const baseTempDir = isVercel ? '/tmp/extracted_images' : path.join(process.cwd(), 'public', 'temp', 'extracted_images');
+    const tempDir = path.join(baseTempDir, uploadId);
     const imgPath = path.join(tempDir, `page_${page}_row_${rowId}.jpg`);
     const metadataPath = path.join(tempDir, 'metadata.json');
     const fullPagePath = path.join(tempDir, `page_${page}_full.png`);
@@ -441,10 +442,11 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
 
     let extractedData;
     if (isPdf) {
-        if (extractionMode === 'parallel') {
-            extractedData = await extractParallelBOQData(filePath, 'application/pdf', (p) => {
-              // We can emit progress here if we use WebSockets, but for now we'll just log
-            });
+        if (isVercel) {
+            console.log(`[Upload] Running in Vercel - Using light extraction (pdfjs)`);
+            extractedData = await extractProductBoqFromPdf(filePath);
+        } else if (extractionMode === 'parallel') {
+            extractedData = await extractParallelBOQData(filePath, 'application/pdf');
         } else {
             // Legacy vision path
             extractedData = await extractVisionBOQData(filePath, 'application/pdf');
@@ -1549,7 +1551,7 @@ app.post('/api/analyze-plan', planUpload.array('files', 10), async (req, res) =>
 // Temp-Image Directory Cleanup Helper
 // Wipes all session subfolders under public/temp/
 // ────────────────────────────────────────────────
-const TEMP_IMAGE_DIR = path.join(process.cwd(), 'public', 'temp', 'extracted_images');
+const TEMP_IMAGE_DIR = isVercel ? '/tmp/extracted_images' : path.join(process.cwd(), 'public', 'temp', 'extracted_images');
 
 async function cleanTempDir() {
   try {
