@@ -1593,23 +1593,25 @@ app.use((error, req, res, next) => {
   res.status(500).json({ error: error.message || 'Internal server error' });
 });
 
-console.log('--- Starting BOQFLOW Server ---');
-const server = app.listen(PORT, '0.0.0.0', () => {
-  console.log(`🚀 BOQFLOW Classic Server actively listening on: http://localhost:${PORT}`);
-  console.log('--- Triggering Initial Cleanup ---');
-  Promise.all([
-    cleanupService.cleanupAll(),
-    cleanTempDir()
-  ])
-    .then(() => console.log('✅ Initial cleanup completed.'))
-    .catch(err => console.error('❌ Cleanup failed:', err));
-});
+if (!isVercel) {
+  const server = app.listen(PORT, '0.0.0.0', () => {
+    console.log(`🚀 BOQFLOW server actively listening on: http://localhost:${PORT}`);
+    
+    // Initial maintenance tasks...
+    Promise.all([
+      cleanupService.cleanupAll(),
+      cleanTempDir()
+    ])
+      .then(() => console.log('✅ Initial cleanup completed.'))
+      .catch(err => console.error('❌ Cleanup failed:', err));
+  });
 
-server.on('error', (err) => {
-  console.error('SERVER ERROR:', err);
-  if (err.code === 'EADDRINUSE') {
-    console.error(`Port ${PORT} is already in use. Please kill the process manually.`);
-  }
-});
+  server.on('error', (err) => {
+    console.error('SERVER ERROR:', err);
+    if (err.code === 'EADDRINUSE') {
+      console.error(`Port ${PORT} is already in use. Please kill the process manually.`);
+    }
+  });
+}
 
-export default server;
+export default app;
