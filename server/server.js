@@ -1,12 +1,18 @@
 
 import 'dotenv/config';
 import express from 'express';
+import sharp from 'sharp';
 import cors from 'cors';
 import multer from 'multer';
 import path from 'path';
 import { promises as fs } from 'fs';
+import fs_sync from 'fs';
 import { fileURLToPath } from 'url';
 import { extractExcelData } from './fastExtractor.js';
+import { tempImageStore } from './pdfProductExtractor.js';
+
+import { extractParallelBOQData } from './parallelBOQExtractor.js';
+import { extractVisionBOQData } from './visionBOQExtractor.js';
 import { CleanupService } from './cleanupService.js';
 import { put, del, list } from '@vercel/blob';
 import { BlobCache } from './utils/blobCache.js';
@@ -16,6 +22,7 @@ import https from 'https';
 import { ExcelDbManager } from './excelManager.js';
 import { brandStorage } from './storageProvider.js';
 import { getAiMatch, identifyModel, fetchProductDetails, searchAndEnrichModel, analyzePlan, matchFitoutItem, FREE_GOOGLE_MODELS, PAID_GOOGLE_MODELS, VALID_GOOGLE_MODELS, VALID_OPENROUTER_MODELS, VALID_NVIDIA_MODELS, GOOGLE_MODEL, OPENROUTER_MODEL, NVIDIA_MODEL } from './utils/llmUtils.js';
+import { renderSinglePageFull } from './utils/pdfRenderer.js';
 
 // Restored Scraper Engine Imports
 import ScraperService from './scraper.js';
@@ -132,6 +139,11 @@ const isVercel = process.env.VERCEL === '1';
 const uploadsPath = isVercel ? '/tmp/uploads' : path.join(__dirname, '../uploads');
 app.use('/uploads', express.static(uploadsPath));
 
+// Serve public directory for temp images and extracted assets
+const publicPath = path.join(__dirname, '../public');
+app.use(express.static(publicPath));
+app.use('/temp', express.static(path.join(publicPath, 'temp')));
+
 // Multer configuration
 const storage = multer.diskStorage({
   destination: async (req, file, cb) => {
@@ -152,12 +164,16 @@ const upload = multer({
   fileFilter: (req, file, cb) => {
     const allowedTypes = [
       'application/vnd.ms-excel',
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'application/pdf',
+      'image/png',
+      'image/jpeg',
+      'image/jpg'
     ];
-    if (allowedTypes.includes(file.mimetype) || file.originalname.match(/\.(xls|xlsx)$/)) {
+    if (allowedTypes.includes(file.mimetype) || file.originalname.match(/\.(xls|xlsx|pdf|png|jpg|jpeg)$/i)) {
       cb(null, true);
     } else {
-      cb(new Error('Only .xls and .xlsx files are allowed.'));
+      cb(new Error('Only Excel, PDF, and Image files are allowed.'));
     }
   },
   limits: { fileSize: 50 * 1024 * 1024 }
@@ -187,10 +203,195 @@ const planUpload = multer({
 app.get('/api/status', (req, res) => {
   res.json({ 
     status: 'online', 
-    version: '2.0.1 (Classic)',
+    version: '2.0.1 (High-Fidelity)',
     timestamp: new Date().toISOString(),
     environment: process.env.NODE_ENV || 'development'
   });
+});
+
+// Serve temporary extracted images
+app.get('/api/temp-image/:id', (req, res) => {
+    const { id } = req.params;
+    const imageBuffer = tempImageStore.get(id);
+    
+    if (!imageBuffer) {
+        return res.status(404).send('Image not found');
+    }
+    
+    res.set('Content-Type', 'image/png');
+    res.send(imageBuffer);
+});
+
+// Serve lazy extracted images from background processing
+app.get('/api/lazy-image/:uploadId/:page/:rowId', async (req, res) => {
+    const { uploadId, page, rowId } = req.params;
+    const pNum = parseInt(page);
+    const rIdx = parseInt(rowId);
+    
+    console.log(`🖼️ [Lazy Image] Request for Upload: ${uploadId} | Page: ${page} | Row: ${rowId}`);
+
+    const tempDir = path.join(process.cwd(), 'public', 'temp', 'extracted_images', uploadId);
+    const imgPath = path.join(tempDir, `page_${page}_row_${rowId}.jpg`);
+    const metadataPath = path.join(tempDir, 'metadata.json');
+    const fullPagePath = path.join(tempDir, `page_${page}_full.png`);
+
+    // 1. Check if it already exists
+    try {
+        await fs.access(imgPath);
+        return res.sendFile(imgPath);
+    } catch (e) {
+        // Continue to extraction if missing
+    }
+
+    try {
+        // 2. Check metadata
+        if (!fs_sync.existsSync(metadataPath)) {
+            throw new Error("Session metadata.json not found");
+        }
+        const metadata = JSON.parse(await fs.readFile(metadataPath, 'utf8'));
+
+        // 3. Find row and page info
+        const rowInfo = metadata.rows.find(r => r.pageNum === pNum && r.rowIdx === rIdx);
+        if (!rowInfo) throw new Error(`Row ${rIdx} on P${pNum} not found in metadata`);
+
+        const pageLayout = metadata.pages.find(p => p.page === pNum);
+        if (!pageLayout) throw new Error(`Page ${pNum} layout data missing`);
+
+        // PRIORITY STAGE: Check for Native (Layered) Image Match
+        if (pageLayout.nativeImages && pageLayout.nativeImages.length > 0) {
+            
+            // Get all rows on this page sorted by rowIdx (visual order)
+            const sortedPageRows = metadata.rows
+                .filter(r => r.pageNum === pNum)
+                .sort((a, b) => a.rowIdx - b.rowIdx);
+            
+            // Sort native images top-to-bottom by Y (same as Python now does, but double-ensure)
+            const productImages = pageLayout.nativeImages
+                .filter(img => img.h >= 30 && img.w >= 30)
+                .sort((a, b) => a.y - b.y || a.x - b.x);
+            
+            // Find the positional rank of this row among its page peers
+            const rowPositionOnPage = sortedPageRows.findIndex(r => r.rowIdx === rIdx);
+            
+            // ── Strategy 1: Perfect positional (most reliable) ──────────────────
+            if (productImages.length === sortedPageRows.length && rowPositionOnPage !== -1) {
+                const matchedImg = productImages[rowPositionOnPage];
+                if (matchedImg) {
+                    console.log(`    💎 [Lazy Image] Positional match P${pNum} R${rIdx} (rank ${rowPositionOnPage}) → ${matchedImg.path}`);
+                    await fs.copyFile(matchedImg.path, imgPath);
+                    return res.sendFile(imgPath);
+                }
+            }
+
+            // ── Strategy 2: Closest-unused Y-center match ────────────────────────
+            if (rowPositionOnPage !== -1 && productImages.length > 0) {
+                // Build a set of indices already "claimed" by earlier rows
+                const claimedIndices = new Set();
+                for (let rank = 0; rank < rowPositionOnPage; rank++) {
+                    // Simple greedy: rank-th row claims rank-th image if within tolerance
+                    if (rank < productImages.length) claimedIndices.add(rank);
+                }
+                
+                // Find best unclaimed image for this row
+                const normalize = (s) => String(s || '').replace(/[^a-z0-9]/gi, '').toLowerCase();
+                const targetSN = normalize(rowInfo.sn);
+                const snMatch = pageLayout.textItems.find(item => {
+                    const normStr = normalize(item.str);
+                    return normStr === targetSN && normStr.length > 0;
+                });
+                const anchorY = snMatch ? snMatch.y : null;
+
+                let bestIdx = rowPositionOnPage; // Default to positional
+                let bestDist = Infinity;
+                
+                for (let i = 0; i < productImages.length; i++) {
+                    if (claimedIndices.has(i)) continue;
+                    const img = productImages[i];
+                    const imgCenterY = img.y + img.h / 2;
+                    const dist = anchorY !== null
+                        ? Math.abs(imgCenterY - anchorY)
+                        : Math.abs(i - rowPositionOnPage) * 200;
+                    if (dist < bestDist) { bestDist = dist; bestIdx = i; }
+                }
+
+                if (bestIdx >= 0 && bestIdx < productImages.length) {
+                    const overlapImg = productImages[bestIdx];
+                    console.log(`    💎 [Lazy Image] Y-match P${pNum} R${rIdx} → img[${bestIdx}] dist=${Math.round(bestDist)}: ${overlapImg.path}`);
+                    await fs.copyFile(overlapImg.path, imgPath);
+                    return res.sendFile(imgPath);
+                }
+            }
+        }
+
+        // FALLBACK STAGE: Sharp Crop from Full Page
+        // 4. On-Demand Render of the full page if missing
+        if (!fs_sync.existsSync(fullPagePath)) {
+            console.log(`    📸 [Lazy Image] Full page missing, rendering on-demand: ${fullPagePath}`);
+            await renderSinglePageFull(metadata.pdfPath, pNum, fullPagePath);
+        }
+
+        // ... rest of the cropping logic ...
+        const normalize = (s) => String(s || '').replace(/[^a-z0-9]/gi, '').toLowerCase();
+        const targetSN = normalize(rowInfo.sn);
+        
+        const snMatch = pageLayout.textItems.find(item => {
+            const normStr = normalize(item.str);
+            const isMatch = normStr === targetSN || (targetSN && normStr.includes(targetSN));
+            return isMatch && (item.x === undefined || item.x < 300);
+        });
+
+        const descPrefix = normalize(rowInfo.description || '').substring(0, 15);
+        const descMatch = !snMatch && descPrefix.length > 3 ? pageLayout.textItems.find(item => {
+            return normalize(item.str).includes(descPrefix);
+        }) : null;
+
+        let targetY = snMatch ? snMatch.y : (descMatch ? descMatch.y : null);
+        if (targetY === null) {
+            const pageRows = metadata.rows.filter(r => r.pageNum === pNum).sort((a,b) => a.rowIdx - b.rowIdx);
+            const idx = pageRows.findIndex(r => r.rowIdx === rIdx);
+            if (idx !== -1) targetY = 400 + (idx * 160);
+            else throw new Error("Could not determine crop Y position");
+        }
+
+        let dynamicHeight = 160; 
+        const pageRows = metadata.rows.filter(r => r.pageNum === pNum).sort((a, b) => a.rowIdx - b.rowIdx);
+        const currentIdx = pageRows.findIndex(r => r.rowIdx === rIdx);
+        if (currentIdx !== -1 && currentIdx < pageRows.length - 1) {
+            const nextRow = pageRows[currentIdx + 1];
+            const nextSN = normalize(nextRow.sn);
+            const nextMatch = pageLayout.textItems.find(it => normalize(it.str) === nextSN && (it.x === undefined || it.x < 300));
+            if (nextMatch && nextMatch.y > targetY) {
+                dynamicHeight = Math.min(300, (nextMatch.y - targetY) + 30);
+            }
+        }
+
+        const cropY = Math.max(0, Math.round(targetY - 40));
+        const cropX = 50; 
+        const cropWidth = 500;
+
+        console.log(`    ✂️ [Lazy Image] FALLBACK Sharp Crop P${pNum} R${rIdx} at Y=${cropY}`);
+        
+        const image = sharp(fullPagePath);
+        const imgMeta = await image.metadata();
+        const finalW = Math.min(cropWidth, imgMeta.width - cropX);
+        const finalH = Math.min(dynamicHeight, imgMeta.height - cropY);
+
+        if (finalW <= 0 || finalH <= 0) throw new Error("Crop bounds invalid");
+
+        await image.extract({
+            left: Math.round(cropX),
+            top: Math.round(cropY),
+            width: Math.round(finalW),
+            height: Math.round(finalH)
+        }).toFile(imgPath);
+
+        console.log(`    ✅ [Lazy Image] FALLBACK crop created: ${imgPath}`);
+        res.sendFile(imgPath);
+
+    } catch (err) {
+        console.error(`    ❌ [Lazy Image] Error: ${err.message}`);
+        res.status(500).json({ error: err.message });
+    }
 });
 
 app.get('/api/models/available', (req, res) => {
@@ -226,19 +427,71 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
     }
 
     const filePath = req.file.path;
+    const fileName = req.file.originalname;
+    const isPdf = fileName.toLowerCase().endsWith('.pdf') || req.file.mimetype === 'application/pdf';
+    const isImage = req.file.mimetype.startsWith('image/') || fileName.toLowerCase().match(/\.(png|jpg|jpeg)$/);
     const sessionId = req.headers['x-session-id'] || 'default';
 
-    console.log(`[Upload] Processing: ${req.file.originalname} via fastExtractor`);
+    const extractionMode = req.headers['x-extraction-mode'] || 'parallel';
+
+    console.log(`[Upload] Processing: ${fileName} | Mode: ${extractionMode}`);
 
     // Track file for cleanup
     cleanupService.trackFile(sessionId, filePath);
 
-    // Extract data from Excel (pass callback to track blobs)
-    const extractedData = await extractExcelData(filePath, () => { }, (url) => {
-      cleanupService.trackBlob(sessionId, url);
+    let extractedData;
+    if (isPdf) {
+        if (extractionMode === 'parallel') {
+            extractedData = await extractParallelBOQData(filePath, 'application/pdf', (p) => {
+              // We can emit progress here if we use WebSockets, but for now we'll just log
+            });
+        } else {
+            // Legacy vision path
+            extractedData = await extractVisionBOQData(filePath, 'application/pdf');
+        }
+    } else if (isImage) {
+        // Handle images directly uploaded to BOQ flow
+        extractedData = await extractVisionBOQData(filePath, req.file.mimetype);
+    } else {
+        // Extract data from Excel
+        extractedData = await extractExcelData(filePath, () => { }, (url) => {
+          cleanupService.trackBlob(sessionId, url);
+        });
+    }
+
+    res.json({
+      success: true,
+      data: extractedData,
+      isDirectExtraction: true,
+      progress: 100,
+      stage: 'Direct Extraction Complete'
     });
 
-    // Send final result
+  } catch (error) {
+    console.error('Error processing file:', error);
+    res.status(500).json({
+      error: 'Failed to process file',
+      details: error.message
+    });
+  }
+});
+
+app.post('/api/extract/vision', planUpload.single('file'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+
+    const filePath = req.file.path;
+    const sessionId = req.headers['x-session-id'] || 'default';
+
+    console.log(`[Vision Upload] Processing: ${req.file.originalname}`);
+
+    // Track file for cleanup
+    cleanupService.trackFile(sessionId, filePath);
+
+    const extractedData = await extractVisionBOQData(filePath, req.file.mimetype);
+
     res.json({
       success: true,
       data: extractedData,
@@ -247,9 +500,9 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Error processing file:', error);
+    console.error('Error in vision extraction:', error);
     res.status(500).json({
-      error: 'Failed to process Excel file',
+      error: 'Failed to process file with Vision AI',
       details: error.message
     });
   }
@@ -667,7 +920,10 @@ app.post('/api/auto-match-ai', async (req, res) => {
               ...matchResult.product,
               brand: 'FitOut V2',
               brandLogo: '',
-              imageUrl: matchResult.product.imageUrl || ''
+              imageUrl: matchResult.product.imageUrl || '',
+              images: (matchResult.product.images || []).map(img => 
+                img.startsWith('http') ? `${req.protocol}://${req.get('host')}/api/image-proxy?url=${encodeURIComponent(img)}` : img
+              )
             },
             source: 'internal-fitout-db',
             identifiedModel: matchResult.product.model
@@ -848,6 +1104,9 @@ app.post('/api/auto-match-ai', async (req, res) => {
 
         const proxyBase = `${req.protocol}://${req.get('host')}/api/image-proxy?url=`;
         newProduct.imageUrl = `${proxyBase}${encodeURIComponent(newProduct.imageUrl)}`;
+        if (newProduct.images && Array.isArray(newProduct.images)) {
+          newProduct.images = newProduct.images.map(img => `${proxyBase}${encodeURIComponent(img)}`);
+        }
 
         return res.json({
           status: 'success',
@@ -1061,15 +1320,21 @@ app.get('/api/image-proxy', async (req, res) => {
     const code = error.code || 'UNKNOWN_ERROR';
     const msg = error.response?.statusText || error.message;
     
-    console.error(`🖼️  [Image Proxy] Failed: ${imageUrl?.substring(0, 80)}... | Status: ${status} | Code: ${code} | Msg: ${msg}`);
-    
-    if (status === 404) {
-      res.status(404).send('Image not found');
-    } else if (status === 403) {
-      res.status(403).send('Access forbidden by target site');
-    } else {
-      res.status(502).send(`Gateway Error: ${code} - ${msg}`);
+    console.warn(`🖼️  [Image Proxy] Warning: ${imageUrl?.substring(0, 80)}... | Status: ${status} | Code: ${code}`);
+
+    // Fallback image source (reliable placeholder)
+    const fallbackImage = "https://placehold.co/400x400/f8fafc/64748b?text=Image+Not+Available";
+
+    if (status === 404 || status === 403) {
+        try {
+            const fbRes = await axios.get(fallbackImage, { responseType: 'arraybuffer' });
+            res.set('Content-Type', 'image/png');
+            return res.send(fbRes.data);
+        } catch (e) {
+            return res.status(status).send(msg);
+        }
     }
+    res.status(502).send(`Gateway Error: ${code} - ${msg}`);
   }
 });
 
@@ -1280,10 +1545,38 @@ app.post('/api/analyze-plan', planUpload.array('files', 10), async (req, res) =>
   }
 });
 
+// ────────────────────────────────────────────────
+// Temp-Image Directory Cleanup Helper
+// Wipes all session subfolders under public/temp/
+// ────────────────────────────────────────────────
+const TEMP_IMAGE_DIR = path.join(process.cwd(), 'public', 'temp', 'extracted_images');
+
+async function cleanTempDir() {
+  try {
+    await fs.mkdir(TEMP_IMAGE_DIR, { recursive: true }); // ensure it exists first
+    const entries = await fs.readdir(TEMP_IMAGE_DIR, { withFileTypes: true });
+    const dirs = entries.filter(e => e.isDirectory());
+    await Promise.all(
+      dirs.map(d => fs.rm(path.join(TEMP_IMAGE_DIR, d.name), { recursive: true, force: true }))
+    );
+    if (dirs.length > 0) {
+      console.log(`🧹 [Temp Cleanup] Removed ${dirs.length} session folder(s) from public/temp/extracted_images`);
+    }
+  } catch (err) {
+    console.warn(`⚠️ [Temp Cleanup] Could not clean temp dir: ${err.message}`);
+  }
+}
+
 // Reset & Cleanup
 app.post('/api/reset', async (req, res) => {
-  await cleanupService.cleanupAll();
-  res.json({ success: true, message: 'System reset complete' });
+  try {
+    await cleanupService.cleanupAll();
+    await cleanTempDir();
+    res.json({ success: true, message: 'System reset complete' });
+  } catch (err) {
+    console.error('❌ [Reset] Cleanup error:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
 });
 
 app.post('/api/cleanup', async (req, res) => {
@@ -1302,7 +1595,10 @@ console.log('--- Starting BOQFLOW Server ---');
 const server = app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 BOQFLOW Classic Server actively listening on: http://localhost:${PORT}`);
   console.log('--- Triggering Initial Cleanup ---');
-  cleanupService.cleanupAll()
+  Promise.all([
+    cleanupService.cleanupAll(),
+    cleanTempDir()
+  ])
     .then(() => console.log('✅ Initial cleanup completed.'))
     .catch(err => console.error('❌ Cleanup failed:', err));
 });

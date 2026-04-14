@@ -60,6 +60,7 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
     const [isConsolidated, setIsConsolidated] = useState(false);
     const [specialistData, setSpecialistData] = useState(null);
     const [enrichingRowId, setEnrichingRowId] = useState(null);
+    const [lastAISettings, setLastAISettings] = useState({ brands: [], engine: 'OpenAI', providerModel: null });
 
     // AI processing states split per type and tier
     const [furnitureStatuses, setFurnitureStatuses] = useState({
@@ -398,27 +399,11 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
         setIsFitoutAutoFilling(true);
         setFitoutBatchResult(null);
 
-        const isHeaderRow = (desc, row = {}) => {
-            if (!desc || desc.trim() === '') return true;
-            const normalized = desc.trim().toLowerCase();
-            
-            // If it has a code pattern like [FL-01], it's definitely an item
-            if (/^\[.*?\]/.test(normalized)) return false;
-
-            // If it has quantity or unit, it's definitely an item
-            const hasData = String(row.qty || '').trim() || String(row.unit || '').trim() || String(row.rate || '').trim();
-            if (hasData) return false;
-
-            const exactHeaders = ['item', 'description', 'desc', 'quantity', 'qty', 'unit', 'uom', 'rate', 'price', 'total', 'amount', 's.n.', 'sn', 'sr.no', 'sr no', 'id', 'ref', 'area', 'specification', 'specifications', 'remarks', 'location', 'description and area', 'description & area', 'room', 'floor', 'block', 'zone', 'subtotal', 'total amount', 'grand total', 'net total', 'discount'];
-            if (exactHeaders.some(kw => normalized === kw || normalized.startsWith(kw + ' '))) return true;
-
-            // More restrictive regex for generic markers
-            if (/^(location|area|floor|block|zone|room|item\s*no|s\.no|ref)$/i.test(normalized)) return true;
-            
-            return false;
-        };
-
-        const tierKeys = ['budgetary', 'mid', 'high'].filter(k => tierDataRef.current[k]?.rows?.length > 0);
+        const tierKeys = ['budgetary', 'mid', 'high'].filter(k => {
+            const hasRows = tierDataRef.current[k]?.rows?.length > 0;
+            const hasBrands = availableBrands.some(s => s.endsWith(`|${k}`));
+            return hasRows && hasBrands;
+        });
         if (tierKeys.length > 1) setActiveTier('comparison');
 
         let globalStats = { success: 0, error: 0, newlyAdded: 0 };
@@ -461,6 +446,13 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                     // (Assuming Fitout V2 is the primarily used one)
                     if (brandsForThisTier.length === 0) {
                         console.log(`  ⏭️ [Fitout Logic] Skipping tier ${tierKey} because no brands were selected for it.`);
+                        setTierData(prev => ({
+                            ...prev,
+                            [tierKey]: { 
+                                ...prev[tierKey], 
+                                rows: prev[tierKey].rows.map(r => String(r.id) === rowId ? { ...r, aiStatus: null } : r) 
+                            }
+                        }));
                         return;
                     }
 
@@ -596,37 +588,38 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
     };
 
 
+    const isHeaderRow = (desc, row = {}) => {
+        if (!desc || desc.trim() === '') return true;
+        const normalized = desc.trim().toLowerCase();
+        
+        // If it has a code pattern like [FL-01], it's definitely an item
+        if (/^\[.*?\]/.test(normalized)) return false;
+
+        // If it has quantity or unit, it's definitely an item
+        const hasData = String(row.qty || '').trim() || String(row.unit || '').trim() || String(row.rate || '').trim();
+        if (hasData) return false;
+
+        const exactHeaders = [
+            'item', 'description', 'desc', 'quantity', 'qty', 'unit', 'uom',
+            'rate', 'price', 'total', 'amount', 's.n.', 'sn', 'sr.no', 'sr no', 'id',
+            'ref', 'area', 'specification', 'specifications', 'remarks', 'location',
+            'description and area', 'description & area', 'room', 'floor', 'block', 'zone',
+            'subtotal', 'total amount', 'grand total', 'net total', 'discount'
+        ];
+        if (exactHeaders.some(kw => normalized === kw || normalized.startsWith(kw + ' '))) return true;
+
+        // More restrictive regex for generic markers
+        if (/^(location|area|floor|block|zone|room|item\s*no|s\.no|ref)$/i.test(normalized)) return true;
+        
+        if (/^(group|type|section|category|list)\s+of\s/i.test(normalized)) return true;
+        return false;
+    };
+
     const executeAutoFillAI = async (selectedBrands, selectedEngine, providerModel = null) => {
         setIsAutoFillSelectOpen(false);
         setIsFurnitureAutoFilling(true);
         setFurnitureBatchResult(null);
-
-        const isHeaderRow = (desc, row = {}) => {
-            if (!desc || desc.trim() === '') return true;
-            const normalized = desc.trim().toLowerCase();
-            
-            // If it has a code pattern like [FL-01], it's definitely an item
-            if (/^\[.*?\]/.test(normalized)) return false;
-
-            // If it has quantity or unit, it's definitely an item
-            const hasData = String(row.qty || '').trim() || String(row.unit || '').trim() || String(row.rate || '').trim();
-            if (hasData) return false;
-
-            const exactHeaders = [
-                'item', 'description', 'desc', 'quantity', 'qty', 'unit', 'uom',
-                'rate', 'price', 'total', 'amount', 's.n.', 'sn', 'sr.no', 'sr no', 'id',
-                'ref', 'area', 'specification', 'specifications', 'remarks', 'location',
-                'description and area', 'description & area', 'room', 'floor', 'block', 'zone',
-                'subtotal', 'total amount', 'grand total', 'net total', 'discount'
-            ];
-            if (exactHeaders.some(kw => normalized === kw || normalized.startsWith(kw + ' '))) return true;
-
-            // More restrictive regex for generic markers
-            if (/^(location|area|floor|block|zone|room|item\s*no|s\.no|ref)$/i.test(normalized)) return true;
-            
-            if (/^(group|type|section|category|list)\s+of\s/i.test(normalized)) return true;
-            return false;
-        };
+        setLastAISettings({ brands: selectedBrands, engine: selectedEngine, providerModel });
 
         const brandsByTier = { budgetary: [], mid: [], high: [] };
         for (const brandName of selectedBrands) {
@@ -812,16 +805,200 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
     };
 
 
-    // Allow re-running AI on a single error row
-    const handleRetryRow = async (rowIndex, selectedBrands, selectedEngine) => {
-        // Reset error state then re-queue just this row by temporarily triggering a mini-batch
+    // Allow re-rerunning AI on a single error/no-match row
+    const handleRetryRow = async (rowIndex, forcedBrands = null, forcedEngine = null) => {
+        const tierKey = activeTier;
+        const tier = tierDataRef.current[tierKey];
+        if (!tier) return;
+        const row = tier.rows[rowIndex];
+        if (!row) return;
+
+        const brandsToUse = forcedBrands || lastAISettings.brands || [];
+        const engineToUse = forcedEngine || lastAISettings.engine || 'OpenAI';
+        const modelToUse = lastAISettings.providerModel;
+        const isFitout = row.scope?.toUpperCase().includes('FITOUT');
+
+        // 1. Set to processing state
         setTierData(prev => {
-            const tier = prev[activeTier];
-            if (!tier) return prev;
-            const newRows = [...tier.rows];
-            newRows[rowIndex] = { ...newRows[rowIndex], aiStatus: null, aiError: null };
-            return { ...prev, [activeTier]: { ...tier, rows: newRows } };
+            const newRows = [...prev[tierKey].rows];
+            newRows[rowIndex] = { ...newRows[rowIndex], aiStatus: 'processing', aiError: null };
+            return { ...prev, [tierKey]: { ...prev[tierKey], rows: newRows } };
         });
+
+        if (isFitout) {
+            updateFitoutStatus(tierKey, { status: 'identifying', currentItem: row, brand: '...', model: 'Matching Fitout...', image: null });
+            try {
+                // Extract brands for this tier
+                const brandsForThisTier = brandsToUse
+                    .filter(s => s.endsWith(`|${tierKey}`))
+                    .map(s => s.split('|')[0]);
+
+                const cleanDesc = (row.description || '').replace(/^\[.*?\]\s*/, '').trim();
+
+                const response = await fetch(`${API_BASE}/api/auto-match-ai`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        description: cleanDesc,
+                        qty: row.qty,
+                        unit: row.unit,
+                        tier: tierKey,
+                        availableBrands: brandsForThisTier,
+                        provider: engineToUse,
+                        providerModel: modelToUse,
+                        scope: 'Fitout',
+                        type: 'fitout'
+                    })
+                });
+
+                const result = await response.json();
+                if (result.status === 'success' && result.product) {
+                    const product = result.product;
+                    const finalPrice = Math.ceil(parseFloat(product.price || 0));
+                    updateFitoutStatus(tierKey, { status: 'success', brand: product.brand || 'FitOut V2', model: product.model || '', image: product.imageUrl || row.imageRef || null });
+
+                    setTierData(prev => {
+                        const newRows = [...prev[tierKey].rows];
+                        newRows[rowIndex] = {
+                            ...newRows[rowIndex],
+                            selectedBrand: product.brand || 'FitOut V2',
+                            brandDesc: product.description || product.model,
+                            brandImage: product.imageUrl || null,
+                            brandLogo: '',
+                            type: 'fitout',
+                            rate: finalPrice.toFixed(2),
+                            amount: (finalPrice * (parseFloat(row.qty) || 0)).toFixed(2),
+                            aiStatus: 'success',
+                            aiResult: result
+                        };
+                        return { ...prev, [tierKey]: { ...prev[tierKey], rows: newRows } };
+                    });
+                } else {
+                    const newStatus = result.status === 'no_match' ? 'no_match' : 'error';
+                    updateFitoutStatus(tierKey, { status: newStatus });
+                    setTierData(prev => {
+                        const newRows = [...prev[tierKey].rows];
+                        newRows[rowIndex] = { ...newRows[rowIndex], aiStatus: newStatus, aiError: result.message };
+                        return { ...prev, [tierKey]: { ...prev[tierKey], rows: newRows } };
+                    });
+                }
+            } catch (error) {
+                console.error("Retry Fitout Error:", error);
+                updateFitoutStatus(tierKey, { status: 'error' });
+                setTierData(prev => {
+                    const newRows = [...prev[tierKey].rows];
+                    newRows[rowIndex] = { ...newRows[rowIndex], aiStatus: 'error', aiError: error.message };
+                    return { ...prev, [tierKey]: { ...prev[tierKey], rows: newRows } };
+                });
+            }
+        } else {
+            // Furniture retry
+            updateFurnitureStatus(tierKey, { status: 'identifying', currentItem: row, brand: '...', model: 'Finding match...', image: null });
+
+            // Calculate brands for this tier
+            const brandsByTier = { budgetary: [], mid: [], high: [] };
+            for (const brandName of brandsToUse) {
+                const dbEntry = brands.find(b => b.name === brandName);
+                const t = (dbEntry?.budgetTier || 'mid').toLowerCase();
+                const key = (t === 'high' || t === 'premium') ? 'high' : t === 'budgetary' ? 'budgetary' : 'mid';
+                brandsByTier[key].push(brandName);
+            }
+
+            const sizeContext = [row.qty && `Qty: ${row.qty}`, row.unit && `Unit: ${row.unit}`].filter(Boolean).join(', ');
+            const enrichedDesc = sizeContext ? `${row.description} | ${sizeContext}` : row.description;
+
+            try {
+                const response = await fetch(`${API_BASE}/api/auto-match-ai`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        description: enrichedDesc,
+                        tier: tierKey,
+                        availableBrands: brandsByTier[tierKey],
+                        provider: engineToUse,
+                        providerModel: modelToUse,
+                        scope: row.scope,
+                        type: 'furniture'
+                    })
+                });
+
+                const result = await response.json();
+                if (result.status === 'success' && result.product) {
+                    const match = result.product;
+                    const matchedBrandName = match.brand || '';
+
+                    updateFurnitureStatus(tierKey, { status: 'success', brand: matchedBrandName, model: match.model || '', image: match.imageUrl || null });
+
+                    const localBrandEntry = brands.find(b => b.name.toLowerCase().trim() === matchedBrandName.toLowerCase().trim());
+                    const resolvedLogo = localBrandEntry?.logo || '';
+
+                    let finalBrandDesc = match.description || (match.model ? `Model: ${match.model}` : row.description);
+                    let finalMainCat = match.mainCategory || 'Office Seating';
+                    let finalSubCat = String(match.subCategory || 'Staff Chairs');
+                    let finalFamily = String(match.family || '');
+                    let finalModel = match.model || '';
+                    let finalImageUrl = match.imageUrl || '';
+                    let finalRate = parseFloat(match.price) > 0 ? parseFloat(match.price).toFixed(2) : (row.rate || '0.00');
+
+                    if (localBrandEntry && localBrandEntry.products) {
+                        const products = localBrandEntry.products;
+                        const normalize = (s) => String(s || '').toLowerCase().replace(/#\d+/g, '').replace(/[^a-z0-9]/g, ' ').replace(/\s+/g, ' ').trim();
+                        const target = normalize(finalModel);
+                        const matches = products.filter(p => normalize(p.model).includes(target) || target.includes(normalize(p.model)));
+
+                        if (matches.length > 0) {
+                            const ranked = matches.sort((a, b) => (parseFloat(b.price) || 0) - (parseFloat(a.price) || 0));
+                            const bestP = ranked[0];
+                            finalMainCat = bestP.mainCategory || bestP.category || finalMainCat;
+                            finalSubCat = bestP.subCategory || finalSubCat;
+                            finalFamily = bestP.family || '';
+                            finalModel = bestP.model;
+                            finalImageUrl = bestP.imageUrl || finalImageUrl;
+                            if (parseFloat(bestP.price) > 0) finalRate = parseFloat(bestP.price).toFixed(2);
+                            if (bestP.description) finalBrandDesc = bestP.description;
+                            match.bestModelUrl = bestP.productUrl || bestP.imageUrl || `id_${bestP.id}`;
+                        }
+                    }
+
+                    const updatedRow = {
+                        ...row,
+                        selectedBrand: matchedBrandName,
+                        selectedMainCat: finalMainCat,
+                        selectedSubCat: finalSubCat,
+                        selectedFamily: finalFamily,
+                        selectedModel: finalModel,
+                        selectedModelUrl: match.bestModelUrl || match.productUrl || finalImageUrl,
+                        brandDesc: finalBrandDesc,
+                        brandImage: finalImageUrl,
+                        brandLogo: resolvedLogo,
+                        type: 'furniture',
+                        rate: finalRate,
+                        amount: (parseFloat(finalRate) * (parseFloat(row.qty) || 0)).toFixed(2),
+                        aiStatus: 'success',
+                        aiResult: result
+                    };
+
+                    setTierData(prev => ({
+                        ...prev,
+                        [tierKey]: { ...prev[tierKey], rows: prev[tierKey].rows.map(r => String(r.id) === String(row.id) ? updatedRow : r) }
+                    }));
+                } else {
+                    const newStatus = result.status === 'no_match' ? 'no_match' : 'error';
+                    updateFurnitureStatus(tierKey, { status: newStatus });
+                    setTierData(prev => ({
+                        ...prev,
+                        [tierKey]: { ...prev[tierKey], rows: prev[tierKey].rows.map(r => String(r.id) === String(row.id) ? { ...r, aiStatus: newStatus, aiError: result.message } : r) }
+                    }));
+                }
+            } catch (error) {
+                console.error("Retry Furniture Error:", error);
+                updateFurnitureStatus(tierKey, { status: 'error' });
+                setTierData(prev => ({
+                    ...prev,
+                    [tierKey]: { ...prev[tierKey], rows: prev[tierKey].rows.map(r => String(r.id) === String(row.id) ? { ...r, aiStatus: 'error', aiError: error.message } : r) }
+                }));
+            }
+        }
     };
 
     const handleCellChange = (rowIndex, field, value) => {
@@ -2675,7 +2852,7 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
     };
 
     const renderRow = (row, sn, isBoqMode, index) => {
-        const refImgSrc = row.imageRef ? (String(row.imageRef).startsWith('http') ? row.imageRef : `${API_BASE}${row.imageRef}`) : null;
+        const refImgSrc = getFullUrl(row.imageRef);
 
         const activeBrand = brands.find(b => {
             if (b.type === 'fitout' || b.name === 'FitOut V2') {
@@ -2781,11 +2958,19 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                                     src={refImgSrc}
                                     alt="ref"
                                     className={styles.tableImg}
-                                    onClick={() => {
+                                    onClick={(e) => {
+                                        // Only open lightbox if image loaded successfully
+                                        if (e.target.dataset.broken === 'true') return;
                                         setPreviewImage(refImgSrc);
                                         setPreviewLogo(null);
                                         setPreviewBrand('Original Reference');
                                         setPreviewModel(row.description);
+                                    }}
+                                    onError={(e) => {
+                                        e.target.dataset.broken = 'true';
+                                        e.target.style.opacity = '0.3';
+                                        e.target.style.filter = 'grayscale(1)';
+                                        e.target.title = 'Image not available (session expired – re-upload to refresh)';
                                     }}
                                 />
                             </div>
@@ -3064,7 +3249,12 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                                 const match = tierData[tierKey]?.rows[i];
                                 return (
                                     <td key={tierKey}>
-                                        {match && match.selectedBrand ? (
+                                        {match && match.aiStatus === 'processing' ? (
+                                            <div className={styles.aiLoadingCell} style={{ padding: '20px' }}>
+                                                <div className={styles.tinySpinner}></div>
+                                                <span style={{ fontSize: '0.7rem' }}>AI Searching...</span>
+                                            </div>
+                                        ) : match && match.selectedBrand ? (
                                             <div className={styles.comparisonCell}>
                                                 {match.brandImage && (
                                                     <img

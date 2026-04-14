@@ -34,6 +34,10 @@ storage/
 server/storage/
 server/data/temp/
 
+# Temporary extracted images (generated at runtime, never commit)
+public/temp/
+public/temp/**
+
 # Scraper Logs
 scraper-debug.log
 
@@ -51,3 +55,9 @@ page-*.yml
 page-*.png
 page-*.jpeg
 page-*.json
+
+# Scratch and Temp
+scratch/
+logos_base64.txt
+logos/
+.agent/

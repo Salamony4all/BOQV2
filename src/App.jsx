@@ -74,7 +74,8 @@ const ThemeToggle = () => {
 };
 
 function AppContent({ onOpenSettings }) {
-  const { logoWhite, companyName } = useCompanyProfile();
+  const { logoOriginal, logoWhite, companyName } = useCompanyProfile();
+  const { theme } = useTheme();
   const [sessionId] = useState(() => Math.random().toString(36).substring(7));
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -212,7 +213,7 @@ function AppContent({ onOpenSettings }) {
             const response = JSON.parse(xhr.responseText);
             setExtractedData(response.data);
             setProgress(100);
-            setStage('Complete');
+            setStage(response.isDirectExtraction ? 'Direct Extraction Complete' : 'Extraction Complete');
             setTimeout(() => setUploading(false), 500);
           } else {
             console.error('Upload error details:', xhr.responseText);
@@ -229,6 +230,7 @@ function AppContent({ onOpenSettings }) {
         console.log('[Upload] uploading to', uploadUrl);
         xhr.open('POST', uploadUrl);
         xhr.setRequestHeader('x-session-id', sessionId);
+        xhr.setRequestHeader('x-extraction-mode', 'parallel'); // Request Parallel High-Fidelity Extraction
 
         const progressInterval = setInterval(() => {
           setProgress(prev => {
@@ -262,6 +264,7 @@ function AppContent({ onOpenSettings }) {
       setUploading(false);
     }
   };
+
 
   const handlePlanAnalyze = async (scope, provider = 'google', providerModel = 'gemma-4-31b-it') => {
     if (!currentPlanFiles || currentPlanFiles.length === 0) return;
@@ -368,8 +371,10 @@ function AppContent({ onOpenSettings }) {
               <span className={styles.hamburgerLine}></span>
             </button>
             <div className={styles.logoSmall} onClick={() => { setShowLanding(true); setExtractedData(null); setSeededPlanItems(null); }}>
-              {logoWhite ? (
+              {theme === 'dark' && logoWhite ? (
                 <img src={logoWhite} alt={companyName} className={styles.headerLogo} />
+              ) : logoOriginal ? (
+                <img src={logoOriginal} alt={companyName} className={styles.headerLogo} />
               ) : (
                 <span className={styles.logoTextSmall}>{companyName || 'BOQFLOW'}</span>
               )}
@@ -382,12 +387,13 @@ function AppContent({ onOpenSettings }) {
           {!extractedData && (
             <div className={styles.homeCardGrid}>
               {/* 1. UPLOAD BOQ CARD */}
+              {/* 1. UNIVERSAL UPLOAD BOQ CARD */}
               <ActionCard
                 title="UPLOAD BOQ"
                 iconText="BOQ"
-                hint="or click to browse"
-                formats="Supports .xls and .xlsx files (max 50MB)"
-                accept=".xls,.xlsx,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                hint="High-Fidelity Extraction (Excel/PDF/Image)"
+                formats="Supports Excel, PDF, PNG, JPG"
+                accept=".xls,.xlsx,.pdf,.png,.jpg,.jpeg"
                 disabled={uploading}
                 onSelect={handleFileUpload}
               />
@@ -495,9 +501,16 @@ function AppContent({ onOpenSettings }) {
       <section className={styles.hero}>
         {/* Logo */}
         {/* Logo with Image Q */}
-        <div className={styles.logoContainer}>
-          <span className={styles.logoTextBlue}>BOQ</span>
-          <span className={styles.logoTextGold}> FLOW</span>
+        <div className={styles.logoContainer} onClick={() => window.location.reload()} style={{ cursor: 'pointer' }}>
+          {theme === 'dark' && logoWhite ? (
+            <img src={logoWhite} alt={companyName} className={styles.landingLogo} />
+          ) : logoOriginal ? (
+            <img src={logoOriginal} alt={companyName} className={styles.landingLogo} />
+          ) : (
+            <span className={styles.logoTextSmall} style={{ fontSize: '3rem' }}>
+              {companyName}
+            </span>
+          )}
         </div>
 
         {/* Main Headline */}
@@ -538,7 +551,7 @@ function AppContent({ onOpenSettings }) {
           <label className={styles.ctaPrimary}>
             <input
               type="file"
-              accept=".xlsx,.xls,.pdf"
+              accept=".xlsx,.xls,.pdf,.png,.jpg,.jpeg"
               style={{ display: 'none' }}
               onChange={(e) => e.target.files[0] && handleFileUpload(e.target.files[0])}
             />

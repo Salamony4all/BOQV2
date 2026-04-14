@@ -6,8 +6,11 @@ const API_BASE = getApiBase();
  * Normalizes and proxies URLs for images.
  * Useful for bypassing CORS or hotlink protection.
  */
-export const getFullUrl = (url) => {
+export const getFullUrl = (input) => {
+    if (!input) return '';
+    let url = typeof input === 'object' ? input.url : input;
     if (!url) return '';
+    
     let normalizedUrl = url;
     if (url.startsWith('//')) {
         normalizedUrl = 'https:' + url;

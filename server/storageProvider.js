@@ -14,6 +14,9 @@ const isVercel = process.env.VERCEL === '1';
 const KV_URL = process.env.KV_REST_API_URL || process.env.STORAGE_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL || process.env.KV_URL;
 const KV_TOKEN = process.env.KV_REST_API_TOKEN || process.env.STORAGE_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_TOKEN;
 
+// Health states
+let isBlobHealthy = true;
+
 // Initialize KV client
 let kv = null;
 if (KV_URL && KV_TOKEN) {
@@ -86,7 +89,7 @@ export const brandStorage = {
         localBrands.forEach(b => brandMap.set(String(b.id), b));
 
         // 2. Load Blob Brands (Persistent Storage Layer for Vercel without KV)
-        if (!kv && process.env.BLOB_READ_WRITE_TOKEN) {
+        if (!kv && process.env.BLOB_READ_WRITE_TOKEN && isBlobHealthy) {
             try {
                 const { blobs } = await BlobCache.list({ prefix: 'brands-db/' });
                 // Parallel fetch of all brand files
@@ -94,16 +97,37 @@ export const brandStorage = {
                     try {
                         const res = await axios.get(blob.url);
                         return res.data;
-                    } catch (e) { console.error('Failed to read blob brand:', e.message); return null; }
+                    } catch (e) { 
+                        if (e.response?.status === 403) {
+                            if (isBlobHealthy) {
+                                console.warn('⚠️ [Storage] Blob Storage returned 403 (Forbidden). Switching to Local-First mode.');
+                                isBlobHealthy = false;
+                            }
+                        } else {
+                            console.error('Failed to read blob brand:', e.message); 
+                        }
+                        return null; 
+                    }
                 });
 
                 const blobBrands = await Promise.all(blobPromises);
-                blobBrands.filter(Boolean).forEach(b => {
+                const validBlobBrands = blobBrands.filter(Boolean);
+                validBlobBrands.forEach(b => {
                     if (b && b.id) brandMap.set(String(b.id), b);
                 });
-                console.log(`[Storage] Loaded ${blobBrands.filter(Boolean).length} brands from Blob DB.`);
+                
+                if (validBlobBrands.length > 0) {
+                    console.log(`[Storage] Loaded ${validBlobBrands.length} brands from Blob DB.`);
+                }
             } catch (e) {
-                console.error('[Storage] Failed to load brands from Blob:', e.message);
+                if (e.message?.includes('403') || e.response?.status === 403) {
+                    if (isBlobHealthy) {
+                        console.warn('⚠️ [Storage] Blob list failed (403). Disabling Blob Storage for this session.');
+                        isBlobHealthy = false;
+                    }
+                } else {
+                    console.error('[Storage] Failed to load brands from Blob:', e.message);
+                }
             }
         }
 
@@ -146,14 +170,19 @@ export const brandStorage = {
         }
 
         // Blob Storage Strategy (Persistent)
-        if (process.env.BLOB_READ_WRITE_TOKEN) {
+        if (process.env.BLOB_READ_WRITE_TOKEN && isBlobHealthy) {
             try {
                 const filename = `brands-db/${brand.id}.json`;
                 await put(filename, JSON.stringify(brand, null, 2), { access: 'public', addRandomSuffix: false });
                 // Invalidate brand list cache
                 BlobCache.invalidate('brands-db/');
             } catch (error) { 
-                console.error('[Storage] Blob save failed:', error); 
+                if (error.message?.includes('403') || error.response?.status === 403) {
+                    isBlobHealthy = false;
+                    console.warn('⚠️ [Storage] Save to Blob failed (403). Falling back to local only.');
+                } else {
+                    console.error('[Storage] Blob save failed:', error.message); 
+                }
             }
         }
 

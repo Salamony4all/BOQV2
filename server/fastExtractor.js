@@ -1,4 +1,3 @@
-
 import ExcelJS from 'exceljs';
 import { promises as fs } from 'fs';
 import fsSync from 'fs';
@@ -9,16 +8,16 @@ import xml2js from 'xml2js';
 import { fileURLToPath } from 'url';
 import axios from 'axios';
 import FormData from 'form-data';
+import { put } from '@vercel/blob';
+import { convertEmfToPng } from './utils/emfConverter.js';
+import { extractLegacyExcelData } from './legacyExtractor.js';
+import { convertXlsToXlsx } from './utils/xlsToXlsxConverter.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const parser = new xml2js.Parser({ explicitArray: false, mergeAttrs: true });
 const parseString = promisify(parser.parseString);
-
-// ... existing code ...
-
-export { extractExcelData };
 
 // Header patterns for BOQ detection (Must match at least 2 to be considered a table)
 const BOQ_HEADER_KEYWORDS = [/description|desc/i, /qty|quantity/i, /unit/i, /rate|price/i, /amount|total/i, /image|photo/i, /sn|s\.n|no\.|item/i];
@@ -28,6 +27,33 @@ const BOQ_HEADER_KEYWORDS = [/description|desc/i, /qty|quantity/i, /unit/i, /rat
  * Reduces memory usage by 90% compared to standard generic extraction
  */
 async function extractExcelData(filePath, progressCallback = () => { }, onBlobCreated = null) {
+    // Verify file existence before processing
+    try {
+        await fs.access(filePath);
+        
+        // Check for legacy .xls (Compound Binary File Format) signature
+        const fd = await fs.open(filePath, 'r');
+        const buffer = Buffer.alloc(8);
+        await fd.read(buffer, 0, 8, 0);
+        await fd.close();
+        
+        // CFBF signature: D0 CF 11 E0 A1 B1 1A E1
+        if (buffer[0] === 0xD0 && buffer[1] === 0xCF && buffer[2] === 0x11 && buffer[3] === 0xE0) {
+            console.log(`[FastExtractor] Legacy .xls detected. Attempting high-fidelity conversion...`);
+            try {
+                const convertedPath = await convertXlsToXlsx(filePath);
+                // Recursively call with the new .xlsx path to get full image support
+                return await extractExcelData(convertedPath, progressCallback, onBlobCreated);
+            } catch (convErr) {
+                console.warn(`[FastExtractor] High-fidelity conversion failed, falling back to basic extractor:`, convErr.message);
+                return await extractLegacyExcelData(filePath);
+            }
+        }
+    } catch (err) {
+        if (err.message.includes(".xls") || err.message.includes("LegacyExtractor") || err.message.includes("XlsConverter")) throw err;
+        throw new Error(`Excel file not found at path: ${filePath}. It may have been cleaned up or upload failed.`);
+    }
+
     const workbookReader = new ExcelJS.stream.xlsx.WorkbookReader(filePath, {
         sharedStrings: 'cache',
         hyperlinks: 'ignore',
@@ -37,6 +63,9 @@ async function extractExcelData(filePath, progressCallback = () => { }, onBlobCr
 
     const isVercel = process.env.VERCEL === '1';
     const imagesDir = isVercel ? '/tmp/uploads/images' : path.join(__dirname, '../uploads/images');
+    
+    // Ensure both base uploads and images directory exist
+    await fs.mkdir(path.dirname(imagesDir), { recursive: true });
     await fs.mkdir(imagesDir, { recursive: true });
 
     // Extract all images first
@@ -97,16 +126,20 @@ async function extractExcelData(filePath, progressCallback = () => { }, onBlobCr
     };
 }
 
-import { put } from '@vercel/blob';
-
-/**
- * Extracts images directly from ZIP and maps them to (row, col)
- */
 async function extractImagesAndMap(filePath, imagesDir, onBlobCreated = null) {
     const imageLocations = []; // Array of { row, col, sheetId, imagePath }
 
     try {
+        // Double check imagesDir exists for this process
+        if (!fsSync.existsSync(imagesDir)) {
+            fsSync.mkdirSync(imagesDir, { recursive: true });
+        }
+
         console.log(`[FastExtractor] Opening zip file: ${filePath}`);
+        if (!fsSync.existsSync(filePath)) {
+            throw new Error(`ZIP source file missing: ${filePath}`);
+        }
+
         const zip = new AdmZip(filePath);
         const zipEntries = zip.getEntries();
 
@@ -179,10 +212,28 @@ async function extractImagesAndMap(filePath, imagesDir, onBlobCreated = null) {
                 const targetName = `${timestamp}_${fileName}`;
                 const targetPath = path.join(imagesDir, targetName);
                 try {
+                    // Pre-verify imagesDir again to be absolutely sure no race condition deleted it
+                    if (!fsSync.existsSync(imagesDir)) fsSync.mkdirSync(imagesDir, { recursive: true });
+                    
                     fsSync.writeFileSync(targetPath, data);
-                    savedImages[fileName] = `/uploads/images/${targetName}`;
+                    
+                    // Handle EMF support: Convert to PNG on-the-fly if on Windows
+                    if (fileName.toLowerCase().endsWith('.emf')) {
+                        console.log(`[FastExtractor] Processing EMF: ${fileName}`);
+                        const pngPath = await convertEmfToPng(targetPath);
+                        if (pngPath) {
+                            const pngName = path.basename(pngPath);
+                            savedImages[fileName] = `/uploads/images/${pngName}`;
+                            console.log(`[FastExtractor] Applied PNG conversion for: ${fileName} -> ${pngName}`);
+                        } else {
+                            savedImages[fileName] = `/uploads/images/${targetName}`;
+                            console.warn(`[FastExtractor] EMF conversion failed for ${fileName}, browser may not display it.`);
+                        }
+                    } else {
+                        savedImages[fileName] = `/uploads/images/${targetName}`;
+                    }
                 } catch (err) {
-                    console.error(`   > Failed to write ${fileName} locally:`, err);
+                    console.error(`   > Failed to write ${fileName} locally to ${targetPath}:`, err);
                 }
             }));
         }
@@ -419,4 +470,4 @@ async function processWorksheetStream(worksheetReader, imageMap, sheetIndex) {
     };
 }
 
-
+export { extractExcelData };

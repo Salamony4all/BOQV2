@@ -1,13 +1,15 @@
 {
   "verbose": true,
   "ignore": [
-    "server/data/*.json",
-    "server/data/brands/*.json",
-    "public/cache/*.json",
-    "uploads/**/*",
+    "server/data/**",
+    "public/temp/**",
+    "public/cache/**",
+    "uploads/**",
+    "extracted_assets/**",
     "*.test.js",
-    "node_modules"
+    "node_modules/**",
+    ".git/**"
   ],
-  "exec": "node server/server.js",
+  "exec": "node --max-old-space-size=8192 server/server.js",
   "ext": "js,json"
 }
