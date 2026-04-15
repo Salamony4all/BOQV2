@@ -61,9 +61,11 @@ export async function extractProductBoqFromPdf(filePath, progressCallback = () =
                     const page = doc.loadPage(pageIdx);
                     let headerY = -1;
                     const snAnchors = []; // { sn, y }
-
+                    
                     // First pass: Find header and SN anchors
                     const yGroups = new Map(); // Group text by Y level to find the header row
+
+                    const keywords = ['sl.no', 's.n', 'sr.no', 'no.', 'item', 'description', 'image', 'qty', 'unit', 'total', 'rate', 'price'];
 
                     page.toStructuredText().walk({
                         onLine(bbox, line) {
@@ -71,15 +73,14 @@ export async function extractProductBoqFromPdf(filePath, progressCallback = () =
                             // Round Y to 5pt variance to group text in the same row
                             const y = Math.round(bbox[1] / 5) * 5;
                             
-                            if (!yGroups.has(y)) yGroups.set(y, { count: 0, keywords: [], bbox: bbox });
+                            if (!yGroups.has(y)) yGroups.set(y, { count: 0, bbox: bbox });
                             const group = yGroups.get(y);
                             
-                            if (txt.includes('sl.no') || txt.includes('s.n') || txt.includes('sr.no') || 
-                                txt.includes('no.') || txt.includes('item') || txt.includes('description') || 
-                                txt.includes('image') || txt.includes('qty') || txt.includes('unit') || 
-                                txt.includes('total') || txt.includes('rate')) {
-                                group.count++;
-                                group.keywords.push(txt);
+                            // Count EVERY keyword match in this line
+                            for (const k of keywords) {
+                                if (txt.includes(k)) {
+                                    group.count++;
+                                }
                             }
                         }
                     });
@@ -94,16 +95,21 @@ export async function extractProductBoqFromPdf(filePath, progressCallback = () =
                         }
                     }
                     
-                    if (bestY !== -1 && maxKeywords >= 2) {
+                    if (bestY !== -1 && maxKeywords >= 3) {
                         headerY = bestY;
-                        console.log(`   🎯 Page ${pageIdx + 1}: Confirmed Header Row at Y=${Math.round(headerY)} (${maxKeywords} keywords)`);
+                        console.log(`   🎯 Page ${pageIdx + 1}: Confirmed Header Row at Y=${Math.round(headerY)} (${maxKeywords} points)`);
+                    } else {
+                        console.log(`   ⚠️ Page ${pageIdx + 1}: Header detection weak (max=${maxKeywords} pts). Fallback to start of page.`);
                     }
 
                     // Second pass: Collect SN Anchors below the confirmed Header
                     page.toStructuredText().walk({
                         onLine(bbox, line) {
                             const txt = line.trim().toLowerCase();
-                            if (headerY !== -1 && bbox[1] > (headerY + 5) && bbox[0] < 120) {
+                            // If we have a header, only look below it. 
+                            // If we don't, we look everywhere (but filtering will be risky)
+                            const isBelowHeader = headerY === -1 || bbox[1] > (headerY + 5);
+                            if (isBelowHeader && bbox[0] < 120) {
                                 const snMatch = txt.match(/^(\d+)$/);
                                 if (snMatch) {
                                     snAnchors.push({ sn: snMatch[1], y: (bbox[1] + bbox[3]) / 2 });
