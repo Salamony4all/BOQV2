@@ -63,19 +63,47 @@ export async function extractProductBoqFromPdf(filePath, progressCallback = () =
                     const snAnchors = []; // { sn, y }
 
                     // First pass: Find header and SN anchors
+                    const yGroups = new Map(); // Group text by Y level to find the header row
+
                     page.toStructuredText().walk({
                         onLine(bbox, line) {
                             const txt = line.trim().toLowerCase();
-                            // Expanded keywords to catch different header formats
-                            if (txt.includes('s.n') || txt.includes('item') || txt.includes('description') || 
-                                txt.includes('qty') || txt.includes('image') || txt.includes('total')) {
-                                // We want the topmost part of the header row
-                                if (headerY === -1 || bbox[1] < headerY) headerY = bbox[1];
+                            // Round Y to 5pt variance to group text in the same row
+                            const y = Math.round(bbox[1] / 5) * 5;
+                            
+                            if (!yGroups.has(y)) yGroups.set(y, { count: 0, keywords: [], bbox: bbox });
+                            const group = yGroups.get(y);
+                            
+                            if (txt.includes('sl.no') || txt.includes('s.n') || txt.includes('sr.no') || 
+                                txt.includes('no.') || txt.includes('item') || txt.includes('description') || 
+                                txt.includes('image') || txt.includes('qty') || txt.includes('unit') || 
+                                txt.includes('total') || txt.includes('rate')) {
+                                group.count++;
+                                group.keywords.push(txt);
                             }
+                        }
+                    });
 
-                            // SN Anchor detection (Numbers in the left column, below header)
-                            // We look for solo numbers or numbers at the start of the line in the left 15% of width
-                            if (headerY !== -1 && bbox[1] > headerY && bbox[0] < 100) {
+                    // Header Y is the Y level with the MOST matches (the real header row)
+                    let bestY = -1;
+                    let maxKeywords = 0;
+                    for (const [y, group] of yGroups) {
+                        if (group.count > maxKeywords) {
+                            maxKeywords = group.count;
+                            bestY = group.bbox[1];
+                        }
+                    }
+                    
+                    if (bestY !== -1 && maxKeywords >= 2) {
+                        headerY = bestY;
+                        console.log(`   🎯 Page ${pageIdx + 1}: Confirmed Header Row at Y=${Math.round(headerY)} (${maxKeywords} keywords)`);
+                    }
+
+                    // Second pass: Collect SN Anchors below the confirmed Header
+                    page.toStructuredText().walk({
+                        onLine(bbox, line) {
+                            const txt = line.trim().toLowerCase();
+                            if (headerY !== -1 && bbox[1] > (headerY + 5) && bbox[0] < 120) {
                                 const snMatch = txt.match(/^(\d+)$/);
                                 if (snMatch) {
                                     snAnchors.push({ sn: snMatch[1], y: (bbox[1] + bbox[3]) / 2 });
