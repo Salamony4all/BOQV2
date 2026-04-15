@@ -60,10 +60,11 @@ export async function extractProductBoqFromPdf(filePath, progressCallback = () =
                 for (let pageIdx = 0; pageIdx < doc.countPages(); pageIdx++) {
                     const page = doc.loadPage(pageIdx);
                     let headerY = -1;
+                    let tableStartY = -1;
                     let imageColumnX = -1;
                     const snAnchors = []; // { sn, y }
                     
-                    // 1. IMPROVED HEADER DETECTION (Find Y and 'IMAGE' column X)
+                    // 1. EXTRACT ALL TEXT LINES
                     const lines = [];
                     page.toStructuredText().walk({
                         onLine(bbox, line) {
@@ -71,16 +72,15 @@ export async function extractProductBoqFromPdf(filePath, progressCallback = () =
                         }
                     });
 
-                    // Sliding window (15pt) to find the densest keyword row
+                    // 2. DETECT HEADER & TABLE BOUNDARY
                     let maxHits = 0;
-                    const keywords = ['sl.no', 's.n', 'item', 'description', 'image', 'qty', 'unit', 'total', 'rate', 'price'];
-                    
+                    const keywords = ['sl.no', 's.n', 'sr.no', 'no.', 'item', 'description', 'image', 'qty', 'unit', 'total', 'rate', 'price'];
                     for (let i = 0; i < lines.length; i++) {
                         let hits = 0;
                         let currentY = lines[i].bbox[1];
                         let imgX = -1;
                         
-                        // Check neighbors within 15pt
+                        // Check neighbors for header structure
                         for (let j = 0; j < lines.length; j++) {
                             if (Math.abs(lines[j].bbox[1] - currentY) < 15) {
                                 for (const k of keywords) {
@@ -99,22 +99,28 @@ export async function extractProductBoqFromPdf(filePath, progressCallback = () =
                         }
                     }
 
-                    if (headerY !== -1 && maxHits >= 3) {
-                        console.log(`   🎯 Page ${pageIdx + 1}: Table Header detected at Y=${Math.round(headerY)} (ImageColX: ${Math.round(imageColumnX)})`);
-                    }
-
-                    // 2. EXTRACT SERIAL NUMBERS (SN)
+                    // 3. IDENTIFY ALL SN ANCHORS & DEFINE HARD BOUNDARY
                     for (const line of lines) {
-                        if (headerY !== -1 && line.bbox[1] > (headerY + 5) && line.bbox[0] < 120) {
+                        // S.N. column is usually leftmost (x < 120)
+                        if (line.bbox[0] < 120) {
                             const snMatch = line.text.match(/^\s*(\d+)[.\s-]*$/);
                             if (snMatch) {
                                 const snVal = parseInt(snMatch[1]).toString();
-                                snAnchors.push({ sn: snVal, y: (line.bbox[1] + line.bbox[3]) / 2 });
+                                const midY = (line.bbox[1] + line.bbox[3]) / 2;
+                                snAnchors.push({ sn: snVal, y: midY });
+                                // The very first serial number (1, 10, etc) defines where the table rows start
+                                if (tableStartY === -1 || line.bbox[1] < tableStartY) {
+                                    tableStartY = line.bbox[1];
+                                }
                             }
                         }
                     }
 
-                    // 3. EXTRACT AND FILTER IMAGES
+                    // Fallback: If no S.N. found, use headerY
+                    const hardLogoBoundary = tableStartY !== -1 ? tableStartY : (headerY !== -1 ? headerY : 150);
+                    console.log(`   🎯 Page ${pageIdx + 1}: Table Head at Y=${Math.round(hardLogoBoundary)}`);
+
+                    // 4. EXTRACT AND FILTER IMAGES
                     const pageImgsForSort = [];
                     page.toStructuredText('preserve-images').walk({
                         onImageBlock(bbox, _transform, image) {
@@ -124,27 +130,22 @@ export async function extractProductBoqFromPdf(filePath, progressCallback = () =
                                 const imgY = (bbox[1] + bbox[3]) / 2;
                                 const imgX = bbox[0];
 
-                                // A. SIZE & TOP-PAGE FILTER
-                                if (w < 20 || h < 20) return;
-                                if (headerY !== -1 && bbox[1] < (headerY - 5)) return; 
-
-                                // B. COLUMN ALIGNMENT FILTER (Product images must be near Image column)
-                                // If we found an image column, use it. Otherwise assume pdt images are centered-ish or right of SN.
-                                if (imageColumnX !== -1) {
-                                    const distFromCol = Math.abs(imgX - imageColumnX);
-                                    if (distFromCol > 150) {
-                                        console.log(`     🚫 Skipping out-of-column image at X=${Math.round(imgX)} (ColX=${Math.round(imageColumnX)})`);
-                                        return;
-                                    }
+                                // A. HARD BOUNDARY FILTER
+                                // If image is above the first Serial Number or Header, it is 100% a logo.
+                                if (bbox[1] < (hardLogoBoundary - 10)) {
+                                    console.log(`     🚫 Skipping logo above table start (y=${Math.round(bbox[1])} < start=${Math.round(hardLogoBoundary)})`);
+                                    return;
                                 }
+
+                                if (w < 20 || h < 20) return;
 
                                 const pngBytes = image.toPixmap(mupdf.Matrix.identity, mupdf.ColorSpace.DeviceRGB, false).asPNG();
                                 if (pngBytes.length < 500) return;
                                 const dataUri = `data:image/png;base64,${Buffer.from(pngBytes).toString('base64')}`;
 
-                                // C. SPATIAL LOCK TO S.N.
+                                // B. SPATIAL LOCK TO S.N.
                                 let matchedSN = null;
-                                let bestDist = 120; // Reasnoble row height
+                                let bestDist = 120;
                                 for (const anchor of snAnchors) {
                                     const vDist = Math.abs(anchor.y - imgY);
                                     if (vDist < bestDist) {
@@ -155,17 +156,13 @@ export async function extractProductBoqFromPdf(filePath, progressCallback = () =
 
                                 if (matchedSN) {
                                     snImageMap.set(`${pageIdx}_${matchedSN}`, dataUri);
-                                    console.log(`     📸 Linked image to S.N. ${matchedSN}`);
                                 }
                                 
                                 pageImgsForSort.push({ y: bbox[1], url: dataUri });
-                            } catch (err) {
-                                // Silent fail for corrupted image stream
-                            }
+                            } catch (err) { }
                         }
                     });
 
-                    // Sort top-to-bottom for fallback sequential mapping
                     pageImgsForSort.sort((a, b) => a.y - b.y);
                     for (const img of pageImgsForSort) {
                         imageRefs.push({ ref: imgCounter++, url: img.url });
@@ -173,7 +170,7 @@ export async function extractProductBoqFromPdf(filePath, progressCallback = () =
                 }
                 
                 imageRefs.spatialMap = snImageMap;
-                console.log(`   📸 Final: ${imageRefs.length} images extracted, ${snImageMap.size} spatial anchors.`);
+                console.log(`   📸 Extraction complete: ${imageRefs.length} images, ${snImageMap.size} spatial locks.`);
             } catch (err) {
                 console.error(`   ❌ mupdf critical extraction error:`, err);
             }
