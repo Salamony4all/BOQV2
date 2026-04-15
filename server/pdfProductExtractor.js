@@ -60,59 +60,61 @@ export async function extractProductBoqFromPdf(filePath, progressCallback = () =
                 for (let pageIdx = 0; pageIdx < doc.countPages(); pageIdx++) {
                     const page = doc.loadPage(pageIdx);
                     let headerY = -1;
-                    const snAnchors = []; // { sn, y, x }
+                    let imageColumnX = -1;
+                    const snAnchors = []; // { sn, y }
                     
-                    // First pass: Find header and SN anchors
-                    const yGroups = new Map(); // Group text by Y level to find the header row
-                    const keywords = ['sl.no', 's.n', 'sr.no', 'no.', 'item', 'description', 'image', 'qty', 'unit', 'total', 'rate', 'price', 'unit price'];
-
+                    // 1. IMPROVED HEADER DETECTION (Find Y and 'IMAGE' column X)
+                    const lines = [];
                     page.toStructuredText().walk({
                         onLine(bbox, line) {
-                            const txt = line.trim().toLowerCase();
-                            // Group by 20pt tolerance (approx one full line height)
-                            const groupY = Math.round(bbox[1] / 20) * 20;
-                            
-                            if (!yGroups.has(groupY)) yGroups.set(groupY, { count: 0, text: [], bbox: bbox });
-                            const group = yGroups.get(groupY);
-                            group.text.push(txt);
-                            
-                            for (const k of keywords) {
-                                if (txt.includes(k)) group.count++;
-                            }
+                            lines.push({ bbox, text: line.trim().toLowerCase() });
                         }
                     });
 
-                    // Header Y is the Y level with the MOST keyword hits
-                    let maxKeywords = 0;
-                    for (const [y, group] of yGroups) {
-                        if (group.count > maxKeywords) {
-                            maxKeywords = group.count;
-                            headerY = group.bbox[1];
-                        }
-                    }
+                    // Sliding window (15pt) to find the densest keyword row
+                    let maxHits = 0;
+                    const keywords = ['sl.no', 's.n', 'item', 'description', 'image', 'qty', 'unit', 'total', 'rate', 'price'];
                     
-                    if (headerY !== -1 && maxKeywords >= 3) {
-                        console.log(`   🎯 Page ${pageIdx + 1}: Header Locked at Y=${Math.round(headerY)} (${maxKeywords} points)`);
-                    }
-
-                    // Second pass: Find Serial Numbers (SN) in the left column
-                    page.toStructuredText().walk({
-                        onLine(bbox, line) {
-                            const txt = line.trim().toLowerCase();
-                            // Look for numbers like "1", "1.", "01" in the left 120pt of the page
-                            if (headerY !== -1 && bbox[1] > (headerY + 5) && bbox[0] < 120) {
-                                const snMatch = txt.match(/^\s*(\d+)[.\s-]*$/);
-                                if (snMatch) {
-                                    const snVal = parseInt(snMatch[1]).toString(); // Normalize to "1", "2"
-                                    snAnchors.push({ sn: snVal, y: (bbox[1] + bbox[3]) / 2, x: bbox[2] });
+                    for (let i = 0; i < lines.length; i++) {
+                        let hits = 0;
+                        let currentY = lines[i].bbox[1];
+                        let imgX = -1;
+                        
+                        // Check neighbors within 15pt
+                        for (let j = 0; j < lines.length; j++) {
+                            if (Math.abs(lines[j].bbox[1] - currentY) < 15) {
+                                for (const k of keywords) {
+                                    if (lines[j].text.includes(k)) {
+                                        hits++;
+                                        if (lines[j].text.includes('image')) imgX = lines[j].bbox[0];
+                                    }
                                 }
                             }
                         }
-                    });
+                        
+                        if (hits > maxHits) {
+                            maxHits = hits;
+                            headerY = currentY;
+                            if (imgX !== -1) imageColumnX = imgX;
+                        }
+                    }
 
-                    console.log(`   📄 Page ${pageIdx + 1}: Found ${snAnchors.length} S.N. anchors`);
+                    if (headerY !== -1 && maxHits >= 3) {
+                        console.log(`   🎯 Page ${pageIdx + 1}: Table Header detected at Y=${Math.round(headerY)} (ImageColX: ${Math.round(imageColumnX)})`);
+                    }
 
-                    // Third pass: Extract product images and link to SN anchors
+                    // 2. EXTRACT SERIAL NUMBERS (SN)
+                    for (const line of lines) {
+                        if (headerY !== -1 && line.bbox[1] > (headerY + 5) && line.bbox[0] < 120) {
+                            const snMatch = line.text.match(/^\s*(\d+)[.\s-]*$/);
+                            if (snMatch) {
+                                const snVal = parseInt(snMatch[1]).toString();
+                                snAnchors.push({ sn: snVal, y: (line.bbox[1] + line.bbox[3]) / 2 });
+                            }
+                        }
+                    }
+
+                    // 3. EXTRACT AND FILTER IMAGES
                     const pageImgsForSort = [];
                     page.toStructuredText('preserve-images').walk({
                         onImageBlock(bbox, _transform, image) {
@@ -122,23 +124,29 @@ export async function extractProductBoqFromPdf(filePath, progressCallback = () =
                                 const imgY = (bbox[1] + bbox[3]) / 2;
                                 const imgX = bbox[0];
 
-                                // 1. Filter out tiny or header-logos
-                                if (w < 25 || h < 25) return;
-                                if (headerY !== -1 && bbox[1] < (headerY - 10)) {
-                                    console.log(`     🚫 Skipping header logo at y=${Math.round(bbox[1])}`);
-                                    return;
+                                // A. SIZE & TOP-PAGE FILTER
+                                if (w < 20 || h < 20) return;
+                                if (headerY !== -1 && bbox[1] < (headerY - 5)) return; 
+
+                                // B. COLUMN ALIGNMENT FILTER (Product images must be near Image column)
+                                // If we found an image column, use it. Otherwise assume pdt images are centered-ish or right of SN.
+                                if (imageColumnX !== -1) {
+                                    const distFromCol = Math.abs(imgX - imageColumnX);
+                                    if (distFromCol > 150) {
+                                        console.log(`     🚫 Skipping out-of-column image at X=${Math.round(imgX)} (ColX=${Math.round(imageColumnX)})`);
+                                        return;
+                                    }
                                 }
 
                                 const pngBytes = image.toPixmap(mupdf.Matrix.identity, mupdf.ColorSpace.DeviceRGB, false).asPNG();
                                 if (pngBytes.length < 500) return;
                                 const dataUri = `data:image/png;base64,${Buffer.from(pngBytes).toString('base64')}`;
 
-                                // 2. Try Spatial Lock (Find closest S.N. within 70pt vertically)
+                                // C. SPATIAL LOCK TO S.N.
                                 let matchedSN = null;
-                                let bestDist = 70;
+                                let bestDist = 120; // Reasnoble row height
                                 for (const anchor of snAnchors) {
                                     const vDist = Math.abs(anchor.y - imgY);
-                                    // Image should be to the right of or near the S.N. index
                                     if (vDist < bestDist) {
                                         bestDist = vDist;
                                         matchedSN = anchor.sn;
@@ -147,12 +155,12 @@ export async function extractProductBoqFromPdf(filePath, progressCallback = () =
 
                                 if (matchedSN) {
                                     snImageMap.set(`${pageIdx}_${matchedSN}`, dataUri);
-                                    console.log(`     📸 Linked image to S.N. ${matchedSN} (dist=${Math.round(bestDist)})`);
+                                    console.log(`     📸 Linked image to S.N. ${matchedSN}`);
                                 }
                                 
                                 pageImgsForSort.push({ y: bbox[1], url: dataUri });
                             } catch (err) {
-                                console.warn(`   ⚠️ Image error p${pageIdx + 1}:`, err.message);
+                                // Silent fail for corrupted image stream
                             }
                         }
                     });
@@ -164,11 +172,10 @@ export async function extractProductBoqFromPdf(filePath, progressCallback = () =
                     }
                 }
                 
-                // Final metadata for the table builder
                 imageRefs.spatialMap = snImageMap;
-                console.log(`   📸 total extracted ${imageRefs.length} images (${snImageMap.size} spatial anchors)`);
-            } catch (imgErr) {
-                console.error(`   ❌ image extraction crash:`, imgErr);
+                console.log(`   📸 Final: ${imageRefs.length} images extracted, ${snImageMap.size} spatial anchors.`);
+            } catch (err) {
+                console.error(`   ❌ mupdf critical extraction error:`, err);
             }
 
         progressCallback({ percent: 20, message: `Sending PDF to ${modelName || 'Gemma'} AI...` });
