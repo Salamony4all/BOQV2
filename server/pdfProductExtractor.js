@@ -60,124 +60,115 @@ export async function extractProductBoqFromPdf(filePath, progressCallback = () =
                 for (let pageIdx = 0; pageIdx < doc.countPages(); pageIdx++) {
                     const page = doc.loadPage(pageIdx);
                     let headerY = -1;
-                    const snAnchors = []; // { sn, y }
+                    const snAnchors = []; // { sn, y, x }
                     
                     // First pass: Find header and SN anchors
                     const yGroups = new Map(); // Group text by Y level to find the header row
-
-                    const keywords = ['sl.no', 's.n', 'sr.no', 'no.', 'item', 'description', 'image', 'qty', 'unit', 'total', 'rate', 'price'];
+                    const keywords = ['sl.no', 's.n', 'sr.no', 'no.', 'item', 'description', 'image', 'qty', 'unit', 'total', 'rate', 'price', 'unit price'];
 
                     page.toStructuredText().walk({
                         onLine(bbox, line) {
                             const txt = line.trim().toLowerCase();
-                            // Round Y to 5pt variance to group text in the same row
-                            const y = Math.round(bbox[1] / 5) * 5;
+                            // Group by 20pt tolerance (approx one full line height)
+                            const groupY = Math.round(bbox[1] / 20) * 20;
                             
-                            if (!yGroups.has(y)) yGroups.set(y, { count: 0, bbox: bbox });
-                            const group = yGroups.get(y);
+                            if (!yGroups.has(groupY)) yGroups.set(groupY, { count: 0, text: [], bbox: bbox });
+                            const group = yGroups.get(groupY);
+                            group.text.push(txt);
                             
-                            // Count EVERY keyword match in this line
                             for (const k of keywords) {
-                                if (txt.includes(k)) {
-                                    group.count++;
-                                }
+                                if (txt.includes(k)) group.count++;
                             }
                         }
                     });
 
-                    // Header Y is the Y level with the MOST matches (the real header row)
-                    let bestY = -1;
+                    // Header Y is the Y level with the MOST keyword hits
                     let maxKeywords = 0;
                     for (const [y, group] of yGroups) {
                         if (group.count > maxKeywords) {
                             maxKeywords = group.count;
-                            bestY = group.bbox[1];
+                            headerY = group.bbox[1];
                         }
                     }
                     
-                    if (bestY !== -1 && maxKeywords >= 3) {
-                        headerY = bestY;
-                        console.log(`   🎯 Page ${pageIdx + 1}: Confirmed Header Row at Y=${Math.round(headerY)} (${maxKeywords} points)`);
-                    } else {
-                        console.log(`   ⚠️ Page ${pageIdx + 1}: Header detection weak (max=${maxKeywords} pts). Fallback to start of page.`);
+                    if (headerY !== -1 && maxKeywords >= 3) {
+                        console.log(`   🎯 Page ${pageIdx + 1}: Header Locked at Y=${Math.round(headerY)} (${maxKeywords} points)`);
                     }
 
-                    // Second pass: Collect SN Anchors below the confirmed Header
+                    // Second pass: Find Serial Numbers (SN) in the left column
                     page.toStructuredText().walk({
                         onLine(bbox, line) {
                             const txt = line.trim().toLowerCase();
-                            // If we have a header, only look below it. 
-                            // If we don't, we look everywhere (but filtering will be risky)
-                            const isBelowHeader = headerY === -1 || bbox[1] > (headerY + 5);
-                            if (isBelowHeader && bbox[0] < 120) {
-                                const snMatch = txt.match(/^(\d+)$/);
+                            // Look for numbers like "1", "1.", "01" in the left 120pt of the page
+                            if (headerY !== -1 && bbox[1] > (headerY + 5) && bbox[0] < 120) {
+                                const snMatch = txt.match(/^\s*(\d+)[.\s-]*$/);
                                 if (snMatch) {
-                                    snAnchors.push({ sn: snMatch[1], y: (bbox[1] + bbox[3]) / 2 });
+                                    const snVal = parseInt(snMatch[1]).toString(); // Normalize to "1", "2"
+                                    snAnchors.push({ sn: snVal, y: (bbox[1] + bbox[3]) / 2, x: bbox[2] });
                                 }
                             }
                         }
                     });
 
-                    console.log(`   📄 Page ${pageIdx + 1}: Found ${snAnchors.length} SN anchors, Header Y at ${Math.round(headerY)}`);
+                    console.log(`   📄 Page ${pageIdx + 1}: Found ${snAnchors.length} S.N. anchors`);
 
-                    // Second pass: Extract and anchor images
+                    // Third pass: Extract product images and link to SN anchors
                     const pageImgsForSort = [];
                     page.toStructuredText('preserve-images').walk({
                         onImageBlock(bbox, _transform, image) {
                             try {
                                 const w = bbox[2] - bbox[0];
                                 const h = bbox[3] - bbox[1];
-                                const y = (bbox[1] + bbox[3]) / 2; // image center Y
+                                const imgY = (bbox[1] + bbox[3]) / 2;
+                                const imgX = bbox[0];
 
-                                // Filter 1: Decorative/Logos
-                                if (w < 30 || h < 30) return;
-                                if (headerY !== -1 && bbox[1] < (headerY - 5)) {
-                                    console.log(`     🚫 Skipping header image (y=${Math.round(bbox[1])} < headerY=${Math.round(headerY)})`);
+                                // 1. Filter out tiny or header-logos
+                                if (w < 25 || h < 25) return;
+                                if (headerY !== -1 && bbox[1] < (headerY - 10)) {
+                                    console.log(`     🚫 Skipping header logo at y=${Math.round(bbox[1])}`);
                                     return;
                                 }
 
-                                // Filter 2: Content size
                                 const pngBytes = image.toPixmap(mupdf.Matrix.identity, mupdf.ColorSpace.DeviceRGB, false).asPNG();
                                 if (pngBytes.length < 500) return;
-
                                 const dataUri = `data:image/png;base64,${Buffer.from(pngBytes).toString('base64')}`;
-                                
-                                // Store for sequential sorting
-                                pageImgsForSort.push({ y: bbox[1], url: dataUri });
 
-                                // Anchor to closest SN (Limit to 80pt vertical distance)
-                                let bestSN = null;
-                                let minDist = 80; 
+                                // 2. Try Spatial Lock (Find closest S.N. within 70pt vertically)
+                                let matchedSN = null;
+                                let bestDist = 70;
                                 for (const anchor of snAnchors) {
-                                    const dist = Math.abs(anchor.y - y);
-                                    if (dist < minDist) {
-                                        minDist = dist;
-                                        bestSN = anchor.sn;
+                                    const vDist = Math.abs(anchor.y - imgY);
+                                    // Image should be to the right of or near the S.N. index
+                                    if (vDist < bestDist) {
+                                        bestDist = vDist;
+                                        matchedSN = anchor.sn;
                                     }
                                 }
 
-                                if (bestSN) {
-                                    snImageMap.set(`${pageIdx}_${bestSN}`, dataUri);
-                                    console.log(`     📸 Anchored image at y=${Math.round(y)} to SN ${bestSN}`);
+                                if (matchedSN) {
+                                    snImageMap.set(`${pageIdx}_${matchedSN}`, dataUri);
+                                    console.log(`     📸 Linked image to S.N. ${matchedSN} (dist=${Math.round(bestDist)})`);
                                 }
+                                
+                                pageImgsForSort.push({ y: bbox[1], url: dataUri });
                             } catch (err) {
-                                console.warn(`  ⚠️ Image skip p${pageIdx + 1}:`, err.message);
+                                console.warn(`   ⚠️ Image error p${pageIdx + 1}:`, err.message);
                             }
                         }
                     });
 
-                    // Sort top-to-bottom and add to sequential refs
+                    // Sort top-to-bottom for fallback sequential mapping
                     pageImgsForSort.sort((a, b) => a.y - b.y);
                     for (const img of pageImgsForSort) {
                         imageRefs.push({ ref: imgCounter++, url: img.url });
                     }
                 }
                 
-                // Add the map to imageRefs for the builder step
+                // Final metadata for the table builder
                 imageRefs.spatialMap = snImageMap;
-                console.log(`   📸 mupdf extracted ${imageRefs.length} product images across all pages`);
+                console.log(`   📸 total extracted ${imageRefs.length} images (${snImageMap.size} spatial anchors)`);
             } catch (imgErr) {
-                console.error(`   ❌ mupdf image extraction CRITICAL FAILURE:`, imgErr);
+                console.error(`   ❌ image extraction crash:`, imgErr);
             }
 
         progressCallback({ percent: 20, message: `Sending PDF to ${modelName || 'Gemma'} AI...` });
