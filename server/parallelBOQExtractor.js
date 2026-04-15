@@ -173,13 +173,28 @@ export async function extractParallelBOQData(filePath, mimeType, progressCallbac
                     .filter(r => r.pageNum === pageNum)
                     .sort((a, b) => a.rowIdx - b.rowIdx);
 
+                // Identify Table Header Y to skip logos
+                let headerY = -1;
+                for (const it of layout.textItems || []) {
+                    const txt = String(it.str || '').toLowerCase();
+                    if (txt.includes('s.n') || txt.includes('sl.no') || txt.includes('description')) {
+                        if (headerY === -1 || it.y < headerY) headerY = it.y;
+                    }
+                }
+
                 // Images are already sorted top→bottom by Y from Python (pdf_navigator.py).
                 // Filter out tiny decorative images (logos, icons < 30px height).
+                // ALSO Filter out images above the table header (logos in header area).
                 const productImages = layout.extractedImages
-                    .filter(img => img.h >= 30 && img.w >= 30)
+                    .filter(img => {
+                        const isSizeOk = img.h >= 30 && img.w >= 30;
+                        const isNotHeader = headerY === -1 || img.y >= (headerY - 10);
+                        if (isSizeOk && !isNotHeader) console.log(`    🚫 [Background] P${pageNum}: Skipping header image (y=${Math.round(img.y)} < headerY=${Math.round(headerY)})`);
+                        return isSizeOk && isNotHeader;
+                    })
                     .sort((a, b) => a.y - b.y || a.x - b.x); // Ensure Y sort in JS too
 
-                console.log(`    📐 [Background] Page ${pageNum}: ${pageRows.length} rows, ${productImages.length} images`);
+                console.log(`    📐 [Background] Page ${pageNum}: ${pageRows.length} rows, ${productImages.length} images (HeaderY: ${Math.round(headerY)})`);
 
                 // ── STRATEGY 1: Perfect positional pairing (1:1 index match) ────────────
                 // Works when #images === #rows — most common case in BOQ PDFs.

@@ -48,52 +48,102 @@ export async function extractProductBoqFromPdf(filePath, progressCallback = () =
         // On Vercel (serverless), we embed images as base64 data URIs directly into
         // cell data because the in-memory tempImageStore is not shared across
         // invocations — /api/temp-image/:id requests hit a fresh instance.
-        const imageRefs = []; // { ref, dataUri } — inline base64 for Vercel
-        try {
-            const mupdf = await import('mupdf');
-            const doc = mupdf.Document.openDocument(new Uint8Array(data), 'application/pdf');
-            let imgCounter = 1;
+            const imageRefs = []; 
+            try {
+                const mupdf = await import('mupdf');
+                const doc = mupdf.Document.openDocument(new Uint8Array(data), 'application/pdf');
+                
+                // Track SN to Image mapping: Map<sn_string, dataUri>
+                const snImageMap = new Map();
 
-            for (let pageIdx = 0; pageIdx < doc.countPages(); pageIdx++) {
-                const page = doc.loadPage(pageIdx);
-                const pageImgs = [];
+                for (let pageIdx = 0; pageIdx < doc.countPages(); pageIdx++) {
+                    const page = doc.loadPage(pageIdx);
+                    let headerY = -1;
+                    const snAnchors = []; // { sn, y }
 
-                page.toStructuredText('preserve-images').walk({
-                    onImageBlock(bbox, _transform, image) {
-                        try {
-                            const pixmap = image.toPixmap(
-                                mupdf.Matrix.identity,
-                                mupdf.ColorSpace.DeviceRGB,
-                                false  // no alpha channel
-                            );
-                            const pngBytes = pixmap.asPNG();
-                            const buf = Buffer.from(pngBytes);
-                            // Filter out tiny decorative images (icons, borders, etc.)
-                            const w = bbox[2] - bbox[0];
-                            const h = bbox[3] - bbox[1];
-                            if (w < 30 || h < 30 || buf.length < 500) return;
-                            // bbox = [x0, y0, x1, y1] — y0 is top in mupdf coords
-                            pageImgs.push({ y: bbox[1], data: buf });
-                        } catch (imgErr) {
-                            console.warn(`  ⚠️ Image skip p${pageIdx + 1}:`, imgErr.message);
+                    // First pass: Find header and SN anchors
+                    page.toStructuredText().walk({
+                        onLine(bbox, line) {
+                            const txt = line.trim().toLowerCase();
+                            const y = bbox[1];
+
+                            // Header detection
+                            if (headerY === -1 && (txt.includes('s.n') || txt.includes('sl.no') || txt.includes('description'))) {
+                                headerY = y;
+                            }
+
+                            // SN Anchor detection (Numbers in the left column, below header)
+                            // We look for solo numbers or numbers at the start of the line in the left 15% of width
+                            if (headerY !== -1 && y > headerY && bbox[0] < 100) {
+                                const snMatch = txt.match(/^(\d+)$/);
+                                if (snMatch) {
+                                    snAnchors.push({ sn: snMatch[1], y: (bbox[1] + bbox[3]) / 2 });
+                                }
+                            }
                         }
+                    });
+
+                    console.log(`   📄 Page ${pageIdx + 1}: Found ${snAnchors.length} SN anchors, Header Y at ${Math.round(headerY)}`);
+
+                    // Second pass: Extract and anchor images
+                    const pageImgsForSort = [];
+                    page.toStructuredText('preserve-images').walk({
+                        onImageBlock(bbox, _transform, image) {
+                            try {
+                                const w = bbox[2] - bbox[0];
+                                const h = bbox[3] - bbox[1];
+                                const y = (bbox[1] + bbox[3]) / 2; // image center Y
+
+                                // Filter 1: Decorative/Logos
+                                if (w < 30 || h < 30) return;
+                                if (headerY !== -1 && bbox[1] < (headerY - 10)) {
+                                    console.log(`     🚫 Skipping header image (y=${Math.round(bbox[1])} < headerY=${Math.round(headerY)})`);
+                                    return;
+                                }
+
+                                // Filter 2: Content size
+                                const pngBytes = image.toPixmap(mupdf.Matrix.identity, mupdf.ColorSpace.DeviceRGB, false).asPNG();
+                                if (pngBytes.length < 500) return;
+
+                                const dataUri = `data:image/png;base64,${Buffer.from(pngBytes).toString('base64')}`;
+                                
+                                // Store for sequential sorting
+                                pageImgsForSort.push({ y: bbox[1], url: dataUri });
+
+                                // Anchor to closest SN
+                                let bestSN = null;
+                                let minDist = 200; // Max distance for a match
+                                for (const anchor of snAnchors) {
+                                    const dist = Math.abs(anchor.y - y);
+                                    if (dist < minDist) {
+                                        minDist = dist;
+                                        bestSN = anchor.sn;
+                                    }
+                                }
+
+                                if (bestSN) {
+                                    snImageMap.set(`${pageIdx}_${bestSN}`, dataUri);
+                                    console.log(`     📸 Anchored image at y=${Math.round(y)} to SN ${bestSN}`);
+                                }
+                            } catch (err) {
+                                console.warn(`  ⚠️ Image skip p${pageIdx + 1}:`, err.message);
+                            }
+                        }
+                    });
+
+                    // Sort top-to-bottom and add to sequential refs
+                    pageImgsForSort.sort((a, b) => a.y - b.y);
+                    for (const img of pageImgsForSort) {
+                        imageRefs.push({ ref: imgCounter++, url: img.url });
                     }
-                });
-
-                // Sort top-to-bottom (ascending y)
-                pageImgs.sort((a, b) => a.y - b.y);
-
-                for (const img of pageImgs) {
-                    // Embed as base64 data URI — no temp store needed on Vercel
-                    const dataUri = `data:image/png;base64,${img.data.toString('base64')}`;
-                    imageRefs.push({ ref: imgCounter, url: dataUri });
-                    imgCounter++;
                 }
+                
+                // Add the map to imageRefs for the builder step
+                imageRefs.spatialMap = snImageMap;
+                console.log(`   📸 mupdf extracted ${imageRefs.length} product images across all pages`);
+            } catch (imgErr) {
+                console.warn(`   ⚠️ mupdf image extraction failed:`, imgErr.message);
             }
-            console.log(`   📸 mupdf extracted ${imageRefs.length} embedded product images`);
-        } catch (imgErr) {
-            console.warn(`   ⚠️ mupdf image extraction skipped:`, imgErr.message);
-        }
 
         progressCallback({ percent: 20, message: `Sending PDF to ${modelName || 'Gemma'} AI...` });
 
@@ -179,27 +229,39 @@ Rules:
             }
 
             // Smart image-to-row mapping:
-            // Only assign images to rows the AI flagged as having a product photo.
-            // If the AI didn't provide hasImage flags, fall back to sequential.
-            const hasImageFlags = items.some(it => it.hasImage === true || it.hasImage === false);
+            // 1. Try spatial S.N mapping first (Primary anchoring)
+            // 2. Fall back to hasImage-based sequential mapping
             let imgCursor = 0;
+            const spatialMap = imageRefs.spatialMap;
 
             const rows = items.map((item, index) => {
                 let imgMatch = null;
-                if (hasImageFlags) {
-                    // AI-guided: only consume an image ref for rows the AI says have a photo
+                const sn = item.sn ? String(item.sn) : null;
+
+                // Priority 1: Spatial SN anchoring (Look across all possible page prefixes)
+                if (sn && spatialMap) {
+                    // Check if any page has this SN. Since we don't know the exact page from the AI,
+                    // we try common prefixes or just finding any match for this SN if it's unique.
+                    for (let pCandidate = 0; pCandidate < 50; pCandidate++) {
+                        const candidateKey = `${pCandidate}_${sn}`;
+                        if (spatialMap.has(candidateKey)) {
+                            imgMatch = { url: spatialMap.get(candidateKey) };
+                            break;
+                        }
+                    }
+                }
+
+                // Priority 2: hasImage-based sequential (if spatial failed or no SN)
+                if (!imgMatch && Array.isArray(imageRefs)) {
                     if (item.hasImage && imgCursor < imageRefs.length) {
                         imgMatch = imageRefs[imgCursor];
                         imgCursor++;
                     }
-                } else {
-                    // Fallback: sequential 1:1 mapping
-                    imgMatch = imageRefs[index] || null;
                 }
 
                 return {
                     cells: [
-                        { value: item.sn ? String(item.sn) : String(index + 1) },
+                        { value: sn || String(index + 1) },
                         { value: '', image: imgMatch ? { url: imgMatch.url } : null },
                         { value: item.description || '' },
                         { value: item.qty != null ? String(item.qty) : '' },
