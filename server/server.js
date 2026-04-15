@@ -640,25 +640,99 @@ app.post('/api/blobs/upload', planUpload.single('file'), async (req, res) => {
   }
 });
 
-// Vercel Blob Token Handler
+// Vercel Blob Token Handler (Large File Support)
+// Direct browser-to-cloud upload bypasses Vercel 4.5MB limits
 app.post('/api/upload/blob-token', async (req, res) => {
   try {
     const token = process.env.BLOB_READ_WRITE_TOKEN;
+    if (!token && isVercel) {
+      console.error('CRITICAL: BLOB_READ_WRITE_TOKEN is missing!');
+      return res.status(500).json({ error: 'Blob storage token not configured' });
+    }
+
     const jsonResponse = await handleUpload({
       body: req.body,
       request: req,
       token: token,
       onBeforeGenerateToken: async (pathname) => ({
-        allowedContentTypes: ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/vnd.ms-excel'],
+        allowedContentTypes: [
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 
+          'application/vnd.ms-excel',
+          'application/octet-stream'
+        ],
         tokenPayload: JSON.stringify({ userId: 'anonymous' }),
         addRandomSuffix: true,
-      })
+      }),
+      onUploadCompleted: async ({ blob }) => {
+        console.log('[BlobToken] Upload successful:', blob.url);
+      },
     });
     return res.status(200).json(jsonResponse);
   } catch (error) {
+    console.error('[BlobToken] Error:', error.message);
     return res.status(400).json({ error: error.message });
   }
 });
+
+// Process a file that was already uploaded to Vercel Blob (Big File Processing)
+app.post('/api/process-blob', async (req, res) => {
+  const { url, sessionId = 'default' } = req.body;
+  if (!url) return res.status(400).json({ error: 'URL is required' });
+
+  try {
+    console.log(`📦 [Process-Blob] Starting extraction for: ${url}`);
+    
+    // Download the file from Blob to /tmp for processing
+    const response = await axios.get(url, { responseType: 'arraybuffer' });
+    const tempDir = isVercel ? '/tmp/uploads' : path.join(__dirname, '../uploads');
+    await fs.mkdir(tempDir, { recursive: true });
+
+    const fileName = `large_${Date.now()}.xlsx`;
+    const filePath = path.join(tempDir, fileName);
+    await fs.writeFile(filePath, Buffer.from(response.data));
+
+    // Track for cleanup
+    cleanupService.trackFile(sessionId, filePath);
+
+    // Extract (pass callback to track blobs)
+    const extractedData = await extractExcelData(filePath, () => { }, (blobUrl) => {
+      cleanupService.trackBlob(sessionId, blobUrl);
+    });
+
+    // (Optional) Delete the source blob after processing to save space
+    try { await del(url); } catch (e) { console.warn('Blob delete skip:', e.message); }
+
+    res.json({
+      success: true,
+      data: extractedData,
+      progress: 100,
+      stage: 'Complete'
+    });
+  } catch (error) {
+    console.error('Blob processing error:', error);
+    res.status(500).json({ error: 'Failed to process blob file', details: error.message });
+  }
+});
+
+// Reset/Cleanup endpoint for app initialization
+app.post('/api/reset', async (req, res) => {
+  console.log('Resetting application state...');
+  await cleanupService.cleanupAll();
+  
+  // Re-create uploads directory immediately to ensure readiness
+  const uploadsDir = isVercel ? '/tmp/uploads' : path.join(__dirname, '../uploads');
+  const imagesDir = isVercel ? '/tmp/uploads/images' : path.join(__dirname, '../uploads/images');
+  try {
+    await fs.mkdir(uploadsDir, { recursive: true });
+    await fs.mkdir(imagesDir, { recursive: true });
+  } catch (e) { console.error('Error recreating dirs:', e); }
+  
+  res.json({ success: true, message: 'Environment reset complete' });
+});
+
+// Health check fallback for some UI integrations
+app.get('/api/health-check', (req, res) => res.json({ status: 'OK' }));
+
 
 // Brand Management
 app.get('/api/brands', async (req, res) => {
