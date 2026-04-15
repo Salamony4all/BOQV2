@@ -66,16 +66,16 @@ export async function extractProductBoqFromPdf(filePath, progressCallback = () =
                     page.toStructuredText().walk({
                         onLine(bbox, line) {
                             const txt = line.trim().toLowerCase();
-                            const y = bbox[1];
-
-                            // Header detection
-                            if (headerY === -1 && (txt.includes('s.n') || txt.includes('sl.no') || txt.includes('description'))) {
-                                headerY = y;
+                            // Expanded keywords to catch different header formats
+                            if (txt.includes('s.n') || txt.includes('item') || txt.includes('description') || 
+                                txt.includes('qty') || txt.includes('image') || txt.includes('total')) {
+                                // We want the topmost part of the header row
+                                if (headerY === -1 || bbox[1] < headerY) headerY = bbox[1];
                             }
 
                             // SN Anchor detection (Numbers in the left column, below header)
                             // We look for solo numbers or numbers at the start of the line in the left 15% of width
-                            if (headerY !== -1 && y > headerY && bbox[0] < 100) {
+                            if (headerY !== -1 && bbox[1] > headerY && bbox[0] < 100) {
                                 const snMatch = txt.match(/^(\d+)$/);
                                 if (snMatch) {
                                     snAnchors.push({ sn: snMatch[1], y: (bbox[1] + bbox[3]) / 2 });
@@ -97,7 +97,7 @@ export async function extractProductBoqFromPdf(filePath, progressCallback = () =
 
                                 // Filter 1: Decorative/Logos
                                 if (w < 30 || h < 30) return;
-                                if (headerY !== -1 && bbox[1] < (headerY - 10)) {
+                                if (headerY !== -1 && bbox[1] < (headerY - 5)) {
                                     console.log(`     🚫 Skipping header image (y=${Math.round(bbox[1])} < headerY=${Math.round(headerY)})`);
                                     return;
                                 }
@@ -111,9 +111,9 @@ export async function extractProductBoqFromPdf(filePath, progressCallback = () =
                                 // Store for sequential sorting
                                 pageImgsForSort.push({ y: bbox[1], url: dataUri });
 
-                                // Anchor to closest SN
+                                // Anchor to closest SN (Limit to 80pt vertical distance)
                                 let bestSN = null;
-                                let minDist = 200; // Max distance for a match
+                                let minDist = 80; 
                                 for (const anchor of snAnchors) {
                                     const dist = Math.abs(anchor.y - y);
                                     if (dist < minDist) {

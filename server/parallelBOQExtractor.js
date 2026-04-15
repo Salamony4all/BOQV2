@@ -177,7 +177,8 @@ export async function extractParallelBOQData(filePath, mimeType, progressCallbac
                 let headerY = -1;
                 for (const it of layout.textItems || []) {
                     const txt = String(it.str || '').toLowerCase();
-                    if (txt.includes('s.n') || txt.includes('sl.no') || txt.includes('description')) {
+                    if (txt.includes('s.n') || txt.includes('sl.no') || txt.includes('item') || 
+                        txt.includes('description') || txt.includes('qty') || txt.includes('total')) {
                         if (headerY === -1 || it.y < headerY) headerY = it.y;
                     }
                 }
