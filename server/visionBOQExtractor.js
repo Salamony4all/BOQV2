@@ -36,6 +36,7 @@ Return ONLY valid JSON:
 {
   "rows": [
     {
+      "sn": "1",
       "description": "Ergonomic Task Chair with detailed specs...",
       "qty": 10,
       "unit": "Nos",
@@ -94,9 +95,10 @@ export async function extractVisionBOQData(filePath, mimeType, progressCallback 
     }
 
     // Convert to TableViewer format
-    const header = ["Image", "Description", "Qty", "Unit", "Rate", "Amount"];
-    const formattedRows = allRows.filter(r => !r.isHeader).map(r => ({
+    const header = ["S.N", "Image", "Description", "Qty", "Unit", "Rate", "Amount"];
+    const formattedRows = allRows.filter(r => !r.isHeader).map((r, idx) => ({
         cells: [
+            { value: r.sn || String(idx + 1) },
             { value: '', image: r.imageUrl ? { url: r.imageUrl } : null },
             { value: r.description || '' },
             { value: r.qty || '' },

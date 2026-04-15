@@ -493,16 +493,16 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
             extractedData = await extractProductBoqFromPdf(filePath, () => {}, modelName);
         } else if (extractionMode === 'parallel') {
             const { extractParallelBOQData } = await getParallelBOQExtractor();
-            extractedData = await extractParallelBOQData(filePath, 'application/pdf', modelName);
+            extractedData = await extractParallelBOQData(filePath, 'application/pdf', () => {}, modelName);
         } else {
             // Legacy vision path
             const { extractVisionBOQData } = await getVisionBOQExtractor();
-            extractedData = await extractVisionBOQData(filePath, 'application/pdf');
+            extractedData = await extractVisionBOQData(filePath, 'application/pdf', () => {}, modelName);
         }
     } else if (isImage) {
         // Handle images directly uploaded to BOQ flow
         const { extractVisionBOQData } = await getVisionBOQExtractor();
-        extractedData = await extractVisionBOQData(filePath, req.file.mimetype);
+        extractedData = await extractVisionBOQData(filePath, req.file.mimetype, () => {}, modelName);
     } else {
         // Extract data from Excel
         extractedData = await extractExcelData(filePath, () => { }, (url) => {

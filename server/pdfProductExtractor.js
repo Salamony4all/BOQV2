@@ -45,7 +45,10 @@ export async function extractProductBoqFromPdf(filePath, progressCallback = () =
         progressCallback({ percent: 5, message: 'Extracting embedded images...' });
 
         // ── STEP 1: Extract embedded images via mupdf (WASM, no native binaries) ──
-        const imageRefs = [];
+        // On Vercel (serverless), we embed images as base64 data URIs directly into
+        // cell data because the in-memory tempImageStore is not shared across
+        // invocations — /api/temp-image/:id requests hit a fresh instance.
+        const imageRefs = []; // { ref, dataUri } — inline base64 for Vercel
         try {
             const mupdf = await import('mupdf');
             const doc = mupdf.Document.openDocument(new Uint8Array(data), 'application/pdf');
@@ -64,8 +67,13 @@ export async function extractProductBoqFromPdf(filePath, progressCallback = () =
                                 false  // no alpha channel
                             );
                             const pngBytes = pixmap.asPNG();
+                            const buf = Buffer.from(pngBytes);
+                            // Filter out tiny decorative images (icons, borders, etc.)
+                            const w = bbox[2] - bbox[0];
+                            const h = bbox[3] - bbox[1];
+                            if (w < 30 || h < 30 || buf.length < 500) return;
                             // bbox = [x0, y0, x1, y1] — y0 is top in mupdf coords
-                            pageImgs.push({ y: bbox[1], data: Buffer.from(pngBytes) });
+                            pageImgs.push({ y: bbox[1], data: buf });
                         } catch (imgErr) {
                             console.warn(`  ⚠️ Image skip p${pageIdx + 1}:`, imgErr.message);
                         }
@@ -76,13 +84,13 @@ export async function extractProductBoqFromPdf(filePath, progressCallback = () =
                 pageImgs.sort((a, b) => a.y - b.y);
 
                 for (const img of pageImgs) {
-                    const refId = `p${pageIdx + 1}_img${imgCounter}_${Date.now()}`;
-                    tempImageStore.set(refId, img.data);
-                    imageRefs.push({ ref: imgCounter, url: `/api/temp-image/${refId}` });
+                    // Embed as base64 data URI — no temp store needed on Vercel
+                    const dataUri = `data:image/png;base64,${img.data.toString('base64')}`;
+                    imageRefs.push({ ref: imgCounter, url: dataUri });
                     imgCounter++;
                 }
             }
-            console.log(`   📸 mupdf extracted ${imageRefs.length} embedded images`);
+            console.log(`   📸 mupdf extracted ${imageRefs.length} embedded product images`);
         } catch (imgErr) {
             console.warn(`   ⚠️ mupdf image extraction skipped:`, imgErr.message);
         }
@@ -117,7 +125,8 @@ Required JSON schema:
       "qty": 10,
       "unit": "Nos",
       "rate": 250.00,
-      "total": 2500.00
+      "total": 2500.00,
+      "hasImage": true
     }
   ]
 }
@@ -127,6 +136,7 @@ Rules:
 - qty/rate/total must be numbers (not strings)
 - Use null for missing numeric values
 - Skip header rows, footers, page numbers
+- Set "hasImage" to true ONLY for rows that have a visible product photo/picture next to them in the PDF
 - Your entire response must be valid JSON starting with {`;
 
         try {
@@ -168,13 +178,29 @@ Rules:
                 throw new Error('Gemma returned no items from PDF');
             }
 
-            // Map extracted images to rows by sequence (image 1 → row 1, etc.)
+            // Smart image-to-row mapping:
+            // Only assign images to rows the AI flagged as having a product photo.
+            // If the AI didn't provide hasImage flags, fall back to sequential.
+            const hasImageFlags = items.some(it => it.hasImage === true || it.hasImage === false);
+            let imgCursor = 0;
+
             const rows = items.map((item, index) => {
-                const imgMatch = imageRefs[index] || null;
+                let imgMatch = null;
+                if (hasImageFlags) {
+                    // AI-guided: only consume an image ref for rows the AI says have a photo
+                    if (item.hasImage && imgCursor < imageRefs.length) {
+                        imgMatch = imageRefs[imgCursor];
+                        imgCursor++;
+                    }
+                } else {
+                    // Fallback: sequential 1:1 mapping
+                    imgMatch = imageRefs[index] || null;
+                }
+
                 return {
                     cells: [
-                        { value: '', image: imgMatch ? { url: imgMatch.url } : null },
                         { value: item.sn ? String(item.sn) : String(index + 1) },
+                        { value: '', image: imgMatch ? { url: imgMatch.url } : null },
                         { value: item.description || '' },
                         { value: item.qty != null ? String(item.qty) : '' },
                         { value: item.unit || '' },
@@ -189,7 +215,7 @@ Rules:
             return {
                 tables: [{
                     sheetName: 'AI PDF BOQ',
-                    header: ['Image', 'S.N', 'Description', 'Qty', 'Unit', 'Rate', 'Total'],
+                    header: ['S.N', 'Image', 'Description', 'Qty', 'Unit', 'Rate', 'Total'],
                     rows,
                     columnCount: 7
                 }],
@@ -294,7 +320,8 @@ Rules:
         const sortedImages = allImagesOnPage.sort((a, b) => b.y - a.y);
         const imageRefs = sortedImages.map((img, idx) => {
             const refId = `p${pageNum}_ref${idx + 1}_${Date.now()}`;
-            tempImageStore.set(refId, Buffer.from(img.data));
+            const imgBuffer = Buffer.from(img.data);
+            tempImageStore.set(refId, imgBuffer);
             return { ref: idx + 1, url: `/api/temp-image/${refId}`, coordY: img.y };
         });
 
@@ -360,8 +387,8 @@ ${pageTextBlob}`;
 
                     const row = {
                         cells: [
-                            { value: '', image: imgMatch ? { url: imgMatch.url } : null },
                             { value: item.sn ? String(item.sn) : String(index + 1) },
+                            { value: '', image: imgMatch ? { url: imgMatch.url } : null },
                             { value: item.description || '' },
                             { value: item.qty != null ? String(item.qty) : '' },
                             { value: item.unit || '' },
@@ -382,7 +409,7 @@ ${pageTextBlob}`;
     return {
         tables: [{
             sheetName: 'AI PDF BOQ',
-            header: ['Image', 'S.N', 'Description', 'Qty', 'Unit', 'Rate', 'Total'],
+            header: ['S.N', 'Image', 'Description', 'Qty', 'Unit', 'Rate', 'Total'],
             rows: allExtractedRows,
             columnCount: 7
         }],
