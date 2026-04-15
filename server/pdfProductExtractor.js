@@ -55,6 +55,7 @@ export async function extractProductBoqFromPdf(filePath, progressCallback = () =
                 
                 // Track SN to Image mapping: Map<sn_string, dataUri>
                 const snImageMap = new Map();
+                let imgCounter = 1;
 
                 for (let pageIdx = 0; pageIdx < doc.countPages(); pageIdx++) {
                     const page = doc.loadPage(pageIdx);
@@ -142,7 +143,7 @@ export async function extractProductBoqFromPdf(filePath, progressCallback = () =
                 imageRefs.spatialMap = snImageMap;
                 console.log(`   📸 mupdf extracted ${imageRefs.length} product images across all pages`);
             } catch (imgErr) {
-                console.warn(`   ⚠️ mupdf image extraction failed:`, imgErr.message);
+                console.error(`   ❌ mupdf image extraction CRITICAL FAILURE:`, imgErr);
             }
 
         progressCallback({ percent: 20, message: `Sending PDF to ${modelName || 'Gemma'} AI...` });
