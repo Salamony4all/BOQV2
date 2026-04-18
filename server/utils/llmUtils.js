@@ -14,13 +14,9 @@ const FORCE_FREE_GOOGLE = process.env.FORCE_FREE_GOOGLE_KEY === 'true';
 
 export const FREE_GOOGLE_MODELS = [
     // Gemma Family (Top)
-    'gemma-4-31b-it',
-    'gemma-4-26b-a4b-it',
-    'gemma-3-27b-it',
-    'gemma-3-12b-it',
-    'gemma-3-4b-it',
-    'gemma-3n-e4b-it',
-    'gemma-3n-e2b-it',
+    'gemma-2-27b-it',
+    'gemma-2-9b-it',
+    'gemma-2-2b-it',
     // Gemini Family (Legacy/Free)
     'gemini-flash-latest',
     'gemini-1.5-pro',
@@ -33,8 +29,6 @@ export const PAID_GOOGLE_MODELS = [
     'gemini-1.5-flash-001',
     'gemini-1.5-flash-002',
     'gemini-1.0-pro',
-    'gemini-4-pro',
-    'gemini-4-flash',
     'gemini-2.5-pro',
     'gemini-2.5-flash',
     'gemini-2.0-flash',
