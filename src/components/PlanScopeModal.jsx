@@ -1,64 +1,31 @@
 import React, { useState, useEffect } from 'react';
+import { useCompanyProfile } from '../context/CompanyContext';
+import { AI_ENGINES, MODEL_OPTIONS, DEFAULT_AI_SETTINGS } from '../utils/aiConstants';
 import styles from '../styles/PlanScopeModal.module.css';
 
 const PlanScopeModal = ({ isOpen, onClose, onSelect }) => {
-    const [selectedEngine, setSelectedEngine] = useState('google');
-    const [selectedModel, setSelectedModel] = useState('gemma-4-31b-it');
+    const { aiSettings } = useCompanyProfile();
+    
+    const [selectedEngine, setSelectedEngine] = useState(aiSettings?.engine || DEFAULT_AI_SETTINGS.engine);
+    const [selectedModel, setSelectedModel] = useState(aiSettings?.model || DEFAULT_AI_SETTINGS.model);
 
-    const modelOptions = {
-        google: {
-            gemma: [
-                'gemma-4-31b-it',
-                'gemma-4-26b-a4b-it',
-                'gemma-3-27b-it',
-                'gemma-3-12b-it',
-                'gemma-3-4b-it',
-                'gemma-3n-e4b-it',
-                'gemma-3n-e2b-it'
-            ],
-            gemini: [
-                'gemini-2.5-pro',
-                'gemini-2.5-flash',
-                'gemini-2.0-flash',
-                'gemini-2.0-flash-lite',
-                'gemini-3-flash-preview',
-                'gemini-3.1-pro-preview',
-                'gemini-flash-latest',
-                'gemini-1.5-pro',
-                'gemini-1.5-flash'
-            ],
-            paid: [
-                'gemini-1.5-pro-001',
-                'gemini-1.5-pro-002',
-                'gemini-1.5-flash-001',
-                'gemini-1.5-flash-002',
-                'gemini-1.0-pro'
-            ]
-        },
-        openrouter: ['google/gemini-2.5-flash-lite-001', 'anthropic/claude-opus-4.6-fast', 'anthropic/claude-opus-4', 'anthropic/claude-sonnet-4-20250514', 'openai/gpt-4-vision-preview', 'openai/gpt-4-turbo-vision'],
-        nvidia: ['nvidia/neva-22b', 'nvidia/vila', 'nvidia/vlia', 'nvidia/llama-3.1-nemotron-nano-vl-8b-v1', 'nvidia/nemotron-nano-12b-v2-vl'],
-        local: ['local/yolov8-llama3.2']
-    };
-
-    const engines = [
-        { id: 'google',     name: 'Google Vision',      desc: 'Google · Vision + PDF extraction', icon: 'AI', color: '#1a73e8' },
-        { id: 'local',      name: 'Local Vision',       desc: 'YOLOv8 + Llama 3.2 · Privacy-First', icon: 'LV', color: '#b91c1c' },
-        { id: 'openrouter', name: 'OpenRouter Vision',  desc: 'OpenRouter · Vision-enabled gateway', icon: 'OR', color: '#8b5cf6' },
-        { id: 'nvidia',     name: 'Nvidia Vision',      desc: 'NVIDIA · Vision-capable models',      icon: 'NV', color: '#76b900' }
-    ];
-
+    // Sync from profile when opened
     useEffect(() => {
-        if (isOpen) {
-            setSelectedEngine('google');
-            setSelectedModel(modelOptions.google.gemma[0]);
+        if (!isOpen && aiSettings) {
+            setSelectedEngine(aiSettings.engine);
+            setSelectedModel(aiSettings.model);
         }
-    }, [isOpen]);
+    }, [isOpen, aiSettings]);
 
+    // Fallback logic when engine changes locally
     useEffect(() => {
-        const engineOptions = modelOptions[selectedEngine];
+        const engineOptions = MODEL_OPTIONS[selectedEngine];
         if (selectedEngine === 'google') {
-            setSelectedModel(engineOptions.gemma[0]);
-        } else {
+            const allGoogle = [...MODEL_OPTIONS.google.gemma, ...MODEL_OPTIONS.google.gemini, ...MODEL_OPTIONS.google.paid];
+            if (!allGoogle.includes(selectedModel)) {
+                setSelectedModel(DEFAULT_AI_SETTINGS.model);
+            }
+        } else if (engineOptions && !engineOptions.includes(selectedModel)) {
             setSelectedModel(engineOptions[0]);
         }
     }, [selectedEngine]);
@@ -75,59 +42,6 @@ const PlanScopeModal = ({ isOpen, onClose, onSelect }) => {
                 </div>
 
                 <div className={styles.content}>
-                    <div className={styles.section}>
-                        <span className={styles.sectionTitle}>0. Choose AI Provider</span>
-                        <div className={styles.engineGrid}>
-                            {engines.map(engine => (
-                                <div
-                                    key={engine.id}
-                                    className={`${styles.engineCard} ${selectedEngine === engine.id ? styles.active : ''}`}
-                                    onClick={() => setSelectedEngine(engine.id)}
-                                    style={selectedEngine === engine.id ? { borderColor: engine.color, background: engine.color + '10' } : {}}
-                                >
-                                    <span className={styles.engineIcon} style={{ background: engine.color }}>{engine.icon}</span>
-                                    <div className={styles.engineInfo}>
-                                        <span className={styles.engineName}>{engine.name}</span>
-                                        <span className={styles.engineDesc}>{engine.desc}</span>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-
-                        <div className={styles.modelSection}>
-                            <span className={styles.sectionSubtitle}>Select Model</span>
-                            <select
-                                className={styles.modelSelect}
-                                value={selectedModel}
-                                onChange={(event) => setSelectedModel(event.target.value)}
-                            >
-                                {selectedEngine === 'google' ? (
-                                    <>
-                                        <optgroup label="Free List (Gemma Family)">
-                                            {modelOptions.google.gemma.map((model) => (
-                                                <option key={model} value={model}>{model}</option>
-                                            ))}
-                                        </optgroup>
-                                        <optgroup label="Free List (Gemini Family)">
-                                            {modelOptions.google.gemini.map((model) => (
-                                                <option key={model} value={model}>{model}</option>
-                                            ))}
-                                        </optgroup>
-                                        <optgroup label="Paid List (Billed Key)">
-                                            {modelOptions.google.paid.map((model) => (
-                                                <option key={model} value={model}>{model}</option>
-                                            ))}
-                                        </optgroup>
-                                    </>
-                                ) : (
-                                    modelOptions[selectedEngine].map((model) => (
-                                        <option key={model} value={model}>{model}</option>
-                                    ))
-                                )}
-                            </select>
-                            <p className={styles.modelHint}>Choose the provider/model used to process the uploaded plan.</p>
-                        </div>
-                    </div>
 
                     <div className={styles.cards}>
                         <div className={styles.card} onClick={() => onSelect('furniture', selectedEngine, selectedModel)}>

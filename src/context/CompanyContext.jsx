@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import ALSHAYA_COLOR from '../assets/alshaya-color.png';
 import ALSHAYA_WHITE from '../assets/alshaya-white.png';
+import { DEFAULT_AI_SETTINGS } from '../utils/aiConstants';
 
 // Create the context
 const CompanyContext = createContext(null);
@@ -17,6 +18,10 @@ const DEFAULT_PROFILE = {
         height: 865,
         isLight: false,
         whiteLogo: ALSHAYA_WHITE
+    },
+    aiSettings: {
+        engine: DEFAULT_AI_SETTINGS.engine,
+        model: DEFAULT_AI_SETTINGS.model
     },
     setupComplete: true
 };
@@ -52,7 +57,8 @@ export function CompanyProvider({ children }) {
                     // If stored strings are empty, keep the defaults
                     companyName: parsed.companyName || DEFAULT_PROFILE.companyName,
                     website: parsed.website || DEFAULT_PROFILE.website,
-                    logo: (parsed.logo && parsed.logo.base64) ? parsed.logo : DEFAULT_PROFILE.logo
+                    logo: (parsed.logo && parsed.logo.base64) ? parsed.logo : DEFAULT_PROFILE.logo,
+                    aiSettings: parsed.aiSettings || DEFAULT_PROFILE.aiSettings
                 }));
                 setShowSetupModal(!parsed.setupComplete);
             } else {
@@ -208,6 +214,16 @@ export function CompanyProvider({ children }) {
         isLoading,
         showSetupModal,
         setShowSetupModal,
+
+        // AI Settings
+        aiSettings: profile.aiSettings || DEFAULT_AI_SETTINGS,
+        updateAiSettings: (settings) => {
+            const updated = {
+                ...profile,
+                aiSettings: { ...profile.aiSettings, ...settings }
+            };
+            return saveProfile(updated);
+        },
 
         // Actions
         updateCompanyName,

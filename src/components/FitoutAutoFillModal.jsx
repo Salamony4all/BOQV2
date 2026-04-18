@@ -1,40 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useCompanyProfile } from '../context/CompanyContext';
+import { AI_ENGINES, MODEL_OPTIONS, DEFAULT_AI_SETTINGS } from '../utils/aiConstants';
 import styles from '../styles/AutoFillSelectModal.module.css';
-
-const MODEL_OPTIONS = {
-    google: {
-        gemma: [
-            'gemma-4-31b-it',
-            'gemma-4-26b-a4b-it',
-            'gemma-3-27b-it',
-            'gemma-3-12b-it',
-            'gemma-3-4b-it',
-            'gemma-3n-e4b-it',
-            'gemma-3n-e2b-it'
-        ],
-        gemini: [
-            'gemini-2.5-pro',
-            'gemini-2.5-flash',
-            'gemini-2.0-flash',
-            'gemini-2.0-flash-lite',
-            'gemini-3-flash-preview',
-            'gemini-3.1-pro-preview',
-            'gemini-flash-latest',
-            'gemini-1.5-pro',
-            'gemini-1.5-flash'
-        ],
-        paid: [
-            'gemini-1.5-pro-001',
-            'gemini-1.5-pro-002',
-            'gemini-1.5-flash-001',
-            'gemini-1.5-flash-002',
-            'gemini-1.0-pro'
-        ]
-    },
-    openrouter: ['google/gemini-2.5-flash-lite-001', 'anthropic/claude-opus-4.6-fast', 'anthropic/claude-opus-4', 'anthropic/claude-sonnet-4-20250514', 'openai/gpt-4-vision-preview', 'openai/gpt-4-turbo-vision'],
-    nvidia: ['nvidia/llama-3.3-70b-instruct', 'nvidia/llama-3.1-70b-instruct', 'nvidia/nemotron-3-super-120b-a12b', 'nvidia/gemma-4-31b-it', 'nvidia/cosmos-transfer2_5-2b', 'nvidia/llama-3.1-nemotron-nano-8b-v1', 'nvidia/llama-3.1-nemotron-70b-reward', 'nvidia/llama-3.1-nemotron-ultra-253b-v1', 'nvidia/llama-3.3-nemotron-super-49b-v1', 'nvidia/llama-3.3-nemotron-super-49b-v1.5'],
-    local: ['llama3.2']
-};
 
 const TIER_META = {
     budgetary: { label: 'Budgetary', color: '#3b82f6' },
@@ -42,17 +9,12 @@ const TIER_META = {
     high:      { label: 'High-End',  color: '#ec4899' }
 };
 
-const ENGINES = [
-    { id: 'google',     name: 'Google Text',       desc: 'Google · Text-only furniture/fitout',        icon: 'AI', color: '#1a73e8' },
-    { id: 'local',      name: 'Local LLM',         desc: 'Llama 3.2 · Offline Capability',             icon: 'LL', color: '#b91c1c' },
-    { id: 'openrouter', name: 'OpenRouter Text',    desc: 'OpenRouter · Text-only model gateway',      icon: 'OR', color: '#8b5cf6' },
-    { id: 'nvidia',     name: 'Nvidia Text',        desc: 'NVIDIA · Text-only model support',          icon: 'NV', color: '#76b900' }
-];
-
 export default function FitoutAutoFillModal({ isOpen, onClose, allBrands = [], activeTier, onConfirm }) {
+    const { aiSettings } = useCompanyProfile();
+    
     const [selectedBrands, setSelectedBrands] = useState([]);
-    const [selectedEngine, setSelectedEngine] = useState('google');
-    const [selectedModel, setSelectedModel] = useState('gemma-4-31b-it');
+    const [selectedEngine, setSelectedEngine] = useState(aiSettings?.engine || 'google');
+    const [selectedModel, setSelectedModel] = useState(aiSettings?.model || DEFAULT_AI_SETTINGS.model);
 
     // Filter brands containing 'fitout' or tagged as fitout (case-insensitive)
     const fitoutBrands = useMemo(() => {
@@ -65,21 +27,31 @@ export default function FitoutAutoFillModal({ isOpen, onClose, allBrands = [], a
         return filtered;
     }, [allBrands]);
 
+    // Update local selection when global settings change (only if modal was closed)
+    useEffect(() => {
+        if (!isOpen && aiSettings) {
+            setSelectedEngine(aiSettings.engine);
+            setSelectedModel(aiSettings.model);
+        }
+    }, [isOpen, aiSettings]);
+
     // Reset selection on open
     useEffect(() => {
         if (isOpen) {
             setSelectedBrands([]);
-            setSelectedEngine('google');
-            setSelectedModel(MODEL_OPTIONS.google.gemma[0]);
         }
     }, [isOpen, fitoutBrands]);
 
+    // Sync model when engine changes locally in modal
     useEffect(() => {
-        const engineOptions = MODEL_OPTIONS[selectedEngine];
+        const options = MODEL_OPTIONS[selectedEngine];
         if (selectedEngine === 'google') {
-            setSelectedModel(engineOptions.gemma[0]);
-        } else {
-            setSelectedModel(engineOptions[0]);
+            const allGoogle = [...MODEL_OPTIONS.google.gemma, ...MODEL_OPTIONS.google.gemini, ...MODEL_OPTIONS.google.paid];
+            if (!allGoogle.includes(selectedModel)) {
+                setSelectedModel(DEFAULT_AI_SETTINGS.model);
+            }
+        } else if (options && !options.includes(selectedModel)) {
+            setSelectedModel(options[0]);
         }
     }, [selectedEngine]);
 
@@ -136,61 +108,6 @@ export default function FitoutAutoFillModal({ isOpen, onClose, allBrands = [], a
                 </div>
 
                 <div className={styles.content}>
-
-                    {/* 1. AI Engine */}
-                    <div className={styles.section}>
-                        <span className={styles.sectionTitle}>1. Choose AI Engine</span>
-                        <div className={styles.engineGrid}>
-                            {ENGINES.map(engine => (
-                                    <div
-                                        key={engine.id}
-                                        className={`${styles.engineCard} ${selectedEngine === engine.id ? styles.active : ''}`}
-                                        onClick={() => setSelectedEngine(engine.id)}
-                                        style={selectedEngine === engine.id ? { borderColor: engine.color, background: engine.color + '10' } : {}}
-                                    >
-                                        <span className={styles.engineIcon} style={{ background: engine.color }}>{engine.icon}</span>
-                                        <div className={styles.engineInfo}>
-                                            <span className={styles.engineName}>{engine.name}</span>
-                                            <span className={styles.engineDesc}>{engine.desc}</span>
-                                        </div>
-                                    </div>
-                            ))}
-                        </div>
-
-                        <div className={styles.modelSection}>
-                            <span className={styles.sectionSubtitle}>Select Model</span>
-                            <select
-                                className={styles.modelSelect}
-                                value={selectedModel}
-                                onChange={(event) => setSelectedModel(event.target.value)}
-                            >
-                                {selectedEngine === 'google' ? (
-                                    <>
-                                        <optgroup label="Free List (Gemma Family)">
-                                            {MODEL_OPTIONS.google.gemma.map((model) => (
-                                                <option key={model} value={model}>{model}</option>
-                                            ))}
-                                        </optgroup>
-                                        <optgroup label="Free List (Gemini Family)">
-                                            {MODEL_OPTIONS.google.gemini.map((model) => (
-                                                <option key={model} value={model}>{model}</option>
-                                            ))}
-                                        </optgroup>
-                                        <optgroup label="Paid List (Billed Key)">
-                                            {MODEL_OPTIONS.google.paid.map((model) => (
-                                                <option key={model} value={model}>{model}</option>
-                                            ))}
-                                        </optgroup>
-                                    </>
-                                ) : (
-                                    MODEL_OPTIONS[selectedEngine].map((model) => (
-                                        <option key={model} value={model}>{model}</option>
-                                    ))
-                                )}
-                            </select>
-                            <p className={styles.modelHint}>Choose the model used for the fitout processing workflow.</p>
-                        </div>
-                    </div>
 
                     {/* 2. Brand Selection — Fitout Only */}
                     <div className={styles.section}>
@@ -257,7 +174,7 @@ export default function FitoutAutoFillModal({ isOpen, onClose, allBrands = [], a
                         onClick={() => onConfirm(selectedBrands, selectedEngine, selectedModel)}
                         style={{ background: activeMeta.color }}
                     >
-                        Start Fitout AI Batch
+                        Start Fitout AI Batch — {selectedBrands.length} Selected
                     </button>
                 </div>
             </div>
