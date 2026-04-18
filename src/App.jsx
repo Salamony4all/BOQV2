@@ -75,7 +75,7 @@ const ThemeToggle = () => {
 };
 
 function AppContent({ onOpenSettings }) {
-  const { logoOriginal, logoWhite, companyName } = useCompanyProfile();
+  const { logoOriginal, logoWhite, companyName, aiSettings } = useCompanyProfile();
   const { theme } = useTheme();
   const [sessionId] = useState(() => Math.random().toString(36).substring(7));
   const [uploading, setUploading] = useState(false);
@@ -279,7 +279,7 @@ function AppContent({ onOpenSettings }) {
   };
 
 
-  const handlePlanAnalyze = async (scope, provider = 'google', providerModel = 'gemma-4-31b-it') => {
+  const handlePlanAnalyze = async (scope, provider = aiSettings?.engine || 'google', providerModel = aiSettings?.model || 'gemma-4-31b-it') => {
     if (!currentPlanFiles || currentPlanFiles.length === 0) return;
 
     setIsPlanScopeOpen(false);

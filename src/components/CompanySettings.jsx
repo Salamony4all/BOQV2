@@ -83,13 +83,17 @@ export default function CompanySettings({ isModal = false, onClose = null }) {
                         whiteLogo: logoData.base64,
                         base64: current.base64 || logoData.base64,
                         width: current.width || logoData.width,
-                        height: current.height || logoData.height
+                        height: current.height || logoData.height,
+                        isLight: true // Manual white logo is always light
                     };
                 } else {
                     return {
                         ...current,
                         base64: logoData.base64,
-                        whiteLogo: current.whiteLogo || logoData.whiteLogo,
+                        // Only use auto-generated white logo if no manual one exists
+                        whiteLogo: (current.whiteLogo && current.whiteLogo !== storedLogo?.whiteLogo) 
+                            ? current.whiteLogo 
+                            : logoData.whiteLogo,
                         width: logoData.width,
                         height: logoData.height,
                         isLight: logoData.isLight

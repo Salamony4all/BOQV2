@@ -57,7 +57,7 @@ export function CompanyProvider({ children }) {
                     // If stored strings are empty, keep the defaults
                     companyName: parsed.companyName || DEFAULT_PROFILE.companyName,
                     website: parsed.website || DEFAULT_PROFILE.website,
-                    logo: (parsed.logo && parsed.logo.base64) ? parsed.logo : DEFAULT_PROFILE.logo,
+                    logo: (parsed.logo && (parsed.logo.base64 || parsed.logo.whiteLogo)) ? parsed.logo : DEFAULT_PROFILE.logo,
                     aiSettings: parsed.aiSettings || DEFAULT_PROFILE.aiSettings
                 }));
                 setShowSetupModal(!parsed.setupComplete);
