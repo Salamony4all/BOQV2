@@ -6,7 +6,6 @@ import {
     listSupabaseFiles, 
     deleteFromSupabase 
 } from './utils/supabaseStorage.js';
-import { BlobCache } from './utils/blobCache.js';
 import axios from 'axios';
 import path from 'path';
 import { promises as fs } from 'fs';
@@ -126,27 +125,6 @@ export const brandStorage = {
             }
         });
 
-        // 3. Load Blob Brands (Vercel Blob Fallback)
-        if (!supabase && process.env.BLOB_READ_WRITE_TOKEN && isBlobHealthy) {
-            try {
-                const { blobs } = await BlobCache.list({ prefix: 'brands-db/' });
-                const blobPromises = blobs.map(async (blob) => {
-                    try {
-                        const res = await axios.get(blob.url);
-                        return res.data;
-                    } catch (e) { 
-                        return null; 
-                    }
-                });
-
-                const blobBrands = await Promise.all(blobPromises);
-                blobBrands.filter(Boolean).forEach(b => {
-                    if (b && b.id && !brandMap.has(String(b.id))) {
-                        brandMap.set(String(b.id), b);
-                    }
-                });
-            } catch (e) {}
-        }
 
         return Array.from(brandMap.values());
     },
@@ -185,17 +163,6 @@ export const brandStorage = {
             } catch (error) { /* continue */ }
         }
 
-        // 3. Blob Storage Redundancy
-        if (process.env.BLOB_READ_WRITE_TOKEN && isBlobHealthy) {
-            try {
-                const filename = `brands-db/${brand.id}.json`;
-                const { put } = await import('@vercel/blob');
-                await put(filename, JSON.stringify(brand, null, 2), { access: 'public', addRandomSuffix: false });
-                BlobCache.invalidate('brands-db/');
-            } catch (error) { 
-                console.error('[Storage] Blob save fallback failed:', error.message); 
-            }
-        }
 
         // Local / Try-Hard Strategy
         try {
@@ -290,19 +257,6 @@ export const brandStorage = {
             } catch (error) { }
         }
 
-        // Blob Delete
-        if (process.env.BLOB_READ_WRITE_TOKEN) {
-            try {
-                const { del } = await import('@vercel/blob');
-                const filename = `brands-db/${brandId}.json`;
-                const { blobs } = await BlobCache.list({ prefix: 'brands-db/' });
-                const blobToDelete = blobs.find(b => b.pathname === filename);
-                if (blobToDelete) {
-                    await del(blobToDelete.url);
-                    BlobCache.invalidate('brands-db/');
-                }
-            } catch (e) { }
-        }
 
         // Local Delete
         try {

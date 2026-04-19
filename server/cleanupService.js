@@ -78,10 +78,6 @@ class CleanupService {
                         await deleteFromSupabase('assets', filePath);
                         console.log(`[Cleanup] Deleted Supabase asset: ${filePath}`);
                     }
-                } else if (process.env.BLOB_READ_WRITE_TOKEN && url.includes('blob.vercel-storage.com')) {
-                    const { del } = await import('@vercel/blob');
-                    await del(url);
-                    console.log(`[Cleanup] Deleted Vercel blob: ${url}`);
                 }
             } catch (error) {
                 console.error(`[Cleanup] Failed to delete file/blob ${url}:`, error.message);

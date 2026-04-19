@@ -226,13 +226,6 @@ async function cropAndUpload(buffer, bbox) {
             contentType: 'image/png'
         });
         url = result.url;
-    } else {
-        const { put } = await import('@vercel/blob');
-        const result = await put(filename, croppedBuffer, {
-            access: 'public',
-            contentType: 'image/png'
-        });
-        url = result.url;
     }
 
     return url;

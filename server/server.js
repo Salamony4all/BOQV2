@@ -622,10 +622,6 @@ app.post('/api/blobs/delete', async (req, res) => {
         // Extract path from URL if path is not provided
         const finalPath = filePath || new URL(url).pathname.split('/').slice(2).join('/');
         await deleteFromSupabase('assets', finalPath);
-    } else {
-        const { del } = await import('@vercel/blob');
-        await del(url);
-        BlobCache.invalidate();
     }
     res.json({ success: true });
   } catch (error) {
@@ -644,12 +640,6 @@ app.post('/api/blobs/upload', planUpload.single('file'), async (req, res) => {
 
     if (supabase) {
         result = await uploadToSupabase('assets', `manual-upload/${fileName}`, fileBuffer, {
-            contentType: req.file.mimetype
-        });
-    } else {
-        const { put } = await import('@vercel/blob');
-        result = await put(`manual-upload/${fileName}`, fileBuffer, {
-            access: 'public',
             contentType: req.file.mimetype
         });
     }
