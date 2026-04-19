@@ -9,6 +9,7 @@ const execPromise = promisify(exec);
  * Converts .pptx to .pdf using PowerPoint COM via PowerShell (Windows Only)
  * High fidelity "native" conversion.
  */
+export async function convertPptxToPdf(inputPath) {
     const isWindows = process.platform === 'win32';
     if (!isWindows) {
         console.warn(`[PptxConverter] Skipping PDF conversion: PowerPoint COM is only supported on Windows (Current: ${process.platform}).`);

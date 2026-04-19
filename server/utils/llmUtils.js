@@ -156,6 +156,7 @@ export function safeParseJSON(text) {
         startIdx = text.indexOf('{');
     }
     
+    let cleaned = '';
     if (startIdx !== -1 && lastBraceIdx !== -1 && lastBraceIdx > startIdx) {
         cleaned = text.substring(startIdx, lastBraceIdx + 1);
     } else {
