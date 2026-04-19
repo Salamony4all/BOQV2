@@ -120,8 +120,7 @@ export const getProviderForModel = (modelName) => {
     if (!modelName) return 'google';
     if (modelName.startsWith('nvidia/')) return 'nvidia';
     if (modelName.startsWith('local/')) return 'local';
-    // Gemma-4 models are primarily NVIDIA NIM prototypes currently
-    if (modelName.startsWith('gemma-4')) return 'nvidia';
+
     // If it has a slash and isn't nvidia/local, it's likely OpenRouter (e.g. google/gemini-2.0-flash-lite-001)
     if (modelName.includes('/')) return 'openrouter';
     return 'google';
