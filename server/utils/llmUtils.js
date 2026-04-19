@@ -18,6 +18,8 @@ export const FREE_GOOGLE_MODELS = [
     'gemma-4-26b-a4b-it',
     'gemma-4-e4b-it',
     'gemma-4-e2b-it',
+    'gemma-4-9b-it',
+    'gemma-4-2b-it',
     'gemma-2-27b-it',
     'gemma-2-9b-it',
     'gemma-2-2b-it',
@@ -50,7 +52,7 @@ function getGoogleAI(modelName) {
     // 1. Force Free protocol if requested via environment variable
     if (FORCE_FREE_GOOGLE) {
         if (!GOOGLE_FREE_KEY) throw new Error('FORCE_FREE_GOOGLE set but GOOGLE_FREE_KEY is missing.');
-        if (process.env.DEBUG_AI === 'true') console.log(`  🛡️ [LLM Utils] Forcing FREE Google Key for model: ${modelName}`);
+        if (process.env.DEBUG_AI === 'true') console.log(`  🔍 [LLM Utils] Forcing FREE Google Key for model: ${modelName}`);
         return new GoogleGenerativeAI(GOOGLE_FREE_KEY);
     }
 
@@ -135,30 +137,28 @@ const isValidProviderModel = (provider, model) => {
 export function safeParseJSON(text) {
     if (!text) throw new Error('Empty AI response');
     
-    // 1. Structural Anchor Discovery
-    // We prioritize "items", "inventory", or "rows" keys as they are the core of our BOQ payloads.
-    const lastBraceIdx = text.lastIndexOf('}');
+    // 1. Structural Anchor Discovery (Regex-based)
+    let cleaned = text;
+    const itemsMatch = text.match(/\{\s*"items"\s*:/);
+    const invMatch = text.match(/\{\s*"inventory"\s*:/);
     
-    // Attempt to find the "real" start by looking for core keys
-    const itemsMatch = [...text.matchAll(/\{\s*"items"\s*:/g)].pop();
-    const invMatch = [...text.matchAll(/\{\s*"inventory"\s*:/g)].pop();
-    const rowsMatch = [...text.matchAll(/\{\s*"rows"\s*:/g)].pop();
+    const itemsStartIdx = itemsMatch ? itemsMatch.index : -1;
+    const invStartIdx = invMatch ? invMatch.index : -1;
     
     let startIdx = -1;
-    if (itemsMatch || invMatch || rowsMatch) {
-        startIdx = Math.max(
-            itemsMatch?.index ?? -1, 
-            invMatch?.index ?? -1,
-            rowsMatch?.index ?? -1
-        );
+    if (itemsStartIdx !== -1 && invStartIdx !== -1) {
+        startIdx = Math.min(itemsStartIdx, invStartIdx);
     } else {
-        // Fallback to first '{' if no specific keys found
-        startIdx = text.indexOf('{');
+        startIdx = itemsStartIdx !== -1 ? itemsStartIdx : invStartIdx;
     }
     
-    let cleaned = '';
-    if (startIdx !== -1 && lastBraceIdx !== -1 && lastBraceIdx > startIdx) {
-        cleaned = text.substring(startIdx, lastBraceIdx + 1);
+    const lastBraceIdx = text.lastIndexOf('}');
+    
+    // If we have a lot of text before the first '{', find the first '{' that looks like JSON
+    const firstBraceIdx = text.indexOf('{');
+    
+    if (firstBraceIdx !== -1 && lastBraceIdx !== -1 && lastBraceIdx > firstBraceIdx) {
+        cleaned = text.substring(firstBraceIdx, lastBraceIdx + 1);
     } else {
         cleaned = text
             .replace(/^```(?:json)?\s*/i, '')
