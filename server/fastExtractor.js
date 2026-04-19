@@ -31,8 +31,15 @@ async function extractExcelData(filePath, progressCallback = () => { }, onBlobCr
     try {
         await fs.access(filePath);
         
-        // Check for legacy .xls (Compound Binary File Format) signature
-        const fd = await fs.open(filePath, 'r');
+        // Attempt to open the file to check for legacy formats
+        let fd;
+        try {
+            fd = await fs.open(filePath, 'r');
+        } catch (openErr) {
+            console.error(`[FastExtractor] Failed to open file at ${filePath}:`, openErr);
+            throw new Error(`Could not open Excel file for reading. It may be locked or removed.`);
+        }
+
         const buffer = Buffer.alloc(8);
         await fd.read(buffer, 0, 8, 0);
         await fd.close();

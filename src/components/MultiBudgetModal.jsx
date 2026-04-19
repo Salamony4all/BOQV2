@@ -32,7 +32,7 @@ const batch = async (items, limit, fn) => {
 export default function MultiBudgetModal({ isOpen, onClose, originalTables, onApplyFlow, seededItems = null, onUploadBoq, onUploadPlan, planPreviewUrl = null, planPreviewType = null, planPreviewName = null }) {
     const profile = useCompanyProfile();
     const { theme } = useTheme();
-    const { companyName, logoWhite, logoBlue, website, updateProfile, processLogoFile } = profile;
+    const { companyName, logoWhite, logoOriginal, logoBlue, website, updateProfile, processLogoFile } = profile;
     const [activeTier, setActiveTier] = useState('mid'); // budgetary, mid, high
     const [previewImage, setPreviewImage] = useState(null); // URL of image to preview
     const [previewLogo, setPreviewLogo] = useState(null); // URL of brand logo for preview
@@ -1434,22 +1434,22 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
 
         // Header
         doc.setFillColor(...colors.primary);
-        doc.rect(0, 0, pageWidth, 18, 'F');
+        doc.rect(0, 0, pageWidth, 45, 'F');
         doc.setFillColor(...colors.accent);
-        doc.rect(0, 18, pageWidth, 2, 'F');
+        doc.rect(0, 45, pageWidth, 2, 'F');
         doc.setTextColor(...colors.white);
         doc.setFontSize(14);
         doc.setFont('helvetica', 'bold');
-        doc.text(`Multi-Budget Offer - ${activeTier.charAt(0).toUpperCase() + activeTier.slice(1)} Tier`, 10, 12);
+        doc.text(`Multi-Budget Offer - ${activeTier.charAt(0).toUpperCase() + activeTier.slice(1)} Tier`, 10, 25);
 
         // Top Right Logo (Now Company Logo from Settings)
-        const logoToUse = logoWhite || logoBlue;
+        const logoToUse = logoWhite || logoOriginal || logoBlue;
         if (logoToUse) {
             try {
                 const docLogo = await getImageData(logoToUse, { format: 'image/png', maxWidth: 800 });
                 if (docLogo) {
-                    const logoFit = calcFitSize(docLogo.width, docLogo.height, 35, 12);
-                    doc.addImage(docLogo.dataUrl, 'PNG', pageWidth - 10 - logoFit.w, 3, logoFit.w, logoFit.h);
+                    const logoFit = calcFitSize(docLogo.width, docLogo.height, 80, 28);
+                    doc.addImage(docLogo.dataUrl, 'PNG', pageWidth - 10 - logoFit.w, 8, logoFit.w, logoFit.h);
                 }
             } catch (e) { }
         }
@@ -1523,7 +1523,7 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
 
         // Table Generation
         autoTable(doc, {
-            startY: 25,
+            startY: 52,
             head: [processedHeader],
             body: body,
             theme: 'grid',
@@ -1748,7 +1748,7 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
 
         // Add Company Logo if available
         // Prefer original (Blue/Color) for Excel as it has a white background
-        const excelLogo = logoBlue || logoWhite;
+        const excelLogo = logoOriginal || logoBlue || logoWhite;
         if (excelLogo) {
             try {
                 const logoData = await getImageData(excelLogo, { format: 'image/png', maxWidth: 600 });
@@ -2027,7 +2027,7 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
         });
 
         // Company Logo on Title Slide
-        const titleSlideLogo = logoWhite || logoBlue;
+        const titleSlideLogo = logoWhite || logoOriginal || logoBlue;
         if (titleSlideLogo) {
             try {
                 const logoImg = await getImageData(titleSlideLogo, { format: 'image/png', maxWidth: 400 });
@@ -2062,7 +2062,7 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
             });
 
             // Top Right Logo (Now Company Logo)
-            const slideLogo = logoWhite || logoBlue;
+            const slideLogo = logoWhite || logoOriginal || logoBlue;
             if (slideLogo) {
                 try {
                     const logoImg = await getImageData(slideLogo, { format: 'image/png', maxWidth: 400 });
@@ -2284,39 +2284,39 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
 
             // ===== HEADER BAR =====
             doc.setFillColor(...colors.primary);
-            doc.rect(0, 0, pageWidth, 20, 'F');
+            doc.rect(0, 0, pageWidth, 55, 'F');
             doc.setFillColor(...colors.accent);
-            doc.rect(0, 20, pageWidth, 2.5, 'F');
+            doc.rect(0, 55, pageWidth, 2.5, 'F');
 
             // Header title - handle multi-line
             doc.setTextColor(...colors.white);
             doc.setFontSize(11);
             doc.setFont(arabicLoaded ? 'Almarai' : 'helvetica', 'bold');
             const fullTitle = `Item ${itemNum}: ${row.brandDesc || ''}`;
-            const titleLines = doc.splitTextToSize(processText(fullTitle), pageWidth - 70);
-            let currentTitleY = 10;
+            const titleLines = doc.splitTextToSize(processText(fullTitle), pageWidth - 90);
+            let currentTitleY = 25;
             titleLines.slice(0, 2).forEach(tl => {
                 doc.text(tl, 10, currentTitleY);
-                currentTitleY += 5.5;
+                currentTitleY += 8;
             });
 
             // Top Right Logo (Now Company Logo)
             // Header is blue, so we prefer the White logo variant if available
-            const presentationLogo = logoWhite || logoBlue;
+            const presentationLogo = logoWhite || logoOriginal || logoBlue;
             if (presentationLogo) {
                 try {
                     const docLogo = await getImageData(presentationLogo, { format: 'image/png', maxWidth: 400 });
                     if (docLogo) {
-                        const fit = calcFitSize(docLogo.width, docLogo.height, 40, 14);
+                        const fit = calcFitSize(docLogo.width, docLogo.height, 80, 28);
                         // Draw directly on blue header - no placeholder box
-                        doc.addImage(docLogo.dataUrl, 'PNG', pageWidth - fit.w - 10, 3, fit.w, fit.h);
+                        doc.addImage(docLogo.dataUrl, 'PNG', pageWidth - fit.w - 10, 8, fit.w, fit.h);
                     }
                 } catch (e) { }
             }
 
             // ===== LEFT COLUMN: Images =====
             const leftX = 10;
-            let leftY = 28;
+            let leftY = 62;
             const leftWidth = 120;
 
             // Reference image section (BOQ mode only)
@@ -2482,7 +2482,7 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
             doc.setFontSize(8);
             doc.text(`${itemNum} / ${totalItems}`, pageWidth - 20, pageHeight - 4);
             // Website / Brand reference
-            const footVal = profile.website || profile.companyName || 'BOQFLOW';
+            const footVal = profile.website || profile.companyName || 'BOQ FLOW';
             const footIsAr = hasArabic(footVal);
             doc.setFont(footIsAr && arabicLoaded ? 'Almarai' : 'helvetica', 'normal');
             doc.text(footIsAr ? fixArabic(footVal) : footVal, pageWidth / 2, pageHeight - 4, { align: 'center' });
@@ -2509,7 +2509,7 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
 
         // Professional color palette for formal documents
         const colors = {
-            primary: [30, 41, 59],         // Slate 800
+            primary: [43, 164, 224],       // Brand Blue
             accent: [245, 158, 11],        // Amber 500
             text: [51, 65, 85],            // Slate 600
             lightText: [100, 116, 139],    // Slate 500
@@ -2528,43 +2528,43 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
 
             // ===== HEADER BAR =====
             doc.setFillColor(...colors.primary);
-            doc.rect(0, 0, pageWidth, 22, 'F');
+            doc.rect(0, 0, pageWidth, 45, 'F');
             doc.setFillColor(...colors.accent);
-            doc.rect(0, 22, pageWidth, 2, 'F');
+            doc.rect(0, 45, pageWidth, 2, 'F');
 
             // Header title
             doc.setTextColor(...colors.white);
             doc.setFontSize(14);
             doc.setFont('helvetica', 'bold');
-            doc.text('MATERIAL APPROVAL SHEET', pageWidth / 2, 13, { align: 'center' });
+            doc.text('MATERIAL APPROVAL SHEET', pageWidth / 2, 28, { align: 'center' });
 
             // Top Right Logo box removal (MAS is white background, prefer Blue logo)
-            const masLogo = logoBlue || logoWhite;
+            const masLogo = logoOriginal || logoBlue || logoWhite;
             if (masLogo) {
                 try {
                     const docLogo = await getImageData(masLogo, { format: 'image/png', maxWidth: 400 });
                     if (docLogo) {
-                        const fit = calcFitSize(docLogo.width, docLogo.height, 35, 14);
+                        const fit = calcFitSize(docLogo.width, docLogo.height, 80, 28);
                         // Use original logo on white background - no box needed
-                        doc.addImage(docLogo.dataUrl, 'PNG', pageWidth - fit.w - 10, 4, fit.w, fit.h);
+                        doc.addImage(docLogo.dataUrl, 'PNG', pageWidth - fit.w - 10, 8, fit.w, fit.h);
                     }
                 } catch (e) { }
             }
 
             // ===== DOCUMENT INFO BAR =====
             doc.setFillColor(...colors.lightBg);
-            doc.rect(0, 24, pageWidth, 14, 'F');
+            doc.rect(0, 47, pageWidth, 14, 'F');
             doc.setDrawColor(...colors.border);
-            doc.line(0, 38, pageWidth, 38);
+            doc.line(0, 61, pageWidth, 61);
 
             doc.setTextColor(...colors.text);
             doc.setFontSize(8);
             doc.setFont('helvetica', 'normal');
-            doc.text(`Document No: MAS-${String(itemNum).padStart(3, '0')}`, 10, 31);
-            doc.text(`Date: ${new Date().toLocaleDateString()}`, 10, 36);
-            doc.text(`Item: ${itemNum} of ${totalItems}`, pageWidth / 2, 31, { align: 'center' });
+            doc.text(`Document No: MAS-${String(itemNum).padStart(3, '0')}`, 10, 52);
+            doc.text(`Date: ${new Date().toLocaleDateString()}`, 10, 57);
+            doc.text(`Item: ${itemNum} of ${totalItems}`, pageWidth / 2, 52, { align: 'center' });
             doc.setFont('helvetica', 'bold');
-            doc.text(`Brand: ${brandName || 'N/A'}`, pageWidth - 10, 33, { align: 'right' });
+            doc.text(`Brand: ${brandName || 'N/A'}`, pageWidth - 10, 54, { align: 'right' });
 
             // ===== REFERENCE IMAGE (BOQ mode, small on right) =====
             let refImgOffset = 0;
@@ -2577,21 +2577,21 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                         doc.setTextColor(...colors.lightText);
                         doc.setFontSize(7);
                         doc.setFont('helvetica', 'normal');
-                        doc.text('Reference:', pageWidth - 35, 43);
+                        doc.text('Reference:', pageWidth - 35, 64);
 
                         doc.setFillColor(...colors.lightBg);
                         doc.setDrawColor(...colors.border);
-                        doc.roundedRect(pageWidth - 35, 45, 30, 22, 1, 1, 'FD');
+                        doc.roundedRect(pageWidth - 35, 66, 30, 22, 1, 1, 'FD');
                         const fit = calcFitSize(refImg.width, refImg.height, 28, 20);
                         const refX = pageWidth - 35 + (30 - fit.w) / 2;
-                        const refY = 45 + (22 - fit.h) / 2;
+                        const refY = 66 + (22 - fit.h) / 2;
                         doc.addImage(refImg.dataUrl, 'JPEG', refX, refY, fit.w, fit.h);
                     }
                 } catch (e) { }
             }
 
             // ===== PRODUCT IMAGE SECTION =====
-            let imgY = 45;
+            let imgY = 66;
             const imgContainerW = 90;
             const imgContainerH = 65;
             const imgContainerX = (pageWidth - imgContainerW) / 2 - (isBoqMode ? 15 : 0);

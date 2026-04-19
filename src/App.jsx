@@ -75,8 +75,22 @@ const ThemeToggle = () => {
 };
 
 function AppContent({ onOpenSettings }) {
-  const { logoOriginal, logoWhite, companyName, aiSettings } = useCompanyProfile();
+  const { 
+    logoOriginal, 
+    logoWhite, 
+    companyName, 
+    aiSettings, 
+    accentColor, 
+    secondaryColor 
+  } = useCompanyProfile();
   const { theme } = useTheme();
+
+  // Update document title dynamically
+  useEffect(() => {
+    if (companyName) {
+      document.title = `${companyName} | Intelligent Estimator`;
+    }
+  }, [companyName]);
   const [sessionId] = useState(() => Math.random().toString(36).substring(7));
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -99,9 +113,10 @@ function AppContent({ onOpenSettings }) {
 
   // Reset environment on app load
   useEffect(() => {
-    fetch(apiUrl('/api/reset'), { method: 'POST' })
-      .then(() => console.log('Environment reset complete'))
-      .catch(console.error);
+    // Commented out to prevent accidental deletion of active uploads on refresh
+    // fetch(apiUrl('/api/reset'), { method: 'POST' })
+    //   .then(() => console.log('Environment reset complete'))
+    //   .catch(console.error);
 
     // Fetch brands once at the top level
     fetch(apiUrl('/api/brands'))
@@ -389,7 +404,7 @@ function AppContent({ onOpenSettings }) {
               ) : logoOriginal ? (
                 <img src={logoOriginal} alt={companyName} className={styles.headerLogo} />
               ) : (
-                <span className={styles.logoTextSmall}>{companyName || 'BOQFLOW'}</span>
+                <span className={styles.logoTextSmall}>BOQ FLOW</span>
               )}
             </div>
             <div style={{ marginLeft: 'auto', marginRight: '1rem' }}>
@@ -535,7 +550,7 @@ function AppContent({ onOpenSettings }) {
             <img src={logoOriginal} alt={companyName} className={styles.landingLogo} />
           ) : (
             <span className={styles.logoTextSmall} style={{ fontSize: '3rem' }}>
-              {companyName}
+              BOQ FLOW
             </span>
           )}
         </div>
@@ -677,7 +692,7 @@ function AppContent({ onOpenSettings }) {
 
       {/* Footer */}
       <footer className={styles.footer}>
-        <div className={styles.footerLogo}>BOQFLOW</div>
+        <div className={styles.footerLogo}>BOQ FLOW</div>
         <p className={styles.footerText}>
           Intelligent BOQ Extraction, Costing & Proposal Engine
         </p>

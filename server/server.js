@@ -18,6 +18,8 @@ import https from 'https';
 import { ExcelDbManager } from './excelManager.js';
 import { brandStorage } from './storageProvider.js';
 import { getAiMatch, identifyModel, fetchProductDetails, searchAndEnrichModel, analyzePlan, matchFitoutItem, FREE_GOOGLE_MODELS, PAID_GOOGLE_MODELS, VALID_GOOGLE_MODELS, VALID_OPENROUTER_MODELS, VALID_NVIDIA_MODELS, GOOGLE_MODEL, OPENROUTER_MODEL, NVIDIA_MODEL } from './utils/llmUtils.js';
+import { generatePresentationPdf } from './utils/pptxExportService.js';
+
 
 // ALL heavy PDF/Vision extractors are LAZY to prevent Vercel boot crash
 // (pdfProductExtractor uses pdfjs, visionBOQExtractor uses Playwright)
@@ -1697,7 +1699,51 @@ async function cleanTempDir() {
   }
 }
 
+// Premium Presentation PDF (PPTX -> PDF Converter)
+app.post('/api/generate-pptx-pdf', async (req, res) => {
+    try {
+        console.log('📄 [Server] Receiving pre-generated PPTX for PDF conversion...');
+        const { pptxBase64 } = req.body;
+        
+        let pdfPath = null;
+        let pptxPath = null;
+
+        if (pptxBase64) {
+            console.log('🔄 [Server] Received pre-generated PPTX from client. Converting...');
+            const tempDir = isVercel ? '/tmp/uploads' : path.join(__dirname, '../uploads');
+            await fs.mkdir(tempDir, { recursive: true }).catch(() => null);
+
+            const pptxFilename = `presentation_upload_${Date.now()}.pptx`;
+            pptxPath = path.join(tempDir, pptxFilename);
+            
+            const buffer = Buffer.from(pptxBase64, 'base64');
+            await fs.writeFile(pptxPath, buffer);
+
+            const { convertPptxToPdf } = await import('./utils/pptxToPdfConverter.js');
+            pdfPath = await convertPptxToPdf(pptxPath);
+        } else {
+            console.log('⚠️ [Server] No pptxBase64 provided. Falling back to backend generation...');
+            const { generatePresentationPdf } = await import('./utils/pptxExportService.js');
+            const result = await generatePresentationPdf(req.body);
+            pdfPath = result.pdfPath;
+            pptxPath = result.pptxPath;
+        }
+        
+        if (pdfPath) {
+            console.log('✅ [Server] PDF Generated successfully.');
+            res.download(pdfPath, 'presentation_export.pdf');
+        } else {
+            console.warn('⚠️ [Server] PDF Conversion failed, providing PPTX instead.');
+            res.download(pptxPath, 'presentation_export.pptx');
+        }
+    } catch (err) {
+        console.error('❌ [Server] PPTX-PDF Generation/Conversion Error:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // Reset & Cleanup
+
 app.post('/api/reset', async (req, res) => {
   try {
     await cleanupService.cleanupAll();
@@ -1723,7 +1769,7 @@ app.use((error, req, res, next) => {
 
 if (!isVercel) {
   const server = app.listen(PORT, '0.0.0.0', () => {
-    console.log(`🚀 BOQFLOW server actively listening on: http://localhost:${PORT}`);
+    console.log(`🚀 Salamony4all/BOQV2 server actively listening on: http://localhost:${PORT}`);
     
     // Initial maintenance tasks...
     Promise.all([

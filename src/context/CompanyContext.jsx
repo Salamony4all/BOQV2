@@ -10,8 +10,8 @@ const CompanyContext = createContext(null);
 const STORAGE_KEY = 'boqflow_company_profile';
 
 const DEFAULT_PROFILE = {
-    companyName: 'Alshaya Enterprises',
-    website: 'https://alshayaenterprises.com/',
+    companyName: 'BOQ FLOW',
+    website: '',
     logo: {
         base64: ALSHAYA_COLOR,
         width: 1561,
@@ -23,6 +23,8 @@ const DEFAULT_PROFILE = {
         engine: DEFAULT_AI_SETTINGS.engine,
         model: DEFAULT_AI_SETTINGS.model
     },
+    accentColor: '#3b82f6', // Default blue
+    secondaryColor: '#f59e0b', // Default gold
     setupComplete: true
 };
 
@@ -31,6 +33,19 @@ export function CompanyProvider({ children }) {
     const [profile, setProfile] = useState(DEFAULT_PROFILE);
     const [isLoading, setIsLoading] = useState(true);
     const [showSetupModal, setShowSetupModal] = useState(false);
+
+    // Apply colors to CSS variables
+    const applyThemeColors = useCallback((primary, secondary) => {
+        if (!primary) return;
+        document.documentElement.style.setProperty('--primary', primary);
+        if (secondary) document.documentElement.style.setProperty('--accent', secondary);
+        
+        // Generate a slightly darker version for hover states if possible
+        // (Simple darkening logic)
+        try {
+            document.documentElement.style.setProperty('--primary-dark', primary);
+        } catch (e) {}
+    }, []);
 
     // Load profile from localStorage on mount
     useEffect(() => {
@@ -51,23 +66,31 @@ export function CompanyProvider({ children }) {
                     delete parsed.logoBlue;
                 }
                 // Merge with defaults to ensure missing fields (like website) are filled
-                setProfile(prev => ({
+                // HOWEVER, if a profile was already saved, we don't want to revert the logo to default
+                const integratedProfile = {
                     ...DEFAULT_PROFILE,
                     ...parsed,
-                    // If stored strings are empty, keep the defaults
                     companyName: parsed.companyName || DEFAULT_PROFILE.companyName,
-                    website: parsed.website || DEFAULT_PROFILE.website,
-                    logo: (parsed.logo && (parsed.logo.base64 || parsed.logo.whiteLogo)) ? parsed.logo : DEFAULT_PROFILE.logo,
-                    aiSettings: parsed.aiSettings || DEFAULT_PROFILE.aiSettings
-                }));
-                setShowSetupModal(!parsed.setupComplete);
+                    website: (parsed.website !== undefined) ? parsed.website : DEFAULT_PROFILE.website,
+                    // Only use default logo if the parsed one is completely missing or empty and no profile existed
+                    logo: (parsed.logo && (parsed.logo.base64 || parsed.logo.whiteLogo)) 
+                        ? parsed.logo 
+                        : (parsed.setupComplete ? parsed.logo : DEFAULT_PROFILE.logo),
+                    aiSettings: parsed.aiSettings ? { ...DEFAULT_PROFILE.aiSettings, ...parsed.aiSettings } : DEFAULT_PROFILE.aiSettings,
+                    accentColor: parsed.accentColor || DEFAULT_PROFILE.accentColor,
+                    secondaryColor: parsed.secondaryColor || DEFAULT_PROFILE.secondaryColor
+                };
+                setProfile(integratedProfile);
+                applyThemeColors(integratedProfile.accentColor, integratedProfile.secondaryColor);
+                setShowSetupModal(false); // Hidden by default as requested
             } else {
-                // If no profile is stored, use the defaults we've set (which now include setupComplete: true)
+                // If no profile is stored, use the defaults
+                applyThemeColors(DEFAULT_PROFILE.accentColor, DEFAULT_PROFILE.secondaryColor);
                 setShowSetupModal(false);
             }
         } catch (error) {
             console.error('Failed to load company profile:', error);
-            setShowSetupModal(true);
+            setShowSetupModal(false);
         } finally {
             setIsLoading(false);
         }
@@ -79,34 +102,64 @@ export function CompanyProvider({ children }) {
             const profileToSave = { ...newProfile, setupComplete: true };
             localStorage.setItem(STORAGE_KEY, JSON.stringify(profileToSave));
             setProfile(profileToSave);
+            applyThemeColors(profileToSave.accentColor, profileToSave.secondaryColor);
             setShowSetupModal(false);
             return { success: true };
         } catch (error) {
             console.error('Failed to save company profile:', error);
-            // Check if it's a quota error
             if (error.name === 'QuotaExceededError') {
-                return { success: false, error: 'Storage quota exceeded. Please use a smaller logo.' };
+                return { success: false, error: 'Storage quota exceeded. Please use a smaller logo (max 1MB per image).' };
             }
             return { success: false, error: 'Failed to save profile.' };
         }
-    }, []);
+    }, [applyThemeColors]);
 
     // Update company name
     const updateCompanyName = useCallback((name) => {
-        const updated = { ...profile, companyName: name };
-        return saveProfile(updated);
-    }, [profile, saveProfile]);
+        setProfile(prev => {
+            const updated = { ...prev, companyName: name };
+            saveProfile(updated);
+            return updated;
+        });
+        return { success: true };
+    }, [saveProfile]);
 
-    // Update profile
-    const updateProfile = useCallback((name, logoData, website) => {
-        const updated = {
-            ...profile,
-            companyName: name,
-            website: website !== undefined ? website : profile.website,
-            logo: logoData !== undefined ? logoData : profile.logo
-        };
-        return saveProfile(updated);
-    }, [profile, saveProfile]);
+    // Update profile (Unified method)
+    const updateProfile = useCallback((name, logoData, website, colors) => {
+        let result = { success: true };
+        setProfile(prev => {
+            const updated = {
+                ...prev,
+                companyName: name || prev.companyName,
+                website: website !== undefined ? website : prev.website,
+                logo: logoData !== undefined ? logoData : prev.logo,
+                accentColor: colors?.primary || prev.accentColor,
+                secondaryColor: colors?.secondary || prev.secondaryColor
+            };
+            result = saveProfile(updated);
+            return updated;
+        });
+        return result;
+    }, [saveProfile]);
+
+    // Update all settings at once (to avoid race conditions)
+    const updateAllSettings = useCallback((profileData, aiData) => {
+        let result = { success: true };
+        setProfile(prev => {
+            const updated = {
+                ...prev,
+                companyName: profileData.name || prev.companyName,
+                website: profileData.website !== undefined ? profileData.website : prev.website,
+                logo: profileData.logo !== undefined ? profileData.logo : prev.logo,
+                accentColor: profileData.colors?.primary || prev.accentColor,
+                secondaryColor: profileData.colors?.secondary || prev.secondaryColor,
+                aiSettings: { ...prev.aiSettings, ...aiData }
+            };
+            result = saveProfile(updated);
+            return updated;
+        });
+        return result;
+    }, [saveProfile]);
 
     // Clear profile (reset)
     const clearProfile = useCallback(() => {
@@ -182,13 +235,23 @@ export function CompanyProvider({ children }) {
                         ctx.fillRect(0, 0, width, height);
                         whiteLogo = canvas.toDataURL('image/png');
                     }
+                    
+                    // 3. Extract Dominant Color for UI
+                    let primaryColor = '#3b82f6'; // Default
+                    if (alphaCount > 0) {
+                        const rAvg = Math.round(r / alphaCount);
+                        const gAvg = Math.round(g / alphaCount);
+                        const bAvg = Math.round(b / alphaCount);
+                        primaryColor = `rgb(${rAvg}, ${gAvg}, ${bAvg})`;
+                    }
 
                     resolve({
                         base64,
                         width,
                         height,
                         isLight,
-                        whiteLogo
+                        whiteLogo,
+                        detectedColor: primaryColor
                     });
                 };
                 img.onerror = () => reject(new Error('Failed to process image data.'));
@@ -205,9 +268,11 @@ export function CompanyProvider({ children }) {
         website: profile.website || '',
         logo: profile.logo,
         logoWhite: profile.logo?.whiteLogo,
-        logoBlue: profile.logo?.base64, // Keep for backward compatibility/internal naming
         logoOriginal: profile.logo?.base64,
+        logoBlue: profile.logo?.base64, // Keep for backward compatibility
         logoVariants: profile.logo, // Provide the full logo object
+        accentColor: profile.accentColor,
+        secondaryColor: profile.secondaryColor,
         setupComplete: profile.setupComplete,
 
         // State
@@ -218,12 +283,18 @@ export function CompanyProvider({ children }) {
         // AI Settings
         aiSettings: profile.aiSettings || DEFAULT_AI_SETTINGS,
         updateAiSettings: (settings) => {
-            const updated = {
-                ...profile,
-                aiSettings: { ...profile.aiSettings, ...settings }
-            };
-            return saveProfile(updated);
+            let result = { success: true };
+            setProfile(prev => {
+                const updated = {
+                    ...prev,
+                    aiSettings: { ...prev.aiSettings, ...settings }
+                };
+                result = saveProfile(updated);
+                return updated;
+            });
+            return result;
         },
+        updateAllSettings,
 
         // Actions
         updateCompanyName,

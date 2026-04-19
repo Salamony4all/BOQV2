@@ -12,16 +12,19 @@ export default function CompanySettings({ isModal = false, onClose = null }) {
         logoOriginal,
         logoWhite,
         aiSettings: storedAiSettings,
+        accentColor: initialAccent,
+        secondaryColor: initialSecondary,
         updateProfile,
         updateAiSettings,
+        updateAllSettings,
         processLogoFile,
         clearProfile
     } = useCompanyProfile();
     const { theme } = useTheme();
 
     // Local State
-    const [name, setName] = useState(companyName || 'Alshaya Enterprises');
-    const [website, setWebsite] = useState(storedWebsite || 'https://alshayaenterprises.com/');
+    const [name, setName] = useState(companyName || 'BOQ FLOW');
+    const [website, setWebsite] = useState(storedWebsite || '');
     const [logo, setLogo] = useState(storedLogo || {
         base64: logoOriginal || '',
         width: 1561,
@@ -29,13 +32,15 @@ export default function CompanySettings({ isModal = false, onClose = null }) {
         isLight: false,
         whiteLogo: logoWhite || ''
     });
+    const [accentColor, setAccentColor] = useState(initialAccent || '#3b82f6');
+    const [secondaryColor, setSecondaryColor] = useState(initialSecondary || '#f59e0b');
 
     // AI Settings State
     const [selectedEngine, setSelectedEngine] = useState(storedAiSettings?.engine || DEFAULT_AI_SETTINGS.engine);
     const [selectedModel, setSelectedModel] = useState(storedAiSettings?.model || DEFAULT_AI_SETTINGS.model);
     
     // UI State
-    const [expandedSection, setExpandedSection] = useState('branding'); // 'branding' or 'ai'
+    const [expandedSection, setExpandedSection] = useState(null); // 'branding', 'ai', or null for collapsed
     const [error, setError] = useState(null);
     const [success, setSuccess] = useState(null);
     const [isProcessing, setIsProcessing] = useState(false);
@@ -87,6 +92,9 @@ export default function CompanySettings({ isModal = false, onClose = null }) {
                         isLight: true // Manual white logo is always light
                     };
                 } else {
+                    if (logoData.detectedColor && accentColor === initialAccent) {
+                        setAccentColor(logoData.detectedColor);
+                    }
                     return {
                         ...current,
                         base64: logoData.base64,
@@ -125,36 +133,41 @@ export default function CompanySettings({ isModal = false, onClose = null }) {
     };
 
     const handleSave = async () => {
-        if (!name.trim()) {
-            setError('Please enter a company name.');
-            setExpandedSection('branding');
-            return;
-        }
-
-        setError(null);
         setIsProcessing(true);
+        setError('');
+        setSuccess('');
 
         try {
-            // Save Profile
-            const profileResult = await updateProfile(name.trim(), logo, website.trim());
-            
-            // Save AI Settings
-            const aiResult = await updateAiSettings({
+            // Save everything at once to avoid race conditions and multiple re-renders
+            const result = await updateAllSettings({
+                name: name.trim() || undefined,
+                logo: logo,
+                website: website.trim(),
+                colors: {
+                    primary: accentColor,
+                    secondary: secondaryColor
+                }
+            }, {
                 engine: selectedEngine,
                 model: selectedModel
             });
 
-            if (profileResult.success && aiResult.success) {
+            if (result.success) {
                 setSuccess('Settings saved successfully!');
+                
+                // Keep success message visible for a bit then close if it was a modal
                 setTimeout(() => {
-                    setSuccess(null);
-                    if (onClose) onClose();
+                    if (isModal) {
+                        onClose();
+                    } else {
+                        setSuccess('');
+                    }
                 }, 1500);
             } else {
-                setError(profileResult.error || aiResult.error || 'Failed to save settings.');
+                setError(result.error || 'Failed to save settings.');
             }
         } catch (err) {
-            setError(err.message);
+            setError(err.message || 'An error occurred while saving.');
         } finally {
             setIsProcessing(false);
         }
@@ -223,9 +236,10 @@ export default function CompanySettings({ isModal = false, onClose = null }) {
 
                                 <div className={styles.field}>
                                     <label className={styles.label}>Logos</label>
+                                    <p className={styles.labelHint}>Upload your company logo in both colored and white versions for use across different themes and exports.</p>
                                     <div className={styles.logoGrid}>
                                         <div className={styles.logoSlot}>
-                                            <span className={styles.slotLabel}>Light Mode</span>
+                                            <span className={styles.slotLabel}>Original / Colored</span>
                                             <div className={`${styles.logoPreview} ${styles.logoPreviewLight}`}>
                                                 {logo?.base64 && <img src={logo.base64} alt="Colored" className={styles.logoImage} />}
                                             </div>
@@ -236,7 +250,7 @@ export default function CompanySettings({ isModal = false, onClose = null }) {
                                             </div>
                                         </div>
                                         <div className={styles.logoSlot}>
-                                            <span className={styles.slotLabel}>Dark Mode (White)</span>
+                                            <span className={styles.slotLabel}>White (Knockout)</span>
                                             <div className={`${styles.logoPreview} ${styles.logoPreviewDark}`}>
                                                 {logo?.whiteLogo && <img src={logo.whiteLogo} alt="White" className={styles.logoImage} />}
                                             </div>
@@ -286,13 +300,13 @@ export default function CompanySettings({ isModal = false, onClose = null }) {
                                     >
                                         {selectedEngine === 'google' ? (
                                             <>
-                                                <optgroup label="Free List (Gemma)">
+                                                <optgroup label="Free Tier (Gemma Models)">
                                                     {MODEL_OPTIONS.google.gemma.map(m => <option key={m} value={m}>{m}</option>)}
                                                 </optgroup>
-                                                <optgroup label="Free List (Gemini)">
+                                                <optgroup label="Free Tier (Gemini 1, 2, 3 Models)">
                                                     {MODEL_OPTIONS.google.gemini.map(m => <option key={m} value={m}>{m}</option>)}
                                                 </optgroup>
-                                                <optgroup label="Paid List">
+                                                <optgroup label="Paid Tier (Gemini 1, 2, 3 Paid API)">
                                                     {MODEL_OPTIONS.google.paid.map(m => <option key={m} value={m}>{m}</option>)}
                                                 </optgroup>
                                             </>

@@ -13,28 +13,32 @@ const NVIDIA_API_KEY = process.env.NVIDIA_API_KEY;
 const FORCE_FREE_GOOGLE = process.env.FORCE_FREE_GOOGLE_KEY === 'true';
 
 export const FREE_GOOGLE_MODELS = [
-    // Gemma Family (Top)
+    // Gemma Family (Forced Free)
+    'gemma-4-31b-it',
+    'gemma-4-9b-it',
+    'gemma-4-2b-it',
     'gemma-2-27b-it',
     'gemma-2-9b-it',
     'gemma-2-2b-it',
-    // Gemini Family (Legacy/Free)
-    'gemini-flash-latest',
-    'gemini-1.5-pro',
-    'gemini-1.5-flash'
-];
-
-export const PAID_GOOGLE_MODELS = [
-    'gemini-1.5-pro-001',
-    'gemini-1.5-pro-002',
-    'gemini-1.5-flash-001',
-    'gemini-1.5-flash-002',
-    'gemini-1.0-pro',
-    'gemini-2.5-pro',
+    // Gemini Family (Free Tier)
+    'gemini-3-flash',
+    'gemini-3-flash-8b',
     'gemini-2.5-flash',
     'gemini-2.0-flash',
     'gemini-2.0-flash-lite',
-    'gemini-3-flash-preview',
-    'gemini-3.1-pro-preview'
+    'gemini-1.5-flash',
+    'gemini-1.5-pro',
+    'gemini-1.0-pro'
+];
+
+export const PAID_GOOGLE_MODELS = [
+    'gemini-3.1-pro',
+    'gemini-3-pro',
+    'gemini-2.5-pro',
+    'gemini-2.0-pro',
+    'gemini-1.5-pro-002',
+    'gemini-1.5-flash-002',
+    'gemini-1.5-pro-001'
 ];
 
 export const VALID_GOOGLE_MODELS = [...FREE_GOOGLE_MODELS, ...PAID_GOOGLE_MODELS];
@@ -103,12 +107,12 @@ export const VALID_NVIDIA_MODELS = [
 export const VALID_LOCAL_MODELS = [
     'local/yolov8-llama3.2'
 ];
-export const GOOGLE_MODEL = VALID_GOOGLE_MODELS.includes(process.env.GOOGLE_MODEL) ? process.env.GOOGLE_MODEL : 'gemma-4-31b-it';
+export const GOOGLE_MODEL = VALID_GOOGLE_MODELS.includes(process.env.GOOGLE_MODEL) ? process.env.GOOGLE_MODEL : 'gemini-1.5-flash';
 export const OPENROUTER_MODEL = process.env.OPENROUTER_MODEL || 'google/gemini-2.5-flash-lite-001';
 export const NVIDIA_MODEL = process.env.NVIDIA_MODEL || 'nvidia/llama-3.3-70b-instruct';
 export const LOCAL_MODEL = 'local/yolov8-llama3.2';
 export const PYTHON_SERVICE_URL = process.env.PYTHON_SERVICE_URL || 'http://localhost:8001';
-export const GROUNDING_MODEL = process.env.GOOGLE_MODEL || 'gemma-4-31b-it'; // Standard model for this environment
+export const GROUNDING_MODEL = process.env.GOOGLE_MODEL || 'gemini-1.5-flash'; // Standard model for this environment
 
 // Deprecated: use getGoogleAI(modelName) instead
 const genAI = new GoogleGenerativeAI(GOOGLE_API_KEY);

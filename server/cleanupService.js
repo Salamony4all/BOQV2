@@ -70,8 +70,13 @@ class CleanupService {
         if (process.env.BLOB_READ_WRITE_TOKEN) {
             for (const url of session.blobs) {
                 try {
-                    await del(url);
-                    console.log(`[Cleanup] Deleted cloud blob: ${url}`);
+                    // Only attempt to delete if it's a Vercel Blob URL
+                    if (url.includes('blob.vercel-storage.com')) {
+                        await del(url);
+                        console.log(`[Cleanup] Deleted cloud blob: ${url}`);
+                    } else {
+                        // console.log(`[Cleanup] Skipping non-Vercel blob: ${url}`);
+                    }
                 } catch (error) {
                     console.error(`[Cleanup] Failed to delete blob ${url}:`, error.message);
                 }

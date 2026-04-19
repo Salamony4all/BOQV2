@@ -26,7 +26,7 @@
   font-weight: 800;
   font-size: 1.4rem;
   letter-spacing: -1px;
-  background: linear-gradient(135deg, #3b82f6 0%, #f59e0b 100%);
+  background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -35,7 +35,7 @@
 .loadingLogo {
   font-size: 3rem;
   font-weight: 900;
-  background: linear-gradient(135deg, #3b82f6 0%, #f59e0b 100%);
+  background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;

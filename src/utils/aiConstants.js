@@ -1,27 +1,30 @@
 export const MODEL_OPTIONS = {
     google: {
         gemma: [
+            'gemma-4-31b-it',
+            'gemma-4-9b-it',
+            'gemma-4-2b-it',
             'gemma-2-27b-it',
             'gemma-2-9b-it',
             'gemma-2-2b-it'
         ],
         gemini: [
-            'gemini-flash-latest',
-            'gemini-1.5-pro',
-            'gemini-1.5-flash'
-        ],
-        paid: [
-            'gemini-3.1-pro-preview',
-            'gemini-3-flash-preview',
-            'gemini-2.5-pro',
+            'gemini-3-flash',
+            'gemini-3-flash-8b',
             'gemini-2.5-flash',
             'gemini-2.0-flash',
             'gemini-2.0-flash-lite',
-            'gemini-1.5-pro-001',
-            'gemini-1.5-pro-002',
-            'gemini-1.5-flash-001',
-            'gemini-1.5-flash-002',
+            'gemini-1.5-flash',
+            'gemini-1.5-pro',
             'gemini-1.0-pro'
+        ],
+        paid: [
+            'gemini-3.1-pro',
+            'gemini-3-pro',
+            'gemini-2.5-pro',
+            'gemini-2.0-pro',
+            'gemini-1.5-pro-002',
+            'gemini-1.5-flash-002'
         ]
     },
     openrouter: [
