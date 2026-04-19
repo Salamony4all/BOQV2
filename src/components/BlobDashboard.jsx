@@ -105,7 +105,7 @@ const BlobDashboard = ({ isOpen, onClose }) => {
                 <div className={styles.header}>
                     <div className={styles.titleGroup}>
                         <i className={`ri-database-2-line ${styles.icon}`}></i>
-                        <h2 className={styles.title}>Blob Asset Dashboard</h2>
+                        <h2 className={styles.title}>Supabase Asset Dashboard</h2>
                     </div>
                     <button className={styles.closeBtn} onClick={onClose}>
                         <i className="ri-close-line"></i>
@@ -150,7 +150,7 @@ const BlobDashboard = ({ isOpen, onClose }) => {
                         </div>
                         <div className={styles.statItem}>
                             <span className={styles.statLabel}>Provider</span>
-                            <span className={styles.statValue}>Vercel Blob</span>
+                            <span className={styles.statValue}>Supabase Storage</span>
                         </div>
                     </div>
 

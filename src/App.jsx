@@ -12,6 +12,8 @@ import styles from './styles/App.module.css';
 import { useTheme } from './context/ThemeContext';
 import PdfModelModal from './components/PdfModelModal';
 
+import { createClient } from '@supabase/supabase-js';
+
 // Modern workspace images for carousel
 const CAROUSEL_IMAGES = [
   'https://images.unsplash.com/photo-1497366216548-37526070297c?w=800&q=80', // Modern office
@@ -168,35 +170,36 @@ function AppContent({ onOpenSettings }) {
       if (useBlob) {
         setStage('Uploading...');
 
-        // Direct Client-Side Upload to Free Temp Storage (Bypasses Vercel Blob Limits)
-        const fileUrl = await new Promise((resolve, reject) => {
-          const formData = new FormData();
-          formData.append('file', file);
+        const fileUrl = await new Promise(async (resolve, reject) => {
+          try {
+            // Get credentials from server
+            const configRes = await fetch(apiUrl('/api/storage/config'));
+            const { url: sbUrl, anonKey, bucket } = await configRes.json();
+            
+            const supabase = createClient(sbUrl, anonKey);
+            const filePath = `temp-uploads/${sessionId}/${Date.now()}-${file.name}`;
+            
+            const { data, error } = await supabase.storage
+              .from(bucket)
+              .upload(filePath, file, {
+                upsert: true,
+                onUploadProgress: (e) => {
+                   const percent = (e.loaded / e.total) * 100;
+                   setStage(`Clould Uploading: ${Math.round(percent)}%`);
+                   setProgress(10 + (percent * 0.15)); // Allocate small segment for progress
+                }
+              });
 
-          const xhr = new XMLHttpRequest();
-          xhr.upload.addEventListener('progress', (e) => {
-            if (e.lengthComputable) {
-              setProgress((e.loaded / e.total) * 50); // First 50% is upload
-            }
-          });
+            if (error) throw error;
 
-          xhr.addEventListener('load', () => {
-            if (xhr.status === 200 || xhr.status === 201) {
-              try {
-                const response = JSON.parse(xhr.responseText);
-                // Convert to direct download format
-                resolve(response.data.url.replace('tmpfiles.org/', 'tmpfiles.org/dl/'));
-              } catch (e) {
-                reject(new Error('Failed to parse upload provider response'));
-              }
-            } else {
-              reject(new Error(`Cloud upload failed: ${xhr.status}`));
-            }
-          });
+            const { data: { publicUrl } } = supabase.storage
+              .from(bucket)
+              .getPublicUrl(data.path);
 
-          xhr.addEventListener('error', () => reject(new Error('Network error during cloud upload')));
-          xhr.open('POST', 'https://tmpfiles.org/api/v1/upload');
-          xhr.send(formData);
+            resolve(publicUrl);
+          } catch (err) {
+            reject(err);
+          }
         });
 
         setStage('Processing...');

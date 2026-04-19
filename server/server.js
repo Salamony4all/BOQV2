@@ -204,11 +204,11 @@ app.use('/temp', express.static(path.join(publicPath, 'temp')));
 
 // Multer configuration
 const storage = multer.diskStorage({
-  destination: async (req, file, cb) => {
+  destination: (req, file, cb) => {
     const dest = isVercel ? '/tmp/uploads' : path.join(__dirname, '../uploads');
-    try {
-      await fs.mkdir(dest, { recursive: true });
-    } catch (e) {}
+    if (!fs_sync.existsSync(dest)) {
+      fs_sync.mkdirSync(dest, { recursive: true });
+    }
     cb(null, dest);
   },
   filename: (req, file, cb) => {
@@ -636,38 +636,13 @@ app.post('/api/blobs/upload', planUpload.single('file'), async (req, res) => {
   }
 });
 
-// Vercel Blob Token Handler (Large File Support)
-// Direct browser-to-cloud upload bypasses Vercel 4.5MB limits
-app.post('/api/upload/blob-token', async (req, res) => {
-  try {
-    const token = process.env.BLOB_READ_WRITE_TOKEN;
-    if (!token && isVercel) {
-      console.error('CRITICAL: BLOB_READ_WRITE_TOKEN is missing!');
-      return res.status(500).json({ error: 'Blob storage token not configured' });
-    }
-
-    const jsonResponse = await handleUpload({
-      body: req.body,
-      request: req,
-      token: token,
-      onBeforeGenerateToken: async (pathname) => ({
-        allowedContentTypes: [
-          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 
-          'application/vnd.ms-excel',
-          'application/octet-stream'
-        ],
-        tokenPayload: JSON.stringify({ userId: 'anonymous' }),
-        addRandomSuffix: true,
-      }),
-      onUploadCompleted: async ({ blob }) => {
-        console.log('[BlobToken] Upload successful:', blob.url);
-      },
-    });
-    return res.status(200).json(jsonResponse);
-  } catch (error) {
-    console.error('[BlobToken] Error:', error.message);
-    return res.status(400).json({ error: error.message });
-  }
+// Supabase Storage Helper for Browser
+app.get('/api/storage/config', (req, res) => {
+  res.json({
+    url: process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL,
+    anonKey: process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+    bucket: 'assets'
+  });
 });
 
 // Process a file that was already uploaded to Vercel Blob (Big File Processing)
@@ -695,8 +670,10 @@ app.post('/api/process-blob', async (req, res) => {
       cleanupService.trackBlob(sessionId, blobUrl);
     });
 
-    // (Optional) Delete the source blob after processing to save space
-    try { await del(url); } catch (e) { console.warn('Blob delete skip:', e.message); }
+    // (Optional) Delete the source if it was a transient upload
+    if (url.includes('supabase') && url.includes('temp')) {
+       // logic to delete if needed
+    }
 
     res.json({
       success: true,
@@ -728,6 +705,13 @@ app.post('/api/reset', async (req, res) => {
 
 // Health check fallback for some UI integrations
 app.get('/api/health-check', (req, res) => res.json({ status: 'OK' }));
+app.get('/api/storage/config', (req, res) => {
+  res.json({
+    url: process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL,
+    anonKey: process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+    bucket: 'assets'
+  });
+});
 
 
 // Brand Management
@@ -751,84 +735,7 @@ app.post('/api/brands', async (req, res) => {
   }
 });
 
-// Sync local brands database to Vercel Blob storage
-app.post('/api/brands/sync/to-blob', async (req, res) => {
-  try {
-    if (!process.env.BLOB_READ_WRITE_TOKEN) {
-      return res.status(400).json({ error: 'Blob storage not configured' });
-    }
-
-    const brandsPath = isVercel ? '/tmp/data/brands' : path.join(process.cwd(), 'server/data/brands');
-    
-    try {
-      await fs.mkdir(brandsPath, { recursive: true });
-    } catch (e) {}
-
-    const files = await fs.readdir(brandsPath);
-    const jsonFiles = files.filter(f => f.endsWith('.json'));
-
-    let syncedCount = 0;
-    const results = [];
-
-    for (const file of jsonFiles) {
-      try {
-        const filePath = path.join(brandsPath, file);
-        const content = await fs.readFile(filePath, 'utf8');
-        const parsed = JSON.parse(content);
-
-        // Upload to Blob with brands-db/ prefix
-        await put(`brands-db/${file}`, content, {
-          access: 'public',
-          contentType: 'application/json'
-        });
-
-        // Invalidate cache
-        BlobCache.invalidate('brands-db/');
-
-        syncedCount++;
-        results.push({ file, status: 'synced' });
-        console.log(`✅ [Sync] Uploaded ${file} to Blob`);
-      } catch (fileErr) {
-        console.error(`❌ [Sync] Failed to sync ${file}:`, fileErr.message);
-        results.push({ file, status: 'failed', error: fileErr.message });
-      }
-    }
-
-    res.json({
-      success: true,
-      message: `Synced ${syncedCount}/${jsonFiles.length} brand files to Blob storage`,
-      synced: syncedCount,
-      total: jsonFiles.length,
-      results
-    });
-  } catch (error) {
-    console.error('❌ [Sync] Sync operation failed:', error.message);
-    res.status(500).json({ error: 'Sync failed', details: error.message });
-  }
-});
-
-// Get sync status
-app.get('/api/brands/sync/status', async (req, res) => {
-  try {
-    if (!process.env.BLOB_READ_WRITE_TOKEN) {
-      return res.json({ status: 'not-configured' });
-    }
-
-    const forceRefresh = req.query.refresh === 'true';
-    const { blobs } = await BlobCache.list({ prefix: 'brands-db/', limit: 1000 }, forceRefresh);
-    const localBrands = await brandStorage.getAllBrands();
-
-    res.json({
-      status: 'synced',
-      blobCount: blobs.length,
-      localCount: localBrands.length,
-      synced: blobs.length === localBrands.length,
-      blobs: blobs.map(b => ({ pathname: b.pathname, size: b.size }))
-    });
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to get sync status', details: error.message });
-  }
-});
+// Models availability
 
 // Provide the current available model lists for frontend selection
 app.get('/api/models/available', (req, res) => {
