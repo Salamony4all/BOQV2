@@ -793,7 +793,16 @@ async function callLocalLLM(systemPrompt, userPrompt, model = 'llama3.2') {
  */
 export async function callUniversalMultimodalAI(systemPrompt, userPrompt, assets = [], modelName = null, jsonMode = false) {
     const provider = getProviderForModel(modelName);
-    const finalModel = modelName || (provider === 'google' ? GOOGLE_MODEL : provider === 'openrouter' ? OPENROUTER_MODEL : NVIDIA_MODEL);
+    let finalModel = modelName || (provider === 'google' ? GOOGLE_MODEL : provider === 'openrouter' ? OPENROUTER_MODEL : NVIDIA_MODEL);
+
+    // FIX: Auto-expand short names for NVIDIA known models
+    if (provider === 'nvidia' && !finalModel.includes('/')) {
+        const found = VALID_NVIDIA_MODELS.find(m => m.endsWith(finalModel));
+        if (found) {
+            console.log(`🔍 [NVIDIA] Expanding short name "${finalModel}" -> "${found}"`);
+            finalModel = found;
+        }
+    }
 
     if (provider === 'google') {
         const genAIInstance = getGoogleAI(finalModel);
