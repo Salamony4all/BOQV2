@@ -26,7 +26,7 @@ const KV_TOKEN = process.env.KV_REST_API_TOKEN || process.env.STORAGE_REST_API_T
 let isBlobHealthy = true;
 
 // Initialize KV client
-let kv = null;
+export let kv = null;
 if (KV_URL && KV_TOKEN) {
     try {
         kv = createKvClient({ url: KV_URL, token: KV_TOKEN });

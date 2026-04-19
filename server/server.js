@@ -14,7 +14,7 @@ import { uploadToSupabase, listSupabaseFiles, deleteFromSupabase, supabase } fro
 import axios from 'axios';
 import https from 'https';
 import { ExcelDbManager } from './excelManager.js';
-import { brandStorage } from './storageProvider.js';
+import { brandStorage, kv } from './storageProvider.js';
 import { getAiMatch, identifyModel, fetchProductDetails, searchAndEnrichModel, analyzePlan, matchFitoutItem, FREE_GOOGLE_MODELS, PAID_GOOGLE_MODELS, VALID_GOOGLE_MODELS, VALID_OPENROUTER_MODELS, VALID_NVIDIA_MODELS, GOOGLE_MODEL, OPENROUTER_MODEL, NVIDIA_MODEL } from './utils/llmUtils.js';
 import { generatePresentationPdf } from './utils/pptxExportService.js';
 
@@ -261,10 +261,38 @@ const planUpload = multer({
 app.get('/api/status', (req, res) => {
   res.json({ 
     status: 'online', 
-    version: '2.0.1 (High-Fidelity)',
+    version: '2.0.2 (Cloud-Ready)',
     timestamp: new Date().toISOString(),
     environment: process.env.NODE_ENV || 'development'
   });
+});
+
+app.get('/api/health', async (req, res) => {
+  const diagnostics = {
+    uptime: process.uptime(),
+    memory: process.memoryUsage(),
+    env: {
+       supabase_url: !!process.env.SUPABASE_URL,
+       supabase_key: !!process.env.SUPABASE_ANON_KEY,
+       kv_url: !!process.env.KV_REST_API_URL,
+       node_env: process.env.NODE_ENV
+    },
+    storage: {
+       supabase: !!supabase,
+       kv: !!kv
+    }
+  };
+  
+  try {
+     const brands = await brandStorage.getAllBrands();
+     diagnostics.storage.brands_count = brands.length;
+     diagnostics.storage.status = 'healthy';
+  } catch (err) {
+     diagnostics.storage.status = 'degraded';
+     diagnostics.storage.error = err.message;
+  }
+
+  res.json(diagnostics);
 });
 
 // Serve temporary extracted images
