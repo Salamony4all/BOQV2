@@ -233,6 +233,7 @@ Instructions:
             const responseText = result.response.text();
             console.log(`   ✅ Gemma responded (${responseText.length} chars), extracting JSON...`);
 
+            let aiResponse;
             try {
                 aiResponse = safeParseJSON(responseText);
             } catch (parseErr) {
