@@ -99,6 +99,7 @@ process.on('unhandledRejection', (reason, promise) => {
 
 const app = express();
 const PORT = 3001;
+let server;
 
 // Initialize services
 const cleanupService = new CleanupService();
@@ -106,10 +107,6 @@ const dbManager = new ExcelDbManager();
 
 console.log('✅ [Server] All services initialized.');
 
-// Health check route
-app.get('/api/health', (req, res) => {
-    res.json({ status: 'ok', time: new Date().toISOString(), vercel: !!process.env.VERCEL });
-});
 
 // --- Configuration & Tasks ---
 const JS_SCRAPER_SERVICE_URL = process.env.JS_SCRAPER_SERVICE_URL;
@@ -467,17 +464,6 @@ app.get('/api/lazy-image/:uploadId/:page/:rowId', async (req, res) => {
     }
 });
 
-app.get('/api/models/available', (req, res) => {
-  res.json({
-    google: {
-      free: FREE_GOOGLE_MODELS,
-      paid: PAID_GOOGLE_MODELS
-    },
-    openrouter: VALID_OPENROUTER_MODELS,
-    nvidia: VALID_NVIDIA_MODELS,
-    local: ['local/yolov8-llama3.2']
-  });
-});
 
 app.get('/api/scraper-config', (req, res) => {
   res.json({
@@ -732,7 +718,6 @@ app.post('/api/reset', async (req, res) => {
 });
 
 // Health check fallback for some UI integrations
-app.get('/api/health-check', (req, res) => res.json({ status: 'OK' }));
 
 
 // Brand Management
@@ -1690,7 +1675,7 @@ app.use((error, req, res, next) => {
 });
 
 if (!isVercel) {
-  const server = app.listen(PORT, '0.0.0.0', () => {
+  server = app.listen(PORT, '0.0.0.0', () => {
     console.log(`🚀 Salamony4all/BOQV2 server actively listening on: http://localhost:${PORT}`);
     
     // Initial maintenance tasks...
