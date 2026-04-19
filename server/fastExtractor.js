@@ -216,6 +216,7 @@ async function extractImagesAndMap(filePath, imagesDir, onBlobCreated = null) {
                             console.warn(`[FastExtractor] Provider 2 (Imgur) failed for ${fileName}, falling back...`);
                         }
                     }
+                    }
 
                     if (directUrl) {
                         savedImages[fileName] = directUrl;

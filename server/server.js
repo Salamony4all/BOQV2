@@ -733,13 +733,6 @@ app.post('/api/reset', async (req, res) => {
 
 // Health check fallback for some UI integrations
 app.get('/api/health-check', (req, res) => res.json({ status: 'OK' }));
-app.get('/api/storage/config', (req, res) => {
-  res.json({
-    url: process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL,
-    anonKey: process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-    bucket: 'assets'
-  });
-});
 
 
 // Brand Management
