@@ -1,6 +1,5 @@
 
 import { useState, useEffect } from 'react';
-import { upload as blobUpload } from '@vercel/blob/client';
 import ActionCard from './components/ActionCard';
 import ProgressModal from './components/ProgressModal';
 import TableViewer from './components/TableViewer';
@@ -283,10 +282,6 @@ function AppContent({ onOpenSettings }) {
       console.error('Upload/Process error:', err);
       let errMsg = err.message || 'Failed to process file';
 
-      // If it's a fetch error during the token phase
-      if (err.name === 'BlobError' || errMsg.includes('token')) {
-        errMsg = `Vercel Storage Error: ${errMsg}. Check browser console for details.`;
-      }
 
       setError(errMsg);
       setUploading(false);
