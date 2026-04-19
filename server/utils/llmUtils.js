@@ -110,12 +110,12 @@ export const VALID_NVIDIA_MODELS = [
 export const VALID_LOCAL_MODELS = [
     'local/yolov8-llama3.2'
 ];
-export const GOOGLE_MODEL = VALID_GOOGLE_MODELS.includes(process.env.GOOGLE_MODEL) ? process.env.GOOGLE_MODEL : 'gemini-1.5-flash';
+export const GOOGLE_MODEL = VALID_GOOGLE_MODELS.includes(process.env.GOOGLE_MODEL) ? process.env.GOOGLE_MODEL : 'gemini-2.5-flash';
 export const OPENROUTER_MODEL = process.env.OPENROUTER_MODEL || 'google/gemini-2.5-flash-lite-001';
 export const NVIDIA_MODEL = process.env.NVIDIA_MODEL || 'nvidia/llama-3.3-70b-instruct';
 export const LOCAL_MODEL = 'local/yolov8-llama3.2';
 export const PYTHON_SERVICE_URL = process.env.PYTHON_SERVICE_URL || 'http://localhost:8001';
-export const GROUNDING_MODEL = process.env.GOOGLE_MODEL || 'gemini-1.5-flash'; // Standard model for this environment
+export const GROUNDING_MODEL = process.env.GOOGLE_MODEL || 'gemini-2.5-flash'; // Standard model for this environment
 
 // Deprecated: use getGoogleAI(modelName) instead
 const genAI = new GoogleGenerativeAI(GOOGLE_API_KEY);
@@ -154,11 +154,12 @@ export function safeParseJSON(text) {
     
     const lastBraceIdx = text.lastIndexOf('}');
     
-    // If we have a lot of text before the first '{', find the first '{' that looks like JSON
+    // If we have specific JSON anchors, prioritize them. Else use first '{'.
     const firstBraceIdx = text.indexOf('{');
+    const finalStartIdx = (startIdx !== -1) ? startIdx : firstBraceIdx;
     
-    if (firstBraceIdx !== -1 && lastBraceIdx !== -1 && lastBraceIdx > firstBraceIdx) {
-        cleaned = text.substring(firstBraceIdx, lastBraceIdx + 1);
+    if (finalStartIdx !== -1 && lastBraceIdx !== -1 && lastBraceIdx > finalStartIdx) {
+        cleaned = text.substring(finalStartIdx, lastBraceIdx + 1);
     } else {
         cleaned = text
             .replace(/^```(?:json)?\s*/i, '')
