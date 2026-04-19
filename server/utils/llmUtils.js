@@ -1,195 +1,803 @@
-import axios from 'axios';
-import pdfParse from 'pdf-parse';
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import { 
-    PDF_BOQ_PROMPT, 
-    PLAN_ANALYSIS_PROMPT, 
-    SMART_MATCH_PROMPT, 
-    VALIDATE_PRODUCT_PROMPT 
-} from './llmPrompts.js';
+import axios from 'axios';
+import 'dotenv/config';
+import { TAXONOMY } from './normalizer.js';
 
-// Environment variables
-const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY;
-const NVIDIA_API_KEY = process.env.NVIDIA_API_KEY;
+// ──────────────────────────────────────────────────────────────────────────────
+// CONFIGURATION
+// ──────────────────────────────────────────────────────────────────────────────
+const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY;
+const GOOGLE_FREE_KEY = process.env.GOOGLE_FREE_KEY || process.env.GEMINI_FREE_KEY || process.env.GEMINI_API_KEY_FREE;
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
+const NVIDIA_API_KEY = process.env.NVIDIA_API_KEY;
+const FORCE_FREE_GOOGLE = process.env.FORCE_FREE_GOOGLE_KEY === 'true';
 
-// Default configurations
-const GOOGLE_MODEL = "gemini-2.0-flash";
-const NVIDIA_MODEL = "nvidia/llama-3.1-nemotron-70b-instruct";
-const OPENROUTER_MODEL = "google/gemini-2.0-flash-001";
+export const FREE_GOOGLE_MODELS = [
+    // Gemma Family (Forced Free)
+    'gemma-4-31b-it',
+    'gemma-4-26b-a4b-it',
+    'gemma-4-e4b-it',
+    'gemma-4-e2b-it',
+    'gemma-4-9b-it',
+    'gemma-4-2b-it',
+    'gemma-2-27b-it',
+    'gemma-2-9b-it',
+    'gemma-2-2b-it',
+    // Gemini Family (Free Tier)
+    'gemini-3-flash',
+    'gemini-3-flash-8b',
+    'gemini-2.5-flash',
+    'gemini-2.0-flash',
+    'gemini-2.0-flash-lite',
+    'gemini-1.5-flash',
+    'gemini-1.5-pro',
+    'gemini-1.0-pro'
+];
 
-// Global instances
-let googleAI = null;
+export const PAID_GOOGLE_MODELS = [
+    'gemini-3.1-pro',
+    'gemini-3-pro',
+    'gemini-2.5-pro',
+    'gemini-2.0-pro',
+    'gemini-1.5-pro-002',
+    'gemini-1.5-flash-002',
+    'gemini-1.5-pro-001'
+];
 
-const getGoogleAI = (modelName = GOOGLE_MODEL) => {
-  if (!GOOGLE_API_KEY) throw new Error("GOOGLE_API_KEY is missing in .env");
-  // Some models might require different endpoint versions, but standard SDK usually handles it
-  return new GoogleGenerativeAI(GOOGLE_API_KEY);
-};
+export const VALID_GOOGLE_MODELS = [...FREE_GOOGLE_MODELS, ...PAID_GOOGLE_MODELS];
 
-// --- Helper Functions ---
-
-const safeParseJSON = (text) => {
-    try {
-        // Remove markdown code blocks if present
-        const jsonMatch = text.match(/```json\n?([\s\S]*?)\n?```/) || 
-                         text.match(/```\n?([\s\S]*?)\n?```/) ||
-                         [null, text];
-        
-        const cleanJson = jsonMatch[1].trim();
-        return JSON.parse(cleanJson);
-    } catch (err) {
-        console.error("  ❌ [JSON Parse Error]:", err.message);
-        console.error("  📄 [Raw Model Output]:", text);
-        // Fallback to extraction if structure is broken
-        return { status: 'error', error_message: 'Model output was not valid JSON' };
+function getGoogleAI(modelName) {
+    const isFreeModel = FREE_GOOGLE_MODELS.includes(modelName) || (modelName && modelName.toLowerCase().includes('gemma'));
+    
+    // 1. Force Free protocol if requested via environment variable
+    if (FORCE_FREE_GOOGLE) {
+        if (!GOOGLE_FREE_KEY) throw new Error('FORCE_FREE_GOOGLE set but GOOGLE_FREE_KEY is missing.');
+        if (process.env.DEBUG_AI === 'true') console.log(`  🔍 [LLM Utils] Forcing FREE Google Key for model: ${modelName}`);
+        return new GoogleGenerativeAI(GOOGLE_FREE_KEY);
     }
-};
 
-const cleanQty = (qty) => {
-    if (typeof qty === 'number') return qty;
-    const cleaned = String(qty).replace(/[^0-9.]/g, '');
-    return parseFloat(cleaned) || 1;
+    // 2. Strict Logic: Routing based on tier
+    if (isFreeModel) {
+        if (!GOOGLE_FREE_KEY) throw new Error(`Model "${modelName}" requires a Google Free Key (GOOGLE_FREE_KEY/GEMINI_FREE_KEY) which is missing in .env.`);
+        if (process.env.DEBUG_AI === 'true') console.log(`  💎 [LLM Utils] Free Tier model detected: Using FREE Key for "${modelName}".`);
+        return new GoogleGenerativeAI(GOOGLE_FREE_KEY);
+    } else {
+        if (!GOOGLE_API_KEY) throw new Error(`Model "${modelName}" requires a Google Billed Key (GOOGLE_API_KEY) which is missing in .env.`);
+        if (process.env.DEBUG_AI === 'true') console.log(`  💰 [LLM Utils] Billed Tier model detected: Using Billed Key for "${modelName}".`);
+        return new GoogleGenerativeAI(GOOGLE_API_KEY);
+    }
+}
+
+// Model ids
+// Default to 2.5-pro (most powerful) if .env is missing or has a typo
+export const VALID_OPENROUTER_MODELS = [
+    // Google Vision Models
+    'google/gemini-2.5-flash-lite-001',
+    'google/gemini-4-31b-it:free',
+    'google/gemma-4-26b-a4b-it:free',
+    'google/gemma-4-31b-it:free',
+    'google/gemini-2.5-pro',
+    // Anthropic Vision Models
+    'anthropic/claude-opus-4.6-fast',
+    'anthropic/claude-opus-4',
+    'anthropic/claude-sonnet-4-20250514',
+    // OpenAI Vision Models
+    'openai/gpt-4-vision-preview',
+    'openai/gpt-4-turbo-vision',
+    // Other vision models
+    'z-ai/glm-5.1',
+    'cohere/rerank-4-pro'
+];
+export const VALID_NVIDIA_MODELS = [
+    'nvidia/llama-3.3-70b-instruct',
+    'nvidia/llama-3.1-70b-instruct',
+    'nvidia/nemotron-3-super-120b-a12b',
+    'nvidia/gemma-4-31b-it',
+    'nvidia/gemma-4-26b-a4b-it',
+    'nvidia/gemma-4-e4b-it',
+    'nvidia/gemma-4-e2b-it',
+    'nvidia/cosmos-transfer2_5-2b',
+    // Vision models
+    'nvidia/neva-22b',
+    'nvidia/vila',
+    'nvidia/vlia',
+    'nvidia/llama-3.1-nemotron-nano-vl-8b-v1',
+    'nvidia/nemotron-nano-12b-v2-vl',
+    // Other free/paid models
+    'nvidia/llama-3.1-nemotron-nano-8b-v1',
+    'nvidia/llama-3.1-nemotron-70b-reward',
+    'nvidia/llama-3.1-nemotron-ultra-253b-v1',
+    'nvidia/llama-3.3-nemotron-super-49b-v1',
+    'nvidia/llama-3.3-nemotron-super-49b-v1.5'
+];
+export const VALID_LOCAL_MODELS = [
+    'local/yolov8-llama3.2'
+];
+export const GOOGLE_MODEL = VALID_GOOGLE_MODELS.includes(process.env.GOOGLE_MODEL) ? process.env.GOOGLE_MODEL : 'gemini-2.5-flash';
+export const OPENROUTER_MODEL = process.env.OPENROUTER_MODEL || 'google/gemini-2.5-flash-lite-001';
+export const NVIDIA_MODEL = process.env.NVIDIA_MODEL || 'nvidia/llama-3.3-70b-instruct';
+export const LOCAL_MODEL = 'local/yolov8-llama3.2';
+export const PYTHON_SERVICE_URL = process.env.PYTHON_SERVICE_URL || 'http://localhost:8001';
+export const GROUNDING_MODEL = process.env.GOOGLE_MODEL || 'gemini-2.5-flash'; // Standard model for this environment
+
+// Deprecated: use getGoogleAI(modelName) instead
+const genAI = new GoogleGenerativeAI(GOOGLE_API_KEY);
+
+const getProviderForModel = (modelName) => {
+    if (!modelName) return 'google';
+    if (modelName.startsWith('nvidia/')) return 'nvidia';
+    if (modelName.startsWith('local/')) return 'local';
+    // If it has a slash and isn't nvidia/local, it's likely OpenRouter (e.g. google/gemini-2.0-flash-lite-001)
+    if (modelName.includes('/')) return 'openrouter';
+    return 'google';
 };
 
 const isValidProviderModel = (provider, model) => {
-    // Basic validation to prevent using wrong provider endpoints
-    if (provider === 'google' && !model.includes('gemini')) {
-        // Google SDK usually only handles Gemini (and maybe Gemma if setup)
-        if (model.includes('gemma')) return true;
-        return false;
-    }
-    if (provider === 'nvidia' && !model.includes('nvidia/')) return false;
-    // OpenRouter is a gateway, so most names are valid if formatted correctly (provider/model)
-    return true;
+    if (!model) return false;
+    if (provider === 'local') return true; 
+    if (provider === 'google') return VALID_GOOGLE_MODELS.includes(model) || !model.includes('/');
+    if (provider === 'openrouter') return VALID_OPENROUTER_MODELS.includes(model) || model.includes('/');
+    if (provider === 'nvidia') return VALID_NVIDIA_MODELS.includes(model);
+    return false;
 };
 
-// --- Core API Handlers ---
+// ──────────────────────────────────────────────────────────────────────────────
+// HELPERS
+// ──────────────────────────────────────────────────────────────────────────────
 
-async function callGeneralLLM(systemPrompt, userPrompt, options = {}) {
-    const { 
-        provider = 'google', 
-        model: modelName = null, 
-        jsonMode = true 
-    } = options;
-
-    const finalModel = modelName || (provider === 'google' ? GOOGLE_MODEL : provider === 'openrouter' ? OPENROUTER_MODEL : NVIDIA_MODEL);
+/** Strip markdown fences, then parse JSON with surgical precision. */
+export function safeParseJSON(text) {
+    if (!text) throw new Error('Empty AI response');
     
-    console.log(`  🤖 [General LLM] Provider: ${provider}, Model: ${finalModel}`);
-
-    if (provider === 'google') {
-        try {
-            const genAIInstance = getGoogleAI(finalModel);
-            const model = genAIInstance.getGenerativeModel({ 
-                model: finalModel,
-                systemInstruction: systemPrompt 
-            });
-
-            const result = await model.generateContent(userPrompt);
-            const text = result.response.text();
-            return jsonMode ? safeParseJSON(text) : text;
-        } catch (err) {
-            console.error(`  ❌ [Google LLM Error]:`, err.message);
-            throw err;
-        }
+    // 1. Structural Anchor Discovery (Regex-based)
+    let cleaned = text;
+    const itemsMatch = text.match(/\{\s*"items"\s*:/);
+    const invMatch = text.match(/\{\s*"inventory"\s*:/);
+    
+    const itemsStartIdx = itemsMatch ? itemsMatch.index : -1;
+    const invStartIdx = invMatch ? invMatch.index : -1;
+    
+    let startIdx = -1;
+    if (itemsStartIdx !== -1 && invStartIdx !== -1) {
+        startIdx = Math.min(itemsStartIdx, invStartIdx);
     } else {
-        // NVIDIA or OpenRouter (OpenAI-compatible)
-        const endpoint = provider === 'nvidia' ? 'https://integrate.api.nvidia.com/v1/chat/completions' : 'https://openrouter.ai/api/v1/chat/completions';
-        const apiKey = provider === 'nvidia' ? NVIDIA_API_KEY : OPENROUTER_API_KEY;
-        
-        if (!apiKey) throw new Error(`API Key for ${provider} is missing in .env`);
+        startIdx = itemsStartIdx !== -1 ? itemsStartIdx : invStartIdx;
+    }
+    
+    const lastBraceIdx = text.lastIndexOf('}');
+    
+    // If we have specific JSON anchors, prioritize them. Else use first '{'.
+    const firstBraceIdx = text.indexOf('{');
+    const finalStartIdx = (startIdx !== -1) ? startIdx : firstBraceIdx;
+    
+    if (finalStartIdx !== -1 && lastBraceIdx !== -1 && lastBraceIdx > finalStartIdx) {
+        cleaned = text.substring(finalStartIdx, lastBraceIdx + 1);
+    } else {
+        cleaned = text
+            .replace(/^```(?:json)?\s*/i, '')
+            .replace(/\s*```$/i, '')
+            .trim();
+    }
 
+    const attemptParse = (str) => {
         try {
-            const response = await axios.post(endpoint, {
-                model: finalModel,
+            // Further clean: strip control characters that might break JSON.parse
+            const san = str.replace(/[\u0000-\u001F\u007F-\u009F]/g, '');
+            return JSON.parse(san);
+        } catch (e) {
+            return null;
+        }
+    };
+
+    let result = attemptParse(cleaned);
+    if (result) return result;
+
+    console.warn('  ⚠️ [LLM Utils] Standard parse failed, attempting surgical repair...');
+
+    let fixed = cleaned;
+    const quoteMatches = fixed.match(/"/g) || [];
+    if (quoteMatches.length % 2 !== 0) {
+        fixed += '"';
+    }
+
+    const balanceAndParse = (str) => {
+        let stack = [];
+        let finalStr = str;
+        for (let char of str) {
+            if (char === '{') stack.push('}');
+            else if (char === '[') stack.push(']');
+            else if (char === '}') { if (stack[stack.length-1] === '}') stack.pop(); }
+            else if (char === ']') { if (stack[stack.length-1] === ']') stack.pop(); }
+        }
+        finalStr += stack.reverse().join('');
+        return attemptParse(finalStr);
+    };
+
+    result = balanceAndParse(fixed);
+    if (result) return result;
+
+    console.error('  ❌ [LLM Utils] All JSON repair strategies exhausted.');
+    const finalErr = new Error('The AI response was severely malformed or truncated.');
+    finalErr.rawResponse = text;
+    throw finalErr;
+}
+
+/** Generic OpenRouter call expecting JSON object back. */
+async function callOpenRouter(systemPrompt, userPrompt, modelName = null) {
+    try {
+        const res = await axios.post(
+            'https://openrouter.ai/api/v1/chat/completions',
+            {
+                model: modelName || OPENROUTER_MODEL,
                 messages: [
-                    { role: "system", content: systemPrompt },
-                    { role: "user", content: userPrompt }
+                    { role: 'system', content: systemPrompt },
+                    { role: 'user', content: userPrompt }
                 ],
                 temperature: 0.1,
-                ...(jsonMode ? { response_format: { type: "json_object" } } : {})
-            }, {
-                headers: {
-                    'Authorization': `Bearer ${apiKey}`,
+                response_format: { type: 'json_object' }
+            },
+            {
+                headers: { 
+                    'Authorization': `Bearer ${OPENROUTER_API_KEY}`, 
                     'Content-Type': 'application/json',
-                    ...(provider === 'openrouter' ? { 'HTTP-Referer': 'https://boq-v2.vercel.app', 'X-Title': 'BOQ V2' } : {})
-                }
-            });
+                    'HTTP-Referer': 'https://boqv2.vercel.app',
+                    'X-Title': 'Boqify'
+                },
+                timeout: 60000
+            }
+        );
+        const raw = res.data.choices[0].message.content;
+        return typeof raw === 'string' ? safeParseJSON(raw) : raw;
+    } catch (err) {
+        console.error(`  ❌ [OpenRouter] Status: ${err.response?.status}, Message: ${err.response?.data?.error?.message || err.message}`);
+        throw err;
+    }
+}
 
-            const text = response.data.choices[0].message.content;
-            return jsonMode ? safeParseJSON(text) : text;
-        } catch (err) {
-            console.error(`  ❌ [${provider} LLM Error]:`, err.response?.data || err.message);
-            throw err;
+/** Generic NVIDIA NIM call expecting JSON object back. */
+async function callNvidia(systemPrompt, userPrompt, modelName = null) {
+    try {
+        const res = await axios.post(
+            'https://integrate.api.nvidia.com/v1/chat/completions',
+            {
+                model: modelName || NVIDIA_MODEL,
+                messages: [
+                    { role: 'system', content: systemPrompt },
+                    { role: 'user', content: userPrompt }
+                ],
+                temperature: 0.1,
+                max_tokens: 16384,
+                response_format: { type: 'json_object' }
+            },
+            {
+                headers: { 
+                    'Authorization': `Bearer ${NVIDIA_API_KEY}`, 
+                    'Content-Type': 'application/json'
+                },
+                timeout: 60000
+            }
+        );
+        const raw = res.data.choices[0].message.content;
+        return typeof raw === 'string' ? safeParseJSON(raw) : raw;
+    } catch (err) {
+        console.error(`  ❌ [NVIDIA] Status: ${err.response?.status}, Model: ${modelName || NVIDIA_MODEL}, Message: ${err.response?.data?.detail || err.response?.data?.error?.message || err.message}`);
+        throw err;
+    }
+}
+
+/** Google Gemini call with optional Grounding or specific Model override. */
+export async function callGoogle(systemPrompt, userPrompt, useSearch = false, modelName = null) {
+    const tools = useSearch ? [{ googleSearch: {} }] : [];
+    const finalModel = modelName || (useSearch ? GROUNDING_MODEL : GOOGLE_MODEL);
+    const genAIInstance = getGoogleAI(finalModel);
+    const model = genAIInstance.getGenerativeModel({
+        model: finalModel,
+        systemInstruction: systemPrompt,
+        tools: tools,
+        generationConfig: {
+            temperature: 0.1
         }
-    }
-}
-
-// --- Specific Tasks ---
-
-/**
- * Smart Match: Uses AI to map unstructured BOQ items to a product database
- */
-export async function smartMatchItems(projectItems, productDatabase, options = {}) {
-    const { provider = 'google', modelName = null } = options;
-    console.log(`\n🧠 [Smart Match] Matching ${projectItems.length} items using ${provider}...`);
-
-    const finalModel = modelName || (provider === 'google' ? GOOGLE_MODEL : provider === 'openrouter' ? OPENROUTER_MODEL : NVIDIA_MODEL);
-
-    const systemPrompt = SMART_MATCH_PROMPT();
-    const userPrompt = JSON.stringify({
-        project_items: projectItems,
-        brand_catalog: productDatabase
     });
+    const result = await model.generateContent(userPrompt);
+    const text = result.response.text();
+    
+    // Log for debugging
+    if (process.env.DEBUG_AI === 'true') {
+        console.log(`\n🤖 [AI Raw Response] (${useSearch ? 'Search' : 'Direct'}):\n${text.substring(0, 500)}...`);
+    }
 
     try {
-        const results = await callGeneralLLM(systemPrompt, userPrompt, { provider, model: finalModel });
-        return results.matches || [];
+        return safeParseJSON(text);
     } catch (err) {
-        console.error(`  ❌ [Smart Match Failed]:`, err.message);
-        return [];
+        // If it's a search result, sometimes it returns plain text if it failed to find anything.
+        // We handle this at the caller level, but let's try a generic wrapper here.
+        if (text.toLowerCase().includes('failed') || text.toLowerCase().includes('not found')) {
+            return { model: 'FAILED', logic: text };
+        }
+        throw err;
+    }
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// SYSTEM PROMPTS
+// ──────────────────────────────────────────────────────────────────────────────
+
+const ALLOWED_CATEGORIES = Object.keys(TAXONOMY).join(', ');
+const ALLOWED_SUB_CATEGORIES = Object.values(TAXONOMY).flatMap(cat => Object.keys(cat)).join(', ');
+
+const IDENTIFY_SYSTEM = (brand, knownCategories = [], modelList = [], tier = 'mid-range') => `You are an expert Furniture Specialist for Boqify.
+Your task is to identify furniture products from user descriptions for the brand "${brand}".
+
+### 🏢 BRAND PROFILE:
+- Brand Name: ${brand}
+- Segment: ${tier.toUpperCase()} ${tier === 'budgetary' ? '(Prioritize simple, functional, value-driven models)' : '(Look for iconic, design-led, unique names)'}
+
+${modelList.length > 0 ? `### 📦 KNOWN PRODUCT CATALOG:
+The following models ARE available for this brand. You MUST prioritize matching to one of these if the description fits:
+- ${modelList.slice(0, 500).join('\n- ')}` : ''}
+
+### 🏷️ NATURAL TAXONOMY HINTS (Brand's Existing Categories):
+${knownCategories.length > 0 ? `Prefer these categories if they match logically: ${knownCategories.join(', ')}` : 'No specific brand categories provided, use global taxonomy.'}
+
+### 🌍 GLOBAL CATEGORY MAPPING:
+If the brand categories above don't fit, you MUST map to one of these:
+Main Categories: ${ALLOWED_CATEGORIES}
+Sub-Categories: ${ALLOWED_SUB_CATEGORIES}
+
+Return ONLY valid JSON:
+{ 
+  "brand": "${brand}", 
+  "model": "Exact Model Name",
+  "mainCategory": "Main Category",
+  "subCategory": "Sub-Category",
+  "logic": "Brief reasoning" 
+} (Use the most descriptive name found on Architonic or official site)`;
+
+export async function identifyModel(description, brand, provider = 'google', knownCategories = [], modelList = [], tier = 'mid-range', providerModel = null) {
+    const system = IDENTIFY_SYSTEM(brand, knownCategories, modelList, tier);
+    const user = `what is the best One "Model" for "${description}" from "${brand}"?`;
+
+    if (process.env.DEBUG_AI === 'true') {
+        console.log(`\n🤖 [AI Stage 1 Prompt] (Brand: ${brand}):\nSystem: ${system.substring(0, 200)}...\nUser: ${user}`);
+    }
+
+    try {
+        // Attempt 1: Search Grounded Identification with the selected provider only
+        let parsed;
+        if (provider === 'google') {
+            parsed = await callGoogle(system, user, true, providerModel || GOOGLE_MODEL);
+        } else if (provider === 'nvidia') {
+            parsed = await callNvidia(system, user, providerModel || NVIDIA_MODEL);
+        } else if (provider === 'local') {
+            console.log(`  📍 Using Local LLM (Llama 3.2) for identification...`);
+            const responseText = await callLocalLLM(system, user, 'llama3.2');
+            parsed = safeParseJSON(responseText);
+        } else {
+            parsed = await callOpenRouter(system, user, providerModel || OPENROUTER_MODEL);
+        }
+
+        if (parsed && parsed.model && parsed.model !== 'FAILED') {
+            return {
+                status: 'success',
+                brand: parsed.brand || brand,
+                model: parsed.model,
+                mainCategory: parsed.mainCategory || ''
+            };
+        }
+
+        throw new Error('Provider did not return a valid model');
+    } catch (err) {
+        console.error(`  ❌ [AI Error] ${provider.toUpperCase()} identification failed for ${brand}:`, err.message);
+        return { status: 'error', brand, model: '', category: '', error_message: err.message };
     }
 }
 
 /**
- * Validate Product: Checks if a product exists or is similar in a brand's data
+ * Verifies if an image URL is alive and accessible.
+ * Optimized with 'Smart Trust' to prevent common Forbidden errors on known brand sites.
  */
-export async function validateProduct(itemDesc, brandName, brandData, options = {}) {
-    const { provider = 'google' } = options;
-    
-    const systemPrompt = VALIDATE_PRODUCT_PROMPT(brandName);
-    const userPrompt = JSON.stringify({
-        search_query: itemDesc,
-        available_products: brandData
-    });
+async function verifyImageUrl(url, brand = '') {
+    if (!url || url === 'FAILED' || !url.startsWith('http')) return false;
+
+    // 1. Extension and Trusted Domain Fast-Path
+    const isImageFile = /\.(jpg|jpeg|png|webp|gif|svg)$/i.test(url.split('?')[0]);
+    const trustedDomains = ['narbutas.com', 'steelcase.com', 'hermanmiller.com', 'knoll.com', 'vitra.com', 'muuto.com', 'haworth.com'];
+    const lowerUrl = url.toLowerCase();
+    const isTrusted = trustedDomains.some(d => lowerUrl.includes(d)) || (brand && lowerUrl.includes(brand.toLowerCase()));
 
     try {
-        return await callGeneralLLM(systemPrompt, userPrompt, { provider });
+        const res = await axios.head(url, {
+            timeout: 5000,
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8'
+            }
+        });
+        const contentType = res.headers['content-type'] || '';
+        if (res.status >= 200 && res.status < 400 && contentType.startsWith('image/')) return true;
+        
+        // 2. HEAD blocked? Fallback to small GET
+        const resGet = await axios.get(url, {
+            timeout: 5000,
+            range: 'bytes=0-1024',
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+            }
+        });
+        return resGet.status >= 200 && resGet.status < 400;
     } catch (err) {
-        return { is_valid: false, confidence: 0, reason: 'AI processing error' };
+        // 3. WAF / 403 Protection Bypass: If it's a known image link from a trusted domain, trust it.
+        if (isImageFile && isTrusted) {
+            console.log(`  ✅ [Stage 3.5] Smart Trust applied for: "${url.substring(0, 50)}..." (Domain/Ext Verified)`);
+            return true;
+        }
+        return false;
     }
 }
 
-// --- Utilities ---
+const FETCH_SYSTEM = (brand, model) => \`You are a Furniture Detail Specialist for Boqify.
+Your task is to find the official 'imageUrl' (direct high-resolution image file) and 'websiteUrl' for the product: "\${brand} \${model}".
 
-export async function extractTextFromPDF(pdfBuffer) {
+### 🔍 DISCOVERY PROTOCOL (Strict Order):
+1. **Architonic**: This is the mandatory first source for European/Global furniture brands.
+2. **Official Brand Website**: Use this for technical specifications and direct product links.
+3. **Stylepark**: Use as a fallback for high-end design items.
+
+### 🏷️ CATEGORY & DATA:
+- Search for "Architonic \${brand} \${model}" to find the correct family and description.
+- Ensure the 'imageUrl' is a direct link to the image file (jpg/png/webp), not a page.
+- "mainCategory" and "subCategory" should align with our global taxonomy if possible: \${Object.keys(TAXONOMY).join(', ')}.
+
+### 💰 PRICING:
+Return the actual currency-converted price if found (USD/EUR). If not available, set price to 0.
+
+Return ONLY valid JSON:
+{
+  "brand": "\${brand}",
+  "model": "\${model}",
+  "imageUrl": "Direct URL to high-res image file",
+  "websiteUrl": "Link to direct model product page",
+  "mainCategory": "Main Category",
+  "subCategory": "Sub-Category",
+  "family": "Collection/Series Name",
+  "price": 0,
+  "description": "Short technical description (max 20 words)",
+  "logic": "Brief reasoning explaining why this is the best match from Architonic/Brand Site"
+}
+\`;
+
+export async function fetchProductDetails(brand, model, tier, provider = 'google', providerModel = null) {
+    const system = FETCH_SYSTEM(brand, model);
+    const user = \`Perform a deep search for: \${brand} \${model}. Find its high-res image, official product page, and correct category on Architonic or \${brand} site.\`;
+
     try {
-        const data = await pdfParse(pdfBuffer);
-        return data.text;
+        let parsed;
+        if (provider === 'google') {
+            parsed = await callGoogle(system, user, true, providerModel || GOOGLE_MODEL);
+        } else if (provider === 'nvidia') {
+            parsed = await callNvidia(system, user, providerModel || NVIDIA_MODEL);
+        } else {
+            parsed = await callOpenRouter(system, user, providerModel || OPENROUTER_MODEL);
+        }
+
+        if (!parsed || parsed === 'FAILED') {
+            throw new Error(\`\${provider.toUpperCase()} did not return valid product details\`);
+        }
+
+        // Stage 3.5: Image verification if the provider returned an image URL
+        if (parsed.imageUrl && parsed.imageUrl !== 'FAILED') {
+            const isAlive = await verifyImageUrl(parsed.imageUrl, brand);
+            if (!isAlive) {
+                console.warn(\`  ⚠️  [Stage 3.5] Image verification failed for: "\${parsed.imageUrl.substring(0, 50)}...".\`);
+                parsed.imageUrl = 'FAILED';
+            }
+        }
+
+        // Final sanitation: Ensure we have at least partial data
+        parsed.brand = parsed.brand || brand;
+        parsed.model = parsed.model || model;
+        parsed.price = parseFloat(parsed.price) || 0;
+        return { status: 'success', product: parsed };
     } catch (err) {
-        console.error("  ❌ [PDF Extract Error]:", err.message);
-        throw new Error("Could not parse PDF content");
+        console.error(\`  ❌ [Fetch Details Error] for \${brand} \${model} using \${provider.toUpperCase()}:\`, err.message);
+        return { status: 'error', error_message: err.message };
     }
 }
 
 /**
- * Vision Extraction: Multimodal support for Drawings/PDFs
+ * Comprehensive Enrichment: Deep search + Verification + Data Shaping.
+ * This is the core logic for the "Always Strengthen DB" requirement.
  */
-export async function multimodalExtract(systemPrompt, userPrompt, assets, options = {}) {
-    const { provider = 'google', model: modelName = null, jsonMode = true } = options;
-    
-    console.log(`  👁️ [Multimodal Vision] Provider: ${provider}, Model: ${modelName || 'default'}`);
+export async function searchAndEnrichModel(brandName, modelName, expectedTier = 'mid') {
+    console.log(\`\\n💎 [Enrichment] Starting discovery for: \${brandName} "\${modelName}" (Tier: \${expectedTier})\`);
 
+    try {
+        const result = await fetchProductDetails(brandName, modelName, expectedTier);
+        
+        if (result.status === 'success' && result.product) {
+            const p = result.product;
+            
+            // Normalize categories just in case AI deviated from protocol
+            const mainCat = Object.keys(TAXONOMY).find(c => c.toLowerCase() === (p.mainCategory || '').toLowerCase()) || 'Furniture';
+            const subCats = TAXONOMY[mainCat] ? Object.keys(TAXONOMY[mainCat]) : [];
+            const subCat = subCats.find(s => s.toLowerCase() === (p.subCategory || '').toLowerCase()) || (subCats[0] || 'General');
+
+            const enrichmentData = {
+                id: \`ai_\${Date.now()}_\${Math.floor(Math.random() * 1000)}\`,
+                brand: brandName,
+                model: p.model || modelName,
+                family: p.family || (p.model || modelName),
+                description: p.description || \`Official \${brandName} \${modelName} extracted via AI Discovery.\`,
+                imageUrl: p.imageUrl,
+                websiteUrl: p.websiteUrl,
+                mainCategory: mainCat,
+                subCategory: subCat,
+                price: parseFloat(p.price) || 0,
+                currency: 'USD', // Default for now
+                lastUpdated: new Date().toISOString(),
+                source: 'AI-Enrichment'
+            };
+
+            console.log(\`  ✅ [Enrichment] Success: Found \${enrichmentData.model} in \${mainCat} > \${subCat}\`);
+            return { status: 'success', product: enrichmentData };
+        }
+        
+        return { status: 'error', error_message: result.error_message || 'Model details not found online.' };
+    } catch (err) {
+        console.error(\`  ❌ [Enrichment Error]:\`, err.message);
+        return { status: 'error', error_message: err.message };
+    }
+}
+
+
+export async function getAiMatch(description, brandTarget, tier, provider = 'google', providerModel = null) {
+    const system = \`You are an FF&E Product Matcher.
+Match: "\${description}" to \${brandTarget}.
+
+### 🚨 FORBIDDEN MATCHES:
+- **ARMCHAIR** != STOOL (Match by height).
+- **COFFEE TABLE** != MEETING TABLE (Match by size/height).
+- **VISITOR CHAIR** != EXECUTIVE CHAIR (Match by function).
+- **FLOORING** == TILES (Ignore suffix mismatches for Carpets/Vinyl if functional category matches).
+
+Return JSON ONLY:
+{ 
+  "status": "success", 
+  "product": {
+    "brand": "Selected Brand",
+    "model": "Exact Model Series",
+    "description": "Short justification.",
+    "price": 0
+  }
+}\`;
+    const user = \`Match: \${description}\\nBrands: \${brandTarget}\\nTier: \${tier}\`;
+    try {
+        if (provider === 'google') {
+            return await callGoogle(system, user, false, providerModel);
+        } else if (provider === 'local') {
+            console.log(\`  📍 Using Local LLM (Llama 3.2) for matching...\`);
+            const responseText = await callLocalLLM(system, user, 'llama3.2');
+            return safeParseJSON(responseText);
+        } else {
+            // Default to Google for matching if provider is openrouter/nvidia and no explicit support yet in getAiMatch
+            return await callGoogle(system, user, false, providerModel);
+        }
+    } catch (err) {
+        return { status: 'error', error_message: err.message };
+    }
+}
+
+/** 
+ * specialized function for rapid, highly-precise matching of fitout items from internal DB.
+ * uses the selected AI model for high-speed lookup.
+ */
+export async function matchFitoutItem(description, internalProducts = [], tier = 'mid', provider = 'google', providerModel = 'gemini-1.5-flash') {
+    const system = \`You are an Elite Fitout Estimator.
+Match the description to ONE specific item from the internal database below.
+If no exact match exists, pick the one with most similar function/material (e.g. "Commercial Grade Flooring" -> "Flooring - Stone" or "Flooring - Wood").
+
+### INTERNAL DATABASE:
+\${JSON.stringify(internalProducts, null, 2)}
+
+Return ONLY valid JSON:
+{
+  "status": "success",
+  "product": {
+    "brand": "FitOut V2",
+    "model": "EXACT Model Name from matched item",
+    "description": "EXACT Description from matched item",
+    "price": 0,
+    "mainCategory": "EXACT mainCategory from matched item",
+    "subCategory": "EXACT subCategory from matched item",
+    "family": "EXACT family from matched item",
+    "unit": "EXACT unit from matched item",
+    "matchScore": 0.0,
+    "logic": "Brief explanation"
+  }
+}
+
+### CRITICAL RULES:
+- If the item is generic (e.g. "Carpeting", "Flooring"), match it to the most professional entry in the database.
+- For Carpet: Descriptions including "Carpet", "Flooring Carpet", "Floor Finish (Carpet)", or similar MUST map to items in the "Carpet Tiles" sub-category.
+- For Floor Finish: Map "Main Floor Finish" or "Flooring" to specific materials if mentioned (Stone, Wood, etc.). If "Carpet/Tile" or "Carpet" is mentioned, prioritize "Carpet Tiles".
+- Ignore suffix mismatches like "Flooring" vs "Tiles" for Carpets/Vinyl. If the main Material matches, it is a Match.
+- Match by Material/Finish if exact model name differs slightly (e.g. Model v1 vs Model v2).
+- Ensure the Price is realistic for the tier provided.\`;
+
+    const user = \`Find best match for: "\${description}" (Tier: \${tier})\`;
+    try {
+        if (provider === 'google') {
+            return await callGoogle(system, user, false, providerModel);
+        } else if (provider === 'openrouter') {
+            return await callOpenRouter(system, user, providerModel);
+        } else if (provider === 'nvidia') {
+            return await callNvidia(system, user, providerModel);
+        } else if (provider === 'local') {
+            const responseText = await callLocalLLM(system, user, 'llama3.2');
+            return safeParseJSON(responseText);
+        } else {
+            // Default payload for safety
+            return await callGoogle(system, user, false, 'gemini-1.5-flash');
+        }
+    } catch (err) {
+        console.error('  ❌ [Fitout Matcher] Error:', err.message);
+        return { status: 'error', error_message: err.message };
+    }
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// PLAN ANALYZER
+// ──────────────────────────────────────────────────────────────────────────────
+
+const PLAN_ANALYSIS_PROMPT = (includeFitout = false) => \`You are an Elite Senior Quantity Surveyor (SQS). Your mission is to extract a high-precision BOQ from architectural drawings.
+
+### 🎯 ACCURACY PROTOCOL - REJECT "LOT":
+You are strictly FORBIDDEN from using units like "Lot", "LS", "Lumpsum", or "Package". Every item MUST have a measurable numerical quantity and unit.
+
+### 📐 QUANTITY CALCULATION DIRECTIVES:
+1. ** Nos (Count)**: Manually count every individual door, chair, desk, and lighting fixture.
+2. ** SQM (Area)**: For Flooring, Ceiling, and Wall Finishes:
+   - Search for room labels with area (e.g., "Office 01 - 15.5m2"). Use that number.
+   - If missing, find the Scale Bar (e.g., 1:100) and estimate dimensions (Length x Width).
+   - If no scale is found, use standard architectural dimensions (e.g., a standard office door is 0.9m, use this to calibrate the room size).
+3. ** LM (Linear)**: For Partitions, Skirting, and Cabinets, calculate the total length of the lines drawn.
+4. If a description mentions a group of items (e.g., '6 workstations'), set quantity to 6.
+5. CATEGORY MAPPING: You MUST map every item to one of these valid Main Categories: \${ALLOWED_CATEGORIES}.
+6. SEPARATION OF CONCERNS:
+   - FURNITURE: Includes chairs, desks, tables, storage, pods, and mobile accessories.
+   - FITOUT: Includes architectural elements like 'Partition Wall', 'Tile Flooring', 'Gypsum Ceiling', 'Curtain Wall', 'Carpeting', 'Wall Cladding', or any fixed MEP/HVAC elements. 
+   - FLOORING & CARPET: Items like 'Carpet Tile', 'Floor Carpet', 'Vinyl', or 'Main Floor Finish' MUST be identified as FITOUT.
+   - IMPORTANT: If an item is an architectural element (Fixed Partition, Flooring, Ceiling), it belongs to FITOUT.
+
+Return ONLY the JSON. No conversational text.
+
+### 📦 OUTPUT FORMAT:
+Return ONLY a valid JSON object:
+{
+  "items": [
+    { 
+      "location": "Room Name/Zone", 
+      "scope": "Fitout (Architectural)" | "Fitout (MEP)" | "Fitout (Joinery)" | "Fitout (AV)" | "Fitout (Lighting)" | "Furniture", 
+      "code": "e.g., CH-01",
+      "description": "Specific naming (e.g., Ergonomic Task Chair, Carpet Type A)", 
+      "qty": 12.5, 
+      "unit": "Nos" | "SQM" | "LM" 
+    }
+  ],
+  "planSummary": "Extraction of \$TOTAL_ITEMS items completed."
+}
+\`;
+
+const cleanQty = (val) => {
+    if (typeof val === 'number') return val;
+    if (!val) return 1;
+    const s = String(val).toLowerCase().trim();
+    const words = { 'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5, 'six': 6, 'seven': 7, 'eight': 8, 'nine': 9, 'ten': 10 };
+    if (words[s]) return words[s];
+    const match = s.match(/[\\d.]+/);
+    return match ? parseFloat(match[0]) : 1;
+};
+
+/**
+ * Call OpenAI-compatible API (OpenRouter/NVIDIA) with vision support.
+ */
+async function callVisionAPI(systemPrompt, userPrompt, imageBase64, imageMimeType, modelName, apiEndpoint, apiKey) {
+    try {
+        const res = await axios.post(
+            apiEndpoint,
+            {
+                model: modelName,
+                messages: [
+                    { role: 'system', content: systemPrompt },
+                    {
+                        role: 'user',
+                        content: [
+                            { type: 'text', text: userPrompt },
+                            {
+                                type: 'image_url',
+                                image_url: {
+                                    url: \`data:\${imageMimeType};base64,\${imageBase64}\`
+                                }
+                            }
+                        ]
+                    }
+                ],
+                temperature: 0.1,
+                max_tokens: 16384,
+                response_format: { type: 'json_object' }
+            },
+            {
+                headers: {
+                    'Authorization': \`Bearer \${apiKey}\`,
+                    'Content-Type': 'application/json'
+                },
+                timeout: 120000
+            }
+        );
+        const raw = res.data.choices[0].message.content;
+        return typeof raw === 'string' ? safeParseJSON(raw) : raw;
+    } catch (err) {
+        console.error(\`  ❌ [Vision API Error] Model: \${modelName}, Status: \${err.response?.status}, Message: \${err.response?.data?.error?.message || err.message}\`);
+        throw new Error(\`\${modelName} failed: \${err.response?.data?.error?.message || err.message}\`);
+    }
+}
+
+/**
+ * Call Local Python Vision Service.
+ */
+async function callLocalVision(imageBase64, imageMimeType) {
+    try {
+        const FormData = (await import('form-data')).default;
+        const formData = new FormData();
+        
+        // Convert base64 to Buffer for Node.js
+        const buffer = Buffer.from(imageBase64, 'base64');
+        
+        formData.append('file', buffer, {
+            filename: 'floorplan.png',
+            contentType: imageMimeType
+        });
+
+        const res = await axios.post(\`\${PYTHON_SERVICE_URL}/analyze-vision\`, formData, {
+            headers: { ...formData.getHeaders() },
+            timeout: 180000 // 3 minutes for local heavy models
+        });
+
+        return res.data.boq;
+    } catch (err) {
+        const statusDetail = err.response?.data?.detail || err.response?.data?.error || err.response?.data?.message;
+        const statusCode = err.response?.status ? \`HTTP \${err.response.status}\` : null;
+        const code = err.code || null;
+        const message = statusDetail || err.message || code || JSON.stringify(err) || 'Unknown local vision error';
+        console.error(\`  ❌ [Local Vision Error] \${statusCode || ''} \${message}\`);
+        throw new Error(\`Local Vision Engine failed: \${message}\`);
+    }
+}
+
+async function callLocalLLM(systemPrompt, userPrompt, model = 'llama3.2') {
+    try {
+        const res = await axios.post(\`\${PYTHON_SERVICE_URL}/llm\`, {
+            system_prompt: systemPrompt,
+            user_prompt: userPrompt,
+            model: model
+        });
+        return res.data.content;
+    } catch (err) {
+        console.error(\`  ❌ [Local LLM Error] Message: \${err.message}\`);
+        throw new Error(\`Local LLM Engine failed: \${err.message}\`);
+    }
+}
+
+/**
+ * Perform AI analysis on floor plan drawing(s).
+ * @param {Array} filesData - Array of objects { base64Data, mimeType, originalname }
+ */
+/**
+ * UNIVERSAL MULTIMODAL CALL
+ * Routes to Google SDK or OpenAI-style Vision API (Nvidia/OpenRouter)
+ */
+export async function callUniversalMultimodalAI(systemPrompt, userPrompt, assets = [], modelName = null, jsonMode = false) {
+    const provider = getProviderForModel(modelName);
     const finalModel = modelName || (provider === 'google' ? GOOGLE_MODEL : provider === 'openrouter' ? OPENROUTER_MODEL : NVIDIA_MODEL);
 
     if (provider === 'google') {
@@ -215,7 +823,7 @@ export async function multimodalExtract(systemPrompt, userPrompt, assets, option
             const result = await model.generateContent({ contents: [{ role: 'user', parts: promptParts }] });
             return safeParseJSON(result.response.text());
         } catch (err) {
-            console.error(`  ❌ [Google Multimodal] Global Error:`, err.message);
+            console.error(\`  ❌ [Google Multimodal] Global Error:\`, err.message);
             throw err;
         }
     } else {
@@ -223,7 +831,7 @@ export async function multimodalExtract(systemPrompt, userPrompt, assets, option
         const endpoint = provider === 'nvidia' ? 'https://integrate.api.nvidia.com/v1/chat/completions' : 'https://openrouter.ai/api/v1/chat/completions';
         const apiKey = provider === 'nvidia' ? NVIDIA_API_KEY : OPENROUTER_API_KEY;
         
-        if (!apiKey) throw new Error(`API Key for ${provider} is missing in .env`);
+        if (!apiKey) throw new Error(\`API Key for \${provider} is missing in .env\`);
 
         // OpenAI Vision format
         const messages = [
@@ -238,7 +846,7 @@ export async function multimodalExtract(systemPrompt, userPrompt, assets, option
                         const mime = asset.mimeType || 'image/png';
                         return {
                             type: "image_url",
-                            image_url: { url: `data:${mime};base64,${asset.base64Data}` }
+                            image_url: { url: \`data:\${mime};base64,\${asset.base64Data}\` }
                         };
                     })
                 ]
@@ -254,7 +862,7 @@ export async function multimodalExtract(systemPrompt, userPrompt, assets, option
                 ...(jsonMode ? { response_format: { type: "json_object" } } : {})
             }, {
                 headers: {
-                    'Authorization': `Bearer ${apiKey}`,
+                    'Authorization': \`Bearer \${apiKey}\`,
                     'Content-Type': 'application/json',
                     ...(provider === 'openrouter' ? { 'HTTP-Referer': 'https://boq-v2.vercel.app', 'X-Title': 'BOQ V2' } : {})
                 }
@@ -263,15 +871,15 @@ export async function multimodalExtract(systemPrompt, userPrompt, assets, option
             const text = response.data.choices[0].message.content;
             return safeParseJSON(text);
         } catch (err) {
-            console.error(`  ❌ [${provider} Multimodal] Vision API Error:`, err.response?.data || err.message);
-            throw new Error(`Vision AI Processing Failed (${provider}): ${err.message}`);
+            console.error(\`  ❌ [\${provider} Multimodal] Vision API Error:\`, err.response?.data || err.message);
+            throw new Error(\`Vision AI Processing Failed (\${provider}): \${err.message}\`);
         }
     }
 }
 
 export async function analyzePlan(filesData, options = {}) {
     const { includeFitout = false, provider = 'google', providerModel = null } = options;
-    console.log(`\n🏗️ [Plan Analyzer] Analyzing ${filesData.length} sheets with provider=${provider}, model=${providerModel || ''}...`);
+    console.log(\`\\n🏗️ [Plan Analyzer] Analyzing \${filesData.length} sheets with provider=\${provider}, model=\${providerModel || ''}...\`);
 
     if (!filesData || filesData.length === 0) {
         return { status: 'error', error_message: 'No files provided for analysis' };
@@ -279,8 +887,8 @@ export async function analyzePlan(filesData, options = {}) {
 
     const selectedModel = providerModel || (provider === 'google' ? GOOGLE_MODEL : provider === 'openrouter' ? OPENROUTER_MODEL : NVIDIA_MODEL);
     if (!isValidProviderModel(provider, selectedModel)) {
-        const invalidMsg = `Invalid model for provider ${provider}: ${selectedModel}. Please choose a supported model.`;
-        console.error(`  ❌ [Plan Analyzer Validation] ${invalidMsg}`);
+        const invalidMsg = \`Invalid model for provider \${provider}: \${selectedModel}. Please choose a supported model.\`;
+        console.error(\`  ❌ [Plan Analyzer Validation] \${invalidMsg}\`);
         return {
             status: 'error',
             error_message: invalidMsg,
@@ -298,7 +906,7 @@ export async function analyzePlan(filesData, options = {}) {
         if (provider === 'google') {
             // Use Google Gemini SDK with multimodal support
             const modelName = providerModel || GOOGLE_MODEL;
-            console.log(`  📍 Using Google model: ${modelName}`);
+            console.log(\`  📍 Using Google model: \${modelName}\`);
             
             const genAIInstance = getGoogleAI(modelName);
             const model = genAIInstance.getGenerativeModel({
@@ -319,7 +927,7 @@ export async function analyzePlan(filesData, options = {}) {
         } else if (provider === 'openrouter') {
             // Use OpenRouter API with multimodal support
             const modelName = providerModel || OPENROUTER_MODEL;
-            console.log(`  📍 Using OpenRouter model: ${modelName}`);
+            console.log(\`  📍 Using OpenRouter model: \${modelName}\`);
             
             parsed = await callVisionAPI(
                 promptText,
@@ -334,7 +942,7 @@ export async function analyzePlan(filesData, options = {}) {
         } else if (provider === 'nvidia') {
             // Use NVIDIA NIM API with multimodal support
             const modelName = providerModel || NVIDIA_MODEL;
-            console.log(`  📍 Using NVIDIA model: ${modelName}`);
+            console.log(\`  📍 Using NVIDIA model: \${modelName}\`);
             
             parsed = await callVisionAPI(
                 promptText,
@@ -347,11 +955,11 @@ export async function analyzePlan(filesData, options = {}) {
             );
 
         } else if (provider === 'local') {
-            console.log(`  📍 Using Local Vision Engine (YOLOv8 + Llama 3.2)`);
+            console.log(\`  📍 Using Local Vision Engine (YOLOv8 + Llama 3.2)\`);
             parsed = await callLocalVision(file.base64Data, file.mimeType);
 
         } else {
-            throw new Error(`Unknown provider: ${provider}. Supported: google, openrouter, nvidia`);
+            throw new Error(\`Unknown provider: \${provider}. Supported: google, openrouter, nvidia\`);
         }
 
         // Process extracted items
@@ -369,7 +977,7 @@ export async function analyzePlan(filesData, options = {}) {
 
         return {
             status: 'success',
-            planSummary: parsed.planSummary || `Extracted ${flatItems.length} items.`,
+            planSummary: parsed.planSummary || \`Extracted \${flatItems.length} items.\`,
             items: flatItems,
             provider: provider,
             model: providerModel || (provider === 'google' ? GOOGLE_MODEL : provider === 'openrouter' ? OPENROUTER_MODEL : NVIDIA_MODEL)
@@ -377,10 +985,10 @@ export async function analyzePlan(filesData, options = {}) {
 
     } catch (err) {
         const errorMsg = err.message || 'Unknown error during plan analysis';
-        console.error(`  ❌ [Plan Analyzer Error]:`, errorMsg);
+        console.error(\`  ❌ [Plan Analyzer Error]:\`, errorMsg);
         return {
             status: 'error',
-            error_message: `Failed to analyze plan with ${provider}${providerModel ? ` (${providerModel})` : ''}: ${errorMsg}. Please try another provider/model.`,
+            error_message: \`Failed to analyze plan with \${provider}\${providerModel ? \` (\${providerModel})\` : ''}: \${errorMsg}. Please try another provider/model.\`,
             provider: provider,
             model: providerModel
         };
