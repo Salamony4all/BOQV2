@@ -1,14 +1,12 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useCompanyProfile } from '../context/CompanyContext';
-import { AI_ENGINES, MODEL_OPTIONS, DEFAULT_AI_SETTINGS } from '../utils/aiConstants';
+import { DEFAULT_AI_SETTINGS } from '../utils/aiConstants';
 import styles from '../styles/AutoFillSelectModal.module.css';
 
 export default function AutoFillSelectModal({ isOpen, onClose, allBrands, activeTier, onConfirm }) {
     const { aiSettings } = useCompanyProfile();
     
     const [selectedBrands, setSelectedBrands] = useState([]);
-    const [selectedEngine, setSelectedEngine] = useState(aiSettings?.engine || 'google');
-    const [selectedModel, setSelectedModel] = useState(aiSettings?.model || DEFAULT_AI_SETTINGS.model);
 
     const tierMeta = {
         budgetary: { label: 'Budgetary', color: '#3b82f6' },
@@ -27,33 +25,11 @@ export default function AutoFillSelectModal({ isOpen, onClose, allBrands, active
         high:      furnitureBrands.filter(b => ['high', 'premium'].includes((b.budgetTier || '').toLowerCase()))
     }), [furnitureBrands]);
 
-    // Update local selection when global settings change (only if modal was closed)
-    useEffect(() => {
-        if (!isOpen && aiSettings) {
-            setSelectedEngine(aiSettings.engine);
-            setSelectedModel(aiSettings.model);
-        }
-    }, [isOpen, aiSettings]);
-
     useEffect(() => {
         if (isOpen) {
             setSelectedBrands([]);
         }
     }, [isOpen]);
-
-    // Sync model when engine changes locally in modal
-    useEffect(() => {
-        const options = MODEL_OPTIONS[selectedEngine];
-        if (selectedEngine === 'google') {
-            // Check if current model is in any google group
-            const allGoogle = [...MODEL_OPTIONS.google.gemma, ...MODEL_OPTIONS.google.gemini, ...MODEL_OPTIONS.google.paid];
-            if (!allGoogle.includes(selectedModel)) {
-                setSelectedModel(DEFAULT_AI_SETTINGS.model);
-            }
-        } else if (options && !options.includes(selectedModel)) {
-            setSelectedModel(options[0]);
-        }
-    }, [selectedEngine]);
 
     if (!isOpen) return null;
 
@@ -89,12 +65,11 @@ export default function AutoFillSelectModal({ isOpen, onClose, allBrands, active
                 </div>
 
                 <div className={styles.content}>
-
-                    {/* 2. Brand Selection — all tiers */}
+                    {/* Brand Selection — all tiers */}
                     <div className={styles.section}>
                         <div className={styles.brandSectionHeader}>
                             <span className={styles.sectionTitle}>
-                                2. Select Brands
+                                Select Brands
                                 <span className={styles.countPill}>{selectedBrands.length} selected</span>
                             </span>
                             <div className={styles.quickActions}>
@@ -150,7 +125,7 @@ export default function AutoFillSelectModal({ isOpen, onClose, allBrands, active
                     <button
                         className={styles.btnConfirm}
                         disabled={selectedBrands.length === 0}
-                        onClick={() => onConfirm(selectedBrands, selectedEngine, selectedModel)}
+                        onClick={() => onConfirm(selectedBrands, aiSettings?.engine || 'google', aiSettings?.model || DEFAULT_AI_SETTINGS.model)}
                     >
                         Start AI Batch — {selectedBrands.length} Brand{selectedBrands.length !== 1 ? 's' : ''}
                     </button>

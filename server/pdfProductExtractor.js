@@ -8,8 +8,7 @@ import { promises as fs } from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { callGoogleMultimodalFallback } from './utils/llmPDFTable.js';
-import { GoogleGenerativeAI } from '@google/generative-ai';
-import { safeParseJSON } from './utils/llmUtils.js';
+import { safeParseJSON, callUniversalMultimodalAI } from './utils/llmUtils.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -178,24 +177,10 @@ export async function extractProductBoqFromPdf(filePath, progressCallback = () =
 
         progressCallback({ percent: 20, message: `Sending PDF to ${modelName || 'Gemma'} AI...` });
 
-        // ── STEP 2: Extract BOQ data using selected model ────────
-        const apiKey = process.env.GOOGLE_FREE_KEY || process.env.GEMINI_FREE_KEY ||
-                       process.env.GEMINI_API_KEY_FREE || process.env.GOOGLE_API_KEY ||
-                       process.env.GEMINI_API_KEY;
-        if (!apiKey) throw new Error('No Google API key found. Set GOOGLE_FREE_KEY or GEMINI_API_KEY in Vercel environment variables.');
-
-        const genAI = new GoogleGenerativeAI(apiKey);
-        const model = genAI.getGenerativeModel({
-            model: modelName || 'gemma-4-26b-a4b-it',
-            generationConfig: {
-                temperature: 0.1,
-                maxOutputTokens: 16384
-            }
-        });
-
+        // ── STEP 2: Extract BOQ data using universal model ────────
         const prompt = `CRITICAL: You are a raw data extraction engine.
 Output ONLY the JSON object. 
-DO NOT INCLUDE any preamble, "The user wants...", introductory text, schema definitions, or conclusions. 
+DO NOT INCLUDE any preamble, introductory text, schema definitions, or conclusions. 
 START with { and END with }.
 
 Schema:
@@ -219,40 +204,30 @@ Instructions:
 - Set "hasImage": true if there is a picture column for that row.
 - Return ONLY the raw JSON string.`;
 
-        try {
-            console.log(`   🤖 Calling ${modelName || 'gemma-4-26b-a4b-it'} with PDF (${Math.round(data.length / 1024)}KB)...`);
-            const result = await model.generateContent({
-                contents: [{
-                    role: 'user',
-                    parts: [
-                        { inlineData: { data: data.toString('base64'), mimeType: 'application/pdf' } },
-                        { text: prompt + '\nIMPORTANT: Do NOT repeat the schema above. Start your response immediately with the { character.' }
-                    ]
-                }]
-            });
-            const responseText = result.response.text();
-            console.log(`   ✅ Gemma responded (${responseText.length} chars), extracting JSON...`);
+        const aiResponse = await callUniversalMultimodalAI(
+            "You are a Furniture Procurement Specialist and Data Extraction Engine.",
+            prompt + '\nIMPORTANT: Do NOT repeat the schema above. Start your response immediately with the { character.',
+            [{ base64Data: data.toString('base64'), mimeType: 'application/pdf' }],
+            modelName || 'gemma-4-26b-a4b-it',
+            true // jsonMode
+        );
 
-            let aiResponse;
-            try {
-                aiResponse = safeParseJSON(responseText);
-            } catch (parseErr) {
-                console.error(`   ❌ JSON parse failed. Response preview: ${responseText.substring(0, 300)}`);
-                throw new Error(`Gemma response could not be parsed as JSON: ${parseErr.message}`);
-            }
+        console.log(`🤖 AI Response Received (${modelName || 'Gemma'}):`, JSON.stringify(aiResponse).substring(0, 200));
+        
+        const extractedItems = aiResponse.items || aiResponse.rows || [];
 
-            progressCallback({ percent: 90, message: 'Building table...' });
+        progressCallback({ percent: 90, message: 'Building table...' });
 
-            const items = aiResponse?.items || aiResponse?.rows || [];
-            if (!Array.isArray(items) || items.length === 0) {
-                throw new Error('Gemma returned no items from PDF');
-            }
+        const items = extractedItems;
+        if (items.length === 0) {
+            throw new Error(`${modelName || 'AI'} returned no items from PDF`);
+        }
 
-            // Smart image-to-row mapping:
-            // 1. Try spatial S.N mapping first (Primary anchoring)
-            // 2. Fall back to hasImage-based sequential mapping
-            let imgCursor = 0;
-            const spatialMap = imageRefs.spatialMap;
+        // Smart image-to-row mapping:
+        // 1. Try spatial S.N mapping first (Primary anchoring)
+        // 2. Fall back to hasImage-based sequential mapping
+        let imgCursor = 0;
+        const spatialMap = imageRefs.spatialMap;
 
             const rows = items.map((item, index) => {
                 let imgMatch = null;

@@ -93,6 +93,9 @@ export const VALID_NVIDIA_MODELS = [
     'nvidia/llama-3.1-70b-instruct',
     'nvidia/nemotron-3-super-120b-a12b',
     'nvidia/gemma-4-31b-it',
+    'nvidia/gemma-4-26b-a4b-it',
+    'nvidia/gemma-4-e4b-it',
+    'nvidia/gemma-4-e2b-it',
     'nvidia/cosmos-transfer2_5-2b',
     // Vision models
     'nvidia/neva-22b',
@@ -120,11 +123,20 @@ export const GROUNDING_MODEL = process.env.GOOGLE_MODEL || 'gemini-2.5-flash'; /
 // Deprecated: use getGoogleAI(modelName) instead
 const genAI = new GoogleGenerativeAI(GOOGLE_API_KEY);
 
+const getProviderForModel = (modelName) => {
+    if (!modelName) return 'google';
+    if (modelName.startsWith('nvidia/')) return 'nvidia';
+    if (modelName.startsWith('local/')) return 'local';
+    // If it has a slash and isn't nvidia/local, it's likely OpenRouter (e.g. google/gemini-2.0-flash-lite-001)
+    if (modelName.includes('/')) return 'openrouter';
+    return 'google';
+};
+
 const isValidProviderModel = (provider, model) => {
     if (!model) return false;
-    if (provider === 'local') return true; // Local engine handles its own model routing
-    if (provider === 'google') return VALID_GOOGLE_MODELS.includes(model);
-    if (provider === 'openrouter') return VALID_OPENROUTER_MODELS.includes(model);
+    if (provider === 'local') return true; 
+    if (provider === 'google') return VALID_GOOGLE_MODELS.includes(model) || !model.includes('/');
+    if (provider === 'openrouter') return VALID_OPENROUTER_MODELS.includes(model) || model.includes('/');
     if (provider === 'nvidia') return VALID_NVIDIA_MODELS.includes(model);
     return false;
 };
@@ -780,6 +792,91 @@ async function callLocalLLM(systemPrompt, userPrompt, model = 'llama3.2') {
  * Perform AI analysis on floor plan drawing(s).
  * @param {Array} filesData - Array of objects { base64Data, mimeType, originalname }
  */
+/**
+ * UNIVERSAL MULTIMODAL CALL
+ * Routes to Google SDK or OpenAI-style Vision API (Nvidia/OpenRouter)
+ */
+export async function callUniversalMultimodalAI(systemPrompt, userPrompt, assets = [], modelName = null, jsonMode = false) {
+    const provider = getProviderForModel(modelName);
+    const finalModel = modelName || (provider === 'google' ? GOOGLE_MODEL : provider === 'openrouter' ? OPENROUTER_MODEL : NVIDIA_MODEL);
+
+    if (provider === 'google') {
+        const genAIInstance = getGoogleAI(finalModel);
+        const model = genAIInstance.getGenerativeModel({
+            model: finalModel,
+            systemInstruction: systemPrompt,
+            generationConfig: {
+                temperature: 0.1,
+                maxOutputTokens: 16384,
+                ...(jsonMode ? { responseMimeType: 'application/json' } : {})
+            }
+        });
+
+        const promptParts = [
+            { text: userPrompt },
+            ...assets.map(asset => ({
+                inlineData: { data: asset.base64Data, mimeType: asset.mimeType }
+            }))
+        ];
+
+        try {
+            const result = await model.generateContent({ contents: [{ role: 'user', parts: promptParts }] });
+            return safeParseJSON(result.response.text());
+        } catch (err) {
+            console.error(`  ❌ [Google Multimodal] Global Error:`, err.message);
+            throw err;
+        }
+    } else {
+        // Nvidia or OpenRouter (OpenAI-style Vision)
+        const endpoint = provider === 'nvidia' ? 'https://integrate.api.nvidia.com/v1/chat/completions' : 'https://openrouter.ai/api/v1/chat/completions';
+        const apiKey = provider === 'nvidia' ? NVIDIA_API_KEY : OPENROUTER_API_KEY;
+        
+        if (!apiKey) throw new Error(`API Key for ${provider} is missing in .env`);
+
+        // OpenAI Vision format
+        const messages = [
+            { role: "system", content: systemPrompt },
+            { 
+                role: "user", 
+                content: [
+                    { type: "text", text: userPrompt },
+                    ...assets.map(asset => {
+                        // Some providers expect 'image_url' for both images and potentially PDFs? 
+                        // Actually, most only support images. We assume assets are images here if not Google.
+                        const mime = asset.mimeType || 'image/png';
+                        return {
+                            type: "image_url",
+                            image_url: { url: `data:${mime};base64,${asset.base64Data}` }
+                        };
+                    })
+                ]
+            }
+        ];
+
+        try {
+            const response = await axios.post(endpoint, {
+                model: finalModel,
+                messages,
+                temperature: 0.1,
+                max_tokens: 16384,
+                ...(jsonMode ? { response_format: { type: "json_object" } } : {})
+            }, {
+                headers: {
+                    'Authorization': `Bearer ${apiKey}`,
+                    'Content-Type': 'application/json',
+                    ...(provider === 'openrouter' ? { 'HTTP-Referer': 'https://boq-v2.vercel.app', 'X-Title': 'BOQ V2' } : {})
+                }
+            });
+
+            const text = response.data.choices[0].message.content;
+            return safeParseJSON(text);
+        } catch (err) {
+            console.error(`  ❌ [${provider} Multimodal] Vision API Error:`, err.response?.data || err.message);
+            throw new Error(`Vision AI Processing Failed (${provider}): ${err.message}`);
+        }
+    }
+}
+
 export async function analyzePlan(filesData, options = {}) {
     const { includeFitout = false, provider = 'google', providerModel = null } = options;
     console.log(`\n🏗️ [Plan Analyzer] Analyzing ${filesData.length} sheets with provider=${provider}, model=${providerModel || ''}...`);

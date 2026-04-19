@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from 'react';
+import { useCompanyProfile } from '../context/CompanyContext';
+import { DEFAULT_AI_SETTINGS } from '../utils/aiConstants';
 import styles from '../styles/PlanAnalyzerModal.module.css';
 
 const PlanAnalyzerModal = ({ isOpen, onClose, onApply }) => {
+    const { aiSettings } = useCompanyProfile();
     const fileInputRef = React.useRef(null);
     const [files, setFiles] = useState([]);
     const [stage, setStage] = useState('upload'); // upload, uploading, scope, processing, results
@@ -9,13 +12,7 @@ const PlanAnalyzerModal = ({ isOpen, onClose, onApply }) => {
     const [progress, setProgress] = useState('');
     const [results, setResults] = useState(null);
     const [error, setError] = useState(null);
-    const [selectedEngine, setSelectedEngine] = useState('google');
     const [hasAutoApplied, setHasAutoApplied] = useState(false);
-
-    const engines = [
-        { id: 'google', name: 'Google Vision AI', desc: 'Enterprise-grade Google Vision engine (Cloud)', icon: 'AI', color: '#1a73e8' },
-        { id: 'local',  name: 'Local Vision Engine', desc: 'Secure offline scanning (Local GPU)', icon: 'LL', color: '#b91c1c' }
-    ];
 
     // Only reset state on initial open/close
     useEffect(() => {
@@ -74,7 +71,7 @@ const PlanAnalyzerModal = ({ isOpen, onClose, onApply }) => {
                 const formData = new FormData();
                 formData.append('file', file);
                 formData.append('includeFitout', includeFitout);
-                formData.append('provider', selectedEngine);
+                formData.append('provider', aiSettings?.engine || 'google');
 
                 const response = await fetch('/api/analyze-plan', {
                     method: 'POST',
@@ -221,25 +218,7 @@ const PlanAnalyzerModal = ({ isOpen, onClose, onApply }) => {
                             <h3>Analysis Configuration</h3>
                             <p>Configure how AI should process your drawings</p>
                             
-                            <div className={styles.sectionTitle}>1. Choose AI Processing Engine</div>
-                            <div className={styles.engineGrid}>
-                                {engines.map(engine => (
-                                    <div
-                                        key={engine.id}
-                                        className={`${styles.engineCard} ${selectedEngine === engine.id ? styles.active : ''}`}
-                                        onClick={() => setSelectedEngine(engine.id)}
-                                        style={selectedEngine === engine.id ? { borderColor: engine.color, background: engine.color + '18' } : {}}
-                                    >
-                                        <span className={styles.engineIcon} style={{ background: engine.color }}>{engine.icon}</span>
-                                        <div className={styles.engineInfo}>
-                                            <span className={styles.engineName}>{engine.name}</span>
-                                            <span className={styles.engineDesc}>{engine.desc}</span>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-
-                            <div className={styles.sectionTitle} style={{ marginTop: '1.5rem', width: '100%', maxWidth: '800px', textAlign: 'left' }}>2. Select Extraction Scope</div>
+                            <div className={styles.sectionTitle} style={{ marginTop: '1.5rem', width: '100%', maxWidth: '800px', textAlign: 'left' }}>Extraction Scope</div>
                             <div className={styles.scopeCards}>
                                 <div className={styles.scopeCard} onClick={() => startAnalysis('furniture')}>
                                     <div className={styles.scopeIcon}>🛋️</div>

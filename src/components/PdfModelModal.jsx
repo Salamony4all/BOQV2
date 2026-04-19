@@ -1,43 +1,22 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { useCompanyProfile } from '../context/CompanyContext';
-import { AI_ENGINES, MODEL_OPTIONS, DEFAULT_AI_SETTINGS } from '../utils/aiConstants';
+import { DEFAULT_AI_SETTINGS } from '../utils/aiConstants';
 import styles from '../styles/PlanScopeModal.module.css';
 
 const PdfModelModal = ({ isOpen, onClose, onExtract, fileName }) => {
     const { aiSettings } = useCompanyProfile();
     
-    const [selectedEngine, setSelectedEngine] = useState(aiSettings?.engine || DEFAULT_AI_SETTINGS.engine);
-    const [selectedModel, setSelectedModel] = useState(aiSettings?.model || DEFAULT_AI_SETTINGS.model);
-
-    // Sync from profile when opened
-    useEffect(() => {
-        if (!isOpen && aiSettings) {
-            setSelectedEngine(aiSettings.engine);
-            setSelectedModel(aiSettings.model);
-        }
-    }, [isOpen, aiSettings]);
-
-    // Fallback logic when engine changes locally
-    useEffect(() => {
-        const engineOptions = MODEL_OPTIONS[selectedEngine];
-        if (selectedEngine === 'google') {
-            const allGoogle = [...MODEL_OPTIONS.google.gemma, ...MODEL_OPTIONS.google.gemini, ...MODEL_OPTIONS.google.paid];
-            if (!allGoogle.includes(selectedModel)) {
-                setSelectedModel(DEFAULT_AI_SETTINGS.model);
-            }
-        } else if (engineOptions && !engineOptions.includes(selectedModel)) {
-            setSelectedModel(engineOptions[0]);
-        }
-    }, [selectedEngine]);
-
     if (!isOpen) return null;
+
+    const currentModel = aiSettings?.model || DEFAULT_AI_SETTINGS.model;
 
     return (
         <div className={styles.overlay} onClick={onClose}>
             <div className={styles.modal} onClick={e => e.stopPropagation()} style={{ width: '550px' }}>
                 <div className={styles.header}>
                     <h2 className={styles.title}>PDF BOQ Extraction</h2>
-                    <p className={styles.subtitle}>Select the AI brain for model: <strong>{fileName}</strong></p>
+                    <p className={styles.subtitle}>Analyzing document: <strong>{fileName}</strong></p>
+                    <p className={styles.engineBadge}>Using Global Model: {currentModel}</p>
                     <button className={styles.closeBtn} onClick={onClose}>×</button>
                 </div>
 
@@ -63,7 +42,7 @@ const PdfModelModal = ({ isOpen, onClose, onExtract, fileName }) => {
                         }}
                         onMouseOver={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
                         onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}
-                        onClick={() => onExtract(selectedModel)}
+                        onClick={() => onExtract(currentModel)}
                     >
                         Extract BOQ 🚀
                     </button>
