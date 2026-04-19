@@ -102,11 +102,11 @@ export async function callGoogleMultimodalFallback(systemPrompt, userPrompt, ass
 
     for (const candidate of candidateModels) {
         try {
-            console.log(\`🚀 [llmPDFTable] Trying model: \${candidate}\`);
+            console.log(`🚀 [llmPDFTable] Trying model: ${candidate}`);
             return await callGoogleMultimodal(systemPrompt, userPrompt, assets, candidate, jsonMode);
         } catch (err) {
             lastError = err;
-            console.warn(\`❌ [llmPDFTable] Model \${candidate} failed: \${err.message}\`);
+            console.warn(`❌ [llmPDFTable] Model ${candidate} failed: ${err.message}`);
         }
     }
 

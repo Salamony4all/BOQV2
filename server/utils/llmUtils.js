@@ -435,8 +435,8 @@ async function verifyImageUrl(url, brand = '') {
     }
 }
 
-const FETCH_SYSTEM = (brand, model) => \`You are a Furniture Detail Specialist for Boqify.
-Your task is to find the official 'imageUrl' (direct high-resolution image file) and 'websiteUrl' for the product: "\${brand} \${model}".
+const FETCH_SYSTEM = (brand, model) => `You are a Furniture Detail Specialist for Boqify.
+Your task is to find the official 'imageUrl' (direct high-resolution image file) and 'websiteUrl' for the product: "${brand} ${model}".
 
 ### 🔍 DISCOVERY PROTOCOL (Strict Order):
 1. **Architonic**: This is the mandatory first source for European/Global furniture brands.
@@ -444,17 +444,17 @@ Your task is to find the official 'imageUrl' (direct high-resolution image file)
 3. **Stylepark**: Use as a fallback for high-end design items.
 
 ### 🏷️ CATEGORY & DATA:
-- Search for "Architonic \${brand} \${model}" to find the correct family and description.
+- Search for "Architonic ${brand} ${model}" to find the correct family and description.
 - Ensure the 'imageUrl' is a direct link to the image file (jpg/png/webp), not a page.
-- "mainCategory" and "subCategory" should align with our global taxonomy if possible: \${Object.keys(TAXONOMY).join(', ')}.
+- "mainCategory" and "subCategory" should align with our global taxonomy if possible: ${Object.keys(TAXONOMY).join(', ')}.
 
 ### 💰 PRICING:
 Return the actual currency-converted price if found (USD/EUR). If not available, set price to 0.
 
 Return ONLY valid JSON:
 {
-  "brand": "\${brand}",
-  "model": "\${model}",
+  "brand": "${brand}",
+  "model": "${model}",
   "imageUrl": "Direct URL to high-res image file",
   "websiteUrl": "Link to direct model product page",
   "mainCategory": "Main Category",
@@ -464,11 +464,11 @@ Return ONLY valid JSON:
   "description": "Short technical description (max 20 words)",
   "logic": "Brief reasoning explaining why this is the best match from Architonic/Brand Site"
 }
-\`;
+`;
 
 export async function fetchProductDetails(brand, model, tier, provider = 'google', providerModel = null) {
     const system = FETCH_SYSTEM(brand, model);
-    const user = \`Perform a deep search for: \${brand} \${model}. Find its high-res image, official product page, and correct category on Architonic or \${brand} site.\`;
+    const user = `Perform a deep search for: ${brand} ${model}. Find its high-res image, official product page, and correct category on Architonic or ${brand} site.`;
 
     try {
         let parsed;
@@ -481,14 +481,14 @@ export async function fetchProductDetails(brand, model, tier, provider = 'google
         }
 
         if (!parsed || parsed === 'FAILED') {
-            throw new Error(\`\${provider.toUpperCase()} did not return valid product details\`);
+            throw new Error(`${provider.toUpperCase()} did not return valid product details`);
         }
 
         // Stage 3.5: Image verification if the provider returned an image URL
         if (parsed.imageUrl && parsed.imageUrl !== 'FAILED') {
             const isAlive = await verifyImageUrl(parsed.imageUrl, brand);
             if (!isAlive) {
-                console.warn(\`  ⚠️  [Stage 3.5] Image verification failed for: "\${parsed.imageUrl.substring(0, 50)}...".\`);
+                console.warn(`  ⚠️  [Stage 3.5] Image verification failed for: "${parsed.imageUrl.substring(0, 50)}...".`);
                 parsed.imageUrl = 'FAILED';
             }
         }
@@ -499,7 +499,7 @@ export async function fetchProductDetails(brand, model, tier, provider = 'google
         parsed.price = parseFloat(parsed.price) || 0;
         return { status: 'success', product: parsed };
     } catch (err) {
-        console.error(\`  ❌ [Fetch Details Error] for \${brand} \${model} using \${provider.toUpperCase()}:\`, err.message);
+        console.error(`  ❌ [Fetch Details Error] for ${brand} ${model} using ${provider.toUpperCase()}:`, err.message);
         return { status: 'error', error_message: err.message };
     }
 }
@@ -509,7 +509,7 @@ export async function fetchProductDetails(brand, model, tier, provider = 'google
  * This is the core logic for the "Always Strengthen DB" requirement.
  */
 export async function searchAndEnrichModel(brandName, modelName, expectedTier = 'mid') {
-    console.log(\`\\n💎 [Enrichment] Starting discovery for: \${brandName} "\${modelName}" (Tier: \${expectedTier})\`);
+    console.log(`\\n💎 [Enrichment] Starting discovery for: ${brandName} "${modelName}" (Tier: ${expectedTier})`);
 
     try {
         const result = await fetchProductDetails(brandName, modelName, expectedTier);
@@ -523,11 +523,11 @@ export async function searchAndEnrichModel(brandName, modelName, expectedTier = 
             const subCat = subCats.find(s => s.toLowerCase() === (p.subCategory || '').toLowerCase()) || (subCats[0] || 'General');
 
             const enrichmentData = {
-                id: \`ai_\${Date.now()}_\${Math.floor(Math.random() * 1000)}\`,
+                id: `ai_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
                 brand: brandName,
                 model: p.model || modelName,
                 family: p.family || (p.model || modelName),
-                description: p.description || \`Official \${brandName} \${modelName} extracted via AI Discovery.\`,
+                description: p.description || `Official ${brandName} ${modelName} extracted via AI Discovery.`,
                 imageUrl: p.imageUrl,
                 websiteUrl: p.websiteUrl,
                 mainCategory: mainCat,
@@ -538,21 +538,21 @@ export async function searchAndEnrichModel(brandName, modelName, expectedTier = 
                 source: 'AI-Enrichment'
             };
 
-            console.log(\`  ✅ [Enrichment] Success: Found \${enrichmentData.model} in \${mainCat} > \${subCat}\`);
+            console.log(`  ✅ [Enrichment] Success: Found ${enrichmentData.model} in ${mainCat} > ${subCat}`);
             return { status: 'success', product: enrichmentData };
         }
         
         return { status: 'error', error_message: result.error_message || 'Model details not found online.' };
     } catch (err) {
-        console.error(\`  ❌ [Enrichment Error]:\`, err.message);
+        console.error(`  ❌ [Enrichment Error]:`, err.message);
         return { status: 'error', error_message: err.message };
     }
 }
 
 
 export async function getAiMatch(description, brandTarget, tier, provider = 'google', providerModel = null) {
-    const system = \`You are an FF&E Product Matcher.
-Match: "\${description}" to \${brandTarget}.
+    const system = `You are an FF&E Product Matcher.
+Match: "${description}" to ${brandTarget}.
 
 ### 🚨 FORBIDDEN MATCHES:
 - **ARMCHAIR** != STOOL (Match by height).
@@ -569,13 +569,13 @@ Return JSON ONLY:
     "description": "Short justification.",
     "price": 0
   }
-}\`;
-    const user = \`Match: \${description}\\nBrands: \${brandTarget}\\nTier: \${tier}\`;
+}`;
+    const user = `Match: ${description}\\nBrands: ${brandTarget}\\nTier: ${tier}`;
     try {
         if (provider === 'google') {
             return await callGoogle(system, user, false, providerModel);
         } else if (provider === 'local') {
-            console.log(\`  📍 Using Local LLM (Llama 3.2) for matching...\`);
+            console.log(`  📍 Using Local LLM (Llama 3.2) for matching...`);
             const responseText = await callLocalLLM(system, user, 'llama3.2');
             return safeParseJSON(responseText);
         } else {
@@ -592,12 +592,12 @@ Return JSON ONLY:
  * uses the selected AI model for high-speed lookup.
  */
 export async function matchFitoutItem(description, internalProducts = [], tier = 'mid', provider = 'google', providerModel = 'gemini-1.5-flash') {
-    const system = \`You are an Elite Fitout Estimator.
+    const system = `You are an Elite Fitout Estimator.
 Match the description to ONE specific item from the internal database below.
 If no exact match exists, pick the one with most similar function/material (e.g. "Commercial Grade Flooring" -> "Flooring - Stone" or "Flooring - Wood").
 
 ### INTERNAL DATABASE:
-\${JSON.stringify(internalProducts, null, 2)}
+${JSON.stringify(internalProducts, null, 2)}
 
 Return ONLY valid JSON:
 {
@@ -622,9 +622,9 @@ Return ONLY valid JSON:
 - For Floor Finish: Map "Main Floor Finish" or "Flooring" to specific materials if mentioned (Stone, Wood, etc.). If "Carpet/Tile" or "Carpet" is mentioned, prioritize "Carpet Tiles".
 - Ignore suffix mismatches like "Flooring" vs "Tiles" for Carpets/Vinyl. If the main Material matches, it is a Match.
 - Match by Material/Finish if exact model name differs slightly (e.g. Model v1 vs Model v2).
-- Ensure the Price is realistic for the tier provided.\`;
+- Ensure the Price is realistic for the tier provided.`;
 
-    const user = \`Find best match for: "\${description}" (Tier: \${tier})\`;
+    const user = `Find best match for: "${description}" (Tier: ${tier})`;
     try {
         if (provider === 'google') {
             return await callGoogle(system, user, false, providerModel);
@@ -649,7 +649,7 @@ Return ONLY valid JSON:
 // PLAN ANALYZER
 // ──────────────────────────────────────────────────────────────────────────────
 
-const PLAN_ANALYSIS_PROMPT = (includeFitout = false) => \`You are an Elite Senior Quantity Surveyor (SQS). Your mission is to extract a high-precision BOQ from architectural drawings.
+const PLAN_ANALYSIS_PROMPT = (includeFitout = false) => `You are an Elite Senior Quantity Surveyor (SQS). Your mission is to extract a high-precision BOQ from architectural drawings.
 
 ### 🎯 ACCURACY PROTOCOL - REJECT "LOT":
 You are strictly FORBIDDEN from using units like "Lot", "LS", "Lumpsum", or "Package". Every item MUST have a measurable numerical quantity and unit.
@@ -662,7 +662,7 @@ You are strictly FORBIDDEN from using units like "Lot", "LS", "Lumpsum", or "Pac
    - If no scale is found, use standard architectural dimensions (e.g., a standard office door is 0.9m, use this to calibrate the room size).
 3. ** LM (Linear)**: For Partitions, Skirting, and Cabinets, calculate the total length of the lines drawn.
 4. If a description mentions a group of items (e.g., '6 workstations'), set quantity to 6.
-5. CATEGORY MAPPING: You MUST map every item to one of these valid Main Categories: \${ALLOWED_CATEGORIES}.
+5. CATEGORY MAPPING: You MUST map every item to one of these valid Main Categories: ${ALLOWED_CATEGORIES}.
 6. SEPARATION OF CONCERNS:
    - FURNITURE: Includes chairs, desks, tables, storage, pods, and mobile accessories.
    - FITOUT: Includes architectural elements like 'Partition Wall', 'Tile Flooring', 'Gypsum Ceiling', 'Curtain Wall', 'Carpeting', 'Wall Cladding', or any fixed MEP/HVAC elements. 
@@ -686,7 +686,7 @@ Return ONLY a valid JSON object:
   ],
   "planSummary": "Extraction of \$TOTAL_ITEMS items completed."
 }
-\`;
+`;
 
 const cleanQty = (val) => {
     if (typeof val === 'number') return val;
@@ -716,7 +716,7 @@ async function callVisionAPI(systemPrompt, userPrompt, imageBase64, imageMimeTyp
                             {
                                 type: 'image_url',
                                 image_url: {
-                                    url: \`data:\${imageMimeType};base64,\${imageBase64}\`
+                                    url: `data:${imageMimeType};base64,${imageBase64}`
                                 }
                             }
                         ]
@@ -728,7 +728,7 @@ async function callVisionAPI(systemPrompt, userPrompt, imageBase64, imageMimeTyp
             },
             {
                 headers: {
-                    'Authorization': \`Bearer \${apiKey}\`,
+                    'Authorization': `Bearer ${apiKey}`,
                     'Content-Type': 'application/json'
                 },
                 timeout: 120000
@@ -737,8 +737,8 @@ async function callVisionAPI(systemPrompt, userPrompt, imageBase64, imageMimeTyp
         const raw = res.data.choices[0].message.content;
         return typeof raw === 'string' ? safeParseJSON(raw) : raw;
     } catch (err) {
-        console.error(\`  ❌ [Vision API Error] Model: \${modelName}, Status: \${err.response?.status}, Message: \${err.response?.data?.error?.message || err.message}\`);
-        throw new Error(\`\${modelName} failed: \${err.response?.data?.error?.message || err.message}\`);
+        console.error(`  ❌ [Vision API Error] Model: ${modelName}, Status: ${err.response?.status}, Message: ${err.response?.data?.error?.message || err.message}`);
+        throw new Error(`${modelName} failed: ${err.response?.data?.error?.message || err.message}`);
     }
 }
 
@@ -758,7 +758,7 @@ async function callLocalVision(imageBase64, imageMimeType) {
             contentType: imageMimeType
         });
 
-        const res = await axios.post(\`\${PYTHON_SERVICE_URL}/analyze-vision\`, formData, {
+        const res = await axios.post(`${PYTHON_SERVICE_URL}/analyze-vision`, formData, {
             headers: { ...formData.getHeaders() },
             timeout: 180000 // 3 minutes for local heavy models
         });
@@ -766,25 +766,25 @@ async function callLocalVision(imageBase64, imageMimeType) {
         return res.data.boq;
     } catch (err) {
         const statusDetail = err.response?.data?.detail || err.response?.data?.error || err.response?.data?.message;
-        const statusCode = err.response?.status ? \`HTTP \${err.response.status}\` : null;
+        const statusCode = err.response?.status ? `HTTP ${err.response.status}` : null;
         const code = err.code || null;
         const message = statusDetail || err.message || code || JSON.stringify(err) || 'Unknown local vision error';
-        console.error(\`  ❌ [Local Vision Error] \${statusCode || ''} \${message}\`);
-        throw new Error(\`Local Vision Engine failed: \${message}\`);
+        console.error(`  ❌ [Local Vision Error] ${statusCode || ''} ${message}`);
+        throw new Error(`Local Vision Engine failed: ${message}`);
     }
 }
 
 async function callLocalLLM(systemPrompt, userPrompt, model = 'llama3.2') {
     try {
-        const res = await axios.post(\`\${PYTHON_SERVICE_URL}/llm\`, {
+        const res = await axios.post(`${PYTHON_SERVICE_URL}/llm`, {
             system_prompt: systemPrompt,
             user_prompt: userPrompt,
             model: model
         });
         return res.data.content;
     } catch (err) {
-        console.error(\`  ❌ [Local LLM Error] Message: \${err.message}\`);
-        throw new Error(\`Local LLM Engine failed: \${err.message}\`);
+        console.error(`  ❌ [Local LLM Error] Message: ${err.message}`);
+        throw new Error(`Local LLM Engine failed: ${err.message}`);
     }
 }
 
@@ -823,7 +823,7 @@ export async function callUniversalMultimodalAI(systemPrompt, userPrompt, assets
             const result = await model.generateContent({ contents: [{ role: 'user', parts: promptParts }] });
             return safeParseJSON(result.response.text());
         } catch (err) {
-            console.error(\`  ❌ [Google Multimodal] Global Error:\`, err.message);
+            console.error(`  ❌ [Google Multimodal] Global Error:`, err.message);
             throw err;
         }
     } else {
@@ -831,7 +831,7 @@ export async function callUniversalMultimodalAI(systemPrompt, userPrompt, assets
         const endpoint = provider === 'nvidia' ? 'https://integrate.api.nvidia.com/v1/chat/completions' : 'https://openrouter.ai/api/v1/chat/completions';
         const apiKey = provider === 'nvidia' ? NVIDIA_API_KEY : OPENROUTER_API_KEY;
         
-        if (!apiKey) throw new Error(\`API Key for \${provider} is missing in .env\`);
+        if (!apiKey) throw new Error(`API Key for ${provider} is missing in .env`);
 
         // OpenAI Vision format
         const messages = [
@@ -846,7 +846,7 @@ export async function callUniversalMultimodalAI(systemPrompt, userPrompt, assets
                         const mime = asset.mimeType || 'image/png';
                         return {
                             type: "image_url",
-                            image_url: { url: \`data:\${mime};base64,\${asset.base64Data}\` }
+                            image_url: { url: `data:${mime};base64,${asset.base64Data}` }
                         };
                     })
                 ]
@@ -862,7 +862,7 @@ export async function callUniversalMultimodalAI(systemPrompt, userPrompt, assets
                 ...(jsonMode ? { response_format: { type: "json_object" } } : {})
             }, {
                 headers: {
-                    'Authorization': \`Bearer \${apiKey}\`,
+                    'Authorization': `Bearer ${apiKey}`,
                     'Content-Type': 'application/json',
                     ...(provider === 'openrouter' ? { 'HTTP-Referer': 'https://boq-v2.vercel.app', 'X-Title': 'BOQ V2' } : {})
                 }
@@ -871,15 +871,15 @@ export async function callUniversalMultimodalAI(systemPrompt, userPrompt, assets
             const text = response.data.choices[0].message.content;
             return safeParseJSON(text);
         } catch (err) {
-            console.error(\`  ❌ [\${provider} Multimodal] Vision API Error:\`, err.response?.data || err.message);
-            throw new Error(\`Vision AI Processing Failed (\${provider}): \${err.message}\`);
+            console.error(`  ❌ [${provider} Multimodal] Vision API Error:`, err.response?.data || err.message);
+            throw new Error(`Vision AI Processing Failed (${provider}): ${err.message}`);
         }
     }
 }
 
 export async function analyzePlan(filesData, options = {}) {
     const { includeFitout = false, provider = 'google', providerModel = null } = options;
-    console.log(\`\\n🏗️ [Plan Analyzer] Analyzing \${filesData.length} sheets with provider=\${provider}, model=\${providerModel || ''}...\`);
+    console.log(`\\n🏗️ [Plan Analyzer] Analyzing ${filesData.length} sheets with provider=${provider}, model=${providerModel || ''}...`);
 
     if (!filesData || filesData.length === 0) {
         return { status: 'error', error_message: 'No files provided for analysis' };
@@ -887,8 +887,8 @@ export async function analyzePlan(filesData, options = {}) {
 
     const selectedModel = providerModel || (provider === 'google' ? GOOGLE_MODEL : provider === 'openrouter' ? OPENROUTER_MODEL : NVIDIA_MODEL);
     if (!isValidProviderModel(provider, selectedModel)) {
-        const invalidMsg = \`Invalid model for provider \${provider}: \${selectedModel}. Please choose a supported model.\`;
-        console.error(\`  ❌ [Plan Analyzer Validation] \${invalidMsg}\`);
+        const invalidMsg = `Invalid model for provider ${provider}: ${selectedModel}. Please choose a supported model.`;
+        console.error(`  ❌ [Plan Analyzer Validation] ${invalidMsg}`);
         return {
             status: 'error',
             error_message: invalidMsg,
@@ -906,7 +906,7 @@ export async function analyzePlan(filesData, options = {}) {
         if (provider === 'google') {
             // Use Google Gemini SDK with multimodal support
             const modelName = providerModel || GOOGLE_MODEL;
-            console.log(\`  📍 Using Google model: \${modelName}\`);
+            console.log(`  📍 Using Google model: ${modelName}`);
             
             const genAIInstance = getGoogleAI(modelName);
             const model = genAIInstance.getGenerativeModel({
@@ -927,7 +927,7 @@ export async function analyzePlan(filesData, options = {}) {
         } else if (provider === 'openrouter') {
             // Use OpenRouter API with multimodal support
             const modelName = providerModel || OPENROUTER_MODEL;
-            console.log(\`  📍 Using OpenRouter model: \${modelName}\`);
+            console.log(`  📍 Using OpenRouter model: ${modelName}`);
             
             parsed = await callVisionAPI(
                 promptText,
@@ -942,7 +942,7 @@ export async function analyzePlan(filesData, options = {}) {
         } else if (provider === 'nvidia') {
             // Use NVIDIA NIM API with multimodal support
             const modelName = providerModel || NVIDIA_MODEL;
-            console.log(\`  📍 Using NVIDIA model: \${modelName}\`);
+            console.log(`  📍 Using NVIDIA model: ${modelName}`);
             
             parsed = await callVisionAPI(
                 promptText,
@@ -955,11 +955,11 @@ export async function analyzePlan(filesData, options = {}) {
             );
 
         } else if (provider === 'local') {
-            console.log(\`  📍 Using Local Vision Engine (YOLOv8 + Llama 3.2)\`);
+            console.log(`  📍 Using Local Vision Engine (YOLOv8 + Llama 3.2)`);
             parsed = await callLocalVision(file.base64Data, file.mimeType);
 
         } else {
-            throw new Error(\`Unknown provider: \${provider}. Supported: google, openrouter, nvidia\`);
+            throw new Error(`Unknown provider: ${provider}. Supported: google, openrouter, nvidia`);
         }
 
         // Process extracted items
@@ -977,7 +977,7 @@ export async function analyzePlan(filesData, options = {}) {
 
         return {
             status: 'success',
-            planSummary: parsed.planSummary || \`Extracted \${flatItems.length} items.\`,
+            planSummary: parsed.planSummary || `Extracted ${flatItems.length} items.`,
             items: flatItems,
             provider: provider,
             model: providerModel || (provider === 'google' ? GOOGLE_MODEL : provider === 'openrouter' ? OPENROUTER_MODEL : NVIDIA_MODEL)
@@ -985,10 +985,10 @@ export async function analyzePlan(filesData, options = {}) {
 
     } catch (err) {
         const errorMsg = err.message || 'Unknown error during plan analysis';
-        console.error(\`  ❌ [Plan Analyzer Error]:\`, errorMsg);
+        console.error(`  ❌ [Plan Analyzer Error]:`, errorMsg);
         return {
             status: 'error',
-            error_message: \`Failed to analyze plan with \${provider}\${providerModel ? \` (\${providerModel})\` : ''}: \${errorMsg}. Please try another provider/model.\`,
+            error_message: `Failed to analyze plan with ${provider}${providerModel ? ` (${providerModel})` : ''}: ${errorMsg}. Please try another provider/model.`,
             provider: provider,
             model: providerModel
         };
