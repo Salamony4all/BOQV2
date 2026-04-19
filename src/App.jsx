@@ -121,9 +121,19 @@ function AppContent({ onOpenSettings }) {
 
     // Fetch brands once at the top level
     fetch(apiUrl('/api/brands'))
-      .then(res => res.json())
+      .then(res => {
+        if (!res.ok) {
+          return res.text().then(text => {
+             throw new Error(`Server returned ${res.status}: ${text.slice(0, 100)}`);
+          });
+        }
+        return res.json();
+      })
       .then(data => setAllBrands(data))
-      .catch(err => console.error('Failed to load brands', err));
+      .catch(err => {
+        console.error('Failed to load brands', err);
+        setSystemErrors(prev => [...prev, `Cloud Storage Error: ${err.message}`]);
+      });
   }, []);
 
   // Image carousel auto-rotate
