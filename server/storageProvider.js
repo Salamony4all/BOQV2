@@ -6,6 +6,7 @@ import {
     listSupabaseFiles, 
     deleteFromSupabase 
 } from './utils/supabaseStorage.js';
+import { createClient as createKvClient } from '@vercel/kv';
 import axios from 'axios';
 import path from 'path';
 import { promises as fs } from 'fs';
