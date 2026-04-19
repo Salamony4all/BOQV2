@@ -178,6 +178,31 @@ export async function extractProductBoqFromPdf(filePath, progressCallback = () =
         progressCallback({ percent: 20, message: `Sending PDF to ${modelName || 'Gemma'} AI...` });
 
         // ── STEP 2: Extract BOQ data using universal model ────────
+        const { getProviderForModel } = await import('./utils/llmUtils.js');
+        const provider = getProviderForModel(modelName || 'gemma-4-26b-a4b-it');
+        
+        let assets = [];
+        if (provider === 'google') {
+            assets = [{ base64Data: data.toString('base64'), mimeType: 'application/pdf' }];
+        } else {
+            console.log(`🖼️ [Vercel] AI Provider ${provider} does not support PDF natively. Rendering first 15 pages as images...`);
+            try {
+                for (let i = 0; i < Math.min(doc.countPages(), 15); i++) {
+                    const page = doc.loadPage(i);
+                    const pixmap = page.toPixmap(mupdf.Matrix.scale(1.2, 1.2), mupdf.ColorSpace.DeviceRGB, false);
+                    const png = pixmap.asPNG();
+                    assets.push({ 
+                        base64Data: Buffer.from(png).toString('base64'), 
+                        mimeType: 'image/png' 
+                    });
+                }
+            } catch (renderErr) {
+                console.error("   ❌ Failed to render PDF pages for vision AI:", renderErr);
+                // Fallback to sending the PDF and hoping for the best (or it will fail with a better error)
+                assets = [{ base64Data: data.toString('base64'), mimeType: 'application/pdf' }];
+            }
+        }
+
         const prompt = `CRITICAL: You are a raw data extraction engine.
 Output ONLY the JSON object. 
 DO NOT INCLUDE any preamble, introductory text, schema definitions, or conclusions. 
@@ -207,7 +232,7 @@ Instructions:
         const aiResponse = await callUniversalMultimodalAI(
             "You are a Furniture Procurement Specialist and Data Extraction Engine.",
             prompt + '\nIMPORTANT: Do NOT repeat the schema above. Start your response immediately with the { character.',
-            [{ base64Data: data.toString('base64'), mimeType: 'application/pdf' }],
+            assets,
             modelName || 'gemma-4-26b-a4b-it',
             true // jsonMode
         );

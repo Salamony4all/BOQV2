@@ -46,24 +46,19 @@ export const MODEL_OPTIONS = {
         'cohere/rerank-4-pro'
     ],
     nvidia: [
-        'nvidia/llama-3.3-70b-instruct',
-        'nvidia/llama-3.1-70b-instruct',
-        'nvidia/nemotron-3-super-120b-a12b',
-        'nvidia/gemma-4-31b-it',
-        'nvidia/gemma-4-26b-a4b-it',
-        'nvidia/gemma-4-e4b-it',
-        'nvidia/gemma-4-e2b-it',
-        'nvidia/cosmos-transfer2_5-2b',
-        'nvidia/neva-22b',
-        'nvidia/vila',
-        'nvidia/vlia',
-        'nvidia/llama-3.1-nemotron-nano-vl-8b-v1',
-        'nvidia/nemotron-nano-12b-v2-vl',
-        'nvidia/llama-3.1-nemotron-nano-8b-v1',
-        'nvidia/llama-3.1-nemotron-70b-reward',
-        'nvidia/llama-3.1-nemotron-ultra-253b-v1',
-        'nvidia/llama-3.3-nemotron-super-49b-v1',
-        'nvidia/llama-3.3-nemotron-super-49b-v1.5'
+        'nvidia/google/gemma-4-31b-it',
+        'nvidia/google/gemma-4-26b-a4b-it',
+        'nvidia/google/gemma-4-e4b-it',
+        'nvidia/google/gemma-4-e2b-it',
+        'nvidia/google/gemma-2-9b-it',
+        'nvidia/google/gemma-2-27b-it',
+        'nvidia/meta/llama-3.3-70b-instruct',
+        'nvidia/meta/llama-3.1-405b-instruct',
+        'nvidia/meta/llama-3.1-70b-instruct',
+        'nvidia/nvidia/llama-3.1-nemotron-70b-instruct',
+        'nvidia/nvidia/neva-22b',
+        'nvidia/nvidia/vila',
+        'nvidia/nvidia/vlia'
     ],
     local: ['local/yolov8-llama3.2', 'llama3.2']
 };

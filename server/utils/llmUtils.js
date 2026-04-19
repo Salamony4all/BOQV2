@@ -89,26 +89,19 @@ export const VALID_OPENROUTER_MODELS = [
     'cohere/rerank-4-pro'
 ];
 export const VALID_NVIDIA_MODELS = [
-    'nvidia/llama-3.3-70b-instruct',
-    'nvidia/llama-3.1-70b-instruct',
-    'nvidia/nemotron-3-super-120b-a12b',
-    'nvidia/gemma-4-31b-it',
-    'nvidia/gemma-4-26b-a4b-it',
-    'nvidia/gemma-4-e4b-it',
-    'nvidia/gemma-4-e2b-it',
-    'nvidia/cosmos-transfer2_5-2b',
-    // Vision models
-    'nvidia/neva-22b',
-    'nvidia/vila',
-    'nvidia/vlia',
-    'nvidia/llama-3.1-nemotron-nano-vl-8b-v1',
-    'nvidia/nemotron-nano-12b-v2-vl',
-    // Other free/paid models
-    'nvidia/llama-3.1-nemotron-nano-8b-v1',
-    'nvidia/llama-3.1-nemotron-70b-reward',
-    'nvidia/llama-3.1-nemotron-ultra-253b-v1',
-    'nvidia/llama-3.3-nemotron-super-49b-v1',
-    'nvidia/llama-3.3-nemotron-super-49b-v1.5'
+    'nvidia/google/gemma-4-31b-it',
+    'nvidia/google/gemma-4-26b-a4b-it',
+    'nvidia/google/gemma-4-e4b-it',
+    'nvidia/google/gemma-4-e2b-it',
+    'nvidia/google/gemma-2-9b-it',
+    'nvidia/google/gemma-2-27b-it',
+    'nvidia/meta/llama-3.3-70b-instruct',
+    'nvidia/meta/llama-3.1-405b-instruct',
+    'nvidia/meta/llama-3.1-70b-instruct',
+    'nvidia/nvidia/llama-3.1-nemotron-70b-instruct',
+    'nvidia/nvidia/neva-22b',
+    'nvidia/nvidia/vila',
+    'nvidia/nvidia/vlia'
 ];
 export const VALID_LOCAL_MODELS = [
     'local/yolov8-llama3.2'
@@ -127,6 +120,8 @@ const getProviderForModel = (modelName) => {
     if (!modelName) return 'google';
     if (modelName.startsWith('nvidia/')) return 'nvidia';
     if (modelName.startsWith('local/')) return 'local';
+    // Gemma-4 models are primarily NVIDIA NIM prototypes currently
+    if (modelName.startsWith('gemma-4')) return 'nvidia';
     // If it has a slash and isn't nvidia/local, it's likely OpenRouter (e.g. google/gemini-2.0-flash-lite-001)
     if (modelName.includes('/')) return 'openrouter';
     return 'google';
@@ -853,9 +848,13 @@ export async function callUniversalMultimodalAI(systemPrompt, userPrompt, assets
             }
         ];
 
+        // Strip our internal routing prefix for the actual provider call
+        const apiModelName = finalModel.replace(/^(nvidia|openrouter|local)\//, '');
+
         try {
+            console.log(`📡 [${provider}] Calling ${apiModelName} (Full Internal Name: ${finalModel}) at ${endpoint}...`);
             const response = await axios.post(endpoint, {
-                model: finalModel,
+                model: apiModelName,
                 messages,
                 temperature: 0.1,
                 max_tokens: 16384,
