@@ -9,6 +9,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { callGoogleMultimodalFallback } from './utils/llmPDFTable.js';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { safeParseJSON } from './utils/llmUtils.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -192,11 +193,12 @@ export async function extractProductBoqFromPdf(filePath, progressCallback = () =
             }
         });
 
-        const prompt = `You are a BOQ extraction expert. Read the uploaded PDF and extract ALL Bill of Quantities rows.
+        const prompt = `CRITICAL: You are a raw data extraction engine.
+Output ONLY the JSON object. 
+DO NOT INCLUDE any preamble, "The user wants...", introductory text, schema definitions, or conclusions. 
+START with { and END with }.
 
-You MUST respond with ONLY a raw JSON object. No markdown. No code blocks. No explanation. No prose. Start your response with { and end with }.
-
-Required JSON schema:
+Schema:
 {
   "items": [
     {
@@ -211,41 +213,28 @@ Required JSON schema:
   ]
 }
 
-Rules:
-- Include ALL rows from ALL pages
-- qty/rate/total must be numbers (not strings)
-- Use null for missing numeric values
-- Skip header rows, footers, page numbers
-- Set "hasImage" to true ONLY for rows that have a visible product photo/picture next to them in the PDF
-- Your entire response must be valid JSON starting with {`;
+Instructions:
+- Extract EVERY Bill of Quantities row from the PDF.
+- qty/rate/total MUST be numeric values (no currency symbols).
+- Set "hasImage": true if there is a picture column for that row.
+- Return ONLY the raw JSON string.`;
 
         try {
-            console.log(`   🤖 Calling gemma-4-26b-a4b-it with PDF (${Math.round(data.length / 1024)}KB)...`);
+            console.log(`   🤖 Calling ${modelName || 'gemma-4-26b-a4b-it'} with PDF (${Math.round(data.length / 1024)}KB)...`);
             const result = await model.generateContent({
                 contents: [{
                     role: 'user',
                     parts: [
                         { inlineData: { data: data.toString('base64'), mimeType: 'application/pdf' } },
-                        { text: prompt }
+                        { text: prompt + '\nIMPORTANT: Do NOT repeat the schema above. Start your response immediately with the { character.' }
                     ]
                 }]
             });
             const responseText = result.response.text();
             console.log(`   ✅ Gemma responded (${responseText.length} chars), extracting JSON...`);
 
-            // Robust JSON extraction: strip any accidental markdown fences or prose
-            let aiResponse;
-            const cleaned = responseText
-                .replace(/^```(?:json)?\s*/im, '')
-                .replace(/\s*```$/im, '')
-                .trim();
-            const firstBrace = cleaned.indexOf('{');
-            const lastBrace = cleaned.lastIndexOf('}');
-            const jsonStr = firstBrace !== -1 && lastBrace > firstBrace
-                ? cleaned.substring(firstBrace, lastBrace + 1)
-                : cleaned;
             try {
-                aiResponse = JSON.parse(jsonStr);
+                aiResponse = safeParseJSON(responseText);
             } catch (parseErr) {
                 console.error(`   ❌ JSON parse failed. Response preview: ${responseText.substring(0, 300)}`);
                 throw new Error(`Gemma response could not be parsed as JSON: ${parseErr.message}`);

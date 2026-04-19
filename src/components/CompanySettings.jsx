@@ -59,7 +59,7 @@ export default function CompanySettings({ isModal = false, onClose = null }) {
     // Update model when engine changes
     useEffect(() => {
         if (selectedEngine === 'google') {
-            // Default to gemma-4-31b-it if engine is google
+            // Default to gemma-4-26b-a4b-it if engine is google
             if (!MODEL_OPTIONS.google.gemini.concat(MODEL_OPTIONS.google.gemma).concat(MODEL_OPTIONS.google.paid).includes(selectedModel)) {
                 setSelectedModel(DEFAULT_AI_SETTINGS.model);
             }

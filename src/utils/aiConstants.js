@@ -2,8 +2,9 @@ export const MODEL_OPTIONS = {
     google: {
         gemma: [
             'gemma-4-31b-it',
-            'gemma-4-9b-it',
-            'gemma-4-2b-it',
+            'gemma-4-26b-a4b-it',
+            'gemma-4-e4b-it',
+            'gemma-4-e2b-it',
             'gemma-2-27b-it',
             'gemma-2-9b-it',
             'gemma-2-2b-it'
@@ -40,6 +41,9 @@ export const MODEL_OPTIONS = {
         'nvidia/llama-3.1-70b-instruct',
         'nvidia/nemotron-3-super-120b-a12b',
         'nvidia/gemma-4-31b-it',
+        'nvidia/gemma-4-26b-a4b-it',
+        'nvidia/gemma-4-e4b-it',
+        'nvidia/gemma-4-e2b-it',
         'nvidia/cosmos-transfer2_5-2b',
         'nvidia/llama-3.1-nemotron-nano-8b-v1',
         'nvidia/llama-3.1-nemotron-70b-reward',
@@ -59,5 +63,5 @@ export const AI_ENGINES = [
 
 export const DEFAULT_AI_SETTINGS = {
     engine: 'google',
-    model: 'gemma-2-27b-it'
+    model: 'gemma-4-26b-a4b-it'
 };
