@@ -116,7 +116,7 @@ export const GROUNDING_MODEL = process.env.GOOGLE_MODEL || 'gemini-2.5-flash'; /
 // Deprecated: use getGoogleAI(modelName) instead
 const genAI = new GoogleGenerativeAI(GOOGLE_API_KEY);
 
-const getProviderForModel = (modelName) => {
+export const getProviderForModel = (modelName) => {
     if (!modelName) return 'google';
     if (modelName.startsWith('nvidia/')) return 'nvidia';
     if (modelName.startsWith('local/')) return 'local';

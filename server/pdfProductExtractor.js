@@ -8,7 +8,7 @@ import { promises as fs } from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { callGoogleMultimodalFallback } from './utils/llmPDFTable.js';
-import { safeParseJSON, callUniversalMultimodalAI } from './utils/llmUtils.js';
+import { safeParseJSON, callUniversalMultimodalAI, getProviderForModel } from './utils/llmUtils.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -178,7 +178,6 @@ export async function extractProductBoqFromPdf(filePath, progressCallback = () =
         progressCallback({ percent: 20, message: `Sending PDF to ${modelName || 'Gemma'} AI...` });
 
         // ── STEP 2: Extract BOQ data using universal model ────────
-        const { getProviderForModel } = await import('./utils/llmUtils.js');
         const provider = getProviderForModel(modelName || 'gemma-4-26b-a4b-it');
         
         let assets = [];
