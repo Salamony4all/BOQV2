@@ -10,9 +10,8 @@ import fs_sync from 'fs';
 import { fileURLToPath } from 'url';
 import { extractExcelData } from './fastExtractor.js';
 import { CleanupService } from './cleanupService.js';
-import { put, del, list } from '@vercel/blob';
+import { uploadToSupabase, listSupabaseFiles, deleteFromSupabase, supabase } from './utils/supabaseStorage.js';
 import { BlobCache } from './utils/blobCache.js';
-import { handleUpload } from '@vercel/blob/client';
 import axios from 'axios';
 import https from 'https';
 import { ExcelDbManager } from './excelManager.js';
@@ -601,24 +600,37 @@ app.delete('/api/admin/blobs', async (req, res) => {
 app.get('/api/blobs', async (req, res) => {
   try {
     const forceRefresh = req.query.refresh === 'true';
+    if (supabase) {
+        const blobs = await listSupabaseFiles('assets', 'manual-upload');
+        return res.json({ success: true, blobs });
+    }
+    
+    // Fallback to Vercel Blob if Supabase is not configured
     const { blobs } = await BlobCache.list({ limit: 1000 }, forceRefresh);
     res.json({ success: true, blobs });
   } catch (error) {
-    console.error('❌ [Blob API] List failed:', error.message);
-    res.status(500).json({ error: 'Failed to list blobs', details: error.message });
+    console.error('❌ [Storage API] List failed:', error.message);
+    res.status(500).json({ error: 'Failed to list assets', details: error.message });
   }
 });
 
 app.post('/api/blobs/delete', async (req, res) => {
-  const { url } = req.body;
-  if (!url) return res.status(400).json({ error: 'URL is required' });
+  const { url, path: filePath } = req.body;
+  if (!url && !filePath) return res.status(400).json({ error: 'URL or path is required' });
   try {
-    await del(url);
-    BlobCache.invalidate();
+    if (supabase) {
+        // Extract path from URL if path is not provided
+        const finalPath = filePath || new URL(url).pathname.split('/').slice(2).join('/');
+        await deleteFromSupabase('assets', finalPath);
+    } else {
+        const { del } = await import('@vercel/blob');
+        await del(url);
+        BlobCache.invalidate();
+    }
     res.json({ success: true });
   } catch (error) {
-    console.error('❌ [Blob API] Delete failed:', error.message);
-    res.status(500).json({ error: 'Failed to delete blob', details: error.message });
+    console.error('❌ [Storage API] Delete failed:', error.message);
+    res.status(500).json({ error: 'Failed to delete asset', details: error.message });
   }
 });
 
@@ -627,18 +639,28 @@ app.post('/api/blobs/upload', planUpload.single('file'), async (req, res) => {
     if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
     
     const fileBuffer = await fs.readFile(req.file.path);
-    const blob = await put(`manual-upload/${Date.now()}-${req.file.originalname}`, fileBuffer, {
-      access: 'public',
-      contentType: req.file.mimetype
-    });
+    const fileName = `${Date.now()}-${req.file.originalname}`;
+    let result;
+
+    if (supabase) {
+        result = await uploadToSupabase('assets', `manual-upload/${fileName}`, fileBuffer, {
+            contentType: req.file.mimetype
+        });
+    } else {
+        const { put } = await import('@vercel/blob');
+        result = await put(`manual-upload/${fileName}`, fileBuffer, {
+            access: 'public',
+            contentType: req.file.mimetype
+        });
+    }
 
     // Cleanup local temp file
     try { await fs.unlink(req.file.path); } catch (e) {}
 
-    res.json({ success: true, blob });
+    res.json({ success: true, blob: result });
   } catch (error) {
-    console.error('❌ [Blob API] Upload failed:', error.message);
-    res.status(500).json({ error: 'Failed to upload blob', details: error.message });
+    console.error('❌ [Storage API] Upload failed:', error.message);
+    res.status(500).json({ error: 'Failed to upload asset', details: error.message });
   }
 });
 

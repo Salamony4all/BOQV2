@@ -1,6 +1,11 @@
-import { put, list, del } from '@vercel/blob';
-import { createClient as createKvClient } from '@vercel/kv';
-import { createClient as createSupabaseClient } from '@supabase/supabase-js';
+import { 
+    supabase, 
+    getSupabaseBrands, 
+    saveSupabaseBrand, 
+    uploadToSupabase, 
+    listSupabaseFiles, 
+    deleteFromSupabase 
+} from './utils/supabaseStorage.js';
 import { BlobCache } from './utils/blobCache.js';
 import axios from 'axios';
 import path from 'path';
@@ -12,19 +17,6 @@ const __dirname = path.dirname(__filename);
 
 const isVercel = process.env.VERCEL === '1';
 
-// Initialize Supabase if credentials are provided
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_ANON_KEY;
-let supabase = null;
-
-if (supabaseUrl && supabaseKey) {
-    try {
-        supabase = createSupabaseClient(supabaseUrl, supabaseKey);
-        console.log('✅ [StorageProvider] Supabase client initialized.');
-    } catch (err) {
-        console.error('❌ [StorageProvider] Failed to initialize Supabase:', err.message);
-    }
-}
 
 // Support multiple Vercel environment naming conventions
 const KV_URL = process.env.KV_REST_API_URL || process.env.STORAGE_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL || process.env.KV_URL;
@@ -101,62 +93,59 @@ export const brandStorage = {
         // Master list
         const brandMap = new Map();
 
-        // 1. Load Local Brands (Filesystem / Tmp) - Base Layer
-        const localBrands = await getLocalBrands();
-        localBrands.forEach(b => brandMap.set(String(b.id), b));
+        // 1. Supabase - Top Priority "Source of Truth"
+        if (supabase) {
+            try {
+                const supabaseBrands = await getSupabaseBrands();
+                supabaseBrands.forEach(b => {
+                    if (b && (b.id || b.name)) {
+                        // Ensure products is parsed if it's stored as JSON string (though Supabase usually handles JSON columns)
+                        const brandObj = {
+                            ...b,
+                            id: b.id || Date.now(),
+                            origin: b.source || 'Supabase',
+                            products: Array.isArray(b.products) ? b.products : []
+                        };
+                        brandMap.set(String(brandObj.id), brandObj);
+                    }
+                });
+                if (supabaseBrands.length > 0) {
+                    console.log(`✅ [Storage] Loaded ${supabaseBrands.length} brands from Supabase.`);
+                }
+            } catch (e) {
+                console.error('❌ [Storage] Supabase load failed:', e.message);
+            }
+        }
 
-        // 2. Load Blob Brands (Persistent Storage Layer for Vercel without KV)
-        if (!kv && process.env.BLOB_READ_WRITE_TOKEN && isBlobHealthy) {
+        // 2. Load Local Brands (Filesystem / Tmp) - Fallback/Migration Layer
+        const localBrands = await getLocalBrands();
+        localBrands.forEach(b => {
+            const id = String(b.id);
+            if (!brandMap.has(id)) {
+                brandMap.set(id, b);
+            }
+        });
+
+        // 3. Load Blob Brands (Vercel Blob Fallback)
+        if (!supabase && process.env.BLOB_READ_WRITE_TOKEN && isBlobHealthy) {
             try {
                 const { blobs } = await BlobCache.list({ prefix: 'brands-db/' });
-                // Parallel fetch of all brand files
                 const blobPromises = blobs.map(async (blob) => {
                     try {
                         const res = await axios.get(blob.url);
                         return res.data;
                     } catch (e) { 
-                        if (e.response?.status === 403) {
-                            if (isBlobHealthy) {
-                                console.warn('⚠️ [Storage] Blob Storage returned 403 (Forbidden). Switching to Local-First mode.');
-                                isBlobHealthy = false;
-                            }
-                        } else {
-                            console.error('Failed to read blob brand:', e.message); 
-                        }
                         return null; 
                     }
                 });
 
                 const blobBrands = await Promise.all(blobPromises);
-                const validBlobBrands = blobBrands.filter(Boolean);
-                validBlobBrands.forEach(b => {
-                    if (b && b.id) brandMap.set(String(b.id), b);
-                });
-                
-                if (validBlobBrands.length > 0) {
-                    console.log(`[Storage] Loaded ${validBlobBrands.length} brands from Blob DB.`);
-                }
-            } catch (e) {
-                if (e.message?.includes('403') || e.response?.status === 403) {
-                    if (isBlobHealthy) {
-                        console.warn('⚠️ [Storage] Blob list failed (403). Disabling Blob Storage for this session.');
-                        isBlobHealthy = false;
+                blobBrands.filter(Boolean).forEach(b => {
+                    if (b && b.id && !brandMap.has(String(b.id))) {
+                        brandMap.set(String(b.id), b);
                     }
-                } else {
-                    console.error('[Storage] Failed to load brands from Blob:', e.message);
-                }
-            }
-        }
-
-        // 3. Load KV Brands (High-Performance Layer) - Top Priority
-        if (isVercel && kv) {
-            try {
-                const keys = await kv.keys('brand:*');
-                if (keys.length > 0) {
-                    const kvBrands = await kv.mget(...keys);
-                    kvBrands.filter(Boolean).forEach(b => brandMap.set(String(b.id), b));
-                }
-            } catch (e) { console.error('[Storage] KV Error:', e.message); }
+                });
+            } catch (e) {}
         }
 
         return Array.from(brandMap.values());
@@ -177,29 +166,34 @@ export const brandStorage = {
     },
 
     async saveBrand(brand) {
-        const MASTER_DB_PATH = isVercel ? '/tmp/data/product_database.json' : path.join(__dirname, 'data/product_database.json');
+        // 1. Supabase Save (Success here is primary completion)
+        if (supabase) {
+            try {
+                const ok = await saveSupabaseBrand(brand);
+                if (ok) console.log(`✅ [Storage] Saved brand "${brand.name}" to Supabase.`);
+                // We still fall back to local/blob for extra redundancy if desired, 
+                // but if Supabase is our "new logic", we rely on it.
+            } catch (err) {
+                console.error(`❌ [Storage] Supabase save failed:`, err.message);
+            }
+        }
 
+        // 2. KV Redundancy
         if (kv) {
             try {
                 await kv.set(`brand:${brand.id}`, brand);
-                // Also update master list in KV if needed, but for now we focus on files
             } catch (error) { /* continue */ }
         }
 
-        // Blob Storage Strategy (Persistent)
+        // 3. Blob Storage Redundancy
         if (process.env.BLOB_READ_WRITE_TOKEN && isBlobHealthy) {
             try {
                 const filename = `brands-db/${brand.id}.json`;
+                const { put } = await import('@vercel/blob');
                 await put(filename, JSON.stringify(brand, null, 2), { access: 'public', addRandomSuffix: false });
-                // Invalidate brand list cache
                 BlobCache.invalidate('brands-db/');
             } catch (error) { 
-                if (error.message?.includes('403') || error.response?.status === 403) {
-                    isBlobHealthy = false;
-                    console.warn('⚠️ [Storage] Save to Blob failed (403). Falling back to local only.');
-                } else {
-                    console.error('[Storage] Blob save failed:', error.message); 
-                }
+                console.error('[Storage] Blob save fallback failed:', error.message); 
             }
         }
 
@@ -281,26 +275,33 @@ export const brandStorage = {
     },
 
     async deleteBrand(brandId) {
+        // 1. Supabase Delete
+        if (supabase) {
+            try {
+                const { error } = await supabase.from('brands').delete().eq('id', brandId);
+                if (error) console.error('Supabase delete error', error);
+                else console.log(`✅ [Storage] Deleted brand ${brandId} from Supabase.`);
+            } catch (err) {}
+        }
+
         if (kv) {
             try {
                 await kv.del(`brand:${brandId}`);
-                return true;
-            } catch (error) { return false; }
+            } catch (error) { }
         }
 
         // Blob Delete
         if (process.env.BLOB_READ_WRITE_TOKEN) {
             try {
+                const { del } = await import('@vercel/blob');
                 const filename = `brands-db/${brandId}.json`;
                 const { blobs } = await BlobCache.list({ prefix: 'brands-db/' });
                 const blobToDelete = blobs.find(b => b.pathname === filename);
                 if (blobToDelete) {
                     await del(blobToDelete.url);
-                    // Invalidate cache
                     BlobCache.invalidate('brands-db/');
-                    return true;
                 }
-            } catch (e) { console.error('Blob delete error', e); }
+            } catch (e) { }
         }
 
         // Local Delete

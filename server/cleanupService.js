@@ -1,7 +1,7 @@
 import { promises as fs } from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { del } from '@vercel/blob';
+import { deleteFromSupabase, supabase } from './utils/supabaseStorage.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -66,20 +66,25 @@ class CleanupService {
             }
         }
 
-        // 2. Cleanup cloud blobs
-        if (process.env.BLOB_READ_WRITE_TOKEN) {
-            for (const url of session.blobs) {
-                try {
-                    // Only attempt to delete if it's a Vercel Blob URL
-                    if (url.includes('blob.vercel-storage.com')) {
-                        await del(url);
-                        console.log(`[Cleanup] Deleted cloud blob: ${url}`);
-                    } else {
-                        // console.log(`[Cleanup] Skipping non-Vercel blob: ${url}`);
+        // 2. Cleanup cloud assets
+        for (const url of session.blobs) {
+            try {
+                if (supabase && url.includes('supabase.co')) {
+                    // Extract path from Supabase URL
+                    // Example: https://xxx.supabase.co/storage/v1/object/public/assets/folder/file.png
+                    const parts = url.split('/assets/');
+                    if (parts.length > 1) {
+                        const filePath = parts[1];
+                        await deleteFromSupabase('assets', filePath);
+                        console.log(`[Cleanup] Deleted Supabase asset: ${filePath}`);
                     }
-                } catch (error) {
-                    console.error(`[Cleanup] Failed to delete blob ${url}:`, error.message);
+                } else if (process.env.BLOB_READ_WRITE_TOKEN && url.includes('blob.vercel-storage.com')) {
+                    const { del } = await import('@vercel/blob');
+                    await del(url);
+                    console.log(`[Cleanup] Deleted Vercel blob: ${url}`);
                 }
+            } catch (error) {
+                console.error(`[Cleanup] Failed to delete file/blob ${url}:`, error.message);
             }
         }
 

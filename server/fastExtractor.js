@@ -8,7 +8,7 @@ import xml2js from 'xml2js';
 import { fileURLToPath } from 'url';
 import axios from 'axios';
 import FormData from 'form-data';
-import { put } from '@vercel/blob';
+import { uploadToSupabase, supabase } from './utils/supabaseStorage.js';
 import { convertEmfToPng } from './utils/emfConverter.js';
 import { extractLegacyExcelData } from './legacyExtractor.js';
 import { convertXlsToXlsx } from './utils/xlsToXlsxConverter.js';
@@ -164,11 +164,24 @@ async function extractImagesAndMap(filePath, imagesDir, onBlobCreated = null) {
                 const fileName = path.basename(entry.entryName);
                 const data = entry.getData();
 
-                // Free Unlimited Temporary Storage Override
-                // Bypass Vercel Blob Hobby limits unconditionally while preserving cloud stability
+                // Cloud Storage Strategy
                 try {
                     let directUrl = null;
-                    const base64Str = data.toString('base64');
+
+                    // Option 0: Supabase (Our own managed storage)
+                    if (supabase) {
+                        try {
+                            const result = await uploadToSupabase('assets', `extracted-images/${timestamp}_${fileName}`, data, {
+                                contentType: 'image/' + path.extname(fileName).substring(1).toLowerCase().replace('jpg', 'jpeg')
+                            });
+                            directUrl = result.url;
+                        } catch (err) {
+                            console.warn(`[FastExtractor] Supabase upload failed for ${fileName}:`, err.message);
+                        }
+                    }
+
+                    if (!directUrl) {
+                        const base64Str = data.toString('base64');
 
                     // Provider 1: FreeImage.host (Highest rate limit for anonymous bulk uploads)
                     try {

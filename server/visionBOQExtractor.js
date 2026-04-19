@@ -3,7 +3,7 @@ import { promises as fs } from 'fs';
 import path from 'path';
 import { fileURLToPath, pathToFileURL } from 'url';
 import { callGoogleMultimodalFallback } from './utils/llmPDFTable.js';
-import { put } from '@vercel/blob';
+import { uploadToSupabase, supabase } from './utils/supabaseStorage.js';
 import chromium from 'playwright';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -217,12 +217,23 @@ async function cropAndUpload(buffer, bbox) {
     const croppedBuffer = await page.screenshot({ clip });
     await browser.close();
 
-    // Upload to Vercel
-    const filename = `vision_crop_${Date.now()}_${Math.floor(Math.random()*1000)}.png`;
-    const { url } = await put(filename, croppedBuffer, {
-        access: 'public',
-        contentType: 'image/png'
-    });
+    // Upload to Storage
+    const filename = `vision-crops/vision_crop_${Date.now()}_${Math.floor(Math.random()*1000)}.png`;
+    let url;
+    
+    if (supabase) {
+        const result = await uploadToSupabase('assets', filename, croppedBuffer, {
+            contentType: 'image/png'
+        });
+        url = result.url;
+    } else {
+        const { put } = await import('@vercel/blob');
+        const result = await put(filename, croppedBuffer, {
+            access: 'public',
+            contentType: 'image/png'
+        });
+        url = result.url;
+    }
 
     return url;
 }
