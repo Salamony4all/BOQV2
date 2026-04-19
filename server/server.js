@@ -11,7 +11,6 @@ import { fileURLToPath } from 'url';
 import { extractExcelData } from './fastExtractor.js';
 import { CleanupService } from './cleanupService.js';
 import { uploadToSupabase, listSupabaseFiles, deleteFromSupabase, supabase } from './utils/supabaseStorage.js';
-import { BlobCache } from './utils/blobCache.js';
 import axios from 'axios';
 import https from 'https';
 import { ExcelDbManager } from './excelManager.js';
@@ -565,22 +564,11 @@ app.post('/api/extract/vision', planUpload.single('file'), async (req, res) => {
 // Blob Management API (for Blob Dashboard)
 app.get('/api/admin/blobs', async (req, res) => {
   try {
-    const forceRefresh = req.query.refresh === 'true';
-    const { blobs } = await BlobCache.list({ limit: 1000 }, forceRefresh);
-    
-    // Transform Vercel Blob response to match BlobDashboard expectations
-    const formattedBlobs = blobs.map(blob => ({
-      url: blob.url,
-      pathname: blob.pathname,
-      size: blob.size,
-      uploadedAt: blob.uploadedAt || new Date(blob.ctime * 1000).toISOString(),
-      downloadUrl: blob.downloadUrl
-    }));
-    
-    res.json(formattedBlobs);
+    const blobs = await listSupabaseFiles('assets', 'manual-upload');
+    res.json(blobs);
   } catch (error) {
-    console.error('❌ [Blob API] List failed:', error.message);
-    res.status(500).json({ error: 'Failed to list blobs', details: error.message });
+    console.error('❌ [Asset API] List failed:', error.message);
+    res.status(500).json({ error: 'Failed to list assets', details: error.message });
   }
 });
 
@@ -588,25 +576,19 @@ app.delete('/api/admin/blobs', async (req, res) => {
   const { url } = req.body;
   if (!url) return res.status(400).json({ error: 'URL is required' });
   try {
-    await del(url);
-    BlobCache.invalidate(); // Clear all as we don't know the prefix easily here
+    const filePath = new URL(url).pathname.split('/').slice(2).join('/');
+    await deleteFromSupabase('assets', filePath);
     res.json({ success: true });
   } catch (error) {
-    console.error('❌ [Blob API] Delete failed:', error.message);
-    res.status(500).json({ error: 'Failed to delete blob', details: error.message });
+    console.error('❌ [Asset API] Delete failed:', error.message);
+    res.status(500).json({ error: 'Failed to delete asset', details: error.message });
   }
 });
 
 app.get('/api/blobs', async (req, res) => {
   try {
     const forceRefresh = req.query.refresh === 'true';
-    if (supabase) {
-        const blobs = await listSupabaseFiles('assets', 'manual-upload');
-        return res.json({ success: true, blobs });
-    }
-    
-    // Fallback to Vercel Blob if Supabase is not configured
-    const { blobs } = await BlobCache.list({ limit: 1000 }, forceRefresh);
+    const blobs = await listSupabaseFiles('assets', 'manual-upload');
     res.json({ success: true, blobs });
   } catch (error) {
     console.error('❌ [Storage API] List failed:', error.message);
