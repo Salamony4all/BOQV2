@@ -1,4 +1,6 @@
-import pptxgen from 'pptxgenjs';
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
+const pptxgen = require('pptxgenjs');
 import axios from 'axios';
 import path from 'path';
 import { promises as fs } from 'fs';
