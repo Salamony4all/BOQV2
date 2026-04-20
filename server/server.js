@@ -16,6 +16,7 @@ import https from 'https';
 import { ExcelDbManager } from './excelManager.js';
 import { brandStorage, kv } from './storageProvider.js';
 import { getAiMatch, identifyModel, fetchProductDetails, searchAndEnrichModel, analyzePlan, matchFitoutItem, FREE_GOOGLE_MODELS, PAID_GOOGLE_MODELS, VALID_GOOGLE_MODELS, VALID_OPENROUTER_MODELS, VALID_NVIDIA_MODELS, GOOGLE_MODEL, OPENROUTER_MODEL, NVIDIA_MODEL } from './utils/llmUtils.js';
+import { veMatchSimple, veMatchAdvanced, veGetProductDetails } from './utils/veMatchUtils.js';
 import { generatePresentationPdf } from './utils/pptxExportService.js';
 
 
@@ -1162,6 +1163,173 @@ app.post('/api/auto-match-ai', async (req, res) => {
     });
   } catch (error) {
     console.error('🔥 [AI Endpoint Error]:', error.message, error.stack);
+    res.status(500).json({ status: 'error', error_message: error.message });
+  }
+});
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// VALUE ENGINEERED OFFER — Dedicated AI Matching Endpoint
+// Bypasses tier isolation; uses the exact VE prompt spec:
+//   Option 1 (simple)  : "What is the best Model for [desc] from [brand]?"
+//   Option 2 (advanced) : "What is the best Model for [desc] from [category] from [brand]?"
+// ─────────────────────────────────────────────────────────────────────────────
+app.post('/api/ve-match', async (req, res) => {
+  try {
+    const {
+      description,
+      qty,
+      unit,
+      brand,          // Required: selected brand name
+      category,       // Optional: category label for Option 2 (Advanced)
+      providerModel = null
+    } = req.body;
+
+    if (!description || !description.trim()) {
+      return res.status(400).json({ status: 'error', error_message: 'Missing item description' });
+    }
+    if (!brand || !brand.trim()) {
+      return res.status(400).json({ status: 'error', error_message: 'Missing brand name' });
+    }
+
+    // Enrich description with qty/unit context (same as auto-match-ai)
+    const sizeContext = [qty && `Qty: ${qty}`, unit && `Unit: ${unit}`].filter(Boolean).join(', ');
+    const enrichedDesc = sizeContext ? `${description} | ${sizeContext}` : description;
+
+    // Build catalog hint from local DB (cache-boost — no blocking)
+    const allLocalBrands = await brandStorage.getAllBrands();
+    const localBrand = allLocalBrands.find(b => b.name.toLowerCase().trim() === brand.toLowerCase().trim());
+    const modelList = localBrand?.products?.map(p => p.model).filter(Boolean) || [];
+
+    let identityResult;
+
+    if (category && category.trim()) {
+      // ── OPTION 2: Advanced Categorical Scope ─────────────────────────────
+      console.log(`\n🔷 [VE Endpoint] Option 2 (Advanced) | Brand: ${brand} | Category: ${category}`);
+      identityResult = await veMatchAdvanced(enrichedDesc, brand, category, modelList, providerModel);
+    } else {
+      // ── OPTION 1: Simple Global Brand Scope ──────────────────────────────
+      console.log(`\n🔷 [VE Endpoint] Option 1 (Simple) | Brand: ${brand}`);
+      identityResult = await veMatchSimple(enrichedDesc, brand, modelList, providerModel);
+    }
+
+    if (identityResult.status !== 'success' || !identityResult.model) {
+      return res.json({
+        status: 'no_match',
+        message: `AI could not identify a model for "${brand}"${ category ? ` [${category}]` : '' }.`
+      });
+    }
+
+    const identifiedModel = identityResult.model.trim();
+    const identifiedBrand = identityResult.brand || brand;
+    const identifiedCategory = identityResult.mainCategory || category || '';
+
+    console.log(`  🎯 [VE Endpoint] Identified: ${identifiedBrand} → "${identifiedModel}"`);
+
+    // ── STAGE 2: LOCAL DB CACHE LOOKUP (Zero-Cost) ──────────────────────────
+    if (localBrand?.products?.length > 0) {
+      const normalize = s => String(s || '').toLowerCase().replace(/#\d+/g, '').replace(/[^a-z0-9]/g, ' ').replace(/\s+/g, ' ').trim();
+      const target = normalize(identifiedModel);
+      const matched = localBrand.products.filter(p =>
+        normalize(p.model).includes(target) || target.includes(normalize(p.model))
+      );
+      if (matched.length > 0) {
+        const best = matched.sort((a, b) => (parseFloat(b.price) || 0) - (parseFloat(a.price) || 0))[0];
+        console.log(`  ✨ [VE Cache Hit] "${best.model}" loaded from local DB.`);
+        return res.json({
+          status: 'success',
+          product: {
+            ...best,
+            brand: identifiedBrand,
+            brandLogo: localBrand.logo || '',
+            mainCategory: identifiedCategory
+          },
+          source: 'local-database',
+          identifiedModel
+        });
+      }
+      console.log(`  📂 [VE Stage 2] Miss: No local entry for "${identifiedModel}".`);
+    }
+
+    // ── STAGE 3: WEB DISCOVERY (Deep Product Details) ───────────────────────
+    console.log(`  🌐 [VE Stage 3] Fetching live details for ${identifiedBrand} ${identifiedModel}...`);
+    const detailResult = await veGetProductDetails(identifiedBrand, identifiedModel, providerModel);
+
+    if (detailResult.status === 'success' && detailResult.product) {
+      const p = detailResult.product;
+
+      // Validate image URL
+      const rawImg = p.imageUrl || '';
+      const isValidImage = rawImg.startsWith('https://') && !rawImg.includes('localhost') && /\.(jpg|jpeg|png|webp|svg)(\?|$)/i.test(rawImg);
+      if (!isValidImage) {
+        p.imageUrl = localBrand?.logo || '';
+      }
+
+      // Persist to local DB (optional — non-blocking)
+      try {
+        const newProduct = {
+          ...p,
+          brand: identifiedBrand,
+          mainCategory: identifiedCategory || 'Furniture',
+          lastUpdated: new Date().toISOString(),
+          source: 'VE-AI-Discovery'
+        };
+        if (localBrand) {
+          await brandStorage.addProductToBrand(identifiedBrand, localBrand.budgetTier || 'mid', newProduct);
+        } else {
+          await brandStorage.saveBrand({
+            id: Date.now(),
+            name: identifiedBrand,
+            logo: '',
+            budgetTier: 'mid',
+            origin: 'VE-Discovery',
+            products: [newProduct],
+            createdAt: new Date().toISOString()
+          });
+        }
+      } catch (saveErr) {
+        console.warn(`  ⚠️  [VE Stage 3] Persistence failed (non-fatal):`, saveErr.message);
+      }
+
+      // Proxy image URLs
+      const proxyBase = `${req.protocol}://${req.get('host')}/api/image-proxy?url=`;
+      if (p.imageUrl) p.imageUrl = `${proxyBase}${encodeURIComponent(p.imageUrl)}`;
+      if (p.images && Array.isArray(p.images)) {
+        p.images = p.images.map(img => `${proxyBase}${encodeURIComponent(img)}`);
+      }
+
+      return res.json({
+        status: 'success',
+        product: {
+          ...p,
+          brand: identifiedBrand,
+          brandLogo: localBrand?.logo || '',
+          mainCategory: identifiedCategory
+        },
+        source: 've-ai-discovery',
+        identifiedModel
+      });
+    }
+
+    // Stage 3 failed — return identity result without image
+    console.warn(`  ⚠️  [VE Stage 3] Detail fetch failed. Returning identity-only result.`);
+    return res.json({
+      status: 'success',
+      product: {
+        brand: identifiedBrand,
+        model: identifiedModel,
+        mainCategory: identifiedCategory,
+        imageUrl: localBrand?.logo || '',
+        brandLogo: localBrand?.logo || '',
+        price: 0,
+        description: identityResult.logic || ''
+      },
+      source: 've-identity-only',
+      identifiedModel
+    });
+
+  } catch (error) {
+    console.error('🔥 [VE Endpoint Error]:', error.message, error.stack);
     res.status(500).json({ status: 'error', error_message: error.message });
   }
 });

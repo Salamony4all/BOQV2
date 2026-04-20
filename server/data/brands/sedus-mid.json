@@ -1,0 +1,21 @@
+{
+  "id": 1776698064629,
+  "name": "SEDUS",
+  "logo": "",
+  "budgetTier": "mid",
+  "origin": "VE-Discovery",
+  "products": [
+    {
+      "brand": "SEDUS",
+      "model": "se:living",
+      "imageUrl": "https://www.sedus.com/fileadmin/_processed_/c/c/c-Sedus_se_living_Image_1.jpg",
+      "websiteUrl": "https://www.sedus.com/en/products/se-living",
+      "price": 0,
+      "description": "Versatile modular sofa system for modern offices, featuring double-depth seating and integrated electrical connections.",
+      "mainCategory": "SEATING",
+      "lastUpdated": "2026-04-20T15:14:24.629Z",
+      "source": "VE-AI-Discovery"
+    }
+  ],
+  "createdAt": "2026-04-20T15:14:24.629Z"
+}

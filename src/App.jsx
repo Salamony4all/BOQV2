@@ -11,6 +11,7 @@ import { ScrapingProvider } from './context/ScrapingContext';
 import styles from './styles/App.module.css';
 import { useTheme } from './context/ThemeContext';
 import PdfModelModal from './components/PdfModelModal';
+import ValueEngineeredModal from './components/ValueEngineeredModal';
 
 import { createClient } from '@supabase/supabase-js';
 
@@ -111,6 +112,7 @@ function AppContent({ onOpenSettings }) {
   const [planPreviewName, setPlanPreviewName] = useState(null);
   const [isPdfModalOpen, setIsPdfModalOpen] = useState(false);
   const [pendingPdfFile, setPendingPdfFile] = useState(null);
+  const [isValueEngineeredOpen, setValueEngineeredOpen] = useState(false);
 
   // Reset environment on app load
   useEffect(() => {
@@ -520,6 +522,12 @@ function AppContent({ onOpenSettings }) {
           />
         </div>
 
+        <ValueEngineeredModal
+          isOpen={isValueEngineeredOpen}
+          onClose={() => setValueEngineeredOpen(false)}
+          allBrands={allBrands}
+        />
+
         <ProgressModal
           isOpen={uploading}
           progress={progress}
@@ -653,10 +661,15 @@ function AppContent({ onOpenSettings }) {
       <section className={styles.featuresSection}>
         <h2 className={styles.sectionTitle}>Everything You Need</h2>
         <div className={styles.featuresGrid}>
-          <div className={`${styles.featureCard} ${styles.featureCardFeatured}`}>
-            <h3 className={styles.featureTitle}>✨ AI Match & Autofill</h3>
+          <div
+            className={`${styles.featureCard} ${styles.featureCardFeatured}`}
+            onClick={() => setValueEngineeredOpen(true)}
+            style={{ cursor: 'pointer', userSelect: 'none' }}
+            title="Launch Value Engineered Offer"
+          >
+            <h3 className={styles.featureTitle}>✨ VALUE ENGINEERED OFFER</h3>
             <p className={styles.featureDesc}>
-              Revolutionize your workflow with intelligent brand synchronization. Our engine automatically matches items to your preferred manufacturers, autofills missing technical specs, and optimizes product costs across multiple budget tiers simultaneously.
+              Upload your BOQ (Excel/PDF) or Plan drawings, configure category-specific brand preferences, and let the AI produce a single, optimized value-engineered offer — one best-fit product per line item, ready in minutes.
             </p>
           </div>
           <div className={styles.featureCard}>
@@ -747,6 +760,12 @@ function AppContent({ onOpenSettings }) {
           setIsPdfModalOpen(false);
           handleFileUpload(pendingPdfFile, model);
         }}
+      />
+
+      <ValueEngineeredModal
+        isOpen={isValueEngineeredOpen}
+        onClose={() => setValueEngineeredOpen(false)}
+        allBrands={allBrands}
       />
 
       <ProgressModal
