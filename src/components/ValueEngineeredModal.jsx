@@ -1495,7 +1495,7 @@ export default function ValueEngineeredModal({ isOpen, onClose, allBrands = [], 
                                     onClose();
                                 }}
                             >
-                                Furnish BOQ
+                                Apply Costing
                             </button>
                         )}
                     </div>
