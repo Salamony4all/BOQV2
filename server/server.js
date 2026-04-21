@@ -1228,13 +1228,11 @@ app.post('/api/ve-match', async (req, res) => {
 
     // ── STAGE 2: LOCAL DB CACHE LOOKUP (Zero-Cost) ──────────────────────────
     if (localBrand?.products?.length > 0) {
-      const normalize = s => String(s || '').toLowerCase().replace(/#\d+/g, '').replace(/[^a-z0-9]/g, ' ').replace(/\s+/g, ' ').trim();
-      const target = normalize(identifiedModel);
-      const matched = localBrand.products.filter(p =>
-        normalize(p.model).includes(target) || target.includes(normalize(p.model))
-      );
-      if (matched.length > 0) {
-        const best = matched.sort((a, b) => (parseFloat(b.price) || 0) - (parseFloat(a.price) || 0))[0];
+      console.log(`  🔍 [VE Stage 2] Searching for "${identifiedModel}" in local cache (Category Hint: ${identifiedCategory})...`);
+      
+      const best = fuzzyFindModel(localBrand.products, identifiedModel, identifiedCategory);
+
+      if (best) {
         console.log(`  ✨ [VE Cache Hit] "${best.model}" loaded from local DB.`);
         return res.json({
           status: 'success',
@@ -1242,7 +1240,7 @@ app.post('/api/ve-match', async (req, res) => {
             ...best,
             brand: identifiedBrand,
             brandLogo: localBrand.logo || '',
-            mainCategory: identifiedCategory
+            mainCategory: best.mainCategory || identifiedCategory
           },
           source: 'local-database',
           identifiedModel

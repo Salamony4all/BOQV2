@@ -12,6 +12,7 @@ import styles from './styles/App.module.css';
 import { useTheme } from './context/ThemeContext';
 import PdfModelModal from './components/PdfModelModal';
 import ValueEngineeredModal from './components/ValueEngineeredModal';
+import CostingModal from './components/CostingModal';
 
 import { createClient } from '@supabase/supabase-js';
 
@@ -113,6 +114,8 @@ function AppContent({ onOpenSettings }) {
   const [isPdfModalOpen, setIsPdfModalOpen] = useState(false);
   const [pendingPdfFile, setPendingPdfFile] = useState(null);
   const [isValueEngineeredOpen, setValueEngineeredOpen] = useState(false);
+  const [isCostingOpen, setIsCostingOpen] = useState(false);
+  const [pendingVeData, setPendingVeData] = useState(null);
 
   // Reset environment on app load
   useEffect(() => {
@@ -526,6 +529,26 @@ function AppContent({ onOpenSettings }) {
           isOpen={isValueEngineeredOpen}
           onClose={() => setValueEngineeredOpen(false)}
           allBrands={allBrands}
+          onApply={(data) => {
+            setPendingVeData(data);
+            setIsCostingOpen(true);
+          }}
+        />
+
+        <CostingModal
+          isOpen={isCostingOpen}
+          onClose={() => setIsCostingOpen(false)}
+          onApply={(factors) => {
+            if (pendingVeData) {
+              setExtractedData({
+                ...pendingVeData,
+                costingFactors: factors
+              });
+              setPendingVeData(null);
+              setShowLanding(false); // Ensure we leave landing if triggered from there
+            }
+            setIsCostingOpen(false);
+          }}
         />
 
         <ProgressModal
@@ -766,6 +789,26 @@ function AppContent({ onOpenSettings }) {
         isOpen={isValueEngineeredOpen}
         onClose={() => setValueEngineeredOpen(false)}
         allBrands={allBrands}
+        onApply={(data) => {
+          setPendingVeData(data);
+          setIsCostingOpen(true);
+        }}
+      />
+
+      <CostingModal
+        isOpen={isCostingOpen}
+        onClose={() => setIsCostingOpen(false)}
+        onApply={(factors) => {
+          if (pendingVeData) {
+            setExtractedData({
+              ...pendingVeData,
+              costingFactors: factors
+            });
+            setPendingVeData(null);
+            setShowLanding(false);
+          }
+          setIsCostingOpen(false);
+        }}
       />
 
       <ProgressModal

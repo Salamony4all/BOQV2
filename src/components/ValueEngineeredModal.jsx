@@ -120,7 +120,7 @@ const inferCategory = (description) => {
 };
 
 
-export default function ValueEngineeredModal({ isOpen, onClose, allBrands = [] }) {
+export default function ValueEngineeredModal({ isOpen, onClose, allBrands = [], onApply }) {
     const { theme } = useTheme();
     const { aiSettings } = useCompanyProfile();
 
@@ -1487,9 +1487,15 @@ export default function ValueEngineeredModal({ isOpen, onClose, allBrands = [] }
                         ) : (
                             <button
                                 className={styles.btnNext}
-                                onClick={onClose}
+                                onClick={() => {
+                                    const formatted = veRowsToTableViewerData(rows);
+                                    if (onApply && formatted) {
+                                        onApply(formatted);
+                                    }
+                                    onClose();
+                                }}
                             >
-                                Close
+                                Furnish BOQ
                             </button>
                         )}
                     </div>

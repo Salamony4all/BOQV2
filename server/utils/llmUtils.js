@@ -13,41 +13,28 @@ const NVIDIA_API_KEY = process.env.NVIDIA_API_KEY;
 const FORCE_FREE_GOOGLE = process.env.FORCE_FREE_GOOGLE_KEY === 'true';
 
 export const FREE_GOOGLE_MODELS = [
-    // Gemma Family (Forced Free)
     'gemma-4-31b-it',
     'gemma-4-26b-a4b-it',
     'gemma-4-e4b-it',
     'gemma-4-e2b-it',
-    'gemma-4-9b-it',
-    'gemma-4-2b-it',
-    'gemma-2-27b-it',
-    'gemma-2-9b-it',
-    'gemma-2-2b-it',
-    // Gemini Family (Free Tier)
-    'gemini-3-flash',
-    'gemini-3-flash-8b',
-    'gemini-2.5-flash',
     'gemini-2.0-flash',
-    'gemini-2.0-flash-lite',
     'gemini-1.5-flash',
-    'gemini-1.5-pro',
-    'gemini-1.0-pro'
+    'gemini-3-flash',
+    'gemini-3-flash-8b'
 ];
 
 export const PAID_GOOGLE_MODELS = [
     'gemini-3.1-pro',
     'gemini-3-pro',
     'gemini-2.5-pro',
-    'gemini-2.0-pro',
-    'gemini-1.5-pro-002',
-    'gemini-1.5-flash-002',
-    'gemini-1.5-pro-001'
+    'gemini-2.0-pro-exp-02-05',
+    'gemini-1.5-pro'
 ];
 
 export const VALID_GOOGLE_MODELS = [...FREE_GOOGLE_MODELS, ...PAID_GOOGLE_MODELS];
 
 function getGoogleAI(modelName) {
-    const isFreeModel = FREE_GOOGLE_MODELS.includes(modelName) || (modelName && modelName.toLowerCase().includes('gemma'));
+    const isFreeModel = FREE_GOOGLE_MODELS.includes(modelName);
     
     // 1. Force Free protocol if requested via environment variable
     if (FORCE_FREE_GOOGLE) {
@@ -69,46 +56,26 @@ function getGoogleAI(modelName) {
 }
 
 // Model ids
-// Default to 2.5-pro (most powerful) if .env is missing or has a typo
+// Default to 1.5-flash (fast & reliable) if .env is missing or has a typo
 export const VALID_OPENROUTER_MODELS = [
-    // Google Vision Models
-    'google/gemini-2.5-flash-lite-001',
     'google/gemini-4-31b-it:free',
     'google/gemma-4-26b-a4b-it:free',
-    'google/gemma-4-31b-it:free',
-    'google/gemini-2.5-pro',
-    // Anthropic Vision Models
-    'anthropic/claude-opus-4.6-fast',
-    'anthropic/claude-opus-4',
+    'google/gemini-2.5-flash-lite-001',
     'anthropic/claude-sonnet-4-20250514',
-    // OpenAI Vision Models
-    'openai/gpt-4-vision-preview',
-    'openai/gpt-4-turbo-vision',
-    // Other vision models
-    'z-ai/glm-5.1',
-    'cohere/rerank-4-pro'
+    'openai/gpt-4o'
 ];
 export const VALID_NVIDIA_MODELS = [
-    'nvidia/google/gemma-4-31b-it',
-    'nvidia/google/gemma-4-26b-a4b-it',
-    'nvidia/google/gemma-4-e4b-it',
-    'nvidia/google/gemma-4-e2b-it',
-    'nvidia/google/gemma-2-9b-it',
-    'nvidia/google/gemma-2-27b-it',
-    'nvidia/meta/llama-3.3-70b-instruct',
-    'nvidia/meta/llama-3.1-405b-instruct',
-    'nvidia/meta/llama-3.1-70b-instruct',
-    'nvidia/nvidia/llama-3.1-nemotron-70b-instruct',
-    'nvidia/nvidia/neva-22b',
-    'nvidia/nvidia/vila',
-    'nvidia/nvidia/vlia'
+    'nvidia/llama-3.1-405b-instruct',
+    'nvidia/llama-3.1-70b-instruct',
+    'nvidia/llama-3.1-8b-instruct',
+    'nvidia/nemotron-70b-instruct'
 ];
 export const VALID_LOCAL_MODELS = [
     'local/yolov8-llama3.2'
 ];
 export const GOOGLE_MODEL = VALID_GOOGLE_MODELS.includes(process.env.GOOGLE_MODEL) ? process.env.GOOGLE_MODEL : 'gemma-4-31b-it';
-export const OPENROUTER_MODEL = process.env.OPENROUTER_MODEL || 'google/gemini-2.5-flash-lite-001';
-export const NVIDIA_MODEL = process.env.NVIDIA_MODEL || 'nvidia/llama-3.3-70b-instruct';
+export const OPENROUTER_MODEL = process.env.OPENROUTER_MODEL || 'google/gemini-4-31b-it:free';
+export const NVIDIA_MODEL = process.env.NVIDIA_MODEL || 'nvidia/google/gemma-4-31b-it';
 export const LOCAL_MODEL = 'local/yolov8-llama3.2';
 export const PYTHON_SERVICE_URL = process.env.PYTHON_SERVICE_URL || 'http://localhost:8001';
 export const GROUNDING_MODEL = process.env.GOOGLE_MODEL || 'gemma-4-31b-it'; // Standard model for this environment

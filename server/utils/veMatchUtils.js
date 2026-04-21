@@ -15,6 +15,10 @@
 
 import { callGoogle, safeParseJSON, GOOGLE_MODEL, GROUNDING_MODEL } from './llmUtils.js';
 import axios from 'axios';
+import { TAXONOMY } from './normalizer.js';
+
+const ALLOWED_CATEGORIES = Object.keys(TAXONOMY).join(', ');
+const ALLOWED_SUB_CATEGORIES = Object.values(TAXONOMY).flatMap(cat => Object.keys(cat)).join(', ');
 
 // ──────────────────────────────────────────────────────────────────────────────
 // SYSTEM PROMPTS
@@ -36,11 +40,17 @@ You MUST prioritize matching to one of these if the description fits:
 - ${modelList.slice(0, 500).join('\n- ')}` : `### 📦 PRODUCT CATALOG:
 No local catalog available. Use your knowledge of the brand's official product range from Architonic, the brand website, or Stylepark.`}
 
+### 🌍 GLOBAL CATEGORY TAXONOMY:
+You MUST map to one of these:
+- Main Categories: ${ALLOWED_CATEGORIES}
+- Sub-Categories: ${ALLOWED_SUB_CATEGORIES}
+
 ### 📐 MATCHING RULES:
 - Match by FUNCTION first (chair ≠ stool, coffee table ≠ meeting table)
 - Match by SIZE/SCALE context when qty/dimensions are mentioned
 - Return the most specific, commercially-real model name (not a generic category name)
 - If no exact match: return the closest real model in the same functional category
+- CRITICAL: Ensure the "mainCategory" returned matches one of the values in the taxonomy.
 
 Return ONLY valid JSON — no markdown, no explanation:
 {
@@ -68,12 +78,18 @@ You MUST prioritize matching to one of these if the description fits:
 - ${modelList.slice(0, 500).join('\n- ')}` : `### 📦 PRODUCT CATALOG:
 No local catalog available. Use your knowledge of the brand's "${category}" range from Architonic, the brand website, or Stylepark.`}
 
+### 🌍 GLOBAL CATEGORY TAXONOMY:
+You MUST map to one of these:
+- Main Categories: ${ALLOWED_CATEGORIES}
+- Sub-Categories: ${ALLOWED_SUB_CATEGORIES}
+
 ### 📐 MATCHING RULES:
 - You are scoped to the "${category}" category ONLY — do not suggest items outside this
 - Match by FUNCTION first (chair ≠ stool, coffee table ≠ meeting table)
 - Match by SIZE/SCALE context when qty/dimensions are mentioned
 - Return the most specific, commercially-real model name (not a generic category name)
 - If no exact match within "${category}": return the closest real model in the same functional category
+- CRITICAL: Ensure the "mainCategory" returned is exactly "${category}" or a taxonomical parent.
 
 Return ONLY valid JSON — no markdown, no explanation:
 {

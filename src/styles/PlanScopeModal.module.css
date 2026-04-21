@@ -14,10 +14,10 @@
 .modal {
     width: 600px;
     max-width: 95vw;
-    background: #1e293b;
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
     border-radius: 20px;
-    box-shadow: 0 25px 50px rgba(0, 0, 0, 0.5);
+    box-shadow: var(--card-shadow);
     overflow: hidden;
     max-height: 90vh;
     display: flex;
@@ -28,20 +28,20 @@
 .header {
     padding: 30px;
     text-align: center;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    border-bottom: 1px solid var(--border-muted);
 }
 
 .title {
     font-size: 1.8rem;
     font-weight: 700;
-    color: #f8fafc;
+    color: var(--text-primary);
     margin-bottom: 8px;
     letter-spacing: -0.5px;
 }
 
 .subtitle {
     font-size: 1rem;
-    color: #94a3b8;
+    color: var(--text-secondary);
 }
 
 .content {
@@ -58,14 +58,14 @@
     display: block;
     font-size: 0.95rem;
     font-weight: 700;
-    color: #f8fafc;
+    color: var(--text-primary);
     margin-bottom: 14px;
 }
 
 .sectionSubtitle {
     display: block;
     font-size: 0.9rem;
-    color: #cbd5e1;
+    color: var(--text-secondary);
     margin-bottom: 10px;
 }
 
@@ -79,8 +79,8 @@
 .engineCard {
     flex: 1;
     min-width: 150px;
-    background: rgba(255, 255, 255, 0.04);
-    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: var(--bg-surface);
+    border: 1px solid var(--border-muted);
     border-radius: 14px;
     padding: 16px;
     cursor: pointer;
@@ -114,12 +114,12 @@
 .engineName {
     font-size: 0.97rem;
     font-weight: 700;
-    color: #f8fafc;
+    color: var(--text-primary);
 }
 
 .engineDesc {
     font-size: 0.85rem;
-    color: #94a3b8;
+    color: var(--text-secondary);
 }
 
 .active {
@@ -137,9 +137,9 @@
 .modelSelect {
     width: 100%;
     border-radius: 12px;
-    border: 1px solid rgba(148, 163, 184, 0.35);
-    background: #0f172a;
-    color: #f8fafc;
+    border: 1px solid var(--border-color);
+    background: var(--input-bg);
+    color: var(--text-primary);
     padding: 12px 14px;
     font-size: 0.95rem;
 }
@@ -147,7 +147,7 @@
 .modelHint {
     margin-top: 10px;
     font-size: 0.84rem;
-    color: #94a3b8;
+    color: var(--text-secondary);
 }
 
 .cards {
@@ -158,8 +158,8 @@
 
 .card {
     flex: 1;
-    background: rgba(255, 255, 255, 0.03);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: var(--bg-surface);
+    border: 1px solid var(--border-color);
     border-radius: 16px;
     padding: 30px 20px;
     text-align: center;
@@ -175,7 +175,7 @@
     background: rgba(14, 165, 233, 0.1);
     border-color: #0ea5e9;
     transform: translateY(-5px);
-    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+    box-shadow: var(--card-shadow);
 }
 
 .icon {
@@ -185,18 +185,18 @@
 .cardTitle {
     font-size: 1.25rem;
     font-weight: 700;
-    color: #f8fafc;
+    color: var(--text-primary);
 }
 
 .cardDesc {
     font-size: 0.9rem;
-    color: #64748b;
+    color: var(--text-muted);
     line-height: 1.5;
 }
 
 .footer {
     padding: 20px 30px;
-    border-top: 1px solid rgba(255, 255, 255, 0.05);
+    border-top: 1px solid var(--border-muted);
     display: flex;
     justify-content: flex-end;
 }
@@ -204,18 +204,18 @@
 .cancelBtn {
     padding: 10px 24px;
     background: transparent;
-    border: 1px solid rgba(255, 255, 255, 0.2);
+    border: 1px solid var(--border-color);
     border-radius: 8px;
-    color: #94a3b8;
+    color: var(--text-secondary);
     font-weight: 600;
     cursor: pointer;
     transition: all 0.2s;
 }
 
 .cancelBtn:hover {
-    background: rgba(255, 255, 255, 0.05);
-    color: #f8fafc;
-    border-color: rgba(255, 255, 255, 0.4);
+    background: var(--bg-hover);
+    color: var(--text-primary);
+    border-color: var(--text-secondary);
 }
 
 .closeBtn {
@@ -224,14 +224,14 @@
     right: 24px;
     background: none;
     border: none;
-    color: #64748b;
+    color: var(--text-muted);
     font-size: 2rem;
     cursor: pointer;
     transition: color 0.2s;
 }
 
 .closeBtn:hover {
-    color: white;
+    color: var(--text-primary);
 }
 
 @keyframes fadeIn {
