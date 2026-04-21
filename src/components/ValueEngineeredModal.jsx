@@ -122,8 +122,7 @@ const inferCategory = (description) => {
 
 export default function ValueEngineeredModal({ isOpen, onClose, allBrands = [] }) {
     const { theme } = useTheme();
-    const profile = useCompanyProfile();
-    void profile; // available for future use
+    const { aiSettings } = useCompanyProfile();
 
     // ---- STAGE ----
     const [stage, setStage] = useState(1); // 1, 2, 3
@@ -777,6 +776,7 @@ export default function ValueEngineeredModal({ isOpen, onClose, allBrands = [] }
                 qty: row.qty,
                 unit: row.unit,
                 brand: targetBrand,
+                providerModel: aiSettings?.model,
                 ...(brandMode === 'advanced' && categoryScope ? { category: categoryScope } : {})
             };
 

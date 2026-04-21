@@ -72,5 +72,5 @@ export const AI_ENGINES = [
 
 export const DEFAULT_AI_SETTINGS = {
     engine: 'google',
-    model: 'gemma-4-26b-a4b-it'
+    model: 'gemma-4-31b-it'
 };
