@@ -1,7 +1,7 @@
 # BOQFLOW — Codebase Brief
 
 ## Overview
-BOQFLOW is a specialized web application for processing **Bill of Quantities (BOQ)**, automating project costing, and generating professional proposals. Focused on the furniture and fit-out industry — users extract data from Excel/PDF files, match products from a local brand database or via AI, and generate multi-budget alternatives.
+BOQFLOW is a specialized web application for processing **Bill of Quantities (BOQ)**, automating project costing, and generating professional proposals. Focused on the furniture and fit-out industry — users extract data from Excel/PDF files, match products from a local brand database or via AI, and generate multi-budget alternatives or **Value Engineered (VE)** offers.
 
 ---
 
@@ -31,10 +31,11 @@ BOQFLOW is a specialized web application for processing **Bill of Quantities (BO
 ### Frontend (`/src`)
 | File | Role |
 |---|---|
-| `App.jsx` | Landing page, file upload coordination, routing. |
+| `App.jsx` | Landing page, file upload coordination, **background data flow sync between modals**. |
 | `components/MultiBudgetModal.jsx` | **Core AI Autofill UI**. 3-tier BOQ comparison. AI AUTO-FILL engine. |
+| `components/ValueEngineeredModal.jsx` | **Value Engineered Workflow**. Focused on cost-saving alternatives and single/categorized brand matching. |
 | `components/AutoFillSelectModal.jsx` | Brand selection modal before AI run. Per-tier brand display. |
-| `components/TableViewer.jsx` | Main BOQ table viewer/editor post-extraction. |
+| `components/TableViewer.jsx` | Main BOQ table viewer/editor post-extraction. Features unified Action Bar triggers. |
 | `components/AddBrandModal.jsx` | Add new brand to local DB. |
 | `components/CostingModal.jsx` | Cost simulation (profit, freight, VAT). |
 | `context/CompanyContext.js` | Company profile (logo, name) persisted across app. |
@@ -150,6 +151,23 @@ Each tier value is: `{ rows: [...], mode: 'boq' | 'new' }`
 
 ---
 
+## Value Engineered (VE) Workflow
+
+The `ValueEngineeredModal` provides a focused environment for optimizing BOQ costs:
+- **Strategy Selection**: Choose between "One Brand Match" (global) or "Categorized Match" (per furniture category).
+- **Brand Seeding**: Integrated background data flow allows uploading a Plan or BOQ while the modal is open, which then updates the extraction results in real-time.
+- **AI Matching**: Uses the same 3-stage pipeline but allows targeted brand replacement to achieve Value Engineering goals.
+
+---
+
+## Cross-Modal Background Data Sync
+
+A major UX improvement implemented in `App.jsx`:
+- **Problem**: Users previously had to wait for extraction to finish before opening modals.
+- **Solution**: The extraction pipeline now runs in the background. If a modal (Multi-Budget or VE) is already open when the server returns the extracted data, `App.jsx` passes the updated `originalTables` directly into the modal's props, updating the UI without requiring a reload.
+
+---
+
 ## isHeader() Detection Logic
 
 Only two conditions trigger header detection:
@@ -173,6 +191,12 @@ Only two conditions trigger header detection:
 ---
 
 ## Session History
+
+### Apr 23, 2026 — UI Unification & Background Flow
+- **UI Unification**: Standardized the **AI Value Engineer** and **Multi Budget Offer** buttons in `TableViewer.jsx` with a consistent, premium gradient and shadow system.
+- **Background Data Sync**: Refactored `App.jsx`, `MultiBudgetModal.jsx`, and `ValueEngineeredModal.jsx` to support real-time data flow. Extracted data now populates active modals automatically.
+- **VE Workflow Refinement**: Completed the core logic for the Value Engineered Modal, including strategy selection (Simple vs. Advanced) and brand-to-category mapping.
+- **Codebase Hygiene**: Removed redundant navigation buttons from modal footers to focus on core actions (Apply Costing & Export).
 
 ### Apr 14, 2026 — Branding Standardization & Hygiene
 - **Default Profile**: Set Alshaya Enterprises as the hardcoded default in `CompanyContext`.
