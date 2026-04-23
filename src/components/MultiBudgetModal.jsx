@@ -29,7 +29,7 @@ const batch = async (items, limit, fn) => {
 };
 
 
-export default function MultiBudgetModal({ isOpen, onClose, originalTables, onApplyFlow, seededItems = null, onUploadBoq, onUploadPlan, planPreviewUrl = null, planPreviewType = null, planPreviewName = null }) {
+export default function MultiBudgetModal({ isOpen, onClose, originalTables, onApplyFlow, seededItems = null, onUploadBoq, onUploadPlan, planPreviewUrl = null, planPreviewType = null, planPreviewName = null, onOpenValueEngineer }) {
     const profile = useCompanyProfile();
     const { theme } = useTheme();
     const { companyName, logoWhite, logoOriginal, logoBlue, website, updateProfile, processLogoFile } = profile;
@@ -3339,6 +3339,7 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                                 <span style={{ fontSize: '1.4rem' }}>➕</span>
                                 <span>Create New BOQ</span>
                             </button>
+
                             {planPreviewUrl && (
                                 <button className={`${styles.actionCard} ${styles.planPreviewBtn}`} onClick={() => setPlanPreviewOpen(true)}>
                                     <div className={styles.planPreviewThumb}>

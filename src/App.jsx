@@ -307,6 +307,15 @@ function AppContent({ onOpenSettings }) {
   };
 
 
+  const handlePlanUpload = (files) => {
+    const fileArray = Array.from(files);
+    if (fileArray.length > 0) {
+      setCurrentPlanFiles(fileArray);
+      setUploadedPlanFile(fileArray[0]);
+      setIsPlanScopeOpen(true);
+    }
+  };
+
   const handlePlanAnalyze = async (scope, provider = aiSettings?.engine || 'google', providerModel = aiSettings?.model || 'gemma-4-31b-it') => {
     if (!currentPlanFiles || currentPlanFiles.length === 0) return;
 
@@ -448,13 +457,7 @@ function AppContent({ onOpenSettings }) {
                 accept=".pdf,.png,.jpg,.jpeg"
                 multiple={true}
                 disabled={uploading}
-                onSelect={(files) => {
-                  if (files && files.length > 0) {
-                    setCurrentPlanFiles(files);
-                    setUploadedPlanFile(files[0]);
-                    setIsPlanScopeOpen(true);
-                  }
-                }}
+                onSelect={handlePlanUpload}
               />
 
               {/* 3. NEW BOQ CARD */}
@@ -475,7 +478,15 @@ function AppContent({ onOpenSettings }) {
           )}
 
           {extractedData && (
-            <TableViewer data={extractedData} allBrands={allBrands} />
+            <TableViewer 
+              data={extractedData} 
+              allBrands={allBrands}
+              onUploadBoq={handleFileUpload}
+              onUploadPlan={handlePlanUpload}
+              planPreviewUrl={planPreviewUrl}
+              planPreviewType={planPreviewType}
+              planPreviewName={planPreviewName}
+            />
           )}
 
           <MultiBudgetModal
@@ -485,17 +496,11 @@ function AppContent({ onOpenSettings }) {
             onApplyFlow={handleMultiBudgetApply}
             seededItems={seededPlanItems}
             onUploadBoq={handleFileUpload}
-            onUploadPlan={(files) => {
-              const fileArray = Array.from(files);
-              if (fileArray.length > 0) {
-                setCurrentPlanFiles(fileArray);
-                setUploadedPlanFile(fileArray[0]);
-                setIsPlanScopeOpen(true);
-              }
-            }}
+            onUploadPlan={handlePlanUpload}
             planPreviewUrl={planPreviewUrl}
             planPreviewType={planPreviewType}
             planPreviewName={planPreviewName}
+            onOpenValueEngineer={() => setValueEngineeredOpen(true)}
           />
 
           <PlanScopeModal
@@ -526,13 +531,21 @@ function AppContent({ onOpenSettings }) {
         </div>
 
         <ValueEngineeredModal
-          isOpen={isValueEngineeredOpen}
-          onClose={() => setValueEngineeredOpen(false)}
-          allBrands={allBrands}
-          onApply={(data) => {
-            setPendingVeData(data);
-            setIsCostingOpen(true);
-          }}
+            isOpen={isValueEngineeredOpen}
+            onClose={() => setValueEngineeredOpen(false)}
+            allBrands={allBrands}
+            originalTables={extractedData?.tables || []}
+            seededItems={seededPlanItems}
+            onUploadBoq={handleFileUpload}
+            onUploadPlan={handlePlanUpload}
+            planPreviewUrl={planPreviewUrl}
+            planPreviewType={planPreviewType}
+            planPreviewName={planPreviewName}
+            onApply={(data) => {
+                setExtractedData(data);
+                setValueEngineeredOpen(false);
+                setShowLanding(false);
+            }}
         />
 
         <CostingModal
@@ -749,14 +762,7 @@ function AppContent({ onOpenSettings }) {
         onApplyFlow={handleMultiBudgetApply}
         seededItems={seededPlanItems}
         onUploadBoq={handleFileUpload}
-        onUploadPlan={(files) => {
-          const fileArray = Array.from(files);
-          if (fileArray.length > 0) {
-            setCurrentPlanFiles(fileArray);
-            setUploadedPlanFile(fileArray[0]);
-            setIsPlanScopeOpen(true);
-          }
-        }}
+        onUploadPlan={handlePlanUpload}
         planPreviewUrl={planPreviewUrl}
         planPreviewType={planPreviewType}
         planPreviewName={planPreviewName}
@@ -788,10 +794,17 @@ function AppContent({ onOpenSettings }) {
       <ValueEngineeredModal
         isOpen={isValueEngineeredOpen}
         onClose={() => setValueEngineeredOpen(false)}
-        allBrands={allBrands}
+        originalTables={extractedData?.tables || []}
+        seededItems={seededPlanItems}
+        onUploadBoq={handleFileUpload}
+        onUploadPlan={handlePlanUpload}
+        planPreviewUrl={planPreviewUrl}
+        planPreviewType={planPreviewType}
+        planPreviewName={planPreviewName}
         onApply={(data) => {
-          setPendingVeData(data);
-          setIsCostingOpen(true);
+          setExtractedData(data);
+          setValueEngineeredOpen(false);
+          setShowLanding(false);
         }}
       />
 

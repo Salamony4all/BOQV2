@@ -3,6 +3,7 @@ import styles from '../styles/TableViewer.module.css';
 import actionStyles from '../styles/ActionBar.module.css';
 import CostingModal from './CostingModal';
 import MultiBudgetModal from './MultiBudgetModal';
+import ValueEngineeredModal from './ValueEngineeredModal';
 import ProjectSettingsPanel from './ProjectSettingsPanel';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -17,7 +18,15 @@ import { getFullUrl } from '../utils/urlUtils';
 const API_BASE = getApiBase();
 
 
-function TableViewer({ data, allBrands }) {
+function TableViewer({ 
+    data, 
+    allBrands, 
+    onUploadBoq, 
+    onUploadPlan, 
+    planPreviewUrl, 
+    planPreviewType, 
+    planPreviewName 
+}) {
     const profile = useCompanyProfile();
     const { companyName, logoOriginal, logoWhite, website, accentColor, secondaryColor } = profile;
     const { project, updateProject } = useProject();
@@ -26,6 +35,7 @@ function TableViewer({ data, allBrands }) {
     const [costingFactors, setCostingFactors] = useState(null);
     const [isCostingOpen, setCostingOpen] = useState(false);
     const [isMultiBudgetOpen, setMultiBudgetOpen] = useState(false);
+    const [isValueEngineeredOpen, setValueEngineeredOpen] = useState(false);
     const [isProjectPanelOpen, setProjectPanelOpen] = useState(false);
     // Per-table VAT rate for extracted summary (GCC default = 5%)
     const [vatRates, setVatRates] = useState({});
@@ -2937,6 +2947,12 @@ function TableViewer({ data, allBrands }) {
                     <button className={actionStyles.btnMultiBudget} onClick={() => setMultiBudgetOpen(true)}>
                         📦 Multi Budget Offer
                     </button>
+                    <button 
+                        className={actionStyles.btnAiValueEngineer} 
+                        onClick={() => setValueEngineeredOpen(true)}
+                    >
+                        ✨ AI Value Engineer
+                    </button>
                 </div>
                 {costingFactors && (
                     <div style={{ marginTop: '1rem', fontSize: '0.9rem', color: '#94a3b8' }}>
@@ -2995,10 +3011,40 @@ function TableViewer({ data, allBrands }) {
                 isOpen={isMultiBudgetOpen}
                 onClose={() => setMultiBudgetOpen(false)}
                 originalTables={tables}
+                onUploadBoq={onUploadBoq}
+                onUploadPlan={onUploadPlan}
+                planPreviewUrl={planPreviewUrl}
+                planPreviewType={planPreviewType}
+                planPreviewName={planPreviewName}
                 onApplyFlow={(formattedData) => {
                     setTables(formattedData.tables);
                     setCostingFactors(formattedData.costingFactors);
                     setMultiBudgetOpen(false);
+                }}
+                onOpenValueEngineer={() => {
+                    setMultiBudgetOpen(false);
+                    setValueEngineeredOpen(true);
+                }}
+            />
+
+            <ValueEngineeredModal
+                isOpen={isValueEngineeredOpen}
+                onClose={() => setValueEngineeredOpen(false)}
+                allBrands={allBrands}
+                originalTables={tables}
+                onUploadBoq={onUploadBoq}
+                onUploadPlan={onUploadPlan}
+                planPreviewUrl={planPreviewUrl}
+                planPreviewType={planPreviewType}
+                planPreviewName={planPreviewName}
+                onApply={(data) => {
+                    setTables(data.tables);
+                    if (data.costingFactors) setCostingFactors(data.costingFactors);
+                    setValueEngineeredOpen(false);
+                }}
+                onOpenMultiBudget={() => {
+                    setValueEngineeredOpen(false);
+                    setMultiBudgetOpen(true);
                 }}
             />
 
