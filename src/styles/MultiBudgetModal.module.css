@@ -12,7 +12,8 @@
     z-index: 1000;
     display: flex;
     justify-content: center;
-    align-items: center;
+    align-items: flex-start;
+    padding: 80px 1vw 2vh;
     animation: fadeIn 0.2s ease;
 }
 
@@ -20,7 +21,7 @@
     background: var(--bg-primary);
     /* Variable for theme */
     width: 98vw;
-    height: 98vh;
+    height: calc(100vh - 100px);
     border-radius: 12px;
     border: 1px solid var(--border-color);
     box-shadow: var(--card-shadow);
@@ -1147,8 +1148,8 @@
     z-index: 5000;
     display: flex;
     justify-content: center;
-    align-items: center;
-    padding: 2rem;
+    align-items: flex-start;
+    padding: 80px 1vw 2vh;
     animation: previewFade 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 

@@ -1,19 +1,10 @@
 /**
  * ┌─────────────────────────────────────────────────────────────────────────┐
  * │  Value Engineered Offer — Dedicated LLM Matching Utilities              │
- * │                                                                         │
- * │  Option 1: Single Brand (Global Scope)                                  │
- * │    AI Query: What is the best single "Model Name" for                   │
- * │              "[Item Description]" from "[Brand Name]"?                  │
- * │                                                                         │
- * │  Option 2: Brand Advanced (Categorical Scope)                            │
- * │    AI Query: What is the best single "Model Name" for                   │
- * │              "[Item Description]" from "[Selected Category]"            │
- * │              from "[Brand Name]"?                                        │
  * └─────────────────────────────────────────────────────────────────────────┘
  */
 
-import { callGoogle, safeParseJSON, GOOGLE_MODEL, GROUNDING_MODEL } from './llmUtils.js';
+import { callGoogle, safeParseJSON, GOOGLE_MODEL, GROUNDING_MODEL, withRetry } from './llmUtils.js';
 import axios from 'axios';
 import { TAXONOMY } from './normalizer.js';
 
@@ -24,183 +15,105 @@ const ALLOWED_SUB_CATEGORIES = Object.values(TAXONOMY).flatMap(cat => Object.key
 // SYSTEM PROMPTS
 // ──────────────────────────────────────────────────────────────────────────────
 
-/**
- * Option 1: Global Brand Scope
- * Prompt: What is the best single "Model Name" for "[description]" from "[brand]"?
- */
-const VE_SIMPLE_SYSTEM = (brand, modelList = []) => `You are a premium Furniture Specification Expert for a Value Engineered Offer.
-Your sole task is to identify the single best product model from the brand "${brand}" that matches the given item description.
+const VE_MATCH_SIMPLE_SYSTEM = (brand, modelList = []) => `You are an expert FF&E Product Matcher.
+Your task is to identify the EXACT product model from the brand "${brand}" that best matches the provided description.
 
-### 🏢 BRAND:
-- Brand Name: ${brand}
-- Goal: Value Engineering — identify the most practical, commercially-available model that fulfills the specification.
+### 🏢 BRAND: ${brand}
 
-${modelList.length > 0 ? `### 📦 KNOWN PRODUCT CATALOG (from "${brand}"):
-You MUST prioritize matching to one of these if the description fits:
-- ${modelList.slice(0, 500).join('\n- ')}` : `### 📦 PRODUCT CATALOG:
-No local catalog available. Use your knowledge of the brand's official product range from Architonic, the brand website, or Stylepark.`}
+${modelList.length > 0 ? `### 📦 KNOWN PRODUCT CATALOG:
+The following models ARE available for this brand. You MUST prioritize matching to one of these if the description fits:
+- ${modelList.slice(0, 500).join('\n- ')}` : ''}
 
-### 🌍 GLOBAL CATEGORY TAXONOMY:
-You MUST map to one of these:
-- Main Categories: ${ALLOWED_CATEGORIES}
-- Sub-Categories: ${ALLOWED_SUB_CATEGORIES}
+### 🌍 GLOBAL CATEGORY MAPPING:
+You MUST map to one of these Main Categories: ${ALLOWED_CATEGORIES}
+Sub-Categories: ${ALLOWED_SUB_CATEGORIES}
 
-### 📐 MATCHING RULES:
-- Match by FUNCTION first (chair ≠ stool, coffee table ≠ meeting table)
-- Match by SIZE/SCALE context when qty/dimensions are mentioned
-- Return the most specific, commercially-real model name (not a generic category name)
-- If no exact match: return the closest real model in the same functional category
-- CRITICAL: Ensure the "mainCategory" returned matches one of the values in the taxonomy.
+Return ONLY valid JSON:
+{ 
+  "status": "success",
+  "brand": "${brand}", 
+  "model": "Exact Model Name",
+  "mainCategory": "Main Category",
+  "subCategory": "Sub-Category",
+  "logic": "Brief reasoning" 
+}`;
 
-Return ONLY valid JSON — no markdown, no explanation:
-{
-  "brand": "${brand}",
-  "model": "Exact Product Model Name",
-  "mainCategory": "e.g. Seating / Desking / Storage",
-  "subCategory": "e.g. Task Chair / Sit-Stand Desk",
-  "logic": "1-sentence reason for this selection"
+const VE_MATCH_ADVANCED_SYSTEM = (brand, category, modelList = []) => `You are an expert FF&E Product Matcher specialized in "${category}".
+Your task is to identify the EXACT product model from the brand "${brand}" within the "${category}" scope.
+
+### 🏢 BRAND: ${brand}
+### 🏷️ CATEGORY SCOPE: ${category}
+
+${modelList.length > 0 ? `### 📦 KNOWN PRODUCT CATALOG:
+The following models ARE available for this brand. You MUST prioritize matching to one of these if the description fits:
+- ${modelList.slice(0, 500).join('\n- ')}` : ''}
+
+### 🌍 GLOBAL CATEGORY MAPPING:
+You MUST map to one of these Main Categories: ${ALLOWED_CATEGORIES}
+Sub-Categories: ${ALLOWED_SUB_CATEGORIES}
+
+Return ONLY valid JSON:
+{ 
+  "status": "success",
+  "brand": "${brand}", 
+  "model": "Exact Model Name",
+  "mainCategory": "Main Category",
+  "subCategory": "Sub-Category",
+  "logic": "Brief reasoning" 
 }`;
 
 /**
- * Option 2: Advanced Categorical Scope
- * Prompt: What is the best single "Model Name" for "[description]" from "[category]" from "[brand]"?
- */
-const VE_ADVANCED_SYSTEM = (brand, category, modelList = []) => `You are a premium Furniture Specification Expert for a Value Engineered Offer.
-Your sole task is to identify the single best product model from the brand "${brand}" — specifically within the "${category}" category — that matches the given item description.
-
-### 🏢 BRAND + CATEGORY SCOPE:
-- Brand Name: ${brand}
-- Assigned Category: ${category}
-- This brand has been specifically selected by the user for this category. Stay within this scope.
-
-${modelList.length > 0 ? `### 📦 KNOWN PRODUCT CATALOG (${brand} — ${category}):
-You MUST prioritize matching to one of these if the description fits:
-- ${modelList.slice(0, 500).join('\n- ')}` : `### 📦 PRODUCT CATALOG:
-No local catalog available. Use your knowledge of the brand's "${category}" range from Architonic, the brand website, or Stylepark.`}
-
-### 🌍 GLOBAL CATEGORY TAXONOMY:
-You MUST map to one of these:
-- Main Categories: ${ALLOWED_CATEGORIES}
-- Sub-Categories: ${ALLOWED_SUB_CATEGORIES}
-
-### 📐 MATCHING RULES:
-- You are scoped to the "${category}" category ONLY — do not suggest items outside this
-- Match by FUNCTION first (chair ≠ stool, coffee table ≠ meeting table)
-- Match by SIZE/SCALE context when qty/dimensions are mentioned
-- Return the most specific, commercially-real model name (not a generic category name)
-- If no exact match within "${category}": return the closest real model in the same functional category
-- CRITICAL: Ensure the "mainCategory" returned is exactly "${category}" or a taxonomical parent.
-
-Return ONLY valid JSON — no markdown, no explanation:
-{
-  "brand": "${brand}",
-  "model": "Exact Product Model Name",
-  "mainCategory": "${category}",
-  "subCategory": "e.g. Task Chair / Sit-Stand Desk",
-  "logic": "1-sentence reason for this selection — must reference the ${category} category"
-}`;
-
-// ──────────────────────────────────────────────────────────────────────────────
-// OPTION 1: SIMPLE BRAND MATCH
-// What is the best single "Model Name" for "[description]" from "[brand]"?
-// ──────────────────────────────────────────────────────────────────────────────
-
-/**
- * @param {string} description  - Item description from BOQ
- * @param {string} brand        - Single selected brand (global scope)
- * @param {string[]} modelList  - Known models from local DB (optional, for cache-boost)
- * @param {string} providerModel - Specific model override
- * @returns {{ status: 'success'|'error', brand, model, mainCategory, subCategory, logic, error_message? }}
+ * Stage 1: Identification (Simple Global Scope)
  */
 export async function veMatchSimple(description, brand, modelList = [], providerModel = null) {
-    const system = VE_SIMPLE_SYSTEM(brand, modelList);
-    const user = `What is the best single "Model Name" for "${description}" from "${brand}"?`;
+    return withRetry(async () => {
+        const system = VE_MATCH_SIMPLE_SYSTEM(brand, modelList);
+        const user = `What is the best matching model for: "${description}"?`;
 
-    console.log(`\n🎯 [VE Simple] Brand: ${brand} | Desc: "${description.substring(0, 60)}..."`);
-    if (process.env.DEBUG_AI === 'true') {
-        console.log(`  📝 [VE Simple Prompt] User: ${user}`);
-    }
+        console.log(`  🤖 [VE Match Simple] Matching: ${description.substring(0, 50)}...`);
 
-    try {
-        const parsed = await callGoogle(system, user, true, providerModel || GROUNDING_MODEL);
-
-        if (parsed && parsed.model && parsed.model !== 'FAILED') {
-            console.log(`  ✅ [VE Simple] Match: ${brand} → "${parsed.model}"`);
-            return {
-                status: 'success',
-                brand: parsed.brand || brand,
-                model: parsed.model,
-                mainCategory: parsed.mainCategory || '',
-                subCategory: parsed.subCategory || '',
-                logic: parsed.logic || ''
-            };
+        try {
+            const parsed = await callGoogle(system, user, false, providerModel || GROUNDING_MODEL);
+            if (!parsed || parsed.model === 'FAILED') throw new Error('AI failed to match');
+            return { status: 'success', ...parsed };
+        } catch (err) {
+            console.error(`  ❌ [VE Match Simple] Failed for ${description}:`, err.message);
+            throw err;
         }
-
-        throw new Error('AI did not return a valid model name');
-    } catch (err) {
-        console.error(`  ❌ [VE Simple] Failed for ${brand}:`, err.message);
-        return { status: 'error', brand, model: '', error_message: err.message };
-    }
+    });
 }
-
-// ──────────────────────────────────────────────────────────────────────────────
-// OPTION 2: ADVANCED CATEGORICAL MATCH
-// What is the best single "Model Name" for "[description]" from "[category]" from "[brand]"?
-// ──────────────────────────────────────────────────────────────────────────────
 
 /**
- * @param {string} description  - Item description from BOQ
- * @param {string} brand        - Brand assigned to this category
- * @param {string} category     - Category label (e.g. "Desking", "Seating")
- * @param {string[]} modelList  - Known models from local DB (optional)
- * @param {string} providerModel - Specific model override
- * @returns {{ status: 'success'|'error', brand, model, mainCategory, subCategory, logic, error_message? }}
+ * Stage 1: Identification (Advanced Categorical Scope)
  */
 export async function veMatchAdvanced(description, brand, category, modelList = [], providerModel = null) {
-    const system = VE_ADVANCED_SYSTEM(brand, category, modelList);
-    const user = `What is the best single "Model Name" for "${description}" from "${category}" from "${brand}"?`;
+    return withRetry(async () => {
+        const system = VE_MATCH_ADVANCED_SYSTEM(brand, category, modelList);
+        const user = `What is the best matching model for: "${description}" within the "${category}" category?`;
 
-    console.log(`\n🎯 [VE Advanced] Brand: ${brand} | Category: ${category} | Desc: "${description.substring(0, 60)}..."`);
-    if (process.env.DEBUG_AI === 'true') {
-        console.log(`  📝 [VE Advanced Prompt] User: ${user}`);
-    }
+        console.log(`  🤖 [VE Match Advanced] Matching: ${description.substring(0, 50)}... in ${category}`);
 
-    try {
-        const parsed = await callGoogle(system, user, true, providerModel || GROUNDING_MODEL);
-
-        if (parsed && parsed.model && parsed.model !== 'FAILED') {
-            console.log(`  ✅ [VE Advanced] Match: ${brand} [${category}] → "${parsed.model}"`);
-            return {
-                status: 'success',
-                brand: parsed.brand || brand,
-                model: parsed.model,
-                mainCategory: parsed.mainCategory || category,
-                subCategory: parsed.subCategory || '',
-                logic: parsed.logic || ''
-            };
+        try {
+            const parsed = await callGoogle(system, user, false, providerModel || GROUNDING_MODEL);
+            if (!parsed || parsed.model === 'FAILED') throw new Error('AI failed to match');
+            return { status: 'success', ...parsed };
+        } catch (err) {
+            console.error(`  ❌ [VE Match Advanced] Failed for ${description}:`, err.message);
+            throw err;
         }
-
-        throw new Error('AI did not return a valid model name');
-    } catch (err) {
-        console.error(`  ❌ [VE Advanced] Failed for ${brand} [${category}]:`, err.message);
-        return { status: 'error', brand, model: '', error_message: err.message };
-    }
+    });
 }
 
-// ──────────────────────────────────────────────────────────────────────────────
-// DETAIL FETCHER (shared for both options — finds image + website URL)
-// ──────────────────────────────────────────────────────────────────────────────
 
-const VE_DETAIL_SYSTEM = (brand, model) => `You are a Furniture Detail Specialist for a Value Engineered Offer.
-Find the official product details for: "${brand} ${model}".
+const VE_DETAIL_SYSTEM = (brand, model) => `You are an FF&E Product Data Extraction Agent.
+Find the official product page and high-quality image for the following item:
+Brand: ${brand}
+Model: ${model}
 
-### 🔍 DISCOVERY PROTOCOL (Strict Order):
-1. **Architonic**: First source for European/Global furniture brands.
-2. **Official Brand Website**: For technical specs and direct product links.
-3. **Stylepark**: Fallback for high-end design items.
-
-### DATA TO RETURN:
-- imageUrl: Direct link to a high-resolution product image (jpg/png/webp) — NOT a page URL
+Return the following fields:
+- brand: Confirmed brand name
+- model: Confirmed model name
+- imageUrl: Direct link to a clear product image (JPG/PNG/WEBP). MUST be a direct image URL.
 - websiteUrl: Direct product page link
 - price: Numeric price if available (USD/EUR), else 0
 - description: Short technical description (max 20 words)
@@ -217,26 +130,69 @@ Return ONLY valid JSON:
 
 /**
  * Fetch product image + website URL for a VE-matched item.
- * Shared by both Option 1 and Option 2.
  */
 export async function veGetProductDetails(brand, model, providerModel = null) {
-    const system = VE_DETAIL_SYSTEM(brand, model);
-    const user = `Find the product image and page for: ${brand} ${model}`;
+    return withRetry(async () => {
+        const system = VE_DETAIL_SYSTEM(brand, model);
+        const user = `Find the product image and page for: ${brand} ${model}`;
 
-    console.log(`  🌐 [VE Details] Fetching details for: ${brand} ${model}`);
+        console.log(`  🌐 [VE Details] Fetching details for: ${brand} ${model}`);
 
-    try {
-        const parsed = await callGoogle(system, user, true, providerModel || GROUNDING_MODEL);
+        try {
+            const parsed = await callGoogle(system, user, true, providerModel || GROUNDING_MODEL);
 
-        if (!parsed) throw new Error('Empty response from AI');
+            if (!parsed) throw new Error('Empty response from AI');
 
-        parsed.brand = parsed.brand || brand;
-        parsed.model = parsed.model || model;
-        parsed.price = parseFloat(parsed.price) || 0;
+            parsed.brand = parsed.brand || brand;
+            parsed.model = parsed.model || model;
+            parsed.price = parseFloat(parsed.price) || 0;
 
-        return { status: 'success', product: parsed };
-    } catch (err) {
-        console.error(`  ❌ [VE Details] Failed for ${brand} ${model}:`, err.message);
-        return { status: 'error', error_message: err.message };
-    }
+            return { status: 'success', product: parsed };
+        } catch (err) {
+            console.error(`  ❌ [VE Details] Failed for ${brand} ${model}:`, err.message);
+            return { status: 'error', error_message: err.message };
+        }
+    }); // Wrapped in withRetry
+}
+
+/**
+ * Map-Reduce Routing Agent (Bulletproofed with schema validation & retry)
+ * Categorizes items into functional groups to optimize downstream AI matching.
+ * * @param {Array<{id: string, desc: string}>} items - List of BOQ items to route
+ * @param {string} providerModel - Specific model override
+ */
+export async function veRouteCategories(items, providerModel = null) {
+    return withRetry(async () => {
+        const system = `You are a high-speed FF&E routing agent. Categorize the provided items.
+CRITICAL: Output ONLY valid JSON exactly matching this structure, with no markdown:
+{
+  "desking": ["id1"],
+  "seating": ["id2"],
+  "softSeating": [],
+  "accessories": []
+}`;
+
+        const itemsList = items.map(item => `ID: "${item.id}" | Desc: "${item.desc}"`).join('\n');
+        const user = `Categorize these items:\n${itemsList}`;
+
+        console.log(`  🚀 [VE Route] Sending ${items.length} items to AI Router...`);
+        const result = await callGoogle(system, user, false, providerModel || GROUNDING_MODEL);
+
+        // Validation: Force retry if AI hallucinates the structure
+        if (!result || typeof result !== 'object') throw new Error("Router returned non-object");
+        if (result.desking === undefined && result.seating === undefined && result.softSeating === undefined && result.accessories === undefined) {
+            throw new Error("Router returned invalid schema, missing category arrays");
+        }
+
+        return {
+            desking: Array.isArray(result.desking) ? result.desking.map(String) : [],
+            seating: Array.isArray(result.seating) ? result.seating.map(String) : [],
+            softSeating: Array.isArray(result.softSeating) ? result.softSeating.map(String) : [],
+            accessories: Array.isArray(result.accessories) ? result.accessories.map(String) : [],
+            status: 'success'
+        };
+    }, 3, 2000).catch(err => {
+        console.error(`  ❌ [VE Route] Categorization failed after retries:`, err.message);
+        return { desking: [], seating: [], softSeating: [], accessories: [], status: 'error', error_message: err.message };
+    });
 }

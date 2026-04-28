@@ -116,6 +116,7 @@ function AppContent({ onOpenSettings }) {
   const [isValueEngineeredOpen, setValueEngineeredOpen] = useState(false);
   const [isCostingOpen, setIsCostingOpen] = useState(false);
   const [pendingVeData, setPendingVeData] = useState(null);
+  const [systemErrors, setSystemErrors] = useState([]);
 
   // Reset environment on app load
   useEffect(() => {
@@ -471,6 +472,17 @@ function AppContent({ onOpenSettings }) {
             </div>
           )}
 
+          {systemErrors.length > 0 && (
+            <div className={styles.systemErrorBanner}>
+              {systemErrors.map((err, idx) => (
+                <div key={idx} className={styles.systemErrorItem}>
+                  <span>⚠️ {err}</span>
+                  <button onClick={() => setSystemErrors(prev => prev.filter((_, i) => i !== idx))}>×</button>
+                </div>
+              ))}
+            </div>
+          )}
+
           {error && (
             <div className={styles.error}>
               {error}
@@ -587,7 +599,7 @@ function AppContent({ onOpenSettings }) {
       </button>
 
       {/* Theme Toggle - Fixed Top Right */}
-      <div style={{ position: 'fixed', top: '20px', right: '20px', zIndex: 100 }}>
+      <div style={{ position: 'fixed', top: '20px', right: '20px', zIndex: 10000 }}>
         <ThemeToggle />
       </div>
 

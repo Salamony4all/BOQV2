@@ -1,10 +1,13 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import styles from '../styles/SpecialistModal.module.css';
 import { getApiBase } from '../utils/apiBase';
+import { useTheme } from '../context/ThemeContext';
 
 const API_BASE = getApiBase();
 
 const SpecialistModal = ({ isOpen, onClose, data }) => {
+    const { theme: appTheme } = useTheme();
+
     if (!isOpen || !data) return null;
 
     const { product, status, error_message, boqDescription, brand, hardened } = data;
@@ -22,14 +25,18 @@ const SpecialistModal = ({ isOpen, onClose, data }) => {
     };
 
     return (
-        <div className={styles.overlay} onClick={onClose}>
+        <div className={`${styles.overlay} ${appTheme === 'dark' ? styles.dark : styles.light}`} onClick={onClose}>
             <div className={styles.modal} onClick={e => e.stopPropagation()}>
                 <div className={styles.header}>
                     <div className={styles.titleGroup}>
-                        <h3>AI Search: Quick Check</h3>
+                        <div className={styles.aiBadge}>AI</div>
+                        <h3>Search: Quick Check</h3>
                     </div>
-                    <button className={styles.closeBtn} onClick={onClose}>&times;</button>
+                    <div className={styles.headerActions}>
+                        <button className={styles.closeBtn} onClick={onClose}>&times;</button>
+                    </div>
                 </div>
+
 
                 <div className={styles.body}>
                     <div className={styles.section}>
@@ -116,3 +123,4 @@ const SpecialistModal = ({ isOpen, onClose, data }) => {
 };
 
 export default SpecialistModal;
+

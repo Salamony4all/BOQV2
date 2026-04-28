@@ -16,7 +16,7 @@ import https from 'https';
 import { ExcelDbManager } from './excelManager.js';
 import { brandStorage, kv } from './storageProvider.js';
 import { getAiMatch, identifyModel, fetchProductDetails, searchAndEnrichModel, analyzePlan, matchFitoutItem, FREE_GOOGLE_MODELS, PAID_GOOGLE_MODELS, VALID_GOOGLE_MODELS, VALID_OPENROUTER_MODELS, VALID_NVIDIA_MODELS, GOOGLE_MODEL, OPENROUTER_MODEL, NVIDIA_MODEL } from './utils/llmUtils.js';
-import { veMatchSimple, veMatchAdvanced, veGetProductDetails } from './utils/veMatchUtils.js';
+import { veMatchSimple, veMatchAdvanced, veGetProductDetails, veRouteCategories } from './utils/veMatchUtils.js';
 import { generatePresentationPdf } from './utils/pptxExportService.js';
 
 
@@ -28,28 +28,28 @@ let _visionBOQExtractor = null;
 let _pdfRenderer = null;
 
 async function getPdfProductExtractor() {
-    if (!_pdfProductExtractor) {
-        _pdfProductExtractor = await import('./pdfProductExtractor.js');
-    }
-    return _pdfProductExtractor;
+  if (!_pdfProductExtractor) {
+    _pdfProductExtractor = await import('./pdfProductExtractor.js');
+  }
+  return _pdfProductExtractor;
 }
 async function getParallelBOQExtractor() {
-    if (!_parallelBOQExtractor) {
-        _parallelBOQExtractor = await import('./parallelBOQExtractor.js');
-    }
-    return _parallelBOQExtractor;
+  if (!_parallelBOQExtractor) {
+    _parallelBOQExtractor = await import('./parallelBOQExtractor.js');
+  }
+  return _parallelBOQExtractor;
 }
 async function getVisionBOQExtractor() {
-    if (!_visionBOQExtractor) {
-        _visionBOQExtractor = await import('./visionBOQExtractor.js');
-    }
-    return _visionBOQExtractor;
+  if (!_visionBOQExtractor) {
+    _visionBOQExtractor = await import('./visionBOQExtractor.js');
+  }
+  return _visionBOQExtractor;
 }
 async function getPdfRenderer() {
-    if (!_pdfRenderer) {
-        _pdfRenderer = await import('./utils/pdfRenderer.js');
-    }
-    return _pdfRenderer;
+  if (!_pdfRenderer) {
+    _pdfRenderer = await import('./utils/pdfRenderer.js');
+  }
+  return _pdfRenderer;
 }
 
 // Scraper imports are LAZY (dynamic) to prevent Vercel serverless boot crash
@@ -60,32 +60,32 @@ let _BrowserlessScraper = null;
 let _ScrapingBeeScraper = null;
 
 async function getScraperService() {
-    if (!_ScraperService) {
-        const m = await import('./scraper.js');
-        _ScraperService = m.default;
-    }
-    return new _ScraperService();
+  if (!_ScraperService) {
+    const m = await import('./scraper.js');
+    _ScraperService = m.default;
+  }
+  return new _ScraperService();
 }
 async function getStructureScraper() {
-    if (!_StructureScraper) {
-        const m = await import('./structureScraper.js');
-        _StructureScraper = m.default;
-    }
-    return new _StructureScraper();
+  if (!_StructureScraper) {
+    const m = await import('./structureScraper.js');
+    _StructureScraper = m.default;
+  }
+  return new _StructureScraper();
 }
 async function getBrowserlessScraper() {
-    if (!_BrowserlessScraper) {
-        const m = await import('./browserlessScraper.js');
-        _BrowserlessScraper = m.default;
-    }
-    return new _BrowserlessScraper();
+  if (!_BrowserlessScraper) {
+    const m = await import('./browserlessScraper.js');
+    _BrowserlessScraper = m.default;
+  }
+  return new _BrowserlessScraper();
 }
 async function getScrapingBeeScraper() {
-    if (!_ScrapingBeeScraper) {
-        const m = await import('./scrapingBeeScraper.js');
-        _ScrapingBeeScraper = m.default;
-    }
-    return new _ScrapingBeeScraper();
+  if (!_ScrapingBeeScraper) {
+    const m = await import('./scrapingBeeScraper.js');
+    _ScrapingBeeScraper = m.default;
+  }
+  return new _ScrapingBeeScraper();
 }
 
 const __filename = fileURLToPath(import.meta.url);
@@ -257,8 +257,8 @@ const planUpload = multer({
 
 // Health check
 app.get('/api/status', (req, res) => {
-  res.json({ 
-    status: 'online', 
+  res.json({
+    status: 'online',
     version: '2.0.2 (Cloud-Ready)',
     timestamp: new Date().toISOString(),
     environment: process.env.NODE_ENV || 'development'
@@ -270,24 +270,24 @@ app.get('/api/health', async (req, res) => {
     uptime: process.uptime(),
     memory: process.memoryUsage(),
     env: {
-       supabase_url: !!process.env.SUPABASE_URL,
-       supabase_key: !!process.env.SUPABASE_ANON_KEY,
-       kv_url: !!process.env.KV_REST_API_URL,
-       node_env: process.env.NODE_ENV
+      supabase_url: !!process.env.SUPABASE_URL,
+      supabase_key: !!process.env.SUPABASE_ANON_KEY,
+      kv_url: !!process.env.KV_REST_API_URL,
+      node_env: process.env.NODE_ENV
     },
     storage: {
-       supabase: !!supabase,
-       kv: !!kv
+      supabase: !!supabase,
+      kv: !!kv
     }
   };
-  
+
   try {
-     const brands = await brandStorage.getAllBrands();
-     diagnostics.storage.brands_count = brands.length;
-     diagnostics.storage.status = 'healthy';
+    const brands = await brandStorage.getAllBrands();
+    diagnostics.storage.brands_count = brands.length;
+    diagnostics.storage.status = 'healthy';
   } catch (err) {
-     diagnostics.storage.status = 'degraded';
-     diagnostics.storage.error = err.message;
+    diagnostics.storage.status = 'degraded';
+    diagnostics.storage.error = err.message;
   }
 
   res.json(diagnostics);
@@ -295,174 +295,174 @@ app.get('/api/health', async (req, res) => {
 
 // Serve temporary extracted images
 app.get('/api/temp-image/:id', async (req, res) => {
-    const { id } = req.params;
-    const { tempImageStore } = await getPdfProductExtractor();
-    const imageBuffer = tempImageStore.get(id);
-    
-    if (!imageBuffer) {
-        return res.status(404).send('Image not found');
-    }
-    
-    res.set('Content-Type', 'image/png');
-    res.send(imageBuffer);
+  const { id } = req.params;
+  const { tempImageStore } = await getPdfProductExtractor();
+  const imageBuffer = tempImageStore.get(id);
+
+  if (!imageBuffer) {
+    return res.status(404).send('Image not found');
+  }
+
+  res.set('Content-Type', 'image/png');
+  res.send(imageBuffer);
 });
 
 // Serve lazy extracted images from background processing
 app.get('/api/lazy-image/:uploadId/:page/:rowId', async (req, res) => {
-    const { uploadId, page, rowId } = req.params;
-    const pNum = parseInt(page);
-    const rIdx = parseInt(rowId);
-    
-    console.log(`🖼️ [Lazy Image] Request for Upload: ${uploadId} | Page: ${page} | Row: ${rowId}`);
+  const { uploadId, page, rowId } = req.params;
+  const pNum = parseInt(page);
+  const rIdx = parseInt(rowId);
 
-    const baseTempDir = isVercel ? '/tmp/extracted_images' : path.join(process.cwd(), 'public', 'temp', 'extracted_images');
-    const tempDir = path.join(baseTempDir, uploadId);
-    const imgPath = path.join(tempDir, `page_${page}_row_${rowId}.jpg`);
-    const metadataPath = path.join(tempDir, 'metadata.json');
-    const fullPagePath = path.join(tempDir, `page_${page}_full.png`);
+  console.log(`🖼️ [Lazy Image] Request for Upload: ${uploadId} | Page: ${page} | Row: ${rowId}`);
 
-    // 1. Check if it already exists
-    try {
-        await fs.access(imgPath);
-        return res.sendFile(imgPath);
-    } catch (e) {
-        // Continue to extraction if missing
+  const baseTempDir = isVercel ? '/tmp/extracted_images' : path.join(process.cwd(), 'public', 'temp', 'extracted_images');
+  const tempDir = path.join(baseTempDir, uploadId);
+  const imgPath = path.join(tempDir, `page_${page}_row_${rowId}.jpg`);
+  const metadataPath = path.join(tempDir, 'metadata.json');
+  const fullPagePath = path.join(tempDir, `page_${page}_full.png`);
+
+  // 1. Check if it already exists
+  try {
+    await fs.access(imgPath);
+    return res.sendFile(imgPath);
+  } catch (e) {
+    // Continue to extraction if missing
+  }
+
+  try {
+    // 2. Check metadata
+    if (!fs_sync.existsSync(metadataPath)) {
+      throw new Error("Session metadata.json not found");
     }
+    const metadata = JSON.parse(await fs.readFile(metadataPath, 'utf8'));
 
-    try {
-        // 2. Check metadata
-        if (!fs_sync.existsSync(metadataPath)) {
-            throw new Error("Session metadata.json not found");
+    // 3. Find row and page info
+    const rowInfo = metadata.rows.find(r => r.pageNum === pNum && r.rowIdx === rIdx);
+    if (!rowInfo) throw new Error(`Row ${rIdx} on P${pNum} not found in metadata`);
+
+    const pageLayout = metadata.pages.find(p => p.page === pNum);
+    if (!pageLayout) throw new Error(`Page ${pNum} layout data missing`);
+
+    // PRIORITY STAGE: Check for Native (Layered) Image Match
+    if (pageLayout.nativeImages && pageLayout.nativeImages.length > 0) {
+
+      // Get all rows on this page sorted by rowIdx (visual order)
+      const sortedPageRows = metadata.rows
+        .filter(r => r.pageNum === pNum)
+        .sort((a, b) => a.rowIdx - b.rowIdx);
+
+      // Sort native images top-to-bottom by Y (same as Python now does, but double-ensure)
+      const productImages = pageLayout.nativeImages
+        .filter(img => img.h >= 30 && img.w >= 30)
+        .sort((a, b) => a.y - b.y || a.x - b.x);
+
+      // Find the positional rank of this row among its page peers
+      const rowPositionOnPage = sortedPageRows.findIndex(r => r.rowIdx === rIdx);
+
+      // ── Strategy 1: Perfect positional (most reliable) ──────────────────
+      if (productImages.length === sortedPageRows.length && rowPositionOnPage !== -1) {
+        const matchedImg = productImages[rowPositionOnPage];
+        if (matchedImg) {
+          console.log(`    💎 [Lazy Image] Positional match P${pNum} R${rIdx} (rank ${rowPositionOnPage}) → ${matchedImg.path}`);
+          await fs.copyFile(matchedImg.path, imgPath);
+          return res.sendFile(imgPath);
         }
-        const metadata = JSON.parse(await fs.readFile(metadataPath, 'utf8'));
+      }
 
-        // 3. Find row and page info
-        const rowInfo = metadata.rows.find(r => r.pageNum === pNum && r.rowIdx === rIdx);
-        if (!rowInfo) throw new Error(`Row ${rIdx} on P${pNum} not found in metadata`);
-
-        const pageLayout = metadata.pages.find(p => p.page === pNum);
-        if (!pageLayout) throw new Error(`Page ${pNum} layout data missing`);
-
-        // PRIORITY STAGE: Check for Native (Layered) Image Match
-        if (pageLayout.nativeImages && pageLayout.nativeImages.length > 0) {
-            
-            // Get all rows on this page sorted by rowIdx (visual order)
-            const sortedPageRows = metadata.rows
-                .filter(r => r.pageNum === pNum)
-                .sort((a, b) => a.rowIdx - b.rowIdx);
-            
-            // Sort native images top-to-bottom by Y (same as Python now does, but double-ensure)
-            const productImages = pageLayout.nativeImages
-                .filter(img => img.h >= 30 && img.w >= 30)
-                .sort((a, b) => a.y - b.y || a.x - b.x);
-            
-            // Find the positional rank of this row among its page peers
-            const rowPositionOnPage = sortedPageRows.findIndex(r => r.rowIdx === rIdx);
-            
-            // ── Strategy 1: Perfect positional (most reliable) ──────────────────
-            if (productImages.length === sortedPageRows.length && rowPositionOnPage !== -1) {
-                const matchedImg = productImages[rowPositionOnPage];
-                if (matchedImg) {
-                    console.log(`    💎 [Lazy Image] Positional match P${pNum} R${rIdx} (rank ${rowPositionOnPage}) → ${matchedImg.path}`);
-                    await fs.copyFile(matchedImg.path, imgPath);
-                    return res.sendFile(imgPath);
-                }
-            }
-
-            // ── Strategy 2: Closest-unused Y-center match ────────────────────────
-            if (rowPositionOnPage !== -1 && productImages.length > 0) {
-                // Build a set of indices already "claimed" by earlier rows
-                const claimedIndices = new Set();
-                for (let rank = 0; rank < rowPositionOnPage; rank++) {
-                    // Simple greedy: rank-th row claims rank-th image if within tolerance
-                    if (rank < productImages.length) claimedIndices.add(rank);
-                }
-                
-                // Find best unclaimed image for this row
-                const normalize = (s) => String(s || '').replace(/[^a-z0-9]/gi, '').toLowerCase();
-                const targetSN = normalize(rowInfo.sn);
-                const snMatch = pageLayout.textItems.find(item => {
-                    const normStr = normalize(item.str);
-                    return normStr === targetSN && normStr.length > 0;
-                });
-                const anchorY = snMatch ? snMatch.y : null;
-
-                let bestIdx = rowPositionOnPage; // Default to positional
-                let bestDist = Infinity;
-                
-                for (let i = 0; i < productImages.length; i++) {
-                    if (claimedIndices.has(i)) continue;
-                    const img = productImages[i];
-                    const imgCenterY = img.y + img.h / 2;
-                    const dist = anchorY !== null
-                        ? Math.abs(imgCenterY - anchorY)
-                        : Math.abs(i - rowPositionOnPage) * 200;
-                    if (dist < bestDist) { bestDist = dist; bestIdx = i; }
-                }
-
-                if (bestIdx >= 0 && bestIdx < productImages.length) {
-                    const overlapImg = productImages[bestIdx];
-                    console.log(`    💎 [Lazy Image] Y-match P${pNum} R${rIdx} → img[${bestIdx}] dist=${Math.round(bestDist)}: ${overlapImg.path}`);
-                    await fs.copyFile(overlapImg.path, imgPath);
-                    return res.sendFile(imgPath);
-                }
-            }
+      // ── Strategy 2: Closest-unused Y-center match ────────────────────────
+      if (rowPositionOnPage !== -1 && productImages.length > 0) {
+        // Build a set of indices already "claimed" by earlier rows
+        const claimedIndices = new Set();
+        for (let rank = 0; rank < rowPositionOnPage; rank++) {
+          // Simple greedy: rank-th row claims rank-th image if within tolerance
+          if (rank < productImages.length) claimedIndices.add(rank);
         }
 
-        // FALLBACK STAGE: Sharp Crop from Full Page
-        // 4. On-Demand Render of the full page if missing
-        if (!fs_sync.existsSync(fullPagePath)) {
-            console.log(`    📸 [Lazy Image] Full page missing, rendering on-demand: ${fullPagePath}`);
-            const { renderSinglePageFull } = await getPdfRenderer();
-            await renderSinglePageFull(metadata.pdfPath, pNum, fullPagePath);
-        }
-
-        // ... rest of the cropping logic ...
+        // Find best unclaimed image for this row
         const normalize = (s) => String(s || '').replace(/[^a-z0-9]/gi, '').toLowerCase();
         const targetSN = normalize(rowInfo.sn);
-        
         const snMatch = pageLayout.textItems.find(item => {
-            const normStr = normalize(item.str);
-            const isMatch = normStr === targetSN || (targetSN && normStr.includes(targetSN));
-            return isMatch && (item.x === undefined || item.x < 300);
+          const normStr = normalize(item.str);
+          return normStr === targetSN && normStr.length > 0;
         });
+        const anchorY = snMatch ? snMatch.y : null;
 
-        const descPrefix = normalize(rowInfo.description || '').substring(0, 15);
-        const descMatch = !snMatch && descPrefix.length > 3 ? pageLayout.textItems.find(item => {
-            return normalize(item.str).includes(descPrefix);
-        }) : null;
+        let bestIdx = rowPositionOnPage; // Default to positional
+        let bestDist = Infinity;
 
-        let targetY = snMatch ? snMatch.y : (descMatch ? descMatch.y : null);
-        if (targetY === null) {
-            const pageRows = metadata.rows.filter(r => r.pageNum === pNum).sort((a,b) => a.rowIdx - b.rowIdx);
-            const idx = pageRows.findIndex(r => r.rowIdx === rIdx);
-            if (idx !== -1) targetY = 400 + (idx * 160);
-            else throw new Error("Could not determine crop Y position");
+        for (let i = 0; i < productImages.length; i++) {
+          if (claimedIndices.has(i)) continue;
+          const img = productImages[i];
+          const imgCenterY = img.y + img.h / 2;
+          const dist = anchorY !== null
+            ? Math.abs(imgCenterY - anchorY)
+            : Math.abs(i - rowPositionOnPage) * 200;
+          if (dist < bestDist) { bestDist = dist; bestIdx = i; }
         }
 
-        let dynamicHeight = 160; 
-        const pageRows = metadata.rows.filter(r => r.pageNum === pNum).sort((a, b) => a.rowIdx - b.rowIdx);
-        const currentIdx = pageRows.findIndex(r => r.rowIdx === rIdx);
-        if (currentIdx !== -1 && currentIdx < pageRows.length - 1) {
-            const nextRow = pageRows[currentIdx + 1];
-            const nextSN = normalize(nextRow.sn);
-            const nextMatch = pageLayout.textItems.find(it => normalize(it.str) === nextSN && (it.x === undefined || it.x < 300));
-            if (nextMatch && nextMatch.y > targetY) {
-                dynamicHeight = Math.min(300, (nextMatch.y - targetY) + 30);
-            }
+        if (bestIdx >= 0 && bestIdx < productImages.length) {
+          const overlapImg = productImages[bestIdx];
+          console.log(`    💎 [Lazy Image] Y-match P${pNum} R${rIdx} → img[${bestIdx}] dist=${Math.round(bestDist)}: ${overlapImg.path}`);
+          await fs.copyFile(overlapImg.path, imgPath);
+          return res.sendFile(imgPath);
         }
-
-        // Sharp has been removed — images are now extracted natively by mupdf in pdfProductExtractor.
-        // This lazy-image route only runs in local dev; in that case the PNG was pre-extracted by pdfjs.
-        // If the file doesn't exist at this point, serve a 404 instead of crashing.
-        console.warn(`    ⚠️ [Lazy Image] Pre-extracted file not found for P${pNum} R${rIdx} — no crop fallback (sharp removed).`);
-        return res.status(404).json({ error: 'Image not pre-extracted. Use mupdf path.' });
-
-
-    } catch (err) {
-        console.error(`    ❌ [Lazy Image] Error: ${err.message}`);
-        res.status(500).json({ error: err.message });
+      }
     }
+
+    // FALLBACK STAGE: Sharp Crop from Full Page
+    // 4. On-Demand Render of the full page if missing
+    if (!fs_sync.existsSync(fullPagePath)) {
+      console.log(`    📸 [Lazy Image] Full page missing, rendering on-demand: ${fullPagePath}`);
+      const { renderSinglePageFull } = await getPdfRenderer();
+      await renderSinglePageFull(metadata.pdfPath, pNum, fullPagePath);
+    }
+
+    // ... rest of the cropping logic ...
+    const normalize = (s) => String(s || '').replace(/[^a-z0-9]/gi, '').toLowerCase();
+    const targetSN = normalize(rowInfo.sn);
+
+    const snMatch = pageLayout.textItems.find(item => {
+      const normStr = normalize(item.str);
+      const isMatch = normStr === targetSN || (targetSN && normStr.includes(targetSN));
+      return isMatch && (item.x === undefined || item.x < 300);
+    });
+
+    const descPrefix = normalize(rowInfo.description || '').substring(0, 15);
+    const descMatch = !snMatch && descPrefix.length > 3 ? pageLayout.textItems.find(item => {
+      return normalize(item.str).includes(descPrefix);
+    }) : null;
+
+    let targetY = snMatch ? snMatch.y : (descMatch ? descMatch.y : null);
+    if (targetY === null) {
+      const pageRows = metadata.rows.filter(r => r.pageNum === pNum).sort((a, b) => a.rowIdx - b.rowIdx);
+      const idx = pageRows.findIndex(r => r.rowIdx === rIdx);
+      if (idx !== -1) targetY = 400 + (idx * 160);
+      else throw new Error("Could not determine crop Y position");
+    }
+
+    let dynamicHeight = 160;
+    const pageRows = metadata.rows.filter(r => r.pageNum === pNum).sort((a, b) => a.rowIdx - b.rowIdx);
+    const currentIdx = pageRows.findIndex(r => r.rowIdx === rIdx);
+    if (currentIdx !== -1 && currentIdx < pageRows.length - 1) {
+      const nextRow = pageRows[currentIdx + 1];
+      const nextSN = normalize(nextRow.sn);
+      const nextMatch = pageLayout.textItems.find(it => normalize(it.str) === nextSN && (it.x === undefined || it.x < 300));
+      if (nextMatch && nextMatch.y > targetY) {
+        dynamicHeight = Math.min(300, (nextMatch.y - targetY) + 30);
+      }
+    }
+
+    // Sharp has been removed — images are now extracted natively by mupdf in pdfProductExtractor.
+    // This lazy-image route only runs in local dev; in that case the PNG was pre-extracted by pdfjs.
+    // If the file doesn't exist at this point, serve a 404 instead of crashing.
+    console.warn(`    ⚠️ [Lazy Image] Pre-extracted file not found for P${pNum} R${rIdx} — no crop fallback (sharp removed).`);
+    return res.status(404).json({ error: 'Image not pre-extracted. Use mupdf path.' });
+
+
+  } catch (err) {
+    console.error(`    ❌ [Lazy Image] Error: ${err.message}`);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 
@@ -502,27 +502,27 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
 
     let extractedData;
     if (isPdf) {
-        if (isVercel) {
-            console.log(`[Upload] Running in Vercel - Using light extraction (pdfjs)`);
-            const { extractProductBoqFromPdf } = await getPdfProductExtractor();
-            extractedData = await extractProductBoqFromPdf(filePath, () => {}, modelName);
-        } else if (extractionMode === 'parallel') {
-            const { extractParallelBOQData } = await getParallelBOQExtractor();
-            extractedData = await extractParallelBOQData(filePath, 'application/pdf', () => {}, modelName);
-        } else {
-            // Legacy vision path
-            const { extractVisionBOQData } = await getVisionBOQExtractor();
-            extractedData = await extractVisionBOQData(filePath, 'application/pdf', () => {}, modelName);
-        }
-    } else if (isImage) {
-        // Handle images directly uploaded to BOQ flow
+      if (isVercel) {
+        console.log(`[Upload] Running in Vercel - Using light extraction (pdfjs)`);
+        const { extractProductBoqFromPdf } = await getPdfProductExtractor();
+        extractedData = await extractProductBoqFromPdf(filePath, () => { }, modelName);
+      } else if (extractionMode === 'parallel') {
+        const { extractParallelBOQData } = await getParallelBOQExtractor();
+        extractedData = await extractParallelBOQData(filePath, 'application/pdf', () => { }, modelName);
+      } else {
+        // Legacy vision path
         const { extractVisionBOQData } = await getVisionBOQExtractor();
-        extractedData = await extractVisionBOQData(filePath, req.file.mimetype, () => {}, modelName);
+        extractedData = await extractVisionBOQData(filePath, 'application/pdf', () => { }, modelName);
+      }
+    } else if (isImage) {
+      // Handle images directly uploaded to BOQ flow
+      const { extractVisionBOQData } = await getVisionBOQExtractor();
+      extractedData = await extractVisionBOQData(filePath, req.file.mimetype, () => { }, modelName);
     } else {
-        // Extract data from Excel
-        extractedData = await extractExcelData(filePath, () => { }, (url) => {
-          cleanupService.trackBlob(sessionId, url);
-        });
+      // Extract data from Excel
+      extractedData = await extractExcelData(filePath, () => { }, (url) => {
+        cleanupService.trackBlob(sessionId, url);
+      });
     }
 
     res.json({
@@ -558,7 +558,7 @@ app.post('/api/extract/vision', planUpload.single('file'), async (req, res) => {
 
     const modelName = req.headers['x-model-name'];
     const { extractVisionBOQData } = await getVisionBOQExtractor();
-    const extractedData = await extractVisionBOQData(filePath, req.file.mimetype, () => {}, modelName);
+    const extractedData = await extractVisionBOQData(filePath, req.file.mimetype, () => { }, modelName);
 
     res.json({
       success: true,
@@ -616,9 +616,9 @@ app.post('/api/blobs/delete', async (req, res) => {
   if (!url && !filePath) return res.status(400).json({ error: 'URL or path is required' });
   try {
     if (supabase) {
-        // Extract path from URL if path is not provided
-        const finalPath = filePath || new URL(url).pathname.split('/').slice(2).join('/');
-        await deleteFromSupabase('assets', finalPath);
+      // Extract path from URL if path is not provided
+      const finalPath = filePath || new URL(url).pathname.split('/').slice(2).join('/');
+      await deleteFromSupabase('assets', finalPath);
     }
     res.json({ success: true });
   } catch (error) {
@@ -630,19 +630,19 @@ app.post('/api/blobs/delete', async (req, res) => {
 app.post('/api/blobs/upload', planUpload.single('file'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
-    
+
     const fileBuffer = await fs.readFile(req.file.path);
     const fileName = `${Date.now()}-${req.file.originalname}`;
     let result;
 
     if (supabase) {
-        result = await uploadToSupabase('assets', `manual-upload/${fileName}`, fileBuffer, {
-            contentType: req.file.mimetype
-        });
+      result = await uploadToSupabase('assets', `manual-upload/${fileName}`, fileBuffer, {
+        contentType: req.file.mimetype
+      });
     }
 
     // Cleanup local temp file
-    try { await fs.unlink(req.file.path); } catch (e) {}
+    try { await fs.unlink(req.file.path); } catch (e) { }
 
     res.json({ success: true, blob: result });
   } catch (error) {
@@ -667,7 +667,7 @@ app.post('/api/process-blob', async (req, res) => {
 
   try {
     console.log(`📦 [Process-Blob] Starting extraction for: ${url}`);
-    
+
     // Download the file from Blob to /tmp for processing
     const response = await axios.get(url, { responseType: 'arraybuffer' });
     const tempDir = isVercel ? '/tmp/uploads' : path.join(__dirname, '../uploads');
@@ -687,7 +687,7 @@ app.post('/api/process-blob', async (req, res) => {
 
     // (Optional) Delete the source if it was a transient upload
     if (url.includes('supabase') && url.includes('temp')) {
-       // logic to delete if needed
+      // logic to delete if needed
     }
 
     res.json({
@@ -706,7 +706,7 @@ app.post('/api/process-blob', async (req, res) => {
 app.post('/api/reset', async (req, res) => {
   console.log('Resetting application state...');
   await cleanupService.cleanupAll();
-  
+
   // Re-create uploads directory immediately to ensure readiness
   const uploadsDir = isVercel ? '/tmp/uploads' : path.join(__dirname, '../uploads');
   const imagesDir = isVercel ? '/tmp/uploads/images' : path.join(__dirname, '../uploads/images');
@@ -714,7 +714,7 @@ app.post('/api/reset', async (req, res) => {
     await fs.mkdir(uploadsDir, { recursive: true });
     await fs.mkdir(imagesDir, { recursive: true });
   } catch (e) { console.error('Error recreating dirs:', e); }
-  
+
   res.json({ success: true, message: 'Environment reset complete' });
 });
 
@@ -764,7 +764,7 @@ app.get('/api/models/available', (req, res) => {
  */
 app.post('/api/models/enrich', async (req, res) => {
   const { brandName, modelName, budgetTier = 'mid' } = req.body;
-  
+
   if (!brandName || !modelName) {
     return res.status(400).json({ error: 'Brand name and Model name are required' });
   }
@@ -773,21 +773,21 @@ app.post('/api/models/enrich', async (req, res) => {
 
   try {
     const enrichment = await searchAndEnrichModel(brandName, modelName, budgetTier);
-    
+
     if (enrichment.status === 'success' && enrichment.product) {
       // PERMANENTLY SAVE TO DATABASE
       const saved = await brandStorage.addProductToBrand(brandName, budgetTier, enrichment.product);
-      
-      return res.json({ 
-        status: 'success', 
+
+      return res.json({
+        status: 'success',
         product: enrichment.product,
         hardened: saved
       });
     }
 
-    res.status(404).json({ 
-      status: 'error', 
-      message: enrichment.error_message || 'Model details not found online.' 
+    res.status(404).json({
+      status: 'error',
+      message: enrichment.error_message || 'Model details not found online.'
     });
   } catch (err) {
     console.error('❌ [API] Enrichment failed:', err.message);
@@ -814,98 +814,98 @@ app.delete('/api/brands/:id', async (req, res) => {
 //
 // ──────────────────────────────────────────────────────────────────────────────
 function fuzzyFindModel(products, targetModelName, targetCategory = '') {
-    if (!products || !Array.isArray(products) || !targetModelName) return null;
+  if (!products || !Array.isArray(products) || !targetModelName) return null;
 
-    const SYNONYMS = {
-        'stool': ['chair', 'seat', 'barstool', 'bench'],
-        'chair': ['stool', 'seat', 'armchair', 'sidechair'],
-        'desk': ['table', 'workstation', 'bench'],
-        'table': ['desk', 'workstation', 'bench'],
-        'sofa': ['couch', 'bench', 'ottoman', 'pouf'],
-        'cabinet': ['cupboard', 'storage', 'wardrobe']
-    };
+  const SYNONYMS = {
+    'stool': ['chair', 'seat', 'barstool', 'bench'],
+    'chair': ['stool', 'seat', 'armchair', 'sidechair'],
+    'desk': ['table', 'workstation', 'bench'],
+    'table': ['desk', 'workstation', 'bench'],
+    'sofa': ['couch', 'bench', 'ottoman', 'pouf'],
+    'cabinet': ['cupboard', 'storage', 'wardrobe']
+  };
 
-    const normalize = (s) => String(s || '')
-        .toLowerCase()
-        .replace(/#\d+/g, '')          // strip Architonic IDs
-        .replace(/[^a-z0-9]/g, ' ')   // swap special chars for spaces
-        .replace(/\s+/g, ' ')         // collapse spaces
-        .trim();
+  const normalize = (s) => String(s || '')
+    .toLowerCase()
+    .replace(/#\d+/g, '')          // strip Architonic IDs
+    .replace(/[^a-z0-9]/g, ' ')   // swap special chars for spaces
+    .replace(/\s+/g, ' ')         // collapse spaces
+    .trim();
 
-    const target = normalize(targetModelName);
-    if (!target) return null;
+  const target = normalize(targetModelName);
+  if (!target) return null;
 
-    // 1. Exact match after normalization
-    let found = products.find(p => normalize(p.model) === target);
-    if (found) return found;
+  // 1. Exact match after normalization
+  let found = products.find(p => normalize(p.model) === target);
+  if (found) return found;
 
-    // 2. Exact or Substring Matching
-    let filteredProducts = products.filter(p => {
-        const m = normalize(p.model);
-        return m.includes(target) || target.includes(m);
+  // 2. Exact or Substring Matching
+  let filteredProducts = products.filter(p => {
+    const m = normalize(p.model);
+    return m.includes(target) || target.includes(m);
+  });
+
+  // 3. Synonym-Aware Search (if no direct substring matches)
+  if (filteredProducts.length === 0) {
+    const targetWords = target.split(' ');
+    filteredProducts = products.filter(p => {
+      const m = normalize(p.model);
+      const mWords = m.split(' ');
+      return targetWords.some(tw => {
+        if (mWords.includes(tw)) return true;
+        const syns = SYNONYMS[tw] || [];
+        return syns.some(s => mWords.includes(s));
+      });
     });
+  }
 
-    // 3. Synonym-Aware Search (if no direct substring matches)
-    if (filteredProducts.length === 0) {
-        const targetWords = target.split(' ');
-        filteredProducts = products.filter(p => {
-            const m = normalize(p.model);
-            const mWords = m.split(' ');
-            return targetWords.some(tw => {
-                if (mWords.includes(tw)) return true;
-                const syns = SYNONYMS[tw] || [];
-                return syns.some(s => mWords.includes(s));
-            });
-        });
+  if (filteredProducts.length === 0) return null;
+
+  // 4. Category Awareness (Weighted Scoring)
+  if (targetCategory && targetCategory.length > 2) {
+    const cat = targetCategory.toLowerCase().trim();
+    const categorized = filteredProducts.filter(p => {
+      const mc = (p.mainCategory || '').toLowerCase();
+      const sc = (p.subCategory || '').toLowerCase();
+      return mc.includes(cat) || sc.includes(cat) || cat.includes(mc) || cat.includes(sc);
+    });
+    if (categorized.length > 0) {
+      filteredProducts = categorized;
     }
+  }
 
-    if (filteredProducts.length === 0) return null;
+  // 5. Final Best Match (Word-intersection scoring)
+  // Filter: words length > 2 OR matches numbers (critical for models like 'Stool 80')
+  const targetWords = new Set(target.split(' ').filter(w => w.length > 2 || /^\d+$/.test(w)));
+  if (targetWords.size === 0) return filteredProducts[0];
 
-    // 4. Category Awareness (Weighted Scoring)
-    if (targetCategory && targetCategory.length > 2) {
-        const cat = targetCategory.toLowerCase().trim();
-        const categorized = filteredProducts.filter(p => {
-            const mc = (p.mainCategory || '').toLowerCase();
-            const sc = (p.subCategory || '').toLowerCase();
-            return mc.includes(cat) || sc.includes(cat) || cat.includes(mc) || cat.includes(sc);
-        });
-        if (categorized.length > 0) {
-            filteredProducts = categorized;
+  let bestScore = 0;
+  let bestMatch = null;
+  for (const p of filteredProducts) {
+    const pModel = normalize(p.model);
+    if (pModel === target) return p;
+
+    const pWords = pModel.split(' ').filter(w => w.length > 2 || /^\d+$/.test(w));
+    const intersection = pWords.filter(w => targetWords.has(w)).length;
+
+    let score = (intersection / Math.max(targetWords.size, pWords.length));
+
+    // Bonus for synonym matches if direct intersection is missing words
+    if (intersection < targetWords.size) {
+      const pAllWords = pModel.split(' ');
+      const tAllWords = target.split(' ');
+      tAllWords.forEach(tw => {
+        if (targetWords.has(tw) && !pWords.includes(tw)) {
+          const syns = SYNONYMS[tw] || [];
+          if (syns.some(s => pAllWords.includes(s))) score += 0.25;
         }
+      });
     }
 
-    // 5. Final Best Match (Word-intersection scoring)
-    // Filter: words length > 2 OR matches numbers (critical for models like 'Stool 80')
-    const targetWords = new Set(target.split(' ').filter(w => w.length > 2 || /^\d+$/.test(w)));
-    if (targetWords.size === 0) return filteredProducts[0]; 
+    if (score > bestScore) { bestScore = score; bestMatch = p; }
+  }
 
-    let bestScore = 0;
-    let bestMatch = null;
-    for (const p of filteredProducts) {
-        const pModel = normalize(p.model);
-        if (pModel === target) return p; 
-
-        const pWords = pModel.split(' ').filter(w => w.length > 2 || /^\d+$/.test(w));
-        const intersection = pWords.filter(w => targetWords.has(w)).length;
-        
-        let score = (intersection / Math.max(targetWords.size, pWords.length));
-
-        // Bonus for synonym matches if direct intersection is missing words
-        if (intersection < targetWords.size) {
-            const pAllWords = pModel.split(' ');
-            const tAllWords = target.split(' ');
-            tAllWords.forEach(tw => {
-                if (targetWords.has(tw) && !pWords.includes(tw)) {
-                    const syns = SYNONYMS[tw] || [];
-                    if (syns.some(s => pAllWords.includes(s))) score += 0.25;
-                }
-            });
-        }
-
-        if (score > bestScore) { bestScore = score; bestMatch = p; }
-    }
-
-    return bestScore >= 0.5 ? bestMatch : null;
+  return bestScore >= 0.5 ? bestMatch : null;
 }
 
 app.post('/api/auto-match-ai', async (req, res) => {
@@ -928,7 +928,7 @@ app.post('/api/auto-match-ai', async (req, res) => {
     // ── SPECIALIZED FITOUT WORKFLOW ─────────────────────────────────────────
     if (scope?.toLowerCase().includes('fitout')) {
       console.log(`\n🏗️ [Fitout Logic] Match: "${description.substring(0, 50)}..." against internal DB...`);
-      
+
       try {
         // Load the specific fitout database file
         let dbName = `fitout_v2-${finalTier}.json`;
@@ -952,13 +952,13 @@ app.post('/api/auto-match-ai', async (req, res) => {
           console.log(`  ✅ [Fitout Logic] Match found: ${matchResult.product.model} @ AED ${matchResult.product.price}`);
           return res.json({
             status: 'success',
-            isFitout: true, 
+            isFitout: true,
             product: {
               ...matchResult.product,
               brand: 'FitOut V2',
               brandLogo: '',
               imageUrl: matchResult.product.imageUrl || '',
-              images: (matchResult.product.images || []).map(img => 
+              images: (matchResult.product.images || []).map(img =>
                 img.startsWith('http') ? `${req.protocol}://${req.get('host')}/api/image-proxy?url=${encodeURIComponent(img)}` : img
               )
             },
@@ -1033,11 +1033,11 @@ app.post('/api/auto-match-ai', async (req, res) => {
 
     // ── OPTIMIZED BRAND PROCESSING ──────────────────
     console.log(`\n  ⚡ [Optimization] Running parallel identification for ${tierIsolatedCandidates.length} brands...`);
-    
+
     // 1. Run Identification (Stage 1) for ALL brands in parallel with Natural Taxonomy awareness
     const identificationPromises = tierIsolatedCandidates.map(async (candidateBrand) => {
       try {
-        const dbEntry = allLocalBrands.find(b => 
+        const dbEntry = allLocalBrands.find(b =>
           b.name.toLowerCase().trim() === candidateBrand.toLowerCase().trim()
         );
         const products = dbEntry?.products || [];
@@ -1053,7 +1053,7 @@ app.post('/api/auto-match-ai', async (req, res) => {
     });
 
     const identificationResults = await Promise.all(identificationPromises);
-    const validIdentities = identificationResults.filter(r => 
+    const validIdentities = identificationResults.filter(r =>
       r.identity.status === 'success' && r.identity.model && r.identity.model !== 'FAILED'
     );
 
@@ -1071,7 +1071,7 @@ app.post('/api/auto-match-ai', async (req, res) => {
       const identifiedBrand = identity.brand || candidateBrand;
       const identifiedCategory = identity.mainCategory || '';
       const identifiedSubCategory = identity.subCategory || '';
-      
+
       console.log(`\n  🎯 [Processing] ${identifiedBrand} → "${identifiedModel}" (Nat. Cat: ${identifiedSubCategory})`);
 
       // ── STAGE 2: LOCAL DB SEARCH (Zero-Cost Cache) ──
@@ -1083,7 +1083,7 @@ app.post('/api/auto-match-ai', async (req, res) => {
 
       if (localBrand && localBrand.products?.length > 0) {
         const dbProduct = fuzzyFindModel(localBrand.products, identifiedModel, identifiedCategory);
-        
+
         if (dbProduct) {
           console.log(`  ✨ [Stage 2] CACHE HIT: "${dbProduct.model}" loaded from local DB.`);
           return res.json({
@@ -1102,19 +1102,19 @@ app.post('/api/auto-match-ai', async (req, res) => {
       const webResult = await fetchProductDetails(identifiedBrand, identifiedModel, finalTier, provider, providerModel);
 
       if (webResult.status === 'success' && webResult.product) {
-        const newProduct = { 
-          ...webResult.product, 
-          brand: identifiedBrand, 
+        const newProduct = {
+          ...webResult.product,
+          brand: identifiedBrand,
           mainCategory: webResult.product.mainCategory || identifiedCategory || 'Furniture',
-          lastUpdated: new Date().toISOString(), 
-          source: 'AI-Discovery-Engine' 
+          lastUpdated: new Date().toISOString(),
+          source: 'AI-Discovery-Engine'
         };
 
         // Validate imageUrl
         const rawImg = newProduct.imageUrl || '';
         const isValidImage = rawImg.startsWith('https://') && !rawImg.includes('localhost') && /\.(jpg|jpeg|png|webp|svg)(\?|$)/i.test(rawImg);
         if (!isValidImage) {
-          newProduct.imageUrl = localBrand?.logo || ''; 
+          newProduct.imageUrl = localBrand?.logo || '';
         }
 
         // Persist to local DB permanently
@@ -1174,6 +1174,21 @@ app.post('/api/auto-match-ai', async (req, res) => {
 //   Option 1 (simple)  : "What is the best Model for [desc] from [brand]?"
 //   Option 2 (advanced) : "What is the best Model for [desc] from [category] from [brand]?"
 // ─────────────────────────────────────────────────────────────────────────────
+app.post('/api/ve-route', async (req, res) => {
+  try {
+    const { items, providerModel } = req.body;
+
+    if (!items || !Array.isArray(items)) {
+      return res.status(400).json({ status: 'error', error_message: 'Items array is required' });
+    }
+
+    const result = await veRouteCategories(items, providerModel);
+    res.json({ status: 'success', categoryMap: result });
+  } catch (error) {
+    console.error('[VE Route Error]:', error.message);
+    res.status(500).json({ status: 'error', error_message: error.message });
+  }
+});
 app.post('/api/ve-match', async (req, res) => {
   try {
     const {
@@ -1216,7 +1231,7 @@ app.post('/api/ve-match', async (req, res) => {
     if (identityResult.status !== 'success' || !identityResult.model) {
       return res.json({
         status: 'no_match',
-        message: `AI could not identify a model for "${brand}"${ category ? ` [${category}]` : '' }.`
+        message: `AI could not identify a model for "${brand}"${category ? ` [${category}]` : ''}.`
       });
     }
 
@@ -1229,7 +1244,7 @@ app.post('/api/ve-match', async (req, res) => {
     // ── STAGE 2: LOCAL DB CACHE LOOKUP (Zero-Cost) ──────────────────────────
     if (localBrand?.products?.length > 0) {
       console.log(`  🔍 [VE Stage 2] Searching for "${identifiedModel}" in local cache (Category Hint: ${identifiedCategory})...`);
-      
+
       const best = fuzzyFindModel(localBrand.products, identifiedModel, identifiedCategory);
 
       if (best) {
@@ -1363,8 +1378,8 @@ app.get('/api/railway-brands', async (req, res) => {
     res.json(response.data);
   } catch (error) {
     console.error('❌ Failed to fetch from Railway:', error.message);
-    res.status(500).json({ 
-      brands: [], 
+    res.status(500).json({
+      brands: [],
       error: error.message,
       targetUrl: `${JS_SCRAPER_SERVICE_URL}/brands`
     });
@@ -1479,7 +1494,7 @@ app.get('/api/image-proxy', async (req, res) => {
   let imageUrl = req.query.url;
   try {
     if (!imageUrl) return res.status(400).send('URL required');
-    
+
     // Support base64 encoded URLs if they don't start with http
     if (!imageUrl.startsWith('http')) {
       try {
@@ -1493,16 +1508,16 @@ app.get('/api/image-proxy', async (req, res) => {
     const origin = `${urlObj.protocol}//${urlObj.hostname}/`;
 
     // Create a robust HTTPS agent that can handle some common SSL issues if needed
-    const httpsAgent = new https.Agent({ 
+    const httpsAgent = new https.Agent({
       rejectUnauthorized: false, // Bypass some SSL issues for proxying
-      keepAlive: true 
+      keepAlive: true
     });
 
     const response = await axios.get(imageUrl, {
       responseType: 'arraybuffer',
-      timeout: 15000, 
+      timeout: 15000,
       httpsAgent,
-      headers: { 
+      headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
         'Accept-Language': 'en-US,en;q=0.9',
@@ -1521,20 +1536,20 @@ app.get('/api/image-proxy', async (req, res) => {
     const status = error.response?.status || 502;
     const code = error.code || 'UNKNOWN_ERROR';
     const msg = error.response?.statusText || error.message;
-    
+
     console.warn(`🖼️  [Image Proxy] Warning: ${imageUrl?.substring(0, 80)}... | Status: ${status} | Code: ${code}`);
 
     // Fallback image source (reliable placeholder)
     const fallbackImage = "https://placehold.co/400x400/f8fafc/64748b?text=Image+Not+Available";
 
     if (status === 404 || status === 403) {
-        try {
-            const fbRes = await axios.get(fallbackImage, { responseType: 'arraybuffer' });
-            res.set('Content-Type', 'image/png');
-            return res.send(fbRes.data);
-        } catch (e) {
-            return res.status(status).send(msg);
-        }
+      try {
+        const fbRes = await axios.get(fallbackImage, { responseType: 'arraybuffer' });
+        res.set('Content-Type', 'image/png');
+        return res.send(fbRes.data);
+      } catch (e) {
+        return res.status(status).send(msg);
+      }
     }
     res.status(502).send(`Gateway Error: ${code} - ${msg}`);
   }
@@ -1584,7 +1599,7 @@ async function handleScrapeRequest(req, res, method = 'standard') {
         // Architonic ALWAYS uses its dedicated endpoint (scraper.js) regardless of method —
         // scrapeArchitonic() has scroll loops + collection discovery the structure scraper lacks.
         const railwayEndpoint = isArchitonic ? '/scrape-architonic' : (endpointMap[method] || '/scrape');
-        
+
         try {
           const delegation = await callJsScraperService(railwayEndpoint, {
             name, url, origin, budgetTier,
@@ -1606,7 +1621,7 @@ async function handleScrapeRequest(req, res, method = 'standard') {
           // But for now, let's treat it as a hard failure if delegation was expected.
           throw delegationErr;
         }
-      } 
+      }
       // 🏠 EXECUTION: LOCAL ENGINE
       else {
         console.log(`🏠 [LOCAL] Executing task ${taskId} (${name}) on local engine...`);
@@ -1638,25 +1653,25 @@ async function handleScrapeRequest(req, res, method = 'standard') {
       };
 
       await brandStorage.saveBrand(finalBrand);
-      
-      tasks.set(taskId, { 
-        ...initialTask, 
-        status: 'completed', 
-        progress: 100, 
-        stage: 'Finished!', 
+
+      tasks.set(taskId, {
+        ...initialTask,
+        status: 'completed',
+        progress: 100,
+        stage: 'Finished!',
         brand: finalBrand,
-        resultCount: finalBrand.products.length 
+        resultCount: finalBrand.products.length
       });
 
       console.log(`✅ [SUCCESS] Task ${taskId} finished with ${finalBrand.products.length} items.`);
 
     } catch (err) {
       console.error(`❌ [TASK FAILED] ${taskId}:`, err);
-      tasks.set(taskId, { 
-        ...initialTask, 
-        status: 'failed', 
-        error: err.message, 
-        stage: 'Error occurred' 
+      tasks.set(taskId, {
+        ...initialTask,
+        status: 'failed',
+        error: err.message,
+        stage: 'Error occurred'
       });
     }
   };
@@ -1736,7 +1751,7 @@ app.post('/api/analyze-plan', planUpload.array('files', 10), async (req, res) =>
     const result = await analyzePlan(filesData, { includeFitout, provider, providerModel });
 
     for (const file of req.files) {
-      try { await fs.unlink(file.path); } catch (e) {}
+      try { await fs.unlink(file.path); } catch (e) { }
     }
 
     if (result.status === 'success') {
@@ -1774,45 +1789,45 @@ async function cleanTempDir() {
 
 // Premium Presentation PDF (PPTX -> PDF Converter)
 app.post('/api/generate-pptx-pdf', async (req, res) => {
-    try {
-        console.log('📄 [Server] Receiving pre-generated PPTX for PDF conversion...');
-        const { pptxBase64 } = req.body;
-        
-        let pdfPath = null;
-        let pptxPath = null;
+  try {
+    console.log('📄 [Server] Receiving pre-generated PPTX for PDF conversion...');
+    const { pptxBase64 } = req.body;
 
-        if (pptxBase64) {
-            console.log('🔄 [Server] Received pre-generated PPTX from client. Converting...');
-            const tempDir = isVercel ? '/tmp/uploads' : path.join(__dirname, '../uploads');
-            await fs.mkdir(tempDir, { recursive: true }).catch(() => null);
+    let pdfPath = null;
+    let pptxPath = null;
 
-            const pptxFilename = `presentation_upload_${Date.now()}.pptx`;
-            pptxPath = path.join(tempDir, pptxFilename);
-            
-            const buffer = Buffer.from(pptxBase64, 'base64');
-            await fs.writeFile(pptxPath, buffer);
+    if (pptxBase64) {
+      console.log('🔄 [Server] Received pre-generated PPTX from client. Converting...');
+      const tempDir = isVercel ? '/tmp/uploads' : path.join(__dirname, '../uploads');
+      await fs.mkdir(tempDir, { recursive: true }).catch(() => null);
 
-            const { convertPptxToPdf } = await import('./utils/pptxToPdfConverter.js');
-            pdfPath = await convertPptxToPdf(pptxPath);
-        } else {
-            console.log('⚠️ [Server] No pptxBase64 provided. Falling back to backend generation...');
-            const { generatePresentationPdf } = await import('./utils/pptxExportService.js');
-            const result = await generatePresentationPdf(req.body);
-            pdfPath = result.pdfPath;
-            pptxPath = result.pptxPath;
-        }
-        
-        if (pdfPath) {
-            console.log('✅ [Server] PDF Generated successfully.');
-            res.download(pdfPath, 'presentation_export.pdf');
-        } else {
-            console.warn('⚠️ [Server] PDF Conversion failed, providing PPTX instead.');
-            res.download(pptxPath, 'presentation_export.pptx');
-        }
-    } catch (err) {
-        console.error('❌ [Server] PPTX-PDF Generation/Conversion Error:', err);
-        res.status(500).json({ error: err.message });
+      const pptxFilename = `presentation_upload_${Date.now()}.pptx`;
+      pptxPath = path.join(tempDir, pptxFilename);
+
+      const buffer = Buffer.from(pptxBase64, 'base64');
+      await fs.writeFile(pptxPath, buffer);
+
+      const { convertPptxToPdf } = await import('./utils/pptxToPdfConverter.js');
+      pdfPath = await convertPptxToPdf(pptxPath);
+    } else {
+      console.log('⚠️ [Server] No pptxBase64 provided. Falling back to backend generation...');
+      const { generatePresentationPdf } = await import('./utils/pptxExportService.js');
+      const result = await generatePresentationPdf(req.body);
+      pdfPath = result.pdfPath;
+      pptxPath = result.pptxPath;
     }
+
+    if (pdfPath) {
+      console.log('✅ [Server] PDF Generated successfully.');
+      res.download(pdfPath, 'presentation_export.pdf');
+    } else {
+      console.warn('⚠️ [Server] PDF Conversion failed, providing PPTX instead.');
+      res.download(pptxPath, 'presentation_export.pptx');
+    }
+  } catch (err) {
+    console.error('❌ [Server] PPTX-PDF Generation/Conversion Error:', err);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // Reset & Cleanup
@@ -1843,7 +1858,7 @@ app.use((error, req, res, next) => {
 if (!isVercel) {
   server = app.listen(PORT, '0.0.0.0', () => {
     console.log(`🚀 Salamony4all/BOQV2 server actively listening on: http://localhost:${PORT}`);
-    
+
     // Initial maintenance tasks...
     Promise.all([
       cleanupService.cleanupAll(),

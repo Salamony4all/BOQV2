@@ -968,3 +968,16 @@ export async function analyzePlan(filesData, options = {}) {
         };
     }
 }
+
+/** Generic retry wrapper for async operations */
+export async function withRetry(fn, retries = 3, delay = 1000) {
+    for (let i = 0; i < retries; i++) {
+        try {
+            return await fn();
+        } catch (err) {
+            if (i === retries - 1) throw err;
+            console.warn(`  ⚠️  Retrying after error: ${err.message}. Attempt ${i + 1}/${retries}`);
+            await new Promise(resolve => setTimeout(resolve, delay * (i + 1)));
+        }
+    }
+}

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import AIPresentationModal from './AIPresentationModal';
+import SpecialistModal from './SpecialistModal';
 import CostingModal from './CostingModal';
 import styles from '../styles/ValueEngineeredModal.module.css';
 import mbs from '../styles/MultiBudgetModal.module.css';
@@ -10,6 +11,16 @@ import { getApiBase } from '../utils/apiBase';
 import { getFullUrl } from '../utils/urlUtils';
 
 const API_BASE = getApiBase();
+
+const VE_UI_CONFIG = {
+    labels: { desking: 'DESKING', seating: 'SEATING', softSeating: 'SOFT SEATING', accessories: 'ACCESSORIES' },
+    hints: {
+        desking: 'Desks, workstations, meeting & conference tables',
+        seating: 'Task chairs, executive chairs, operational chairs',
+        softSeating: 'Sofas, lounge seating, armchairs, ottomans',
+        accessories: 'Lighting, acoustic pods, electrifications'
+    }
+};
 
 const VE_TABLE_HEADER = ['#', 'Image', 'Description', 'Brand', 'Model', 'Qty', 'Unit', 'Rate', 'Amount'];
 
@@ -34,30 +45,6 @@ const isHeaderRow = (desc, row = {}) => {
     return false;
 };
 
-const CATEGORY_KEYWORDS = {
-    desking: ['desk', 'workstation', 'meeting table', 'conference table', 'table', 'bench', 'height adjustable', 'sit stand'],
-    seating: ['chair', 'task chair', 'executive chair', 'operational chair', 'directional chair', 'office seating', 'stool'],
-    softSeating: ['sofa', 'lounge', 'soft seating', 'armchair', 'public seating', 'couch', 'bench seating', 'ottoman'],
-    accessories: ['lighting', 'acoustic', 'pod', 'electrification', 'screen', 'partition', 'accessory', 'cable', 'monitor arm', 'pedestal']
-};
-
-const CATEGORY_LABELS = { desking: 'DESKING', seating: 'SEATING', softSeating: 'SOFT SEATING', accessories: 'ACCESSORIES' };
-const CATEGORY_HINTS = {
-    desking: 'Desks, workstations, meeting & conference tables',
-    seating: 'Task chairs, executive chairs, operational chairs',
-    softSeating: 'Sofas, lounge seating, armchairs, ottomans',
-    accessories: 'Lighting, acoustic pods, electrifications'
-};
-const CATEGORY_DEFAULTS = { desking: 'NARBUTAS', seating: 'SEDUS', softSeating: 'B&T DESIGN', accessories: 'NARBUTAS' };
-
-const inferCategory = (description) => {
-    const lower = (description || '').toLowerCase();
-    for (const [cat, keywords] of Object.entries(CATEGORY_KEYWORDS)) {
-        if (keywords.some(kw => lower.includes(kw))) return cat;
-    }
-    return null;
-};
-
 export default function ValueEngineeredModal({
     isOpen, onClose, originalTables, allBrands = [], onApplyFlow, onApply,
     onUploadBoq, onUploadPlan, planPreviewUrl, planPreviewType, planPreviewName,
@@ -72,6 +59,12 @@ export default function ValueEngineeredModal({
 
     const [openBrandDropdown, setOpenBrandDropdown] = useState(null);
     const [previewImage, setPreviewImage] = useState(null);
+    const [previewLogo, setPreviewLogo] = useState(null);
+    const [previewBrand, setPreviewBrand] = useState('');
+    const [previewModel, setPreviewModel] = useState('');
+    const [planPreviewOpen, setPlanPreviewOpen] = useState(false);
+    const [specialistData, setSpecialistData] = useState(null);
+    const [enrichingRowId, setEnrichingRowId] = useState(null);
     const [isCostingOpen, setIsCostingOpen] = useState(false);
     const [costingFactors, setCostingFactors] = useState(null);
 
@@ -79,8 +72,7 @@ export default function ValueEngineeredModal({
     const [brandMode, setBrandMode] = useState('simple');
     const [globalBrand, setGlobalBrand] = useState('');
     const [categoryBrands, setCategoryBrands] = useState({
-        desking: CATEGORY_DEFAULTS.desking, seating: CATEGORY_DEFAULTS.seating,
-        softSeating: CATEGORY_DEFAULTS.softSeating, accessories: CATEGORY_DEFAULTS.accessories
+        desking: '', seating: '', softSeating: '', accessories: ''
     });
 
     const [isDragging, setIsDragging] = useState(false);
@@ -91,9 +83,9 @@ export default function ValueEngineeredModal({
     const [aiStatus, setAiStatus] = useState({ active: false, status: 'idle', currentItem: null, brand: '', model: '', image: null, minimized: false });
     const [batchResult, setBatchResult] = useState(null);
     const [progress, setProgress] = useState({ current: 0, total: 0 });
+    const [swarm, setSwarm] = useState(null); // { lanes: { desking: { status, currentItem, progress, brand }, ... } }
     const [pendingSeed, setPendingSeed] = useState(false);
 
-    // Auto-populate when background extraction completes
     useEffect(() => {
         if (pendingSeed) {
             if (originalTables && originalTables.length > 0) {
@@ -263,6 +255,7 @@ export default function ValueEngineeredModal({
             setAiStatus({ active: false, status: 'idle', currentItem: null, brand: '', model: '', image: null, minimized: false });
             setBatchResult(null);
             setProgress({ current: 0, total: 0 });
+            setSwarm(null);
         }
     }, [isOpen, originalTables, seededItems]);
 
@@ -363,6 +356,46 @@ export default function ValueEngineeredModal({
         });
     };
 
+    const handleManualEnrich = async (row, index) => {
+        const brandName = prompt("Enter Brand Name (e.g., Herman Miller):", row.selectedBrand || "");
+        if (!brandName) return;
+        const modelName = prompt("Enter Model Name (e.g., Aeron):", row.selectedModel || "");
+        if (!modelName) return;
+
+        setEnrichingRowId(row.id);
+        try {
+            const response = await fetch(`${API_BASE}/api/models/enrich`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ brandName, modelName, budgetTier: 'value-engineered' })
+            });
+            const data = await response.json();
+
+            if (data.status === 'success' && data.product) {
+                const p = data.product;
+                setRows(prev => prev.map((r, i) => i === index ? {
+                    ...r,
+                    selectedBrand: p.brand,
+                    selectedModel: p.model,
+                    brandImage: p.imageUrl,
+                    brandLogo: p.brandLogo || '',
+                    rate: p.price > 0 ? p.price.toFixed(2) : r.rate,
+                    selectedMainCat: p.mainCategory,
+                    selectedSubCat: p.subCategory,
+                    aiStatus: 'success',
+                    aiResult: { product: p, status: 'success', brand: p.brand }
+                } : r));
+                alert(`Successfully enriched and saved ${p.model} to ${p.brand} database!`);
+            } else {
+                alert(`Enrichment failed: ${data.message || 'Product not found.'}`);
+            }
+        } catch (err) {
+            alert(`Enrichment Error: ${err.message}`);
+        } finally {
+            setEnrichingRowId(null);
+        }
+    };
+
     const handleVeAddRow = (afterIndex) => {
         setRows(prev => {
             const next = [...prev];
@@ -413,20 +446,103 @@ export default function ValueEngineeredModal({
             });
         });
 
-        const rowStatusClass = row.aiStatus === 'processing' ? mbs.aiPulse : row.aiStatus === 'success' ? mbs.aiGlow : row.aiStatus === 'fetching_details' ? mbs.aiPulseWarning : row.aiStatus === 'error' ? mbs.aiErrorBorder : '';
+        const rowStatusClass = row.aiStatus === 'processing' ? mbs.aiPulse : row.aiStatus === 'success' ? mbs.aiGlow : row.aiStatus === 'error' ? mbs.aiErrorBorder : '';
         const refImgSrc = getFullUrl(row.imageRef);
 
         return (
             <tr key={row.id} className={rowStatusClass}>
-                <td style={{ textAlign: 'center', verticalAlign: 'middle', minWidth: 40, fontSize: '0.78rem', color: 'var(--text-muted,#94a3b8)', fontWeight: 600 }}>{row.sn}</td>
+                <td style={{ textAlign: 'center', verticalAlign: 'middle', minWidth: 40, fontSize: '0.78rem', color: 'var(--text-muted,#94a3b8)', fontWeight: 600 }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+                        {row.sn}
+                        {row.aiStatus === 'success' && row.aiResult && (
+                            <button
+                                className={mbs.specialistBtn}
+                                onClick={() => setSpecialistData(row.aiResult)}
+                                title="AI Detail"
+                            >
+                                AI
+                            </button>
+                        )}
+                        {row.aiStatus === 'no_match' && (
+                            <button
+                                className={mbs.specialistBtn}
+                                style={{ backgroundColor: '#2ba4e0' }}
+                                onClick={() => handleManualEnrich(row, index)}
+                                disabled={enrichingRowId === row.id}
+                                title="Discover Online & Harden DB"
+                            >
+                                {enrichingRowId === row.id ? '...' : 'Search Online'}
+                            </button>
+                        )}
+                    </div>
+                </td>
                 <td style={{ verticalAlign: 'middle', minWidth: 72 }}>
-                    {row.imageRef ? <img src={refImgSrc} alt="ref" className={mbs.tableImg} onClick={() => setPreviewImage(refImgSrc)} /> : <div className={mbs.imgPlaceholder} style={{ fontSize: '0.65rem' }}>No Img</div>}
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+                        {row.imageRef ? (
+                            <div className={mbs.imgPlaceholder} style={{ background: 'none' }}>
+                                <img
+                                    src={refImgSrc}
+                                    alt="ref"
+                                    className={mbs.tableImg}
+                                    onClick={(e) => {
+                                        if (e.target.dataset.broken === 'true') return;
+                                        setPreviewImage(refImgSrc);
+                                        setPreviewLogo(null);
+                                        setPreviewBrand('Original Reference');
+                                        setPreviewModel(row.description);
+                                    }}
+                                    onError={(e) => {
+                                        e.target.dataset.broken = 'true';
+                                        e.target.style.opacity = '0.3';
+                                        e.target.style.filter = 'grayscale(1)';
+                                        e.target.title = 'Image not available (session expired – re-upload to refresh)';
+                                    }}
+                                />
+                            </div>
+                        ) : (
+                            <div className={mbs.imgPlaceholder} style={{ fontSize: '0.65rem' }}>No Img</div>
+                        )}
+                    </div>
                 </td>
                 <td style={{ verticalAlign: 'middle', minWidth: 220 }}>
                     <textarea className={mbs.cellInput} value={row.description} onChange={e => handleVeCellChange(index, 'description', e.target.value)} style={{ minHeight: 72, resize: 'vertical', width: '100%' }} />
                 </td>
                 <td style={{ verticalAlign: 'middle', minWidth: 80 }}>
-                    {row.brandImage ? <img src={getFullUrl(row.brandImage)} alt="brand" className={mbs.tableImg} onClick={() => setPreviewImage(getFullUrl(row.brandImage))} /> : <div className={mbs.imgPlaceholder} style={{ fontSize: '0.65rem' }}>Select</div>}
+                    <div className={mbs.brandImageCell}>
+                        {row.brandLogo && (
+                            <div className={mbs.brandLogoBadge}>
+                                <img
+                                    src={getFullUrl(row.brandLogo)}
+                                    alt=""
+                                    className={mbs.badgeLogo}
+                                    onError={(e) => { e.target.style.display = 'none'; }}
+                                />
+                            </div>
+                        )}
+                        {row.brandImage ? (
+                            <div className={mbs.tableImgContainer}>
+                                <img
+                                    src={getFullUrl(row.brandImage)}
+                                    alt="brand"
+                                    className={mbs.tableImg}
+                                    onClick={(e) => {
+                                        if (e.target.dataset.broken === 'true') return;
+                                        setPreviewImage(getFullUrl(row.brandImage));
+                                        setPreviewLogo(row.brandLogo);
+                                        setPreviewBrand(row.selectedBrand);
+                                        setPreviewModel(row.selectedModel);
+                                    }}
+                                    onError={(e) => {
+                                        e.target.dataset.broken = 'true';
+                                        e.target.style.opacity = '0.3';
+                                        e.target.style.filter = 'grayscale(1)';
+                                    }}
+                                />
+                            </div>
+                        ) : (
+                            <div className={mbs.imgPlaceholder} style={{ fontSize: '0.65rem' }}>Select</div>
+                        )}
+                    </div>
                 </td>
                 <td style={{ verticalAlign: 'middle', minWidth: 160 }}>
                     <textarea className={mbs.cellInput} value={row.brandDesc} onChange={e => handleVeCellChange(index, 'brandDesc', e.target.value)} style={{ minHeight: 72, resize: 'vertical', width: '100%' }} placeholder="Product details..." />
@@ -442,8 +558,6 @@ export default function ValueEngineeredModal({
                         <div className={mbs.brandDropdownContainer}>
                             {row.aiStatus === 'processing' ? (
                                 <div className={mbs.aiLoadingCell}><div className={mbs.tinySpinner} /><span style={{ fontSize: '0.72rem' }}>AI Matching…</span></div>
-                            ) : row.aiStatus === 'fetching_details' ? (
-                                <div className={mbs.aiLoadingCell}><div className={mbs.tinySpinner} /><span style={{ fontSize: '0.72rem', color: '#f59e0b' }}>Fetching Specs…</span></div>
                             ) : (
                                 <button className={`${mbs.brandTrigger} ${row.selectedBrand ? mbs.brandSelected : ''}`} onClick={() => setOpenBrandDropdown(openBrandDropdown === index ? null : index)}>
                                     {row.selectedBrand ? (<>{row.brandLogo && <img src={getFullUrl(row.brandLogo)} alt="" className={mbs.triggerLogo} />}<span className={mbs.triggerText}>{row.selectedBrand}</span></>) : <span className={mbs.triggerPlaceholder}>Select Brand…</span>}
@@ -499,37 +613,83 @@ export default function ValueEngineeredModal({
     };
 
     const furnitureBrands = allBrands.filter(b => !b.name?.toLowerCase().includes('fitout'));
+
+    // ─────────────────────────────────────────────────────────────
+    // MAIN EXECUTION LOGIC (Router + Swarm Parallelization)
+    // ─────────────────────────────────────────────────────────────
     const executeValueEngineeredAI = async () => {
         if (isRunning) return;
         setIsConfigOpen(false);
         setIsRunning(true);
         setBatchResult(null);
+        setAiStatus(prev => ({ ...prev, active: true, status: 'routing', currentItem: null, minimized: false }));
 
-        if (rows.length === 0) { setIsRunning(false); return; }
-        const seededRows = rows.map(r => ({ ...r, aiStatus: 'idle' }));
-        setRows(seededRows);
+        if (rows.length === 0) { setIsRunning(false); setAiStatus(prev => ({ ...prev, active: false })); return; }
 
-        const workableIndices = seededRows.map((r, i) => i).filter(i => !isHeaderRow(seededRows[i].description, seededRows[i]));
-        setProgress({ current: 0, total: workableIndices.length });
-        setAiStatus({ active: true, status: 'identifying', currentItem: null, brand: '...', model: 'Starting...', image: null, minimized: false });
+        const currentData = rows.map(r => ({ ...r, aiStatus: 'idle' }));
+        setRows(currentData);
+
+        const workableRows = currentData.filter(r => !isHeaderRow(r.description, r) && !r.isTotalRow);
+        setProgress({ current: 0, total: workableRows.length });
+        setSwarm(null);
+
+        let categoryMap = null;
+
+        // --- PHASE 1: ROUTING ---
+        if (brandMode === 'advanced') {
+            console.log('🚀 [VE AI] Routing items via AI Router...');
+            const routingPayload = workableRows.map(r => ({ id: String(r.id), desc: r.description }));
+
+            try {
+                const routeRes = await fetch(`${API_BASE}/api/ve-route`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ items: routingPayload })
+                });
+                const routeData = await routeRes.json();
+
+                if (routeData.status === 'success') {
+                    categoryMap = routeData.categoryMap;
+                    console.log('✅ [VE AI] Category Map received:', categoryMap);
+
+                    if (categoryMap && categoryMap.status === 'error') {
+                        alert("AI Routing failed: " + categoryMap.error_message);
+                        setIsRunning(false);
+                        setAiStatus(prev => ({ ...prev, active: false }));
+                        return;
+                    }
+                }
+            } catch (err) {
+                console.error('❌ [VE AI] Routing failed:', err);
+                alert("Network error during AI Routing.");
+                setIsRunning(false);
+                setAiStatus(prev => ({ ...prev, active: false }));
+                return;
+            }
+        }
 
         let successCount = 0, errorCount = 0;
+        const rowsRefCurrent = rowsRef.current;
 
-        const processRow = async (rowIndex) => {
+        // Reusable Single-Row Processor
+        const processSingleRow = async (rowIndex, targetBrand, categoryScope, laneId = null) => {
             const row = rowsRef.current[rowIndex];
             if (!row || row.aiStatus === 'success') return;
 
-            let targetBrand = '';
-            let categoryScope = null;
-            if (brandMode === 'simple') {
-                targetBrand = globalBrand;
-            } else {
-                const detected = inferCategory(row.description);
-                if (detected) { targetBrand = categoryBrands[detected] || ''; categoryScope = CATEGORY_LABELS[detected]; }
-                else { targetBrand = categoryBrands.desking || ''; }
+            if (laneId) {
+                setSwarm(prev => ({
+                    ...prev,
+                    lanes: {
+                        ...prev?.lanes,
+                        [laneId]: {
+                            ...prev?.lanes?.[laneId],
+                            status: 'identifying',
+                            currentItem: row,
+                            brand: targetBrand
+                        }
+                    }
+                }));
             }
-
-            if (!targetBrand) return;
 
             setAiStatus(prev => ({ ...prev, status: 'identifying', currentItem: row, brand: targetBrand, model: 'Matching via Search...', image: null }));
             setRows(prev => prev.map((r, i) => i === rowIndex ? { ...r, aiStatus: 'processing' } : r));
@@ -540,83 +700,54 @@ export default function ValueEngineeredModal({
             const payload = {
                 description: enrichedDesc,
                 brand: targetBrand,
+                qty: row.qty,
+                unit: row.unit,
                 providerModel: aiSettings?.model,
-                ...(brandMode === 'advanced' && categoryScope ? { category: categoryScope } : {})
+                ...(categoryScope ? { category: categoryScope } : {})
             };
 
             try {
-                // STEP 1: AI Search Grounding (Find the Model Name ONLY)
-                const response = await fetch(`${API_BASE}/api/ve-match`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                const response = await fetch(`${API_BASE}/api/ve-match`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
                 const result = await response.json();
 
                 if (result.status === 'success' && result.product) {
                     const match = result.product;
                     const matchedBrand = match.brand || targetBrand;
                     let finalModel = match.model || '';
-
-                    let finalImageUrl = '';
-                    let finalBrandDesc = finalModel;
-                    let finalRate = (row.rate || '0.00');
-                    let finalBasePrice = 0;
+                    let finalImageUrl = match.imageUrl || '';
+                    let finalBrandDesc = match.description || finalModel;
+                    let finalRate = parseFloat(match.price) > 0 ? parseFloat(match.price).toFixed(2) : (row.rate || '0.00');
+                    let finalBasePrice = parseFloat(match.price) || 0;
 
                     let resolvedMainCat = match.mainCategory || '';
                     let resolvedSubCat = match.subCategory || '';
-                    let resolvedFamily = '';
-                    let resolvedModelUrl = '';
+                    let resolvedFamily = match.family || '';
+                    let resolvedModelUrl = match.websiteUrl || match.productUrl || match.imageUrl || '';
 
                     const localBrand = allBrands.find(b => b.name?.toLowerCase().trim() === matchedBrand.toLowerCase().trim());
-                    let foundLocally = false;
 
-                    // STEP 2 & 3: Local Database Match (Snap to existing catalog)
-                    if (localBrand?.products && finalModel) {
-                        const normalize = s => String(s || '').toLowerCase().replace(/#\d+/g, '').replace(/[^a-z0-9]/g, ' ').trim();
-                        const target = normalize(finalModel);
-                        const matched = localBrand.products.filter(p => normalize(p.model).includes(target) || target.includes(normalize(p.model)));
-
-                        if (matched.length > 0) {
-                            // STEP 4: Populate from local DB
-                            const best = matched.sort((a, b) => (parseFloat(b.price) || 0) - (parseFloat(a.price) || 0))[0];
-                            finalModel = best.model;
-                            finalImageUrl = best.imageUrl || '';
-                            if (parseFloat(best.price) > 0) {
-                                finalRate = parseFloat(best.price).toFixed(2);
-                                finalBasePrice = parseFloat(best.price);
-                            }
-                            if (best.description) finalBrandDesc = best.description;
-                            resolvedMainCat = best.normalization?.category || best.mainCategory || resolvedMainCat;
-                            resolvedSubCat = best.normalization?.subCategory || best.subCategory || resolvedSubCat;
-                            resolvedFamily = best.family || '';
-                            resolvedModelUrl = best.productUrl || best.imageUrl || '';
-                            foundLocally = true;
-                            console.log(`✅ [VE Match] Found locally: ${matchedBrand} - ${finalModel}`);
-                        }
-                    }
-
-                    // STEP 5: Fallback Online Search (If missing locally)
-                    if (!foundLocally && finalModel) {
-                        console.log(`⚠️ [VE Match] Missing locally, fetching fallback online: ${matchedBrand} - ${finalModel}`);
-                        setAiStatus(prev => ({ ...prev, status: 'identifying', model: finalModel + ' (Fetching Details...)' }));
-                        setRows(prev => prev.map((r, i) => i === rowIndex ? { ...r, aiStatus: 'fetching_details' } : r));
-
-                        try {
-                            const detailsRes = await fetch(`${API_BASE}/api/ve-details`, {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ brand: matchedBrand, model: finalModel, providerModel: aiSettings?.model })
-                            });
-                            const detailsResult = await detailsRes.json();
-
-                            if (detailsResult.status === 'success' && detailsResult.product) {
-                                finalImageUrl = detailsResult.product.imageUrl || finalImageUrl;
-                                if (parseFloat(detailsResult.product.price) > 0) {
-                                    finalRate = parseFloat(detailsResult.product.price).toFixed(2);
-                                    finalBasePrice = parseFloat(detailsResult.product.price);
+                    if (laneId) {
+                        setSwarm(prev => {
+                            const lane = prev?.lanes?.[laneId];
+                            return {
+                                ...prev,
+                                lanes: {
+                                    ...prev?.lanes,
+                                    [laneId]: {
+                                        ...lane,
+                                        status: 'success',
+                                        model: finalModel,
+                                        image: finalImageUrl,
+                                        progress: lane.total > 0 ? Math.min(100, Math.round(((lane.current + 1) / lane.total) * 100)) : 100,
+                                        current: lane.current + 1
+                                    }
                                 }
-                                if (detailsResult.product.description) finalBrandDesc = detailsResult.product.description;
-                            }
-                        } catch (err) {
-                            console.error("Fallback detail fetch failed:", err);
-                        }
+                            };
+                        });
                     }
 
                     setAiStatus(prev => ({ ...prev, status: 'success', brand: matchedBrand, model: finalModel, image: finalImageUrl }));
@@ -634,14 +765,48 @@ export default function ValueEngineeredModal({
                         rate: finalRate,
                         basePrice: finalBasePrice,
                         amount: (parseFloat(finalRate) * (parseFloat(r.qty) || 0)).toFixed(2),
-                        aiStatus: 'success'
+                        aiStatus: 'success',
+                        aiResult: { ...result, boqDescription: r.description, brand: matchedBrand }
                     } : r));
                     successCount++;
                 } else {
+                    if (laneId) {
+                        setSwarm(prev => {
+                            const lane = prev?.lanes?.[laneId];
+                            return {
+                                ...prev,
+                                lanes: {
+                                    ...prev?.lanes,
+                                    [laneId]: {
+                                        ...lane,
+                                        status: 'error',
+                                        progress: lane.total > 0 ? Math.min(100, Math.round(((lane.current + 1) / lane.total) * 100)) : 100,
+                                        current: lane.current + 1
+                                    }
+                                }
+                            };
+                        });
+                    }
                     setRows(prev => prev.map((r, i) => i === rowIndex ? { ...r, aiStatus: result.status === 'no_match' ? 'no_match' : 'error' } : r));
                     errorCount++;
                 }
             } catch (err) {
+                if (laneId) {
+                    setSwarm(prev => {
+                        const lane = prev?.lanes?.[laneId];
+                        return {
+                            ...prev,
+                            lanes: {
+                                ...prev?.lanes,
+                                [laneId]: {
+                                    ...lane,
+                                    status: 'error',
+                                    current: lane.current + 1
+                                }
+                            }
+                        };
+                    });
+                }
                 setRows(prev => prev.map((r, i) => i === rowIndex ? { ...r, aiStatus: 'error' } : r));
                 errorCount++;
             }
@@ -649,9 +814,81 @@ export default function ValueEngineeredModal({
             await sleep(800);
         };
 
-        try { await batch(workableIndices, 5, idx => processRow(idx)); setBatchResult({ success: successCount, error: errorCount }); }
-        catch (err) { setBatchResult({ error: 1 }); }
-        finally { setIsRunning(false); setAiStatus(prev => ({ ...prev, active: false })); setTimeout(() => setBatchResult(null), 8000); }
+        // --- PHASE 2: SWARM EXECUTION ---
+        if (brandMode === 'advanced' && categoryMap && categoryMap.status !== 'error') {
+            const swarmPromises = [];
+            const categoryKeys = ['desking', 'seating', 'softSeating', 'accessories'];
+            const activeLanes = {};
+
+            for (const catKey of categoryKeys) {
+                const itemIds = categoryMap[catKey] || [];
+                if (!itemIds || itemIds.length === 0) continue;
+                const targetBrand = categoryBrands[catKey];
+                if (!targetBrand) continue;
+
+                activeLanes[catKey] = {
+                    id: catKey,
+                    label: VE_UI_CONFIG.labels[catKey],
+                    status: 'active',
+                    current: 0,
+                    total: itemIds.length,
+                    progress: 0,
+                    brand: targetBrand,
+                    currentItem: null
+                };
+            }
+
+            setSwarm({ lanes: activeLanes });
+
+            for (const catKey of categoryKeys) {
+                const itemIds = categoryMap[catKey] || [];
+                if (!itemIds || itemIds.length === 0) continue;
+
+                const targetBrand = categoryBrands[catKey];
+                if (!targetBrand) continue;
+
+                const stringItemIds = itemIds.map(String);
+                const catWorkableIndices = workableRows
+                    .filter(r => stringItemIds.includes(String(r.id)))
+                    .map(r => rowsRef.current.findIndex(row => row.id === r.id))
+                    .filter(idx => idx !== -1);
+
+                if (catWorkableIndices.length > 0) {
+                    const processCategoryBatch = async () => {
+                        await batch(catWorkableIndices, 5, async (rowIndex) => {
+                            await processSingleRow(rowIndex, targetBrand, VE_UI_CONFIG.labels[catKey], catKey);
+                        });
+                    };
+                    swarmPromises.push(processCategoryBatch());
+                }
+            }
+
+            // Run all category lanes in parallel (The Swarm)
+            try {
+                setAiStatus(prev => ({ ...prev, status: 'matching' }));
+                await Promise.all(swarmPromises);
+            } catch (err) {
+                console.error("Swarm parallel execution failed:", err);
+            }
+        } else {
+            // SIMPLE MODE (or fallback if routing failed)
+            const targetBrand = globalBrand;
+            if (targetBrand) {
+                const workableIndices = workableRows.map(r => rowsRef.current.findIndex(row => row.id === r.id)).filter(idx => idx !== -1);
+                try {
+                    await batch(workableIndices, 5, async (rowIndex) => {
+                        await processSingleRow(rowIndex, targetBrand, null);
+                    });
+                } catch (err) {
+                    console.error("Simple execution failed:", err);
+                }
+            }
+        }
+
+        setBatchResult({ success: successCount, error: errorCount });
+        setIsRunning(false);
+        setAiStatus(prev => ({ ...prev, active: false }));
+        setTimeout(() => setBatchResult(null), 8000);
     };
 
     const canStartAI = brandMode === 'simple' ? globalBrand !== '' : Object.values(categoryBrands).some(b => b !== '');
@@ -772,11 +1009,6 @@ export default function ValueEngineeredModal({
                             )}
                         </div>
 
-                        {previewImage && (
-                            <div onClick={() => setPreviewImage(null)} style={{ position: 'fixed', inset: 0, zIndex: 99999, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'zoom-out' }}>
-                                <img src={previewImage} alt="preview" style={{ maxWidth: '90vw', maxHeight: '90vh', borderRadius: 12, boxShadow: '0 0 60px rgba(0,0,0,0.8)' }} />
-                            </div>
-                        )}
                     </div>
 
                     <div className={mbs.footer}>
@@ -790,6 +1022,85 @@ export default function ValueEngineeredModal({
                     </div>
                 </div>
             </div>
+
+            {/* Premium Image Preview Overlay */}
+            {previewImage && (
+                <div className={mbs.previewOverlay} onClick={(e) => { e.stopPropagation(); setPreviewImage(null); setPreviewLogo(null); setPreviewBrand(null); setPreviewModel(null); }}>
+                    <div className={mbs.previewContent} onClick={e => e.stopPropagation()}>
+                        <div className={mbs.previewMain}>
+                            {previewLogo && (
+                                <div className={mbs.previewLogoBadge}>
+                                    <img
+                                        src={getFullUrl(previewLogo)}
+                                        alt="brand logo"
+                                        className={mbs.previewBadgeLogo}
+                                        style={{ objectFit: 'contain', background: 'white', padding: '4px', borderRadius: '4px', boxShadow: '0 2px 8px rgba(0,0,0,0.2)' }}
+                                        onError={(e) => { e.target.parentNode.style.display = 'none'; }}
+                                    />
+                                </div>
+                            )}
+                            <img
+                                src={previewImage}
+                                alt="Full view"
+                                className={mbs.previewImage}
+                                onError={(e) => {
+                                    e.target.src = 'https://placehold.co/600x400?text=Image+Not+Available';
+                                }}
+                            />
+                        </div>
+
+                        <div className={mbs.previewFooter}>
+                            <div className={mbs.previewDetails}>
+                                <div className={mbs.previewTitle}>{previewBrand || 'Product View'}</div>
+                                <div className={mbs.previewSubtitle}>{previewModel || ''}</div>
+                            </div>
+                            <button
+                                className={mbs.previewCloseBtn}
+                                onClick={() => { setPreviewImage(null); setPreviewLogo(null); setPreviewBrand(null); setPreviewModel(null); }}
+                            >
+                                <i className="ri-close-line"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Plan Preview Overlay */}
+            {planPreviewOpen && planPreviewUrl && (
+                <div className={mbs.previewOverlay} onClick={() => setPlanPreviewOpen(false)}>
+                    <div className={mbs.previewContent} onClick={e => e.stopPropagation()}>
+                        <div className={mbs.previewMain}>
+                            {planPreviewType === 'application/pdf' ? (
+                                <object data={planPreviewUrl} type="application/pdf" className={mbs.previewImage}>
+                                    <div className={mbs.previewFallback}>PDF preview unavailable</div>
+                                </object>
+                            ) : (
+                                <img
+                                    src={planPreviewUrl}
+                                    alt={planPreviewName || 'Plan preview'}
+                                    className={mbs.previewImage}
+                                    onError={(e) => {
+                                        e.target.src = 'https://placehold.co/900x600?text=Preview+Not+Available';
+                                    }}
+                                />
+                            )}
+                        </div>
+
+                        <div className={mbs.previewFooter}>
+                            <div className={mbs.previewDetails}>
+                                <div className={mbs.previewTitle}>Uploaded Plan</div>
+                                <div className={mbs.previewSubtitle}>{planPreviewName || ''}</div>
+                            </div>
+                            <button
+                                className={mbs.previewCloseBtn}
+                                onClick={() => setPlanPreviewOpen(false)}
+                            >
+                                <i className="ri-close-line"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {isConfigOpen && (
                 <div className={afStyles.overlay} style={{ zIndex: 99999 }} onClick={() => setIsConfigOpen(false)}>
@@ -841,13 +1152,13 @@ export default function ValueEngineeredModal({
                                     </div>
                                 )}
 
-                                {brandMode === 'advanced' && Object.keys(CATEGORY_LABELS).map(cat => (
+                                {brandMode === 'advanced' && Object.keys(VE_UI_CONFIG.labels).map(cat => (
                                     <div key={cat} className={afStyles.tierGroup} style={{ borderColor: '#8b5cf660', marginBottom: '1rem' }}>
                                         <div className={afStyles.tierHeader}>
                                             <div className={afStyles.tierLabel}>
                                                 <span className={afStyles.tierDot} style={{ background: '#8b5cf6' }} />
-                                                <span style={{ color: '#8b5cf6' }}>{CATEGORY_LABELS[cat]}</span>
-                                                <span style={{ marginLeft: '10px', fontSize: '0.75rem', color: '#94a3b8' }}>{CATEGORY_HINTS[cat]}</span>
+                                                <span style={{ color: '#8b5cf6' }}>{VE_UI_CONFIG.labels[cat]}</span>
+                                                <span style={{ marginLeft: '10px', fontSize: '0.75rem', color: '#94a3b8' }}>{VE_UI_CONFIG.hints[cat]}</span>
                                             </div>
                                         </div>
                                         <div className={afStyles.brandGrid}>
@@ -881,7 +1192,57 @@ export default function ValueEngineeredModal({
                 onApply={handleApplyCosting}
             />
 
-            <AIPresentationModal isOpen={aiStatus.active} onClose={() => setAiStatus(prev => ({ ...prev, active: false }))} currentItem={aiStatus.currentItem} batchResult={batchResult} brand={aiStatus.brand} foundModel={aiStatus.model} foundImage={aiStatus.image} progress={progress.total > 0 ? Math.round((progress.current / progress.total) * 100) : 0} status={aiStatus.status} tier="value-engineered" type="furniture" alignment="right" isMinimized={aiStatus.minimized} onToggleMinimize={() => setAiStatus(prev => ({ ...prev, minimized: !prev.minimized }))} />
+            <SpecialistModal
+                isOpen={!!specialistData}
+                onClose={() => setSpecialistData(null)}
+                data={specialistData}
+            />
+
+            {(() => {
+                const getActiveModals = () => {
+                    if (aiStatus.active) {
+                        const itemType = aiStatus.currentItem?.scope?.toLowerCase().includes('fitout') ? 'fitout' : 'furniture';
+                        return [{ type: itemType, status: aiStatus, progress: progress, isResult: false }];
+                    }
+                    if (batchResult) {
+                        return [{ type: 'furniture', status: {}, batchResult: batchResult, progress: progress, isResult: true }];
+                    }
+                    return [];
+                };
+
+                const activeModals = getActiveModals();
+
+                return activeModals.map((modalData, idx) => {
+                    const { type, status, progress, isResult, batchResult: bRes } = modalData;
+                    const alignment = 'center';
+                    const minimizedOffset = 24;
+
+                    return (
+                        <AIPresentationModal
+                            key={`ve-modal-${isResult ? 'result' : 'discovery'}`}
+                            type={type}
+                            isOpen={true}
+                            onClose={() => {
+                                if (isResult) setBatchResult(null);
+                                else setAiStatus(prev => ({ ...prev, active: false }));
+                            }}
+                            tier="value-engineered"
+                            alignment={alignment}
+                            currentItem={status.currentItem}
+                            batchResult={isResult ? bRes : null}
+                            brand={status.brand}
+                            foundModel={status.model}
+                            foundImage={status.image}
+                            progress={progress.total > 0 ? Math.round((progress.current / progress.total) * 100) : 0}
+                            status={status.status}
+                            swarm={swarm}
+                            isMinimized={status.minimized}
+                            onToggleMinimize={() => setAiStatus(prev => ({ ...prev, minimized: !prev.minimized }))}
+                            minimizedOffset={minimizedOffset}
+                        />
+                    );
+                });
+            })()}
         </>
     );
 }

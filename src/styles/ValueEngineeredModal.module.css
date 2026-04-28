@@ -11,7 +11,7 @@
   align-items: flex-start;
   justify-content: center;
   overflow-y: auto;
-  padding: 1rem;
+  padding: 80px 2rem 2rem;
   animation: overlayIn 0.35s ease-out;
 }
 
@@ -34,7 +34,7 @@
   box-shadow: 0 40px 80px rgba(0, 0, 0, 0.5);
   overflow: hidden;
   animation: panelSlideDown 0.5s cubic-bezier(0.16, 1, 0.3, 1);
-  margin: 2rem auto;
+  margin: 0 auto;
   min-height: 80vh;
   display: flex;
   flex-direction: column;

@@ -278,7 +278,7 @@
   position: fixed;
   top: 1.5rem;
   left: 1.5rem;
-  z-index: 100;
+  z-index: 10000;
   background: var(--bg-secondary);
   /* Theme var */
   border: 1px solid var(--border-color);
@@ -623,7 +623,7 @@
     radial-gradient(at 100% 100%, rgba(245, 158, 11, 0.1) 0, transparent 50%);
   color: var(--text-primary);
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  padding: 1rem 2rem;
+  padding: 80px 2rem 2rem;
 }
 
 .container {
@@ -633,11 +633,18 @@
 
 /* Compact Header for Main App */
 .headerCompact {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 10000;
   display: flex;
   justify-content: flex-start;
   align-items: center;
-  margin-bottom: 2rem;
-  padding-bottom: 1rem;
+  padding: 0.75rem 2rem;
+  background: var(--bg-primary);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--border-color);
 }
 
@@ -1027,5 +1034,59 @@
 
   .cardTitle {
     font-size: 1.15rem;
+  }
+}
+
+.systemErrorBanner {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 90%;
+  max-width: 600px;
+}
+
+.systemErrorItem {
+  background: rgba(127, 29, 29, 0.9);
+  color: #fecaca;
+  padding: 1rem 1.5rem;
+  border-radius: 12px;
+  border: 1px solid rgba(248, 113, 113, 0.4);
+  backdrop-filter: blur(8px);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  animation: slideDown 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.systemErrorItem button {
+  background: transparent;
+  border: none;
+  color: #fecaca;
+  font-size: 1.5rem;
+  cursor: pointer;
+  padding: 0 0.5rem;
+  line-height: 1;
+  opacity: 0.7;
+  transition: opacity 0.2s;
+}
+
+.systemErrorItem button:hover {
+  opacity: 1;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }

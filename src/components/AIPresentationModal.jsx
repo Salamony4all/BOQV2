@@ -19,6 +19,67 @@ const FITOUT_STEPS = [
     { id: 'found', label: 'Engineering Solution Found', icon: '✅' }
 ];
 
+const NeuralSynapse = ({ from, to, active }) => (
+    <svg className={styles.synapseSvg} style={{ opacity: active ? 1 : 0.2 }}>
+        <path 
+            d={`M ${from.x} ${from.y} C ${from.x + 100} ${from.y}, ${to.x - 100} ${to.y}, ${to.x} ${to.y}`} 
+            className={active ? styles.synapseActive : styles.synapseIdle}
+        />
+    </svg>
+);
+
+const NeuralLink = () => (
+    <svg className={styles.neuralLinkSvg} viewBox="0 0 1000 200" preserveAspectRatio="none">
+        <defs>
+            <linearGradient id="neuralGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" stopColor="rgba(138, 43, 226, 0)" />
+                <stop offset="50%" stopColor="rgba(138, 43, 226, 0.4)" />
+                <stop offset="100%" stopColor="rgba(138, 43, 226, 0)" />
+            </linearGradient>
+            <linearGradient id="neuralGradGold" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" stopColor="rgba(245, 166, 35, 0)" />
+                <stop offset="50%" stopColor="rgba(245, 166, 35, 0.2)" />
+                <stop offset="100%" stopColor="rgba(245, 166, 35, 0)" />
+            </linearGradient>
+            <filter id="glow">
+                <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
+                <feMerge>
+                    <feMergeNode in="coloredBlur"/>
+                    <feMergeNode in="SourceGraphic"/>
+                </feMerge>
+            </filter>
+        </defs>
+        
+        {/* Complex Neural Paths */}
+        <path d="M0,100 C200,20 400,180 600,100 S800,180 1000,100" fill="none" stroke="url(#neuralGrad)" strokeWidth="2" className={styles.neuralPath} style={{ animationDuration: '4s' }} />
+        <path d="M0,50 C200,180 400,20 600,50 S800,20 1000,50" fill="none" stroke="url(#neuralGrad)" strokeWidth="1.2" className={styles.neuralPath} style={{ animationDuration: '6s', animationDelay: '-1s' }} />
+        <path d="M0,150 C200,50 400,150 600,150 S800,50 1000,150" fill="none" stroke="url(#neuralGradGold)" strokeWidth="1" className={styles.neuralPath} style={{ animationDuration: '8s', animationDelay: '-2s' }} />
+        <path d="M0,100 Q250,0 500,100 T1000,100" fill="none" stroke="url(#neuralGrad)" strokeWidth="0.8" className={styles.neuralPath} style={{ animationDuration: '10s', animationDelay: '-3s' }} />
+        <path d="M0,100 Q250,200 500,100 T1000,100" fill="none" stroke="url(#neuralGradGold)" strokeWidth="0.8" className={styles.neuralPath} style={{ animationDuration: '12s', animationDelay: '-4s' }} />
+        
+        {/* Additional Cross-Neural Links */}
+        <path d="M0,200 Q500,0 1000,200" fill="none" stroke="url(#neuralGrad)" strokeWidth="0.5" opacity="0.3" className={styles.neuralPath} style={{ animationDuration: '15s' }} />
+        <path d="M0,0 Q500,200 1000,0" fill="none" stroke="url(#neuralGradGold)" strokeWidth="0.5" opacity="0.3" className={styles.neuralPath} style={{ animationDuration: '18s' }} />
+
+        {/* Animated Data Packets (Circles following paths) */}
+        <circle r="3" fill="#fff" filter="url(#glow)" className={styles.dataPacket} style={{ color: '#fff' }}>
+            <animateMotion dur="4s" repeatCount="indefinite" path="M0,100 C200,20 400,180 600,100 S800,180 1000,100" />
+        </circle>
+        <circle r="2.5" fill="#f5a623" filter="url(#glow)" className={styles.dataPacket} style={{ color: '#f5a623', animationDelay: '-1.5s' }}>
+            <animateMotion dur="6s" repeatCount="indefinite" path="M0,50 C200,180 400,20 600,50 S800,20 1000,50" />
+        </circle>
+        <circle r="2" fill="#8a2be2" filter="url(#glow)" className={styles.dataPacket} style={{ color: '#8a2be2', animationDelay: '-3s' }}>
+            <animateMotion dur="8s" repeatCount="indefinite" path="M0,150 C200,50 400,150 600,150 S800,50 1000,150" />
+        </circle>
+        <circle r="1.5" fill="#fff" filter="url(#glow)" className={styles.dataPacket} style={{ color: '#fff', animationDelay: '-5s' }}>
+            <animateMotion dur="10s" repeatCount="indefinite" path="M0,100 Q250,0 500,100 T1000,100" />
+        </circle>
+        <circle r="1.5" fill="#f5a623" filter="url(#glow)" className={styles.dataPacket} style={{ color: '#f5a623', animationDelay: '-7s' }}>
+            <animateMotion dur="12s" repeatCount="indefinite" path="M0,100 Q250,200 500,100 T1000,100" />
+        </circle>
+    </svg>
+);
+
 const AIPresentationModal = ({ 
     isOpen, 
     onClose, 
@@ -35,7 +96,8 @@ const AIPresentationModal = ({
     isMinimized = false,
     minimizedOffset = 24,
     onToggleMinimize = () => {},
-    onMinimizeAll = () => {}
+    onMinimizeAll = () => {},
+    swarm = null // { lanes: { id: { label, status, progress, currentItem, brand } } }
 }) => {
     const { theme } = useTheme();
     const [stepIndex, setStepIndex] = useState(0);
@@ -86,6 +148,7 @@ const AIPresentationModal = ({
             const timer = setInterval(() => {
                 setStepIndex(prev => {
                     if (status === 'success') return AI_STEPS.length - 1;
+                    if (status === 'routing') return 0; // Stay at first step during routing
                     if (status === 'error') return prev; 
                     return prev < AI_STEPS.length - 2 ? prev + 1 : prev; 
                 });
@@ -129,10 +192,14 @@ const AIPresentationModal = ({
     }, [status, foundModel, foundImage, brand, accuracy]);
 
     useEffect(() => {
-        if (isOpen && AI_STEPS[stepIndex]) {
-            setLogs(prev => [...prev, `${AI_STEPS[stepIndex].icon} ${AI_STEPS[stepIndex].label}`].slice(-5));
+        if (isOpen) {
+            if (status === 'routing') {
+                setLogs(prev => [...prev, '🌐 Orchestrating Swarm Lanes...', '📡 Analyzing BOQ Structure...', '🤖 AI Router Online'].slice(-5));
+            } else if (AI_STEPS[stepIndex]) {
+                setLogs(prev => [...prev, `${AI_STEPS[stepIndex].icon} ${AI_STEPS[stepIndex].label}`].slice(-5));
+            }
         }
-    }, [stepIndex, isOpen]);
+    }, [stepIndex, isOpen, status]);
 
     // Handle Dragging Events on Window
     useEffect(() => {
@@ -289,15 +356,159 @@ const AIPresentationModal = ({
                             {tier.toUpperCase()} {status === 'success' ? 'IDENTIFIED' : status === 'error' ? 'RETRYING' : 'AI FURNISHING ACTIVE'}
                         </span>
                     </div>
-                    <div style={{ display: 'flex', gap: '10px' }}>
+                    <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                        {swarm && <div className={styles.swarmIndicator}>NEURAL SWARM SYNCHRONIZED</div>}
+                        {status === 'routing' && <div className={styles.routingIndicator}>ROUTING...</div>}
                          <button className={styles.minimizeBtn} onClick={() => onToggleMinimize(true)}>_</button>
                          <button className={styles.close} onClick={() => onToggleMinimize(true)}>×</button>
                     </div>
                 </div>
 
+                {swarm && (
+                    <div className={styles.swarmDashboard}>
+                        {/* Central Engine - The Neural Core */}
+                        <div className={`${styles.swarmEngine} ${status === 'success' ? styles.engineSuccess : status === 'error' ? styles.engineError : ''}`}>
+                            <div className={styles.engineCore}></div>
+                            {Array.from({ length: 3 }).map((_, i) => (
+                                <div key={i} className={styles.engineRing}></div>
+                            ))}
+                            <div className={styles.engineScanner}></div>
+                            <div className={styles.engineAura}></div>
+                        </div>
+                        
+                        <NeuralLink />
+                        
+                        {/* Dynamic Connections: Synapses from Core to Lanes */}
+                        <svg className={styles.swarmSynapseLayer}>
+                            {Object.values(swarm.lanes).map((lane, index) => {
+                                const angle = (index / Object.keys(swarm.lanes).length) * 2 * Math.PI;
+                                const radius = 240; 
+                                const tx = 400 + Math.cos(angle) * radius;
+                                const ty = 140 + Math.sin(angle) * radius;
+                                const isProcessing = lane.status === 'active' || lane.status === 'identifying';
+                                
+                                return (
+                                    <path 
+                                        key={`syn-${lane.id}`}
+                                        d={`M 400 140 Q ${400 + (tx-400)*0.5} ${140 + (ty-140)*0.8}, ${tx} ${ty}`}
+                                        className={`${styles.neuralSynapse} ${isProcessing ? styles.synapseActive : ''} ${lane.status === 'success' ? styles.synapseSuccess : ''}`}
+                                    />
+                                );
+                            })}
+                        </svg>
+                        
+                        <div className={styles.neuralConnectivity}></div>
+                        <div className={styles.swarmAmbientGlow}></div>
+                        
+                        {/* Floating Particles */}
+                        <div className={styles.swarmParticleContainer}>
+                            {Array.from({ length: 30 }).map((_, i) => (
+                                <div key={i} className={styles.swarmParticle} style={{ 
+                                    left: `${Math.random() * 100}%`, 
+                                    top: `${Math.random() * 100}%`,
+                                    animationDelay: `${Math.random() * 5}s`,
+                                    animationDuration: `${5 + Math.random() * 10}s`,
+                                    background: i % 3 === 0 ? '#8a2be2' : i % 3 === 1 ? '#f5a623' : '#fff'
+                                }} />
+                            ))}
+                        </div>
+
+                        {/* Swarm Lanes (The Processing Nodes) */}
+                        {Object.values(swarm.lanes).map((lane, index) => {
+                            const isProcessing = lane.status === 'active' || lane.status === 'identifying';
+                            const angle = (index / Object.keys(swarm.lanes).length) * 2 * Math.PI;
+                            const radius = 240; 
+                            const x = Math.cos(angle) * radius;
+                            const y = Math.sin(angle) * radius;
+
+                            return (
+                                <div 
+                                    key={lane.id} 
+                                    className={`${styles.swarmLane} ${isProcessing ? styles.laneActive : ''} ${lane.status === 'success' ? styles.laneComplete : ''} ${lane.status === 'error' ? styles.laneError : ''}`}
+                                    style={{
+                                        '--orbit-x': `${x}px`,
+                                        '--orbit-y': `${y}px`,
+                                        animationDelay: `${index * 0.15}s`
+                                    }}
+                                >
+                                    <div className={styles.laneHeader}>
+                                        <div className={styles.laneAvatar}>
+                                            <div className={styles.avatarInner}>
+                                                {lane.status === 'success' ? '✓' : lane.id.substring(0, 1).toUpperCase()}
+                                            </div>
+                                            {isProcessing && <div className={styles.avatarPulse}></div>}
+                                            <div className={styles.laneScanner}></div>
+                                        </div>
+                                        <div style={{ flex: 1 }}>
+                                            <div className={styles.laneLabel}>{lane.label}</div>
+                                            <div className={styles.laneBrand}>{lane.brand}</div>
+                                        </div>
+                                        {lane.status === 'success' && <div className={styles.successSparkle}></div>}
+                                    </div>
+                                    
+                                    <div className={styles.laneProgressContainer}>
+                                        <div className={styles.laneProgressBar} style={{ width: `${lane.progress || 0}%` }} />
+                                        <div className={styles.progressShimmer}></div>
+                                    </div>
+
+                                    <div className={styles.laneStatus}>
+                                        {isProcessing ? (
+                                            <div className={styles.laneProcessing}>
+                                                <span className={styles.laneCurrentItem}>PROCESSING...</span>
+                                                <div className={styles.laneActivityLines}>
+                                                    <span></span><span></span><span></span>
+                                                </div>
+                                            </div>
+                                        ) : lane.status === 'success' ? (
+                                            <div className={styles.laneSuccessState}>
+                                                <span className={styles.laneResult}>AUTHENTICATED</span>
+                                                <span className={styles.laneModelName}>{lane.model?.substring(0, 15)}...</span>
+                                            </div>
+                                        ) : lane.status === 'error' ? (
+                                            <div className={styles.laneErrorState}>
+                                                <span>NO MATCH FOUND</span>
+                                            </div>
+                                        ) : (
+                                            <span className={styles.laneIdle}>WAITING...</span>
+                                        )}
+                                    </div>
+
+                                    {isProcessing && (
+                                        <div className={styles.laneMetrics}>
+                                            <div className={styles.metricItem}>
+                                                <label>SYNC</label>
+                                                <span>{Math.floor(Math.random() * 20) + 80}%</span>
+                                            </div>
+                                            <div className={styles.metricItem}>
+                                                <label>CPU</label>
+                                                <span>{Math.floor(Math.random() * 15) + 5}%</span>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Data Stream Effect for active lanes */}
+                                    {isProcessing && <div className={styles.laneDataStream}></div>}
+                                </div>
+                            );
+                        })}
+
+                        {/* Router State Overlay */}
+                        {status === 'routing' && (
+                            <div className={styles.routerOverlay}>
+                                <div className={styles.routerPulse}></div>
+                                <div className={styles.routerDataRing}></div>
+                                <div className={styles.routerText}>ORCHESTRATING SWARM LANES</div>
+                                <div className={styles.routerProgress}>
+                                    <div className={styles.routerProgressFill}></div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                )}
+
                 <div className={styles.content}>
                     {/* Left Side: The "Brain" / Thinking Area */}
-                    <div className={styles.visualArea}>
+                    <div className={`${styles.visualArea} ${swarm ? styles.swarmVisualArea : ''}`}>
                         <div className={styles.imagePreviewContainer}>
                             {/* Logic: While transitioning or searching, prefer showing the last stable match (memoizedDisplay) 
                                 unless we finally have a fresh success. This eliminates the "progress placeholder" between items. */}
@@ -330,7 +541,16 @@ const AIPresentationModal = ({
                                             <div className={styles.wireframeCube}></div>
                                             <div className={styles.radarCircle}></div>
                                             <div className={styles.radarCircle2}></div>
-                                            <span className={styles.searchingText}>MATCHING BEST PRODUCT...</span>
+                                            <span className={styles.searchingText}>
+                                                {status === 'routing' ? 'AI ROUTER: CLASSIFYING BOQ...' : 'NEURAL CORE: MATCHING BEST PRODUCT...'}
+                                            </span>
+                                            {status === 'routing' && (
+                                                <div className={styles.routingDataNodes}>
+                                                    {Array.from({ length: 8 }).map((_, i) => (
+                                                        <div key={i} className={styles.dataNode} style={{ animationDelay: `${i * 0.1}s` }} />
+                                                    ))}
+                                                </div>
+                                            )}
                                         </div>
                                     );
                                 }
