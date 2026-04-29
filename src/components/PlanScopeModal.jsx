@@ -47,13 +47,19 @@ const PlanScopeModal = ({ isOpen, onClose, onSelect }) => {
                         <div className={styles.card} onClick={() => onSelect('furniture', selectedEngine, selectedModel)}>
                             <div className={styles.icon}>🛋️</div>
                             <h3 className={styles.cardTitle}>Furniture Only</h3>
-                            <p className={styles.cardDesc}>Extract desks, chairs, sofas, and standalone items.</p>
+                            <p className={styles.cardDesc}>
+                                Focus exclusively on loose furniture: chairs, desks, sofas, storage units, and modular pods. 
+                                <strong> (Excludes partitions, flooring, and MEP)</strong>
+                            </p>
                         </div>
 
                         <div className={styles.card} onClick={() => onSelect('both', selectedEngine, selectedModel)}>
-                            <div className={styles.icon}>📐</div>
-                            <h3 className={styles.cardTitle}>Furniture & Fitout</h3>
-                            <p className={styles.cardDesc}>Comprehensive extraction including partitions, walls, and flooring.</p>
+                            <div className={styles.icon}>🏗️</div>
+                            <h3 className={styles.cardTitle}>Fitout & Furniture</h3>
+                            <p className={styles.cardDesc}>
+                                Comprehensive extraction including architectural partitions, flooring types, ceiling works, 
+                                joinery, and electrical/MEP points.
+                            </p>
                         </div>
                     </div>
                 </div>

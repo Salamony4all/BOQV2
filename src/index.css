@@ -25,6 +25,15 @@
   /* Shared standard colors */
   --white: #ffffff;
   --black: #000000;
+
+  /* Semantic Colors */
+  --danger: #ef4444;
+  --success: #10b981;
+  --warning: #f59e0b;
+  --info: #3b82f6;
+  --primary-accent: #6366f1;
+  --secondary-accent: #8b5cf6;
+  --orange-accent: #f97316;
 }
 
 /* Light Mode Overrides */
@@ -50,6 +59,15 @@
   --border-color: #cbd5e1;
   /* Stronger border for visibility */
   --card-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+
+  /* Semantic Color Overrides (optional, usually same but can be adjusted for light mode) */
+  --danger: #ef4444;
+  --success: #059669; /* Slightly darker for better contrast on light */
+  --warning: #d97706; /* Slightly darker for better contrast on light */
+  --info: #2563eb;    /* Slightly darker for better contrast on light */
+  --primary-accent: #4f46e5;
+  --secondary-accent: #7c3aed;
+  --orange-accent: #ea580c;
 }
 
 body {

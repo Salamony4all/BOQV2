@@ -33,6 +33,14 @@ class StructureScraper {
 
         try {
             console.log('🔄 Initializing Structure Scraper engine (Lazy Load)...');
+            
+            // Set Playwright environment variables for Railway stability
+            if (process.env.RAILWAY_ENVIRONMENT || process.platform === 'linux') {
+                process.env.PLAYWRIGHT_BROWSERS_PATH = '/ms-playwright';
+                process.env.PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD = '1';
+                console.log('🏛️ Railway detected - using pre-installed Playwright browsers at /ms-playwright');
+            }
+
             const crawlee = await import('crawlee');
             const { Configuration, log } = crawlee;
 
@@ -40,6 +48,8 @@ class StructureScraper {
             log.setLevel(log.LEVELS.WARNING);
 
             // Configure Crawlee for low-memory environment
+            process.env.APIFY_DISABLE_PS = '1';
+            process.env.CRAWLEE_DISABLE_PS = '1';
             process.env.CRAWLEE_MEMORY_MB = '1800'; 
             process.env.CRAWLEE_AVAILABLE_MEMORY_RATIO = '0.85'; 
 
@@ -95,10 +105,18 @@ class StructureScraper {
 
             // Important: Masquerade as real browser
             launchContext: {
-                useChrome: false,
-                userAgent: this.userAgent,
                 launchOptions: {
-                    args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-blink-features=AutomationControlled']
+                    headless: true,
+                    args: [
+                        '--disable-gpu',
+                        '--disable-dev-shm-usage',
+                        '--no-sandbox',
+                        '--disable-setuid-sandbox',
+                        '--single-process',
+                        '--no-first-run',
+                        '--no-zygote',
+                        '--disable-extensions'
+                    ]
                 }
             },
 
@@ -424,7 +442,7 @@ class StructureScraper {
                 if (excludeKeywords.some(k => urlLower.includes(k) || textLower.includes(k))) return;
 
                 // Priority: Navigation menus, category-like words
-                const isNav = !!a.closest('nav, header, .menu, .navigation, .sidebar');
+                        const isNav = !!a.closest('nav, header, .menu, .navigation, .sidebar');
                 const hasKeyword = productKeywords.some(k => urlLower.includes(k) || textLower.includes(k)) ||
                     categoryKeywords.some(k => urlLower.includes(k) || textLower.includes(k));
 

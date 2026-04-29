@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import BrandDropdown from './BrandDropdown';
 import { useCompanyProfile } from '../context/CompanyContext';
 import { DEFAULT_AI_SETTINGS } from '../utils/aiConstants';
 import styles from '../styles/AutoFillSelectModal.module.css';
@@ -100,18 +101,15 @@ export default function AutoFillSelectModal({ isOpen, onClose, allBrands, active
                                             <button onClick={() => deselectTier(tierKey)}>None</button>
                                         </div>
                                     </div>
-                                    <div className={styles.brandGrid}>
-                                        {brands.map(b => (
-                                            <div
-                                                key={b.name}
-                                                className={`${styles.brandItem} ${selectedBrands.includes(b.name) ? styles.checked : ''}`}
-                                                onClick={() => toggleBrand(b.name)}
-                                                style={selectedBrands.includes(b.name) ? { borderColor: meta.color, background: meta.color + '15' } : {}}
-                                            >
-                                                <input type="checkbox" checked={selectedBrands.includes(b.name)} readOnly style={{ accentColor: meta.color }} />
-                                                <span className={styles.brandName}>{b.name}</span>
-                                            </div>
-                                        ))}
+                                    <div style={{ padding: '0 1rem 1.2rem' }}>
+                                        <BrandDropdown 
+                                            brands={brands}
+                                            selectedBrands={selectedBrands.filter(name => brands.some(b => b.name === name))}
+                                            multiple={true}
+                                            onSelect={(b) => setSelectedBrands(prev => [...new Set([...prev, b.name])])}
+                                            onRemove={(name) => setSelectedBrands(prev => prev.filter(b => b !== name))}
+                                            placeholder={`Add ${meta.label} brands...`}
+                                        />
                                     </div>
                                 </div>
                             );

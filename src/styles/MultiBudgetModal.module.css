@@ -19,7 +19,6 @@
 
 .modalContainer {
     background: var(--bg-primary);
-    /* Variable for theme */
     width: 98vw;
     height: calc(100vh - 100px);
     border-radius: 12px;
@@ -29,6 +28,20 @@
     flex-direction: column;
     overflow: hidden;
     animation: scaleIn 0.2s ease;
+}
+
+/* Specific Light Theme Overrides for the Modal */
+.modalContainer.light {
+    --bg-primary: #f8fafc;
+    --bg-secondary: #ffffff;
+    --bg-tertiary: #f1f5f9;
+    --bg-surface-glass: rgba(0, 0, 0, 0.03);
+    --bg-hover-glass: rgba(0, 0, 0, 0.06);
+    --border-color: #cbd5e1;
+    --border-muted: rgba(0, 0, 0, 0.12);
+    --text-primary: #0f172a;
+    --text-secondary: #334155;
+    --dropdown-shadow: 0 10px 30px rgba(0, 0, 0, 0.15), 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
 /* Compact Header */
@@ -66,7 +79,7 @@
 }
 
 .closeBtn:hover {
-    background: #ef4444;
+    background: var(--danger);
     color: white;
 }
 
@@ -149,7 +162,7 @@
 
 .progressFill {
     height: 100%;
-    background: linear-gradient(90deg, #3b82f6, #8b5cf6);
+    background: linear-gradient(90deg, var(--info), var(--secondary-accent));
     transition: width 0.3s ease;
 }
 
@@ -176,7 +189,7 @@
     right: 0.5rem;
     width: 8px;
     height: 8px;
-    background: #3b82f6;
+    background: var(--info);
     border-radius: 50%;
     box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7);
     animation: badgeGlow 2s infinite;
@@ -301,58 +314,58 @@
 /* Specific Action Variants - Refactored for Unification */
 .uploadBoqBtn {
     border-color: rgba(139, 92, 246, 0.4);
-    color: #8b5cf6;
+    color: var(--secondary-accent);
 }
 
 .uploadBoqBtn:hover {
     background: rgba(139, 92, 246, 0.05);
-    border-color: #8b5cf6;
+    border-color: var(--secondary-accent);
 }
 
 .genBoqBtn {
     border-color: rgba(59, 130, 246, 0.4);
-    color: #3b82f6;
+    color: var(--info);
 }
 
 .genBoqBtn:hover {
     background: rgba(59, 130, 246, 0.05);
-    border-color: #3b82f6;
+    border-color: var(--info);
 }
 
 .genPlanBtn {
     border-color: rgba(16, 185, 129, 0.4);
-    color: #10b981;
+    color: var(--success);
 }
 
 .genPlanBtn:hover {
     background: rgba(16, 185, 129, 0.05);
-    border-color: #10b981;
+    border-color: var(--success);
 }
 
 .createNewBtn {
     border-color: rgba(245, 158, 11, 0.4);
-    color: #f59e0b;
+    color: var(--warning);
 }
 
 .createNewBtn:hover {
     background: rgba(245, 158, 11, 0.05);
-    border-color: #f59e0b;
+    border-color: var(--warning);
 }
 
 .consolidateBtn {
     border-color: rgba(99, 102, 241, 0.4);
-    color: #6366f1;
+    color: var(--primary-accent);
 }
 
 .consolidateBtn:hover {
     background: rgba(99, 102, 241, 0.05);
-    border-color: #6366f1;
+    border-color: var(--primary-accent);
 }
 
 .consolidateBtnActive {
-    background: #6366f1 !important;
+    background: var(--primary-accent) !important;
     color: white !important;
-    border-color: #6366f1 !important;
+    border-color: var(--primary-accent) !important;
     box-shadow: 0 0 15px rgba(99, 102, 241, 0.4);
 }
 
@@ -376,7 +389,7 @@
 
 .aiAutoFillBtn:hover {
     background: rgba(139, 92, 246, 0.05);
-    border-color: #8b5cf6;
+    border-color: var(--secondary-accent);
     transform: translateY(-3px);
 }
 
@@ -387,30 +400,30 @@
 }
 
 .aiAutoFilling {
-    background: #8b5cf6 !important;
+    background: var(--secondary-accent) !important;
     color: white !important;
     animation: aiMotion 2s infinite ease-in-out;
 }
 
 .fitoutAutoFillBtn {
     border-color: rgba(249, 115, 22, 0.4);
-    color: #f97316;
+    color: var(--orange-accent);
 }
 
 .fitoutAutoFillBtn:hover {
     background: rgba(249, 115, 22, 0.05);
-    border-color: #f97316;
+    border-color: var(--orange-accent);
     transform: translateY(-3px);
 }
 
 .fitoutAutoFilling {
-    background: #f97316 !important;
+    background: var(--orange-accent) !important;
     color: white !important;
     animation: aiMotion 2s infinite ease-in-out;
 }
 
 .stopBtn {
-    background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+    background: linear-gradient(135deg, var(--danger) 0%, #dc2626 100%);
     border-color: rgba(239, 68, 68, 0.5);
     color: #fff;
     animation: pulseRed 2s infinite;
@@ -451,7 +464,7 @@
     padding: 6px 10px;
     background: rgba(59, 130, 246, 0.1);
     border-radius: 6px;
-    color: #3b82f6;
+    color: var(--info);
     font-size: 0.75rem;
     font-weight: 600;
 }
@@ -460,7 +473,7 @@
     width: 12px;
     height: 12px;
     border: 2px solid rgba(59, 130, 246, 0.3);
-    border-top-color: #3b82f6;
+    border-top-color: var(--info);
     border-radius: 50%;
     animation: spin 0.8s linear infinite;
 }
@@ -522,12 +535,12 @@
 }
 
 .activeTabBudgetary {
-    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%) !important;
+    background: linear-gradient(135deg, var(--info) 0%, #2563eb 100%) !important;
     color: white !important;
 }
 
 .activeTabMid {
-    background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%) !important;
+    background: linear-gradient(135deg, var(--secondary-accent) 0%, #7c3aed 100%) !important;
     color: white !important;
 }
 
@@ -726,13 +739,13 @@
 
 .fitoutTag {
     background: rgba(139, 92, 246, 0.15);
-    color: #8b5cf6;
+    color: var(--secondary-accent);
     border: 1px solid rgba(139, 92, 246, 0.3);
 }
 
 .furnitureTag {
     background: rgba(16, 185, 129, 0.15);
-    color: #10b981;
+    color: var(--success);
     border: 1px solid rgba(16, 185, 129, 0.3);
 }
 
@@ -791,7 +804,7 @@
     height: 18px;
     background: white;
     border-radius: 50%;
-    border: 1.5px solid #8b5cf6;
+    border: 1.5px solid var(--secondary-accent);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -818,8 +831,9 @@
 }
 
 .cellInput:focus {
-    background: var(--bg-tertiary);
-    border-color: #3b82f6;
+    background: var(--bg-secondary);
+    border-color: var(--info);
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
     outline: none;
 }
 
@@ -828,12 +842,35 @@
     background: var(--bg-secondary);
     border: 1px solid var(--border-color);
     color: var(--text-primary);
-    padding: 0.25rem 0.3rem;
-    border-radius: 3px;
+    padding: 0.25rem 2rem 0.25rem 0.4rem;
+    border-radius: 4px;
     width: 100%;
-    font-size: 0.7rem;
+    font-size: 0.72rem;
     max-height: 200px;
     overflow-y: auto;
+    appearance: none;
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right 0.4rem center;
+    background-size: 0.8em;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.productSelect:hover {
+    border-color: var(--text-secondary);
+}
+
+.productSelect:focus {
+    outline: none;
+    border-color: var(--info);
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+}
+
+.productSelect option {
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    padding: 8px;
 }
 
 .dropdownStack {
@@ -867,8 +904,16 @@
 }
 
 .brandTrigger:hover {
-    border-color: var(--text-secondary);
+    border-color: var(--info);
     background: var(--bg-secondary);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.brandSelected {
+    color: var(--text-primary) !important;
+    font-weight: 700 !important;
+    border-color: var(--secondary-accent) !important;
+    background: var(--bg-secondary) !important;
 }
 
 /* Compact Dropdown Panel */
@@ -884,7 +929,7 @@
     z-index: 100;
     max-height: 350px;
     overflow-y: auto;
-    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+    box-shadow: var(--dropdown-shadow, 0 6px 20px rgba(0, 0, 0, 0.4));
     scrollbar-width: thin;
     scrollbar-color: var(--text-secondary) var(--bg-tertiary);
 }
@@ -902,15 +947,18 @@
     font-size: 0.7rem;
     text-align: left;
     transition: all 0.1s ease;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    border-bottom: 1px solid var(--border-muted);
 }
 
 .brandOption:hover {
     background: var(--bg-tertiary);
+    color: var(--info);
 }
 
 .brandOption.brandOptionActive {
-    background: rgba(139, 92, 246, 0.3);
+    background: rgba(139, 92, 246, 0.1);
+    color: var(--secondary-accent);
+    font-weight: 700;
 }
 
 .optionLogo {
@@ -933,7 +981,7 @@
     justify-content: center;
     font-weight: bold;
     font-size: 11px;
-    color: #7c3aed;
+    color: var(--secondary-accent);
     flex-shrink: 0;
 }
 
@@ -972,8 +1020,8 @@
     text-align: center;
 }
 
-.tierbudgetary { background: #3b82f6; color: white; }
-.tiermid { background: #8b5cf6; color: white; }
+.tierbudgetary { background: var(--info); color: white; }
+.tiermid { background: var(--secondary-accent); color: white; }
 .tierhigh { background: #ec4899; color: white; }
 
 /* Compact Footer */
@@ -993,7 +1041,7 @@
 }
 
 .applyCostingBtn {
-    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    background: linear-gradient(135deg, var(--success) 0%, #059669 100%);
     color: white;
     border: none;
     padding: 0.4rem 1.2rem;
@@ -1052,12 +1100,12 @@
 
 .addBtn {
     background: rgba(16, 185, 129, 0.15);
-    color: #10b981;
+    color: var(--success);
     border: 1px solid rgba(16, 185, 129, 0.2);
 }
 
 .addBtn:hover {
-    background: #10b981;
+    background: var(--success);
     color: white;
     transform: scale(1.2) rotate(90deg);
     box-shadow: 0 5px 15px rgba(16, 185, 129, 0.4);
@@ -1065,12 +1113,12 @@
 
 .removeBtn {
     background: rgba(239, 68, 68, 0.15);
-    color: #ef4444;
+    color: var(--danger);
     border: 1px solid rgba(239, 68, 68, 0.2);
 }
 
 .removeBtn:hover {
-    background: #ef4444;
+    background: var(--danger);
     color: white;
     transform: scale(1.2) rotate(180deg);
     box-shadow: 0 5px 15px rgba(239, 68, 68, 0.4);
@@ -1105,11 +1153,11 @@
 
 .summaryGrandTotalRow td {
     background: var(--bg-secondary) !important;
-    border-bottom: 2px solid #f59e0b !important;
+    border-bottom: 2px solid var(--warning) !important;
     border-top: 1px solid var(--border-color) !important;
     padding-top: 1rem !important;
     padding-bottom: 1rem !important;
-    color: #f59e0b !important;
+    color: var(--warning) !important;
     font-weight: 800;
     font-size: 1.1rem;
 }
@@ -1286,8 +1334,8 @@
 }
 
 .previewCloseBtn:hover {
-    background: #ef4444;
-    border-color: #ef4444;
+    background: var(--danger);
+    border-color: var(--danger);
     transform: rotate(90deg);
 }
 
@@ -1296,13 +1344,13 @@
 
 .clearBtn {
     background: rgba(239, 68, 68, 0.15) !important;
-    color: #ef4444 !important;
+    color: var(--danger) !important;
     border: 1px solid rgba(239, 68, 68, 0.3) !important;
     font-size: 0.85rem !important;
 }
 
 .clearBtn:hover {
-    background: #ef4444 !important;
+    background: var(--danger) !important;
     color: white !important;
 }
 
@@ -1693,7 +1741,7 @@
     flex-direction: column;
     gap: 0.3rem;
     height: 100%;
-    background: rgba(255, 255, 255, 0.03);
+    background: var(--bg-surface);
     padding: 0.4rem;
     border-radius: 8px;
     border: 1px solid transparent;
@@ -1702,7 +1750,7 @@
 
 .comparisonCell:hover {
     border-color: var(--border-color);
-    background: rgba(255, 255, 255, 0.07);
+    background: var(--bg-hover);
 }
 
 .compImg {

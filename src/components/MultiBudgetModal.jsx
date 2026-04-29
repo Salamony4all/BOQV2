@@ -10,6 +10,7 @@ import AIFitoutPresentationModal from './AIFitoutPresentationModal';
 import styles from '../styles/MultiBudgetModal.module.css';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import BrandDropdown from './BrandDropdown';
 
 import { useCompanyProfile } from '../context/CompanyContext';
 import { useTheme } from '../context/ThemeContext';
@@ -3079,72 +3080,35 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                                     <span>AI Searching...</span>
                                 </div>
                             ) : (
-                                <button
-                                    className={`${styles.brandTrigger} ${row.selectedBrand ? styles.brandSelected : ''}`}
-                                    onClick={() => setOpenBrandDropdown(openBrandDropdown === index ? null : index)}
-                                >
-                                    {row.selectedBrand ? (
-                                        <>
-                                            {row.brandLogo && (
-                                                <img
-                                                    src={getFullUrl(row.brandLogo)}
-                                                    alt=""
-                                                    className={styles.triggerLogo}
-                                                    onError={(e) => { e.target.style.display = 'none'; }}
-                                                />
-                                            )}
-                                            <span className={styles.triggerText}>
-                                                {row.selectedBrand}
-                                            </span>
-                                        </>
-                                    ) : (
-                                        <span className={styles.triggerPlaceholder}>Select Brand...</span>
-                                    )}
-                                    <span className={styles.triggerArrow}>{openBrandDropdown === index ? '▲' : '▼'}</span>
-                                </button>
-                            )}
+                                <BrandDropdown
+                                    brands={brands.filter(b => {
+                                        // 1. Budget Tier Filtering
+                                        const bTier = (b.budgetTier || 'mid').toLowerCase();
+                                        const aTier = activeTier.toLowerCase();
+                                        let tierMatch = false;
+                                        if (aTier === 'budgetary') tierMatch = ['budgetary', 'low'].includes(bTier);
+                                        else if (aTier === 'high') tierMatch = ['high', 'high-end', 'premium'].includes(bTier);
+                                        else tierMatch = !['budgetary', 'low', 'high', 'high-end', 'premium'].includes(bTier);
 
-                            {openBrandDropdown === index && (
-                                <div className={styles.brandDropdownPanel}>
-                                    {brands
-                                        .filter(b => {
-                                            // 1. Budget Tier Filtering
-                                            const bTier = (b.budgetTier || 'mid').toLowerCase();
-                                            const aTier = activeTier.toLowerCase();
-                                            let tierMatch = false;
-                                            if (aTier === 'budgetary') tierMatch = ['budgetary', 'low'].includes(bTier);
-                                            else if (aTier === 'high') tierMatch = ['high', 'high-end', 'premium'].includes(bTier);
-                                            else tierMatch = !['budgetary', 'low', 'high', 'high-end', 'premium'].includes(bTier);
+                                        if (!tierMatch) return false;
 
-                                            if (!tierMatch) return false;
+                                        // 2. Type/Scope Filtering (Fitout vs Furniture)
+                                        const rowScope = (row.scope || 'Furniture').toLowerCase();
+                                        const brandType = (b.type || (b.name.toLowerCase().includes('fitout') ? 'fitout' : 'furniture')).toLowerCase();
 
-                                            // 2. Type/Scope Filtering (Fitout vs Furniture)
-                                            const rowScope = (row.scope || 'Furniture').toLowerCase();
-                                            // Robust detection: use type tag or name-based fallback
-                                            const brandType = (b.type || (b.name.toLowerCase().includes('fitout') ? 'fitout' : 'furniture')).toLowerCase();
-
-                                            // Mapping: if row scope contains 'fitout', only show 'fitout' brands
-                                            if (rowScope.includes('fitout')) {
-                                                return brandType === 'fitout';
-                                            } else {
-                                                // Exclude fitout brands from furniture rows
-                                                return brandType !== 'fitout';
-                                            }
-                                        })
-                                        .map((b, bIdx) => (
-                                            <button
-                                                key={bIdx}
-                                                className={styles.brandOption}
-                                                onClick={() => {
-                                                    handleCellChange(index, 'selectedBrand', b.name);
-                                                    setOpenBrandDropdown(null);
-                                                }}
-                                            >
-                                                {b.name}
-                                            </button>
-                                        ))
-                                    }
-                                </div>
+                                        if (rowScope.includes('fitout')) {
+                                            return brandType === 'fitout';
+                                        } else {
+                                            return brandType !== 'fitout';
+                                        }
+                                    }).map(b => ({
+                                        ...b,
+                                        logo: getFullUrl(b.logo || b.imageUrl)
+                                    }))}
+                                    selectedBrands={row.selectedBrand}
+                                    onSelect={(brand) => handleCellChange(index, 'selectedBrand', brand.name)}
+                                    placeholder="Select Brand..."
+                                />
                             )}
                         </div>
                         {row.selectedBrand && (

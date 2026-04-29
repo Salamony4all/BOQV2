@@ -16,6 +16,7 @@ import { getApiBase } from '../utils/apiBase';
 import { getFullUrl } from '../utils/urlUtils';
 
 const API_BASE = getApiBase();
+import { getBrandColors, UI_COLORS } from '../utils/themeConfig';
 
 
 function TableViewer({ 
@@ -940,12 +941,13 @@ function TableViewer({
         let pageAdded = false;
         let itemNumber = 1;
 
+        const brandColors = getBrandColors(accentColor, secondaryColor);
         const colors = {
-            primary: [30, 41, 59],
-            secondary: [245, 158, 11],
-            text: [51, 65, 85],
-            lightBg: [248, 250, 252],
-            border: [203, 213, 225],
+            primary: brandColors.primaryRgb,
+            secondary: brandColors.accentRgb,
+            text: brandColors.textRgb,
+            lightBg: brandColors.lightBgRgb,
+            border: brandColors.borderRgb,
             white: [255, 255, 255]
         };
 
@@ -1180,14 +1182,15 @@ function TableViewer({
         let pageAdded = false;
         let itemNumber = 1;
 
+        const brandColors = getBrandColors(accentColor, secondaryColor);
         const colors = {
-            primary: [15, 23, 42],       // Slate 900
-            accent: [14, 165, 233],     // Sky 500
-            gold: [245, 158, 11],     // Amber 500
-            green: [16, 185, 129],     // Emerald
-            text: [51, 65, 85],
-            lightBg: [240, 249, 255],    // Sky 50
-            border: [186, 230, 253],    // Sky 200
+            primary: brandColors.primaryRgb,
+            accent: brandColors.accentRgb,
+            gold: brandColors.accentRgb, // Mapping gold to accent for consistency
+            green: [16, 185, 129],     // Emerald (kept for status/specific UI if needed)
+            text: brandColors.textRgb,
+            lightBg: brandColors.lightBgRgb,
+            border: brandColors.borderRgb,
             white: [255, 255, 255]
         };
 
@@ -1483,13 +1486,14 @@ function TableViewer({
         let pageAdded = false;
         let itemNumber = 1;
 
+        const brandColors = getBrandColors(accentColor, secondaryColor);
         const colors = {
-            primary: [5, 46, 22],          // Green 950
-            accent: [16, 185, 129],       // Emerald 500
-            gold: [251, 191, 36],       // Amber 400
-            text: [30, 58, 54],
-            lightBg: [236, 253, 245],      // Emerald 50
-            border: [110, 231, 183],      // Emerald 300
+            primary: brandColors.primaryRgb,
+            accent: brandColors.accentRgb,
+            gold: brandColors.accentRgb,
+            text: brandColors.textRgb,
+            lightBg: brandColors.lightBgRgb,
+            border: brandColors.borderRgb,
             white: [255, 255, 255]
         };
 
@@ -1783,12 +1787,13 @@ function TableViewer({
         const pageHeight = doc.internal.pageSize.getHeight();
         const arabicLoaded = await loadArabicFont(doc);
 
+        const brandColors = getBrandColors(accentColor, secondaryColor);
         const colors = {
-            primary: [30, 41, 59],         // Slate 800
-            accent: [37, 99, 235],        // Blue 600
-            text: [51, 65, 85],
-            lightBg: [248, 250, 252],
-            border: [203, 213, 225],
+            primary: brandColors.primaryRgb,
+            accent: brandColors.accentRgb,
+            text: brandColors.textRgb,
+            lightBg: brandColors.lightBgRgb,
+            border: brandColors.borderRgb,
             white: [255, 255, 255]
         };
 
@@ -1974,24 +1979,7 @@ function TableViewer({
         pres.title = 'Product Presentation';
         pres.subject = 'Bill of Quantities - Product Showcase';
 
-        // Colors matching the reference design
-        const fixHex = (col) => {
-            if (!col) return null;
-            let hex = col.trim().replace(/^#/, '');
-            if (hex.length === 3) hex = hex.split('').map(c => c + c).join('');
-            if (hex.length === 6 || hex.length === 8) return hex.toUpperCase();
-            return null;
-        };
-
-        const brandColors = {
-            primary: fixHex(accentColor) || '1E5FA8',    // Dynamic header
-            accent: fixHex(secondaryColor) || 'F5A623',     // Dynamic accent
-            text: '333333',       // Dark text
-            lightText: '666666',  // Light gray text
-            border: 'E0E0E0',     // Light border
-            bg: 'FFFFFF',         // White background
-            lightBg: 'F5F5F5'     // Light gray background
-        };
+        const brandColors = getBrandColors(accentColor, secondaryColor);
 
         let masterLogo = [];
         if (logoWhite || logoOriginal) {
@@ -2385,15 +2373,15 @@ function TableViewer({
         const pageWidth = doc.internal.pageSize.getWidth();
         const pageHeight = doc.internal.pageSize.getHeight();
 
-        // Colors matching the reference design (matching PPTX)
+        const brandColors = getBrandColors(accentColor, secondaryColor);
         const colors = {
-            primary: [30, 95, 168],      // Blue header
-            accent: [245, 166, 35],      // Gold/Yellow accent
-            text: [51, 51, 51],          // Dark text
-            lightText: [102, 102, 102],  // Light gray text
-            bg: [255, 255, 255],         // White background
-            lightBg: [245, 245, 245],    // Light gray background
-            border: [224, 224, 224]      // Light border
+            primary: brandColors.primaryRgb,
+            accent: brandColors.accentRgb,
+            text: brandColors.textRgb,
+            lightText: brandColors.lightTextRgb,
+            bg: brandColors.bgRgb,
+            lightBg: brandColors.lightBgRgb,
+            border: brandColors.borderRgb
         };
 
         let itemNumber = 1;
@@ -2847,10 +2835,10 @@ function TableViewer({
                     const vatAmt = totalAmt * (vatPct / 100);
                     const grandTotal = totalAmt + vatAmt;
                     return (
-                        <div className={styles.summarySection} style={{ borderColor: '#3b82f6' }}>
+                        <div className={styles.summarySection} style={{ borderColor: UI_COLORS.primary }}>
                             <div className={styles.summaryDetailRow}>
                                 <span>Total:</span>
-                                <span style={{ color: '#3b82f6', fontWeight: 600 }}>{totalAmt.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                <span style={{ color: UI_COLORS.primary, fontWeight: 600 }}>{totalAmt.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                             </div>
                             <div className={styles.summaryDetailRow} style={{ alignItems: 'center' }}>
                                 <span>VAT:</span>
@@ -2858,8 +2846,8 @@ function TableViewer({
                                     value={vatPct}
                                     onChange={e => setVatRates(prev => ({ ...prev, [tableIndex]: parseFloat(e.target.value) }))}
                                     style={{
-                                        background: '#1e293b',
-                                        border: '1px solid #3b82f6',
+                                        background: UI_COLORS.darkBg,
+                                        border: `1px solid ${UI_COLORS.primary}`,
                                         borderRadius: '6px',
                                         color: '#e2e8f0',
                                         padding: '3px 8px',
@@ -2872,9 +2860,9 @@ function TableViewer({
                                     <option value={9}>9%</option>
                                     <option value={15}>15%</option>
                                 </select>
-                                <span style={{ color: '#94a3b8', marginLeft: '8px' }}>{vatAmt.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                <span style={{ color: UI_COLORS.muted, marginLeft: '8px' }}>{vatAmt.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                             </div>
-                            <div className={styles.summaryTotal} style={{ color: '#3b82f6' }}>
+                            <div className={styles.summaryTotal} style={{ color: UI_COLORS.primary }}>
                                 <span>Grand Total:</span>
                                 <span>{grandTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                             </div>
@@ -2955,7 +2943,7 @@ function TableViewer({
                     </button>
                 </div>
                 {costingFactors && (
-                    <div style={{ marginTop: '1rem', fontSize: '0.9rem', color: '#94a3b8' }}>
+                    <div style={{ marginTop: '1rem', fontSize: '0.9rem', color: UI_COLORS.muted }}>
                         Active: Profit {costingFactors.profit}%, Freight {costingFactors.freight}%, Customs {costingFactors.customs}%, Install {costingFactors.installation}%
                     </div>
                 )}
@@ -2965,14 +2953,14 @@ function TableViewer({
             {costedTables && (
                 <div id="costed-results" style={{ animation: 'fadeInUp 0.5s ease' }}>
                     <div className={styles.header}>
-                        <h2 className={styles.title} style={{ color: '#f59e0b' }}>💰 Cost Simulation Results</h2>
+                        <h2 className={styles.title} style={{ color: UI_COLORS.costing }}>💰 Cost Simulation Results</h2>
                     </div>
                     {renderTableList(costedTables, true)}
 
                     {/* Set of Actions for Costed Tables */}
                     <div className={actionStyles.actionBar}>
                         <div className={actionStyles.actionBarTop}>
-                            <div className={actionStyles.actionTitle} style={{ color: '#f59e0b' }}>Costed Data Actions</div>
+                            <div className={actionStyles.actionTitle} style={{ color: UI_COLORS.costing }}>Costed Data Actions</div>
                             <button
                                 className={actionStyles.projectSettingsBtn}
                                 onClick={() => setProjectPanelOpen(true)}

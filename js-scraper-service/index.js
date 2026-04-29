@@ -11,6 +11,14 @@
  * so they survive restarts and can be retrieved later.
  */
 
+// === PREVENT SPAWN PS EAGAIN ERRORS ===
+// These must be set BEFORE any imports that might use Crawlee/Apify
+process.env.APIFY_DISABLE_PS = '1';
+process.env.CRAWLEE_DISABLE_PS = '1';
+process.env.CRAWLEE_MEMORY_MB = '2048';
+process.env.CRAWLEE_AVAILABLE_MEMORY_RATIO = '0.9';
+process.env.CRAWLEE_DISABLE_MEMORY_AUTOSCALING = '1';
+
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';

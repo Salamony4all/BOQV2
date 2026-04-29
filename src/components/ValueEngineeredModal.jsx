@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import AIPresentationModal from './AIPresentationModal';
 import SpecialistModal from './SpecialistModal';
 import CostingModal from './CostingModal';
+import BrandDropdown from './BrandDropdown';
 import styles from '../styles/ValueEngineeredModal.module.css';
 import mbs from '../styles/MultiBudgetModal.module.css';
 import afStyles from '../styles/AutoFillSelectModal.module.css';
@@ -559,17 +560,12 @@ export default function ValueEngineeredModal({
                             {row.aiStatus === 'processing' ? (
                                 <div className={mbs.aiLoadingCell}><div className={mbs.tinySpinner} /><span style={{ fontSize: '0.72rem' }}>AI Matching…</span></div>
                             ) : (
-                                <button className={`${mbs.brandTrigger} ${row.selectedBrand ? mbs.brandSelected : ''}`} onClick={() => setOpenBrandDropdown(openBrandDropdown === index ? null : index)}>
-                                    {row.selectedBrand ? (<>{row.brandLogo && <img src={getFullUrl(row.brandLogo)} alt="" className={mbs.triggerLogo} />}<span className={mbs.triggerText}>{row.selectedBrand}</span></>) : <span className={mbs.triggerPlaceholder}>Select Brand…</span>}
-                                    <span className={mbs.triggerArrow}>{openBrandDropdown === index ? '▲' : '▼'}</span>
-                                </button>
-                            )}
-                            {openBrandDropdown === index && (
-                                <div className={mbs.brandDropdownPanel}>
-                                    {allBrands.filter(b => !b.name?.toLowerCase().includes('fitout')).map((b, bIdx) => (
-                                        <button key={bIdx} className={mbs.brandOption} onClick={() => { handleVeCellChange(index, 'selectedBrand', b.name); setOpenBrandDropdown(null); }}>{b.name}</button>
-                                    ))}
-                                </div>
+                                <BrandDropdown
+                                    brands={allBrands.filter(b => !b.name?.toLowerCase().includes('fitout'))}
+                                    selectedBrands={row.selectedBrand}
+                                    onSelect={(b) => handleVeCellChange(index, 'selectedBrand', b.name)}
+                                    placeholder="Select Brand…"
+                                />
                             )}
                         </div>
 
@@ -1141,13 +1137,13 @@ export default function ValueEngineeredModal({
                                                 <span style={{ color: '#3b82f6' }}>Global Brand Selection</span>
                                             </div>
                                         </div>
-                                        <div className={afStyles.brandGrid}>
-                                            {furnitureBrands.map(b => (
-                                                <div key={b.name} className={`${afStyles.brandItem} ${globalBrand === b.name ? afStyles.checked : ''}`} onClick={() => setGlobalBrand(b.name)} style={globalBrand === b.name ? { borderColor: '#3b82f6', background: '#3b82f615' } : {}}>
-                                                    <input type="radio" checked={globalBrand === b.name} readOnly style={{ accentColor: '#3b82f6' }} />
-                                                    <span className={afStyles.brandName}>{b.name}</span>
-                                                </div>
-                                            ))}
+                                        <div style={{ padding: '0 1rem 1rem' }}>
+                                            <BrandDropdown 
+                                                brands={furnitureBrands}
+                                                selectedBrands={globalBrand}
+                                                onSelect={(b) => setGlobalBrand(b.name)}
+                                                placeholder="Choose Global Brand..."
+                                            />
                                         </div>
                                     </div>
                                 )}
@@ -1161,13 +1157,13 @@ export default function ValueEngineeredModal({
                                                 <span style={{ marginLeft: '10px', fontSize: '0.75rem', color: '#94a3b8' }}>{VE_UI_CONFIG.hints[cat]}</span>
                                             </div>
                                         </div>
-                                        <div className={afStyles.brandGrid}>
-                                            {furnitureBrands.map(b => (
-                                                <div key={b.name} className={`${afStyles.brandItem} ${categoryBrands[cat] === b.name ? afStyles.checked : ''}`} onClick={() => setCategoryBrands(prev => ({ ...prev, [cat]: b.name }))} style={categoryBrands[cat] === b.name ? { borderColor: '#8b5cf6', background: '#8b5cf615' } : {}}>
-                                                    <input type="radio" checked={categoryBrands[cat] === b.name} readOnly style={{ accentColor: '#8b5cf6' }} />
-                                                    <span className={afStyles.brandName}>{b.name}</span>
-                                                </div>
-                                            ))}
+                                        <div style={{ padding: '0 1rem 1rem' }}>
+                                            <BrandDropdown 
+                                                brands={furnitureBrands}
+                                                selectedBrands={categoryBrands[cat]}
+                                                onSelect={(b) => setCategoryBrands(prev => ({ ...prev, [cat]: b.name }))}
+                                                placeholder={`Select Brand for ${VE_UI_CONFIG.labels[cat]}...`}
+                                            />
                                         </div>
                                     </div>
                                 ))}

@@ -1,29 +1,35 @@
-# JS Scraper Service - Railway Dockerfile
-# Uses official Playwright image with all browser dependencies pre-installed
+# Use the official Playwright image as the base
+FROM mcr.microsoft.com/playwright:v1.49.1-jammy
 
-FROM mcr.microsoft.com/playwright:v1.49.0-jammy
+# Set environment variables for Playwright
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
 
+# Set the working directory
 WORKDIR /app
 
-# Copy package files
+# Copy package.json and package-lock.json
 COPY package*.json ./
 
-# Install dependencies (matching Playwright version)
+# Install dependencies (only production)
+# We use npm ci for a clean, reproducible install
 RUN npm ci --only=production
 
-# Copy source code
+# Explicitly ensure chromium and its dependencies are installed
+# Even though they should be in the base image, this ensures stability
+RUN npx playwright install chromium
+RUN npx playwright install-deps chromium
+
+# Copy the rest of the application code
 COPY . .
 
-# Set environment
+# Set environment to production
 ENV NODE_ENV=production
-ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 
-# Railway sets PORT automatically
+# The port the application will listen on
+# Railway sets the PORT environment variable automatically
+ENV PORT=3002
 EXPOSE 3002
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD node -e "require('http').get('http://localhost:' + (process.env.PORT || 3002) + '/health', (r) => process.exit(r.statusCode === 200 ? 0 : 1))"
-
-# Start the service
+# Start the application
 CMD ["npm", "start"]
