@@ -89,7 +89,7 @@ class ScraperService {
 
             // Configure Crawlee for low-memory environment
             process.env.CRAWLEE_MEMORY_MB = '1800'; // Leave headroom below 2048 MB limit
-            process.env.CRAWLEE_AVAILABLE_MEMORY_RATIO = '0.85';
+            process.env.CRAWLEE_AVAILABLE_MEMORY_RATIO = '0.85'; 
 
             const config = Configuration.getGlobalConfig();
             config.set('logLevel', 'WARNING');
@@ -895,7 +895,7 @@ class ScraperService {
                             const iterationResults = await page.evaluate(async (currentUrl) => {
                                 // Dynamic scroll amount based on page height
                                 window.scrollBy(0, 4000); // Increased scroll distance further for large brands
-                                await new Promise(r => setTimeout(r, 600));
+                                await new Promise(r => setTimeout(r, 600)); 
 
                                 // 1. Find Load More
                                 const elements = Array.from(document.querySelectorAll('button, a, span, div'));
@@ -1120,7 +1120,7 @@ class ScraperService {
                         }
                     });
 
-                    // === STEP 4: Extract ALL product links and basic metadata as fallback ===
+                                        // === STEP 4: Extract ALL product links and basic metadata as fallback ===
                     const discoveredProducts = await page.evaluate(() => {
                         const items = [];
                         // 1. Target links with specific classes used by Architonic for product cards
@@ -1167,7 +1167,7 @@ class ScraperService {
                         if (!alreadyIn && prod.name) {
                             // Extract category from collection name
                             let category = collectionName || 'General';
-
+                            
                             // Clean image URL
                             let finalImageUrl = prod.imageUrl || 'https://via.placeholder.com/400x400?text=No+Image';
                             if (finalImageUrl.includes('media.architonic.com') && finalImageUrl.includes('?')) {
