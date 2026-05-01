@@ -1,3 +1,6 @@
+import React, { useState, useEffect } from 'react';
+import styles from '../styles/SupabaseDashboard.module.css';
+import { getApiBase } from '../utils/apiBase';
 import { useTheme } from '../context/ThemeContext';
 
 const SupabaseDashboard = ({ isOpen, onClose }) => {
