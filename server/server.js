@@ -10,7 +10,15 @@ import fs_sync from 'fs';
 import { fileURLToPath } from 'url';
 import { extractExcelData } from './fastExtractor.js';
 import { CleanupService } from './cleanupService.js';
-import { uploadToSupabase, listSupabaseFiles, deleteFromSupabase, supabase } from './utils/supabaseStorage.js';
+import { 
+  uploadToSupabase, 
+  listSupabaseFiles, 
+  deleteFromSupabase, 
+  supabase,
+  getSupabaseBrands,
+  getSupabaseStats 
+} from './utils/supabaseStorage.js';
+import { syncLocalToSupabase } from './scripts/syncLocalToSupabase.js';
 import axios from 'axios';
 import https from 'https';
 import { ExcelDbManager } from './excelManager.js';
@@ -508,20 +516,28 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
         extractedData = await extractProductBoqFromPdf(filePath, () => { }, modelName);
       } else if (extractionMode === 'parallel') {
         const { extractParallelBOQData } = await getParallelBOQExtractor();
-        extractedData = await extractParallelBOQData(filePath, 'application/pdf', () => { }, modelName);
+        extractedData = await extractParallelBOQData(filePath, 'application/pdf', () => { }, modelName, (file) => {
+          cleanupService.trackFile(sessionId, file);
+        }, (folder) => {
+          cleanupService.trackFolder(sessionId, folder);
+        });
       } else {
         // Legacy vision path
         const { extractVisionBOQData } = await getVisionBOQExtractor();
-        extractedData = await extractVisionBOQData(filePath, 'application/pdf', () => { }, modelName);
+        extractedData = await extractVisionBOQData(filePath, 'application/pdf', () => { }, modelName, (blob) => {
+          cleanupService.trackBlob(sessionId, blob);
+        });
       }
     } else if (isImage) {
       // Handle images directly uploaded to BOQ flow
       const { extractVisionBOQData } = await getVisionBOQExtractor();
-      extractedData = await extractVisionBOQData(filePath, req.file.mimetype, () => { }, modelName);
+      extractedData = await extractVisionBOQData(filePath, req.file.mimetype, () => { }, modelName, (blob) => {
+        cleanupService.trackBlob(sessionId, blob);
+      });
     } else {
       // Extract data from Excel
-      extractedData = await extractExcelData(filePath, () => { }, (url) => {
-        cleanupService.trackBlob(sessionId, url);
+      extractedData = await extractExcelData(filePath, () => { }, (blob) => {
+        cleanupService.trackBlob(sessionId, blob);
       });
     }
 
@@ -558,7 +574,9 @@ app.post('/api/extract/vision', planUpload.single('file'), async (req, res) => {
 
     const modelName = req.headers['x-model-name'];
     const { extractVisionBOQData } = await getVisionBOQExtractor();
-    const extractedData = await extractVisionBOQData(filePath, req.file.mimetype, () => { }, modelName);
+    const extractedData = await extractVisionBOQData(filePath, req.file.mimetype, () => { }, modelName, (blob) => {
+      cleanupService.trackBlob(sessionId, blob);
+    });
 
     res.json({
       success: true,
@@ -602,9 +620,23 @@ app.delete('/api/admin/blobs', async (req, res) => {
 
 app.get('/api/blobs', async (req, res) => {
   try {
-    const forceRefresh = req.query.refresh === 'true';
-    const blobs = await listSupabaseFiles('assets', 'manual-upload');
-    res.json({ success: true, blobs });
+    const folders = ['', 'manual-upload', 'extracted-images', 'temp-uploads'];
+    let allBlobs = [];
+    
+    for (const folder of folders) {
+      try {
+        const blobs = await listSupabaseFiles('assets', folder);
+        // Filter out actual folders returned as files
+        allBlobs = [...allBlobs, ...blobs.filter(b => b.id)];
+      } catch (e) {
+        console.warn(`⚠️ [Storage API] Could not list folder "${folder}":`, e.message);
+      }
+    }
+
+    // Sort by created_at desc
+    allBlobs.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+    res.json({ success: true, blobs: allBlobs });
   } catch (error) {
     console.error('❌ [Storage API] List failed:', error.message);
     res.status(500).json({ error: 'Failed to list assets', details: error.message });
@@ -716,6 +748,16 @@ app.post('/api/reset', async (req, res) => {
   } catch (e) { console.error('Error recreating dirs:', e); }
 
   res.json({ success: true, message: 'Environment reset complete' });
+});
+
+// Explicit session cleanup (e.g. on refresh or close)
+app.post('/api/cleanup/session', async (req, res) => {
+  const { sessionId } = req.body;
+  if (!sessionId) return res.status(400).json({ error: 'Session ID is required' });
+  
+  console.log(`[Cleanup] Manual cleanup request for session: ${sessionId}`);
+  await cleanupService.cleanupSession(sessionId);
+  res.json({ success: true, message: `Cleanup initiated for session ${sessionId}` });
 });
 
 // Health check fallback for some UI integrations
@@ -1404,18 +1446,39 @@ app.post('/api/railway-brands/import/:filename', async (req, res) => {
     const response = await axios.get(`${JS_SCRAPER_SERVICE_URL}/brands/${filename}`, { timeout: 15000 });
     const data = response.data;
 
+    const brandName = (data.brandInfo?.name || filename).replace(/_/g, ' ');
+    
+    // Check if brand exists to avoid duplicates
+    const allBrands = await brandStorage.getAllBrands();
+    const existingBrand = allBrands.find(b => b.name.toLowerCase().trim() === brandName.toLowerCase().trim());
+
     const restoredBrand = {
-      id: Date.now(),
-      name: (data.brandInfo?.name || filename).replace(/_/g, ' '),
-      logo: data.brandInfo?.logo || '',
+      id: existingBrand ? existingBrand.id : (data.brandInfo?.id || Date.now()),
+      name: brandName,
+      logo: data.brandInfo?.logo || existingBrand?.logo || '',
+      budgetTier: data.budgetTier || existingBrand?.budgetTier || 'mid',
       origin: 'Cloud-Restore',
       products: data.products || [],
-      createdAt: new Date(),
+      createdAt: existingBrand?.createdAt || new Date(),
+      updatedAt: new Date()
     };
 
+    // If it exists, we merge products (avoiding duplicates by model)
+    if (existingBrand && existingBrand.products) {
+      const existingModels = new Set(existingBrand.products.map(p => String(p.model).toLowerCase().trim()));
+      const newProducts = (data.products || []).filter(p => !existingModels.has(String(p.model).toLowerCase().trim()));
+      restoredBrand.products = [...existingBrand.products, ...newProducts];
+    }
+
     await brandStorage.saveBrand(restoredBrand);
-    res.json({ success: true, count: restoredBrand.products.length, brandName: restoredBrand.name });
+    res.json({ 
+      success: true, 
+      count: restoredBrand.products.length, 
+      added: restoredBrand.products.length - (existingBrand?.products?.length || 0),
+      brandName: restoredBrand.name 
+    });
   } catch (e) {
+    console.error('❌ Cloud Import Error:', e.message);
     res.status(500).json({ error: e.message });
   }
 });
@@ -1434,10 +1497,7 @@ app.post('/api/railway-brands/sync-to-blob', async (req, res) => {
   if (!JS_SCRAPER_SERVICE_URL) {
     return res.status(500).json({ error: 'Railway service not configured' });
   }
-  if (!process.env.BLOB_READ_WRITE_TOKEN) {
-    return res.status(500).json({ error: 'Blob storage token not configured' });
-  }
-
+  
   try {
     const listRes = await axios.get(`${JS_SCRAPER_SERVICE_URL}/brands`, { timeout: 15000 });
     const files = listRes.data.brands || [];
@@ -1445,23 +1505,35 @@ app.post('/api/railway-brands/sync-to-blob', async (req, res) => {
     let synced = 0;
     let skipped = 0;
 
+    // Load all local/supabase brands once for lookup
+    const allBrands = await brandStorage.getAllBrands();
+
     for (const fileMeta of files) {
       const filename = fileMeta.filename;
       try {
         const response = await axios.get(`${JS_SCRAPER_SERVICE_URL}/brands/${filename}`, { timeout: 20000 });
         const data = response.data;
 
-        const brandName = data.brandInfo?.name || filename.replace(/_/g, ' ');
+        const brandName = (data.brandInfo?.name || filename).replace(/_/g, ' ');
+        const existingBrand = allBrands.find(b => b.name.toLowerCase().trim() === brandName.toLowerCase().trim());
+
         const brand = {
-          id: data.brandInfo?.id || Date.now() + Math.floor(Math.random() * 1000),
+          id: existingBrand ? existingBrand.id : (data.brandInfo?.id || Date.now() + Math.floor(Math.random() * 1000)),
           name: brandName,
-          logo: data.brandInfo?.logo || '',
+          logo: data.brandInfo?.logo || existingBrand?.logo || '',
           origin: 'Railway-Volume-Recovery',
-          budgetTier: data.budgetTier || 'mid',
+          budgetTier: data.budgetTier || existingBrand?.budgetTier || 'mid',
           products: data.products || [],
           sourceUrl: data.sourceUrl || '',
           completedAt: data.completedAt || new Date().toISOString()
         };
+
+        // Merge logic
+        if (existingBrand && existingBrand.products) {
+          const existingModels = new Set(existingBrand.products.map(p => String(p.model).toLowerCase().trim()));
+          const newProducts = (data.products || []).filter(p => !existingModels.has(String(p.model).toLowerCase().trim()));
+          brand.products = [...existingBrand.products, ...newProducts];
+        }
 
         const saved = await brandStorage.saveBrand(brand);
         if (saved) {
@@ -1486,6 +1558,34 @@ app.post('/api/railway-brands/sync-to-blob', async (req, res) => {
   } catch (error) {
     console.error('❌ Railway sync-to-blob failed:', error.message);
     res.status(500).json({ error: 'Railway sync failed', details: error.message });
+  }
+});
+
+// --- Supabase Management ---
+app.get('/api/supabase/stats', async (req, res) => {
+  try {
+    const stats = await getSupabaseStats();
+    res.json({ success: true, ...stats });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+app.get('/api/supabase/brands', async (req, res) => {
+  try {
+    const brands = await getSupabaseBrands();
+    res.json({ success: true, brands });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+app.post('/api/supabase/sync', async (req, res) => {
+  try {
+    const result = await syncLocalToSupabase();
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 
@@ -1834,9 +1934,22 @@ app.post('/api/generate-pptx-pdf', async (req, res) => {
 
 app.post('/api/reset', async (req, res) => {
   try {
+    console.log('🧹 [Reset] Full system cleanup requested...');
     await cleanupService.cleanupAll();
     await cleanTempDir();
-    res.json({ success: true, message: 'System reset complete' });
+    
+    // Explicitly clean public/temp folders
+    const publicTemp = path.join(process.cwd(), 'public', 'temp');
+    const exists = await fs.access(publicTemp).then(() => true).catch(() => false);
+    if (exists) {
+      const folders = await fs.readdir(publicTemp);
+      for (const f of folders) {
+        if (f === '.gitkeep') continue;
+        await fs.rm(path.join(publicTemp, f), { recursive: true, force: true });
+      }
+    }
+
+    res.json({ success: true, message: 'System reset complete. All temporary files and cloud sessions cleared.' });
   } catch (err) {
     console.error('❌ [Reset] Cleanup error:', err.message);
     res.status(500).json({ success: false, error: err.message });
@@ -1845,6 +1958,8 @@ app.post('/api/reset', async (req, res) => {
 
 app.post('/api/cleanup', async (req, res) => {
   const sessionId = req.body.sessionId || 'default';
+  const sessionFolder = `temp-uploads/${sessionId}`;
+  cleanupService.trackCloudFolder(sessionId, 'assets', sessionFolder);
   await cleanupService.cleanupSession(sessionId);
   res.json({ success: true });
 });

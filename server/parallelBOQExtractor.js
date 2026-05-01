@@ -38,7 +38,7 @@ Your goal is to create a 1:1 digital replica of the table data in the provided i
  * Saves a matched native image to the temp dir and updates the row's image field.
  * Called by all three pairing strategies to avoid code duplication.
  */
-async function _saveAndPairImage(matchedImage, row, pageNum, tempDir, uploadId) {
+async function _saveAndPairImage(matchedImage, row, pageNum, tempDir, uploadId, onFileCreated = null) {
     try {
         const filename = `page_${pageNum}_row_${row.rowIdx}.jpg`;
         const imgLocalPath = path.join(tempDir, filename);
@@ -57,13 +57,17 @@ async function _saveAndPairImage(matchedImage, row, pageNum, tempDir, uploadId) 
             url: `/temp/extracted_images/${uploadId}/${filename}`,
             sn: row.sn 
         };
+        
+        if (onFileCreated) {
+            onFileCreated(imgLocalPath);
+        }
         console.log(`    🔗 [Background] Paired SN=${row.sn} (P${pageNum}/R${row.rowIdx}) → ${filename}`);
     } catch (e) {
         console.error(`    ❌ [Background] Failed to save image for P${pageNum} R${row.rowIdx}:`, e.message);
     }
 }
 
-export async function extractParallelBOQData(filePath, mimeType, progressCallback = () => {}, modelName = null) {
+export async function extractParallelBOQData(filePath, mimeType, progressCallback = () => {}, modelName = null, onFileCreated = null, onFolderCreated = null) {
     const isVercel = process.env.VERCEL === '1';
     const uploadId = crypto.randomUUID();
     
@@ -72,6 +76,7 @@ export async function extractParallelBOQData(filePath, mimeType, progressCallbac
     const tempDir = path.join(baseTempDir, uploadId);
     
     await fs.mkdir(tempDir, { recursive: true });
+    if (onFolderCreated) onFolderCreated(tempDir);
 
     console.log(`  ⏱️ [Parallel Extractor] Launching concurrent processes... Environment: ${isVercel ? 'Vercel' : 'Local'}${modelName ? ` | Model: ${modelName}` : ''}`);
     
@@ -202,7 +207,7 @@ export async function extractParallelBOQData(filePath, mimeType, progressCallbac
                 if (productImages.length === pageRows.length && pageRows.length > 0) {
                     console.log(`    ✅ [Background] P${pageNum}: Perfect 1:1 positional pairing`);
                     for (let i = 0; i < pageRows.length; i++) {
-                        await _saveAndPairImage(productImages[i], pageRows[i], pageNum, tempDir, uploadId);
+                        await _saveAndPairImage(productImages[i], pageRows[i], pageNum, tempDir, uploadId, onFileCreated);
                     }
                     continue;
                 }
@@ -248,14 +253,14 @@ export async function extractParallelBOQData(filePath, mimeType, progressCallbac
 
                     if (bestIdx !== -1 && bestDist < 300) {
                         usedImageIndices.add(bestIdx);
-                        await _saveAndPairImage(productImages[bestIdx], row, pageNum, tempDir, uploadId);
+                        await _saveAndPairImage(productImages[bestIdx], row, pageNum, tempDir, uploadId, onFileCreated);
                     } else {
                         // ── STRATEGY 3: Pure positional fallback ─────────────────────────
                         // If no good Y match, fall back to strictly positional by row order
                         const fallbackIdx = pageRows.indexOf(row);
                         if (fallbackIdx < productImages.length && !usedImageIndices.has(fallbackIdx)) {
                             usedImageIndices.add(fallbackIdx);
-                            await _saveAndPairImage(productImages[fallbackIdx], row, pageNum, tempDir, uploadId);
+                            await _saveAndPairImage(productImages[fallbackIdx], row, pageNum, tempDir, uploadId, onFileCreated);
                             console.log(`    ⚡ [Background] P${pageNum} Row ${row.sn}: positional fallback → img[${fallbackIdx}]`);
                         }
                     }

@@ -149,11 +149,15 @@ export const brandStorage = {
         if (supabase) {
             try {
                 const ok = await saveSupabaseBrand(brand);
-                if (ok) console.log(`✅ [Storage] Saved brand "${brand.name}" to Supabase.`);
-                // We still fall back to local/blob for extra redundancy if desired, 
-                // but if Supabase is our "new logic", we rely on it.
+                if (ok) {
+                    console.log(`✅ [Storage] Saved brand "${brand.name}" to Supabase.`);
+                } else {
+                    console.error(`❌ [Storage] Supabase save returned false for "${brand.name}".`);
+                    return false; // Stop if primary storage fails
+                }
             } catch (err) {
-                console.error(`❌ [Storage] Supabase save failed:`, err.message);
+                console.error(`❌ [Storage] Supabase save exception:`, err.message);
+                return false;
             }
         }
 

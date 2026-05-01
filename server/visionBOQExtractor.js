@@ -53,7 +53,7 @@ Return ONLY valid JSON:
 /**
  * Main entry point for Vision BOQ Extraction
  */
-export async function extractVisionBOQData(filePath, mimeType, progressCallback = () => {}, modelName = null) {
+export async function extractVisionBOQData(filePath, mimeType, progressCallback = () => {}, modelName = null, onBlobCreated = null) {
     console.log(`\n🖼️ [Vision Extractor] Processing file: ${path.basename(filePath)} (${mimeType})${modelName ? ` using ${modelName}` : ''}`);
     
     let imageBuffers = [];
@@ -87,7 +87,7 @@ export async function extractVisionBOQData(filePath, mimeType, progressCallback 
         const extractedRows = visionResult?.rows || visionResult?.items || [];
         if (extractedRows.length > 0) {
             console.log(`  ✅ Found ${extractedRows.length} rows on page ${i + 1}`);
-            const processedRows = await processVisionRows(extractedRows, imageBuffers[i]);
+            const processedRows = await processVisionRows(extractedRows, imageBuffers[i], onBlobCreated);
             allRows.push(...processedRows);
         } else {
             console.warn(`  ⚠️ No rows/items found in vision response for page ${i + 1}`);
@@ -169,7 +169,7 @@ async function renderPDFToImages(filePath) {
 /**
  * Handle Image Cropping and Uploads
  */
-async function processVisionRows(rows, pageBuffer) {
+async function processVisionRows(rows, pageBuffer, onBlobCreated = null) {
     console.log(`  🔄 Processing ${rows.length} rows...`);
     const processed = [];
     
@@ -177,7 +177,7 @@ async function processVisionRows(rows, pageBuffer) {
         if (row.imageBBox && Array.isArray(row.imageBBox)) {
             try {
                 console.log(`    📦 Cropping image with bbox: ${JSON.stringify(row.imageBBox)}`);
-                const cropUrl = await cropAndUpload(pageBuffer, row.imageBBox);
+                const cropUrl = await cropAndUpload(pageBuffer, row.imageBBox, onBlobCreated);
                 row.imageUrl = cropUrl;
                 console.log(`    ✅ Image uploaded: ${cropUrl.substring(0, 50)}...`);
             } catch (err) {
@@ -194,7 +194,7 @@ async function processVisionRows(rows, pageBuffer) {
 /**
  * Uses Playwright to crop a small portion of a buffer and upload to Vercel Blob
  */
-async function cropAndUpload(buffer, bbox) {
+async function cropAndUpload(buffer, bbox, onBlobCreated = null) {
     const [ymin, xmin, ymax, xmax] = bbox;
     
     const browser = await chromium.chromium.launch();
@@ -226,6 +226,15 @@ async function cropAndUpload(buffer, bbox) {
             contentType: 'image/png'
         });
         url = result.url;
+
+        // Track the blob for cleanup
+        if (onBlobCreated && url) {
+            onBlobCreated({
+                url,
+                path: filename,
+                bucket: 'assets'
+            });
+        }
     }
 
     return url;

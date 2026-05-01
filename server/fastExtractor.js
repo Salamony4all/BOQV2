@@ -171,10 +171,20 @@ async function extractImagesAndMap(filePath, imagesDir, onBlobCreated = null) {
                     // Option 0: Supabase (Our own managed storage)
                     if (supabase) {
                         try {
-                            const result = await uploadToSupabase('assets', `extracted-images/${timestamp}_${fileName}`, data, {
+                            const storagePath = `extracted-images/${timestamp}_${fileName}`;
+                            const result = await uploadToSupabase('assets', storagePath, data, {
                                 contentType: 'image/' + path.extname(fileName).substring(1).toLowerCase().replace('jpg', 'jpeg')
                             });
                             directUrl = result.url;
+
+                            // Track the blob for cleanup
+                            if (onBlobCreated && directUrl) {
+                                onBlobCreated({
+                                    url: directUrl,
+                                    path: storagePath,
+                                    bucket: 'assets'
+                                });
+                            }
                         } catch (err) {
                             console.warn(`[FastExtractor] Supabase upload failed for ${fileName}:`, err.message);
                         }

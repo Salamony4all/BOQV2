@@ -3,6 +3,7 @@ import { useCompanyProfile } from '../context/CompanyContext';
 import { useTheme } from '../context/ThemeContext';
 import { AI_ENGINES, MODEL_OPTIONS, DEFAULT_AI_SETTINGS } from '../utils/aiConstants';
 import styles from '../styles/CompanySettings.module.css';
+import BrandManagement from './BrandManagement';
 
 export default function CompanySettings({ isModal = false, onClose = null }) {
     const {
@@ -208,7 +209,7 @@ export default function CompanySettings({ isModal = false, onClose = null }) {
                         {/* SECTION 1: BRANDING */}
                         <div className={`${styles.section} ${expandedSection === 'branding' ? styles.expanded : ''}`}>
                             <div className={styles.sectionHeader} onClick={() => toggleSection('branding')}>
-                                <h3><i>🏢</i> Company & Branding</h3>
+                                <h3><i className={styles.brandingIcon}>🏢</i> Company & Branding</h3>
                                 <span className={styles.chevron}>▼</span>
                             </div>
                             <div className={styles.sectionContent}>
@@ -268,7 +269,7 @@ export default function CompanySettings({ isModal = false, onClose = null }) {
                         {/* SECTION 2: AI CONFIGURATION */}
                         <div className={`${styles.section} ${expandedSection === 'ai' ? styles.expanded : ''}`}>
                             <div className={styles.sectionHeader} onClick={() => toggleSection('ai')}>
-                                <h3><i>🤖</i> Global AI Settings</h3>
+                                <h3><i className={styles.aiIcon}>🤖</i> Global AI Settings</h3>
                                 <span className={styles.chevron}>▼</span>
                             </div>
                             <div className={styles.sectionContent}>
@@ -315,6 +316,17 @@ export default function CompanySettings({ isModal = false, onClose = null }) {
                                         )}
                                     </select>
                                 </div>
+                            </div>
+                        </div>
+
+                        {/* SECTION 3: BRANDS & DATABASE */}
+                        <div className={`${styles.section} ${expandedSection === 'brands' ? styles.expanded : ''}`}>
+                            <div className={styles.sectionHeader} onClick={() => toggleSection('brands')}>
+                                <h3><i className={styles.brandsIcon}>🔖</i> Brands & Database</h3>
+                                <span className={styles.chevron}>▼</span>
+                            </div>
+                            <div className={styles.sectionContent}>
+                                <BrandManagement isStandalone={true} />
                             </div>
                         </div>
 

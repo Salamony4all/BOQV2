@@ -94,7 +94,10 @@ function AppContent({ onOpenSettings }) {
       document.title = `${companyName} | Intelligent Estimator`;
     }
   }, [companyName]);
-  const [sessionId] = useState(() => Math.random().toString(36).substring(7));
+  const [sessionId, setSessionId] = useState(() => {
+    // Generate initial ID, but it will be managed in useEffect
+    return `sess_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+  });
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [stage, setStage] = useState('');
@@ -120,10 +123,37 @@ function AppContent({ onOpenSettings }) {
 
   // Reset environment on app load
   useEffect(() => {
-    // Commented out to prevent accidental deletion of active uploads on refresh
-    // fetch(apiUrl('/api/reset'), { method: 'POST' })
-    //   .then(() => console.log('Environment reset complete'))
-    //   .catch(console.error);
+    const oldSessionId = sessionStorage.getItem('boq_session_id');
+    const newSessionId = `sess_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    
+    setSessionId(newSessionId);
+    sessionStorage.setItem('boq_session_id', newSessionId);
+    
+    console.log('🚀 Initializing session:', newSessionId);
+
+    // 1. Cleanup previous session if it existed (from a previous refresh or crash)
+    if (oldSessionId && oldSessionId !== newSessionId) {
+      console.log('🧹 Requesting cleanup for previous session:', oldSessionId);
+      fetch(apiUrl('/api/cleanup/session'), { 
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId: oldSessionId })
+      }).catch(err => console.warn('[App] Previous session cleanup failed:', err));
+    }
+
+    // 2. Register beforeunload to cleanup current session on close/refresh
+    const handleUnload = () => {
+      const currentSid = sessionStorage.getItem('boq_session_id');
+      if (currentSid) {
+        // navigator.sendBeacon is more reliable for cleanup on close
+        const url = apiUrl('/api/cleanup/session');
+        const data = JSON.stringify({ sessionId: currentSid });
+        const blob = new Blob([data], { type: 'application/json' });
+        navigator.sendBeacon(url, blob);
+      }
+    };
+
+    window.addEventListener('beforeunload', handleUnload);
 
     // Fetch brands once at the top level
     fetch(apiUrl('/api/brands'))
@@ -140,6 +170,10 @@ function AppContent({ onOpenSettings }) {
         console.error('Failed to load brands', err);
         setSystemErrors(prev => [...prev, `Cloud Storage Error: ${err.message}`]);
       });
+
+    return () => {
+      window.removeEventListener('beforeunload', handleUnload);
+    };
   }, []);
 
   // Image carousel auto-rotate

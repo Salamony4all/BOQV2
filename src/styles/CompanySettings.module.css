@@ -4,7 +4,7 @@
     left: 0;
     right: 0;
     bottom: 0;
-    background: rgba(15, 23, 42, 0.7);
+    background: var(--overlay-bg);
     backdrop-filter: blur(8px);
     display: flex;
     align-items: flex-start;
@@ -19,8 +19,8 @@
     width: 600px;
     max-width: 95vw;
     border-radius: 20px;
-    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: var(--shadow-lg);
+    border: 1px solid var(--border-color);
     overflow: hidden;
     display: flex;
     flex-direction: column;
@@ -29,8 +29,8 @@
 
 .header {
     padding: 24px 32px;
-    background: linear-gradient(135deg, rgba(37, 99, 235, 0.1), rgba(139, 92, 246, 0.1));
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    background: linear-gradient(135deg, var(--info-muted), var(--primary-accent-muted, rgba(139, 92, 246, 0.1)));
+    border-bottom: 1px solid var(--border-muted);
 }
 
 .title {
@@ -62,7 +62,7 @@
 }
 
 .section {
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    border-bottom: 1px solid var(--border-muted);
 }
 
 .sectionHeader {
@@ -75,7 +75,7 @@
 }
 
 .sectionHeader:hover {
-    background: rgba(255, 255, 255, 0.02);
+    background: var(--bg-hover);
 }
 
 .sectionHeader h3 {
@@ -88,8 +88,15 @@
 }
 
 .sectionHeader h3 i {
-    color: #3b82f6;
+    font-style: normal;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
 }
+
+.brandingIcon { color: #3b82f6; }
+.aiIcon { color: #8b5cf6; }
+.brandsIcon { color: #f59e0b; }
 
 .chevron {
     transition: transform 0.3s ease;
@@ -140,8 +147,8 @@
 .input {
     width: 100%;
     padding: 12px 16px;
-    background: rgba(0, 0, 0, 0.2);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: var(--input-bg);
+    border: 1px solid var(--border-color);
     border-radius: 10px;
     color: var(--text-primary);
     font-size: 1rem;
@@ -150,9 +157,9 @@
 
 .input:focus {
     outline: none;
-    border-color: #3b82f6;
-    background: rgba(59, 130, 246, 0.05);
-    box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1);
+    border-color: var(--accent-color);
+    background: var(--info-muted);
+    box-shadow: 0 0 0 4px var(--info-muted);
 }
 
 /* Logo Grid */
@@ -181,7 +188,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    border: 2px dashed rgba(255, 255, 255, 0.1);
+    border: 2px dashed var(--border-color);
     background-size: 20px 20px;
     overflow: hidden;
 }
@@ -218,8 +225,8 @@
 
 .uploadBtnSmall {
     padding: 6px 14px;
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: var(--bg-surface);
+    border: 1px solid var(--border-color);
     border-radius: 8px;
     font-size: 0.85rem;
     font-weight: 500;
@@ -235,7 +242,7 @@
 .removeLink {
     background: none;
     border: none;
-    color: #ef4444;
+    color: var(--danger);
     font-size: 0.8rem;
     cursor: pointer;
     padding: 0;
@@ -258,8 +265,8 @@
 }
 
 .engineCard {
-    background: rgba(255, 255, 255, 0.03);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: var(--bg-surface);
+    border: 1px solid var(--border-muted);
     border-radius: 12px;
     padding: 12px;
     display: flex;
@@ -275,9 +282,9 @@
 }
 
 .engineCard.active {
-    background: rgba(59, 130, 246, 0.1);
-    border-color: #3b82f6;
-    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.2);
+    background: var(--info-muted);
+    border-color: var(--info);
+    box-shadow: 0 4px 12px var(--info-muted);
 }
 
 .engineIcon {
@@ -311,8 +318,8 @@
 .modelSelect {
     width: 100%;
     padding: 12px 16px;
-    background: rgba(0, 0, 0, 0.2);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: var(--input-bg);
+    border: 1px solid var(--border-color);
     border-radius: 10px;
     color: var(--text-primary);
     font-size: 0.95rem;
@@ -320,15 +327,15 @@
 }
 
 .modelSelect optgroup {
-    background: #1e293b;
-    color: #94a3b8;
+    background: var(--bg-secondary);
+    color: var(--text-secondary);
     font-style: italic;
     padding: 8px;
 }
 
 .modelSelect option {
-    background: #0f172a;
-    color: white;
+    background: var(--bg-primary);
+    color: var(--text-primary);
     padding: 8px;
 }
 
@@ -336,8 +343,8 @@
 .errorMessage {
     margin: 16px 32px;
     padding: 12px 16px;
-    background: rgba(239, 68, 68, 0.1);
-    border: 1px solid rgba(239, 68, 68, 0.2);
+    background: var(--danger-muted);
+    border: 1px solid var(--danger);
     border-radius: 10px;
     color: #f87171;
     font-size: 0.9rem;
@@ -346,8 +353,8 @@
 .successMessage {
     margin: 16px 32px;
     padding: 12px 16px;
-    background: rgba(34, 197, 94, 0.1);
-    border: 1px solid rgba(34, 197, 94, 0.2);
+    background: var(--success-muted);
+    border: 1px solid var(--success);
     border-radius: 10px;
     color: #4ade80;
     font-size: 0.9rem;
@@ -356,7 +363,7 @@
 /* Actions */
 .actions {
     padding: 24px 32px;
-    background: rgba(0, 0, 0, 0.1);
+    background: var(--bg-surface);
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -365,7 +372,7 @@
 
 .saveBtn {
     padding: 12px 24px;
-    background: linear-gradient(135deg, #3b82f6, #2563eb);
+    background: linear-gradient(135deg, var(--info), var(--accent-color));
     color: white;
     border: none;
     border-radius: 10px;
@@ -387,7 +394,7 @@
 
 .resetBtn, .skipBtn {
     background: none;
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    border: 1px solid var(--border-color);
     color: var(--text-secondary);
     padding: 12px 20px;
     border-radius: 10px;

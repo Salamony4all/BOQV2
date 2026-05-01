@@ -11,16 +11,26 @@ const __dirname = path.dirname(__filename);
  */
 class CleanupService {
     constructor() {
-        this.sessions = new Map(); // sessionId -> { files: Set, blobs: Set }
-        this.cleanupTimeout = 2 * 60 * 60 * 1000; // 2 hours (per user request)
+        this.sessions = new Map(); // sessionId -> { files: Set, folders: Set, cloudFolders: Set, blobs: Map<url, {path, bucket}> }
+        this.cleanupTimeout = 2 * 60 * 60 * 1000; // 2 hours
         this.timers = new Map(); // sessionId -> timeout
+        
+        // Start deep cleanup interval (every 3 hours)
+        this.deepCleanupInterval = setInterval(() => {
+            this.performDeepCloudCleanup().catch(err => 
+                console.error('[Cleanup] Deep cleanup error:', err)
+            );
+        }, 3 * 60 * 60 * 1000);
     }
 
     getOrCreateSession(sessionId) {
+        if (!sessionId) return null;
         if (!this.sessions.has(sessionId)) {
             this.sessions.set(sessionId, {
                 files: new Set(),
-                blobs: new Set()
+                folders: new Set(),
+                cloudFolders: new Set(),
+                blobs: new Map()
             });
         }
         return this.sessions.get(sessionId);
@@ -28,17 +38,48 @@ class CleanupService {
 
     trackFile(sessionId, filePath) {
         const session = this.getOrCreateSession(sessionId);
+        if (!session) return;
         session.files.add(filePath);
         this.resetCleanupTimer(sessionId);
     }
 
-    trackBlob(sessionId, url) {
+    trackFolder(sessionId, folderPath) {
         const session = this.getOrCreateSession(sessionId);
-        session.blobs.add(url);
+        if (!session) return;
+        session.folders.add(folderPath);
+        this.resetCleanupTimer(sessionId);
+    }
+
+    trackCloudFolder(sessionId, bucket, folderPath) {
+        const session = this.getOrCreateSession(sessionId);
+        if (!session) return;
+        session.cloudFolders.add({ bucket, path: folderPath });
+        this.resetCleanupTimer(sessionId);
+    }
+
+    /**
+     * @param {string} sessionId 
+     * @param {string|Object} blobData - Either a URL string or { url, path, bucket }
+     */
+    trackBlob(sessionId, blobData) {
+        const session = this.getOrCreateSession(sessionId);
+        if (!session) return;
+
+        if (typeof blobData === 'string') {
+            // Legacy support or fallback
+            session.blobs.set(blobData, { url: blobData });
+        } else {
+            session.blobs.set(blobData.url, {
+                url: blobData.url,
+                path: blobData.path,
+                bucket: blobData.bucket || 'assets'
+            });
+        }
         this.resetCleanupTimer(sessionId);
     }
 
     resetCleanupTimer(sessionId) {
+        if (!sessionId) return;
         if (this.timers.has(sessionId)) {
             clearTimeout(this.timers.get(sessionId));
         }
@@ -67,20 +108,57 @@ class CleanupService {
         }
 
         // 2. Cleanup cloud assets
-        for (const url of session.blobs) {
+        for (const [url, meta] of session.blobs) {
             try {
                 if (supabase && url.includes('supabase.co')) {
-                    // Extract path from Supabase URL
-                    // Example: https://xxx.supabase.co/storage/v1/object/public/assets/folder/file.png
-                    const parts = url.split('/assets/');
-                    if (parts.length > 1) {
-                        const filePath = parts[1];
-                        await deleteFromSupabase('assets', filePath);
-                        console.log(`[Cleanup] Deleted Supabase asset: ${filePath}`);
+                    let bucket = meta.bucket || 'assets';
+                    let filePath = meta.path;
+
+                    // Fallback to URL parsing if path is missing
+                    if (!filePath) {
+                        const parts = url.split(`/${bucket}/`);
+                        if (parts.length > 1) {
+                            // Strip query params if any
+                            filePath = parts[1].split('?')[0];
+                        }
+                    }
+
+                    if (filePath) {
+                        await deleteFromSupabase(bucket, filePath);
+                        console.log(`[Cleanup] Deleted Supabase asset: ${filePath} from ${bucket}`);
                     }
                 }
             } catch (error) {
-                console.error(`[Cleanup] Failed to delete file/blob ${url}:`, error.message);
+                console.error(`[Cleanup] Failed to delete blob ${url}:`, error.message);
+            }
+        }
+
+        // 3. Cleanup cloud folders
+        for (const cloudFolder of session.cloudFolders) {
+            try {
+                if (supabase) {
+                    const { data: files } = await supabase.storage.from(cloudFolder.bucket).list(cloudFolder.path);
+                    if (files && files.length > 0) {
+                        const paths = files.map(f => `${cloudFolder.path}/${f.name}`);
+                        await supabase.storage.from(cloudFolder.bucket).remove(paths);
+                    }
+                    console.log(`[Cleanup] Deleted Supabase folder: ${cloudFolder.path}`);
+                }
+            } catch (error) {
+                console.error(`[Cleanup] Failed to delete cloud folder ${cloudFolder.path}:`, error.message);
+            }
+        }
+
+        // 4. Cleanup local folders
+        for (const folderPath of session.folders) {
+            try {
+                const exists = await fs.access(folderPath).then(() => true).catch(() => false);
+                if (exists) {
+                    await fs.rm(folderPath, { recursive: true, force: true });
+                    console.log(`[Cleanup] Deleted local folder: ${path.basename(folderPath)}`);
+                }
+            } catch (error) {
+                console.error(`[Cleanup] Failed to delete folder ${folderPath}:`, error.message);
             }
         }
 
@@ -92,12 +170,65 @@ class CleanupService {
         console.log(`[Cleanup] Session ${sessionId} cleaned successfully.`);
     }
 
+    /**
+     * Scans Supabase storage for abandoned files that aren't in active memory
+     * This catches files from previous server runs or crashed sessions.
+     */
+    async performDeepCloudCleanup() {
+        if (!supabase) return;
+        console.log('[Cleanup] 🔍 Starting Deep Cloud Cleanup scan...');
+        
+        try {
+            const bucket = 'assets';
+            const rootFolders = ['temp-uploads', 'extracted-images', 'manual-upload', 'vision-crops'];
+            
+            for (const rootFolder of rootFolders) {
+                const { data: sessionFolders, error: listError } = await supabase.storage.from(bucket).list(rootFolder);
+                
+                if (listError) {
+                    console.warn(`[Cleanup] Could not list ${rootFolder}:`, listError.message);
+                    continue;
+                }
+                if (!sessionFolders) continue;
+
+                for (const item of sessionFolders) {
+                    // Check if it's a folder (Supabase list returns items, folders usually have no id)
+                    // and if it's not an active session
+                    if (!item.id && !this.sessions.has(item.name)) {
+                        
+                        // Check if it looks like a temporary session folder or is old
+                        const isSessionFolder = item.name.startsWith('sess-') || item.name.length > 20;
+                        const isOld = (Date.now() - new Date(item.created_at).getTime()) > 2 * 60 * 60 * 1000; // 2 hours
+                        
+                        if (isSessionFolder && isOld) {
+                            console.log(`[Cleanup] 🗑️ Deep cleaning abandoned session folder: ${rootFolder}/${item.name}`);
+                            
+                            // List files in folder
+                            const { data: files } = await supabase.storage.from(bucket).list(`${rootFolder}/${item.name}`);
+                            if (files && files.length > 0) {
+                                const pathsToDelete = files.map(f => `${rootFolder}/${item.name}/${f.name}`);
+                                await supabase.storage.from(bucket).remove(pathsToDelete);
+                                console.log(`[Cleanup] Deleted ${pathsToDelete.length} files from ${rootFolder}/${item.name}`);
+                            }
+                        }
+                    }
+                }
+            }
+            console.log('[Cleanup] ✅ Deep Cloud Cleanup finished.');
+        } catch (error) {
+            console.error('[Cleanup] Deep cleanup failed:', error.message);
+        }
+    }
+
     async cleanupAll() {
         console.log('[Cleanup] Performing bulk cleanup of all tracked sessions...');
         const sessionIds = Array.from(this.sessions.keys());
         for (const sessionId of sessionIds) {
             await this.cleanupSession(sessionId);
         }
+
+        // Clean deep cloud too
+        await this.performDeepCloudCleanup();
 
         try {
             const isVercel = process.env.VERCEL === '1';

@@ -13,6 +13,7 @@
   --bg-tertiary: #334155;
   --bg-surface: rgba(255, 255, 255, 0.04);
   --bg-hover: rgba(255, 255, 255, 0.07);
+  --overlay-bg: rgba(0, 0, 0, 0.7);
   --input-bg: #1e293b;
   --border-muted: rgba(255, 255, 255, 0.09);
   --text-primary: #f8fafc;
@@ -21,12 +22,21 @@
   --border-color: rgba(255, 255, 255, 0.1);
   --accent-color: #3b82f6;
   --card-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
+  --shadow-xl: 0 25px 50px -12px rgba(0, 0, 0, 0.6);
 
   /* Shared standard colors */
   --white: #ffffff;
   --black: #000000;
 
-  /* Semantic Colors */
+  /* Brand Colors - Dark Mode Defaults */
+  --primary: #3b82f6;
+  --primary-dark: #2563eb;
+  --accent: #f59e0b;
+  --accent-light: #fbbf24;
+  --accent-dark: #d97706;
+
+  /* Semantic Colors - Dark Mode */
   --danger: #ef4444;
   --success: #10b981;
   --warning: #f59e0b;
@@ -34,9 +44,17 @@
   --primary-accent: #6366f1;
   --secondary-accent: #8b5cf6;
   --orange-accent: #f97316;
+  
+  /* Semantic Opacity Variants - Dark Mode */
+  --danger-muted: rgba(239, 68, 68, 0.1);
+  --success-muted: rgba(16, 185, 129, 0.1);
+  --warning-muted: rgba(245, 158, 11, 0.1);
+  --info-muted: rgba(59, 130, 246, 0.1);
+  --primary-accent-muted: rgba(99, 102, 241, 0.1);
+  --secondary-accent-muted: rgba(139, 92, 246, 0.1);
+  --orange-accent-muted: rgba(249, 115, 22, 0.1);
 }
 
-/* Light Mode Overrides */
 /* Light Mode Overrides */
 .light-mode {
   --bg-primary: #f8fafc;
@@ -45,29 +63,35 @@
   --bg-card: #ffffff;
   --bg-surface: rgba(0, 0, 0, 0.02);
   --bg-hover: rgba(0, 0, 0, 0.04);
+  --overlay-bg: rgba(0, 0, 0, 0.4);
   --input-bg: #ffffff;
-  --border-muted: rgba(0, 0, 0, 0.1);
-  /* Explicit visible card background */
+  --border-muted: rgba(0, 0, 0, 0.08);
 
   --text-primary: #0f172a;
-  /* Darker strong text */
   --text-secondary: #475569;
-  /* Moderate text */
   --text-muted: #64748b;
-  /* Muted text */
 
   --border-color: #cbd5e1;
-  /* Stronger border for visibility */
-  --card-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --card-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
 
-  /* Semantic Color Overrides (optional, usually same but can be adjusted for light mode) */
+  /* Semantic Color Overrides */
   --danger: #ef4444;
-  --success: #059669; /* Slightly darker for better contrast on light */
-  --warning: #d97706; /* Slightly darker for better contrast on light */
-  --info: #2563eb;    /* Slightly darker for better contrast on light */
+  --success: #059669;
+  --warning: #d97706;
+  --info: #2563eb;
   --primary-accent: #4f46e5;
   --secondary-accent: #7c3aed;
   --orange-accent: #ea580c;
+
+  /* Semantic Opacity Variants - Light Mode */
+  --danger-muted: rgba(239, 68, 68, 0.08);
+  --success-muted: rgba(5, 150, 105, 0.08);
+  --warning-muted: rgba(217, 119, 6, 0.08);
+  --info-muted: rgba(37, 99, 235, 0.08);
+  --primary-accent-muted: rgba(79, 70, 229, 0.08);
+  --secondary-accent-muted: rgba(124, 58, 237, 0.08);
+  --orange-accent-muted: rgba(234, 88, 12, 0.08);
 }
 
 body {

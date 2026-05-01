@@ -603,7 +603,7 @@
   background: linear-gradient(90deg, #f59e0b, #ef4444) !important;
 }
 
-.blobDbBtn {
+.supabaseDbBtn {
   background: linear-gradient(135deg, #ff8c00 0%, #f59e0b 100%);
   color: white;
   border: none;
@@ -620,7 +620,7 @@
   margin-right: 1rem;
 }
 
-.blobDbBtn:hover {
+.supabaseDbBtn:hover {
   transform: translateY(-1px);
   box-shadow: 0 6px 16px rgba(245, 158, 11, 0.4);
   filter: brightness(1.1);

@@ -107,33 +107,74 @@ export async function getSupabaseBrands() {
         return [];
     }
 
-    // Map DB rows to match the app's brand object structure if needed
-    return data;
+    // Map DB columns (snake_case) to app properties (camelCase)
+    return data.map(b => ({
+        ...b,
+        budgetTier: b.budget_tier || b.budgetTier, // Handle both just in case
+    }));
 }
 
-/**
- * Brand DB Logic - Save or Update a brand
- */
 export async function saveSupabaseBrand(brand) {
-    if (!supabase) return false;
+    if (!supabase) {
+        console.warn('⚠️ [SupabaseStorage] Cannot save brand: Supabase client not initialized');
+        return false;
+    }
+
+    const brandId = String(brand.id);
+    const brandName = brand.name;
+    const productCount = brand.products?.length || 0;
+
+    console.log(`📡 [SupabaseStorage] Attempting to upsert brand: "${brandName}" (ID: ${brandId}, Products: ${productCount})`);
 
     // Use upsert - assumes 'id' is unique
     const { data, error } = await supabase
         .from('brands')
         .upsert({
-            id: brand.id,
-            name: brand.name,
+            id: brandId,
+            name: brandName,
             logo: brand.logo,
-            budgetTier: brand.budgetTier,
+            budget_tier: brand.budgetTier,
             products: brand.products || [],
             source: brand.origin || 'App',
             updated_at: new Date().toISOString()
-        });
+        }, {
+            onConflict: 'id'
+        })
+        .select();
 
     if (error) {
-        console.error(`❌ [SupabaseStorage] Save brand failed:`, error.message);
+        console.error(`❌ [SupabaseStorage] Upsert failed for "${brandName}":`, {
+            message: error.message,
+            code: error.code,
+            details: error.details,
+            hint: error.hint
+        });
         return false;
     }
 
+    console.log(`✅ [SupabaseStorage] Successfully upserted brand "${brandName}". (ID: ${brandId})`);
     return true;
+}
+
+/**
+ * Gets overview stats for the dashboard
+ */
+export async function getSupabaseStats() {
+    if (!supabase) return { brands: 0, products: 0, assets: 0 };
+
+    try {
+        const { count: brandCount } = await supabase.from('brands').select('*', { count: 'exact', head: true });
+        
+        // Sum products across all brands
+        const { data: brands } = await supabase.from('brands').select('products');
+        const productCount = (brands || []).reduce((acc, b) => acc + (b.products?.length || 0), 0);
+
+        return {
+            brands: brandCount || 0,
+            products: productCount,
+            lastSync: new Date().toISOString()
+        };
+    } catch (e) {
+        return { brands: 0, products: 0, lastSync: null };
+    }
 }
