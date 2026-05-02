@@ -32,16 +32,42 @@
 
 /* Specific Light Theme Overrides for the Modal — Standardized to global variables */
 .modalContainer.light {
-    --bg-primary: var(--bg-primary);
-    --bg-secondary: var(--bg-secondary);
-    --bg-tertiary: var(--bg-tertiary);
-    --bg-surface-glass: var(--bg-surface);
-    --bg-hover-glass: var(--bg-hover);
-    --border-color: var(--border-color);
-    --border-muted: var(--border-muted);
-    --text-primary: var(--text-primary);
-    --text-secondary: var(--text-secondary);
-    --dropdown-shadow: var(--card-shadow);
+    background: #ffffff;
+    --bg-primary: #ffffff;
+    --bg-secondary: #f8fafc;
+    --bg-tertiary: #f1f5f9;
+    --bg-surface-glass: #ffffff;
+    --bg-hover-glass: #f1f5f9;
+    --border-color: #e2e8f0;
+    --border-muted: #f1f5f9;
+    --text-primary: #0f172a;
+    --text-secondary: #475569;
+    --dropdown-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+}
+
+.modalContainer.light .header {
+    background: #f1f5f9;
+    border-bottom: 1px solid #e2e8f0;
+    color: #0f172a;
+}
+
+.modalContainer.light .title {
+    color: #0f172a;
+}
+
+.modalContainer.light .actionCard {
+    background: #ffffff;
+    border-color: #e2e8f0;
+    color: #475569;
+}
+
+.modalContainer.light .tableContainer {
+    background: #ffffff;
+}
+
+.modalContainer.light .footer {
+    background: #f8fafc;
+    border-top: 1px solid #e2e8f0;
 }
 
 /* Compact Header */

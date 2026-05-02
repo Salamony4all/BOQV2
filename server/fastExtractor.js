@@ -249,7 +249,7 @@ async function extractImagesAndMap(filePath, imagesDir, onBlobCreated = null) {
                     fsSync.writeFileSync(targetPath, data);
                     
                     // Handle EMF support: Convert to PNG on-the-fly if on Windows
-                    if (fileName.toLowerCase().endsWith('.emf')) {
+                    if (fileName.toLowerCase().match(/\.(emf|wmf)$/)) {
                         console.log(`[FastExtractor] Processing EMF: ${fileName}`);
                         const pngPath = await convertEmfToPng(targetPath);
                         if (pngPath) {

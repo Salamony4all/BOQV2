@@ -265,7 +265,7 @@
 }
 
 .engineCard {
-    background: var(--bg-surface);
+    background: var(--bg-card);
     border: 1px solid var(--border-muted);
     border-radius: 12px;
     padding: 12px;
@@ -363,7 +363,7 @@
 /* Actions */
 .actions {
     padding: 24px 32px;
-    background: var(--bg-surface);
+    background: var(--bg-card);
     display: flex;
     justify-content: space-between;
     align-items: center;

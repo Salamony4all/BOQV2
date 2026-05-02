@@ -4,7 +4,7 @@
     left: 0;
     width: 100vw;
     height: 100vh;
-    background: rgba(0, 0, 0, 0.6);
+    background: var(--overlay-bg);
     backdrop-filter: blur(8px);
     display: flex;
     align-items: center;
@@ -14,33 +14,33 @@
 }
 
 .modal {
-    background: var(--card-bg, #ffffff);
+    background: var(--bg-secondary);
     width: 90%;
     max-width: 500px;
     border-radius: 20px;
-    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
+    box-shadow: var(--shadow-lg);
     overflow: hidden;
     position: relative;
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    border: 1px solid var(--border-color);
 }
 
 .header {
-    background: var(--header-bg, #f8fafc);
+    background: var(--bg-primary);
     padding: 24px;
-    border-bottom: 1px solid var(--border-color, #e2e8f0);
+    border-bottom: 1px solid var(--border-color);
 }
 
 .title {
     margin: 0;
     font-size: 1.5rem;
     font-weight: 700;
-    color: var(--text-primary, #1e293b);
+    color: var(--text-primary);
 }
 
 .subtitle {
     margin: 8px 0 0;
     font-size: 0.9rem;
-    color: var(--text-secondary, #64748b);
+    color: var(--text-secondary);
 }
 
 .closeBtn {
@@ -76,9 +76,9 @@
     width: 100%;
     padding: 12px 16px;
     border-radius: 12px;
-    border: 2px solid var(--border-color, #e2e8f0);
-    background: var(--input-bg, #ffffff);
-    color: var(--text-primary, #1e293b);
+    border: 2px solid var(--border-color);
+    background: var(--input-bg);
+    color: var(--text-primary);
     font-size: 1rem;
     font-weight: 500;
     transition: all 0.2s;
@@ -87,8 +87,8 @@
 
 .modelSelect:focus {
     outline: none;
-    border-color: #3b82f6;
-    box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1);
+    border-color: var(--primary);
+    box-shadow: 0 0 0 4px var(--info-muted);
 }
 
 .hint {
@@ -100,18 +100,18 @@
 
 .footer {
     padding: 24px;
-    background: var(--header-bg, #f8fafc);
+    background: var(--bg-primary);
     display: flex;
     justify-content: flex-end;
     gap: 12px;
-    border-top: 1px solid var(--border-color, #e2e8f0);
+    border-top: 1px solid var(--border-color);
 }
 
 .cancelBtn {
     padding: 12px 24px;
     border-radius: 12px;
     background: transparent;
-    border: 1px solid var(--border-color, #e2e8f0);
+    border: 1px solid var(--border-color);
     color: var(--text-secondary);
     font-weight: 600;
     cursor: pointer;
@@ -119,25 +119,25 @@
 }
 
 .cancelBtn:hover {
-    background: rgba(0, 0, 0, 0.05);
+    background: var(--bg-hover);
 }
 
 .confirmBtn {
     padding: 12px 24px;
     border-radius: 12px;
-    background: #3b82f6;
-    color: white;
+    background: var(--primary);
+    color: var(--white);
     border: none;
     font-weight: 600;
     cursor: pointer;
-    box-shadow: 0 4px 6px -1px rgba(59, 130, 246, 0.2);
+    box-shadow: 0 4px 6px -1px var(--info-muted);
     transition: all 0.2s;
 }
 
 .confirmBtn:hover {
-    background: #2563eb;
+    background: var(--primary-dark);
     transform: translateY(-1px);
-    box-shadow: 0 10px 15px -3px rgba(59, 130, 246, 0.3);
+    box-shadow: 0 10px 15px -3px var(--info-muted);
 }
 
 @keyframes fadeIn {
@@ -145,21 +145,3 @@
     to { opacity: 1; }
 }
 
-:global(.dark) .modal {
-    background: #1e293b;
-    border-color: #334155;
-}
-
-:global(.dark) .header, :global(.dark) .footer {
-    background: #0f172a;
-}
-
-:global(.dark) .title {
-    color: #f1f5f9;
-}
-
-:global(.dark) .modelSelect {
-    background: #0f172a;
-    border-color: #334155;
-    color: #f1f5f9;
-}

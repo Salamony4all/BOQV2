@@ -581,21 +581,11 @@
 
 /* Light Theme Support */
 .lightOverlay {
-  background: rgba(255, 255, 255, 0.4);
+  background: var(--overlay-bg);
   backdrop-filter: blur(12px);
 }
 
 .light {
-  --bg-primary: #f8fafc;
-  --bg-secondary: #ffffff;
-  --bg-tertiary: #f1f5f9;
-  --bg-surface: rgba(0, 0, 0, 0.03);
-  --bg-hover: rgba(0, 0, 0, 0.05);
-  --border-muted: rgba(0, 0, 0, 0.08);
-  --text-primary: #0f172a;
-  --text-secondary: #475569;
-  --text-muted: #64748b;
-  --border-color: #e2e8f0;
   --card-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
   background: var(--bg-secondary);
   border-color: var(--border-color);
@@ -603,66 +593,66 @@
 }
 
 .light .header {
-  background: rgba(255, 255, 255, 0.8);
+  background: var(--bg-surface);
   border-bottom-color: var(--border-color);
 }
 
 .light .title {
-  background: linear-gradient(135deg, #0f172a 0%, #475569 100%);
+  background: linear-gradient(135deg, var(--text-primary) 0%, var(--text-secondary) 100%);
   -webkit-background-clip: text;
 }
 
 .light .closeBtn {
-  background: #f1f5f9;
-  border-color: #e2e8f0;
+  background: var(--bg-tertiary);
+  border-color: var(--border-color);
 }
 
 .light .tab {
-  color: #64748b;
+  color: var(--text-muted);
 }
 
 .light .activeTab {
-  background: #ffffff;
+  background: var(--bg-secondary);
   color: var(--warning);
-  border-color: #e2e8f0;
+  border-color: var(--border-color);
 }
 
 .light .searchInput {
-  background: #ffffff;
-  border-color: #e2e8f0;
+  background: var(--bg-primary);
+  border-color: var(--border-color);
 }
 
 .light .statCard {
-  background: #ffffff;
-  border-color: #e2e8f0;
+  background: var(--bg-primary);
+  border-color: var(--border-color);
 }
 
 .light .assetCard, .light .brandCard {
-  background: #ffffff;
-  border-color: #e2e8f0;
+  background: var(--bg-secondary);
+  border-color: var(--border-color);
 }
 
 .light .assetPreview, .light .brandLogo {
-  background: #f8fafc;
-  border-color: #f1f5f9;
+  background: var(--bg-primary);
+  border-color: var(--bg-tertiary);
 }
 
 .light .brandStats {
-  background: #f8fafc;
+  background: var(--bg-primary);
 }
 
 .light .actionBtnSmall {
-  background: #ffffff;
-  border-color: #e2e8f0;
+  background: var(--bg-secondary);
+  border-color: var(--border-color);
 }
 
 .light .syncStatus {
-  background: rgba(16, 185, 129, 0.05);
+  background: var(--bg-surface);
 }
 
 .light .tabs {
-  background: #f1f5f9;
-  border-color: #e2e8f0;
+  background: var(--bg-tertiary);
+  border-color: var(--border-color);
 }
 
 .content::-webkit-scrollbar {

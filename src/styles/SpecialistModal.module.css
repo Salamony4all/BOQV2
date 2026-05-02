@@ -16,12 +16,8 @@
 }
 
 /* Glass Overlay Styles */
-.light.overlay {
-    background: rgba(255, 255, 255, 0.1);
-}
-
-.dark.overlay {
-    background: rgba(0, 0, 0, 0.4);
+.overlay {
+    background: var(--overlay-bg);
 }
 
 @keyframes fadeIn {
@@ -44,16 +40,10 @@
     -webkit-backdrop-filter: blur(20px);
 }
 
-.light .modal {
-    background: rgba(255, 255, 255, 0.75);
-    border: 1px solid rgba(0, 0, 0, 0.08);
-    color: #1e293b;
-}
-
-.dark .modal {
-    background: rgba(15, 23, 42, 0.7);
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    color: #f1f5f9;
+.modal {
+    background: var(--bg-surface-solid);
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
 }
 
 @keyframes slideUp {
@@ -66,7 +56,7 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    border-bottom: 1px solid rgba(148, 163, 184, 0.1);
+    border-bottom: 1px solid var(--border-muted);
 }
 
 .titleGroup {
@@ -92,8 +82,9 @@
     letter-spacing: -0.02em;
 }
 
-.light .header h3 { color: #0f172a; }
-.dark .header h3 { color: #fff; }
+.header h3 {
+    color: var(--text-primary);
+}
 
 .headerActions {
     display: flex;
@@ -110,8 +101,9 @@
     line-height: 1;
 }
 
-.light .closeBtn { color: #64748b; }
-.dark .closeBtn { color: #94a3b8; }
+.closeBtn {
+    color: var(--text-secondary);
+}
 
 .closeBtn:hover {
     color: #ef4444;
@@ -133,8 +125,9 @@
     display: block;
 }
 
-.light .sectionTitle { color: #64748b; }
-.dark .sectionTitle { color: #94a3b8; }
+.sectionTitle {
+    color: var(--text-muted);
+}
 
 .boqDescBox {
     border-radius: 20px;
@@ -144,14 +137,9 @@
     overflow: hidden;
 }
 
-.light .boqDescBox {
-    background: rgba(248, 250, 252, 0.5);
-    border: 1px solid rgba(148, 163, 184, 0.1);
-}
-
-.dark .boqDescBox {
-    background: rgba(30, 41, 59, 0.4);
-    border: 1px solid rgba(148, 163, 184, 0.1);
+.boqDescBox {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-muted);
 }
 
 .boqDesc {
@@ -161,13 +149,14 @@
     font-weight: 500;
 }
 
-.light .boqDesc { color: #334155; }
-.dark .boqDesc { color: #e2e8f0; }
+.boqDesc {
+    color: var(--text-primary);
+}
 
 .mandatoryBadge {
     display: inline-block;
-    background: rgba(139, 92, 246, 0.12);
-    color: #8b5cf6;
+    background: var(--secondary-accent-muted, rgba(139, 92, 246, 0.12));
+    color: var(--secondary-accent, #8b5cf6);
     padding: 6px 14px;
     border-radius: 10px;
     font-size: 0.8rem;
@@ -179,12 +168,8 @@
     margin: 2.5rem 0;
 }
 
-.light .divider {
-    background: linear-gradient(90deg, transparent, rgba(148, 163, 184, 0.2), transparent);
-}
-
-.dark .divider {
-    background: linear-gradient(90deg, transparent, rgba(148, 163, 184, 0.15), transparent);
+.divider {
+    background: linear-gradient(90deg, transparent, var(--border-muted), transparent);
 }
 
 .productHeader {
@@ -208,13 +193,13 @@
 }
 
 .verifiedBadge {
-    background: rgba(16, 185, 129, 0.12);
-    color: #10b981;
+    background: var(--success-bg, rgba(16, 185, 129, 0.12));
+    color: var(--success, #10b981);
 }
 
 .hardenBadge {
-    background: rgba(6, 182, 212, 0.12);
-    color: #06b6d4;
+    background: var(--info-bg, rgba(6, 182, 212, 0.12));
+    color: var(--info, #06b6d4);
 }
 
 .modelName {
@@ -224,8 +209,9 @@
     letter-spacing: -0.03em;
 }
 
-.light .modelName { color: #0f172a; }
-.dark .modelName { color: #fff; }
+.modelName {
+    color: var(--text-primary);
+}
 
 .brandSubtitle {
     margin-top: 0.5rem;
@@ -233,8 +219,9 @@
     font-weight: 500;
 }
 
-.light .brandSubtitle { color: #64748b; }
-.dark .brandSubtitle { color: #94a3b8; }
+.brandSubtitle {
+    color: var(--text-secondary);
+}
 
 .productGrid {
     display: grid;
@@ -243,7 +230,8 @@
 }
 
 .imageSection {
-    background: white;
+    background: var(--bg-surface-solid);
+    border: 1px solid var(--border-muted);
     border-radius: 24px;
     overflow: hidden;
     display: flex;
@@ -265,7 +253,7 @@
 }
 
 .noImage {
-    color: #cbd5e1;
+    color: var(--text-muted);
     font-weight: 700;
     font-size: 1.2rem;
 }
@@ -277,8 +265,9 @@
     margin: 0 0 1.2rem 0;
 }
 
-.light .technicalScope h5 { color: #64748b; }
-.dark .technicalScope h5 { color: #94a3b8; }
+.technicalScope h5 {
+    color: var(--text-muted);
+}
 
 .technicalScope p {
     font-size: 1.15rem;
@@ -286,8 +275,9 @@
     margin-bottom: 2.5rem;
 }
 
-.light .technicalScope p { color: #334155; }
-.dark .technicalScope p { color: #cbd5e1; }
+.technicalScope p {
+    color: var(--text-primary);
+}
 
 .metaInfo {
     display: flex;
@@ -307,18 +297,20 @@
     text-transform: uppercase;
 }
 
-.light .metaItem strong { color: #94a3b8; }
-.dark .metaItem strong { color: #64748b; }
+.metaItem strong {
+    color: var(--text-muted);
+}
 
 .metaItem span {
     font-size: 1rem;
 }
 
-.light .metaItem span { color: #475569; }
-.dark .metaItem span { color: #94a3b8; }
+.metaItem span {
+    color: var(--text-secondary);
+}
 
 .sourceLink {
-    color: #3b82f6;
+    color: var(--accent-color);
     text-decoration: none;
     font-weight: 700;
     font-size: 1.05rem;
@@ -328,7 +320,7 @@
 }
 
 .sourceLink:hover {
-    color: #60a5fa;
+    color: var(--accent-light, #60a5fa);
     text-decoration: underline;
     transform: translateX(5px);
 }
@@ -337,12 +329,12 @@
     padding: 1.5rem 2.5rem;
     display: flex;
     justify-content: flex-end;
-    border-top: 1px solid rgba(148, 163, 184, 0.1);
+    border-top: 1px solid var(--border-muted);
 }
 
 .confirmBtn {
-    background: linear-gradient(135deg, #1e293b, #0f172a);
-    color: white;
+    background: var(--button-bg, linear-gradient(135deg, #1e293b, #0f172a));
+    color: var(--button-text, white);
     border: none;
     padding: 1rem 2.5rem;
     border-radius: 14px;
@@ -350,16 +342,12 @@
     font-size: 1rem;
     cursor: pointer;
     transition: all 0.3s;
-    box-shadow: 0 10px 25px rgba(15, 23, 42, 0.15);
-}
-
-.light .confirmBtn {
-    background: linear-gradient(135deg, #1e293b, #0f172a);
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
 }
 
 .dark .confirmBtn {
-    background: #fff;
-    color: #0f172a;
+    background: var(--text-primary);
+    color: var(--bg-primary);
 }
 
 .confirmBtn:hover {
@@ -390,8 +378,8 @@
     line-height: 1.6;
 }
 
-.light .errorText p { color: #64748b; }
-.dark .errorText p { color: #94a3b8; }
+.light .errorText p { color: var(--text-secondary); }
+.dark .errorText p { color: var(--text-secondary); }
 
 /* Responsive adjustments */
 @media (max-width: 800px) {

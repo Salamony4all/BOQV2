@@ -1,7 +1,7 @@
 .overlay {
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.7);
+    background: var(--overlay-bg);
     backdrop-filter: blur(8px);
     display: flex;
     align-items: center;
@@ -92,7 +92,8 @@
 
 .engineCard:hover {
     transform: translateY(-2px);
-    border-color: rgba(59, 130, 246, 0.4);
+    border-color: var(--accent-primary);
+    background: var(--bg-hover);
 }
 
 .engineIcon {
@@ -124,12 +125,12 @@
 
 .active {
     border-color: #7c3aed;
-    background: rgba(124, 58, 237, 0.08);
+    background: rgba(124, 58, 237, 0.15);
 }
 
 .modelSection {
-    background: rgba(255, 255, 255, 0.03);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-muted);
     border-radius: 14px;
     padding: 18px 16px;
 }
@@ -172,7 +173,7 @@
 }
 
 .card:hover {
-    background: rgba(14, 165, 233, 0.1);
+    background: var(--bg-hover);
     border-color: #0ea5e9;
     transform: translateY(-5px);
     box-shadow: var(--card-shadow);

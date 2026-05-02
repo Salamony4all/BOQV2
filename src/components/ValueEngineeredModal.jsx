@@ -191,8 +191,9 @@ export default function ValueEngineeredModal({
     const handleCreateNewBoq = () => {
         const emptyRows = Array(10).fill().map((_, i) => ({
             id: Date.now() + i, sn: i + 1, imageRef: null,
-            brandImage: '', brandDesc: '', description: '', qty: '', unit: '', rate: '', amount: '', basePrice: 0,
-            selectedBrand: '', selectedMainCat: '', selectedSubCat: '', selectedFamily: '', selectedModel: '', aiStatus: 'idle'
+            brandImage: '', brandDesc: '', description: '', qty: '', unit: 'Nos', rate: '', amount: '', basePrice: 0,
+            selectedBrand: '', selectedMainCat: '', selectedSubCat: '', selectedFamily: '', selectedModel: '', selectedModelUrl: '',
+            aiStatus: 'idle'
         }));
         setRows(emptyRows);
     };
@@ -249,7 +250,11 @@ export default function ValueEngineeredModal({
 
     useEffect(() => {
         if (isOpen) {
-            loadDataIntoRows();
+            // Only load data automatically if we don't have any rows yet
+            if (rows.length === 0) {
+                loadDataIntoRows();
+            }
+            
             setCostingFactors(null);
             setIsConfigOpen(false);
             setIsRunning(false);
@@ -258,7 +263,7 @@ export default function ValueEngineeredModal({
             setProgress({ current: 0, total: 0 });
             setSwarm(null);
         }
-    }, [isOpen, originalTables, seededItems]);
+    }, [isOpen]); // Only trigger on modal open/close transitions
 
     if (!isOpen) return null;
 
@@ -911,7 +916,7 @@ export default function ValueEngineeredModal({
                                 </button>
                                 <button className={`${mbs.actionCard} ${mbs.genBoqBtn}`} onClick={handleGenerateFromBoq}>
                                     <span style={{ fontSize: '1.4rem' }}>📋</span>
-                                    <span>Reload Data</span>
+                                    <span>Generate From BOQ</span>
                                 </button>
                                 <button className={`${mbs.actionCard} ${mbs.genPlanBtn}`} onClick={handleUploadPlanTrigger}>
                                     <span style={{ fontSize: '1.4rem' }}>📐</span>

@@ -233,8 +233,8 @@
 .fieldInput {
     width: 100%;
     padding: 0.65rem 0.9rem;
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: var(--bg-surface);
+    border: 1px solid var(--border-muted);
     border-radius: 8px;
     color: #f1f5f9;
     font-size: 0.9rem;
@@ -267,8 +267,8 @@
 .imageInput {
     font-size: 0.8rem;
     color: #cbd5e1;
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px dashed rgba(255, 255, 255, 0.2);
+    background: var(--bg-surface);
+    border: 1px dashed var(--border-muted);
     border-radius: 8px;
     padding: 0.5rem;
     cursor: pointer;
@@ -296,8 +296,8 @@
     height: 80px;
     border-radius: 8px;
     overflow: hidden;
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: var(--bg-surface);
+    border: 1px solid var(--border-muted);
 }
 
 .imagePreview img {
@@ -386,8 +386,8 @@
 
 /* ── Light Mode Support ── */
 :global(:root:not(.dark)) .drawer {
-    background: #f8fafc;
-    border-left-color: #e2e8f0;
+    background: var(--bg-secondary);
+    border-left-color: var(--border-color);
 }
 
 :global(:root:not(.dark)) .drawerHeader {
@@ -395,27 +395,27 @@
 }
 
 :global(:root:not(.dark)) .fieldInput {
-    background: #fff;
-    border-color: #e2e8f0;
-    color: #1e293b;
+    background: var(--bg-primary);
+    border-color: var(--border-color);
+    color: var(--text-primary);
 }
 
 :global(:root:not(.dark)) .fieldInput::placeholder {
-    color: #94a3b8;
+    color: var(--text-muted);
 }
 
 :global(:root:not(.dark)) .fieldLabel {
-    color: #475569;
+    color: var(--text-secondary);
 }
 
 :global(:root:not(.dark)) .drawerFooter {
-    background: #f8fafc;
-    border-top-color: #e2e8f0;
+    background: var(--bg-secondary);
+    border-top-color: var(--border-color);
 }
 
 :global(:root:not(.dark)) .resetBtn {
-    border-color: #e2e8f0;
-    color: #64748b;
+    border-color: var(--border-color);
+    color: var(--text-secondary);
 }
 
 /* ── Mobile ── */

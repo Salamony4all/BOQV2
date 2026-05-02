@@ -4,7 +4,7 @@
     left: 0;
     width: 100vw;
     height: 100vh;
-    background: rgba(10, 15, 30, 0.85);
+    background: var(--overlay-bg);
     -webkit-backdrop-filter: blur(8px);
     backdrop-filter: blur(8px);
     display: flex;
@@ -17,13 +17,13 @@
     width: 90vw;
     height: 85vh;
     max-width: 1100px;
-    background: #0f172a;
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
     border-radius: 20px;
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.6);
+    box-shadow: var(--card-shadow);
     animation: modalAppear 0.5s cubic-bezier(0.16, 1, 0.3, 1);
     position: relative;
     transition: max-width 0.4s ease;
@@ -40,8 +40,8 @@
 
 .header {
     padding: 1.5rem 2rem;
-    background: rgba(30, 41, 59, 0.5);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    background: var(--bg-surface);
+    border-bottom: 1px solid var(--border-color);
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -55,7 +55,7 @@
 .title {
     font-size: 1.6rem;
     font-weight: 800;
-    color: #ffffff;
+    color: var(--text-primary);
     display: flex;
     align-items: center;
     gap: 1rem;
@@ -75,7 +75,7 @@
 
 .subtitle {
     font-size: 0.9rem;
-    color: #94a3b8;
+    color: var(--text-secondary);
     margin-top: 0.4rem;
     font-weight: 500;
 }
@@ -83,14 +83,14 @@
 .closeBtn {
     background: transparent;
     border: none;
-    color: #94a3b8;
+    color: var(--text-muted);
     font-size: 2rem;
     cursor: pointer;
     transition: color 0.2s;
     line-height: 1;
 }
 
-.closeBtn:hover { color: #f1f5f9; }
+.closeBtn:hover { color: var(--text-primary); }
 
 .content {
     flex: 1;
@@ -103,9 +103,9 @@
 
 /* Upload Zone */
 .uploadZone {
-    border: 2px dashed rgba(255, 255, 255, 0.2);
+    border: 2px dashed var(--border-color);
     border-radius: 12px;
-    background: rgba(30, 41, 59, 0.3);
+    background: var(--bg-tertiary);
     padding: 4rem 2rem;
     text-align: center;
     cursor: pointer;
@@ -137,10 +137,10 @@
 .uploadText h3 {
     font-size: 1.25rem;
     margin-bottom: 0.5rem;
-    color: #f1f5f9;
+    color: var(--text-primary);
 }
 
-.uploadText p { color: #64748b; }
+.uploadText p { color: var(--text-muted); }
 
 .browseBtn {
     margin-top: 1.5rem;
@@ -170,11 +170,11 @@
 .progressBar {
     width: 100%;
     height: 10px;
-    background: rgba(255, 255, 255, 0.05);
+    background: var(--bg-tertiary);
     border-radius: 10px;
     overflow: hidden;
     margin-bottom: 1rem;
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    border: 1px solid var(--border-muted);
 }
 
 .progressFill {
@@ -186,7 +186,7 @@
 }
 
 .progressStatus {
-    color: #94a3b8;
+    color: var(--text-secondary);
     font-size: 0.875rem;
     font-weight: 600;
     letter-spacing: 0.05em;
@@ -209,7 +209,7 @@
     gap: 10px;
     font-size: 0.8rem;
     font-weight: 800;
-    color: #94a3b8;
+    color: var(--text-muted);
     text-transform: uppercase;
     letter-spacing: 0.1em;
     margin-bottom: 16px;
@@ -226,8 +226,8 @@
 
 .engineCard {
     padding: 20px;
-    background: rgba(30, 41, 59, 0.5);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: var(--bg-surface);
+    border: 1px solid var(--border-muted);
     border-radius: 16px;
     cursor: pointer;
     display: flex;
@@ -275,24 +275,24 @@
 
 .engineName {
     font-weight: 800;
-    color: #f1f5f9;
+    color: var(--text-primary);
     font-size: 0.95rem;
 }
 
 .engineDesc {
     font-size: 0.75rem;
-    color: #94a3b8;
+    color: var(--text-secondary);
     line-height: 1.4;
 }
 
 .scopeSelectionArea h3 {
     font-size: 1.75rem;
-    color: #f8fafc;
+    color: var(--text-primary);
     margin-bottom: 0.5rem;
 }
 
 .scopeSelectionArea p {
-    color: #94a3b8;
+    color: var(--text-secondary);
     margin-bottom: 1rem;
 }
 
@@ -305,8 +305,8 @@
 
 .scopeCard {
     flex: 1;
-    background: rgba(30, 41, 59, 0.5);
-    border: 2px solid rgba(255, 255, 255, 0.1);
+    background: var(--bg-surface);
+    border: 2px solid var(--border-color);
     border-radius: 16px;
     padding: 2.5rem 2rem;
     text-align: center;
@@ -333,12 +333,12 @@
 .scopeTitle {
     font-size: 1.25rem;
     font-weight: 700;
-    color: #f1f5f9;
+    color: var(--text-primary);
 }
 
 .scopeDesc {
     font-size: 0.9375rem;
-    color: #64748b;
+    color: var(--text-muted);
     line-height: 1.5;
 }
 
@@ -357,7 +357,7 @@
     position: relative;
     width: 320px;
     height: 200px;
-    background: #1e293b;
+    background: var(--bg-tertiary);
     border: 4px solid #3b82f6;
     border-radius: 4px;
     overflow: hidden;
@@ -407,7 +407,7 @@
 
 .processingInfo h3 {
     font-size: 1.5rem;
-    color: #f1f5f9;
+    color: var(--text-primary);
     margin-bottom: 1rem;
 }
 
@@ -433,14 +433,14 @@
 }
 
 .statItem {
-    background: rgba(30, 41, 59, 0.5);
+    background: var(--bg-surface);
     padding: 0.75rem 1.25rem;
     border-radius: 8px;
-    border: 1px solid rgba(255,255,255,0.05);
+    border: 1px solid var(--border-muted);
 }
 
-.statLabel { color: #64748b; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; display: block; margin-bottom: 0.25rem; }
-.statValue { color: #f1f5f9; font-weight: 700; font-size: 1.125rem; }
+.statLabel { color: var(--text-muted); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; display: block; margin-bottom: 0.25rem; }
+.statValue { color: var(--text-primary); font-weight: 700; font-size: 1.125rem; }
 
 /* Results Table */
 .resultsArea {
@@ -460,11 +460,11 @@
 }
 
 .summaryBox {
-    background: rgba(30, 41, 59, 0.5);
+    background: var(--bg-surface);
     padding: 1.25rem;
     border-radius: 12px;
-    border: 1px solid rgba(59, 130, 246, 0.2);
-    color: #cbd5e1;
+    border: 1px solid var(--border-color);
+    color: var(--text-secondary);
     font-style: italic;
     line-height: 1.5;
 }
@@ -472,7 +472,7 @@
 .tableWrapper {
     flex: 1;
     overflow: auto;
-    border: 1px solid rgba(255,255,255,0.1);
+    border: 1px solid var(--border-color);
     border-radius: 12px;
 }
 
@@ -483,9 +483,9 @@
 }
 
 .table th {
-    background: #1e293b;
+    background: var(--bg-tertiary);
     padding: 1.25rem 1rem;
-    color: #f8fafc;
+    color: var(--text-primary);
     font-weight: 700;
     font-size: 0.85rem;
     text-transform: uppercase;
@@ -493,13 +493,13 @@
     position: sticky;
     top: 0;
     z-index: 10;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    border-bottom: 1px solid var(--border-color);
 }
 
 .table td {
     padding: 1.1rem 1rem;
-    border-bottom: 1px solid rgba(255,255,255,0.05);
-    color: #e2e8f0;
+    border-bottom: 1px solid var(--border-muted);
+    color: var(--text-secondary);
     font-size: 0.95rem;
 }
 
@@ -513,17 +513,17 @@
 }
 
 .descCell {
-    color: #ffffff !important;
+    color: var(--text-primary) !important;
     font-weight: 500;
 }
 
 .numCol { text-align: center; }
 .qtyCell { font-weight: 800; color: #60a5fa !important; text-align: center; }
-.unitCell { color: #94a3b8; font-size: 0.85rem; }
+.unitCell { color: var(--text-muted); font-size: 0.85rem; }
 
 .editQtyInput {
-    background: rgba(15, 23, 42, 0.5);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: var(--input-bg);
+    border: 1px solid var(--border-color);
     border-radius: 6px;
     color: #60a5fa;
     padding: 0.4rem;
@@ -543,8 +543,8 @@
 
 .footer {
     padding: 1.5rem 2rem;
-    background: rgba(15, 23, 42, 0.9);
-    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    background: var(--bg-surface);
+    border-top: 1px solid var(--border-color);
     display: flex;
     justify-content: flex-end;
     gap: 1rem;
@@ -552,15 +552,15 @@
 
 .cancelBtn {
     padding: 0.75rem 1.5rem;
-    border: 1px solid rgba(255,255,255,0.1);
+    border: 1px solid var(--border-color);
     background: transparent;
-    color: #94a3b8;
+    color: var(--text-secondary);
     border-radius: 8px;
     cursor: pointer;
     font-weight: 600;
 }
 
-.cancelBtn:hover { background: rgba(255,255,255,0.05); color: #f1f5f9; }
+.cancelBtn:hover { background: var(--bg-hover); color: var(--text-primary); }
 
 .applyBtn {
     padding: 0.75rem 2.5rem;
@@ -581,18 +581,18 @@
 
 /* Selected File Preview */
 .selectedFile {
-    background: rgba(30, 41, 59, 0.8);
+    background: var(--bg-surface);
     padding: 1rem;
     border-radius: 8px;
     display: flex;
     align-items: center;
     gap: 1rem;
-    border: 1px solid rgba(59, 130, 246, 0.3);
+    border: 1px solid var(--border-color);
 }
 
 .fileIcon { font-size: 2rem; }
-.fileName { color: #f8fafc; font-weight: 600; }
-.fileSize { color: #94a3b8; font-size: 0.75rem; }
+.fileName { color: var(--text-primary); font-weight: 600; }
+.fileSize { color: var(--text-muted); font-size: 0.75rem; }
 
 .errorMsg {
     color: #f87171;
@@ -613,19 +613,19 @@
     gap: 0.75rem;
     justify-content: center;
     padding: 1.5rem;
-    background: rgba(30, 41, 59, 0.5);
+    background: var(--bg-surface);
     border-radius: 12px;
-    border: 1px solid rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--border-muted);
     max-width: 600px;
     margin: 0 auto;
 }
 
 .brandPill {
     padding: 0.5rem 1rem;
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-muted);
     border-radius: 20px;
-    color: #94a3b8;
+    color: var(--text-secondary);
     font-size: 0.875rem;
     font-weight: 600;
     cursor: pointer;
@@ -633,9 +633,9 @@
 }
 
 .brandPill:hover {
-    background: rgba(255, 255, 255, 0.1);
-    color: #f1f5f9;
-    border-color: rgba(255, 255, 255, 0.2);
+    background: var(--bg-hover);
+    color: var(--text-primary);
+    border-color: var(--text-secondary);
 }
 
 .brandPill.activeBrand {
@@ -647,7 +647,7 @@
 
 /* QS Grouping Styles */
 .locationHeader {
-    background: rgba(30, 41, 59, 0.95) !important;
+    background: var(--bg-secondary) !important;
 }
 
 .locationHeaderContent {
@@ -663,7 +663,7 @@
 }
 
 .itemCount {
-    color: #64748b;
+    color: var(--text-muted);
     font-size: 0.75rem;
     font-weight: 500;
 }
