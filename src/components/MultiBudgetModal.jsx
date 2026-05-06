@@ -20,7 +20,6 @@ import { getFullUrl } from '../utils/urlUtils';
 
 const API_BASE = getApiBase();
 
-
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 const batch = async (items, limit, fn) => {
     for (let i = 0; i < items.length; i += limit) {
@@ -29,14 +28,67 @@ const batch = async (items, limit, fn) => {
     }
 };
 
+class Queue {
+    constructor(concurrency = 1) {
+        this.concurrency = concurrency;
+        this.running = 0;
+        this.tasks = [];
+    }
+    async add(task) {
+        return new Promise((resolve, reject) => {
+            this.tasks.push(async () => {
+                try {
+                    const res = await task();
+                    resolve(res);
+                } catch (e) {
+                    reject(e);
+                } finally {
+                    this.running--;
+                    this.next();
+                }
+            });
+            this.next();
+        });
+    }
+    next() {
+        while (this.running < this.concurrency && this.tasks.length > 0) {
+            this.running++;
+            const task = this.tasks.shift();
+            task();
+        }
+    }
+}
+
+const globalConcurrencyLimit = 8;
+let activeRequests = 0;
+const requestQueue = [];
+
+const requestSemaphore = () => {
+    if (activeRequests < globalConcurrencyLimit) {
+        activeRequests++;
+        return Promise.resolve();
+    }
+    return new Promise(resolve => {
+        requestQueue.push(resolve);
+    });
+};
+
+const releaseSemaphore = () => {
+    activeRequests--;
+    if (requestQueue.length > 0) {
+        activeRequests++;
+        const next = requestQueue.shift();
+        next();
+    }
+};
 
 export default function MultiBudgetModal({ isOpen, onClose, originalTables, onApplyFlow, seededItems = null, onUploadBoq, onUploadPlan, planPreviewUrl = null, planPreviewType = null, planPreviewName = null, onOpenValueEngineer }) {
     const profile = useCompanyProfile();
     const { theme } = useTheme();
     const { companyName, logoWhite, logoOriginal, logoBlue, website, updateProfile, processLogoFile } = profile;
-    const [activeTier, setActiveTier] = useState('mid'); // budgetary, mid, high
-    const [previewImage, setPreviewImage] = useState(null); // URL of image to preview
-    const [previewLogo, setPreviewLogo] = useState(null); // URL of brand logo for preview
+    const [activeTier, setActiveTier] = useState('mid');
+    const [previewImage, setPreviewImage] = useState(null);
+    const [previewLogo, setPreviewLogo] = useState(null);
     const [previewBrand, setPreviewBrand] = useState(null);
     const [previewModel, setPreviewModel] = useState(null);
     const [planPreviewOpen, setPlanPreviewOpen] = useState(false);
@@ -61,9 +113,26 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
     const [isConsolidated, setIsConsolidated] = useState(false);
     const [specialistData, setSpecialistData] = useState(null);
     const [enrichingRowId, setEnrichingRowId] = useState(null);
-    const [lastAISettings, setLastAISettings] = useState({ brands: [], engine: 'OpenAI', providerModel: null });
+    const [lastAISettings, setLastAISettings] = useState({ brands: [], engine: 'OpenAI', providerModel: null, selectionMode: 'standard', brandsMap: null });
+    const [swarm, setSwarm] = useState({
+        active: false,
+        lanes: {},
+        minimized: false
+    });
 
-    // AI processing states split per type and tier
+    const isMounted = useRef(true);
+    useEffect(() => {
+        isMounted.current = true;
+        return () => { isMounted.current = false; };
+    }, []);
+
+    const VE_UI_CONFIG = {
+        desking: { label: 'Desking Agent', color: '#3b82f6', icon: '💻' },
+        seating: { label: 'Seating Agent', color: '#10b981', icon: '🪑' },
+        softSeating: { label: 'Soft Seating Agent', color: '#8b5cf6', icon: '🛋️' },
+        accessories: { label: 'Accessories Agent', color: '#f59e0b', icon: '📎' }
+    };
+
     const [furnitureStatuses, setFurnitureStatuses] = useState({
         budgetary: { active: false, status: 'idle', currentItem: null, brand: '', model: '', image: null, minimized: false },
         mid: { active: false, status: 'idle', currentItem: null, brand: '', model: '', image: null, minimized: false },
@@ -82,8 +151,6 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
         setFitoutStatuses(prev => ({ ...prev, [tier]: { ...prev[tier], ...delta } }));
     };
 
-    // State stores data + mode PER TIER
-    // Structure: { mid: { rows: [...], mode: 'boq'|'new' }, ... }
     const [tierData, setTierData] = useState({
         budgetary: null,
         mid: null,
@@ -92,7 +159,6 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
 
     const [pendingSeedTier, setPendingSeedTier] = useState(null);
 
-    // Handle seededItems from props (e.g. from Landing Page Plan Upload)
     useEffect(() => {
         if (seededItems && seededItems.length > 0) {
             const newRows = seededItems.map((item, i) => {
@@ -126,7 +192,6 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
         }
     }, [seededItems]);
 
-    // Handle auto-seeding after background upload in modal
     useEffect(() => {
         if (pendingSeedTier && originalTables && originalTables.length > 0) {
             const rows = buildBoqRows(originalTables);
@@ -137,34 +202,43 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
             setPendingSeedTier(null);
         }
     }, [originalTables, pendingSeedTier]);
-    // Keep a ref that always reflects the latest tierData so async functions
-    // can read it after React's state batching (avoids stale closure)
+
     const tierDataRef = useRef(tierData);
     useEffect(() => { tierDataRef.current = tierData; }, [tierData]);
 
-    // Brand System
     const [brands, setBrands] = useState([]);
     const [isAddBrandOpen, setIsAddBrandOpen] = useState(false);
-    const [openBrandDropdown, setOpenBrandDropdown] = useState(null); // row index of open dropdown
+    const [openBrandDropdown, setOpenBrandDropdown] = useState(null);
 
     const boqInputRef = useRef(null);
     const planInputRef = useRef(null);
 
-    // Costing System
     const [isCostingOpen, setIsCostingOpen] = useState(false);
     const [costingFactors, setCostingFactors] = useState({
         profit: 0,
         freight: 0,
         customs: 0,
         installation: 0,
-        vat: 5, // Default VAT 5%
+        vat: 5,
         fromCurrency: 'USD',
         toCurrency: 'OMR',
         exchangeRate: 0.385
     });
 
+    const isHeaderRow = (desc, row = {}) => {
+        if (!desc || desc.trim() === '') return true;
+        const normalized = desc.trim().toLowerCase();
+        if (/^\[.*?\]/.test(normalized)) return false;
+        const hasData = String(row.qty || '').trim() || String(row.unit || '').trim() || String(row.rate || '').trim();
+        if (hasData) return false;
+        const exactHeaders = ['item', 'description', 'desc', 'quantity', 'qty', 'unit', 'uom', 'rate', 'price', 'total', 'amount', 's.n.', 'sn', 'sr.no', 'sr no', 'id', 'ref', 'area', 'specification', 'specifications', 'remarks', 'location', 'description and area', 'description & area', 'room', 'floor', 'block', 'zone', 'subtotal', 'total amount', 'grand total', 'net total', 'discount'];
+        if (exactHeaders.some(kw => normalized === kw || normalized.startsWith(kw + ' '))) return true;
+        if (/^(location|area|floor|block|zone|room|item\s*no|s\.no|ref)$/i.test(normalized)) return true;
+        if (/^(group|type|section|category|list)\s+of\s/i.test(normalized)) return true;
+        return false;
+    };
+
     const normalizeBrandName = (name) => {
-        // Normalize whitespace and trim to avoid odd rendering caused by newlines or extra spaces
         const clean = String(name || '').replace(/\s+/g, ' ').trim();
         return clean || 'Unnamed Brand';
     };
@@ -174,14 +248,8 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
             .then(res => res.json())
             .then(data => {
                 if (Array.isArray(data)) {
-                    const cleaned = data.map(brand => ({
-                        ...brand,
-                        name: normalizeBrandName(brand.name)
-                    }));
-
+                    const cleaned = data.map(brand => ({ ...brand, name: normalizeBrandName(brand.name) }));
                     setBrands(cleaned);
-
-                    // Auto-update prices in existing rows if they are 0
                     setTierData(prev => {
                         const newState = { ...prev };
                         ['budgetary', 'mid', 'high'].forEach(tierName => {
@@ -191,23 +259,14 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                                     if (row.selectedBrand && row.selectedModel) {
                                         const brand = cleaned.find(b => b.name === row.selectedBrand);
                                         if (brand && brand.products) {
-                                            // Find the product
                                             let product = brand.products.find(p =>
                                                 (p.productUrl && p.productUrl === row.selectedModelUrl) ||
                                                 (p.model === row.selectedModel && p.productUrl === row.selectedModelUrl) ||
-                                                (p.model === row.selectedModel) // Fallback match
+                                                (p.model === row.selectedModel)
                                             );
-
                                             const currentRate = parseFloat(row.rate || 0);
-                                            // Debug log
-                                            // console.log(`Checking ${row.selectedModel}: rate=${currentRate}, foundPrice=${product ? product.price : 'none'}`);
-
-                                            // Relaxed condition: if rate is 0 or missing, and we have a price
                                             if (product && parseFloat(product.price) > 0 && currentRate === 0) {
                                                 const basePrice = parseFloat(product.price);
-                                                console.log(`Auto-updating ${row.selectedModel} price to ${basePrice}`);
-
-                                                // Protected update: don't overwrite AI matches that already have descriptions
                                                 const updatedRow = { ...row, rate: basePrice.toFixed(2), basePrice: basePrice };
                                                 if (!updatedRow.brandDesc && product.description) {
                                                     updatedRow.brandDesc = product.description;
@@ -228,10 +287,7 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
             .catch(err => console.error('Failed to load brands', err));
     };
 
-    useEffect(() => {
-        fetchBrands();
-    }, []);
-
+    useEffect(() => { fetchBrands(); }, []);
     if (!isOpen) return null;
 
     const findCol = (header, regex) => {
@@ -243,18 +299,13 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
         if (!tables || tables.length === 0) return [];
         const sourceTable = tables[0];
         const header = sourceTable.header || [];
-
         let idxDesc = findCol(header, /description|desc/i);
-        if (idxDesc === -1) idxDesc = 1; // Fallback to column 2 if not found
-
-        // Improve Qty detection: prioritize "Qty/Quantity" but ignore if it's clearly a rate/price column
+        if (idxDesc === -1) idxDesc = 1;
         let idxQty = findCol(header, /^(?!.*(rate|price|amount)).*(qty|quantity)/i);
         if (idxQty === -1) idxQty = findCol(header, /qty|quantity/i);
-
         const idxUnit = findCol(header, /unit|uom/i);
         const idxRate = findCol(header, /rate|price/i);
-
-        // Improve Total detection: prioritize "Total/Amount" but ignore if it's a qty column
+        const idxScope = findCol(header, /scope|zone|area|location/i);
         let idxTotal = findCol(header, /^(?!.*(qty|quantity)).*(total|amount)/i);
         if (idxTotal === -1) idxTotal = findCol(header, /amount|total/i);
 
@@ -269,6 +320,7 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                 sn: i + 1,
                 imageRef: imgSrc,
                 brandImage: '', brandDesc: '',
+                scope: getVal(idxScope) || 'Furniture',
                 description: getVal(idxDesc) || (idxDesc === -1 ? row.cells[1]?.value : ''),
                 qty: getVal(idxQty),
                 unit: getVal(idxUnit),
@@ -284,70 +336,29 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
             alert("No extracted BOQ data found. Please Upload BOQ first.");
             return;
         }
-        const rows = buildBoqRows(originalTables);
-        setTierData(prev => ({
-            ...prev,
-            [activeTier]: { rows, mode: 'boq' }
-        }));
+        setTierData(prev => ({ ...prev, [activeTier]: { rows: buildBoqRows(originalTables), mode: 'boq' } }));
     };
 
-    const handleUploadBoqTrigger = () => {
-        setPendingSeedTier(activeTier);
-        if (boqInputRef.current) {
-            boqInputRef.current.click();
-        }
-    };
-
-    const handleUploadPlanTrigger = () => {
-        if (planInputRef.current) {
-            planInputRef.current.click();
-        }
-    };
+    const handleUploadBoqTrigger = () => { setPendingSeedTier(activeTier); if (boqInputRef.current) boqInputRef.current.click(); };
+    const handleUploadPlanTrigger = () => { if (planInputRef.current) planInputRef.current.click(); };
 
     const handleCreateNewBoq = () => {
         const emptyRows = Array(10).fill().map((_, i) => ({
-            id: Date.now() + i,
-            sn: i + 1,
-            imageRef: null,
-            brandImage: '', brandDesc: '', description: '', qty: '', unit: '', rate: '', amount: '',
+            id: Date.now() + i, sn: i + 1, imageRef: null, brandImage: '', brandDesc: '', description: '', qty: '', unit: '', rate: '', amount: '',
             selectedBrand: '', selectedMainCat: '', selectedSubCat: '', selectedFamily: '', selectedModel: ''
         }));
-
-        // Update ONLY active tier with NEW mode
-        setTierData(prev => ({
-            ...prev,
-            [activeTier]: { rows: emptyRows, mode: 'new' }
-        }));
+        setTierData(prev => ({ ...prev, [activeTier]: { rows: emptyRows, mode: 'new' } }));
     };
 
-    const handleAddBrand = () => {
-        setIsAddBrandOpen(true);
-    };
-
-    const handleBrandAdded = (newBrand) => {
-        setBrands(prev => [...prev, newBrand]);
-    };
+    const handleAddBrand = () => setIsAddBrandOpen(true);
+    const handleBrandAdded = (newBrand) => setBrands(prev => [...prev, newBrand]);
 
     const handlePlanApplied = (planItems) => {
         if (!planItems || planItems.length === 0) return;
-
         const newRows = planItems.map((item, i) => ({
-            id: Date.now() + i,
-            sn: i + 1,
-            imageRef: null,
-            brandImage: '', brandDesc: '',
-            // Professional QS formatting: Strip all existing bracketed locations and prepend the official one
-            description: `[${item.location}] ${item.description.replace(/^(\[.*?\]\s*)+/, '').trim()}`,
-            location: item.location,
-            scope: item.scope,
-            qty: item.qty,
-            unit: item.unit || 'Nos',
-            rate: '',
-            amount: '',
-            selectedBrand: '', selectedMainCat: '', selectedSubCat: '', selectedFamily: '', selectedModel: ''
+            id: Date.now() + i, sn: i + 1, imageRef: null, brandImage: '', brandDesc: '',
+            description: `[${item.location}] ${item.description.replace(/^(\[.*?\]\s*)+/, '').trim()}`, location: item.location, scope: item.scope, qty: item.qty, unit: item.unit || 'Nos', rate: '', amount: '', selectedBrand: '', selectedMainCat: '', selectedSubCat: '', selectedFamily: '', selectedModel: ''
         }));
-
-        // Seed ALL three tiers similarly to handleGenerateFromBoq
         setTierData({
             budgetary: { rows: newRows.map(r => ({ ...r, id: r.id + 0 })), mode: 'boq' },
             mid: { rows: newRows.map(r => ({ ...r, id: r.id + 100000 })), mode: 'boq' },
@@ -360,16 +371,13 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
         const results = [...new Set(items.map(i => {
             const parts = keyPath.split('.');
             let val = i;
-            for (const part of parts) {
-                val = val?.[part];
-            }
+            for (const part of parts) { val = val?.[part]; }
             return val;
         }).filter(Boolean))];
         return results.length > 0 ? results : null;
     };
 
     const handleAutoFillAI = () => {
-        // Ensure ALL tiers have rows before opening modal
         const anyTierHasRows = ['budgetary', 'mid', 'high'].some(k => tierData[k]?.rows?.length > 0);
         if (!anyTierHasRows) {
             const rows = buildBoqRows();
@@ -380,7 +388,6 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                 high: { rows: rows.map(r => ({ ...r, id: r.id + 200000 })), mode: 'boq' }
             });
         } else {
-            // Only seed tiers that are still empty
             const rows = buildBoqRows();
             setTierData(prev => ({
                 budgetary: prev.budgetary?.rows?.length ? prev.budgetary : { rows: rows.map(r => ({ ...r, id: r.id + 0 })), mode: 'boq' },
@@ -391,9 +398,7 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
         setIsAutoFillSelectOpen(true);
     };
 
-    const handleFitoutAutoFill = () => {
-        setIsFitoutAutoFillOpen(true);
-    };
+    const handleFitoutAutoFill = () => setIsFitoutAutoFillOpen(true);
 
     const executeFitoutAutoFillAI = async (availableBrands, selectedEngine, providerModel = null) => {
         setIsFitoutAutoFillOpen(false);
@@ -408,16 +413,14 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
         if (tierKeys.length > 1) setActiveTier('comparison');
 
         let globalStats = { success: 0, error: 0, newlyAdded: 0 };
-        const matchCache = new Map(); // description -> responseData object
+        const matchCache = new Map();
 
         const processRow = async (tierKey, rowIndex) => {
             const row = tierDataRef.current[tierKey].rows[rowIndex];
             if (!row || !row.scope?.toUpperCase().includes('FITOUT') || isHeaderRow(row.description, row) || row.selectedBrand) return;
-
             const rowId = String(row.id);
             updateFitoutStatus(tierKey, { currentItem: row, status: 'identifying', brand: '...', model: 'Matching Fitout...', image: null });
 
-            // Set uniform loading effect
             setTierData(prev => {
                 const updatedRows = [...prev[tierKey].rows];
                 updatedRows[rowIndex] = { ...updatedRows[rowIndex], aiStatus: 'processing' };
@@ -426,53 +429,24 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
 
             try {
                 const cleanDesc = (row.description || '').replace(/^\[.*?\]\s*/, '').trim();
-                
                 let product = null;
                 let newlyAdded = false;
                 let currentMatchData = null;
 
                 if (matchCache.has(cleanDesc)) {
-                    console.log(`  ♻️ [Fitout Logic] Reusing cached match for: "${cleanDesc}"`);
                     currentMatchData = matchCache.get(cleanDesc);
                     product = currentMatchData.product;
                     newlyAdded = !!currentMatchData.newlyAdded;
                 } else {
-                    // Extract only brands that were selected for THIS specific tier
-                    // availableBrands format is now: ["BrandName|budgetary", "BrandName|mid", ...]
-                    const brandsForThisTier = availableBrands
-                        .filter(s => s.endsWith(`|${tierKey}`))
-                        .map(s => s.split('|')[0]);
-
-                    // Skip if Fitout V2 specifically WAS NOT selected for this tier
-                    // (Assuming Fitout V2 is the primarily used one)
+                    const brandsForThisTier = availableBrands.filter(s => s.endsWith(`|${tierKey}`)).map(s => s.split('|')[0]);
                     if (brandsForThisTier.length === 0) {
-                        console.log(`  ⏭️ [Fitout Logic] Skipping tier ${tierKey} because no brands were selected for it.`);
-                        setTierData(prev => ({
-                            ...prev,
-                            [tierKey]: { 
-                                ...prev[tierKey], 
-                                rows: prev[tierKey].rows.map(r => String(r.id) === rowId ? { ...r, aiStatus: null } : r) 
-                            }
-                        }));
+                        setTierData(prev => ({ ...prev, [tierKey]: { ...prev[tierKey], rows: prev[tierKey].rows.map(r => String(r.id) === rowId ? { ...r, aiStatus: null } : r) } }));
                         return;
                     }
-
                     const response = await fetch(`${API_BASE}/api/auto-match-ai`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ 
-                            description: cleanDesc, 
-                            qty: row.qty, 
-                            unit: row.unit, 
-                            tier: tierKey, 
-                            availableBrands: brandsForThisTier, 
-                            provider: selectedEngine, 
-                            providerModel, 
-                            scope: 'Fitout', 
-                            type: 'fitout' 
-                        })
+                        method: 'POST', headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ description: cleanDesc, qty: row.qty, unit: row.unit, tier: tierKey, availableBrands: brandsForThisTier, provider: selectedEngine, providerModel, scope: 'Fitout', type: 'fitout' })
                     });
-
                     currentMatchData = await response.json();
                     if (currentMatchData.status === 'success' && currentMatchData.product) {
                         product = currentMatchData.product;
@@ -484,85 +458,33 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                 if (product) {
                     const finalPrice = Math.ceil(parseFloat(product.price || 0));
                     updateFitoutStatus(tierKey, { status: 'success', brand: product.brand || 'FitOut V2', model: product.model || '', image: product.imageUrl || row.imageRef || null });
-
                     setTierData(prev => {
                         const next = { ...prev };
-                        
-                        const updatedRow = {
-                            selectedBrand: product.brand || 'FitOut V2',
-                            brandDesc: product.description || product.model,
-                            brandImage: product.imageUrl || row.imageRef || row.brandImage,
-                            selectedModel: product.model,
-                            selectedMainCat: product.mainCategory || product.category || 'Partition Wall',
-                            selectedSubCat: product.subCategory || 'full height partition wall',
-                            selectedFamily: product.family || 'Element',
-                            type: 'fitout',
-                            rate: finalPrice,
-                            aiStatus: 'success',
-                            aiResult: currentMatchData
-                        };
-
-                        // 1. Update primary tier
-                        if (next[tierKey]) {
-                            next[tierKey].rows = next[tierKey].rows.map((r, idx) => {
-                                if (idx === rowIndex) {
-                                    return { 
-                                        ...r, 
-                                        ...updatedRow,
-                                        amount: r.qty ? (parseFloat(r.qty) * finalPrice) : finalPrice
-                                    };
-                                }
-                                return r;
-                            });
-                        }
-
-                        // 2. Clone to OTHER rows in the SAME tier for identical descriptions
+                        const updatedRow = { selectedBrand: product.brand || 'FitOut V2', brandDesc: product.description || product.model, brandImage: product.imageUrl || row.imageRef || row.brandImage, selectedModel: product.model, selectedMainCat: product.mainCategory || product.category || 'Partition Wall', selectedSubCat: product.subCategory || 'full height partition wall', selectedFamily: product.family || 'Element', type: 'fitout', rate: finalPrice, aiStatus: 'success', aiResult: currentMatchData };
+                        if (next[tierKey]) { next[tierKey].rows = next[tierKey].rows.map((r, idx) => idx === rowIndex ? { ...r, ...updatedRow, amount: r.qty ? (parseFloat(r.qty) * finalPrice) : finalPrice } : r); }
                         [tierKey].forEach(tKey => {
                             if (!next[tKey]) return;
                             next[tKey].rows = next[tKey].rows.map((r) => {
                                 const otherClean = (r.description || '').replace(/^\[.*?\]\s*/, '').trim();
-                                if (otherClean === cleanDesc && !r.selectedBrand) {
-                                    console.log(`  👯 [Fitout Logic] Cloning match to ${tKey} tier for: "${cleanDesc}"`);
-                                    return { 
-                                        ...r, 
-                                        ...updatedRow,
-                                        amount: r.qty ? (parseFloat(r.qty) * finalPrice) : finalPrice
-                                    };
-                                }
+                                if (otherClean === cleanDesc && !r.selectedBrand) return { ...r, ...updatedRow, amount: r.qty ? (parseFloat(r.qty) * finalPrice) : finalPrice };
                                 return r;
                             });
                         });
-
                         return next;
                     });
-
                     globalStats.success++;
                     if (newlyAdded) globalStats.newlyAdded++;
                 } else {
                     const newStatus = currentMatchData?.status === 'no_match' ? 'no_match' : 'error';
                     globalStats.error++;
                     updateFitoutStatus(tierKey, { status: newStatus });
-                    
-                    setTierData(prev => ({
-                        ...prev,
-                        [tierKey]: { 
-                            ...prev[tierKey], 
-                            rows: prev[tierKey].rows.map(r => String(r.id) === rowId ? { ...r, aiStatus: newStatus, aiError: currentMatchData?.message } : r) 
-                        }
-                    }));
+                    setTierData(prev => ({ ...prev, [tierKey]: { ...prev[tierKey], rows: prev[tierKey].rows.map(r => String(r.id) === rowId ? { ...r, aiStatus: newStatus, aiError: currentMatchData?.message } : r) } }));
                 }
             } catch (e) {
                 updateFitoutStatus(tierKey, { status: 'error' });
                 globalStats.error++;
-                setTierData(prev => ({
-                    ...prev,
-                    [tierKey]: { 
-                        ...prev[tierKey], 
-                        rows: prev[tierKey].rows.map(r => String(r.id) === rowId ? { ...r, aiStatus: 'error', aiError: e.message } : r) 
-                    }
-                }));
+                setTierData(prev => ({ ...prev, [tierKey]: { ...prev[tierKey], rows: prev[tierKey].rows.map(r => String(r.id) === rowId ? { ...r, aiStatus: 'error', aiError: e.message } : r) } }));
             }
-
             setFitoutProgress(prev => ({ ...prev, [tierKey]: { ...prev[tierKey], current: prev[tierKey].current + 1 } }));
             await sleep(1000);
         };
@@ -571,7 +493,6 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
             updateFitoutStatus(tierKey, { active: true, minimized: false });
             const rows = tierDataRef.current[tierKey].rows || [];
             const workableIndices = rows.map((r, i) => i).filter(i => rows[i].scope?.toUpperCase().includes('FITOUT') && !isHeaderRow(rows[i].description, rows[i]) && !rows[i].selectedBrand);
-
             setFitoutProgress(prev => ({ ...prev, [tierKey]: { current: 0, total: workableIndices.length } }));
             await batch(workableIndices, 5, (idx) => processRow(tierKey, idx));
             updateFitoutStatus(tierKey, { active: false });
@@ -588,225 +509,283 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
         }
     };
 
-
-    const isHeaderRow = (desc, row = {}) => {
-        if (!desc || desc.trim() === '') return true;
-        const normalized = desc.trim().toLowerCase();
-        
-        // If it has a code pattern like [FL-01], it's definitely an item
-        if (/^\[.*?\]/.test(normalized)) return false;
-
-        // If it has quantity or unit, it's definitely an item
-        const hasData = String(row.qty || '').trim() || String(row.unit || '').trim() || String(row.rate || '').trim();
-        if (hasData) return false;
-
-        const exactHeaders = [
-            'item', 'description', 'desc', 'quantity', 'qty', 'unit', 'uom',
-            'rate', 'price', 'total', 'amount', 's.n.', 'sn', 'sr.no', 'sr no', 'id',
-            'ref', 'area', 'specification', 'specifications', 'remarks', 'location',
-            'description and area', 'description & area', 'room', 'floor', 'block', 'zone',
-            'subtotal', 'total amount', 'grand total', 'net total', 'discount'
-        ];
-        if (exactHeaders.some(kw => normalized === kw || normalized.startsWith(kw + ' '))) return true;
-
-        // More restrictive regex for generic markers
-        if (/^(location|area|floor|block|zone|room|item\s*no|s\.no|ref)$/i.test(normalized)) return true;
-        
-        if (/^(group|type|section|category|list)\s+of\s/i.test(normalized)) return true;
-        return false;
-    };
-
-    const executeAutoFillAI = async (selectedBrands, selectedEngine, providerModel = null) => {
+    const executeAutoFillAI = async (selectedBrandsOrMap, selectedEngine, providerModel = null, selectionMode = 'standard') => {
         setIsAutoFillSelectOpen(false);
         setIsFurnitureAutoFilling(true);
         setFurnitureBatchResult(null);
-        setLastAISettings({ brands: selectedBrands, engine: selectedEngine, providerModel });
+
+        const brandsArray = Array.isArray(selectedBrandsOrMap) ? selectedBrandsOrMap : Object.values(selectedBrandsOrMap).filter(Boolean);
+        setLastAISettings({ brands: brandsArray, engine: selectedEngine, providerModel, selectionMode, brandsMap: selectedBrandsOrMap });
 
         const brandsByTier = { budgetary: [], mid: [], high: [] };
-        for (const brandName of selectedBrands) {
-            const dbEntry = brands.find(b => b.name === brandName);
-            const t = (dbEntry?.budgetTier || 'mid').toLowerCase();
-            const key = (t === 'high' || t === 'premium') ? 'high' : t === 'budgetary' ? 'budgetary' : 'mid';
-            brandsByTier[key].push(brandName);
+        
+        // If selectionMode is standard and we received a map (from our updated AutoFillSelectModal),
+        // we use the map's tier assignments directly.
+        if (selectionMode === 'standard' && !Array.isArray(selectedBrandsOrMap)) {
+            Object.entries(selectedBrandsOrMap).forEach(([tier, bName]) => {
+                if (bName && (tier === 'budgetary' || tier === 'mid' || tier === 'high')) {
+                    brandsByTier[tier] = [bName];
+                }
+            });
+        } else {
+            // Fallback for arrays or other modes (like categorized)
+            for (const brandName of brandsArray) {
+                const dbEntry = brands.find(b => b.name === brandName);
+                const t = (dbEntry?.budgetTier || 'mid').toLowerCase();
+                const key = (t === 'high' || t === 'premium') ? 'high' : t === 'budgetary' ? 'budgetary' : 'mid';
+                brandsByTier[key].push(brandName);
+            }
         }
 
         const tierKeys = ['budgetary', 'mid', 'high'].filter(k => brandsByTier[k].length > 0 && tierDataRef.current[k]?.rows?.length > 0);
-        if (tierKeys.length === 0) {
-            setIsFurnitureAutoFilling(false);
-            return;
-        }
+        if (tierKeys.length === 0) { setIsFurnitureAutoFilling(false); return; }
 
-        // Switch to Comparison View if multiple tiers are being filled
-        if (tierKeys.length > 1) {
-            setActiveTier('comparison');
-        } else {
-            setActiveTier(tierKeys[0]);
-        }
+        if (tierKeys.length > 1) { setActiveTier('comparison'); } else { setActiveTier(tierKeys[0]); }
 
         let globalStats = { success: 0, error: 0, newlyAdded: 0 };
+        const queue = new Queue(8);
 
-        const processRow = async (tierKey, rowIndex) => {
-            const row = tierDataRef.current[tierKey].rows[rowIndex];
-            if (!row || isHeaderRow(row.description, row) || (row.scope && row.scope.toUpperCase().includes('FITOUT')) || row.aiStatus === 'success') return;
+        // --- PHASE 1: ROUTER ---
+        let categoryMap = null;
+        const firstTierRows = tierDataRef.current[tierKeys[0]].rows;
+        const workableRows = firstTierRows.filter(r => !isHeaderRow(r.description, r) && (!r.scope || !r.scope.toUpperCase().includes('FITOUT')) && r.aiStatus !== 'success');
 
-            const rowId = String(row.id);
-            updateFurnitureStatus(tierKey, {
-                currentItem: row,
-                status: 'identifying',
-                brand: '...',
-                model: 'Finding match...',
-                image: null
+        if (selectionMode === 'categorized' && workableRows.length > 0) {
+            console.log('🚀 [MB AI] Routing items via AI Router...');
+            const routingPayload = workableRows.map(r => ({ id: String(r.id), desc: r.description }));
+
+            const getInitialLogo = (cat) => {
+                const bName = selectedBrandsOrMap[cat];
+                if (!bName) return '';
+                const b = brands.find(brand => brand.name === bName);
+                return b?.logo ? getFullUrl(b.logo) : '';
+            };
+
+            setSwarm({
+                active: true, status: 'routing',
+                lanes: {
+                    desking: { ...VE_UI_CONFIG.desking, id: 'desking', status: 'idle', progress: 0, currentItem: 'Warming up...', brandLogo: getInitialLogo('desking'), brand: selectedBrandsOrMap['desking'] },
+                    seating: { ...VE_UI_CONFIG.seating, id: 'seating', status: 'idle', progress: 0, currentItem: 'Warming up...', brandLogo: getInitialLogo('seating'), brand: selectedBrandsOrMap['seating'] },
+                    softSeating: { ...VE_UI_CONFIG.softSeating, id: 'softSeating', status: 'idle', progress: 0, currentItem: 'Warming up...', brandLogo: getInitialLogo('softSeating'), brand: selectedBrandsOrMap['softSeating'] },
+                    accessories: { ...VE_UI_CONFIG.accessories, id: 'accessories', status: 'idle', progress: 0, currentItem: 'Warming up...', brandLogo: getInitialLogo('accessories'), brand: selectedBrandsOrMap['accessories'] }
+                }
             });
-
-            setTierData(prev => {
-                const updatedRows = [...prev[tierKey].rows];
-                updatedRows[rowIndex] = { ...updatedRows[rowIndex], aiStatus: 'processing' };
-                return { ...prev, [tierKey]: { ...prev[tierKey], rows: updatedRows } };
-            });
-
-            const sizeContext = [row.qty && `Qty: ${row.qty}`, row.unit && `Unit: ${row.unit}`].filter(Boolean).join(', ');
-            const enrichedDesc = sizeContext ? `${row.description} | ${sizeContext}` : row.description;
 
             try {
-                const response = await fetch(`${API_BASE}/api/auto-match-ai`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        description: enrichedDesc,
-                        tier: tierKey,
-                        availableBrands: brandsByTier[tierKey],
-                        provider: selectedEngine,
-                        providerModel,
-                        scope: row.scope,
-                        type: 'furniture'
-                    })
-                });
+                const routeRes = await fetch(`${API_BASE}/api/ve-route`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ items: routingPayload }) });
+                const routeData = await routeRes.json();
+                if (routeData.status === 'success' && routeData.categoryMap?.status !== 'error') {
+                    categoryMap = routeData.categoryMap;
+                } else {
+                    console.error('❌ [MB AI] Routing failed:', routeData.categoryMap?.error_message);
+                    alert("AI Routing failed: " + (routeData.categoryMap?.error_message || "Unknown error"));
+                    setIsFurnitureAutoFilling(false);
+                    setSwarm({ active: false, lanes: {}, minimized: false });
+                    return;
+                }
+            } catch (err) {
+                console.error('❌ [MB AI] Routing fetch failed:', err);
+                alert("Network error during AI Routing.");
+                setIsFurnitureAutoFilling(false);
+                setSwarm({ active: false, lanes: {}, minimized: false });
+                return;
+            }
+        }
 
-                const result = await response.json();
-                if (result.status === 'success' && result.product) {
-                    const match = result.product;
-                    const matchedBrandName = match.brand || '';
+        // --- SINGLE ROW PROCESSOR ---
+        const processSingleRow = async (tierKey, rowIndex, activeBrandsForCall, laneId = null) => {
+            if (!isMounted?.current) return;
+            const row = tierDataRef.current[tierKey].rows[rowIndex];
+            if (!row || row.aiStatus === 'success') return;
 
-                    updateFurnitureStatus(tierKey, {
-                        status: 'success',
-                        brand: matchedBrandName,
-                        model: match.model || '',
-                        image: match.imageUrl || null
+            await queue.add(async () => {
+                if (!isMounted?.current) return;
+                await requestSemaphore();
+
+                try {
+                    if (laneId) { setSwarm(prev => ({ ...prev, lanes: { ...prev?.lanes, [laneId]: { ...prev?.lanes?.[laneId], status: 'identifying', currentItem: row.description, tier: tierKey } } })); }
+                    updateFurnitureStatus(tierKey, { currentItem: row, status: 'identifying', brand: '...', model: 'Finding match...', image: null });
+                    setTierData(prev => {
+                        const updatedRows = [...prev[tierKey].rows];
+                        updatedRows[rowIndex] = { ...updatedRows[rowIndex], aiStatus: 'processing' };
+                        return { ...prev, [tierKey]: { ...prev[tierKey], rows: updatedRows } };
                     });
 
-                    const localBrandEntry = brands.find(b => b.name.toLowerCase().trim() === matchedBrandName.toLowerCase().trim());
-                    const resolvedLogo = localBrandEntry?.logo || '';
-                    if (result.source === 'ai-discovery-hardened') globalStats.newlyAdded++;
+                    const sizeContext = [row.qty && `Qty: ${row.qty}`, row.unit && `Unit: ${row.unit}`].filter(Boolean).join(', ');
+                    const enrichedDesc = sizeContext ? `${row.description} | ${sizeContext}` : row.description;
 
-                    let finalBrandDesc = match.description || (match.model ? `Model: ${match.model}` : row.description);
-                    let finalMainCat = match.mainCategory || 'Office Seating';
-                    let finalSubCat = String(match.subCategory || 'Staff Chairs');
-                    let finalFamily = String(match.family || '');
-                    let finalModel = match.model || '';
-                    let finalImageUrl = match.imageUrl || '';
-                    let finalRate = parseFloat(match.price) > 0 ? parseFloat(match.price).toFixed(2) : (row.rate || '0.00');
+                    const response = await fetch(`${API_BASE}/api/auto-match-ai`, {
+                        method: 'POST', headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ description: enrichedDesc, tier: tierKey, availableBrands: activeBrandsForCall, brandCategoryRules: selectionMode === 'categorized' ? selectedBrandsOrMap : null, provider: selectedEngine, providerModel, scope: row.scope, type: 'furniture' })
+                    });
+                    const result = await response.json();
 
-                    if (localBrandEntry && localBrandEntry.products) {
-                        const products = localBrandEntry.products;
-                        const normalize = (s) => String(s || '').toLowerCase().replace(/#\d+/g, '').replace(/[^a-z0-9]/g, ' ').replace(/\s+/g, ' ').trim();
-                        const target = normalize(finalModel);
-                        const matches = products.filter(p => normalize(p.model).includes(target) || target.includes(normalize(p.model)));
+                    if (!isMounted?.current) return;
 
-                        if (matches.length > 0) {
-                            const ranked = matches.sort((a, b) => (parseFloat(b.price) || 0) - (parseFloat(a.price) || 0));
-                            const bestP = ranked[0];
-                            finalMainCat = bestP.mainCategory || bestP.category || finalMainCat;
-                            finalSubCat = bestP.subCategory || finalSubCat;
-                            finalFamily = bestP.family || '';
-                            finalModel = bestP.model;
-                            finalImageUrl = bestP.imageUrl || finalImageUrl;
-                            if (parseFloat(bestP.price) > 0) finalRate = parseFloat(bestP.price).toFixed(2);
-                            if (bestP.description) finalBrandDesc = bestP.description;
-                            match.bestModelUrl = bestP.productUrl || bestP.imageUrl || `id_${bestP.id}`;
+                    if (result.status === 'success' && result.product) {
+                        const match = result.product;
+                        const matchedBrandName = match.brand || '';
+                        updateFurnitureStatus(tierKey, { status: 'success', brand: matchedBrandName, model: match.model || '', image: match.imageUrl || null });
+
+                        const localBrandEntry = brands.find(b => b.name.toLowerCase().trim() === matchedBrandName.toLowerCase().trim());
+                        const resolvedLogo = localBrandEntry?.logo || '';
+                        if (result.source === 'ai-discovery-hardened') globalStats.newlyAdded++;
+
+                        let finalBrandDesc = match.description || (match.model ? `Model: ${match.model}` : row.description);
+                        let finalMainCat = match.mainCategory || 'Office Seating';
+                        let finalSubCat = String(match.subCategory || 'Staff Chairs');
+                        let finalFamily = String(match.family || '');
+                        let finalModel = match.model || '';
+                        let finalImageUrl = match.imageUrl || '';
+                        let finalRate = parseFloat(match.price) > 0 ? parseFloat(match.price).toFixed(2) : (row.rate || '0.00');
+
+                        if (localBrandEntry && localBrandEntry.products) {
+                            const products = localBrandEntry.products;
+                            const normalize = (s) => String(s || '').toLowerCase().replace(/#\d+/g, '').replace(/[^a-z0-9]/g, ' ').replace(/\s+/g, ' ').trim();
+                            const target = normalize(finalModel);
+                            const matches = products.filter(p => normalize(p.model).includes(target) || target.includes(normalize(p.model)));
+                            if (matches.length > 0) {
+                                const ranked = matches.sort((a, b) => (parseFloat(b.price) || 0) - (parseFloat(a.price) || 0));
+                                const bestP = ranked[0];
+                                finalMainCat = bestP.mainCategory || bestP.category || finalMainCat;
+                                finalSubCat = bestP.subCategory || finalSubCat;
+                                finalFamily = bestP.family || '';
+                                finalModel = bestP.model;
+                                finalImageUrl = bestP.imageUrl || finalImageUrl;
+                                if (parseFloat(bestP.price) > 0) finalRate = parseFloat(bestP.price).toFixed(2);
+                                if (bestP.description) finalBrandDesc = bestP.description;
+                                match.bestModelUrl = bestP.productUrl || bestP.imageUrl || `id_${bestP.id}`;
+                            }
                         }
+
+                        const updatedRow = { ...row, selectedBrand: matchedBrandName, selectedMainCat: finalMainCat, selectedSubCat: finalSubCat, selectedFamily: finalFamily, selectedModel: finalModel, selectedModelUrl: match.bestModelUrl || match.productUrl || finalImageUrl, brandDesc: finalBrandDesc, brandImage: finalImageUrl, brandLogo: resolvedLogo, type: 'furniture', rate: finalRate, amount: (parseFloat(finalRate) * (parseFloat(row.qty) || 0)).toFixed(2), aiStatus: 'success', aiResult: result };
+                        setTierData(prev => ({ ...prev, [tierKey]: { ...prev[tierKey], rows: prev[tierKey].rows.map(r => String(r.id) === String(row.id) ? updatedRow : r) } }));
+
+                        if (laneId) {
+                            setSwarm(prev => {
+                                const lane = prev?.lanes?.[laneId];
+                                if (!lane) return prev;
+                                const newCurrent = (lane.current || 0) + 1;
+                                return { ...prev, lanes: { ...prev?.lanes, [laneId]: { ...lane, status: 'ready', brand: matchedBrandName, brandLogo: resolvedLogo ? getFullUrl(resolvedLogo) : '', model: finalModel, image: finalImageUrl, progress: lane.total > 0 ? Math.min(100, Math.round((newCurrent / lane.total) * 100)) : 100, current: newCurrent } } };
+                            });
+                        }
+                        globalStats.success++;
+                    } else {
+                        const newStatus = result.status === 'no_match' ? 'no_match' : 'error';
+                        updateFurnitureStatus(tierKey, { status: newStatus });
+                        setTierData(prev => ({ ...prev, [tierKey]: { ...prev[tierKey], rows: prev[tierKey].rows.map(r => String(r.id) === String(row.id) ? { ...r, aiStatus: newStatus, aiError: result.message } : r) } }));
+                        if (laneId) {
+                            setSwarm(prev => {
+                                const lane = prev?.lanes?.[laneId];
+                                if (!lane) return prev;
+                                const newCurrent = (lane.current || 0) + 1;
+                                return { ...prev, lanes: { ...prev?.lanes, [laneId]: { ...lane, status: 'error', progress: lane.total > 0 ? Math.min(100, Math.round((newCurrent / lane.total) * 100)) : 100, current: newCurrent } } };
+                            });
+                        }
+                        globalStats.error++;
                     }
-
-                    const updatedRow = {
-                        ...row,
-                        selectedBrand: matchedBrandName,
-                        selectedMainCat: finalMainCat,
-                        selectedSubCat: finalSubCat,
-                        selectedFamily: finalFamily,
-                        selectedModel: finalModel,
-                        selectedModelUrl: match.bestModelUrl || match.productUrl || finalImageUrl,
-                        brandDesc: finalBrandDesc,
-                        brandImage: finalImageUrl,
-                        brandLogo: resolvedLogo,
-                        type: 'furniture',
-                        rate: finalRate,
-                        amount: (parseFloat(finalRate) * (parseFloat(row.qty) || 0)).toFixed(2),
-                        aiStatus: 'success',
-                        aiResult: result
-                    };
-
-                    setTierData(prev => ({
-                        ...prev,
-                        [tierKey]: { ...prev[tierKey], rows: prev[tierKey].rows.map(r => String(r.id) === rowId ? updatedRow : r) }
-                    }));
-
-                    globalStats.success++;
-                } else {
-                    const newStatus = result.status === 'no_match' ? 'no_match' : 'error';
-                    updateFurnitureStatus(tierKey, { status: newStatus });
-                    if (newStatus === 'error') globalStats.error++;
-
-                    setTierData(prev => ({
-                        ...prev,
-                        [tierKey]: { ...prev[tierKey], rows: prev[tierKey].rows.map(r => String(r.id) === rowId ? { ...r, aiStatus: newStatus, aiError: result.message } : r) }
-                    }));
+                } catch (error) {
+                    console.error("Row processing error:", error);
+                    updateFurnitureStatus(tierKey, { status: 'error' });
+                    setTierData(prev => ({ ...prev, [tierKey]: { ...prev[tierKey], rows: prev[tierKey].rows.map(r => String(r.id) === String(row.id) ? { ...r, aiStatus: 'error', aiError: error.message } : r) } }));
+                    if (laneId) {
+                        setSwarm(prev => {
+                            const lane = prev?.lanes?.[laneId];
+                            if (!lane) return prev;
+                            const newCurrent = (lane.current || 0) + 1;
+                            return { ...prev, lanes: { ...prev?.lanes, [laneId]: { ...lane, status: 'error', current: newCurrent } } };
+                        });
+                    }
+                    globalStats.error++;
+                } finally {
+                    releaseSemaphore();
+                    setFurnitureProgress(prev => ({ ...prev, [tierKey]: { ...prev[tierKey], current: prev[tierKey].current + 1 } }));
+                    await sleep(400);
                 }
-            } catch (error) {
-                updateFurnitureStatus(tierKey, { status: 'error' });
-                globalStats.error++;
-                setTierData(prev => ({
-                    ...prev,
-                    [tierKey]: { ...prev[tierKey], rows: prev[tierKey].rows.map(r => String(r.id) === rowId ? { ...r, aiStatus: 'error', aiError: error.message } : r) }
-                }));
-            }
-
-            setFurnitureProgress(prev => ({
-                ...prev,
-                [tierKey]: { ...prev[tierKey], current: prev[tierKey].current + 1 }
-            }));
-            await sleep(1000);
+            });
         };
 
-        const processTier = async (tierKey) => {
-            updateFurnitureStatus(tierKey, { active: true, minimized: false });
-            const rows = tierDataRef.current[tierKey].rows || [];
-            const workableIndices = rows.map((r, i) => i).filter(i =>
-                !isHeaderRow(rows[i].description, rows[i]) &&
-                rows[i].aiStatus !== 'success' &&
-                (!rows[i].scope || !rows[i].scope.toUpperCase().includes('FITOUT'))
-            );
+        // --- PHASE 2: SWARM EXECUTION ---
+        const swarmPromises = [];
 
-            setFurnitureProgress(prev => ({ ...prev, [tierKey]: { current: 0, total: workableIndices.length } }));
+        if (selectionMode === 'categorized' && categoryMap && categoryMap.status !== 'error') {
+            const activeLanes = {};
+            const categoryKeys = ['desking', 'seating', 'softSeating', 'accessories'];
 
-            // Process rows in batches of 5
-            await batch(workableIndices, 5, (idx) => processRow(tierKey, idx));
+            categoryKeys.forEach(catKey => {
+                const itemIds = categoryMap[catKey] || [];
+                if (itemIds.length === 0) return;
+                const targetBrand = selectedBrandsOrMap[catKey];
+                if (!targetBrand) return;
 
-            updateFurnitureStatus(tierKey, { active: false });
-        };
+                const stringItemIds = itemIds.map(String);
+                let laneTotalItems = 0;
+
+                tierKeys.forEach(tierKey => {
+                    if (brandsByTier[tierKey].includes(targetBrand)) {
+                        const tierWorkableIndices = workableRows.map(r => tierDataRef.current[tierKey].rows.findIndex(row => row.id === r.id));
+                        laneTotalItems += tierWorkableIndices.filter(idx => idx !== -1 && stringItemIds.includes(String(tierDataRef.current[tierKey].rows[idx].id))).length;
+                    }
+                });
+
+                if (laneTotalItems > 0) {
+                    const localBrand = brands.find(b => b.name === targetBrand);
+                    activeLanes[catKey] = { id: catKey, label: VE_UI_CONFIG[catKey]?.label || catKey, status: 'active', current: 0, total: laneTotalItems, progress: 0, brand: targetBrand, brandLogo: localBrand?.logo ? getFullUrl(localBrand.logo) : '', currentItem: null };
+                }
+            });
+
+            setSwarm({ active: true, status: 'processing', lanes: activeLanes });
+
+            categoryKeys.forEach(catKey => {
+                const itemIds = categoryMap[catKey] || [];
+                if (itemIds.length === 0) return;
+                const targetBrand = selectedBrandsOrMap[catKey];
+                if (!targetBrand) return;
+
+                const stringItemIds = itemIds.map(String);
+
+                tierKeys.forEach(tierKey => {
+                    updateFurnitureStatus(tierKey, { active: true, minimized: false });
+                    const tierRows = tierDataRef.current[tierKey].rows;
+
+                    const catWorkableIndices = tierRows.map((r, i) => i).filter(i => !isHeaderRow(tierRows[i].description, tierRows[i]) && tierRows[i].aiStatus !== 'success' && (!tierRows[i].scope || !tierRows[i].scope.toUpperCase().includes('FITOUT')) && stringItemIds.includes(String(tierRows[i].id)));
+
+                    if (catWorkableIndices.length > 0 && brandsByTier[tierKey].includes(targetBrand)) {
+                        setFurnitureProgress(prev => ({ ...prev, [tierKey]: { current: 0, total: (prev[tierKey].total || 0) + catWorkableIndices.length } }));
+                        const processCategoryBatch = async () => { await Promise.all(catWorkableIndices.map(async (idx) => { await processSingleRow(tierKey, idx, [targetBrand], catKey); })); };
+                        swarmPromises.push(processCategoryBatch());
+                    }
+                });
+            });
+
+        } else {
+            tierKeys.forEach(tierKey => {
+                updateFurnitureStatus(tierKey, { active: true, minimized: false });
+                const rows = tierDataRef.current[tierKey].rows || [];
+                const workableIndices = rows.map((r, i) => i).filter(i => !isHeaderRow(rows[i].description, rows[i]) && rows[i].aiStatus !== 'success' && (!rows[i].scope || !rows[i].scope.toUpperCase().includes('FITOUT')));
+
+                setFurnitureProgress(prev => ({ ...prev, [tierKey]: { current: 0, total: workableIndices.length } }));
+
+                const processTierFallback = async () => { await Promise.all(workableIndices.map(async (idx) => { await processSingleRow(tierKey, idx, brandsByTier[tierKey], null); })); };
+                swarmPromises.push(processTierFallback());
+            });
+        }
 
         try {
-            await Promise.all(tierKeys.map(k => processTier(k)));
+            await Promise.all(swarmPromises);
             setFurnitureBatchResult({ success: globalStats.success, error: globalStats.error, newlyAdded: globalStats.newlyAdded });
         } catch (error) {
+            console.error("Swarm execution failed:", error);
             setFurnitureBatchResult({ error: 1 });
         } finally {
+            for (const tierKey of tierKeys) { updateFurnitureStatus(tierKey, { active: false }); }
             setIsFurnitureAutoFilling(false);
+            setSwarm(prev => prev ? { ...prev, active: false } : { active: false, lanes: {}, minimized: false });
             setTimeout(() => setFurnitureBatchResult(null), 8000);
             fetchBrands();
         }
     };
 
-
-    // Allow re-rerunning AI on a single error/no-match row
     const handleRetryRow = async (rowIndex, forcedBrands = null, forcedEngine = null) => {
         const tierKey = activeTier;
         const tier = tierDataRef.current[tierKey];
@@ -819,7 +798,6 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
         const modelToUse = lastAISettings.providerModel;
         const isFitout = row.scope?.toUpperCase().includes('FITOUT');
 
-        // 1. Set to processing state
         setTierData(prev => {
             const newRows = [...prev[tierKey].rows];
             newRows[rowIndex] = { ...newRows[rowIndex], aiStatus: 'processing', aiError: null };
@@ -829,27 +807,12 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
         if (isFitout) {
             updateFitoutStatus(tierKey, { status: 'identifying', currentItem: row, brand: '...', model: 'Matching Fitout...', image: null });
             try {
-                // Extract brands for this tier
-                const brandsForThisTier = brandsToUse
-                    .filter(s => s.endsWith(`|${tierKey}`))
-                    .map(s => s.split('|')[0]);
-
+                const brandsForThisTier = brandsToUse.filter(s => s.endsWith(`|${tierKey}`)).map(s => s.split('|')[0]);
                 const cleanDesc = (row.description || '').replace(/^\[.*?\]\s*/, '').trim();
 
                 const response = await fetch(`${API_BASE}/api/auto-match-ai`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        description: cleanDesc,
-                        qty: row.qty,
-                        unit: row.unit,
-                        tier: tierKey,
-                        availableBrands: brandsForThisTier,
-                        provider: engineToUse,
-                        providerModel: modelToUse,
-                        scope: 'Fitout',
-                        type: 'fitout'
-                    })
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ description: cleanDesc, qty: row.qty, unit: row.unit, tier: tierKey, availableBrands: brandsForThisTier, provider: engineToUse, providerModel: modelToUse, scope: 'Fitout', type: 'fitout' })
                 });
 
                 const result = await response.json();
@@ -860,28 +823,13 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
 
                     setTierData(prev => {
                         const newRows = [...prev[tierKey].rows];
-                        newRows[rowIndex] = {
-                            ...newRows[rowIndex],
-                            selectedBrand: product.brand || 'FitOut V2',
-                            brandDesc: product.description || product.model,
-                            brandImage: product.imageUrl || null,
-                            brandLogo: '',
-                            type: 'fitout',
-                            rate: finalPrice.toFixed(2),
-                            amount: (finalPrice * (parseFloat(row.qty) || 0)).toFixed(2),
-                            aiStatus: 'success',
-                            aiResult: result
-                        };
+                        newRows[rowIndex] = { ...newRows[rowIndex], selectedBrand: product.brand || 'FitOut V2', brandDesc: product.description || product.model, brandImage: product.imageUrl || null, brandLogo: '', type: 'fitout', rate: finalPrice.toFixed(2), amount: (finalPrice * (parseFloat(row.qty) || 0)).toFixed(2), aiStatus: 'success', aiResult: result };
                         return { ...prev, [tierKey]: { ...prev[tierKey], rows: newRows } };
                     });
                 } else {
                     const newStatus = result.status === 'no_match' ? 'no_match' : 'error';
                     updateFitoutStatus(tierKey, { status: newStatus });
-                    setTierData(prev => {
-                        const newRows = [...prev[tierKey].rows];
-                        newRows[rowIndex] = { ...newRows[rowIndex], aiStatus: newStatus, aiError: result.message };
-                        return { ...prev, [tierKey]: { ...prev[tierKey], rows: newRows } };
-                    });
+                    setTierData(prev => ({ ...prev, [tierKey]: { ...prev[tierKey], rows: prev[tierKey].rows.map(r => String(r.id) === String(row.id) ? { ...r, aiStatus: newStatus, aiError: result.message } : r) } }));
                 }
             } catch (error) {
                 console.error("Retry Fitout Error:", error);
@@ -893,10 +841,8 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                 });
             }
         } else {
-            // Furniture retry
             updateFurnitureStatus(tierKey, { status: 'identifying', currentItem: row, brand: '...', model: 'Finding match...', image: null });
 
-            // Calculate brands for this tier
             const brandsByTier = { budgetary: [], mid: [], high: [] };
             for (const brandName of brandsToUse) {
                 const dbEntry = brands.find(b => b.name === brandName);
@@ -910,17 +856,8 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
 
             try {
                 const response = await fetch(`${API_BASE}/api/auto-match-ai`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        description: enrichedDesc,
-                        tier: tierKey,
-                        availableBrands: brandsByTier[tierKey],
-                        provider: engineToUse,
-                        providerModel: modelToUse,
-                        scope: row.scope,
-                        type: 'furniture'
-                    })
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ description: enrichedDesc, tier: tierKey, availableBrands: brandsByTier[tierKey], brandCategoryRules: lastAISettings.selectionMode === 'categorized' ? lastAISettings.brandsMap : null, provider: engineToUse, providerModel: modelToUse, scope: row.scope, type: 'furniture' })
                 });
 
                 const result = await response.json();
@@ -961,43 +898,17 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                         }
                     }
 
-                    const updatedRow = {
-                        ...row,
-                        selectedBrand: matchedBrandName,
-                        selectedMainCat: finalMainCat,
-                        selectedSubCat: finalSubCat,
-                        selectedFamily: finalFamily,
-                        selectedModel: finalModel,
-                        selectedModelUrl: match.bestModelUrl || match.productUrl || finalImageUrl,
-                        brandDesc: finalBrandDesc,
-                        brandImage: finalImageUrl,
-                        brandLogo: resolvedLogo,
-                        type: 'furniture',
-                        rate: finalRate,
-                        amount: (parseFloat(finalRate) * (parseFloat(row.qty) || 0)).toFixed(2),
-                        aiStatus: 'success',
-                        aiResult: result
-                    };
-
-                    setTierData(prev => ({
-                        ...prev,
-                        [tierKey]: { ...prev[tierKey], rows: prev[tierKey].rows.map(r => String(r.id) === String(row.id) ? updatedRow : r) }
-                    }));
+                    const updatedRow = { ...row, selectedBrand: matchedBrandName, selectedMainCat: finalMainCat, selectedSubCat: finalSubCat, selectedFamily: finalFamily, selectedModel: finalModel, selectedModelUrl: match.bestModelUrl || match.productUrl || finalImageUrl, brandDesc: finalBrandDesc, brandImage: finalImageUrl, brandLogo: resolvedLogo, type: 'furniture', rate: finalRate, amount: (parseFloat(finalRate) * (parseFloat(row.qty) || 0)).toFixed(2), aiStatus: 'success', aiResult: result };
+                    setTierData(prev => ({ ...prev, [tierKey]: { ...prev[tierKey], rows: prev[tierKey].rows.map(r => String(r.id) === String(row.id) ? updatedRow : r) } }));
                 } else {
                     const newStatus = result.status === 'no_match' ? 'no_match' : 'error';
                     updateFurnitureStatus(tierKey, { status: newStatus });
-                    setTierData(prev => ({
-                        ...prev,
-                        [tierKey]: { ...prev[tierKey], rows: prev[tierKey].rows.map(r => String(r.id) === String(row.id) ? { ...r, aiStatus: newStatus, aiError: result.message } : r) }
-                    }));
+                    setTierData(prev => ({ ...prev, [tierKey]: { ...prev[tierKey], rows: prev[tierKey].rows.map(r => String(r.id) === String(row.id) ? { ...r, aiStatus: newStatus, aiError: result.message } : r) } }));
                 }
             } catch (error) {
                 console.error("Retry Furniture Error:", error);
                 updateFurnitureStatus(tierKey, { status: 'error' });
-                setTierData(prev => ({
-                    ...prev,
-                    [tierKey]: { ...prev[tierKey], rows: prev[tierKey].rows.map(r => String(r.id) === String(row.id) ? { ...r, aiStatus: 'error', aiError: error.message } : r) }
-                }));
+                setTierData(prev => ({ ...prev, [tierKey]: { ...prev[tierKey], rows: prev[tierKey].rows.map(r => String(r.id) === String(row.id) ? { ...r, aiStatus: 'error', aiError: error.message } : r) } }));
             }
         }
     };
@@ -1009,7 +920,6 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
             const newRows = [...tier.rows];
             const row = { ...newRows[rowIndex] };
 
-            // Special handling for cascading dropdowns
             if (field === 'selectedBrand') {
                 row.selectedBrand = value;
                 row.selectedMainCat = '';
@@ -1018,7 +928,6 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                 row.selectedModel = '';
                 row.brandImage = '';
                 row.brandDesc = '';
-                // Store brand logo for PDF export
                 const brand = brands.find(b => b.name === value);
                 row.brandLogo = brand?.logo || '';
             }
@@ -1038,21 +947,17 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                 row.selectedModel = '';
             }
             else if (field === 'selectedModel') {
-                // value is now { model, url } to support variants
                 const { model, url } = value;
                 row.selectedModel = model;
                 row.selectedModelUrl = url;
 
-                // Auto-fill Description, Image, and Rate from Product Data
                 const brand = brands.find(b => b.name === row.selectedBrand);
                 if (brand && brand.products) {
-                    // Find product by URL (preferred) or Image URL (fallback)
                     let product = brand.products.find(p =>
                         (p.productUrl && p.productUrl === url) ||
                         (p.imageUrl && p.imageUrl === url)
                     );
 
-                    // Fallback: if no unique URL matched (e.g., empty image/product URLs), find by Model + Hierarchy
                     if (!product) {
                         const candidates = brand.products.filter(p =>
                             (p.normalization?.category || p.mainCategory) === row.selectedMainCat &&
@@ -1062,46 +967,8 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                         );
 
                         if (candidates.length > 0) {
-                            // Check if the synthetic ID contains an index suffix logic (e.g. model_CODE_0)
-                            // Structure from render: `model_${modelName}_${i}` or `model_${modelName}`
                             if (url && url.startsWith('model_')) {
-                                const parts = url.split('_');    // ── MANUAL ENRICHMENT (HARDENING) ─────────────────────────────────────────
-                                const handleManualEnrich = async (row, index, tierKey) => {
-                                    const brandName = prompt("Enter Brand Name (e.g., Herman Miller):", row.selectedBrand || "");
-                                    if (!brandName) return;
-                                    const modelName = prompt("Enter Model Name (e.g., Aeron):", row.selectedModel || "");
-                                    if (!modelName) return;
-
-                                    setEnrichingRowId(row.id);
-                                    try {
-                                        const response = await fetch(`${API_BASE}/api/models/enrich`, {
-                                            method: 'POST',
-                                            headers: { 'Content-Type': 'application/json' },
-                                            body: JSON.stringify({ brandName, modelName, budgetTier: tierKey })
-                                        });
-                                        const data = await response.json();
-
-                                        if (data.status === 'success' && data.product) {
-                                            const p = data.product;
-                                            handleCellChange(index, 'selectedModel', p.model, tierKey);
-                                            handleCellChange(index, 'selectedBrand', p.brand, tierKey);
-                                            handleCellChange(index, 'brandImage', p.imageUrl, tierKey);
-                                            handleCellChange(index, 'brandLogo', p.brandLogo || '', tierKey);
-                                            handleCellChange(index, 'rate', p.price || 0, tierKey);
-                                            handleCellChange(index, 'mainCategory', p.mainCategory, tierKey);
-                                            handleCellChange(index, 'subCategory', p.subCategory, tierKey);
-                                            handleCellChange(index, 'aiStatus', 'success', tierKey);
-                                            alert(`Successfully enriched and saved ${p.model} to ${p.brand} database!`);
-                                        } else {
-                                            alert(`Enrichment failed: ${data.message || 'Product not found.'}`);
-                                        }
-                                    } catch (err) {
-                                        alert(`Enrichment Error: ${err.message}`);
-                                    } finally {
-                                        setEnrichingRowId(null);
-                                    }
-                                };
-                                // If 3 parts (model, CODE, index), try to parse index
+                                const parts = url.split('_');
                                 if (parts.length >= 3) {
                                     const possibleIndex = parseInt(parts[parts.length - 1]);
                                     if (!isNaN(possibleIndex) && candidates[possibleIndex]) {
@@ -1125,7 +992,6 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                         row.rate = basePrice > 0 ? basePrice.toFixed(2) : row.rate;
                         row.basePrice = basePrice;
 
-                        // Auto-calculate amount if qty exists
                         const currentQty = parseFloat(row.qty) || 0;
                         if (currentQty > 0 && basePrice > 0) {
                             row.amount = (currentQty * basePrice).toFixed(2);
@@ -1136,14 +1002,12 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                 }
             }
 
-            // --- AUTO-SELECTION LOGIC ---
             const autoSelectNextLevel = (currentRow) => {
                 const activeBrand = brands.find(b => b.name === currentRow.selectedBrand);
                 if (!activeBrand || !activeBrand.products) return;
 
                 const brandProducts = activeBrand.products;
 
-                // 1. Auto-select Main Category if only one
                 if (currentRow.selectedBrand && !currentRow.selectedMainCat) {
                     const mainCats = Array.from(new Set(brandProducts.flatMap(p => [p.normalization?.category, p.mainCategory]).filter(Boolean))).filter(v => v !== 'null' && v !== 'undefined');
                     if (mainCats && mainCats.length === 1) {
@@ -1153,7 +1017,6 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                     }
                 }
 
-                // 2. Auto-select Sub Category if only one
                 if (currentRow.selectedMainCat && !currentRow.selectedSubCat) {
                     const matchingByMain = brandProducts.filter(p => (p.normalization?.category || p.mainCategory) === currentRow.selectedMainCat);
                     const subCats = Array.from(new Set(matchingByMain.flatMap(p => [p.normalization?.subCategory, p.subCategory]).filter(Boolean))).filter(v => v !== 'null' && v !== 'undefined');
@@ -1164,7 +1027,6 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                     }
                 }
 
-                // 3. Auto-select Family if only one
                 if (currentRow.selectedSubCat && !currentRow.selectedFamily) {
                     const matchingBySub = brandProducts.filter(p =>
                         (p.normalization?.category || p.mainCategory) === currentRow.selectedMainCat &&
@@ -1173,12 +1035,11 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                     const families = getUniqueValues(matchingBySub, 'family');
                     if (families && families.length === 1) {
                         currentRow.selectedFamily = families[0];
-                        autoSelectNextLevel(currentRow); // Recursive check
+                        autoSelectNextLevel(currentRow);
                         return;
                     }
                 }
 
-                // 4. Auto-select Model if only one Variant
                 if (currentRow.selectedFamily && !currentRow.selectedModel) {
                     const allRawModels = brandProducts.filter(p =>
                         (p.normalization?.category || p.mainCategory) === currentRow.selectedMainCat &&
@@ -1218,15 +1079,10 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
             if (['selectedBrand', 'selectedMainCat', 'selectedSubCat', 'selectedFamily'].includes(field)) {
                 autoSelectNextLevel(row);
             }
-            // -----------------------------
             else if (field === 'selectedModel') {
-                // Already handled logic above
             }
             else {
-                // Standard Field
                 row[field] = value;
-
-                // Real-time Amount Calculation
                 if (field === 'qty' || field === 'rate') {
                     const q = field === 'qty' ? parseFloat(value) : parseFloat(row.qty);
                     const r = field === 'rate' ? parseFloat(value) : parseFloat(row.rate);
@@ -1269,7 +1125,6 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
         });
     };
 
-    // Clear all manual selection data from a single row
     const handleClearRowMatch = (rowIndex) => {
         setTierData(prev => {
             const tier = prev[activeTier];
@@ -1286,7 +1141,6 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
         });
     };
 
-    // Apply costing factors to all rows with base prices
     const handleApplyCosting = (factors) => {
         setCostingFactors(factors);
         setIsCostingOpen(false);
@@ -1294,7 +1148,6 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
         const activeTierData = tierData[activeTier];
         if (!activeTierData) return;
 
-        // Recalculate rates for all rows with base prices
         const updatedRows = activeTierData.rows.map(row => {
             if (row.basePrice && row.basePrice > 0) {
                 const markup = 1 + (factors.profit + factors.freight + factors.customs + factors.installation) / 100;
@@ -1304,13 +1157,11 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
             return row;
         });
 
-        // Update internal state just in case
         setTierData(prev => ({
             ...prev,
             [activeTier]: { ...activeTierData, rows: updatedRows }
         }));
 
-        // If onApplyFlow is provided (from App.jsx), format and send to main workflow
         if (onApplyFlow) {
             const formattedData = {
                 costingFactors: factors,
@@ -1342,19 +1193,13 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
         }
     };
 
-    // Helper to load image as data URL with size and format optimization
     const getImageData = async (url, options = {}) => {
         if (!url) return null;
-
-        // Explicitly define these in the function scope
         const maxWidth = options.maxWidth || 1000;
         const format = options.format || 'image/jpeg';
         const quality = options.quality || 0.85;
-
-        // Check if it's an external URL (not from our server)
         const isExternal = url.startsWith('http') && !url.includes('localhost:3001') && !url.includes(window.location.hostname);
 
-        // Helper to load image into canvas and return dataUrl
         const loadImageToCanvas = (imgSrc) => {
             return new Promise((resolve) => {
                 const img = new Image();
@@ -1381,27 +1226,19 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
 
         if (isExternal) {
             try {
-                // Proxy returns raw binary image, not JSON
                 const proxyUrl = `${API_BASE}/api/image-proxy?url=${encodeURIComponent(url)}`;
                 const response = await fetch(proxyUrl);
                 if (!response.ok) return null;
-
-                // Convert binary response to blob URL for loading
                 const blob = await response.blob();
                 const blobUrl = URL.createObjectURL(blob);
-
                 const result = await loadImageToCanvas(blobUrl);
-
-                // Clean up blob URL
                 URL.revokeObjectURL(blobUrl);
-
                 return result;
             } catch (e) {
                 console.warn('Image proxy fetch failed:', e);
                 return null;
             }
         } else {
-            // Local images - load directly
             return loadImageToCanvas(url);
         }
     };
@@ -1410,15 +1247,12 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
         const ratio = Math.min(maxW / imgW, maxH / imgH);
         return { w: imgW * ratio, h: imgH * ratio };
     };
-
-    // ===================== MULTI-BUDGET PDF EXPORT =====================
     const handleExportPDF = async () => {
         const tier = tierData[activeTier];
         if (!tier || !tier.rows.length) return alert('No data to export');
 
         const isBoqMode = tier.mode === 'boq';
-        // Changed to Portrait
-        const doc = new jsPDF({ orientation: 'portrait' });
+        const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
         const pageWidth = doc.internal.pageSize.getWidth();
         const pageHeight = doc.internal.pageSize.getHeight();
 
@@ -1429,68 +1263,73 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
             primary: [30, 95, 168],
             accent: [245, 166, 35],
             text: [51, 51, 51],
+            lightText: [100, 116, 139],
             white: [255, 255, 255],
-            lightBg: [248, 250, 252]
+            lightBg: [248, 250, 252],
+            border: [226, 232, 240]
         };
 
-        // Header
         doc.setFillColor(...colors.primary);
         doc.rect(0, 0, pageWidth, 45, 'F');
         doc.setFillColor(...colors.accent);
         doc.rect(0, 45, pageWidth, 2, 'F');
-        doc.setTextColor(...colors.white);
-        doc.setFontSize(14);
-        doc.setFont('helvetica', 'bold');
-        doc.text(`Multi-Budget Offer - ${activeTier.charAt(0).toUpperCase() + activeTier.slice(1)} Tier`, 10, 25);
 
-        // Top Right Logo (Now Company Logo from Settings)
+        doc.setTextColor(...colors.white);
+        doc.setFontSize(22);
+        doc.setFont('helvetica', 'bold');
+        if (arabicLoaded) doc.setFont('Almarai', 'bold');
+        doc.text(processText(`${activeTier.toUpperCase()} TIER OFFER`), 15, 20);
+
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'normal');
+        if (arabicLoaded) doc.setFont('Almarai', 'normal');
+
+        const projName = planPreviewName || 'Standard Project';
+        doc.text(processText(`Project: ${projName}`), 15, 28);
+        doc.text(processText(`Reference: BOQ-${Math.floor(1000 + Math.random() * 9000)}`), 15, 33);
+        doc.text(processText(`Date: ${new Date().toLocaleDateString()}`), 15, 38);
+
         const logoToUse = logoWhite || logoOriginal || logoBlue;
         if (logoToUse) {
             try {
                 const docLogo = await getImageData(logoToUse, { format: 'image/png', maxWidth: 800 });
                 if (docLogo) {
-                    const logoFit = calcFitSize(docLogo.width, docLogo.height, 80, 28);
-                    doc.addImage(docLogo.dataUrl, 'PNG', pageWidth - 10 - logoFit.w, 8, logoFit.w, logoFit.h);
+                    const logoFit = calcFitSize(docLogo.width, docLogo.height, 55, 28);
+                    doc.addImage(docLogo.dataUrl, 'PNG', pageWidth - 15 - logoFit.w, 8, logoFit.w, logoFit.h);
                 }
             } catch (e) { }
         }
 
-        // Define columns based on mode
         const header = isBoqMode
             ? ['Sr.', 'Location', 'Scope', 'Ref Image', 'Original Desc', 'Brand Image', 'Brand Desc', 'Qty', 'Unit', 'Rate', 'Amount']
             : ['Sr.', 'Location', 'Scope', 'Image', 'Description', 'Qty', 'Unit', 'Rate', 'Amount'];
 
         const processedHeader = header.map(h => processText(h));
 
-        // Pre-load all images (Use JPEG for products to save space)
         const imageDataMap = {};
         for (let i = 0; i < tier.rows.length; i++) {
             const row = tier.rows[i];
-            // Reference image
             if (row.imageRef) {
                 try {
                     const url = getFullUrl(row.imageRef);
                     const result = await getImageData(url, { maxWidth: 600, format: 'image/jpeg' });
                     if (result) imageDataMap[`ref_${i}`] = result;
-                } catch (e) { console.log('Ref image load error:', e); }
+                } catch (e) { }
             }
-            // Brand product image
             if (row.brandImage) {
                 try {
                     const result = await getImageData(row.brandImage, { maxWidth: 800, format: 'image/jpeg' });
                     if (result) imageDataMap[`brand_${i}`] = result;
-                } catch (e) { console.log('Brand image load error:', e); }
+                } catch (e) { }
             }
-            // Brand logo (Keep PNG for brand logos)
             if (row.brandLogo) {
                 try {
                     const result = await getImageData(row.brandLogo, { format: 'image/png', maxWidth: 400 });
                     if (result) imageDataMap[`logo_${i}`] = result;
-                } catch (e) { console.log('Logo error:', e); }
+                } catch (e) { }
             }
         }
 
-        // Build table data
         const body = tier.rows.map((row, i) => {
             const amount = row.amount || (parseFloat(row.qty || 0) * parseFloat(row.rate || 0)).toFixed(2);
             if (isBoqMode) {
@@ -1522,50 +1361,54 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
             }
         });
 
-        // Table Generation
         autoTable(doc, {
-            startY: 52,
+            startY: 55,
             head: [processedHeader],
             body: body,
-            theme: 'grid',
-            tableWidth: 'auto',
-            styles: {
-                fontSize: 7, // Smaller font to fit more columns
-                cellPadding: 1.5,
-                overflow: 'linebreak',
-                valign: 'middle',
-                font: arabicLoaded ? 'Almarai' : 'helvetica'
-            },
+            theme: 'striped',
             headStyles: {
                 fillColor: colors.primary,
                 textColor: colors.white,
                 fontStyle: 'bold',
-                font: arabicLoaded ? 'Almarai' : 'helvetica',
-                minCellHeight: 7
+                halign: 'center',
+                minCellHeight: 8,
+                fontSize: 7.5
             },
-            // Optimized Portrait Column Widths (Reduced to fit 11 columns)
+            alternateRowStyles: {
+                fillColor: [250, 251, 253]
+            },
+            tableWidth: 'auto',
+            styles: {
+                fontSize: 6.5,
+                cellPadding: 1.2,
+                overflow: 'linebreak',
+                valign: 'middle',
+                font: arabicLoaded ? 'Almarai' : 'helvetica',
+                lineWidth: 0.1,
+                lineColor: colors.border
+            },
             columnStyles: isBoqMode ? {
-                0: { cellWidth: 7 },   // Sr
-                1: { cellWidth: 15 },  // Location
-                2: { cellWidth: 12 },  // Scope
-                3: { cellWidth: 18 },  // Ref Image
-                4: { cellWidth: 28 },  // Original Desc
-                5: { cellWidth: 18 },  // Brand Image
-                6: { cellWidth: 28 },  // Brand Desc
-                7: { cellWidth: 8, halign: 'center' },  // Qty
-                8: { cellWidth: 8, halign: 'center' },  // Unit
-                9: { cellWidth: 14, halign: 'right' },   // Rate
-                10: { cellWidth: 16, halign: 'right' }    // Amount
+                0: { cellWidth: 6 },
+                1: { cellWidth: 14 },
+                2: { cellWidth: 12 },
+                3: { cellWidth: 20 },
+                4: { cellWidth: 26 },
+                5: { cellWidth: 20 },
+                6: { cellWidth: 26 },
+                7: { cellWidth: 8, halign: 'center' },
+                8: { cellWidth: 8, halign: 'center' },
+                9: { cellWidth: 14, halign: 'right' },
+                10: { cellWidth: 16, halign: 'right' }
             } : {
-                0: { cellWidth: 8 },    // Sr
-                1: { cellWidth: 25 },   // Location
-                2: { cellWidth: 20 },   // Scope
-                3: { cellWidth: 30 },   // Image
-                4: { cellWidth: 55 },   // Description
-                5: { cellWidth: 12, halign: 'center' }, // Qty
-                6: { cellWidth: 12, halign: 'center' }, // Unit
-                7: { cellWidth: 16, halign: 'right' },  // Rate
-                8: { cellWidth: 20, halign: 'right' }   // Amount
+                0: { cellWidth: 8 },
+                1: { cellWidth: 22 },
+                2: { cellWidth: 18 },
+                3: { cellWidth: 35 },
+                4: { cellWidth: 50 },
+                5: { cellWidth: 12, halign: 'center' },
+                6: { cellWidth: 12, halign: 'center' },
+                7: { cellWidth: 16, halign: 'right' },
+                8: { cellWidth: 18, halign: 'right' }
             },
             didDrawCell: (data) => {
                 if (data.section === 'body') {
@@ -1573,23 +1416,21 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                     const refImgCol = isBoqMode ? 3 : -1;
                     const brandImgCol = isBoqMode ? 5 : 3;
 
-                    // Draw ref image
                     if (data.column.index === refImgCol && imageDataMap[`ref_${rowIdx}`]) {
                         const img = imageDataMap[`ref_${rowIdx}`];
                         const fit = calcFitSize(img.width, img.height, data.cell.width - 2, data.cell.height - 2);
                         const x = data.cell.x + (data.cell.width - fit.w) / 2;
                         const y = data.cell.y + (data.cell.height - fit.h) / 2;
-                        doc.addImage(img.dataUrl, 'JPEG', x, y, fit.w, fit.h, undefined, 'FAST');
+                        doc.addImage(img.dataUrl, 'JPEG', x, y, fit.w, fit.h, undefined, 'MEDIUM');
                     }
 
-                    // Draw brand logo + product image
                     if (data.column.index === brandImgCol) {
                         const hasLogo = imageDataMap[`logo_${rowIdx}`];
                         const hasBrandImg = imageDataMap[`brand_${rowIdx}`];
 
-                        const logoHeight = 6;
+                        const logoHeight = 5;
                         const padding = 1;
-                        const gap = 1;
+                        const gap = 0.5;
 
                         if (hasLogo) {
                             const logoImg = imageDataMap[`logo_${rowIdx}`];
@@ -1608,7 +1449,7 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                             const fit = calcFitSize(img.width, img.height, data.cell.width - 2, availableHeight);
                             const x = data.cell.x + (data.cell.width - fit.w) / 2;
                             const y = imgStartY + (availableHeight - fit.h) / 2;
-                            doc.addImage(img.dataUrl, 'JPEG', x, y, fit.w, fit.h, undefined, 'FAST');
+                            doc.addImage(img.dataUrl, 'JPEG', x, y, fit.w, fit.h, undefined, 'MEDIUM');
                         }
                     }
                 }
@@ -1618,56 +1459,98 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                     const refImgCol = isBoqMode ? 3 : -1;
                     const brandImgCol = isBoqMode ? 5 : 3;
                     if (data.column.index === brandImgCol) {
-                        data.cell.styles.minCellHeight = 30;
+                        data.cell.styles.minCellHeight = 32;
                     } else if (data.column.index === refImgCol) {
-                        data.cell.styles.minCellHeight = 20;
+                        data.cell.styles.minCellHeight = 22;
                     }
                 }
+            },
+            didDrawPage: (data) => {
+                const str = "Page " + doc.internal.getNumberOfPages();
+                doc.setFontSize(8);
+                doc.setTextColor(...colors.lightText);
+                doc.text(str, pageWidth / 2, pageHeight - 10, { align: 'center' });
             }
         });
 
-
-        // Add Summary Section
-        const subtotal = tier.rows.reduce((sum, row) => sum + (parseFloat(row.amount || (parseFloat(row.qty || 0) * parseFloat(row.rate || 0))) || 0), 0);
+        const subtotal = tier.rows.reduce((sum, row) => sum + (parseFloat(row.qty || 0) * parseFloat(row.rate || 0)), 0);
         const vatAmount = subtotal * ((costingFactors.vat || 0) / 100);
         const grandTotal = subtotal + vatAmount;
 
-        const summaryWidth = 70; // Slightly smaller for portrait
-        const summaryX = pageWidth - summaryWidth - 10;
-        let finalY = doc.lastAutoTable.finalY + 5; // Reduced gap
+        let finalY = doc.lastAutoTable.finalY + 15;
+        const summaryWidth = 85;
+        const summaryX = pageWidth - summaryWidth - 15;
 
-        // Check if summary fits on current page
-        // Summary needs approx 25 units of height
-        if (finalY + 25 > pageHeight) {
+        if (finalY + 80 > pageHeight) {
             doc.addPage();
-            finalY = 20; // Start at top of new page
+            finalY = 20;
         }
+
+        doc.setFillColor(240, 240, 240);
+        doc.rect(summaryX + 1, finalY + 1, summaryWidth, 35, 'F');
+        doc.setFillColor(...colors.white);
+        doc.setDrawColor(...colors.border);
+        doc.rect(summaryX, finalY, summaryWidth, 35, 'FD');
 
         doc.setFontSize(10);
         doc.setTextColor(...colors.text);
         doc.setFont('helvetica', 'normal');
+        if (arabicLoaded) doc.setFont('Almarai', 'normal');
 
-        // Subtotal
-        doc.text('Subtotal:', summaryX, finalY + 4);
-        doc.text(`${subtotal.toFixed(2)} ${costingFactors.toCurrency}`, pageWidth - 10, finalY + 4, { align: 'right' });
+        const formatCurr = (val) => {
+            return new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(val);
+        };
 
-        // VAT
-        doc.text(`VAT (${costingFactors.vat}%):`, summaryX, finalY + 9);
-        doc.text(`${vatAmount.toFixed(2)} ${costingFactors.toCurrency}`, pageWidth - 10, finalY + 9, { align: 'right' });
+        doc.text(processText('Subtotal'), summaryX + 5, finalY + 8);
+        doc.text(`${formatCurr(subtotal)} ${costingFactors.toCurrency}`, pageWidth - 20, finalY + 8, { align: 'right' });
 
-        // Grand Total Box
+        doc.setFontSize(9);
+        doc.setTextColor(...colors.lightText);
+        doc.text(processText(`VAT (${costingFactors.vat}%)`), summaryX + 5, finalY + 15);
+        doc.text(`${formatCurr(vatAmount)} ${costingFactors.toCurrency}`, pageWidth - 20, finalY + 15, { align: 'right' });
+
+        doc.setDrawColor(...colors.border);
+        doc.line(summaryX + 5, finalY + 19, pageWidth - 20, finalY + 19);
+
+        doc.setTextColor(...colors.primary);
+        doc.setFontSize(13);
         doc.setFont('helvetica', 'bold');
-        doc.setFillColor(...colors.primary);
-        doc.rect(summaryX - 2, finalY + 12, summaryWidth + 2, 8, 'F');
-        doc.setTextColor(...colors.white);
-        doc.setFontSize(11);
-        doc.text('GRAND TOTAL:', summaryX, finalY + 17);
-        doc.text(`${grandTotal.toFixed(2)} ${costingFactors.toCurrency}`, pageWidth - 12, finalY + 17, { align: 'right' });
+        if (arabicLoaded) doc.setFont('Almarai', 'bold');
+        doc.text(processText('GRAND TOTAL'), summaryX + 5, finalY + 28);
+        doc.text(`${formatCurr(grandTotal)} ${costingFactors.toCurrency}`, pageWidth - 20, finalY + 28, { align: 'right' });
+
+        const sigY = finalY + 50;
+        doc.setDrawColor(...colors.border);
+        doc.setLineWidth(0.2);
+
+        doc.line(15, sigY, 85, sigY);
+        doc.setFontSize(8);
+        doc.setTextColor(...colors.lightText);
+        doc.setFont('helvetica', 'normal');
+        if (arabicLoaded) doc.setFont('Almarai', 'normal');
+        doc.text(processText('Authorized Signature'), 15, sigY + 5);
+        doc.text(processText(companyName), 15, sigY + 9);
+
+        doc.line(pageWidth - 85, sigY, pageWidth - 15, sigY);
+        doc.text(processText('Client Acceptance'), pageWidth - 85, sigY + 5);
+        doc.text(processText('Sign & Date'), pageWidth - 85, sigY + 9);
+
+        doc.setFontSize(8);
+        doc.setTextColor(...colors.lightText);
+        doc.text(processText('Notes:'), 15, sigY + 25);
+        doc.text(processText('1. This offer is valid for 15 days from the date of issue.'), 15, sigY + 30);
+        doc.text(processText('2. Prices are subject to final site measurement and confirmation.'), 15, sigY + 34);
+
+        doc.setFontSize(8);
+        doc.setTextColor(...colors.lightText);
+        doc.setFont('helvetica', 'normal');
+        if (arabicLoaded) doc.setFont('Almarai', 'normal');
+        const footerText = website ? `${companyName} | ${website}` : companyName;
+        doc.text(processText(footerText), pageWidth / 2, pageHeight - 10, { align: 'center' });
 
         doc.save(`MultiBudget_${activeTier}_Offer.pdf`);
     };
 
-    // ===================== MULTI-BUDGET EXCEL EXPORT (WITH IMAGES) =====================
     const handleExportExcel = async () => {
         const tier = tierData[activeTier];
         if (!tier || !tier.rows.length) return alert('No data to export');
@@ -1682,8 +1565,7 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
         });
         const isBoqMode = tier.mode === 'boq';
 
-        // 1. Add Header Space for Logo & Info
-        ws.addRow(['']); // Spacer
+        ws.addRow(['']);
         ws.addRow(['', '', '', '', '', '', '', '', '']);
         ws.addRow(['', '', '', '', '', '', '', '', '']);
         ws.mergeCells('A2:C2');
@@ -1694,61 +1576,6 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
         ws.getCell('A3').value = `Generated on: ${new Date().toLocaleDateString()}`;
         ws.getCell('A3').font = { italic: true, size: 10, color: { argb: '64748B' } };
 
-        // Helper to fetch image as base64
-        const fetchImageBase64 = async (url, options = {}) => {
-            if (!url) return null;
-            const { maxWidth = 1000, format = 'image/png', quality = 0.85 } = options;
-
-            try {
-                const isExternal = url.startsWith('http') && !url.includes('localhost:3001') && !url.includes(window.location.hostname);
-                let dataUrl;
-
-                if (isExternal) {
-                    const proxyUrl = `${API_BASE}/api/image-proxy?url=${encodeURIComponent(url)}`;
-                    const response = await fetch(proxyUrl);
-                    if (!response.ok) return null;
-                    const data = await response.json();
-                    dataUrl = data.dataUrl;
-                } else {
-                    const response = await fetch(url);
-                    if (!response.ok) return null;
-                    const blob = await response.blob();
-                    dataUrl = await new Promise((resolve) => {
-                        const reader = new FileReader();
-                        reader.onload = () => resolve(reader.result);
-                        reader.onerror = () => resolve(null);
-                        reader.readAsDataURL(blob);
-                    });
-                }
-
-                if (!dataUrl) return null;
-
-                return new Promise((resolve) => {
-                    const img = new Image();
-                    img.onload = () => {
-                        const canvas = document.createElement("canvas");
-                        const ratio = Math.min(1, maxWidth / img.width);
-                        canvas.width = img.width * ratio;
-                        canvas.height = img.height * ratio;
-                        const ctx = canvas.getContext("2d");
-                        if (format === 'image/jpeg') {
-                            ctx.fillStyle = "#FFFFFF";
-                            ctx.fillRect(0, 0, canvas.width, canvas.height);
-                        } else {
-                            ctx.clearRect(0, 0, canvas.width, canvas.height);
-                        }
-                        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                        resolve(canvas.toDataURL(format, quality).split(',')[1]);
-                    };
-                    img.onerror = () => resolve(null);
-                    img.src = dataUrl;
-                });
-
-            } catch (e) { return null; }
-        };
-
-        // Add Company Logo if available
-        // Prefer original (Blue/Color) for Excel as it has a white background
         const excelLogo = logoOriginal || logoBlue || logoWhite;
         if (excelLogo) {
             try {
@@ -1759,58 +1586,53 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                         extension: 'png'
                     });
 
-                    // Position in the top right area (around column G/H/I)
-                    const lastColIndex = isBoqMode ? 8 : 6;
-                    const logoFit = calcFitSize(logoData.width, logoData.height, 150, 60);
+                    const lastColIndex = isBoqMode ? 11 : 9;
+                    const logoFit = calcFitSize(logoData.width, logoData.height, 140, 50);
                     ws.addImage(logoId, {
-                        tl: { col: lastColIndex - 1.5, row: 0.2 },
+                        tl: { col: lastColIndex - 2, row: 0.1 },
                         ext: { width: logoFit.w, height: logoFit.h }
                     });
                 }
             } catch (e) { console.error("Excel Logo Error:", e); }
         }
 
-        ws.addRow(['']); // Spacer before table
+        ws.addRow(['']);
 
-        // Header with proper columns
         const header = isBoqMode
             ? ['Sr.', 'Location', 'Scope', 'Ref Image', 'Original Desc', 'Brand Image', 'Brand Desc', 'Qty', 'Unit', 'Rate', 'Amount']
             : ['Sr.', 'Location', 'Scope', 'Image', 'Description', 'Qty', 'Unit', 'Rate', 'Amount'];
 
-        // Set column widths first
         ws.columns = isBoqMode
             ? [
-                { width: 6 },   // Sr
-                { width: 15 },  // Location
-                { width: 12 },  // Scope
-                { width: 15 },  // Ref Image
-                { width: 35 },  // Original Desc
-                { width: 18 },  // Brand Image
-                { width: 35 },  // Brand Desc
-                { width: 8 },   // Qty
-                { width: 8 },   // Unit
-                { width: 12 },  // Rate
-                { width: 14 }   // Amount
+                { width: 6 },
+                { width: 15 },
+                { width: 12 },
+                { width: 15 },
+                { width: 35 },
+                { width: 18 },
+                { width: 35 },
+                { width: 8 },
+                { width: 8 },
+                { width: 12 },
+                { width: 14 }
             ]
             : [
-                { width: 6 },   // Sr
-                { width: 15 },  // Location
-                { width: 15 },  // Scope
-                { width: 18 },  // Image
-                { width: 55 },  // Description
-                { width: 10 },  // Qty
-                { width: 10 },  // Unit
-                { width: 14 },  // Rate
-                { width: 16 }   // Amount
+                { width: 6 },
+                { width: 15 },
+                { width: 15 },
+                { width: 18 },
+                { width: 55 },
+                { width: 10 },
+                { width: 10 },
+                { width: 14 },
+                { width: 16 }
             ];
 
-        // Enable RTL if Arabic detected
         const hasAr = header.some(h => hasArabic(h)) || tier.rows.some(r => hasArabic(r.description) || hasArabic(r.brandDesc));
         if (hasAr) {
             ws.views = [{ rightToLeft: true }];
         }
 
-        // Add header row
         const headerRow = ws.addRow(header);
         headerRow.height = 25;
         headerRow.eachCell(cell => {
@@ -1823,7 +1645,6 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
             };
         });
 
-        // Add data rows with images
         for (let i = 0; i < tier.rows.length; i++) {
             const row = tier.rows[i];
             const amount = (parseFloat(row.qty || 0) * parseFloat(row.rate || 0)).toFixed(2);
@@ -1857,27 +1678,21 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
 
             const excelRow = ws.addRow(dataRow);
             const rowNumber = excelRow.number;
-            excelRow.height = 75; // Taller rows for images
+            excelRow.height = 75;
 
-            // Style data cells
             excelRow.eachCell((cell, colNumber) => {
                 cell.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
                 cell.border = {
                     bottom: { style: 'thin', color: { argb: 'E2E8F0' } }
                 };
-                // Description/Location columns - left align for readability
-                // BOQ: Location(2), Scope(3), OriginalDesc(5), BrandDesc(7)
-                // Simple: Location(2), Scope(3), Description(5)
                 if ([2, 3, 5, 7].includes(colNumber)) {
                     cell.alignment = { vertical: 'middle', horizontal: 'left', wrapText: true };
                 }
             });
 
-            // Add reference image (BOQ mode only, column 4 / index 3)
             if (isBoqMode && row.imageRef) {
                 try {
                     const refUrl = getFullUrl(row.imageRef);
-                    // Higher quality and resolution for Excel
                     const imgData = await getImageData(refUrl, { maxWidth: 800, format: 'image/jpeg', quality: 0.95 });
                     if (imgData) {
                         const imageId = workbook.addImage({
@@ -1893,10 +1708,8 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                 } catch (e) { console.log('Ref image error:', e); }
             }
 
-            // Determine brand image column (BOQ: 5, Simple: 3)
             const brandImgCol = isBoqMode ? 5 : 3;
 
-            // Add brand logo on top of brand image cell
             if (row.brandLogo) {
                 try {
                     const logoData = await getImageData(row.brandLogo, { maxWidth: 400, format: 'image/png' });
@@ -1914,10 +1727,8 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                 } catch (e) { console.log('Logo error:', e); }
             }
 
-            // Add brand product image below logo
             if (row.brandImage) {
                 try {
-                    // Increased maxWidth for high quality
                     const brandImgData = await getImageData(row.brandImage, { maxWidth: 800, format: 'image/jpeg', quality: 0.95 });
                     if (brandImgData) {
                         const brandId = workbook.addImage({
@@ -1937,35 +1748,37 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
         const vatAmount = subtotal * ((costingFactors.vat || 0) / 100);
         const grandTotal = subtotal + vatAmount;
 
-        ws.addRow([]); // Spacer
+        ws.addRow([]);
         let summaryStartCol = isBoqMode ? 8 : 6;
 
-        // Subtotal row
         const stRow = ws.addRow([]);
-        stRow.getCell(summaryStartCol).value = 'Subtotal:';
-        stRow.getCell(summaryStartCol + 1).value = `${subtotal.toFixed(2)} ${costingFactors.toCurrency}`;
+        stRow.getCell(summaryStartCol).value = 'Subtotal';
+        stRow.getCell(summaryStartCol + 1).value = subtotal;
+        stRow.getCell(summaryStartCol + 1).numFmt = '#,##0.00 " ' + costingFactors.toCurrency + '"';
         stRow.getCell(summaryStartCol).font = { bold: true };
         stRow.getCell(summaryStartCol + 1).alignment = { horizontal: 'right' };
 
-        // VAT row
         const vRow = ws.addRow([]);
-        vRow.getCell(summaryStartCol).value = `VAT (${costingFactors.vat}%):`;
-        vRow.getCell(summaryStartCol + 1).value = `${vatAmount.toFixed(2)} ${costingFactors.toCurrency}`;
+        vRow.getCell(summaryStartCol).value = `VAT (${costingFactors.vat}%)`;
+        vRow.getCell(summaryStartCol + 1).value = vatAmount;
+        vRow.getCell(summaryStartCol + 1).numFmt = '#,##0.00 " ' + costingFactors.toCurrency + '"';
         vRow.getCell(summaryStartCol + 1).alignment = { horizontal: 'right' };
 
-        // Grand Total row
         const gtRow = ws.addRow([]);
-        gtRow.getCell(summaryStartCol).value = 'GRAND TOTAL:';
-        gtRow.getCell(summaryStartCol + 1).value = `${grandTotal.toFixed(2)} ${costingFactors.toCurrency}`;
+        gtRow.getCell(summaryStartCol).value = 'GRAND TOTAL';
+        gtRow.getCell(summaryStartCol + 1).value = grandTotal;
+        gtRow.getCell(summaryStartCol + 1).numFmt = '#,##0.00 " ' + costingFactors.toCurrency + '"';
         gtRow.height = 30;
 
         [gtRow.getCell(summaryStartCol), gtRow.getCell(summaryStartCol + 1)].forEach(cell => {
-            cell.font = { bold: true, size: 12, color: { argb: 'FFFFFF' } };
+            cell.font = { bold: true, size: 14, color: { argb: 'FFFFFF' } };
             cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '1E5FA8' } };
             cell.alignment = { vertical: 'middle', horizontal: 'right' };
             cell.border = {
                 top: { style: 'medium', color: { argb: 'F5A623' } },
-                bottom: { style: 'medium', color: { argb: 'F5A623' } }
+                bottom: { style: 'medium', color: { argb: 'F5A623' } },
+                left: { style: 'medium', color: { argb: 'F5A623' } },
+                right: { style: 'medium', color: { argb: 'F5A623' } }
             };
         });
 
@@ -1975,7 +1788,6 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
         saveAs(blob, `MultiBudget_${activeTier}_Offer.xlsx`);
     };
 
-    // ===================== MULTI-BUDGET PPTX EXPORT (PREMIUM DESIGN) =====================
     const handleExportPPTX = async () => {
         const tier = tierData[activeTier];
         if (!tier || !tier.rows.length) return alert('No data to export');
@@ -1984,50 +1796,50 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
         const pres = new PptxGenJS();
         const isBoqMode = tier.mode === 'boq';
 
-        // Professional color palette
         const colors = {
-            primary: '1E5FA8',      // Deep blue
-            accent: 'F5A623',       // Gold/amber
-            text: '2D3748',         // Dark gray
-            lightText: '718096',    // Medium gray
-            lightBg: 'F7FAFC',      // Light background
+            primary: '1E5FA8',
+            accent: 'F5A623',
+            text: '2D3748',
+            lightText: '718096',
+            lightBg: 'F7FAFC',
             white: 'FFFFFF',
             border: 'E2E8F0'
         };
 
-        // Define premium slide master
         pres.defineSlideMaster({
             title: 'PREMIUM_MASTER',
             background: { color: colors.white },
             objects: [
-                // Header bar
                 { rect: { x: 0, y: 0, w: '100%', h: 0.75, fill: { color: colors.primary } } },
-                // Gold accent line
                 { rect: { x: 0, y: 0.75, w: '100%', h: 0.06, fill: { color: colors.accent } } },
-                // Footer bar
                 { rect: { x: 0, y: 5.2, w: '100%', h: 0.3, fill: { color: colors.lightBg } } }
             ]
         });
 
-        // Title slide with enhanced design
         const titleSlide = pres.addSlide({ masterName: 'PREMIUM_MASTER' });
-        titleSlide.addText('PRODUCT SHOWCASE', {
+        titleSlide.addText('PROJECT PROPOSAL', {
             x: 0.3, y: 0.2, w: 4, h: 0.4, fontSize: 14, bold: true, color: colors.white
         });
+
         titleSlide.addShape('rect', {
-            x: 2, y: 1.8, w: 6, h: 1.5, fill: { color: colors.lightBg }, line: { color: colors.border, pt: 1 }
-        });
-        titleSlide.addText(`Multi-Budget Offer`, {
-            x: 2, y: 2.0, w: 6, h: 0.6, fontSize: 32, bold: true, color: colors.primary, align: 'center'
-        });
-        titleSlide.addText(`${activeTier.charAt(0).toUpperCase() + activeTier.slice(1)} Tier`, {
-            x: 2, y: 2.6, w: 6, h: 0.5, fontSize: 20, color: colors.accent, align: 'center'
-        });
-        titleSlide.addText(`${tier.rows.filter(r => r.brandImage || r.brandDesc).length} Products`, {
-            x: 2, y: 3.8, w: 6, h: 0.3, fontSize: 12, color: colors.lightText, align: 'center'
+            x: 0, y: 1.5, w: '100%', h: 2.5, fill: { color: colors.lightBg }
         });
 
-        // Company Logo on Title Slide
+        titleSlide.addText(`Multi-Budget Offer`, {
+            x: 1, y: 1.8, w: 8, h: 0.6, fontSize: 36, bold: true, color: colors.primary, align: 'center'
+        });
+        titleSlide.addText(`${activeTier.toUpperCase()} TIER`, {
+            x: 1, y: 2.4, w: 8, h: 0.5, fontSize: 24, color: colors.accent, align: 'center', bold: true
+        });
+
+        const projName = planPreviewName || 'Standard Project';
+        titleSlide.addText(`Project: ${projName}`, {
+            x: 1, y: 3.2, w: 8, h: 0.3, fontSize: 14, color: colors.text, align: 'center'
+        });
+        titleSlide.addText(`Date: ${new Date().toLocaleDateString()} | Reference: BOQ-${Math.floor(1000 + Math.random() * 9000)}`, {
+            x: 1, y: 3.5, w: 8, h: 0.3, fontSize: 11, color: colors.lightText, align: 'center'
+        });
+
         const titleSlideLogo = logoWhite || logoOriginal || logoBlue;
         if (titleSlideLogo) {
             try {
@@ -2046,14 +1858,12 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
             titleSlide.addText('LOGO', { x: 8.3, y: 0.25, w: 1.5, h: 0.3, fontSize: 10, color: colors.lightText, align: 'center' });
         }
 
-
         let itemNum = 1;
         for (const row of tier.rows) {
             if (!row.brandImage && !row.brandDesc) continue;
             const slide = pres.addSlide({ masterName: 'PREMIUM_MASTER' });
             const brandName = (row.selectedBrand || '').replace(/Explore collections by/i, '').trim();
 
-            // Header text - extract first line/product name only (short, no overflow)
             const descForHeader = (row.brandDesc || '');
             const firstLineHeader = descForHeader.split(/[\n*•]/)[0].trim();
             const headerTitle = firstLineHeader.length > 45 ? firstLineHeader.substring(0, 42) + '...' : firstLineHeader;
@@ -2062,7 +1872,6 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                 x: 0.3, y: 0.15, w: 7.5, h: 0.4, fontSize: 12, bold: true, color: colors.white, valign: 'middle'
             });
 
-            // Top Right Logo (Now Company Logo)
             const slideLogo = logoWhite || logoOriginal || logoBlue;
             if (slideLogo) {
                 try {
@@ -2081,20 +1890,16 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                 slide.addText('LOGO', { x: 8.3, y: 0.25, w: 1.5, h: 0.3, fontSize: 10, color: colors.lightText, align: 'center' });
             }
 
-            // ===== LEFT COLUMN: Images =====
             const leftX = 0.3;
             let leftY = 1.0;
             const leftWidth = 4.5;
 
-            // Reference image section (BOQ mode only)
             if (isBoqMode && row.imageRef) {
                 const refUrl = getFullUrl(row.imageRef);
                 try {
                     const refImg = await getImageData(refUrl);
                     if (refImg) {
-                        // Reference label
                         slide.addText('Reference Image', { x: leftX, y: leftY, w: 1.5, h: 0.2, fontSize: 8, color: colors.lightText });
-                        // Reference image container
                         slide.addShape('rect', {
                             x: leftX, y: leftY + 0.2, w: 1.4, h: 1.0,
                             fill: { color: colors.lightBg }, line: { color: colors.border, pt: 0.5 }
@@ -2105,7 +1910,6 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                 } catch (e) { }
             }
 
-            // Brand badge (No logo now, logo moved above product image)
             if (brandName) {
                 slide.addShape('roundRect', {
                     x: leftX, y: leftY, w: 2.5, h: 0.4,
@@ -2117,7 +1921,6 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                 leftY += 0.5;
             }
 
-            // Brand Logo moved above product image
             if (row.brandLogo) {
                 try {
                     const brandLogoImg = await getImageData(row.brandLogo);
@@ -2132,7 +1935,6 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                 } catch (e) { }
             }
 
-            // Main product image container
             const imgContainerH = 3.0;
             slide.addShape('rect', {
                 x: leftX, y: leftY, w: leftWidth, h: imgContainerH,
@@ -2155,32 +1957,27 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                 } catch (e) { }
             }
 
-            // ===== RIGHT COLUMN: Product Details =====
             const rightX = 5.0;
             let rightY = 1.0;
             const rightWidth = 4.7;
 
-            // Product Details header
             slide.addText('Product Details', {
                 x: rightX, y: rightY, w: rightWidth, h: 0.35, fontSize: 16, bold: true, color: colors.primary
             });
             rightY += 0.45;
 
-            // Divider line
             slide.addShape('line', {
                 x: rightX, y: rightY, w: rightWidth, h: 0,
                 line: { color: colors.accent, pt: 2 }
             });
             rightY += 0.15;
 
-            // Description section
             slide.addText('Description:', {
                 x: rightX, y: rightY, w: rightWidth, h: 0.25, fontSize: 10, bold: true, color: colors.text
             });
             rightY += 0.25;
-            // Full description with word wrap - capped to fit slide
+
             const fullDescription = (row.brandDesc || 'N/A').trim();
-            // Calculate available height - leave room for Brand, Qty, Specs before footer
             const maxDescY = 3.2;
             const availableH = maxDescY - rightY;
             const estDescLines = Math.ceil(fullDescription.length / 55) + (fullDescription.match(/[\n*•]/g) || []).length;
@@ -2193,10 +1990,8 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
             });
             rightY += descBoxHeight + 0.08;
 
-            // Max content Y before footer (footer at ~4.65)
             const maxContentY = 4.4;
 
-            // Brand info
             if (rightY < maxContentY - 0.25) {
                 slide.addText('Brand:', {
                     x: rightX, y: rightY, w: 0.7, h: 0.2, fontSize: 9, bold: true, color: colors.text
@@ -2207,7 +2002,6 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                 rightY += 0.25;
             }
 
-            // Quantity
             if (rightY < maxContentY - 0.25) {
                 slide.addText('Quantity:', {
                     x: rightX, y: rightY, w: 0.8, h: 0.2, fontSize: 9, bold: true, color: colors.text
@@ -2218,7 +2012,6 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                 rightY += 0.28;
             }
 
-            // Specifications section - only if space
             if (rightY < maxContentY - 0.35) {
                 slide.addText('Specifications:', {
                     x: rightX, y: rightY, w: rightWidth, h: 0.2, fontSize: 9, bold: true, color: colors.primary
@@ -2231,8 +2024,6 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                 });
             }
 
-            // ===== FOOTER =====
-            // Warranty section
             slide.addText('Warranty', {
                 x: 0.3, y: 4.65, w: 1.0, h: 0.2, fontSize: 9, bold: true, color: colors.text
             });
@@ -2240,7 +2031,6 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                 x: 0.3, y: 4.85, w: 2.0, h: 0.18, fontSize: 8, color: colors.lightText
             });
 
-            // Page number
             slide.addText(`${itemNum} / ${tier.rows.filter(r => r.brandImage || r.brandDesc).length}`, {
                 x: 9, y: 5.25, w: 0.8, h: 0.2, fontSize: 8, color: colors.lightText, align: 'right'
             });
@@ -2248,10 +2038,57 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
             itemNum++;
         }
 
+        const subtotal = tier.rows.reduce((sum, row) => sum + (parseFloat(row.qty || 0) * parseFloat(row.rate || 0)), 0);
+        const vatAmount = subtotal * ((costingFactors.vat || 0) / 100);
+        const grandTotal = subtotal + vatAmount;
+        const formatCurr = (val) => new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(val);
+
+        const summarySlide = pres.addSlide({ masterName: 'PREMIUM_MASTER' });
+        summarySlide.addText('OFFER SUMMARY', {
+            x: 0.3, y: 0.2, w: 4, h: 0.4, fontSize: 14, bold: true, color: colors.white
+        });
+
+        summarySlide.addText('Financial Overview', {
+            x: 0.5, y: 1.2, w: 5, h: 0.5, fontSize: 24, bold: true, color: colors.primary
+        });
+
+        summarySlide.addShape('rect', {
+            x: 0.5, y: 1.8, w: 9, h: 2.5, fill: { color: colors.lightBg }, line: { color: colors.border, pt: 1 }
+        });
+
+        const summaryItems = [
+            { label: 'Subtotal:', value: `${formatCurr(subtotal)} ${costingFactors.toCurrency}`, bold: false },
+            { label: `VAT (${costingFactors.vat}%):`, value: `${formatCurr(vatAmount)} ${costingFactors.toCurrency}`, bold: false },
+            { label: 'GRAND TOTAL:', value: `${formatCurr(grandTotal)} ${costingFactors.toCurrency}`, bold: true, color: colors.primary, size: 20 }
+        ];
+
+        let summY = 2.2;
+        summaryItems.forEach(item => {
+            summarySlide.addText(item.label, {
+                x: 1.0, y: summY, w: 3, h: 0.4, fontSize: item.size || 14, bold: item.bold, color: colors.text
+            });
+            summarySlide.addText(item.value, {
+                x: 4.5, y: summY, w: 4.5, h: 0.4, fontSize: item.size || 14, bold: item.bold, color: item.color || colors.text, align: 'right'
+            });
+            summY += item.bold ? 0.7 : 0.5;
+        });
+
+        summarySlide.addText('Terms & Conditions:', {
+            x: 0.5, y: 4.4, w: 4, h: 0.2, fontSize: 9, bold: true, color: colors.text
+        });
+        summarySlide.addText('• This offer is valid for 15 days.\n• Prices include delivery and installation unless otherwise stated.', {
+            x: 0.5, y: 4.6, w: 5, h: 0.4, fontSize: 8, color: colors.lightText
+        });
+
+        if (website) {
+            summarySlide.addText(`Visit us at: ${website}`, {
+                x: 6, y: 4.6, w: 3.5, h: 0.3, fontSize: 10, color: colors.primary, align: 'right', bold: true
+            });
+        }
+
         pres.writeFile({ fileName: `MultiBudget_${activeTier}_Presentation.pptx` });
     };
 
-    // ===================== MULTI-BUDGET PRESENTATION PDF (PREMIUM DESIGN) =====================
     const handleExportPresentationPDF = async () => {
         const tier = tierData[activeTier];
         if (!tier || !tier.rows.length) return alert('No data to export');
@@ -2265,13 +2102,12 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
         const isBoqMode = tier.mode === 'boq';
         const totalItems = tier.rows.filter(r => r.brandImage || r.brandDesc).length;
 
-        // Professional color palette
         const colors = {
-            primary: [30, 95, 168],      // Deep blue
-            accent: [245, 166, 35],       // Gold/amber
-            text: [45, 55, 72],           // Dark gray
-            lightText: [113, 128, 150],   // Medium gray
-            lightBg: [247, 250, 252],     // Light background
+            primary: [30, 95, 168],
+            accent: [245, 166, 35],
+            text: [45, 55, 72],
+            lightText: [113, 128, 150],
+            lightBg: [247, 250, 252],
             white: [255, 255, 255],
             border: [226, 232, 240]
         };
@@ -2283,13 +2119,11 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
             if (itemNum > 1) doc.addPage();
             const brandName = (row.selectedBrand || '').replace(/Explore collections by/i, '').trim();
 
-            // ===== HEADER BAR =====
             doc.setFillColor(...colors.primary);
             doc.rect(0, 0, pageWidth, 55, 'F');
             doc.setFillColor(...colors.accent);
             doc.rect(0, 55, pageWidth, 2.5, 'F');
 
-            // Header title - handle multi-line
             doc.setTextColor(...colors.white);
             doc.setFontSize(11);
             doc.setFont(arabicLoaded ? 'Almarai' : 'helvetica', 'bold');
@@ -2301,42 +2135,35 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                 currentTitleY += 8;
             });
 
-            // Top Right Logo (Now Company Logo)
-            // Header is blue, so we prefer the White logo variant if available
             const presentationLogo = logoWhite || logoOriginal || logoBlue;
             if (presentationLogo) {
                 try {
                     const docLogo = await getImageData(presentationLogo, { format: 'image/png', maxWidth: 400 });
                     if (docLogo) {
                         const fit = calcFitSize(docLogo.width, docLogo.height, 80, 28);
-                        // Draw directly on blue header - no placeholder box
                         doc.addImage(docLogo.dataUrl, 'PNG', pageWidth - fit.w - 10, 8, fit.w, fit.h);
                     }
                 } catch (e) { }
             }
 
-            // ===== LEFT COLUMN: Images =====
             const leftX = 10;
             let leftY = 62;
             const leftWidth = 120;
 
-            // Reference image section (BOQ mode only)
             if (isBoqMode && row.imageRef) {
                 const refUrl = getFullUrl(row.imageRef);
                 try {
                     const refImg = await getImageData(refUrl, { maxWidth: 600, format: 'image/jpeg', quality: 0.9 });
                     if (refImg) {
-                        // Reference label
                         doc.setTextColor(...colors.lightText);
                         doc.setFontSize(7);
                         doc.setFont('helvetica', 'normal');
                         doc.text('Reference Image', leftX, leftY);
                         leftY += 2;
 
-                        // Reference image container
                         doc.setFillColor(...colors.lightBg);
                         doc.setDrawColor(...colors.border);
-                        doc.rect(leftX, leftY, 35, 25, 'FD'); // Changed to rect, removed rounded
+                        doc.rect(leftX, leftY, 35, 25, 'FD');
                         const fit = calcFitSize(refImg.width, refImg.height, 31, 21);
                         const refX = leftX + (35 - fit.w) / 2;
                         const refY = leftY + (25 - fit.h) / 2;
@@ -2346,12 +2173,11 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                 } catch (e) { }
             }
 
-            // Brand badge (No logo now)
             if (brandName) {
                 doc.setFillColor(...colors.lightBg);
                 doc.setDrawColor(...colors.primary);
                 doc.setLineWidth(0.5);
-                doc.rect(leftX, leftY, 60, 12, 'FD'); // Changed to rect, removed rounded
+                doc.rect(leftX, leftY, 60, 12, 'FD');
 
                 doc.setTextColor(...colors.primary);
                 doc.setFontSize(9);
@@ -2360,7 +2186,6 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                 leftY += 15;
             }
 
-            // Brand Logo moved above product image
             const imgContainerW = leftWidth;
             if (row.brandLogo) {
                 try {
@@ -2373,12 +2198,11 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                 } catch (e) { }
             }
 
-            // Main product image container
             const imgContainerH = isBoqMode ? 100 : 130;
             doc.setFillColor(...colors.white);
             doc.setDrawColor(...colors.border);
             doc.setLineWidth(0.5);
-            doc.rect(leftX, leftY, imgContainerW, imgContainerH, 'FD'); // Changed to rect, removed rounded
+            doc.rect(leftX, leftY, imgContainerW, imgContainerH, 'FD');
 
             if (row.brandImage) {
                 try {
@@ -2392,24 +2216,20 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                 } catch (e) { }
             }
 
-            // ===== RIGHT COLUMN: Product Details =====
             const rightX = 145;
             let rightY = 28;
             const rightWidth = 135;
 
-            // Product Details header
             doc.setTextColor(...colors.primary);
             doc.setFontSize(14);
             doc.setFont('helvetica', 'bold');
             doc.text('Product Details', rightX, rightY);
             rightY += 4;
 
-            // Gold accent line under header
             doc.setFillColor(...colors.accent);
             doc.rect(rightX, rightY, 50, 1.5, 'F');
             rightY += 8;
 
-            // Description section
             doc.setTextColor(...colors.text);
             doc.setFontSize(10);
             doc.setFont('helvetica', 'bold');
@@ -2423,11 +2243,10 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
 
             displayLines.forEach((line) => {
                 doc.text(line, rightX, rightY);
-                rightY += 7; // Increased to 7
+                rightY += 7;
             });
             rightY += 6;
 
-            // Brand info
             doc.setFontSize(10);
             doc.setFont('helvetica', 'bold');
             doc.text('Brand:', rightX, rightY);
@@ -2436,7 +2255,6 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
             doc.text(brandName || 'N/A', rightX + 22, rightY);
             rightY += 10;
 
-            // Quantity
             doc.setTextColor(...colors.text);
             doc.setFont('helvetica', 'bold');
             doc.text('Quantity:', rightX, rightY);
@@ -2444,7 +2262,6 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
             doc.text(String(row.qty || 'As per BOQ'), rightX + 22, rightY);
             rightY += 14;
 
-            // Specifications section
             doc.setTextColor(...colors.primary);
             doc.setFont('helvetica', 'bold');
             doc.text('Specifications:', rightX, rightY);
@@ -2464,12 +2281,9 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
             });
             rightY += 4;
 
-            // ===== FOOTER =====
-            // Footer background
             doc.setFillColor(...colors.lightBg);
             doc.rect(0, pageHeight - 12, pageWidth, 12, 'F');
 
-            // Warranty section in footer
             doc.setTextColor(...colors.text);
             doc.setFontSize(8);
             doc.setFont('helvetica', 'bold');
@@ -2478,11 +2292,9 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
             doc.setTextColor(...colors.lightText);
             doc.text('As per manufacturer - 5 years', 10, pageHeight - 2);
 
-            // Page number
             doc.setTextColor(...colors.lightText);
             doc.setFontSize(8);
             doc.text(`${itemNum} / ${totalItems}`, pageWidth - 20, pageHeight - 4);
-            // Website / Brand reference
             const footVal = profile.website || profile.companyName || 'BOQ FLOW';
             const footIsAr = hasArabic(footVal);
             doc.setFont(footIsAr && arabicLoaded ? 'Almarai' : 'helvetica', 'normal');
@@ -2494,7 +2306,6 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
         doc.save(`MultiBudget_${activeTier}_Presentation.pdf`);
     };
 
-    // ===================== MULTI-BUDGET MAS PDF (PREMIUM DESIGN) =====================
     const handleExportMAS = async () => {
         const tier = tierData[activeTier];
         if (!tier || !tier.rows.length) return alert('No data to export');
@@ -2508,16 +2319,15 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
         const isBoqMode = tier.mode === 'boq';
         const totalItems = tier.rows.filter(r => r.brandImage || r.brandDesc).length;
 
-        // Professional color palette for formal documents
         const colors = {
-            primary: [43, 164, 224],       // Brand Blue
-            accent: [245, 158, 11],        // Amber 500
-            text: [51, 65, 85],            // Slate 600
-            lightText: [100, 116, 139],    // Slate 500
-            lightBg: [248, 250, 252],      // Slate 50
+            primary: [43, 164, 224],
+            accent: [245, 158, 11],
+            text: [51, 65, 85],
+            lightText: [100, 116, 139],
+            lightBg: [248, 250, 252],
             white: [255, 255, 255],
-            border: [203, 213, 225],       // Slate 300
-            success: [16, 185, 129]        // Emerald 500
+            border: [203, 213, 225],
+            success: [16, 185, 129]
         };
 
         let itemNum = 1;
@@ -2527,32 +2337,27 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
             if (itemNum > 1) doc.addPage();
             const brandName = (row.selectedBrand || '').replace(/Explore collections by/i, '').trim();
 
-            // ===== HEADER BAR =====
             doc.setFillColor(...colors.primary);
             doc.rect(0, 0, pageWidth, 45, 'F');
             doc.setFillColor(...colors.accent);
             doc.rect(0, 45, pageWidth, 2, 'F');
 
-            // Header title
             doc.setTextColor(...colors.white);
             doc.setFontSize(14);
             doc.setFont('helvetica', 'bold');
             doc.text('MATERIAL APPROVAL SHEET', pageWidth / 2, 28, { align: 'center' });
 
-            // Top Right Logo box removal (MAS is white background, prefer Blue logo)
             const masLogo = logoOriginal || logoBlue || logoWhite;
             if (masLogo) {
                 try {
                     const docLogo = await getImageData(masLogo, { format: 'image/png', maxWidth: 400 });
                     if (docLogo) {
                         const fit = calcFitSize(docLogo.width, docLogo.height, 80, 28);
-                        // Use original logo on white background - no box needed
                         doc.addImage(docLogo.dataUrl, 'PNG', pageWidth - fit.w - 10, 8, fit.w, fit.h);
                     }
                 } catch (e) { }
             }
 
-            // ===== DOCUMENT INFO BAR =====
             doc.setFillColor(...colors.lightBg);
             doc.rect(0, 47, pageWidth, 14, 'F');
             doc.setDrawColor(...colors.border);
@@ -2567,7 +2372,6 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
             doc.setFont('helvetica', 'bold');
             doc.text(`Brand: ${brandName || 'N/A'}`, pageWidth - 10, 54, { align: 'right' });
 
-            // ===== REFERENCE IMAGE (BOQ mode, small on right) =====
             let refImgOffset = 0;
             if (isBoqMode && row.imageRef) {
                 const apiBase = getApiBase();
@@ -2591,13 +2395,11 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                 } catch (e) { }
             }
 
-            // ===== PRODUCT IMAGE SECTION =====
             let imgY = 66;
             const imgContainerW = 90;
             const imgContainerH = 65;
             const imgContainerX = (pageWidth - imgContainerW) / 2 - (isBoqMode ? 15 : 0);
 
-            // Brand badge above image (No logo now)
             if (brandName) {
                 const badgeW = 65;
                 const badgeX = imgContainerX + (imgContainerW - badgeW) / 2;
@@ -2613,7 +2415,6 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                 imgY += 12;
             }
 
-            // Brand Logo moved above product image
             if (row.brandLogo) {
                 try {
                     const brandLogoImg = await getImageData(row.brandLogo);
@@ -2626,7 +2427,6 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                 } catch (e) { }
             }
 
-            // Product image container
             doc.setFillColor(...colors.white);
             doc.setDrawColor(...colors.border);
             doc.setLineWidth(0.5);
@@ -2645,7 +2445,6 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
             }
             imgY += imgContainerH + 8;
 
-            // ===== SPECIFICATIONS TABLE =====
             autoTable(doc, {
                 startY: imgY,
                 margin: { left: 15, right: 15 },
@@ -2689,7 +2488,6 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                 }
             });
 
-            // ===== APPROVAL SECTION =====
             const approvalY = doc.lastAutoTable.finalY + 10;
 
             doc.setFillColor(...colors.lightBg);
@@ -2702,7 +2500,6 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
             doc.setFont('helvetica', 'bold');
             doc.text('APPROVAL SIGNATURES', 20, approvalY + 6);
 
-            // Signature boxes
             const boxWidth = (pageWidth - 50) / 3;
             const signatureLabels = ['Prepared By', 'Reviewed By', 'Approved By'];
             signatureLabels.forEach((label, i) => {
@@ -2716,7 +2513,6 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                 doc.text('Signature: ________________', boxX + 2, approvalY + 22);
             });
 
-            // ===== FOOTER =====
             doc.setFillColor(...colors.lightBg);
             doc.rect(0, pageHeight - 10, pageWidth, 10, 'F');
 
@@ -2751,25 +2547,24 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
             <table className={styles.budgetTable}>
                 <thead>
                     <tr>
-                        <th style={{ width: '50px', textAlign: 'center' }}>Sl</th>
-                        {isBoqMode && <th style={{ width: '80px', textAlign: 'center' }}>Ref Img</th>}
-                        {isBoqMode && <th style={{ width: '200px', textAlign: 'left' }}>Original Desc</th>}
-                        <th style={{ width: '80px', textAlign: 'center' }}>Scope</th>
+                        <th style={{ width: '40px', textAlign: 'center' }}>Sl</th>
+                        {isBoqMode && <th style={{ width: '72px', textAlign: 'center' }}>Ref Img</th>}
+                        {isBoqMode && <th style={{ width: '220px', textAlign: 'left' }}>Original Desc</th>}
+                        <th style={{ width: '60px', textAlign: 'center' }}>Scope</th>
                         <th style={{ width: '80px', textAlign: 'center' }}>Brand Img</th>
-                        <th style={{ width: '200px', textAlign: 'left' }}>Brand Desc</th>
-                        <th style={{ width: '50px', textAlign: 'center' }}>Qty</th>
-                        <th style={{ width: '50px', textAlign: 'center' }}>Unit</th>
+                        <th style={{ width: '160px', textAlign: 'left' }}>Brand Desc</th>
+                        <th style={{ width: '60px', textAlign: 'center' }}>Qty</th>
+                        <th style={{ width: '60px', textAlign: 'center' }}>Unit</th>
                         <th style={{ width: '80px', textAlign: 'right' }}>Rate</th>
                         <th style={{ width: '90px', textAlign: 'right' }}>Amount</th>
-                        <th style={{ width: '180px', textAlign: 'left' }}>Product Selection</th>
-                        <th style={{ width: '60px', textAlign: 'center' }}>Action</th>
+                        <th style={{ width: '200px', textAlign: 'left' }}>Product Selection</th>
+                        <th style={{ width: '40px', textAlign: 'center' }}>Action</th>
                     </tr>
                 </thead>
                 <tbody>
                     {(() => {
                         let displayRows = [...rows];
 
-                        // Handle Consolidation
                         if (isConsolidated) {
                             const consolidated = {};
                             displayRows.forEach(row => {
@@ -2783,7 +2578,6 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                             displayRows = Object.values(consolidated);
                         }
 
-                        // Group dynamically by Scope (FITOUT first, then FURNITURE)
                         const allScopesSet = new Set(displayRows.map(r => r.scope || 'Furniture'));
                         let scopes = Array.from(allScopesSet);
 
@@ -2812,7 +2606,6 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                                         </td>
                                     </tr>
                                     {scopeRows.map((row) => {
-                                        // Find exact row or the first underlying row for consolidated items
                                         let originalIndex = -1;
                                         if (isConsolidated && String(row.id).startsWith('cons_')) {
                                             const displayKey = String(row.id).replace('cons_', '');
@@ -2863,7 +2656,6 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
         }) || brands.find(b => b.name === row.selectedBrand);
         const brandProducts = activeBrand?.products || [];
 
-        // Category/Family logic: Merge and deduplicate to avoid "confusing branches"
         const mergeUnique = (plist, key1, key2) => {
             const set = new Set();
             plist.forEach(p => {
@@ -2925,7 +2717,7 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
 
         return (
             <tr key={row.id} className={`${rowStatusClass} ${row.aiStatus === 'skipped' ? styles.skippedRow : ''}`}>
-                <td>
+                <td style={{ textAlign: 'center', verticalAlign: 'middle', minWidth: 40, fontSize: '0.78rem', color: 'var(--text-muted,#94a3b8)', fontWeight: 600 }}>
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
                         {sn}
                         {row.aiStatus === 'success' && row.aiResult && (
@@ -2952,53 +2744,58 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                 </td>
 
                 {isBoqMode && (
-                    <td>
-                        {row.imageRef ? (
-                            <div className={styles.imgPlaceholder} style={{ background: 'none' }}>
-                                <img
-                                    src={refImgSrc}
-                                    alt="ref"
-                                    className={styles.tableImg}
-                                    onClick={(e) => {
-                                        // Only open lightbox if image loaded successfully
-                                        if (e.target.dataset.broken === 'true') return;
-                                        setPreviewImage(refImgSrc);
-                                        setPreviewLogo(null);
-                                        setPreviewBrand('Original Reference');
-                                        setPreviewModel(row.description);
-                                    }}
-                                    onError={(e) => {
-                                        e.target.dataset.broken = 'true';
-                                        e.target.style.opacity = '0.3';
-                                        e.target.style.filter = 'grayscale(1)';
-                                        e.target.title = 'Image not available (session expired – re-upload to refresh)';
-                                    }}
-                                />
-                            </div>
-                        ) : (
-                            <div className={styles.imgPlaceholder}>No Img</div>
-                        )}
+                    <td style={{ verticalAlign: 'middle', minWidth: 72 }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+                            {row.imageRef ? (
+                                <div className={styles.tableImgContainer}>
+                                    <img
+                                        src={refImgSrc}
+                                        alt="ref"
+                                        className={styles.tableImg}
+                                        onClick={(e) => {
+                                            if (e.target.dataset.broken === 'true') return;
+                                            setPreviewImage(refImgSrc);
+                                            setPreviewLogo(null);
+                                            setPreviewBrand('Original Reference');
+                                            setPreviewModel(row.description);
+                                        }}
+                                        onError={(e) => {
+                                            e.target.dataset.broken = 'true';
+                                            e.target.style.opacity = '0.3';
+                                            e.target.style.filter = 'grayscale(1)';
+                                            e.target.title = 'Image not available (session expired – re-upload to refresh)';
+                                        }}
+                                    />
+                                    {row.aiStatus === 'processing' && <div className={styles.rowScanner}></div>}
+                                </div>
+                            ) : (
+                                <div className={styles.tableImgContainer} style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>
+                                    No Img
+                                    {row.aiStatus === 'processing' && <div className={styles.rowScanner}></div>}
+                                </div>
+                            )}
+                        </div>
                     </td>
                 )}
 
                 {isBoqMode && (
-                    <td>
+                    <td style={{ verticalAlign: 'middle', minWidth: 220 }}>
                         <textarea
                             className={styles.cellInput}
                             value={row.description}
                             onChange={(e) => handleCellChange(index, 'description', e.target.value)}
-                            style={{ minHeight: '80px', resize: 'vertical' }}
+                            style={{ minHeight: '72px', resize: 'vertical', width: '100%' }}
                         />
                     </td>
                 )}
 
-                <td>
+                <td style={{ verticalAlign: 'middle', textAlign: 'center', minWidth: 60 }}>
                     <span className={`${styles.rowScopeTag} ${row.scope?.toLowerCase().includes('fitout') ? styles.fitoutTag : styles.furnitureTag}`}>
                         {row.scope || 'Furniture'}
                     </span>
                 </td>
 
-                <td>
+                <td style={{ verticalAlign: 'middle', minWidth: 80 }}>
                     <div className={styles.brandImageCell}>
                         {row.brandLogo && (
                             <div className={styles.brandLogoBadge}>
@@ -3016,48 +2813,50 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                                     src={getFullUrl(row.brandImage)}
                                     alt="brand"
                                     className={styles.tableImg}
-                                    onError={(e) => {
-                                        e.target.style.display = 'none';
-                                        const sibling = e.target.nextSibling;
-                                        if (sibling) sibling.style.display = 'flex';
-                                    }}
-                                    onClick={() => {
+                                    onClick={(e) => {
+                                        if (e.target.dataset.broken === 'true') return;
                                         setPreviewImage(getFullUrl(row.brandImage));
                                         setPreviewLogo(getFullUrl(row.brandLogo));
                                         setPreviewBrand(row.selectedBrand);
                                         setPreviewModel(row.selectedModel);
                                     }}
+                                    onError={(e) => {
+                                        e.target.dataset.broken = 'true';
+                                        e.target.style.opacity = '0.3';
+                                        e.target.style.filter = 'grayscale(1)';
+                                    }}
                                 />
-                                <div className={styles.imgPlaceholder} style={{ display: 'none' }}>
-                                    Broken
-                                </div>
+                                {row.aiStatus === 'processing' && <div className={styles.rowScanner}></div>}
                             </div>
                         ) : (
-                            <div className={styles.imgPlaceholder}>Select</div>
+                            <div className={styles.tableImgContainer} style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>
+                                {row.aiStatus === 'processing' ? 'Searching...' : 'Select'}
+                                {row.aiStatus === 'processing' && <div className={styles.rowScanner}></div>}
+                            </div>
                         )}
                     </div>
                 </td>
 
-                <td>
+                <td style={{ verticalAlign: 'middle', minWidth: 160 }}>
                     <textarea
                         className={styles.cellInput}
                         value={row.brandDesc}
                         onChange={(e) => handleCellChange(index, 'brandDesc', e.target.value)}
-                        style={{ minHeight: '80px' }}
+                        style={{ minHeight: '72px', resize: 'vertical', width: '100%' }}
                         placeholder="Product details..."
                     />
                 </td>
 
-                <td>
+                <td style={{ verticalAlign: 'middle', minWidth: 60 }}>
                     <input className={styles.cellInput} value={row.qty} onChange={(e) => handleCellChange(index, 'qty', e.target.value)} style={{ textAlign: 'center' }} />
                 </td>
-                <td>
+                <td style={{ verticalAlign: 'middle', minWidth: 60 }}>
                     <input className={styles.cellInput} value={row.unit} onChange={(e) => handleCellChange(index, 'unit', e.target.value)} />
                 </td>
-                <td>
+                <td style={{ verticalAlign: 'middle', minWidth: 80 }}>
                     <input className={styles.cellInput} value={row.rate} onChange={(e) => handleCellChange(index, 'rate', e.target.value)} style={{ textAlign: 'right' }} />
                 </td>
-                <td>
+                <td style={{ verticalAlign: 'middle', minWidth: 90 }}>
                     <input
                         type="text"
                         value={row.rate && parseFloat(row.rate) > 0
@@ -3066,23 +2865,22 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                         onChange={(e) => handleCellChange(index, 'amount', e.target.value)}
                         className={styles.cellInput}
                         style={{ textAlign: 'right', opacity: row.rate && parseFloat(row.rate) > 0 ? 0.7 : 1 }}
-                        disabled={row.rate && parseFloat(row.rate) > 0}
+                        disabled={!!(row.rate && parseFloat(row.rate) > 0)}
                         placeholder="0.00"
                     />
                 </td>
 
-                <td>
+                <td style={{ verticalAlign: 'middle', minWidth: 200 }}>
                     <div className={styles.dropdownStack}>
                         <div className={styles.brandDropdownContainer}>
                             {row.aiStatus === 'processing' ? (
                                 <div className={styles.aiLoadingCell}>
-                                    <div className={styles.tinySpinner}></div>
-                                    <span>AI Searching...</span>
+                                    <div className={styles.tinySpinner} />
+                                    <span style={{ fontSize: '0.72rem' }}>AI Matching…</span>
                                 </div>
                             ) : (
                                 <BrandDropdown
                                     brands={brands.filter(b => {
-                                        // 1. Budget Tier Filtering
                                         const bTier = (b.budgetTier || 'mid').toLowerCase();
                                         const aTier = activeTier.toLowerCase();
                                         let tierMatch = false;
@@ -3092,7 +2890,6 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
 
                                         if (!tierMatch) return false;
 
-                                        // 2. Type/Scope Filtering (Fitout vs Furniture)
                                         const rowScope = (row.scope || 'Furniture').toLowerCase();
                                         const brandType = (b.type || (b.name.toLowerCase().includes('fitout') ? 'fitout' : 'furniture')).toLowerCase();
 
@@ -3150,7 +2947,7 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                     </div>
                 </td>
 
-                <td>
+                <td style={{ verticalAlign: 'middle', textAlign: 'center', minWidth: 40 }}>
                     <div className={styles.actionCell}>
                         <button className={`${styles.actionBtn} ${styles.addBtn}`} onClick={() => handleAddRow(index)}>+</button>
                         <button className={`${styles.actionBtn} ${styles.removeBtn}`} onClick={() => handleRemoveRow(index)}>×</button>
@@ -3165,7 +2962,6 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
         const midRows = tierData.mid?.rows || [];
         const highRows = tierData.high?.rows || [];
 
-        // Find whichever has rows (usually all if auto-filled)
         const sampleRows = budgetaryRows.length > 0 ? budgetaryRows : midRows.length > 0 ? midRows : highRows;
 
         if (sampleRows.length === 0) return (
@@ -3270,164 +3066,159 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
     };
 
     return (
-        <div className={styles.overlay}>
-            <div className={`${styles.modalContainer} ${theme === 'light' ? styles.light : ''}`} onClick={e => e.stopPropagation()}>
+        <Fragment>
+            <div className={styles.overlay} onClick={onClose}>
+                <div className={`${styles.modalContainer} ${theme === 'light' ? styles.light : ''}`} onClick={e => e.stopPropagation()}>
 
-                {/* Header */}
-                <div className={styles.header}>
-                    <div className={styles.title}>
-                        💰 Multi-Budget Offers
+                    <div className={styles.header}>
+                        <div className={styles.title}>
+                            💰 Multi-Budget Offers
+                        </div>
+                        <button className={styles.closeBtn} onClick={onClose}>×</button>
                     </div>
-                    <button className={styles.closeBtn} onClick={onClose}>×</button>
-                </div>
 
-                {/* Main Content (Flex Column) */}
-                <div className={styles.content}>
+                    <div className={styles.content}>
 
-                    {/* Fixed Top Section: Actions + Tabs */}
-                    <div className={styles.topSection}>
-                        <div className={styles.mainActions}>
-                            <button className={`${styles.actionCard} ${styles.uploadBoqBtn}`} onClick={handleUploadBoqTrigger}>
-                                <span style={{ fontSize: '1.4rem' }}>📤</span>
-                                <span>Upload BOQ</span>
-                            </button>
-                            <button className={`${styles.actionCard} ${styles.genBoqBtn}`} onClick={handleGenerateFromBoq}>
-                                <span style={{ fontSize: '1.4rem' }}>📋</span>
-                                <span>Generate from BOQ</span>
-                            </button>
-                            <button className={`${styles.actionCard} ${styles.genPlanBtn}`} onClick={handleUploadPlanTrigger}>
-                                <span style={{ fontSize: '1.4rem' }}>📐</span>
-                                <span>Upload Plan</span>
-                            </button>
-                            <button className={`${styles.actionCard} ${styles.createNewBtn}`} onClick={handleCreateNewBoq}>
-                                <span style={{ fontSize: '1.4rem' }}>➕</span>
-                                <span>Create New BOQ</span>
-                            </button>
-
-                            {planPreviewUrl && (
-                                <button className={`${styles.actionCard} ${styles.planPreviewBtn}`} onClick={() => setPlanPreviewOpen(true)}>
-                                    <div className={styles.planPreviewThumb}>
-                                        {planPreviewType === 'application/pdf' ? (
-                                            <span className={styles.planPreviewPdfIcon} role="img" aria-label="PDF">📄</span>
-                                        ) : (
-                                            <img src={planPreviewUrl} alt={planPreviewName || 'Plan preview'} className={styles.planPreviewThumbImg} />
-                                        )}
-                                    </div>
-                                    <span>Preview Plan</span>
+                        <div className={styles.topSection}>
+                            <div className={styles.mainActions}>
+                                <button className={`${styles.actionCard} ${styles.uploadBoqBtn}`} onClick={handleUploadBoqTrigger}>
+                                    <span style={{ fontSize: '1.4rem' }}>📤</span>
+                                    <span>Upload BOQ</span>
                                 </button>
+                                <button className={`${styles.actionCard} ${styles.genBoqBtn}`} onClick={handleGenerateFromBoq}>
+                                    <span style={{ fontSize: '1.4rem' }}>📋</span>
+                                    <span>Generate from BOQ</span>
+                                </button>
+                                <button className={`${styles.actionCard} ${styles.genPlanBtn}`} onClick={handleUploadPlanTrigger}>
+                                    <span style={{ fontSize: '1.4rem' }}>📐</span>
+                                    <span>Upload Plan</span>
+                                </button>
+                                <button className={`${styles.actionCard} ${styles.createNewBtn}`} onClick={handleCreateNewBoq}>
+                                    <span style={{ fontSize: '1.4rem' }}>➕</span>
+                                    <span>Create New BOQ</span>
+                                </button>
+
+                                {planPreviewUrl && (
+                                    <button className={`${styles.actionCard} ${styles.planPreviewBtn}`} onClick={() => setPlanPreviewOpen(true)}>
+                                        <div className={styles.planPreviewThumb}>
+                                            {planPreviewType === 'application/pdf' ? (
+                                                <span className={styles.planPreviewPdfIcon} role="img" aria-label="PDF">📄</span>
+                                            ) : (
+                                                <img src={planPreviewUrl} alt={planPreviewName || 'Plan preview'} className={styles.planPreviewThumbImg} />
+                                            )}
+                                        </div>
+                                        <span>Preview Plan</span>
+                                    </button>
+                                )}
+                                <button className={`${styles.actionCard} ${styles.consolidateBtn} ${isConsolidated ? styles.consolidateBtnActive : ''}`} onClick={() => setIsConsolidated(!isConsolidated)}>
+                                    <span style={{ fontSize: '1.4rem' }}>{isConsolidated ? '🏠' : '📦'}</span>
+                                    <span>{isConsolidated ? 'Room Wise' : 'Consolidate Items'}</span>
+                                </button>
+                                <button className={`${styles.actionCard} ${styles.addBrandBtn}`} onClick={handleAddBrand}>
+                                    <span style={{ fontSize: '1.4rem' }}>🏢</span>
+                                    <span>Add Brand</span>
+                                </button>
+                                <button
+                                    className={`${styles.actionCard} ${styles.aiAutoFillBtn} ${isFurnitureAutoFilling ? styles.aiAutoFilling : ''}`}
+                                    onClick={handleAutoFillAI}
+                                    disabled={isFurnitureAutoFilling}
+                                >
+                                    <span style={{ fontSize: '1.4rem' }}>✨</span>
+                                    <span>
+                                        {isFurnitureAutoFilling
+                                            ? `AI FURNITURE${furnitureProgress.budgetary?.total > 0 ? ` (${furnitureProgress.budgetary.current}/${furnitureProgress.budgetary.total})` : '...'}`
+                                            : 'AI FURNITURE'
+                                        }
+                                    </span>
+                                </button>
+                                <button
+                                    className={`${styles.actionCard} ${styles.fitoutAutoFillBtn} ${isFitoutAutoFilling ? styles.fitoutAutoFilling : ''}`}
+                                    onClick={handleFitoutAutoFill}
+                                    disabled={isFitoutAutoFilling}
+                                >
+                                    <span style={{ fontSize: '1.4rem' }}>🛠️</span>
+                                    <span>
+                                        {isFitoutAutoFilling
+                                            ? `AI FITOUT${fitoutProgress.budgetary?.total > 0 ? ` (${fitoutProgress.budgetary.current}/${fitoutProgress.budgetary.total})` : '...'}`
+                                            : 'AI FITOUT'
+                                        }
+                                    </span>
+                                </button>
+                            </div>
+
+
+                            <input
+                                type="file"
+                                ref={boqInputRef}
+                                style={{ display: 'none' }}
+                                accept=".xlsx,.xls,.pdf"
+                                onChange={(e) => {
+                                    if (e.target.files && e.target.files[0]) {
+                                        onUploadBoq(e.target.files[0]);
+                                    }
+                                    e.target.value = '';
+                                }}
+                            />
+                            <input
+                                type="file"
+                                ref={planInputRef}
+                                style={{ display: 'none' }}
+                                multiple
+                                accept=".pdf,.jpg,.jpeg,.png"
+                                onChange={(e) => {
+                                    if (e.target.files && e.target.files.length > 0) {
+                                        onUploadPlan(e.target.files);
+                                    }
+                                    e.target.value = '';
+                                }}
+                            />
+
+                            <div className={styles.tabsContainer}>
+                                <div className={styles.topTabs}>
+                                    <button className={`${styles.tab} ${activeTier === 'budgetary' ? styles.activeTabBudgetary : ''}`} onClick={() => setActiveTier('budgetary')}>
+                                        Budgetary
+                                    </button>
+                                    <button className={`${styles.tab} ${activeTier === 'mid' ? styles.activeTabMid : ''}`} onClick={() => setActiveTier('mid')}>
+                                        Mid-Range
+                                    </button>
+                                    <button className={`${styles.tab} ${activeTier === 'high' ? styles.activeTabHigh : ''}`} onClick={() => setActiveTier('high')}>
+                                        High-End
+                                    </button>
+                                </div>
+                                <div className={styles.bottomTabs}>
+                                    <button className={`${styles.tab} ${styles.comparisonTab} ${activeTier === 'comparison' ? styles.activeTabComparison : ''}`} onClick={() => setActiveTier('comparison')}>
+                                        Comparison View
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className={styles.tableContainer}>
+                            {furnitureBatchResult && (
+                                <div className={`${styles.aiBatchNotification} ${furnitureBatchResult.error > 0 ? styles.aiBatchNotificationError : styles.aiBatchNotificationSuccess}`}>
+                                    <span>
+                                        Furniture Batch Complete — <strong>{furnitureBatchResult.success || 0}</strong> matched, <strong>{furnitureBatchResult.error || 0}</strong> failed
+                                        {furnitureBatchResult.newlyAdded > 0 && ` (${furnitureBatchResult.newlyAdded} new brands added)`}
+                                    </span>
+                                    <button className={styles.notificationClose} onClick={() => setFurnitureBatchResult(null)}>×</button>
+                                </div>
                             )}
-                            <button className={`${styles.actionCard} ${styles.consolidateBtn} ${isConsolidated ? styles.consolidateBtnActive : ''}`} onClick={() => setIsConsolidated(!isConsolidated)}>
-                                <span style={{ fontSize: '1.4rem' }}>{isConsolidated ? '🏠' : '📦'}</span>
-                                <span>{isConsolidated ? 'Room Wise' : 'Consolidate Items'}</span>
-                            </button>
-                            <button className={`${styles.actionCard} ${styles.addBrandBtn}`} onClick={handleAddBrand}>
-                                <span style={{ fontSize: '1.4rem' }}>🏢</span>
-                                <span>Add Brand</span>
-                            </button>
-                            <button
-                                className={`${styles.actionCard} ${styles.aiAutoFillBtn} ${isFurnitureAutoFilling ? styles.aiAutoFilling : ''}`}
-                                onClick={handleAutoFillAI}
-                                disabled={isFurnitureAutoFilling}
-                            >
-                                <span style={{ fontSize: '1.4rem' }}>✨</span>
-                                <span>
-                                    {isFurnitureAutoFilling
-                                        ? `AI FURNITURE${furnitureProgress.total > 0 ? ` (${furnitureProgress.current}/${furnitureProgress.total})` : '...'}`
-                                        : 'AI FURNITURE'
-                                    }
-                                </span>
-                            </button>
-                            <button
-                                className={`${styles.actionCard} ${styles.fitoutAutoFillBtn} ${isFitoutAutoFilling ? styles.fitoutAutoFilling : ''}`}
-                                onClick={handleFitoutAutoFill}
-                                disabled={isFitoutAutoFilling}
-                            >
-                                <span style={{ fontSize: '1.4rem' }}>🛠️</span>
-                                <span>
-                                    {isFitoutAutoFilling
-                                        ? `AI FITOUT${fitoutProgress.total > 0 ? ` (${fitoutProgress.current}/${fitoutProgress.total})` : '...'}`
-                                        : 'AI FITOUT'
-                                    }
-                                </span>
-                            </button>
-                        </div>
+                            {fitoutBatchResult && (
+                                <div className={`${styles.aiBatchNotification} ${fitoutBatchResult.error > 0 ? styles.aiBatchNotificationError : styles.aiBatchNotificationSuccess}`}>
+                                    <span>
+                                        Fitout Batch Complete — <strong>{fitoutBatchResult.success || 0}</strong> matched, <strong>{fitoutBatchResult.error || 0}</strong> failed
+                                        {fitoutBatchResult.newlyAdded > 0 && ` (${fitoutBatchResult.newlyAdded} new brands added)`}
+                                    </span>
+                                    <button className={styles.notificationClose} onClick={() => setFitoutBatchResult(null)}>×</button>
+                                </div>
+                            )}
 
-
-                        {/* Hidden Inputs for UPLOADS (act same as landing page) */}
-                        <input
-                            type="file"
-                            ref={boqInputRef}
-                            style={{ display: 'none' }}
-                            accept=".xlsx,.xls,.pdf"
-                            onChange={(e) => {
-                                if (e.target.files && e.target.files[0]) {
-                                    onUploadBoq(e.target.files[0]);
-                                }
-                                e.target.value = ''; // Clear selection to allow re-uploading same file
-                            }}
-                        />
-                        <input
-                            type="file"
-                            ref={planInputRef}
-                            style={{ display: 'none' }}
-                            multiple
-                            accept=".pdf,.jpg,.jpeg,.png"
-                            onChange={(e) => {
-                                if (e.target.files && e.target.files.length > 0) {
-                                    onUploadPlan(e.target.files);
-                                }
-                                e.target.value = ''; // Clear selection
-                            }}
-                        />
-
-                        <div className={styles.tabsContainer}>
-                            <div className={styles.topTabs}>
-                                <button className={`${styles.tab} ${activeTier === 'budgetary' ? styles.activeTabBudgetary : ''}`} onClick={() => setActiveTier('budgetary')}>
-                                    Budgetary
-                                </button>
-                                <button className={`${styles.tab} ${activeTier === 'mid' ? styles.activeTabMid : ''}`} onClick={() => setActiveTier('mid')}>
-                                    Mid-Range
-                                </button>
-                                <button className={`${styles.tab} ${activeTier === 'high' ? styles.activeTabHigh : ''}`} onClick={() => setActiveTier('high')}>
-                                    High-End
-                                </button>
-                            </div>
-                            <div className={styles.bottomTabs}>
-                                <button className={`${styles.tab} ${styles.comparisonTab} ${activeTier === 'comparison' ? styles.activeTabComparison : ''}`} onClick={() => setActiveTier('comparison')}>
-                                    Comparison View
-                                </button>
+                            <div className={styles.tableScrollWrapper}>
+                                {renderActiveView()}
                             </div>
                         </div>
-
                     </div>
 
-                    {/* Scrollable Table Area */}
-                    <div className={styles.tableContainer}>
-                        {/* Batch completion notification */}
-                        {/* Batch completion notification - Furniture */}
-                        {furnitureBatchResult && (
-                            <div className={`${styles.aiBatchNotification} ${furnitureBatchResult.error > 0 ? styles.aiBatchNotificationError : styles.aiBatchNotificationSuccess}`}>
-                                <span>
-                                    Furniture Batch Complete — <strong>{furnitureBatchResult.success || 0}</strong> matched, <strong>{furnitureBatchResult.error || 0}</strong> failed
-                                    {furnitureBatchResult.newlyAdded > 0 && ` (${furnitureBatchResult.newlyAdded} new brands added)`}
-                                </span>
-                                <button className={styles.notificationClose} onClick={() => setFurnitureBatchResult(null)}>×</button>
-                            </div>
-                        )}
-                        {/* Batch completion notification - Fitout */}
-                        {fitoutBatchResult && (
-                            <div className={`${styles.aiBatchNotification} ${fitoutBatchResult.error > 0 ? styles.aiBatchNotificationError : styles.aiBatchNotificationSuccess}`}>
-                                <span>
-                                    Fitout Batch Complete — <strong>{fitoutBatchResult.success || 0}</strong> matched, <strong>{fitoutBatchResult.error || 0}</strong> failed
-                                    {fitoutBatchResult.newlyAdded > 0 && ` (${fitoutBatchResult.newlyAdded} new brands added)`}
-                                </span>
-                                <button className={styles.notificationClose} onClick={() => setFitoutBatchResult(null)}>×</button>
-                            </div>
-                        )}
-                        {renderActiveView()}
-                    </div>
-
-                    {/* Fixed Footer */}
                     <div className={styles.footer}>
                         <button className={styles.applyCostingBtn} onClick={() => setIsCostingOpen(true)}>
                             Apply Costing & Review
@@ -3446,7 +3237,6 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                 </div>
             </div>
 
-            {/* Image Preview Overlay */}
             {previewImage && (
                 <div className={styles.previewOverlay} onClick={(e) => { e.stopPropagation(); setPreviewImage(null); setPreviewLogo(null); setPreviewBrand(null); setPreviewModel(null); }}>
                     <div className={styles.previewContent} onClick={e => e.stopPropagation()}>
@@ -3522,14 +3312,12 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                     </div>
                 </div>
             )}
-            {/* Add Brand Modal */}
             <AddBrandModal
                 isOpen={isAddBrandOpen}
                 onClose={() => setIsAddBrandOpen(false)}
                 onBrandAdded={handleBrandAdded}
                 onBrandUpdated={fetchBrands}
             />
-            {/* Specialist Audit Modal */}
             <SpecialistModal
                 isOpen={!!specialistData}
                 onClose={() => setSpecialistData(null)}
@@ -3549,7 +3337,6 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                 activeTier={activeTier}
                 onConfirm={executeFitoutAutoFillAI}
             />
-            {/* Costing Modal */}
             <CostingModal
                 isOpen={isCostingOpen}
                 onClose={() => setIsCostingOpen(false)}
@@ -3562,20 +3349,20 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                 onApply={handlePlanApplied}
                 allBrands={brands}
             />
-            {/* Parallel AI Discovery Modals - Refactored for global stacking */}
             {(() => {
                 const getActiveModals = (statuses, type, batchResult, progress, setStatuses, setBatchResult) => {
                     const activeTiers = ['high', 'mid', 'budgetary'].filter(k => statuses[k]?.active);
                     if (activeTiers.length > 0) {
-                        return activeTiers.map(t => ({
+                        return [{
                             type,
-                            tier: t,
-                            status: statuses[t],
+                            isSwarm: true,
+                            activeTiers,
+                            statuses,
                             progress,
                             setStatuses,
                             setBatchResult,
                             isResult: false
-                        }));
+                        }];
                     }
                     if (batchResult) {
                         return [{
@@ -3594,64 +3381,147 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
 
                 const furnitureModals = getActiveModals(furnitureStatuses, 'furniture', furnitureBatchResult, furnitureProgress, setFurnitureStatuses, setFurnitureBatchResult);
                 const fitoutModals = getActiveModals(fitoutStatuses, 'fitout', fitoutBatchResult, fitoutProgress, setFitoutStatuses, setFitoutBatchResult);
+
                 const globalModals = [...furnitureModals, ...fitoutModals];
+                if (swarm && swarm.active) {
+                    globalModals.push({
+                        type: 'furniture',
+                        isSwarm: true,
+                        swarm: swarm,
+                        isResult: false,
+                        displayStatus: { minimized: false },
+                        displayTier: 'mid',
+                        progress: 0
+                    });
+                }
 
                 return globalModals.map((modalData, idx) => {
-                    const { type, tier, status, progress, setStatuses, setBatchResult, isResult, batchResult: bRes } = modalData;
+                    if (modalData.isSwarm && modalData.swarm) {
+                        return (
+                            <AIPresentationModal
+                                key="swarm-discovery"
+                                type="furniture"
+                                isOpen={true}
+                                onClose={() => setSwarm({ active: false, lanes: {} })}
+                                onToggleMinimize={(val) => {
+                                    setSwarm(prev => ({ ...prev, minimized: val }));
+                                    setFurnitureStatuses(prev => {
+                                        const next = { ...prev };
+                                        Object.keys(prev).forEach(t => {
+                                            if (prev[t].active) next[t] = { ...next[t], minimized: val };
+                                        });
+                                        return next;
+                                    });
+                                }}
+                                swarm={modalData.swarm}
+                                isMinimized={modalData.swarm.minimized}
+                                alignment="center"
+                                title="Multi Budget AI Engine Active"
+                            />
+                        );
+                    }
+                    const { type, isSwarm, activeTiers, statuses, tier: singleTier, status: singleStatus, progress, setStatuses, setBatchResult, isResult, batchResult: bRes } = modalData;
                     const ModalComponent = type === 'fitout' ? AIFitoutPresentationModal : AIPresentationModal;
 
-                    // Horizontal alignment for full modals
+                    const displayTier = isSwarm ? activeTiers[0] : singleTier;
+                    const displayStatus = isSwarm ? statuses[displayTier] : singleStatus;
+                    const displayProgress = progress[displayTier]?.total > 0 ? (progress[displayTier].current / progress[displayTier].total) * 100 : 0;
+
+                    let localSwarm = null;
+                    if (isSwarm) {
+                        localSwarm = {
+                            lanes: {}
+                        };
+                        activeTiers.forEach(t => {
+                            const s = statuses[t];
+                            let localBrand = brands.find(b => b.name === s.brand);
+                            
+                            // Fallback: If no brand matched yet, show the logo of the first brand assigned to this tier
+                            if (!localBrand && lastAISettings?.brands) {
+                                localBrand = brands.find(b => 
+                                    lastAISettings.brands.includes(b.name) && 
+                                    (b.budgetTier?.toLowerCase() === t || (t === 'budgetary' && b.budgetTier?.toLowerCase() === 'budgetary'))
+                                );
+                            }
+
+                            localSwarm.lanes[t] = {
+                                id: t,
+                                label: t === 'budgetary' ? 'BUDGETARY' : t.toUpperCase() + ' TIER',
+                                status: s.status,
+                                progress: progress[t]?.total > 0 ? (progress[t].current / progress[t].total) * 100 : 0,
+                                currentItem: s.currentItem,
+                                brand: s.brand,
+                                brandLogo: localBrand?.logo ? getFullUrl(localBrand.logo) : '',
+                                model: s.model,
+                                image: s.image
+                            };
+                        });
+                    }
+
                     let alignment = 'center';
-                    if (globalModals.length > 1 && !status.minimized) {
+                    if (globalModals.length > 1 && !displayStatus.minimized) {
                         if (globalModals.length === 2) {
                             alignment = idx === 0 ? 'left' : 'right';
                         } else if (globalModals.length === 3) {
                             if (idx === 0) alignment = 'left';
                             if (idx === 1) alignment = 'center-narrow';
                             if (idx === 2) alignment = 'right';
-                        } else {
-                            // More than 3 modals: distribution logic
-                            const pos = (idx / (globalModals.length - 1)) * 100;
-                            if (pos < 30) alignment = 'left';
-                            else if (pos > 70) alignment = 'right';
-                            else alignment = 'center-narrow';
                         }
                     }
 
-                    // Global minimized offset
                     const minimizedOffset = idx * 340 + 24;
 
                     return (
                         <ModalComponent
-                            key={`${type}-${tier}-${isResult ? 'result' : 'discovery'}`}
+                            key={`${type}-${displayTier}-${isResult ? 'result' : 'discovery'}`}
                             type={type}
                             isOpen={true}
                             onClose={() => {
                                 if (isResult) {
                                     setBatchResult(null);
+                                } else if (isSwarm) {
+                                    setStatuses(prev => {
+                                        const next = { ...prev };
+                                        activeTiers.forEach(t => {
+                                            next[t] = { ...next[t], active: false };
+                                        });
+                                        return next;
+                                    });
                                 } else {
-                                    setStatuses(prev => ({ ...prev, [tier]: { ...prev[tier], active: false } }));
+                                    setStatuses(prev => ({ ...prev, [displayTier]: { ...prev[displayTier], active: false } }));
                                 }
                             }}
-                            tier={tier}
+                            tier={displayTier}
                             alignment={alignment}
-                            currentItem={status.currentItem}
+                            currentItem={displayStatus.currentItem}
                             batchResult={isResult ? bRes : null}
-                            brand={status.brand}
-                            foundModel={status.model}
-                            foundImage={status.image}
-                            progress={progress[tier]?.total > 0 ? (progress[tier].current / progress[tier].total) * 100 : 0}
-                            status={status.status}
-                            isMinimized={status.minimized}
+                            brand={displayStatus.brand}
+                            foundModel={displayStatus.model}
+                            foundImage={displayStatus.image}
+                            progress={displayProgress}
+                            status={displayStatus.status}
+                            isMinimized={displayStatus.minimized}
                             onToggleMinimize={(val) => {
                                 if (isResult) return;
-                                setStatuses(prev => ({ ...prev, [tier]: { ...prev[tier], minimized: val } }));
+                                if (isSwarm) {
+                                    setStatuses(prev => {
+                                        const next = { ...prev };
+                                        activeTiers.forEach(t => {
+                                            next[t] = { ...next[t], minimized: val };
+                                        });
+                                        return next;
+                                    });
+                                } else {
+                                    setStatuses(prev => ({ ...prev, [displayTier]: { ...prev[displayTier], minimized: val } }));
+                                }
                             }}
                             minimizedOffset={minimizedOffset}
+                            swarm={localSwarm}
+                            title="Multi Budget AI Engine Active"
                         />
                     );
                 });
             })()}
-        </div>
+        </Fragment>
     );
 }

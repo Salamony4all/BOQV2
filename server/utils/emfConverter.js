@@ -1,18 +1,26 @@
-import { spawn } from 'child_process';
+import { spawn, execSync } from 'child_process';
 import path from 'path';
 import { promises as fs } from 'fs';
 import os from 'os';
 
 /**
- * Converts EMF/WMF files to PNG using Windows GDI+ via PowerShell.
- * Only works on Windows.
+ * Checks if a command exists in the system path (Linux/macOS)
+ */
+const commandExists = (cmd) => {
+    try {
+        execSync(`which ${cmd}`, { stdio: 'ignore' });
+        return true;
+    } catch (e) {
+        return false;
+    }
+};
+
+/**
+ * Converts EMF/WMF files to PNG.
+ * Uses Windows GDI+ via PowerShell on Windows.
+ * Falls back to Inkscape, LibreOffice, or ImageMagick on Linux/macOS.
  */
 export async function convertEmfToPng(inputPath) {
-    if (os.platform() !== 'win32') {
-        console.warn('[EMF Converter] Skip: Non-Windows platform');
-        return null;
-    }
-
     // Verify input file exists
     try {
         await fs.access(inputPath);
@@ -22,7 +30,7 @@ export async function convertEmfToPng(inputPath) {
     }
 
     const outputPath = inputPath.replace(/\.(emf|wmf)$/i, '.png');
-    
+
     // Check if PNG already exists (to avoid duplicate work)
     try {
         await fs.access(outputPath);
@@ -31,6 +39,14 @@ export async function convertEmfToPng(inputPath) {
         // Continue to conversion
     }
 
+    if (os.platform() === 'win32') {
+        return convertOnWindows(inputPath, outputPath);
+    } else {
+        return convertOnLinux(inputPath, outputPath);
+    }
+}
+
+function convertOnWindows(inputPath, outputPath) {
     // Use single quotes for PowerShell literal strings and escape single quotes in path
     const escapedInput = inputPath.replace(/'/g, "''");
     const escapedOutput = outputPath.replace(/'/g, "''");
@@ -44,29 +60,22 @@ Try {
     
     Write-Host "DEBUG: Loading metafile from $in"
     
-    # Try to load as Metafile specifically for better header access
-    # We use New-Object to avoid some lock issues and to be explicit
     $img = New-Object System.Drawing.Imaging.Metafile($in)
     
-    # Get dimensions. Metafiles can have unusual units.
-    # We use PhysicalDimension to get pixels at current screen resolution
     $width = [int]$img.Width
     $height = [int]$img.Height
     
-    # Fallback if dimensions are suspicious
     if ($width -le 1 -or $height -le 1) {
         $width = [int]$img.PhysicalDimension.Width
         $height = [int]$img.PhysicalDimension.Height
     }
     
-    # If still 0, we can't proceed
     if ($width -le 0 -or $height -le 0) {
         Throw "Invalid image dimensions: $($width)x$($height)"
     }
 
     Write-Host "DEBUG: Dimensions: $($width)x$($height)"
     
-    # Limit max size to prevent OOM (e.g. 8k resolution)
     if ($width -gt 8192 -or $height -gt 8192) {
         $ratio = [Math]::Min(8192/$width, 8192/$height)
         $width = [int]($width * $ratio)
@@ -74,28 +83,21 @@ Try {
         Write-Host "DEBUG: Downscaling to $($width)x$($height)"
     }
     
-    # Create a high-quality bitmap to draw into
     $bmp = New-Object System.Drawing.Bitmap($width, $height)
-    $bmp.SetResolution(96, 96) # Standard web DPI
+    $bmp.SetResolution(96, 96) 
     
     $g = [System.Drawing.Graphics]::FromImage($bmp)
     
-    # Set high quality rendering settings
     $g.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::AntiAlias
     $g.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
     $g.PixelOffsetMode = [System.Drawing.Drawing2D.PixelOffsetMode]::HighQuality
     $g.CompositingQuality = [System.Drawing.Drawing2D.CompositingQuality]::HighQuality
     
-    # Clear with transparency
     $g.Clear([System.Drawing.Color]::Transparent)
-    
-    # Draw the metafile onto the bitmap
     $g.DrawImage($img, 0, 0, $width, $height)
     
-    # Save as PNG
     $bmp.Save($out, [System.Drawing.Imaging.ImageFormat]::Png)
     
-    # Cleanup
     $g.Dispose()
     $bmp.Dispose()
     $img.Dispose()
@@ -106,7 +108,6 @@ Try {
     if ($_.Exception.InnerException) { $msg += " ($($_.Exception.InnerException.Message))" }
     Write-Error "EMF Conversion Error: $msg"
     
-    # Attempt cleanup on error
     if ($g) { try { $g.Dispose() } catch {} }
     if ($bmp) { try { $bmp.Dispose() } catch {} }
     if ($img) { try { $img.Dispose() } catch {} }
@@ -115,23 +116,22 @@ Try {
 `.trim();
 
     return new Promise((resolve) => {
-        // Use -EncodedCommand to avoid any shell escaping issues with complex characters
         const buffer = Buffer.from(psScript, 'utf16le');
         const encodedScript = buffer.toString('base64');
 
         const ps = spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-EncodedCommand', encodedScript]);
-        
+
         let errorData = '';
         let stdoutData = '';
-        
-        ps.stdout.on('data', (data) => { 
+
+        ps.stdout.on('data', (data) => {
             const msg = data.toString();
             stdoutData += msg;
             if (msg.includes('DEBUG:')) {
                 console.log(`[EMF Converter PS] ${msg.trim()}`);
             }
         });
-        ps.stderr.on('data', (data) => { 
+        ps.stderr.on('data', (data) => {
             errorData += data.toString();
         });
 
@@ -140,7 +140,6 @@ Try {
             resolve(null);
         });
 
-        // Add a timeout to prevent hanging processes
         const timeout = setTimeout(() => {
             ps.kill();
             console.error(`[EMF Converter] Timeout converting ${path.basename(inputPath)}`);
@@ -157,6 +156,61 @@ Try {
                 console.error(`[EMF Converter] Failed for ${path.basename(inputPath)} (Code ${code}): ${errorMessage}`);
                 resolve(null);
             }
+        });
+    });
+}
+
+function convertOnLinux(inputPath, outputPath) {
+    return new Promise((resolve) => {
+        let cmd = '';
+        let args = [];
+
+        if (commandExists('inkscape')) {
+            cmd = 'inkscape';
+            args = [inputPath, '--export-filename=' + outputPath];
+        } else if (commandExists('soffice')) {
+            cmd = 'soffice';
+            args = ['--headless', '--convert-to', 'png', '--outdir', path.dirname(outputPath), inputPath];
+        } else if (commandExists('magick')) {
+            cmd = 'magick';
+            args = [inputPath, outputPath];
+        } else {
+            console.warn('[EMF Converter] No suitable conversion tool (inkscape, libreoffice, imagemagick) found on Linux. Skipping EMF conversion.');
+            return resolve(null);
+        }
+
+        const proc = spawn(cmd, args);
+
+        let errorData = '';
+        proc.stderr.on('data', (data) => { errorData += data.toString(); });
+
+        const timeout = setTimeout(() => {
+            proc.kill();
+            console.error(`[EMF Converter] Linux timeout converting ${path.basename(inputPath)} using ${cmd}`);
+            resolve(null);
+        }, 15000);
+
+        proc.on('close', async (code) => {
+            clearTimeout(timeout);
+            if (code === 0) {
+                try {
+                    await fs.access(outputPath);
+                    console.log(`[EMF Converter] Successfully converted on Linux: ${path.basename(inputPath)} -> PNG using ${cmd}`);
+                    resolve(outputPath);
+                } catch (e) {
+                    console.error(`[EMF Converter] File not found after successful exit code using ${cmd}`);
+                    resolve(null);
+                }
+            } else {
+                console.error(`[EMF Converter] Failed for ${path.basename(inputPath)} using ${cmd} (Code ${code}): ${errorData}`);
+                resolve(null);
+            }
+        });
+
+        proc.on('error', (err) => {
+            clearTimeout(timeout);
+            console.error(`[EMF Converter] Spawn error on Linux using ${cmd}: ${err.message}`);
+            resolve(null);
         });
     });
 }

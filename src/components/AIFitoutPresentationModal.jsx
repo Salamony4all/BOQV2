@@ -27,7 +27,8 @@ const AIFitoutPresentationModal = ({
     isMinimized = false,
     minimizedOffset = 24,
     onToggleMinimize = () => {},
-    onMinimizeAll = () => {}
+    onMinimizeAll = () => {},
+    swarm = null // { lanes: { id: { label, status, progress, currentItem, brand } } }
 }) => {
     const { theme } = useTheme();
     const [stepIndex, setStepIndex] = useState(0);
@@ -49,10 +50,44 @@ const AIFitoutPresentationModal = ({
         model: '',
         brand: '',
         accuracy: 99.1,
-        description: '' // Added to fix timing bug
+        description: '', // Added to fix timing bug
+        category: ''     // Track category for stability
     });
     const [isTransitioning, setIsTransitioning] = useState(false);
     const lastMatchedModelRef = useRef(null);
+    const [swarmImageIndex, setSwarmImageIndex] = useState(0);
+
+    // Cycle through images from active lanes for the central core visual
+    useEffect(() => {
+        if (swarm && swarm.lanes && Object.keys(swarm.lanes).length > 0) {
+            const laneImages = Object.values(swarm.lanes)
+                .map(l => l.currentItem?.image || l.image)
+                .filter(Boolean);
+            
+            if (laneImages.length > 0) {
+                const interval = setInterval(() => {
+                    setSwarmImageIndex(prev => (prev + 1) % laneImages.length);
+                }, 2000);
+                return () => clearInterval(interval);
+            }
+        }
+    }, [swarm]);
+
+    const getSwarmActiveImage = () => {
+        if (!swarm || !swarm.lanes) return null;
+        const validLanes = Object.values(swarm.lanes).filter(l => l.image || (l.currentItem && l.currentItem.image));
+        if (validLanes.length === 0) return null;
+        const lane = validLanes[swarmImageIndex % validLanes.length];
+        return lane.image || lane.currentItem.image;
+    };
+
+    const getSwarmActiveTier = () => {
+        if (!swarm || !swarm.lanes) return null;
+        const validLanes = Object.values(swarm.lanes).filter(l => l.image || (l.currentItem && l.currentItem.image));
+        if (validLanes.length === 0) return null;
+        const lane = validLanes[swarmImageIndex % validLanes.length];
+        return lane.tier || lane.id;
+    };
 
     const getTierColor = () => {
         if (tier === 'budgetary') return '#059669'; // Emerald
@@ -98,7 +133,8 @@ const AIFitoutPresentationModal = ({
                 model: foundModel,
                 brand: brand,
                 accuracy: accuracy,
-                description: currentItem?.description || '' // Capture current item's description
+                description: currentItem?.description || '', // Capture current item's description
+                category: currentItem?.category || ''        // Capture current category
             });
             
             setIsTransitioning(true);
@@ -115,10 +151,14 @@ const AIFitoutPresentationModal = ({
     }, [status, foundModel, foundImage, brand, accuracy]);
 
     useEffect(() => {
-        if (isOpen && AI_STEPS[stepIndex]) {
-            setLogs(prev => [...prev, `${AI_STEPS[stepIndex].icon} ${AI_STEPS[stepIndex].label}`].slice(-5));
+        if (isOpen) {
+            if (status === 'routing') {
+                setLogs(prev => [...prev, '🌐 Orchestrating Fitout Swarm...', '🏗️ Analyzing Structural Spec...', '🤖 AI Router Online'].slice(-5));
+            } else if (AI_STEPS[stepIndex]) {
+                setLogs(prev => [...prev, `${AI_STEPS[stepIndex].icon} ${AI_STEPS[stepIndex].label}`].slice(-5));
+            }
         }
-    }, [stepIndex, isOpen]);
+    }, [stepIndex, isOpen, status]);
 
     // Handle Dragging Events on Window
     useEffect(() => {
@@ -262,11 +302,163 @@ const AIFitoutPresentationModal = ({
                             {tier.toUpperCase()} {status === 'success' ? 'ENGINEERING OK' : status === 'error' ? 'RECALCULATING' : 'ENGINEERING DISCOVERY'}
                         </span>
                     </div>
-                    <div style={{ display: 'flex', gap: '10px' }}>
-                         <button className={styles.minimizeBtn} onClick={() => onToggleMinimize(true)}>_</button>
-                         <button className={styles.close} onClick={() => onToggleMinimize(true)}>×</button>
+                    <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                        {swarm && <div className={styles.swarmIndicator}>NEURAL SWARM SYNCHRONIZED</div>}
+                        {status === 'routing' && <div className={styles.routingIndicator}>ROUTING...</div>}
+                         <button className={styles.minimizeBtn} title="Minimize" onClick={() => onToggleMinimize(true)}>_</button>
+                         <button className={styles.close} title="Close" onClick={onClose}>×</button>
                     </div>
                 </div>
+
+                {swarm && (
+                    <div className={styles.swarmDashboard}>
+                        <div className={`${styles.swarmEngine} ${status === 'success' ? styles.engineSuccess : status === 'error' ? styles.engineError : ''}`}>
+                            <div className={styles.engineCore}>
+                                {swarm ? (
+                                    <div className={styles.swarmImageContainer}>
+                                        {getSwarmActiveImage() ? (
+                                            <div key={getSwarmActiveImage()} className={styles.swarmImageWrapper}>
+                                                <img 
+                                                    src={getFullUrl(getSwarmActiveImage())} 
+                                                    className={styles.coreProductImage} 
+                                                    alt="" 
+                                                />
+                                                <div className={`${styles.matchingOverlay} ${styles[getSwarmActiveTier() || '']}`}>
+                                                    <span>ENGINEERING MATCH</span>
+                                                </div>
+                                            </div>
+                                        ) : memoizedDisplay.image ? (
+                                            <div className={styles.swarmImageWrapper}>
+                                                <img 
+                                                    src={getFullUrl(memoizedDisplay.image)} 
+                                                    className={styles.coreProductImage} 
+                                                    alt="" 
+                                                />
+                                                <div className={styles.matchingOverlay}>
+                                                    <span>STABILIZING SPEC...</span>
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <div className={styles.corePulse}>
+                                                <i className="ri-tools-line"></i>
+                                            </div>
+                                        )}
+                                    </div>
+                                ) : (foundImage || memoizedDisplay.image) && (
+                                    <div className={styles.singleImageWrapper}>
+                                        <img 
+                                            src={getFullUrl(foundImage || memoizedDisplay.image)} 
+                                            className={styles.coreProductImage} 
+                                            alt="" 
+                                        />
+                                    </div>
+                                )}
+                            </div>
+                            {Array.from({ length: 3 }).map((_, i) => (
+                                <div key={i} className={styles.engineRing}></div>
+                            ))}
+                            <div className={styles.engineScanner}></div>
+                            <div className={styles.engineAura}></div>
+                        </div>
+
+                        <div className={styles.tierOrbit}>
+                            {['budgetary', 'mid', 'high'].map((tKey, tIndex) => {
+                                const isTierInSwarm = swarm && swarm.lanes && Object.values(swarm.lanes).some(l => (l.tier || '').toLowerCase() === tKey);
+                                const isActive = tier === tKey || isTierInSwarm || !tier;
+                                const isMatched = (status === 'success' && tier === tKey) || 
+                                                 (swarm && swarm.lanes && Object.values(swarm.lanes).some(l => (l.tier || '').toLowerCase() === tKey && l.status === 'success'));
+                                
+                                return (
+                                    <div 
+                                        key={tKey}
+                                        className={`${styles.tierNode} ${isActive ? styles.active : ''} ${isMatched ? styles.matched : ''}`}
+                                        style={{
+                                            '--t-index': tIndex,
+                                            '--tier-color': tKey === 'budgetary' ? '#22c55e' : tKey === 'mid' ? '#3b82f6' : '#db2777'
+                                        }}
+                                    >
+                                        <div className={styles.tierNodePulse} />
+                                        <div className={styles.tierNodeContent}>
+                                            <span className={styles.tierNodeIcon}>
+                                                {tKey === 'budgetary' ? '🛠️' : tKey === 'mid' ? '🏗️' : '🏛️'}
+                                            </span>
+                                            <span className={styles.tierNodeLabel}>{tKey.toUpperCase()}</span>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                        
+                        <div className={styles.swarmParticleContainer}>
+                            {Array.from({ length: 30 }).map((_, i) => (
+                                <div key={i} className={styles.swarmParticle} style={{ 
+                                    left: `${Math.random() * 100}%`, 
+                                    top: `${Math.random() * 100}%`,
+                                    animationDelay: `${Math.random() * 5}s`,
+                                    animationDuration: `${5 + Math.random() * 10}s`,
+                                    background: i % 3 === 0 ? '#10b981' : i % 3 === 1 ? '#0284c7' : '#fff'
+                                }} />
+                            ))}
+                        </div>
+
+                        {/* Swarm Lanes */}
+                        {swarm && swarm.lanes && Object.values(swarm.lanes).map((lane, index) => {
+                            const isProcessing = lane.status === 'active' || lane.status === 'identifying';
+                            const angle = (index / Object.keys(swarm.lanes).length) * 2 * Math.PI;
+                            const radius = 240; 
+                            const x = Math.cos(angle) * radius;
+                            const y = Math.sin(angle) * radius;
+                            const isThisTier = lane.id === tier;
+
+                            return (
+                                <div 
+                                    key={lane.id} 
+                                    className={`${styles.swarmLane} ${isProcessing ? styles.laneActive : ''} ${lane.status === 'success' ? styles.laneComplete : ''} ${lane.status === 'error' ? styles.laneError : ''} ${isThisTier ? styles.lanePrimary : ''}`}
+                                    style={{
+                                        '--orbit-x': `${x}px`,
+                                        '--orbit-y': `${y}px`,
+                                        animationDelay: `${index * 0.15}s`
+                                    }}
+                                >
+                                    <div className={styles.laneHeader}>
+                                        <div className={styles.laneAvatar}>
+                                            <div className={styles.avatarInner}>
+                                                {lane.status === 'success' ? '✓' : lane.id.substring(0, 1).toUpperCase()}
+                                            </div>
+                                            {isProcessing && <div className={styles.avatarPulse}></div>}
+                                            <div className={styles.laneScanner}></div>
+                                        </div>
+                                        <div className={styles.laneNode}>
+                                            <div className={styles.laneLabel}>{lane.status === 'success' ? 'RESOLVED' : isProcessing ? 'CALCULATING' : 'PENDING'}</div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div className={styles.laneProgressContainer}>
+                                        <div className={styles.laneProgressBar} style={{ width: `${lane.progress || 0}%` }} />
+                                    </div>
+
+                                    <div className={styles.laneStatus}>
+                                        {isProcessing ? (
+                                            <div className={styles.laneProcessing}>
+                                                <div className={styles.miniTierPill} style={{ 
+                                                    background: (lane.tier || (['budgetary', 'mid', 'high'].includes(lane.id) ? lane.id : tier)) === 'budgetary' ? '#22c55e' : (lane.tier || (['budgetary', 'mid', 'high'].includes(lane.id) ? lane.id : tier)) === 'mid' ? '#3b82f6' : '#db2777' 
+                                                }}>{(lane.tier || (['budgetary', 'mid', 'high'].includes(lane.id) ? lane.id : tier))?.toUpperCase() || 'FITOUT SWARM'}</div>
+                                                <div className={styles.laneCategorySecondary}>{lane.label}</div>
+                                                <span className={styles.laneCurrentItem}>SOLVING...</span>
+                                            </div>
+                                        ) : (
+                                            <div className={styles.laneIdleState}>
+                                                <div className={styles.miniTierPill} style={{ background: '#64748b' }}>PENDING</div>
+                                                <div className={styles.laneCategorySecondary}>{lane.label}</div>
+                                                <span className={styles.laneIdle}>WAITING...</span>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
 
                 <div className={styles.content}>
                     <div className={styles.visualArea}>
@@ -297,10 +489,31 @@ const AIFitoutPresentationModal = ({
 
                                     return (
                                         <div className={styles.placeholderVisual}>
-                                            <div className={styles.wireframeCube} style={{ borderColor: 'rgba(16, 185, 129, 0.4)' }}></div>
-                                            <div className={styles.radarCircle} style={{ borderColor: 'rgba(16, 185, 129, 0.2)' }}></div>
-                                            <div className={styles.radarCircle2} style={{ borderColor: 'rgba(16, 185, 129, 0.2)' }}></div>
-                                            <span className={styles.searchingText} style={{ color: '#10b981' }}>OPTIMIZING SOLUTION...</span>
+                                            <div className={styles.neuralCoreContainer}>
+                                                <div className={styles.wireframeCube} style={{ borderColor: 'rgba(16, 185, 129, 0.4)' }}></div>
+                                                <div className={styles.radarCircle} style={{ borderColor: 'rgba(16, 185, 129, 0.2)' }}></div>
+                                                <div className={styles.radarCircle2} style={{ borderColor: 'rgba(16, 185, 129, 0.2)' }}></div>
+                                                
+                                                {/* Neural Scanning Gallery */}
+                                                {swarm && swarm.lanes && (
+                                                    <div className={styles.neuralGallery}>
+                                                        {Object.values(swarm.lanes)
+                                                            .filter(l => l.currentItem?.image || l.image)
+                                                            .slice(-6)
+                                                            .map((l, i) => (
+                                                                <img 
+                                                                    key={i}
+                                                                    src={getFullUrl(l.currentItem?.image || l.image)} 
+                                                                    className={styles.galleryThumb} 
+                                                                    style={{ '--delay': `${i * 0.2}s` }}
+                                                                    alt=""
+                                                                />
+                                                            ))
+                                                        }
+                                                    </div>
+                                                )}
+                                                <span className={styles.searchingText} style={{ color: '#10b981', marginTop: '20px' }}>OPTIMIZING SOLUTIONS...</span>
+                                            </div>
                                         </div>
                                     );
                                 }
@@ -327,8 +540,8 @@ const AIFitoutPresentationModal = ({
                         </div>
 
                         <div className={styles.dataStreams}>
-                            <div className={styles.stream} style={{ borderLeftColor: '#10b981' }}>ITEM: {(memoizedDisplay.description || currentItem?.description)?.substring(0, 15)}...</div>
-                            <div className={styles.stream} style={{ borderLeftColor: '#10b981' }}>CATEGORY: {currentItem?.category || 'FITOUT'}</div>
+                            <div className={styles.stream} style={{ borderLeftColor: '#10b981' }}>ITEM: {(memoizedDisplay.description || currentItem?.description || '...').substring(0, 15)}...</div>
+                            <div className={styles.stream} style={{ borderLeftColor: '#10b981' }}>CATEGORY: {memoizedDisplay.category || currentItem?.category || 'FITOUT'}</div>
                             <div className={styles.stream} style={{ borderLeftColor: '#10b981' }}>BRAND: {isTransitioning ? 'CRYSTALLIZING...' : (memoizedDisplay.brand || (foundModel ? brand : '...'))}</div>
                             <div className={styles.stream} style={{ borderLeftColor: '#10b981' }}>ACCURACY: {isTransitioning ? 'CALCULATING...' : (memoizedDisplay.accuracy || accuracy).toFixed(2)}%</div>
                         </div>
@@ -345,7 +558,7 @@ const AIFitoutPresentationModal = ({
 
                         <div className={styles.targetBox} style={{ background: 'rgba(16, 185, 129, 0.1)', borderColor: 'rgba(16, 185, 129, 0.2)' }}>
                             <label style={{ color: '#10b981' }}>TARGETING SPEC:</label>
-                            <h3>{currentItem?.description?.substring(0, 80) || 'Fitout Element'}</h3>
+                            <h3>{(memoizedDisplay.description || currentItem?.description || 'Fitout Element').substring(0, 80)}</h3>
                         </div>
 
                         <div className={styles.processSteps}>

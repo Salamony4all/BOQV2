@@ -41,28 +41,20 @@ export default function FitoutAutoFillModal({ isOpen, onClose, allBrands = [], a
         );
     };
 
-    const fitoutBrandsByTier = useMemo(() => {
-        return {
-            budgetary: fitoutBrands.filter(b => (b.budgetTier || '').toLowerCase() === 'budgetary'),
-            mid:       fitoutBrands.filter(b => (b.budgetTier || 'mid').toLowerCase() === 'mid'),
-            high:      fitoutBrands.filter(b => ['high', 'premium'].includes((b.budgetTier || '').toLowerCase()))
-        };
-    }, [fitoutBrands]);
-
     const selectTier = (tierKey) => {
-        const ids = fitoutBrandsByTier[tierKey].map(b => `${b.name}|${tierKey}`);
+        const ids = fitoutBrands.map(b => `${b.name}|${tierKey}`);
         setSelectedBrands(prev => [...new Set([...prev, ...ids])]);
     };
  
     const deselectTier = (tierKey) => {
-        const ids = fitoutBrandsByTier[tierKey].map(b => `${b.name}|${tierKey}`);
+        const ids = fitoutBrands.map(b => `${b.name}|${tierKey}`);
         setSelectedBrands(prev => prev.filter(id => !ids.includes(id)));
     };
  
     const selectAll = () => {
         const allIds = [];
-        Object.keys(fitoutBrandsByTier).forEach(tKey => {
-            fitoutBrandsByTier[tKey].forEach(b => {
+        ['budgetary', 'mid', 'high'].forEach(tKey => {
+            fitoutBrands.forEach(b => {
                 allIds.push(`${b.name}|${tKey}`);
             });
         });
@@ -99,8 +91,7 @@ export default function FitoutAutoFillModal({ isOpen, onClose, allBrands = [], a
                         </div>
 
                         {['budgetary', 'mid', 'high'].map((tierKey) => {
-                            const brands = fitoutBrandsByTier[tierKey];
-                            if (!brands.length) return null;
+                            const brands = fitoutBrands; // Show ALL fitout brands in every tier section
                             const meta = TIER_META[tierKey];
                             const tierSelected = brands.filter(b => selectedBrands.includes(`${b.name}|${tierKey}`)).length;
                             const isActive = tierKey === activeTier;

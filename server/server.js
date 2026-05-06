@@ -10,22 +10,24 @@ import fs_sync from 'fs';
 import { fileURLToPath } from 'url';
 import { extractExcelData } from './fastExtractor.js';
 import { CleanupService } from './cleanupService.js';
-import { 
-  uploadToSupabase, 
-  listSupabaseFiles, 
-  deleteFromSupabase, 
+import {
+  uploadToSupabase,
+  listSupabaseFiles,
+  deleteFromSupabase,
   supabase,
   getSupabaseBrands,
-  getSupabaseStats 
+  getSupabaseStats
 } from './utils/supabaseStorage.js';
 import { syncLocalToSupabase } from './scripts/syncLocalToSupabase.js';
 import axios from 'axios';
 import https from 'https';
 import { ExcelDbManager } from './excelManager.js';
 import { brandStorage, kv } from './storageProvider.js';
-import { getAiMatch, identifyModel, fetchProductDetails, searchAndEnrichModel, analyzePlan, matchFitoutItem, FREE_GOOGLE_MODELS, PAID_GOOGLE_MODELS, VALID_GOOGLE_MODELS, VALID_OPENROUTER_MODELS, VALID_NVIDIA_MODELS, GOOGLE_MODEL, OPENROUTER_MODEL, NVIDIA_MODEL } from './utils/llmUtils.js';
+import { getAiMatch, identifyModel, fetchProductDetails, searchAndEnrichModel, analyzePlan, matchFitoutItem, autoMatchSingleBrand, FREE_GOOGLE_MODELS, PAID_GOOGLE_MODELS, VALID_GOOGLE_MODELS, VALID_OPENROUTER_MODELS, VALID_NVIDIA_MODELS, GOOGLE_MODEL, OPENROUTER_MODEL, NVIDIA_MODEL } from './utils/llmUtils.js';
 import { veMatchSimple, veMatchAdvanced, veGetProductDetails, veRouteCategories } from './utils/veMatchUtils.js';
 import { generatePresentationPdf } from './utils/pptxExportService.js';
+import Fuse from 'fuse.js';
+
 
 
 // ALL heavy PDF/Vision extractors are LAZY to prevent Vercel boot crash
@@ -622,7 +624,7 @@ app.get('/api/blobs', async (req, res) => {
   try {
     const folders = ['', 'manual-upload', 'extracted-images', 'temp-uploads'];
     let allBlobs = [];
-    
+
     for (const folder of folders) {
       try {
         const blobs = await listSupabaseFiles('assets', folder);
@@ -754,7 +756,7 @@ app.post('/api/reset', async (req, res) => {
 app.post('/api/cleanup/session', async (req, res) => {
   const { sessionId } = req.body;
   if (!sessionId) return res.status(400).json({ error: 'Session ID is required' });
-  
+
   console.log(`[Cleanup] Manual cleanup request for session: ${sessionId}`);
   await cleanupService.cleanupSession(sessionId);
   res.json({ success: true, message: `Cleanup initiated for session ${sessionId}` });
@@ -877,78 +879,64 @@ function fuzzyFindModel(products, targetModelName, targetCategory = '') {
   const target = normalize(targetModelName);
   if (!target) return null;
 
-  // 1. Exact match after normalization
-  let found = products.find(p => normalize(p.model) === target);
-  if (found) return found;
+  // 1. Exact Match Check (High Efficiency)
+  const exact = products.find(p => normalize(p.model) === target);
+  if (exact) return exact;
 
-  // 2. Exact or Substring Matching
-  let filteredProducts = products.filter(p => {
-    const m = normalize(p.model);
-    return m.includes(target) || target.includes(m);
-  });
+  // 2. Fuse.js Implementation
+  const options = {
+    keys: [
+      { name: 'model', weight: 2.0 },
+      { name: 'mainCategory', weight: 0.3 },
+      { name: 'subCategory', weight: 0.3 },
+      { name: 'description', weight: 0.1 }
+    ],
+    threshold: 0.4, // Strictness: lower is stricter
+    includeScore: true,
+    ignoreLocation: true,
+    findAllMatches: true,
+    minMatchCharLength: 2
+  };
 
-  // 3. Synonym-Aware Search (if no direct substring matches)
-  if (filteredProducts.length === 0) {
-    const targetWords = target.split(' ');
-    filteredProducts = products.filter(p => {
-      const m = normalize(p.model);
-      const mWords = m.split(' ');
-      return targetWords.some(tw => {
-        if (mWords.includes(tw)) return true;
-        const syns = SYNONYMS[tw] || [];
-        return syns.some(s => mWords.includes(s));
-      });
-    });
+  const fuse = new Fuse(products, options);
+  let results = fuse.search(target);
+
+  // 3. Synonym Expansion (Fallback if no strong match)
+  if (results.length === 0 || results[0].score > 0.3) {
+    const words = target.split(' ');
+    const expandedQuery = words.map(w => {
+      const syns = SYNONYMS[w] || [];
+      return syns.length ? `${w} ${syns.join(' ')}` : w;
+    }).join(' ');
+
+    const synonymResults = fuse.search(expandedQuery);
+    if (synonymResults.length > 0) {
+      if (results.length === 0 || synonymResults[0].score < results[0].score) {
+        results = synonymResults;
+      }
+    }
   }
 
-  if (filteredProducts.length === 0) return null;
+  if (results.length === 0) return null;
 
-  // 4. Category Awareness (Weighted Scoring)
+  // 4. Category Boosting
   if (targetCategory && targetCategory.length > 2) {
     const cat = targetCategory.toLowerCase().trim();
-    const categorized = filteredProducts.filter(p => {
-      const mc = (p.mainCategory || '').toLowerCase();
-      const sc = (p.subCategory || '').toLowerCase();
+    const catMatches = results.filter(r => {
+      const mc = (r.item.mainCategory || '').toLowerCase();
+      const sc = (r.item.subCategory || '').toLowerCase();
       return mc.includes(cat) || sc.includes(cat) || cat.includes(mc) || cat.includes(sc);
     });
-    if (categorized.length > 0) {
-      filteredProducts = categorized;
+    if (catMatches.length > 0 && catMatches[0].score < 0.5) {
+      return catMatches[0].item;
     }
   }
 
-  // 5. Final Best Match (Word-intersection scoring)
-  // Filter: words length > 2 OR matches numbers (critical for models like 'Stool 80')
-  const targetWords = new Set(target.split(' ').filter(w => w.length > 2 || /^\d+$/.test(w)));
-  if (targetWords.size === 0) return filteredProducts[0];
-
-  let bestScore = 0;
-  let bestMatch = null;
-  for (const p of filteredProducts) {
-    const pModel = normalize(p.model);
-    if (pModel === target) return p;
-
-    const pWords = pModel.split(' ').filter(w => w.length > 2 || /^\d+$/.test(w));
-    const intersection = pWords.filter(w => targetWords.has(w)).length;
-
-    let score = (intersection / Math.max(targetWords.size, pWords.length));
-
-    // Bonus for synonym matches if direct intersection is missing words
-    if (intersection < targetWords.size) {
-      const pAllWords = pModel.split(' ');
-      const tAllWords = target.split(' ');
-      tAllWords.forEach(tw => {
-        if (targetWords.has(tw) && !pWords.includes(tw)) {
-          const syns = SYNONYMS[tw] || [];
-          if (syns.some(s => pAllWords.includes(s))) score += 0.25;
-        }
-      });
-    }
-
-    if (score > bestScore) { bestScore = score; bestMatch = p; }
-  }
-
-  return bestScore >= 0.5 ? bestMatch : null;
+  // 5. Final Threshold Verification
+  const best = results[0];
+  return best.score <= 0.45 ? best.item : null;
 }
+
 
 app.post('/api/auto-match-ai', async (req, res) => {
   try {
@@ -962,7 +950,8 @@ app.post('/api/auto-match-ai', async (req, res) => {
       brand,            // single brand legacy param
       provider = 'google',
       providerModel = null,
-      scope = 'Furniture' // Default to furniture
+      scope = 'Furniture', // Default to furniture
+      brandCategoryRules = null // Add this parameter
     } = req.body;
 
     const finalTier = tier || budgetTier || 'mid';
@@ -1036,32 +1025,18 @@ app.post('/api/auto-match-ai', async (req, res) => {
     }
 
     // Build a richer description by appending size/qty context if available.
-    // This helps the AI distinguish e.g. a small coffee table (R:30 = 30cm) from a meeting table.
     const sizeContext = [qty && `Qty: ${qty}`, unit && `Unit: ${unit}`].filter(Boolean).join(', ');
     const enrichedDescription = sizeContext ? `${description} | ${sizeContext}` : description;
 
     console.log(`\n🤖 [AI AutoFill] "${enrichedDescription.substring(0, 70)}" | Tier: ${finalTier} | Brands: ${brandCandidates.join(', ')} | Provider: ${provider}`);
+
     // Load all local brands once (for DB lookups)
     const allLocalBrands = await brandStorage.getAllBrands();
 
-    // ── STRICT TIER ISOLATION ──────────────────────────────────────────────────
-    // Filter brand candidates to ONLY brands whose DB entry matches finalTier.
-    // This prevents cross-tier contamination even if client sends mixed brands.
-    const tierIsolatedCandidates = brandCandidates.filter(candidateName => {
-      const dbEntry = allLocalBrands.find(b =>
-        b.name.toLowerCase().trim() === candidateName.toLowerCase().trim()
-      );
-      if (!dbEntry) {
-        // Brand not in DB yet — allow it (AI will discover it fresh)
-        console.log(`  ℹ️  [Tier Filter] "${candidateName}" not in local DB — allowing for discovery.`);
-        return true;
-      }
-      const match = (dbEntry.budgetTier || 'mid').toLowerCase() === finalTier.toLowerCase();
-      if (!match) {
-        console.warn(`  🚫 [Tier Filter] Blocking "${candidateName}" (DB tier: ${dbEntry.budgetTier}) — not matching requested tier: ${finalTier}`);
-      }
-      return match;
-    });
+    // ── RELAXED TIER SELECTION ──────────────────────────────────────────────────
+    // We no longer block brands based on their DB tier, allowing full flexibility.
+    const tierIsolatedCandidates = brandCandidates;
+
 
     if (tierIsolatedCandidates.length === 0) {
       return res.json({
@@ -1087,7 +1062,8 @@ app.post('/api/auto-match-ai', async (req, res) => {
         const modelList = products.map(p => p.model);
         const budgetTier = dbEntry?.budgetTier || 'mid';
 
-        const identity = await identifyModel(enrichedDescription, candidateBrand, provider, knownCategories, modelList, budgetTier, providerModel);
+        // Add brandCategoryRules at the end of this line
+        const identity = await identifyModel(enrichedDescription, candidateBrand, provider, knownCategories, modelList, budgetTier, providerModel, brandCategoryRules);
         return { candidateBrand, identity, knownCategories };
       } catch (err) {
         return { candidateBrand, identity: { status: 'error' }, knownCategories: [] };
@@ -1135,7 +1111,6 @@ app.post('/api/auto-match-ai', async (req, res) => {
             identifiedModel
           });
         }
-
         console.log(`  📂 [Stage 2] Miss: No validated local entry for "${identifiedModel}".`);
       }
 
@@ -1208,6 +1183,168 @@ app.post('/api/auto-match-ai', async (req, res) => {
     res.status(500).json({ status: 'error', error_message: error.message });
   }
 });
+
+/**
+ * 🐝 SWARM MATCHING ENDPOINT
+ * Handles batch processing of multiple items for a single brand using parallel agents.
+ */
+app.post('/api/auto-match-swarm', async (req, res) => {
+  try {
+    const {
+      items, // Array of { description, qty, unit, id }
+      brand,
+      provider = 'google',
+      providerModel = null,
+      scope = 'Furniture'
+    } = req.body;
+
+    if (!items || !Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({ status: 'error', error_message: 'Missing or invalid items array' });
+    }
+
+    if (!brand) {
+      return res.status(400).json({ status: 'error', error_message: 'Missing brand' });
+    }
+
+    console.log(`\n🐝 [Swarm Match] Starting swarm for ${items.length} items | Brand: ${brand} | Provider: ${provider}`);
+
+    // Load brand data for context
+    const allLocalBrands = await brandStorage.getAllBrands();
+    const dbEntry = allLocalBrands.find(b => b.name.toLowerCase().trim() === brand.toLowerCase().trim());
+    const products = dbEntry?.products || [];
+    const knownCategories = [...new Set(products.map(p => p.subCategory).filter(Boolean))];
+    const modelList = products.map(p => p.model);
+    const budgetTier = dbEntry?.budgetTier || 'mid';
+
+    // Call the swarm function from llmUtils
+    const swarmResult = await autoMatchSingleBrand(
+      items,
+      brand,
+      {
+        provider,
+        providerModel,
+        tier: budgetTier,
+        knownCategories,
+        modelList
+      }
+    );
+
+    if (swarmResult.status !== 'success') {
+      throw new Error(swarmResult.error_message || 'Swarm matching failed');
+    }
+
+    // Map results back to original items and attach product data if found
+    const matches = swarmResult.matches || [];
+    const finalResults = items.map(item => {
+      const match = matches.find(r => r.id === item.id);
+      if (match && match.status === 'success' && match.model) {
+        // Find full product data from local DB
+        const product = fuzzyFindModel(products, match.model, match.mainCategory || '');
+        if (product) {
+          return {
+            originalId: item.id,
+            status: 'success',
+            product: {
+              ...product,
+              brand: brand,
+              brandLogo: dbEntry?.logo || '',
+              images: (product.images || []).map(img =>
+                img.startsWith('http') ? `${req.protocol}://${req.get('host')}/api/image-proxy?url=${encodeURIComponent(img)}` : img
+              )
+            },
+            identifiedModel: match.model,
+            logic: match.logic
+          };
+        }
+      }
+      return { originalId: item.id, status: 'no_match' };
+    });
+
+    res.json({ status: 'success', results: finalResults });
+  } catch (err) {
+    console.error('❌ [Swarm Match] Error:', err);
+    res.status(500).json({ status: 'error', error_message: err.message });
+  }
+});
+
+/**
+ * 🐝 MULTI-BRAND SWARM MATCHING ENDPOINT
+ * Handles batch processing of multiple items against multiple brands using parallel agents.
+ */
+app.post('/api/auto-match-multi-swarm', async (req, res) => {
+  try {
+    const {
+      items, // Array of { description, qty, unit, id }
+      availableBrands,
+      provider = 'google',
+      providerModel = null,
+      tier = 'mid'
+    } = req.body;
+
+    if (!items || !Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({ status: 'error', error_message: 'Missing or invalid items array' });
+    }
+
+    if (!availableBrands || !Array.isArray(availableBrands) || availableBrands.length === 0) {
+      return res.status(400).json({ status: 'error', error_message: 'No brands provided' });
+    }
+
+    console.log(`\n🐝 [Multi-Swarm Match] Starting swarm for ${items.length} items | Brands: ${availableBrands.join(', ')} | Provider: ${provider}`);
+
+    // Call the multi-brand swarm function from llmUtils
+    const swarmResult = await autoMatchMultiBrand(
+      items,
+      availableBrands,
+      {
+        provider,
+        providerModel,
+        tier
+      }
+    );
+
+    if (swarmResult.status !== 'success') {
+      throw new Error(swarmResult.error_message || 'Multi-Swarm matching failed');
+    }
+
+    // Map results back to original items and attach product data if found
+    const allLocalBrands = await brandStorage.getAllBrands();
+    const matches = swarmResult.matches || [];
+
+    const finalResults = items.map(item => {
+      const match = matches.find(r => r.id === item.id);
+      if (match && match.status === 'success' && match.model) {
+        const matchedBrandName = match.brand;
+        const dbEntry = allLocalBrands.find(b => b.name.toLowerCase().trim() === matchedBrandName.toLowerCase().trim());
+        const products = dbEntry?.products || [];
+        const product = products.find(p => p.model.toLowerCase() === match.model.toLowerCase());
+
+        if (product) {
+          return {
+            originalId: item.id,
+            status: 'success',
+            product: {
+              ...product,
+              brand: matchedBrandName,
+              brandLogo: dbEntry?.logo || '',
+              images: (product.images || []).map(img =>
+                img.startsWith('http') ? `${req.protocol}://${req.get('host')}/api/image-proxy?url=${encodeURIComponent(img)}` : img
+              )
+            },
+            identifiedModel: match.model,
+            logic: match.logic
+          };
+        }
+      }
+      return { originalId: item.id, status: 'no_match' };
+    });
+
+    res.json({ status: 'success', results: finalResults });
+  } catch (err) {
+    console.error('❌ [Multi-Swarm Match] Error:', err);
+    res.status(500).json({ status: 'error', error_message: err.message });
+  }
+});
+
 
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1447,7 +1584,7 @@ app.post('/api/railway-brands/import/:filename', async (req, res) => {
     const data = response.data;
 
     const brandName = (data.brandInfo?.name || filename).replace(/_/g, ' ');
-    
+
     // Check if brand exists to avoid duplicates
     const allBrands = await brandStorage.getAllBrands();
     const existingBrand = allBrands.find(b => b.name.toLowerCase().trim() === brandName.toLowerCase().trim());
@@ -1471,11 +1608,11 @@ app.post('/api/railway-brands/import/:filename', async (req, res) => {
     }
 
     await brandStorage.saveBrand(restoredBrand);
-    res.json({ 
-      success: true, 
-      count: restoredBrand.products.length, 
+    res.json({
+      success: true,
+      count: restoredBrand.products.length,
       added: restoredBrand.products.length - (existingBrand?.products?.length || 0),
-      brandName: restoredBrand.name 
+      brandName: restoredBrand.name
     });
   } catch (e) {
     console.error('❌ Cloud Import Error:', e.message);
@@ -1497,7 +1634,7 @@ app.post('/api/railway-brands/sync-to-blob', async (req, res) => {
   if (!JS_SCRAPER_SERVICE_URL) {
     return res.status(500).json({ error: 'Railway service not configured' });
   }
-  
+
   try {
     const listRes = await axios.get(`${JS_SCRAPER_SERVICE_URL}/brands`, { timeout: 15000 });
     const files = listRes.data.brands || [];
@@ -1937,7 +2074,7 @@ app.post('/api/reset', async (req, res) => {
     console.log('🧹 [Reset] Full system cleanup requested...');
     await cleanupService.cleanupAll();
     await cleanTempDir();
-    
+
     // Explicitly clean public/temp folders
     const publicTemp = path.join(process.cwd(), 'public', 'temp');
     const exists = await fs.access(publicTemp).then(() => true).catch(() => false);

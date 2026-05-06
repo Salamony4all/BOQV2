@@ -35,7 +35,7 @@ export const VALID_GOOGLE_MODELS = [...FREE_GOOGLE_MODELS, ...PAID_GOOGLE_MODELS
 
 function getGoogleAI(modelName) {
     const isFreeModel = FREE_GOOGLE_MODELS.includes(modelName);
-    
+
     // 1. Force Free protocol if requested via environment variable
     if (FORCE_FREE_GOOGLE) {
         if (!GOOGLE_FREE_KEY) throw new Error('FORCE_FREE_GOOGLE set but GOOGLE_FREE_KEY is missing.');
@@ -73,12 +73,12 @@ export const VALID_NVIDIA_MODELS = [
 export const VALID_LOCAL_MODELS = [
     'local/yolov8-llama3.2'
 ];
-export const GOOGLE_MODEL = VALID_GOOGLE_MODELS.includes(process.env.GOOGLE_MODEL) ? process.env.GOOGLE_MODEL : 'gemma-4-31b-it';
-export const OPENROUTER_MODEL = process.env.OPENROUTER_MODEL || 'google/gemini-4-31b-it:free';
-export const NVIDIA_MODEL = process.env.NVIDIA_MODEL || 'nvidia/google/gemma-4-31b-it';
+export const GOOGLE_MODEL = VALID_GOOGLE_MODELS.includes(process.env.GOOGLE_MODEL) ? process.env.GOOGLE_MODEL : 'gemini-1.5-flash';
+export const OPENROUTER_MODEL = process.env.OPENROUTER_MODEL || 'google/gemini-1.5-flash';
+export const NVIDIA_MODEL = process.env.NVIDIA_MODEL || 'nvidia/gemini-1.5-flash';
 export const LOCAL_MODEL = 'local/yolov8-llama3.2';
 export const PYTHON_SERVICE_URL = process.env.PYTHON_SERVICE_URL || 'http://localhost:8001';
-export const GROUNDING_MODEL = process.env.GOOGLE_MODEL || 'gemma-4-31b-it'; // Standard model for this environment
+export const GROUNDING_MODEL = process.env.GOOGLE_MODEL || 'gemini-1.5-flash'; // Standard model for this environment
 
 // Deprecated: use getGoogleAI(modelName) instead
 const genAI = new GoogleGenerativeAI(GOOGLE_API_KEY);
@@ -95,7 +95,7 @@ export const getProviderForModel = (modelName) => {
 
 const isValidProviderModel = (provider, model) => {
     if (!model) return false;
-    if (provider === 'local') return true; 
+    if (provider === 'local') return true;
     if (provider === 'google') return VALID_GOOGLE_MODELS.includes(model) || !model.includes('/');
     if (provider === 'openrouter') return VALID_OPENROUTER_MODELS.includes(model) || model.includes('/');
     if (provider === 'nvidia') return VALID_NVIDIA_MODELS.includes(model);
@@ -109,28 +109,28 @@ const isValidProviderModel = (provider, model) => {
 /** Strip markdown fences, then parse JSON with surgical precision. */
 export function safeParseJSON(text) {
     if (!text) throw new Error('Empty AI response');
-    
+
     // 1. Structural Anchor Discovery (Regex-based)
     let cleaned = text;
     const itemsMatch = text.match(/\{\s*"items"\s*:/);
     const invMatch = text.match(/\{\s*"inventory"\s*:/);
-    
+
     const itemsStartIdx = itemsMatch ? itemsMatch.index : -1;
     const invStartIdx = invMatch ? invMatch.index : -1;
-    
+
     let startIdx = -1;
     if (itemsStartIdx !== -1 && invStartIdx !== -1) {
         startIdx = Math.min(itemsStartIdx, invStartIdx);
     } else {
         startIdx = itemsStartIdx !== -1 ? itemsStartIdx : invStartIdx;
     }
-    
+
     const lastBraceIdx = text.lastIndexOf('}');
-    
+
     // If we have specific JSON anchors, prioritize them. Else use first '{'.
     const firstBraceIdx = text.indexOf('{');
     const finalStartIdx = (startIdx !== -1) ? startIdx : firstBraceIdx;
-    
+
     if (finalStartIdx !== -1 && lastBraceIdx !== -1 && lastBraceIdx > finalStartIdx) {
         cleaned = text.substring(finalStartIdx, lastBraceIdx + 1);
     } else {
@@ -167,8 +167,8 @@ export function safeParseJSON(text) {
         for (let char of str) {
             if (char === '{') stack.push('}');
             else if (char === '[') stack.push(']');
-            else if (char === '}') { if (stack[stack.length-1] === '}') stack.pop(); }
-            else if (char === ']') { if (stack[stack.length-1] === ']') stack.pop(); }
+            else if (char === '}') { if (stack[stack.length - 1] === '}') stack.pop(); }
+            else if (char === ']') { if (stack[stack.length - 1] === ']') stack.pop(); }
         }
         finalStr += stack.reverse().join('');
         return attemptParse(finalStr);
@@ -198,8 +198,8 @@ async function callOpenRouter(systemPrompt, userPrompt, modelName = null) {
                 response_format: { type: 'json_object' }
             },
             {
-                headers: { 
-                    'Authorization': `Bearer ${OPENROUTER_API_KEY}`, 
+                headers: {
+                    'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
                     'Content-Type': 'application/json',
                     'HTTP-Referer': 'https://boqv2.vercel.app',
                     'X-Title': 'Boqify'
@@ -231,8 +231,8 @@ async function callNvidia(systemPrompt, userPrompt, modelName = null) {
                 response_format: { type: 'json_object' }
             },
             {
-                headers: { 
-                    'Authorization': `Bearer ${NVIDIA_API_KEY}`, 
+                headers: {
+                    'Authorization': `Bearer ${NVIDIA_API_KEY}`,
                     'Content-Type': 'application/json'
                 },
                 timeout: 60000
@@ -261,7 +261,7 @@ export async function callGoogle(systemPrompt, userPrompt, useSearch = false, mo
     });
     const result = await model.generateContent(userPrompt);
     const text = result.response.text();
-    
+
     // Log for debugging
     if (process.env.DEBUG_AI === 'true') {
         console.log(`\n🤖 [AI Raw Response] (${useSearch ? 'Search' : 'Direct'}):\n${text.substring(0, 500)}...`);
@@ -286,9 +286,26 @@ export async function callGoogle(systemPrompt, userPrompt, useSearch = false, mo
 const ALLOWED_CATEGORIES = Object.keys(TAXONOMY).join(', ');
 const ALLOWED_SUB_CATEGORIES = Object.values(TAXONOMY).flatMap(cat => Object.keys(cat)).join(', ');
 
-const IDENTIFY_SYSTEM = (brand, knownCategories = [], modelList = [], tier = 'mid-range') => `You are an expert Furniture Specialist for Boqify.
-Your task is to identify furniture products from user descriptions for the brand "${brand}".
+const IDENTIFY_SYSTEM = (brand, knownCategories = [], modelList = [], tier = 'mid-range', brandCategoryRules = null) => {
+    let strictCategoryRule = '';
 
+    // Inject the VE Strict Airlock if categorized mode is active
+    if (brandCategoryRules && typeof brandCategoryRules === 'object') {
+        const assignedCategory = Object.keys(brandCategoryRules).find(key => brandCategoryRules[key] === brand);
+        if (assignedCategory) {
+            strictCategoryRule = `
+### 🚨 STRICT CATEGORY ISOLATION:
+You are scoped to the "${assignedCategory}" category ONLY. 
+- You MUST NOT suggest items outside this functional category.
+- If the item description implies a different functional category, return 'FAILED' for the model.
+- CRITICAL: Ensure the "mainCategory" returned is exactly "${assignedCategory}" or a taxonomical parent.
+`;
+        }
+    }
+
+    return `You are an expert Furniture Specialist for Boqify.
+Your task is to identify the EXACT product model from the brand "${brand}" that best matches the provided description.
+${strictCategoryRule}
 ### 🏢 BRAND PROFILE:
 - Brand Name: ${brand}
 - Segment: ${tier.toUpperCase()} ${tier === 'budgetary' ? '(Prioritize simple, functional, value-driven models)' : '(Look for iconic, design-led, unique names)'}
@@ -301,32 +318,33 @@ The following models ARE available for this brand. You MUST prioritize matching 
 ${knownCategories.length > 0 ? `Prefer these categories if they match logically: ${knownCategories.join(', ')}` : 'No specific brand categories provided, use global taxonomy.'}
 
 ### 🌍 GLOBAL CATEGORY MAPPING:
-If the brand categories above don't fit, you MUST map to one of these:
-Main Categories: ${ALLOWED_CATEGORIES}
+You MUST map to one of these Main Categories: ${ALLOWED_CATEGORIES}
 Sub-Categories: ${ALLOWED_SUB_CATEGORIES}
 
 Return ONLY valid JSON:
 { 
+  "status": "success",
   "brand": "${brand}", 
   "model": "Exact Model Name",
   "mainCategory": "Main Category",
   "subCategory": "Sub-Category",
   "logic": "Brief reasoning" 
-} (Use the most descriptive name found on Architonic or official site)`;
+}`;
+};
 
-export async function identifyModel(description, brand, provider = 'google', knownCategories = [], modelList = [], tier = 'mid-range', providerModel = null) {
-    const system = IDENTIFY_SYSTEM(brand, knownCategories, modelList, tier);
-    const user = `what is the best One "Model" for "${description}" from "${brand}"?`;
+export async function identifyModel(description, brand, provider = 'google', knownCategories = [], modelList = [], tier = 'mid-range', providerModel = null, brandCategoryRules = null) {
+    return withRetry(async () => {
+        // Pass brandCategoryRules down to the prompt builder
+        const system = IDENTIFY_SYSTEM(brand, knownCategories, modelList, tier, brandCategoryRules);
+        const user = `What is the best matching model for: "${description}" from "${brand}"?`;
 
-    if (process.env.DEBUG_AI === 'true') {
-        console.log(`\n🤖 [AI Stage 1 Prompt] (Brand: ${brand}):\nSystem: ${system.substring(0, 200)}...\nUser: ${user}`);
-    }
+        if (process.env.DEBUG_AI === 'true') {
+            console.log(`\n🤖 [AI Identify] (Brand: ${brand}): Matching "${description.substring(0, 50)}..."`);
+        }
 
-    try {
-        // Attempt 1: Search Grounded Identification with the selected provider only
         let parsed;
         if (provider === 'google') {
-            parsed = await callGoogle(system, user, true, providerModel || GOOGLE_MODEL);
+            parsed = await callGoogle(system, user, true, providerModel || GROUNDING_MODEL);
         } else if (provider === 'nvidia') {
             parsed = await callNvidia(system, user, providerModel || NVIDIA_MODEL);
         } else if (provider === 'local') {
@@ -342,15 +360,260 @@ export async function identifyModel(description, brand, provider = 'google', kno
                 status: 'success',
                 brand: parsed.brand || brand,
                 model: parsed.model,
-                mainCategory: parsed.mainCategory || ''
+                mainCategory: parsed.mainCategory || '',
+                subCategory: parsed.subCategory || '',
+                logic: parsed.logic || ''
             };
         }
 
-        throw new Error('Provider did not return a valid model');
-    } catch (err) {
-        console.error(`  ❌ [AI Error] ${provider.toUpperCase()} identification failed for ${brand}:`, err.message);
+        throw new Error('AI failed to identify a valid model');
+    }, 3, 2000).catch(err => {
+        console.error(`  ❌ [AI Identify Error] ${provider.toUpperCase()} failed for ${brand}:`, err.message);
         return { status: 'error', brand, model: '', category: '', error_message: err.message };
+    });
+}
+
+// ── SWARM AGENT PROMPTS (New) ────────────────────────────────────────────────
+
+const AUTO_MATCH_ROUTER_SYSTEM = (brand) => `You are a high-speed FF&E routing agent for the brand "${brand}".
+Your task is to categorize the provided item descriptions into functional groups to optimize downstream AI matching.
+CRITICAL: Output ONLY valid JSON exactly matching this structure, with no markdown:
+{
+  "desking": ["id1", "id3"],
+  "seating": ["id2"],
+  "softSeating": [],
+  "storage": [],
+  "accessories": []
+}`;
+
+const AUTO_MATCH_AGENT_SYSTEM = (brand, category, knownCategories = [], modelList = [], tier = 'mid-range') => `You are an expert Furniture Specialist specialized in "${category}" for the brand "${brand}".
+Your task is to identify the EXACT product model from the brand "${brand}" for a LIST of item descriptions.
+
+### 🏢 BRAND PROFILE:
+- Brand Name: ${brand}
+- Segment: ${tier.toUpperCase()}
+
+${modelList.length > 0 ? `### 📦 KNOWN PRODUCT CATALOG:
+The following models ARE available for this brand. You MUST prioritize matching to one of these if the description fits:
+- ${modelList.slice(0, 500).join('\n- ')}` : ''}
+
+### 🌍 GLOBAL CATEGORY MAPPING:
+You MUST map each item to:
+- Main Category: ${ALLOWED_CATEGORIES}
+- Sub-Category: ${ALLOWED_SUB_CATEGORIES}
+
+### 📝 INSTRUCTIONS:
+1. For each provided item description, find the best matching model from "${brand}".
+2. Use the product catalog hints if available.
+3. If no exact model matches, suggest the closest equivalent from the brand's style.
+4. Return a "logic" for why this model was chosen.
+
+Return ONLY valid JSON matching this structure:
+{
+  "matches": [
+    {
+      "id": "original_item_id",
+      "model": "Exact Model Name",
+      "mainCategory": "Main Category",
+      "subCategory": "Sub-Category",
+      "logic": "Brief reasoning"
     }
+  ]
+}`;
+
+
+/**
+ * Swarm-based Single Brand Matching.
+ * Integrates the "swarm concept" from veMatchUtils for parallel agent execution.
+ * 1. Routes items into functional categories using a Router Agent.
+ * 2. Launches specialized Matching Agents for each category in parallel.
+ * 3. Each agent processes its scope simultaneously for maximum speed.
+ */
+export async function autoMatchSingleBrand(items, brand, options = {}) {
+    const { tier = 'mid', provider = 'google', providerModel = null, modelList = [], knownCategories = [] } = options;
+
+    return withRetry(async () => {
+        // Phase 1: Routing Agent
+        const routerSystem = AUTO_MATCH_ROUTER_SYSTEM(brand);
+        const routerUser = `Route these items for the brand "${brand}":\n${items.map(it => `- ID: ${it.id} | Desc: ${it.description}`).join('\n')}`;
+
+        console.log(`  🌐 [Swarm Router] Categorizing ${items.length} items for "${brand}"...`);
+        const categoryMap = await callGoogle(routerSystem, routerUser, false, providerModel || GROUNDING_MODEL);
+
+        if (!categoryMap || typeof categoryMap !== 'object') throw new Error("Swarm Router returned invalid response");
+
+        // Phase 2: Parallel Category Agents (Swarm)
+        const categories = Object.keys(categoryMap).filter(cat =>
+            Array.isArray(categoryMap[cat]) && categoryMap[cat].length > 0
+        );
+
+        console.log(`  🐝 [Swarm Execution] Launching agents for categories: ${categories.join(', ')}`);
+
+        // Batch size for optimal accuracy (approx 8 items per LLM call)
+        const BATCH_SIZE = 8;
+
+        const swarmPromises = categories.map(async (category) => {
+            const itemIdsInScope = categoryMap[category];
+            const agentSystem = AUTO_MATCH_AGENT_SYSTEM(brand, category, knownCategories, modelList, tier);
+
+            console.log(`  🤖 [Agent:${category}] Processing ${itemIdsInScope.length} items in parallel batches...`);
+
+            const batches = [];
+            for (let i = 0; i < itemIdsInScope.length; i += BATCH_SIZE) {
+                batches.push(itemIdsInScope.slice(i, i + BATCH_SIZE));
+            }
+
+            const batchPromises = batches.map(async (batchIds) => {
+                const batchItems = batchIds.map(id => items.find(it => it.id === id)).filter(Boolean);
+                if (batchItems.length === 0) return [];
+
+                const user = `Identify the EXACT models from "${brand}" for these items within the "${category}" category:
+${batchItems.map(it => `- ID: ${it.id} | Description: ${it.description}`).join('\n')}`;
+
+                try {
+                    const parsed = await callGoogle(agentSystem, user, true, providerModel || GROUNDING_MODEL);
+
+                    const matches = (parsed.matches || []).map(m => ({
+                        id: m.id,
+                        status: 'success',
+                        brand,
+                        model: m.model,
+                        mainCategory: m.mainCategory,
+                        subCategory: m.subCategory,
+                        logic: m.logic
+                    }));
+                    return matches;
+                } catch (err) {
+                    console.error(`  ❌ [Agent:${category}] Batch failed:`, err.message);
+                    return batchIds.map(id => ({ id, status: 'error', error_message: err.message }));
+                }
+            });
+
+            const results = await Promise.all(batchPromises);
+            return results.flat();
+        });
+
+        const allSwarmResults = (await Promise.all(swarmPromises)).flat().filter(Boolean);
+
+        // Phase 3: Cleanup for items that weren't routed
+        const matchedIds = new Set(allSwarmResults.map(r => r.id));
+        const missingItems = items.filter(it => !matchedIds.has(it.id));
+
+        if (missingItems.length > 0) {
+            console.log(`  ⚠️ [Swarm Cleanup] Processing ${missingItems.length} unrouted/failed items...`);
+            const cleanupResults = await Promise.all(missingItems.map(async (item) => {
+                try {
+                    const res = await identifyModel(item.description, brand, provider, knownCategories, modelList, tier, providerModel);
+                    return { ...res, id: item.id };
+                } catch (err) {
+                    return { id: item.id, status: 'error', error_message: err.message };
+                }
+            }));
+            allSwarmResults.push(...cleanupResults);
+        }
+
+        console.log(`  ✅ [Swarm Complete] Matched ${allSwarmResults.filter(r => r.status === 'success').length}/${items.length} items.`);
+
+        return {
+            status: 'success',
+            brand,
+            matches: allSwarmResults
+        };
+    }, 2, 1000).catch(err => {
+        console.error(`  ❌ [Swarm Error] Critical failure:`, err.message);
+        return { status: 'error', error_message: err.message, matches: [] };
+    });
+}
+
+/**
+ * Swarm-based Multi-Brand Matching.
+ * 1. Routes items into functional categories.
+ * 2. Specialized agents select the best brand/model per category.
+ */
+export async function autoMatchMultiBrand(items, availableBrands, options = {}) {
+    const { tier = 'mid', provider = 'google', providerModel = null } = options;
+
+    return withRetry(async () => {
+        // Phase 1: Routing Agent
+        const routerSystem = AUTO_MATCH_MULTI_ROUTER_SYSTEM(availableBrands);
+        const routerUser = `Route these items for the available brands [${availableBrands.join(', ')}]:\n${items.map(it => `- ID: ${it.id} | Desc: ${it.description}`).join('\n')}`;
+
+        console.log(`  🌐 [Multi-Swarm Router] Categorizing ${items.length} items for ${availableBrands.length} brands...`);
+        const categoryMap = await callGoogle(routerSystem, routerUser, false, providerModel || GROUNDING_MODEL);
+
+        if (!categoryMap || typeof categoryMap !== 'object') throw new Error("Multi-Swarm Router returned invalid response");
+
+        // Phase 2: Parallel Category Agents
+        const categories = Object.keys(categoryMap).filter(cat =>
+            Array.isArray(categoryMap[cat]) && categoryMap[cat].length > 0
+        );
+
+        console.log(`  🐝 [Multi-Swarm Execution] Launching agents for categories: ${categories.join(', ')}`);
+
+        const BATCH_SIZE = 8;
+
+        const swarmPromises = categories.map(async (category) => {
+            const itemIdsInScope = categoryMap[category];
+            const agentSystem = AUTO_MATCH_MULTI_AGENT_SYSTEM(availableBrands, category, tier);
+
+            const batches = [];
+            for (let i = 0; i < itemIdsInScope.length; i += BATCH_SIZE) {
+                batches.push(itemIdsInScope.slice(i, i + BATCH_SIZE));
+            }
+
+            const batchPromises = batches.map(async (batchIds) => {
+                const batchItems = batchIds.map(id => items.find(it => it.id === id)).filter(Boolean);
+                if (batchItems.length === 0) return [];
+
+                const user = `Find the best Brand and Model from the available list for these items in "${category}":
+${batchItems.map(it => `- ID: ${it.id} | Description: ${it.description}`).join('\n')}`;
+
+                try {
+                    const parsed = await callGoogle(agentSystem, user, true, providerModel || GROUNDING_MODEL);
+
+                    return (parsed.matches || []).map(m => ({
+                        id: m.id,
+                        status: 'success',
+                        brand: m.brand,
+                        model: m.model,
+                        mainCategory: m.mainCategory,
+                        subCategory: m.subCategory,
+                        logic: m.logic
+                    }));
+                } catch (err) {
+                    console.error(`  ❌ [Multi-Agent:${category}] Batch failed:`, err.message);
+                    return batchIds.map(id => ({ id, status: 'error', error_message: err.message }));
+                }
+            });
+
+            const results = await Promise.all(batchPromises);
+            return results.flat();
+        });
+
+        const allSwarmResults = (await Promise.all(swarmPromises)).flat().filter(Boolean);
+
+        // Phase 3: Cleanup
+        const matchedIds = new Set(allSwarmResults.map(r => r.id));
+        const missingItems = items.filter(it => !matchedIds.has(it.id));
+
+        if (missingItems.length > 0) {
+            console.log(`  ⚠️ [Multi-Swarm Cleanup] Processing ${missingItems.length} unrouted items...`);
+            const cleanupResults = await Promise.all(missingItems.map(async (item) => {
+                try {
+                    const res = await identifyModel(item.description, availableBrands[0], provider, [], [], tier, providerModel);
+                    return { ...res, id: item.id };
+                } catch (err) {
+                    return { id: item.id, status: 'error', error_message: err.message };
+                }
+            }));
+            allSwarmResults.push(...cleanupResults);
+        }
+
+        return { status: 'success', matches: allSwarmResults };
+    }, 2, 1000).catch(err => {
+        console.error(`  ❌ [Multi-Swarm Error] Critical failure:`, err.message);
+        return { status: 'error', error_message: err.message, matches: [] };
+    });
 }
 
 /**
@@ -376,7 +639,7 @@ async function verifyImageUrl(url, brand = '') {
         });
         const contentType = res.headers['content-type'] || '';
         if (res.status >= 200 && res.status < 400 && contentType.startsWith('image/')) return true;
-        
+
         // 2. HEAD blocked? Fallback to small GET
         const resGet = await axios.get(url, {
             timeout: 5000,
@@ -400,20 +663,21 @@ const FETCH_SYSTEM = (brand, model) => `You are a Furniture Detail Specialist fo
 Your task is to find the official 'imageUrl' (direct high-resolution image file) and 'websiteUrl' for the product: "${brand} ${model}".
 
 ### 🔍 DISCOVERY PROTOCOL (Strict Order):
-1. **Architonic**: This is the mandatory first source for European/Global furniture brands.
-2. **Official Brand Website**: Use this for technical specifications and direct product links.
-3. **Stylepark**: Use as a fallback for high-end design items.
+1. **Architonic**: Mandatory first source for European/Global furniture brands.
+2. **Official Brand Website**: Use for technical specifications and direct product links.
+3. **Stylepark**: Fallback for high-end design items.
 
 ### 🏷️ CATEGORY & DATA:
 - Search for "Architonic ${brand} ${model}" to find the correct family and description.
-- Ensure the 'imageUrl' is a direct link to the image file (jpg/png/webp), not a page.
-- "mainCategory" and "subCategory" should align with our global taxonomy if possible: ${Object.keys(TAXONOMY).join(', ')}.
+- Ensure the 'imageUrl' is a direct link to the image file (jpg/png/webp).
+- "mainCategory" and "subCategory" MUST align with our global taxonomy: ${ALLOWED_CATEGORIES}.
 
 ### 💰 PRICING:
-Return the actual currency-converted price if found (USD/EUR). If not available, set price to 0.
+Return the actual currency-converted price if found (USD/EUR), else set price to 0.
 
 Return ONLY valid JSON:
 {
+  "status": "success",
   "brand": "${brand}",
   "model": "${model}",
   "imageUrl": "Direct URL to high-res image file",
@@ -423,29 +687,31 @@ Return ONLY valid JSON:
   "family": "Collection/Series Name",
   "price": 0,
   "description": "Short technical description (max 20 words)",
-  "logic": "Brief reasoning explaining why this is the best match from Architonic/Brand Site"
+  "logic": "Brief reasoning"
 }
 `;
 
 export async function fetchProductDetails(brand, model, tier, provider = 'google', providerModel = null) {
-    const system = FETCH_SYSTEM(brand, model);
-    const user = `Perform a deep search for: ${brand} ${model}. Find its high-res image, official product page, and correct category on Architonic or ${brand} site.`;
+    return withRetry(async () => {
+        const system = FETCH_SYSTEM(brand, model);
+        const user = `Perform a deep search for: ${brand} ${model}. Find its high-res image, official product page, and correct category.`;
 
-    try {
+        console.log(`  🌐 [AI Fetch] Fetching details for: ${brand} ${model} using ${provider}`);
+
         let parsed;
         if (provider === 'google') {
-            parsed = await callGoogle(system, user, true, providerModel || GOOGLE_MODEL);
+            parsed = await callGoogle(system, user, true, providerModel || GROUNDING_MODEL);
         } else if (provider === 'nvidia') {
             parsed = await callNvidia(system, user, providerModel || NVIDIA_MODEL);
         } else {
             parsed = await callOpenRouter(system, user, providerModel || OPENROUTER_MODEL);
         }
 
-        if (!parsed || parsed === 'FAILED') {
+        if (!parsed || parsed === 'FAILED' || parsed.status === 'error') {
             throw new Error(`${provider.toUpperCase()} did not return valid product details`);
         }
 
-        // Stage 3.5: Image verification if the provider returned an image URL
+        // Stage 3.5: Image verification
         if (parsed.imageUrl && parsed.imageUrl !== 'FAILED') {
             const isAlive = await verifyImageUrl(parsed.imageUrl, brand);
             if (!isAlive) {
@@ -454,15 +720,14 @@ export async function fetchProductDetails(brand, model, tier, provider = 'google
             }
         }
 
-        // Final sanitation: Ensure we have at least partial data
         parsed.brand = parsed.brand || brand;
         parsed.model = parsed.model || model;
         parsed.price = parseFloat(parsed.price) || 0;
         return { status: 'success', product: parsed };
-    } catch (err) {
+    }, 3, 2000).catch(err => {
         console.error(`  ❌ [Fetch Details Error] for ${brand} ${model} using ${provider.toUpperCase()}:`, err.message);
         return { status: 'error', error_message: err.message };
-    }
+    });
 }
 
 /**
@@ -470,14 +735,14 @@ export async function fetchProductDetails(brand, model, tier, provider = 'google
  * This is the core logic for the "Always Strengthen DB" requirement.
  */
 export async function searchAndEnrichModel(brandName, modelName, expectedTier = 'mid') {
-    console.log(`\\n💎 [Enrichment] Starting discovery for: ${brandName} "${modelName}" (Tier: ${expectedTier})`);
+    console.log(`\n💎 [Enrichment] Starting discovery for: ${brandName} "${modelName}" (Tier: ${expectedTier})`);
 
     try {
         const result = await fetchProductDetails(brandName, modelName, expectedTier);
-        
+
         if (result.status === 'success' && result.product) {
             const p = result.product;
-            
+
             // Normalize categories just in case AI deviated from protocol
             const mainCat = Object.keys(TAXONOMY).find(c => c.toLowerCase() === (p.mainCategory || '').toLowerCase()) || 'Furniture';
             const subCats = TAXONOMY[mainCat] ? Object.keys(TAXONOMY[mainCat]) : [];
@@ -502,7 +767,7 @@ export async function searchAndEnrichModel(brandName, modelName, expectedTier = 
             console.log(`  ✅ [Enrichment] Success: Found ${enrichmentData.model} in ${mainCat} > ${subCat}`);
             return { status: 'success', product: enrichmentData };
         }
-        
+
         return { status: 'error', error_message: result.error_message || 'Model details not found online.' };
     } catch (err) {
         console.error(`  ❌ [Enrichment Error]:`, err.message);
@@ -512,8 +777,12 @@ export async function searchAndEnrichModel(brandName, modelName, expectedTier = 
 
 
 export async function getAiMatch(description, brandTarget, tier, provider = 'google', providerModel = null) {
-    const system = `You are an FF&E Product Matcher.
-Match: "${description}" to ${brandTarget}.
+    return withRetry(async () => {
+        const system = `You are an expert FF&E Product Matcher.
+Match: "${description}" to the brand "${brandTarget}".
+
+### 🏢 TARGET BRAND: ${brandTarget}
+### 📊 TIER: ${tier}
 
 ### 🚨 FORBIDDEN MATCHES:
 - **ARMCHAIR** != STOOL (Match by height).
@@ -521,31 +790,44 @@ Match: "${description}" to ${brandTarget}.
 - **VISITOR CHAIR** != EXECUTIVE CHAIR (Match by function).
 - **FLOORING** == TILES (Ignore suffix mismatches for Carpets/Vinyl if functional category matches).
 
-Return JSON ONLY:
+Return ONLY valid JSON:
 { 
   "status": "success", 
   "product": {
-    "brand": "Selected Brand",
+    "brand": "${brandTarget}",
     "model": "Exact Model Series",
     "description": "Short justification.",
-    "price": 0
+    "price": 0,
+    "logic": "Brief reasoning"
   }
 }`;
-    const user = `Match: ${description}\\nBrands: ${brandTarget}\\nTier: ${tier}`;
-    try {
+        const user = `Match description: "${description}"\nBrand: ${brandTarget}\nTier: ${tier}`;
+
+        console.log(`  🤖 [AI Match] Matching "${description.substring(0, 50)}..." to ${brandTarget}`);
+
+        let result;
         if (provider === 'google') {
-            return await callGoogle(system, user, false, providerModel);
+            result = await callGoogle(system, user, false, providerModel || GROUNDING_MODEL);
         } else if (provider === 'local') {
-            console.log(`  📍 Using Local LLM (Llama 3.2) for matching...`);
             const responseText = await callLocalLLM(system, user, 'llama3.2');
-            return safeParseJSON(responseText);
+            result = safeParseJSON(responseText);
+        } else if (provider === 'nvidia') {
+            result = await callNvidia(system, user, providerModel || NVIDIA_MODEL);
+        } else if (provider === 'openrouter') {
+            result = await callOpenRouter(system, user, providerModel || OPENROUTER_MODEL);
         } else {
-            // Default to Google for matching if provider is openrouter/nvidia and no explicit support yet in getAiMatch
-            return await callGoogle(system, user, false, providerModel);
+            result = await callGoogle(system, user, false, providerModel || GROUNDING_MODEL);
         }
-    } catch (err) {
+
+        if (!result || result.status === 'error' || !result.product) {
+            throw new Error('AI failed to match product');
+        }
+
+        return result;
+    }, 3, 2000).catch(err => {
+        console.error(`  ❌ [AI Match Error] Failed for ${brandTarget}:`, err.message);
         return { status: 'error', error_message: err.message };
-    }
+    });
 }
 
 /** 
@@ -553,7 +835,8 @@ Return JSON ONLY:
  * uses the selected AI model for high-speed lookup.
  */
 export async function matchFitoutItem(description, internalProducts = [], tier = 'mid', provider = 'google', providerModel = 'gemini-1.5-flash') {
-    const system = `You are an Elite Fitout Estimator.
+    return withRetry(async () => {
+        const system = `You are an Elite Fitout Estimator.
 Match the description to ONE specific item from the internal database below.
 If no exact match exists, pick the one with most similar function/material (e.g. "Commercial Grade Flooring" -> "Flooring - Stone" or "Flooring - Wood").
 
@@ -562,7 +845,7 @@ ${JSON.stringify(internalProducts, null, 2)}
 
 Return ONLY valid JSON:
 {
-  "status": "success",
+  "status": "success" | "no_match",
   "product": {
     "brand": "FitOut V2",
     "model": "EXACT Model Name from matched item",
@@ -578,32 +861,55 @@ Return ONLY valid JSON:
 }
 
 ### CRITICAL RULES:
+- **No Match Protocol**: If NO reasonable match exists even as a functional substitute, return \`{"status": "no_match", "logic": "Reason why no match was found"}\`.
+- **Dimension Normalization**: Treat "600x600", "600*600", "60x60cm", and "0.6x0.6m" as identical.
 - If the item is generic (e.g. "Carpeting", "Flooring"), match it to the most professional entry in the database.
-- For Carpet: Descriptions including "Carpet", "Flooring Carpet", "Floor Finish (Carpet)", or similar MUST map to items in the "Carpet Tiles" sub-category.
-- For Floor Finish: Map "Main Floor Finish" or "Flooring" to specific materials if mentioned (Stone, Wood, etc.). If "Carpet/Tile" or "Carpet" is mentioned, prioritize "Carpet Tiles".
+- **For Partitions**: Distinguish between "Glass" (Full height glass, toughened) and "Solid/Drywall" (Gypsum, Drywall, Masonry).
+- **For Ceilings**: Map "Ceiling Finish" or "False Ceiling" to specific types: "Gypsum" (plasterboard), "Acoustic" (grid/mineral fiber), or "Open Cell" (baffles/metal).
+- **For Joinery**: Descriptions mentioning "Cabinets", "Wardrobes", "Pantry", "Counter", or "Shelving" MUST map to the "Joinery" or "Pantry & Cabinetry" categories.
+- **For Carpet**: Descriptions including "Carpet", "Flooring Carpet", "Floor Finish (Carpet)", or similar MUST map to items in the "Carpet Tiles" sub-category.
+- **For Floor Finish**: Map "Main Floor Finish" or "Flooring" to specific materials if mentioned (Stone, Wood, etc.). If "Carpet/Tile" or "Carpet" is mentioned, prioritize "Carpet Tiles".
+- **Dimension Priority**: If dimensions (e.g. "600x600", "1200x600") are present, prioritize items with matching dimensions.
 - Ignore suffix mismatches like "Flooring" vs "Tiles" for Carpets/Vinyl. If the main Material matches, it is a Match.
 - Match by Material/Finish if exact model name differs slightly (e.g. Model v1 vs Model v2).
+- **Match Score**: Assign a "matchScore" (0.0 to 1.0). 1.0 = Perfect match, 0.7 = Functional match, 0.4 = Weak fallback.
 - Ensure the Price is realistic for the tier provided.`;
 
-    const user = `Find best match for: "${description}" (Tier: ${tier})`;
-    try {
+        const user = `Find best match for: "${description}" (Tier: ${tier})`;
+
+        console.log(`  🛠️ [Fitout Match] Matching "${description.substring(0, 50)}..."`);
+
+        let result;
         if (provider === 'google') {
-            return await callGoogle(system, user, false, providerModel);
+            result = await callGoogle(system, user, false, providerModel);
         } else if (provider === 'openrouter') {
-            return await callOpenRouter(system, user, providerModel);
+            result = await callOpenRouter(system, user, providerModel);
         } else if (provider === 'nvidia') {
-            return await callNvidia(system, user, providerModel);
+            result = await callNvidia(system, user, providerModel);
         } else if (provider === 'local') {
             const responseText = await callLocalLLM(system, user, 'llama3.2');
-            return safeParseJSON(responseText);
+            result = safeParseJSON(responseText);
         } else {
-            // Default payload for safety
-            return await callGoogle(system, user, false, 'gemini-1.5-flash');
+            result = await callGoogle(system, user, false, 'gemini-1.5-flash');
         }
-    } catch (err) {
-        console.error('  ❌ [Fitout Matcher] Error:', err.message);
+
+        if (!result || result.status === 'error') {
+            throw new Error('AI failed to communicate with matching engine');
+        }
+
+        if (result.status === 'no_match') {
+            return { status: 'no_match', logic: result.logic || 'No suitable item found in database' };
+        }
+
+        if (!result.product) {
+            throw new Error('AI returned success but no product found');
+        }
+
+        return result;
+    }, 3, 2000).catch(err => {
+        console.error('  ❌ [Fitout Matcher Error]:', err.message);
         return { status: 'error', error_message: err.message };
-    }
+    });
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -623,8 +929,13 @@ You are strictly FORBIDDEN from using units like "Lot", "LS", "Lumpsum", or "Pac
    - If no scale is found, use standard architectural dimensions (e.g., a standard office door is 0.9m, use this to calibrate the room size).
 3. ** LM (Linear)**: For Partitions, Skirting, and Cabinets, calculate the total length of the lines drawn.
 4. If a description mentions a group of items (e.g., '6 workstations'), set quantity to 6.
-5. CATEGORY MAPPING: You MUST map every item to one of these valid Main Categories: ${ALLOWED_CATEGORIES}.
-6. SEPARATION OF CONCERNS:
+9. **VISUAL PATTERN RECOGNITION (Architectural Logic)**:
+   - **Flooring**: Identify "Carpet" by stippled/dotted hatch patterns. Identify "Tiles" by grid patterns. Identify "Stone/Marble" by irregular vein patterns or large slab outlines.
+   - **Partitions**: "Glass Partitions" are typically thin double lines, often with a 'swing' symbol for doors. "Solid/Drywall Partitions" are thicker double lines, sometimes with solid or cross-hatch fill.
+   - **Ceilings**: Grid patterns on the plan often indicate "Acoustic Tile" ceilings. Smooth areas with perimeter lines indicate "Gypsum" or "Plasterboard" ceilings.
+   - **Joinery**: Built-in cabinets, pantries, and reception counters are typically identified by fixed outlines near walls, often with sink or equipment symbols.
+10. CATEGORY MAPPING: You MUST map every item to one of these valid Main Categories: ${ALLOWED_CATEGORIES}.
+11. SEPARATION OF CONCERNS:
    - FURNITURE: Includes chairs, desks, tables, storage, pods, and mobile accessories.
    - FITOUT: Includes architectural elements like 'Partition Wall', 'Tile Flooring', 'Gypsum Ceiling', 'Curtain Wall', 'Carpeting', 'Wall Cladding', or any fixed MEP/HVAC elements. 
    - FLOORING & CARPET: Items like 'Carpet Tile', 'Floor Carpet', 'Vinyl', or 'Main Floor Finish' MUST be identified as FITOUT.
@@ -710,10 +1021,10 @@ async function callLocalVision(imageBase64, imageMimeType) {
     try {
         const FormData = (await import('form-data')).default;
         const formData = new FormData();
-        
+
         // Convert base64 to Buffer for Node.js
         const buffer = Buffer.from(imageBase64, 'base64');
-        
+
         formData.append('file', buffer, {
             filename: 'floorplan.png',
             contentType: imageMimeType
@@ -800,14 +1111,14 @@ export async function callUniversalMultimodalAI(systemPrompt, userPrompt, assets
         // Nvidia or OpenRouter (OpenAI-style Vision)
         const endpoint = provider === 'nvidia' ? 'https://integrate.api.nvidia.com/v1/chat/completions' : 'https://openrouter.ai/api/v1/chat/completions';
         const apiKey = provider === 'nvidia' ? NVIDIA_API_KEY : OPENROUTER_API_KEY;
-        
+
         if (!apiKey) throw new Error(`API Key for ${provider} is missing in .env`);
 
         // OpenAI Vision format
         const messages = [
             { role: "system", content: systemPrompt },
-            { 
-                role: "user", 
+            {
+                role: "user",
                 content: [
                     { type: "text", text: userPrompt },
                     ...assets.map(asset => {
@@ -881,7 +1192,7 @@ export async function analyzePlan(filesData, options = {}) {
             // Use Google Gemini SDK with multimodal support
             const modelName = providerModel || GOOGLE_MODEL;
             console.log(`  📍 Using Google model: ${modelName}`);
-            
+
             const genAIInstance = getGoogleAI(modelName);
             const model = genAIInstance.getGenerativeModel({
                 model: modelName,
@@ -902,7 +1213,7 @@ export async function analyzePlan(filesData, options = {}) {
             // Use OpenRouter API with multimodal support
             const modelName = providerModel || OPENROUTER_MODEL;
             console.log(`  📍 Using OpenRouter model: ${modelName}`);
-            
+
             parsed = await callVisionAPI(
                 promptText,
                 'Analyze this floor plan PDF and extract BOQ items as JSON',
@@ -917,7 +1228,7 @@ export async function analyzePlan(filesData, options = {}) {
             // Use NVIDIA NIM API with multimodal support
             const modelName = providerModel || NVIDIA_MODEL;
             console.log(`  📍 Using NVIDIA model: ${modelName}`);
-            
+
             parsed = await callVisionAPI(
                 promptText,
                 'Analyze this floor plan PDF and extract BOQ items as JSON',

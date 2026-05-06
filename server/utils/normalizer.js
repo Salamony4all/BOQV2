@@ -256,7 +256,9 @@ export function normalizeProducts(products) {
     // Return product without adding the 'normalization' block, preserving original structure
     return {
       ...p,
-      model: cleanModel
+      model: cleanModel,
+      imageUrl: (p.imageUrl === 'FAILED' || p.imageUrl === 'N/A') ? '' : p.imageUrl,
+      productUrl: (p.productUrl === 'FAILED' || p.productUrl === 'N/A') ? '' : p.productUrl
     };
   }).filter(p => p !== null); 
 }

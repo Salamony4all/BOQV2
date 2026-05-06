@@ -29,6 +29,7 @@
     "express": "^5.2.1",
     "file-saver": "^2.0.5",
     "form-data": "^4.0.5",
+    "fuse.js": "^7.3.0",
     "jspdf": "^3.0.4",
     "jspdf-autotable": "^5.0.2",
     "multer": "^2.0.2",

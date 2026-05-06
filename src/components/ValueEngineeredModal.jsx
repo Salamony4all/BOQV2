@@ -14,7 +14,7 @@ import { getFullUrl } from '../utils/urlUtils';
 const API_BASE = getApiBase();
 
 const VE_UI_CONFIG = {
-    labels: { desking: 'DESKING', seating: 'SEATING', softSeating: 'SOFT SEATING', accessories: 'ACCESSORIES' },
+    labels: { desking: 'Desking', seating: 'Seating', softSeating: 'Soft Seating', accessories: 'Accessories' },
     hints: {
         desking: 'Desks, workstations, meeting & conference tables',
         seating: 'Task chairs, executive chairs, operational chairs',
@@ -254,7 +254,7 @@ export default function ValueEngineeredModal({
             if (rows.length === 0) {
                 loadDataIntoRows();
             }
-            
+
             setCostingFactors(null);
             setIsConfigOpen(false);
             setIsRunning(false);
@@ -632,7 +632,26 @@ export default function ValueEngineeredModal({
 
         const workableRows = currentData.filter(r => !isHeaderRow(r.description, r) && !r.isTotalRow);
         setProgress({ current: 0, total: workableRows.length });
-        setSwarm(null);
+        
+        // Initialize Swarm Lanes for all 4 categories
+        const categoryKeys = ['desking', 'seating', 'softSeating', 'accessories'];
+        const initialLanes = {};
+        for (const catKey of categoryKeys) {
+            const targetBrand = brandMode === 'simple' ? globalBrand : categoryBrands[catKey];
+            const localBrand = allBrands.find(b => b.name === targetBrand);
+            initialLanes[catKey] = {
+                id: catKey,
+                label: VE_UI_CONFIG.labels[catKey],
+                status: 'idle',
+                current: 0,
+                total: 0,
+                progress: 0,
+                brand: targetBrand || 'N/A',
+                brandLogo: localBrand?.logo ? getFullUrl(localBrand.logo) : '',
+                currentItem: null
+            };
+        }
+        setSwarm({ lanes: initialLanes });
 
         let categoryMap = null;
 
@@ -659,6 +678,17 @@ export default function ValueEngineeredModal({
                         setAiStatus(prev => ({ ...prev, active: false }));
                         return;
                     }
+
+                    // Update swarm lanes with total counts from routing
+                    setSwarm(prev => {
+                        const newLanes = { ...prev.lanes };
+                        for (const catKey of categoryKeys) {
+                            const itemIds = categoryMap[catKey] || [];
+                            newLanes[catKey].total = itemIds.length;
+                            newLanes[catKey].status = (itemIds.length > 0 && categoryBrands[catKey]) ? 'active' : 'idle';
+                        }
+                        return { ...prev, lanes: newLanes };
+                    });
                 }
             } catch (err) {
                 console.error('❌ [VE AI] Routing failed:', err);
@@ -667,6 +697,21 @@ export default function ValueEngineeredModal({
                 setAiStatus(prev => ({ ...prev, active: false }));
                 return;
             }
+        } else {
+            // Simple mode: all items go to their respective lanes but use global brand
+            // Actually in simple mode, we don't have routing, so we can't easily split items into lanes 
+            // unless we route them anyway. 
+            // For now, let's just make the lanes "active" if they would have items, or just keep them idle.
+            // A better way is to still route them even in simple mode so we can show the swarm lanes.
+            
+            setSwarm(prev => {
+                const newLanes = { ...prev.lanes };
+                for (const catKey of categoryKeys) {
+                    newLanes[catKey].status = 'active'; // In simple mode, treat all as potentially active
+                    newLanes[catKey].total = workableRows.length; // Approximate
+                }
+                return { ...prev, lanes: newLanes };
+            });
         }
 
         let successCount = 0, errorCount = 0;
@@ -677,20 +722,21 @@ export default function ValueEngineeredModal({
             const row = rowsRef.current[rowIndex];
             if (!row || row.aiStatus === 'success') return;
 
-            if (laneId) {
-                setSwarm(prev => ({
-                    ...prev,
-                    lanes: {
-                        ...prev?.lanes,
-                        [laneId]: {
-                            ...prev?.lanes?.[laneId],
-                            status: 'identifying',
-                            currentItem: row,
-                            brand: targetBrand
-                        }
+            // If we don't have a laneId (simple mode), we can try to guess it or just use 'accessories' as fallback
+            const effectiveLaneId = laneId || 'accessories';
+
+            setSwarm(prev => ({
+                ...prev,
+                lanes: {
+                    ...prev?.lanes,
+                    [effectiveLaneId]: {
+                        ...prev?.lanes?.[effectiveLaneId],
+                        status: 'identifying',
+                        currentItem: row,
+                        brand: targetBrand
                     }
-                }));
-            }
+                }
+            }));
 
             setAiStatus(prev => ({ ...prev, status: 'identifying', currentItem: row, brand: targetBrand, model: 'Matching via Search...', image: null }));
             setRows(prev => prev.map((r, i) => i === rowIndex ? { ...r, aiStatus: 'processing' } : r));
@@ -731,25 +777,23 @@ export default function ValueEngineeredModal({
 
                     const localBrand = allBrands.find(b => b.name?.toLowerCase().trim() === matchedBrand.toLowerCase().trim());
 
-                    if (laneId) {
-                        setSwarm(prev => {
-                            const lane = prev?.lanes?.[laneId];
-                            return {
-                                ...prev,
-                                lanes: {
-                                    ...prev?.lanes,
-                                    [laneId]: {
-                                        ...lane,
-                                        status: 'success',
-                                        model: finalModel,
-                                        image: finalImageUrl,
-                                        progress: lane.total > 0 ? Math.min(100, Math.round(((lane.current + 1) / lane.total) * 100)) : 100,
-                                        current: lane.current + 1
-                                    }
+                    setSwarm(prev => {
+                        const lane = prev?.lanes?.[effectiveLaneId];
+                        return {
+                            ...prev,
+                            lanes: {
+                                ...prev?.lanes,
+                                [effectiveLaneId]: {
+                                    ...lane,
+                                    status: 'success',
+                                    model: finalModel,
+                                    image: finalImageUrl,
+                                    progress: lane.total > 0 ? Math.min(100, Math.round(((lane.current + 1) / lane.total) * 100)) : 100,
+                                    current: lane.current + 1
                                 }
-                            };
-                        });
-                    }
+                            }
+                        };
+                    });
 
                     setAiStatus(prev => ({ ...prev, status: 'success', brand: matchedBrand, model: finalModel, image: finalImageUrl }));
                     setRows(prev => prev.map((r, i) => i === rowIndex ? {
@@ -771,43 +815,39 @@ export default function ValueEngineeredModal({
                     } : r));
                     successCount++;
                 } else {
-                    if (laneId) {
-                        setSwarm(prev => {
-                            const lane = prev?.lanes?.[laneId];
-                            return {
-                                ...prev,
-                                lanes: {
-                                    ...prev?.lanes,
-                                    [laneId]: {
-                                        ...lane,
-                                        status: 'error',
-                                        progress: lane.total > 0 ? Math.min(100, Math.round(((lane.current + 1) / lane.total) * 100)) : 100,
-                                        current: lane.current + 1
-                                    }
-                                }
-                            };
-                        });
-                    }
-                    setRows(prev => prev.map((r, i) => i === rowIndex ? { ...r, aiStatus: result.status === 'no_match' ? 'no_match' : 'error' } : r));
-                    errorCount++;
-                }
-            } catch (err) {
-                if (laneId) {
                     setSwarm(prev => {
-                        const lane = prev?.lanes?.[laneId];
+                        const lane = prev?.lanes?.[effectiveLaneId];
                         return {
                             ...prev,
                             lanes: {
                                 ...prev?.lanes,
-                                [laneId]: {
+                                [effectiveLaneId]: {
                                     ...lane,
                                     status: 'error',
+                                    progress: lane.total > 0 ? Math.min(100, Math.round(((lane.current + 1) / lane.total) * 100)) : 100,
                                     current: lane.current + 1
                                 }
                             }
                         };
                     });
+                    setRows(prev => prev.map((r, i) => i === rowIndex ? { ...r, aiStatus: result.status === 'no_match' ? 'no_match' : 'error' } : r));
+                    errorCount++;
                 }
+            } catch (err) {
+                setSwarm(prev => {
+                    const lane = prev?.lanes?.[effectiveLaneId];
+                    return {
+                        ...prev,
+                        lanes: {
+                            ...prev?.lanes,
+                            [effectiveLaneId]: {
+                                ...lane,
+                                status: 'error',
+                                current: lane.current + 1
+                            }
+                        }
+                    };
+                });
                 setRows(prev => prev.map((r, i) => i === rowIndex ? { ...r, aiStatus: 'error' } : r));
                 errorCount++;
             }
@@ -818,29 +858,6 @@ export default function ValueEngineeredModal({
         // --- PHASE 2: SWARM EXECUTION ---
         if (brandMode === 'advanced' && categoryMap && categoryMap.status !== 'error') {
             const swarmPromises = [];
-            const categoryKeys = ['desking', 'seating', 'softSeating', 'accessories'];
-            const activeLanes = {};
-
-            for (const catKey of categoryKeys) {
-                const itemIds = categoryMap[catKey] || [];
-                if (!itemIds || itemIds.length === 0) continue;
-                const targetBrand = categoryBrands[catKey];
-                if (!targetBrand) continue;
-
-                activeLanes[catKey] = {
-                    id: catKey,
-                    label: VE_UI_CONFIG.labels[catKey],
-                    status: 'active',
-                    current: 0,
-                    total: itemIds.length,
-                    progress: 0,
-                    brand: targetBrand,
-                    currentItem: null
-                };
-            }
-
-            setSwarm({ lanes: activeLanes });
-
             for (const catKey of categoryKeys) {
                 const itemIds = categoryMap[catKey] || [];
                 if (!itemIds || itemIds.length === 0) continue;
@@ -984,24 +1001,26 @@ export default function ValueEngineeredModal({
                             )}
 
                             {rows.length > 0 ? (
-                                <table className={mbs.budgetTable}>
-                                    <thead>
-                                        <tr>
-                                            <th style={{ width: '50px', textAlign: 'center' }}>Sl</th>
-                                            <th style={{ width: '80px', textAlign: 'center' }}>Ref Img</th>
-                                            <th style={{ width: '200px', textAlign: 'left' }}>Description</th>
-                                            <th style={{ width: '80px', textAlign: 'center' }}>Brand Img</th>
-                                            <th style={{ width: '200px', textAlign: 'left' }}>Brand Desc</th>
-                                            <th style={{ width: '50px', textAlign: 'center' }}>Qty</th>
-                                            <th style={{ width: '50px', textAlign: 'center' }}>Unit</th>
-                                            <th style={{ width: '80px', textAlign: 'right' }}>Rate</th>
-                                            <th style={{ width: '90px', textAlign: 'right' }}>Amount</th>
-                                            <th style={{ width: '180px', textAlign: 'left' }}>Product Selection</th>
-                                            <th style={{ width: '60px', textAlign: 'center' }}>Action</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>{rows.map((row, index) => renderVeRow(row, index))}</tbody>
-                                </table>
+                                <div className={mbs.tableScrollWrapper}>
+                                    <table className={mbs.budgetTable}>
+                                        <thead>
+                                            <tr>
+                                                <th style={{ width: '50px', textAlign: 'center' }}>Sl</th>
+                                                <th style={{ width: '80px', textAlign: 'center' }}>Ref Img</th>
+                                                <th style={{ width: '200px', textAlign: 'left' }}>Description</th>
+                                                <th style={{ width: '80px', textAlign: 'center' }}>Brand Img</th>
+                                                <th style={{ width: '200px', textAlign: 'left' }}>Brand Desc</th>
+                                                <th style={{ width: '50px', textAlign: 'center' }}>Qty</th>
+                                                <th style={{ width: '50px', textAlign: 'center' }}>Unit</th>
+                                                <th style={{ width: '80px', textAlign: 'right' }}>Rate</th>
+                                                <th style={{ width: '90px', textAlign: 'right' }}>Amount</th>
+                                                <th style={{ width: '180px', textAlign: 'left' }}>Product Selection</th>
+                                                <th style={{ width: '60px', textAlign: 'center' }}>Action</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>{rows.map((row, index) => renderVeRow(row, index))}</tbody>
+                                    </table>
+                                </div>
                             ) : (
                                 <div style={{ flex: 1, display: 'flex', width: '100%', height: '100%', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#64748b' }}>
                                     <div style={{ fontSize: '3rem', opacity: 0.2 }}>📁</div>
@@ -1143,7 +1162,7 @@ export default function ValueEngineeredModal({
                                             </div>
                                         </div>
                                         <div style={{ padding: '0 1rem 1rem' }}>
-                                            <BrandDropdown 
+                                            <BrandDropdown
                                                 brands={furnitureBrands}
                                                 selectedBrands={globalBrand}
                                                 onSelect={(b) => setGlobalBrand(b.name)}
@@ -1163,7 +1182,7 @@ export default function ValueEngineeredModal({
                                             </div>
                                         </div>
                                         <div style={{ padding: '0 1rem 1rem' }}>
-                                            <BrandDropdown 
+                                            <BrandDropdown
                                                 brands={furnitureBrands}
                                                 selectedBrands={categoryBrands[cat]}
                                                 onSelect={(b) => setCategoryBrands(prev => ({ ...prev, [cat]: b.name }))}
@@ -1240,6 +1259,7 @@ export default function ValueEngineeredModal({
                             isMinimized={status.minimized}
                             onToggleMinimize={() => setAiStatus(prev => ({ ...prev, minimized: !prev.minimized }))}
                             minimizedOffset={minimizedOffset}
+                            title="Value Engineer - Category Based AI Active"
                         />
                     );
                 });

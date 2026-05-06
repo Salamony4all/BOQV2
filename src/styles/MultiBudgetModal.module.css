@@ -155,8 +155,15 @@
 }
 
 @keyframes slideUp {
-    from { transform: translateY(100px); opacity: 0; }
-    to { transform: translateY(0); opacity: 1; }
+    from {
+        transform: translateY(100px);
+        opacity: 0;
+    }
+
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
 }
 
 .badgeIcon {
@@ -222,9 +229,20 @@
 }
 
 @keyframes badgeGlow {
-    0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7); }
-    70% { transform: scale(1.1); box-shadow: 0 0 0 10px rgba(59, 130, 246, 0); }
-    100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); }
+    0% {
+        transform: scale(1);
+        box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7);
+    }
+
+    70% {
+        transform: scale(1.1);
+        box-shadow: 0 0 0 10px rgba(59, 130, 246, 0);
+    }
+
+    100% {
+        transform: scale(1);
+        box-shadow: 0 0 0 0 rgba(59, 130, 246, 0);
+    }
 }
 
 /* Main Content Area */
@@ -239,12 +257,24 @@
 /* Scrollable Table Area - Maximized */
 .tableContainer {
     flex: 1;
-    overflow: auto;
-    padding: 0.5rem 0.8rem;
+    overflow: hidden;
+    /* Changed from auto to hidden */
+    padding: 0;
     background: var(--bg-surface);
     display: flex;
     flex-direction: column;
-    align-items: flex-start;
+    align-items: stretch;
+    border-radius: 8px;
+}
+
+.tableScrollWrapper {
+    flex: 1;
+    overflow-x: auto;
+    /* Handles horizontal overflow for wide tables[cite: 4, 6] */
+    overflow-y: auto;
+    /* Handles vertical overflow for many rows[cite: 4, 6] */
+    width: 100%;
+    scrollbar-width: thin;
 }
 
 /* Compact Top Section */
@@ -422,9 +452,19 @@
 }
 
 @keyframes aiMotion {
-    0% { transform: scale(1); }
-    50% { transform: scale(1.02); filter: brightness(1.1); box-shadow: 0 0 15px currentColor; }
-    100% { transform: scale(1); }
+    0% {
+        transform: scale(1);
+    }
+
+    50% {
+        transform: scale(1.02);
+        filter: brightness(1.1);
+        box-shadow: 0 0 15px currentColor;
+    }
+
+    100% {
+        transform: scale(1);
+    }
 }
 
 .aiAutoFilling {
@@ -458,9 +498,17 @@
 }
 
 @keyframes pulseRed {
-    0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
-    70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
-    100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+    0% {
+        box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
+    }
+
+    70% {
+        box-shadow: 0 0 0 10px rgba(239, 68, 68, 0);
+    }
+
+    100% {
+        box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+    }
 }
 
 /* AI Status Animations */
@@ -470,9 +518,17 @@
 }
 
 @keyframes rowPulse {
-    0% { background: var(--bg-surface); }
-    50% { background: var(--info-muted); }
-    100% { background: var(--bg-surface); }
+    0% {
+        background: var(--bg-surface);
+    }
+
+    50% {
+        background: var(--info-muted);
+    }
+
+    100% {
+        background: var(--bg-surface);
+    }
 }
 
 .aiGlow {
@@ -507,7 +563,9 @@
 }
 
 @keyframes spin {
-    to { transform: rotate(360deg); }
+    to {
+        transform: rotate(360deg);
+    }
 }
 
 
@@ -665,8 +723,13 @@
 }
 
 @keyframes previewScan {
-    0% { top: -25%; }
-    100% { top: 125%; }
+    0% {
+        top: -25%;
+    }
+
+    100% {
+        top: 125%;
+    }
 }
 
 .planPreviewFallback {
@@ -1049,9 +1112,20 @@
     text-align: center;
 }
 
-.tierbudgetary { background: var(--info); color: white; }
-.tiermid { background: var(--secondary-accent); color: white; }
-.tierhigh { background: #ec4899; color: white; }
+.tierbudgetary {
+    background: var(--info);
+    color: white;
+}
+
+.tiermid {
+    background: var(--secondary-accent);
+    color: white;
+}
+
+.tierhigh {
+    background: #ec4899;
+    color: white;
+}
 
 /* Compact Footer */
 .footer {
@@ -1200,11 +1274,13 @@
 }
 
 /* Scrollbar Styling */
-.tableContainer::-webkit-scrollbar-track {
+.tableContainer::-webkit-scrollbar-track,
+.tableScrollWrapper::-webkit-scrollbar-track {
     background: var(--bg-primary);
 }
 
-.tableContainer::-webkit-scrollbar-thumb {
+.tableContainer::-webkit-scrollbar-thumb,
+.tableScrollWrapper::-webkit-scrollbar-thumb {
     background: var(--bg-tertiary);
 }
 
@@ -1231,8 +1307,13 @@
 }
 
 @keyframes previewFade {
-    from { opacity: 0; }
-    to { opacity: 1; }
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
 }
 
 .previewContent {
@@ -1250,8 +1331,15 @@
 }
 
 @keyframes previewScale {
-    from { transform: scale(0.9) translateY(20px); opacity: 0; }
-    to { transform: scale(1) translateY(0); opacity: 1; }
+    from {
+        transform: scale(0.9) translateY(20px);
+        opacity: 0;
+    }
+
+    to {
+        transform: scale(1) translateY(0);
+        opacity: 1;
+    }
 }
 
 .previewContent {
@@ -1799,7 +1887,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    background: rgba(0,0,0,0.2);
+    background: rgba(0, 0, 0, 0.2);
     border-radius: 6px;
     color: var(--text-secondary);
     min-height: 100px;
@@ -1829,8 +1917,13 @@
     font-weight: 800;
 }
 
-.tierHeader.budgetary { color: #3b82f6; }
-.tierHeader.mid { color: #8b5cf6; }
+.tierHeader.budgetary {
+    color: #3b82f6;
+}
+
+.tierHeader.mid {
+    color: #8b5cf6;
+}
 
 .aiAutoFilling {
     background: linear-gradient(135deg, #1e1b4b 0%, #312e81 100%) !important;
@@ -1839,8 +1932,15 @@
 }
 
 @keyframes aiPulseBtn {
-    0%, 100% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.5); }
-    50% { box-shadow: 0 0 0 6px rgba(99, 102, 241, 0); }
+
+    0%,
+    100% {
+        box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.5);
+    }
+
+    50% {
+        box-shadow: 0 0 0 6px rgba(99, 102, 241, 0);
+    }
 }
 
 /* ===== AI BATCH NOTIFICATION BANNER ===== */
@@ -1864,8 +1964,15 @@
 }
 
 @keyframes slideInBanner {
-    from { opacity: 0; transform: translateY(-8px); }
-    to { opacity: 1; transform: translateY(0); }
+    from {
+        opacity: 0;
+        transform: translateY(-8px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 .batchErrorCount {
@@ -1943,9 +2050,17 @@
 }
 
 @keyframes pulseBorder {
-    0% { box-shadow: inset 0 0 0 1px rgba(59, 130, 246, 0.2); }
-    50% { box-shadow: inset 0 0 0 1px rgba(59, 130, 246, 0.8); }
-    100% { box-shadow: inset 0 0 0 1px rgba(59, 130, 246, 0.2); }
+    0% {
+        box-shadow: inset 0 0 0 1px rgba(59, 130, 246, 0.2);
+    }
+
+    50% {
+        box-shadow: inset 0 0 0 1px rgba(59, 130, 246, 0.8);
+    }
+
+    100% {
+        box-shadow: inset 0 0 0 1px rgba(59, 130, 246, 0.2);
+    }
 }
 
 .aiGlow {

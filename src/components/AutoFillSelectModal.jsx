@@ -7,7 +7,7 @@ import styles from '../styles/AutoFillSelectModal.module.css';
 export default function AutoFillSelectModal({ isOpen, onClose, allBrands, activeTier, onConfirm }) {
     const { aiSettings } = useCompanyProfile();
     
-    const [selectedBrands, setSelectedBrands] = useState([]);
+    const [selectedBrands, setSelectedBrands] = useState({});
 
     const tierMeta = {
         budgetary: { label: 'Budgetary', color: '#3b82f6' },
@@ -15,45 +15,34 @@ export default function AutoFillSelectModal({ isOpen, onClose, allBrands, active
         high:      { label: 'High-End',  color: '#ec4899' }
     };
 
-    // Group ALL furniture brands by tier (exclude specialized fitout brands)
+    // All furniture brands (exclude specialized fitout brands)
     const furnitureBrands = useMemo(() => {
         return allBrands.filter(b => !b.name.toLowerCase().includes('fitout'));
     }, [allBrands]);
 
-    const groupedBrands = useMemo(() => ({
-        budgetary: furnitureBrands.filter(b => (b.budgetTier || '').toLowerCase() === 'budgetary'),
-        mid:       furnitureBrands.filter(b => (b.budgetTier || 'mid').toLowerCase() === 'mid'),
-        high:      furnitureBrands.filter(b => ['high', 'premium'].includes((b.budgetTier || '').toLowerCase()))
-    }), [furnitureBrands]);
-
     useEffect(() => {
         if (isOpen) {
-            setSelectedBrands([]);
+            setSelectedBrands({});
         }
     }, [isOpen]);
 
     if (!isOpen) return null;
 
-    const toggleBrand = (brandName) => {
-        setSelectedBrands(prev =>
-            prev.includes(brandName)
-                ? prev.filter(b => b !== brandName)
-                : [...prev, brandName]
-        );
+    const clearAll = () => setSelectedBrands({});
+
+    const handleTierBrandSelect = (tierKey, brand) => {
+        setSelectedBrands(prev => ({ ...prev, [tierKey]: brand.name }));
     };
 
-    const selectTier = (tierKey) => {
-        const names = groupedBrands[tierKey].map(b => b.name);
-        setSelectedBrands(prev => [...new Set([...prev, ...names])]);
+    const handleTierBrandRemove = (tierKey) => {
+        setSelectedBrands(prev => {
+            const next = { ...prev };
+            delete next[tierKey];
+            return next;
+        });
     };
 
-    const deselectTier = (tierKey) => {
-        const names = groupedBrands[tierKey].map(b => b.name);
-        setSelectedBrands(prev => prev.filter(b => !names.includes(b)));
-    };
-
-    const selectAll  = () => setSelectedBrands(furnitureBrands.map(b => b.name));
-    const clearAll   = () => setSelectedBrands([]);
+    const selectedCount = Object.keys(selectedBrands).length;
 
     return (
         <div className={styles.overlay} onClick={onClose}>
@@ -71,44 +60,52 @@ export default function AutoFillSelectModal({ isOpen, onClose, allBrands, active
                         <div className={styles.brandSectionHeader}>
                             <span className={styles.sectionTitle}>
                                 Select Brands
-                                <span className={styles.countPill}>{selectedBrands.length} selected</span>
+                                <span className={styles.countPill}>{selectedCount} selected</span>
                             </span>
                             <div className={styles.quickActions}>
-                                <button className={styles.quickBtn} onClick={selectAll}>✓ All</button>
-                                <button className={`${styles.quickBtn} ${styles.quickBtnDanger}`} onClick={clearAll}>✕ Clear</button>
+                                <button className={`${styles.quickBtn} ${styles.quickBtnDanger}`} onClick={clearAll}>✕ Clear All</button>
                             </div>
                         </div>
 
+                        <p className={styles.helperText} style={{ margin: '0 0 1.5rem', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                            Choose one target brand for each budget tier to run the AI AutoFill.
+                        </p>
+
                         {/* Tier groups */}
                         {['budgetary', 'mid', 'high'].map(tierKey => {
-                            const brands = groupedBrands[tierKey];
-                            if (brands.length === 0) return null;
                             const meta = tierMeta[tierKey];
                             const isActive = tierKey === activeTier;
-                            const tierSelected = brands.filter(b => selectedBrands.includes(b.name)).length;
+                            
+                            // Find the currently selected brand for THIS tier slot
+                            const tierSelectedBrand = selectedBrands[tierKey] || "";
+
                             return (
                                 <div key={tierKey} className={`${styles.tierGroup} ${isActive ? styles.tierGroupActive : ''}`}
                                      style={isActive ? { borderColor: meta.color + '60' } : {}}>
                                     <div className={styles.tierHeader}>
                                         <div className={styles.tierLabel}>
                                             <span className={styles.tierDot} style={{ background: meta.color }} />
-                                            <span style={{ color: meta.color }}>{meta.label}</span>
+                                            <span style={{ color: meta.color, fontWeight: 600 }}>{meta.label}</span>
                                             {isActive && <span className={styles.activePill} style={{ background: meta.color + '30', color: meta.color }}>Active Tab</span>}
-                                            <span className={styles.countBadge}>{tierSelected}/{brands.length}</span>
                                         </div>
-                                        <div className={styles.tierActions}>
-                                            <button onClick={() => selectTier(tierKey)}>All</button>
-                                            <button onClick={() => deselectTier(tierKey)}>None</button>
-                                        </div>
+                                        {tierSelectedBrand && (
+                                            <button 
+                                                className={styles.tierClearBtn}
+                                                onClick={() => handleTierBrandRemove(tierKey)}
+                                                style={{ fontSize: '0.75rem', color: 'var(--text-muted)', background: 'none', border: 'none', cursor: 'pointer' }}
+                                            >
+                                                Clear
+                                            </button>
+                                        )}
                                     </div>
                                     <div style={{ padding: '0 1rem 1.2rem' }}>
                                         <BrandDropdown 
-                                            brands={brands}
-                                            selectedBrands={selectedBrands.filter(name => brands.some(b => b.name === name))}
-                                            multiple={true}
-                                            onSelect={(b) => setSelectedBrands(prev => [...new Set([...prev, b.name])])}
-                                            onRemove={(name) => setSelectedBrands(prev => prev.filter(b => b !== name))}
-                                            placeholder={`Add ${meta.label} brands...`}
+                                            brands={furnitureBrands}
+                                            selectedBrands={tierSelectedBrand}
+                                            multiple={false}
+                                            onSelect={(b) => handleTierBrandSelect(tierKey, b)}
+                                            onRemove={() => handleTierBrandRemove(tierKey)}
+                                            placeholder={`Select ${meta.label} brand...`}
                                         />
                                     </div>
                                 </div>
@@ -117,15 +114,16 @@ export default function AutoFillSelectModal({ isOpen, onClose, allBrands, active
                     </div>
                 </div>
 
+
                 {/* Footer */}
                 <div className={styles.footer}>
                     <button className={styles.btnCancel} onClick={onClose}>Cancel</button>
                     <button
                         className={styles.btnConfirm}
-                        disabled={selectedBrands.length === 0}
+                        disabled={selectedCount === 0}
                         onClick={() => onConfirm(selectedBrands, aiSettings?.engine || 'google', aiSettings?.model || DEFAULT_AI_SETTINGS.model)}
                     >
-                        Start AI Batch — {selectedBrands.length} Brand{selectedBrands.length !== 1 ? 's' : ''}
+                        Start AI Batch {selectedCount > 0 ? `(${selectedCount})` : ''}
                     </button>
                 </div>
             </div>
