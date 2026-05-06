@@ -1,2081 +1,2095 @@
 {
-  "id": 1777625909649,
+  "id": "1777625909649",
   "name": "Sedus Stoll",
-  "logo": "https://media.architonic.com/m-on/3100165/logo/sedus-stoll_logo_2a03183e.png",
-  "budgetTier": "mid",
-  "origin": "Cloud-Restore",
   "products": [
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Sedus Smart Cafe",
-      "family": "Sedus Stoll",
       "model": "se:café soft chair",
-      "description": "Chairs. <b>Fully upholstered chair range for a cosy atmosphere</b>\nRelaxation, variation and inspiration – the se:café soft chair range creates the perfect",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20799291/sedus-stoll_se-cafe-soft-chair_e5b70946.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:cafe-soft-chair-20799291/",
-      "price": 0
+      "description": "Chairs. <b>Fully upholstered chair range for a cosy atmosphere</b>\nRelaxation, variation and inspiration – the se:café soft chair range creates the perfect",
+      "subCategory": "Sedus Smart Cafe",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Sedus Smart Cafe",
-      "family": "Sedus Stoll",
       "model": "se:café soft stool",
-      "description": "Bar stools. The elegant <b>se:café soft stool</b> with its soft upholstered seat not only invites you to linger at a bar or a high dining table, but also proves to be",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20799301/sedus-stoll_se-cafe-soft-stool_2f518f72.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:cafe-soft-stool-20799301/",
-      "price": 0
+      "description": "Bar stools. The elegant <b>se:café soft stool</b> with its soft upholstered seat not only invites you to linger at a bar or a high dining table, but also proves to be",
+      "subCategory": "Sedus Smart Cafe",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Break Out Furniture",
-      "family": "Sedus Stoll",
       "model": "sweetspot",
-      "description": "Armchairs. Sedus sweetspot – lounge range for forging new links\n\nSocial networking and good communication are two of the most important aspects behind successful",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/1215599/sedus-stoll_sweetspot_7973a795.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-sweetspot-1215599/",
-      "price": 0
+      "description": "Armchairs. Sedus sweetspot – lounge range for forging new links\n\nSocial networking and good communication are two of the most important aspects behind successful",
+      "subCategory": "Break Out Furniture",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Executive Meeting Conference",
-      "family": "Sedus Stoll",
       "model": "se:mission",
-      "description": "Chairs. <b>Comfortable conference chair as the perfect host</b>\nPremium elegance for the highest demands –se:mission offers numerous design options, making it a",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20799249/sedus-stoll_se-mission_2f854f26.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:mission-20799249/",
-      "price": 0
+      "description": "Chairs. <b>Comfortable conference chair as the perfect host</b>\nPremium elegance for the highest demands –se:mission offers numerous design options, making it a",
+      "subCategory": "Executive Meeting Conference",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Sedus Smart Cafe",
-      "family": "Sedus Stoll",
       "model": "se:café soft chair",
-      "description": "Chairs. <b>Fully upholstered chair range for a cosy atmosphere</b>\nRelaxation, variation and inspiration – the se:café soft chair range creates the perfect",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20799288/sedus-stoll_se-cafe-soft-chair_54b881e8.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:cafe-soft-chair-20799288/",
-      "price": 0
+      "description": "Chairs. <b>Fully upholstered chair range for a cosy atmosphere</b>\nRelaxation, variation and inspiration – the se:café soft chair range creates the perfect",
+      "subCategory": "Sedus Smart Cafe",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Break Out Furniture",
-      "family": "Sedus Stoll",
       "model": "grand slam locker unit",
-      "description": "Cabinets. When the structure and purpose of the office change, the furnishings must also adapt. More and more employees regularly work from home and come to the",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20274174/sedus-stoll_grand-slam-locker-unit_2fb63d48.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-grand-slam-locker-unit-20274174/",
-      "price": 0
+      "description": "Cabinets. When the structure and purpose of the office change, the furnishings must also adapt. More and more employees regularly work from home and come to the",
+      "subCategory": "Break Out Furniture",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Break Out Furniture",
-      "family": "Sedus Stoll",
       "model": "se:lab monitor caddy",
-      "description": "Media stands. Easy information exchange in video conferences, workshops and agile meetings – made possible with the se:lab monitor caddy. With its comprehensive",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20274182/sedus-stoll_se-lab-monitor-caddy_10f72cd1.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:lab-monitor-caddy-20274182/",
-      "price": 0
+      "description": "Media stands. Easy information exchange in video conferences, workshops and agile meetings – made possible with the se:lab monitor caddy. With its comprehensive",
+      "subCategory": "Break Out Furniture",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Break Out Furniture",
-      "family": "Sedus Stoll",
       "model": "se:spot",
-      "description": "Chairs. Inspired by the human body:\nse:spot not only looks great, but also impresses with its cosy charm. What’s more, it feels as good as it looks! The pleasant",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/1574507/sedus-stoll_se-spot_199be28f.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:spot-1574507/",
-      "price": 0
+      "description": "Chairs. Inspired by the human body:\nse:spot not only looks great, but also impresses with its cosy charm. What’s more, it feels as good as it looks! The pleasant",
+      "subCategory": "Break Out Furniture",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Executive Meeting Conference",
-      "family": "Sedus Stoll",
       "model": "se:mission",
-      "description": "Chairs. <b>Comfortable conference chair as the perfect host</b>\nPremium elegance for the highest demands –se:mission offers numerous design options, making it a",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20799250/sedus-stoll_se-mission_864cbfa5.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:mission-20799250/",
-      "price": 0
+      "description": "Chairs. <b>Comfortable conference chair as the perfect host</b>\nPremium elegance for the highest demands –se:mission offers numerous design options, making it a",
+      "subCategory": "Executive Meeting Conference",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Executive Meeting Conference",
-      "family": "Sedus Stoll",
       "model": "se:vision desk",
-      "description": "Desks. <b>Premium desk with adjacent storage space</b> // Modern design with a focus on quality and style – se:vision desk and storage combine prestige and",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20799261/sedus-stoll_se-vision-desk_3f82d1ad.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:vision-desk-20799261/",
-      "price": 0
+      "description": "Desks. <b>Premium desk with adjacent storage space</b> // Modern design with a focus on quality and style – se:vision desk and storage combine prestige and",
+      "subCategory": "Executive Meeting Conference",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Executive Meeting Conference",
-      "family": "Sedus Stoll",
       "model": "se:vision desk",
-      "description": "Desks. <b>Premium desk with adjacent storage space</b> // Modern design with a focus on quality and style – se:vision desk and storage combine prestige and",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20799258/sedus-stoll_se-vision-desk_61ae65bb.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:vision-desk-20799258/",
-      "price": 0
+      "description": "Desks. <b>Premium desk with adjacent storage space</b> // Modern design with a focus on quality and style – se:vision desk and storage combine prestige and",
+      "subCategory": "Executive Meeting Conference",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Sofa For Cosy Offices",
-      "family": "Sedus Stoll",
       "model": "se:living sofa",
-      "description": "Sofas. The se:living sofa has the right configuration for every room and every requirement. Single sofa, corner or island configuration, the sofa is versatile.",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20310306/sedus-stoll_se-living-sofa_76444b84.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:living-sofa-20310306/",
-      "price": 0
+      "description": "Sofas. The se:living sofa has the right configuration for every room and every requirement. Single sofa, corner or island configuration, the sofa is versatile.",
+      "subCategory": "Sofa For Cosy Offices",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Office Seating",
-      "family": "Sedus Stoll",
       "model": "se:air",
-      "description": "Office chairs. Elegant and filigree \nThe more hybrid, agile and individual the work becomes, the more dynamic and uncomplicated the office swivel chair needs to be – no",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20284585/sedus-stoll_se-air_df11e201.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:air-20284585/",
-      "price": 0
+      "description": "Office chairs. Elegant and filigree \nThe more hybrid, agile and individual the work becomes, the more dynamic and uncomplicated the office swivel chair needs to be – no",
+      "subCategory": "Office Seating",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Office Seating",
-      "family": "Sedus Stoll",
       "model": "se:air",
-      "description": "Office chairs. Elegant and filigree \nThe more hybrid, agile and individual the work becomes, the more dynamic and uncomplicated the office swivel chair needs to be – no",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20284586/sedus-stoll_se-air_be5090db.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:air-20284586/",
-      "price": 0
+      "description": "Office chairs. Elegant and filigree \nThe more hybrid, agile and individual the work becomes, the more dynamic and uncomplicated the office swivel chair needs to be – no",
+      "subCategory": "Office Seating",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Executive Meeting Conference",
-      "family": "Sedus Stoll",
       "model": "se:vision desk",
-      "description": "Desks. <b>Premium desk with adjacent storage space</b> // Modern design with a focus on quality and style – se:vision desk and storage combine prestige and",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20799259/sedus-stoll_se-vision-desk_cf5fed56.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:vision-desk-20799259/",
-      "price": 0
+      "description": "Desks. <b>Premium desk with adjacent storage space</b> // Modern design with a focus on quality and style – se:vision desk and storage combine prestige and",
+      "subCategory": "Executive Meeting Conference",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Executive Meeting Conference",
-      "family": "Sedus Stoll",
       "model": "se:vision desk",
-      "description": "Desks. <b>Premium desk with adjacent storage space</b> // Modern design with a focus on quality and style – se:vision desk and storage combine prestige and",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20799260/sedus-stoll_se-vision-desk_4b74193e.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:vision-desk-20799260/",
-      "price": 0
+      "description": "Desks. <b>Premium desk with adjacent storage space</b> // Modern design with a focus on quality and style – se:vision desk and storage combine prestige and",
+      "subCategory": "Executive Meeting Conference",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Executive Meeting Conference",
-      "family": "Sedus Stoll",
       "model": "se:mission",
-      "description": "Chairs. <b>Comfortable conference chair as the perfect host</b>\nPremium elegance for the highest demands –se:mission offers numerous design options, making it a",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20799257/sedus-stoll_se-mission_d4d69e02.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:mission-20799257/",
-      "price": 0
+      "description": "Chairs. <b>Comfortable conference chair as the perfect host</b>\nPremium elegance for the highest demands –se:mission offers numerous design options, making it a",
+      "subCategory": "Executive Meeting Conference",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Executive Meeting Conference",
-      "family": "Sedus Stoll",
       "model": "se:vision desk & storage",
-      "description": "Desks. se:vision desk & se:vision storage combine both representativeness and individuality. With a harmonious appearance that perfectly integrates the table and",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20799263/sedus-stoll_se-vision-desk---storage_06ab52c7.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:vision-desk-and-storage-20799263/",
-      "price": 0
+      "description": "Desks. se:vision desk & se:vision storage combine both representativeness and individuality. With a harmonious appearance that perfectly integrates the table and",
+      "subCategory": "Executive Meeting Conference",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Office Seating",
-      "family": "Sedus Stoll",
       "model": "black dot air",
-      "description": "Office chairs. A classic design that keeps up with the times.\nThe new black dot air.\n\nThanks to its unmistakable look and impressive comfort, the black dot product",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20088118/sedus-stoll_black-dot-air_d69097f7.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-black-dot-air-20088118/",
-      "price": 0
+      "description": "Office chairs. A classic design that keeps up with the times.\nThe new black dot air.\n\nThanks to its unmistakable look and impressive comfort, the black dot product",
+      "subCategory": "Office Seating",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Room In Room Screens And Acoustic",
-      "family": "Sedus Stoll",
       "model": "se:cube max",
-      "description": "Office Pods. Closed and flexible room-in-room modules.\nOpen-space areas and large offices are great when it comes to making the most of the available space. But what",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20274180/sedus-stoll_se-cube-max_ac335a6b.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:cube-max-20274180/",
-      "price": 0
+      "description": "Office Pods. Closed and flexible room-in-room modules.\nOpen-space areas and large offices are great when it comes to making the most of the available space. But what",
+      "subCategory": "Room In Room Screens And Acoustic",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Office Seating",
-      "family": "Sedus Stoll",
       "model": "black dot air",
-      "description": "Office chairs. A classic design that keeps up with the times.\nThe new black dot air.\n\nThanks to its unmistakable look and impressive comfort, the black dot product",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20088120/sedus-stoll_black-dot-air_29c5f7b4.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-black-dot-air-20088120/",
-      "price": 0
+      "description": "Office chairs. A classic design that keeps up with the times.\nThe new black dot air.\n\nThanks to its unmistakable look and impressive comfort, the black dot product",
+      "subCategory": "Office Seating",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Executive Meeting Conference",
-      "family": "Sedus Stoll",
       "model": "se:vision desk & storage",
-      "description": "Desks. se:vision desk & se:vision storage combine both representativeness and individuality. With a harmonious appearance that perfectly integrates the table and",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20799264/sedus-stoll_se-vision-desk---storage_6996b8dc.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:vision-desk-and-storage-20799264/",
-      "price": 0
+      "description": "Desks. se:vision desk & se:vision storage combine both representativeness and individuality. With a harmonious appearance that perfectly integrates the table and",
+      "subCategory": "Executive Meeting Conference",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Executive Meeting Conference",
-      "family": "Sedus Stoll",
       "model": "se:vision storage",
-      "description": "Cabinets. The se:vision storage element complements the workstation with its purist design and high-quality materials. It can be configured either as a",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20799266/sedus-stoll_se-vision-storage_edd1642e.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:vision-storage-20799266/",
-      "price": 0
+      "description": "Cabinets. The se:vision storage element complements the workstation with its purist design and high-quality materials. It can be configured either as a",
+      "subCategory": "Executive Meeting Conference",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Executive Meeting Conference",
-      "family": "Sedus Stoll",
       "model": "se:mission",
-      "description": "Chairs. <b>Comfortable conference chair as the perfect host</b>\nPremium elegance for the highest demands –se:mission offers numerous design options, making it a",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20799252/sedus-stoll_se-mission_b868f520.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:mission-20799252/",
-      "price": 0
+      "description": "Chairs. <b>Comfortable conference chair as the perfect host</b>\nPremium elegance for the highest demands –se:mission offers numerous design options, making it a",
+      "subCategory": "Executive Meeting Conference",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Executive Meeting Conference",
-      "family": "Sedus Stoll",
       "model": "se:mission",
-      "description": "Chairs. <b>Comfortable conference chair as the perfect host</b>\nPremium elegance for the highest demands –se:mission offers numerous design options, making it a",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20799255/sedus-stoll_se-mission_083d6202.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:mission-20799255/",
-      "price": 0
+      "description": "Chairs. <b>Comfortable conference chair as the perfect host</b>\nPremium elegance for the highest demands –se:mission offers numerous design options, making it a",
+      "subCategory": "Executive Meeting Conference",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Office Seating",
-      "family": "Sedus Stoll",
       "model": "on spot cosy",
-      "description": "Chairs. on spot cosy - Swivel chair \nThe compact “on spot cosy” club chair brings a feeling of cosiness into every office and meeting room. It creates a",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20140432/sedus-stoll_on-spot-cosy_77f00a03.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-on-spot-cosy-20140432/",
-      "price": 0
+      "description": "Chairs. on spot cosy - Swivel chair \nThe compact “on spot cosy” club chair brings a feeling of cosiness into every office and meeting room. It creates a",
+      "subCategory": "Office Seating",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Executive Meeting Conference",
-      "family": "Sedus Stoll",
       "model": "se:mission",
-      "description": "Chairs. <b>Comfortable conference chair as the perfect host</b>\nPremium elegance for the highest demands –se:mission offers numerous design options, making it a",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20799254/sedus-stoll_se-mission_c309c027.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:mission-20799254/",
-      "price": 0
+      "description": "Chairs. <b>Comfortable conference chair as the perfect host</b>\nPremium elegance for the highest demands –se:mission offers numerous design options, making it a",
+      "subCategory": "Executive Meeting Conference",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Executive Meeting Conference",
-      "family": "Sedus Stoll",
       "model": "se:mission",
-      "description": "Chairs. <b>Comfortable conference chair as the perfect host</b>\nPremium elegance for the highest demands –se:mission offers numerous design options, making it a",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20799251/sedus-stoll_se-mission_95f9c084.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:mission-20799251/",
-      "price": 0
+      "description": "Chairs. <b>Comfortable conference chair as the perfect host</b>\nPremium elegance for the highest demands –se:mission offers numerous design options, making it a",
+      "subCategory": "Executive Meeting Conference",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Executive Meeting Conference",
-      "family": "Sedus Stoll",
       "model": "se:mission",
-      "description": "Chairs. <b>Comfortable conference chair as the perfect host</b>\nPremium elegance for the highest demands –se:mission offers numerous design options, making it a",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20799253/sedus-stoll_se-mission_32212831.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:mission-20799253/",
-      "price": 0
+      "description": "Chairs. <b>Comfortable conference chair as the perfect host</b>\nPremium elegance for the highest demands –se:mission offers numerous design options, making it a",
+      "subCategory": "Executive Meeting Conference",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Executive Meeting Conference",
-      "family": "Sedus Stoll",
       "model": "se:mission",
-      "description": "Chairs. <b>Comfortable conference chair as the perfect host</b>\nPremium elegance for the highest demands –se:mission offers numerous design options, making it a",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20799256/sedus-stoll_se-mission_98dfc463.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:mission-20799256/",
-      "price": 0
+      "description": "Chairs. <b>Comfortable conference chair as the perfect host</b>\nPremium elegance for the highest demands –se:mission offers numerous design options, making it a",
+      "subCategory": "Executive Meeting Conference",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Executive Meeting Conference",
-      "family": "Sedus Stoll",
       "model": "se:vision storage",
-      "description": "Cabinets. The se:vision storage element complements the workstation with its purist design and high-quality materials. It can be configured either as a",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20799270/sedus-stoll_se-vision-storage_7b176528.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:vision-storage-20799270/",
-      "price": 0
+      "description": "Cabinets. The se:vision storage element complements the workstation with its purist design and high-quality materials. It can be configured either as a",
+      "subCategory": "Executive Meeting Conference",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Room In Room Screens And Acoustic",
-      "family": "Sedus Stoll",
       "model": "se:cube max",
-      "description": "Office Pods. Closed and flexible room-in-room modules.\nOpen-space areas and large offices are great when it comes to making the most of the available space. But what",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20274179/sedus-stoll_se-cube-max_0c4b4db6.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:cube-max-20274179/",
-      "price": 0
+      "description": "Office Pods. Closed and flexible room-in-room modules.\nOpen-space areas and large offices are great when it comes to making the most of the available space. But what",
+      "subCategory": "Room In Room Screens And Acoustic",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Executive Meeting Conference",
-      "family": "Sedus Stoll",
       "model": "se:vision desk & storage",
-      "description": "Desks. se:vision desk & se:vision storage combine both representativeness and individuality. With a harmonious appearance that perfectly integrates the table and",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20799262/sedus-stoll_se-vision-desk---storage_f4a14c7e.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:vision-desk-and-storage-20799262/",
-      "price": 0
+      "description": "Desks. se:vision desk & se:vision storage combine both representativeness and individuality. With a harmonious appearance that perfectly integrates the table and",
+      "subCategory": "Executive Meeting Conference",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Executive Meeting Conference",
-      "family": "Sedus Stoll",
       "model": "se:vision storage",
-      "description": "Cabinets. The se:vision storage element complements the workstation with its purist design and high-quality materials. It can be configured either as a",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20799269/sedus-stoll_se-vision-storage_0d00d501.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:vision-storage-20799269/",
-      "price": 0
+      "description": "Cabinets. The se:vision storage element complements the workstation with its purist design and high-quality materials. It can be configured either as a",
+      "subCategory": "Executive Meeting Conference",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Executive Meeting Conference",
-      "family": "Sedus Stoll",
       "model": "se:vision storage",
-      "description": "Cabinets. The se:vision storage element complements the workstation with its purist design and high-quality materials. It can be configured either as a",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20799268/sedus-stoll_se-vision-storage_8cfc0a8d.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:vision-storage-20799268/",
-      "price": 0
+      "description": "Cabinets. The se:vision storage element complements the workstation with its purist design and high-quality materials. It can be configured either as a",
+      "subCategory": "Executive Meeting Conference",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Executive Meeting Conference",
-      "family": "Sedus Stoll",
       "model": "se:vision storage",
-      "description": "Cabinets. The se:vision storage element complements the workstation with its purist design and high-quality materials. It can be configured either as a",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20799265/sedus-stoll_se-vision-storage_f32f4961.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:vision-storage-20799265/",
-      "price": 0
+      "description": "Cabinets. The se:vision storage element complements the workstation with its purist design and high-quality materials. It can be configured either as a",
+      "subCategory": "Executive Meeting Conference",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Executive Meeting Conference",
-      "family": "Sedus Stoll",
       "model": "se:vision storage",
-      "description": "Cabinets. The se:vision storage element complements the workstation with its purist design and high-quality materials. It can be configured either as a",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20799267/sedus-stoll_se-vision-storage_3cfde1a0.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:vision-storage-20799267/",
-      "price": 0
+      "description": "Cabinets. The se:vision storage element complements the workstation with its purist design and high-quality materials. It can be configured either as a",
+      "subCategory": "Executive Meeting Conference",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Sedus Smart Cafe",
-      "family": "Sedus Stoll",
       "model": "se:hive",
-      "description": "Work booth. <b>Retreat for temporary work</b>\nOpen and yet secluded – se:hive enables temporary retreat with a change of perspective. As a retreat for concentrated",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20799237/sedus-stoll_se-hive_cb7eb7bc.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:hive-20799237/",
-      "price": 0
+      "description": "Work booth. <b>Retreat for temporary work</b>\nOpen and yet secluded – se:hive enables temporary retreat with a change of perspective. As a retreat for concentrated",
+      "subCategory": "Sedus Smart Cafe",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Room In Room Screens And Acoustic",
-      "family": "Sedus Stoll",
       "model": "easy screen silent",
-      "description": "Desks. easy screen silent is a combination of privacy and sound insulation for desks. Whether on the desk, behind the desk or for double workstations, easy",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20274173/sedus-stoll_easy-screen-silent_a2d549a4.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-easy-screen-silent-20274173/",
-      "price": 0
+      "description": "Desks. easy screen silent is a combination of privacy and sound insulation for desks. Whether on the desk, behind the desk or for double workstations, easy",
+      "subCategory": "Room In Room Screens And Acoustic",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Sedus Smart Cafe",
-      "family": "Sedus Stoll",
       "model": "se:hive",
-      "description": "Work booth. <b>Retreat for temporary work</b>\nOpen and yet secluded – se:hive enables temporary retreat with a change of perspective. As a retreat for concentrated",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20799238/sedus-stoll_se-hive_7e4ab800.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:hive-20799238/",
-      "price": 0
+      "description": "Work booth. <b>Retreat for temporary work</b>\nOpen and yet secluded – se:hive enables temporary retreat with a change of perspective. As a retreat for concentrated",
+      "subCategory": "Sedus Smart Cafe",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Sedus Smart Cafe",
-      "family": "Sedus Stoll",
       "model": "se:hive",
-      "description": "Work booth. <b>Retreat for temporary work</b>\nOpen and yet secluded – se:hive enables temporary retreat with a change of perspective. As a retreat for concentrated",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20799247/sedus-stoll_se-hive_bacb4164.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:hive-20799247/",
-      "price": 0
+      "description": "Work booth. <b>Retreat for temporary work</b>\nOpen and yet secluded – se:hive enables temporary retreat with a change of perspective. As a retreat for concentrated",
+      "subCategory": "Sedus Smart Cafe",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Sedus Smart Cafe",
-      "family": "Sedus Stoll",
       "model": "se:hive",
-      "description": "Work booth. <b>Retreat for temporary work</b>\nOpen and yet secluded – se:hive enables temporary retreat with a change of perspective. As a retreat for concentrated",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20799248/sedus-stoll_se-hive_8d993938.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:hive-20799248/",
-      "price": 0
+      "description": "Work booth. <b>Retreat for temporary work</b>\nOpen and yet secluded – se:hive enables temporary retreat with a change of perspective. As a retreat for concentrated",
+      "subCategory": "Sedus Smart Cafe",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Sedus Smart Cafe",
-      "family": "Sedus Stoll",
       "model": "se:hive",
-      "description": "Work booth. <b>Retreat for temporary work</b>\nOpen and yet secluded – se:hive enables temporary retreat with a change of perspective. As a retreat for concentrated",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20799241/sedus-stoll_se-hive_5aea675e.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:hive-20799241/",
-      "price": 0
+      "description": "Work booth. <b>Retreat for temporary work</b>\nOpen and yet secluded – se:hive enables temporary retreat with a change of perspective. As a retreat for concentrated",
+      "subCategory": "Sedus Smart Cafe",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Sedus Smart Cafe",
-      "family": "Sedus Stoll",
       "model": "se:hive",
-      "description": "Work booth. <b>Retreat for temporary work</b>\nOpen and yet secluded – se:hive enables temporary retreat with a change of perspective. As a retreat for concentrated",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20799239/sedus-stoll_se-hive_db68e2f6.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:hive-20799239/",
-      "price": 0
+      "description": "Work booth. <b>Retreat for temporary work</b>\nOpen and yet secluded – se:hive enables temporary retreat with a change of perspective. As a retreat for concentrated",
+      "subCategory": "Sedus Smart Cafe",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Sedus Smart Cafe",
-      "family": "Sedus Stoll",
       "model": "se:hive",
-      "description": "Work booth. <b>Retreat for temporary work</b>\nOpen and yet secluded – se:hive enables temporary retreat with a change of perspective. As a retreat for concentrated",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20799240/sedus-stoll_se-hive_94a99117.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:hive-20799240/",
-      "price": 0
+      "description": "Work booth. <b>Retreat for temporary work</b>\nOpen and yet secluded – se:hive enables temporary retreat with a change of perspective. As a retreat for concentrated",
+      "subCategory": "Sedus Smart Cafe",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Sedus Smart Cafe",
-      "family": "Sedus Stoll",
       "model": "se:hive",
-      "description": "Work booth. <b>Retreat for temporary work</b>\nOpen and yet secluded – se:hive enables temporary retreat with a change of perspective. As a retreat for concentrated",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20799245/sedus-stoll_se-hive_294bcb6e.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:hive-20799245/",
-      "price": 0
+      "description": "Work booth. <b>Retreat for temporary work</b>\nOpen and yet secluded – se:hive enables temporary retreat with a change of perspective. As a retreat for concentrated",
+      "subCategory": "Sedus Smart Cafe",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Sedus Smart Cafe",
-      "family": "Sedus Stoll",
       "model": "se:hive",
-      "description": "Work booth. <b>Retreat for temporary work</b>\nOpen and yet secluded – se:hive enables temporary retreat with a change of perspective. As a retreat for concentrated",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20799242/sedus-stoll_se-hive_c50c4ce5.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:hive-20799242/",
-      "price": 0
+      "description": "Work booth. <b>Retreat for temporary work</b>\nOpen and yet secluded – se:hive enables temporary retreat with a change of perspective. As a retreat for concentrated",
+      "subCategory": "Sedus Smart Cafe",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Sedus Smart Cafe",
-      "family": "Sedus Stoll",
       "model": "se:hive",
-      "description": "Work booth. <b>Retreat for temporary work</b>\nOpen and yet secluded – se:hive enables temporary retreat with a change of perspective. As a retreat for concentrated",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20799246/sedus-stoll_se-hive_295e4038.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:hive-20799246/",
-      "price": 0
+      "description": "Work booth. <b>Retreat for temporary work</b>\nOpen and yet secluded – se:hive enables temporary retreat with a change of perspective. As a retreat for concentrated",
+      "subCategory": "Sedus Smart Cafe",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Sedus Smart Cafe",
-      "family": "Sedus Stoll",
       "model": "se:hive",
-      "description": "Work booth. <b>Retreat for temporary work</b>\nOpen and yet secluded – se:hive enables temporary retreat with a change of perspective. As a retreat for concentrated",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20799243/sedus-stoll_se-hive_51fa5bb4.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:hive-20799243/",
-      "price": 0
+      "description": "Work booth. <b>Retreat for temporary work</b>\nOpen and yet secluded – se:hive enables temporary retreat with a change of perspective. As a retreat for concentrated",
+      "subCategory": "Sedus Smart Cafe",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Sedus Smart Cafe",
-      "family": "Sedus Stoll",
       "model": "se:hive",
-      "description": "Work booth. <b>Retreat for temporary work</b>\nOpen and yet secluded – se:hive enables temporary retreat with a change of perspective. As a retreat for concentrated",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20799244/sedus-stoll_se-hive_aee8b732.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:hive-20799244/",
-      "price": 0
+      "description": "Work booth. <b>Retreat for temporary work</b>\nOpen and yet secluded – se:hive enables temporary retreat with a change of perspective. As a retreat for concentrated",
+      "subCategory": "Sedus Smart Cafe",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Sedus Smart Cafe",
-      "family": "Sedus Stoll",
       "model": "se:café high bench",
-      "description": "Bar stools. <b>Fully upholstered bench with backrest and foot rail</b>\nse:café high bench takes comfort and functionality to a new level. Equipped with a backrest and",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20799280/sedus-stoll_se-cafe-high-bench_546751db.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:cafe-high-bench-20799280/",
-      "price": 0
+      "description": "Bar stools. <b>Fully upholstered bench with backrest and foot rail</b>\nse:café high bench takes comfort and functionality to a new level. Equipped with a backrest and",
+      "subCategory": "Sedus Smart Cafe",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Sedus Smart Cafe",
-      "family": "Sedus Stoll",
       "model": "se:café high bench",
-      "description": "Bar stools. <b>Fully upholstered bench with backrest and foot rail</b>\nse:café high bench takes comfort and functionality to a new level. Equipped with a backrest and",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20799278/sedus-stoll_se-cafe-high-bench_ff27a038.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:cafe-high-bench-20799278/",
-      "price": 0
+      "description": "Bar stools. <b>Fully upholstered bench with backrest and foot rail</b>\nse:café high bench takes comfort and functionality to a new level. Equipped with a backrest and",
+      "subCategory": "Sedus Smart Cafe",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Sedus Smart Cafe",
-      "family": "Sedus Stoll",
       "model": "se:café high bench",
-      "description": "Bar stools. <b>Fully upholstered bench with backrest and foot rail</b>\nse:café high bench takes comfort and functionality to a new level. Equipped with a backrest and",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20799277/sedus-stoll_se-cafe-high-bench_4a2238a5.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:cafe-high-bench-20799277/",
-      "price": 0
+      "description": "Bar stools. <b>Fully upholstered bench with backrest and foot rail</b>\nse:café high bench takes comfort and functionality to a new level. Equipped with a backrest and",
+      "subCategory": "Sedus Smart Cafe",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Sedus Smart Cafe",
-      "family": "Sedus Stoll",
       "model": "se:café high bench",
-      "description": "Bar stools. <b>Fully upholstered bench with backrest and foot rail</b>\nse:café high bench takes comfort and functionality to a new level. Equipped with a backrest and",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20799279/sedus-stoll_se-cafe-high-bench_53d0e659.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:cafe-high-bench-20799279/",
-      "price": 0
+      "description": "Bar stools. <b>Fully upholstered bench with backrest and foot rail</b>\nse:café high bench takes comfort and functionality to a new level. Equipped with a backrest and",
+      "subCategory": "Sedus Smart Cafe",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Room In Room Screens And Acoustic",
-      "family": "Sedus Stoll",
       "model": "easy screen silent",
-      "description": "Desks. easy screen silent is a combination of privacy and sound insulation for desks. Whether on the desk, behind the desk or for double workstations, easy",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20274172/sedus-stoll_easy-screen-silent_e7fbefd7.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-easy-screen-silent-20274172/",
-      "price": 0
+      "description": "Desks. easy screen silent is a combination of privacy and sound insulation for desks. Whether on the desk, behind the desk or for double workstations, easy",
+      "subCategory": "Room In Room Screens And Acoustic",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Sedus Smart Cafe",
-      "family": "Sedus Stoll",
       "model": "se:café high bench",
-      "description": "Bar stools. <b>Fully upholstered bench with backrest and foot rail</b>\nse:café high bench takes comfort and functionality to a new level. Equipped with a backrest and",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20799282/sedus-stoll_se-cafe-high-bench_f7199c2f.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:cafe-high-bench-20799282/",
-      "price": 0
+      "description": "Bar stools. <b>Fully upholstered bench with backrest and foot rail</b>\nse:café high bench takes comfort and functionality to a new level. Equipped with a backrest and",
+      "subCategory": "Sedus Smart Cafe",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Sedus Smart Cafe",
-      "family": "Sedus Stoll",
       "model": "se:café bar (wall module and room divider)",
-      "description": "Modular kitchens. se:café bar brings the essence of a café into the office and creates a central location for good coffee, hospitality and spontaneous conversations. It is",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20799272/sedus-stoll_se-cafe-bar--wall-module-and-room-divider_c3c16112.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:cafe-bar-(wall-module-and-room-divider)-20799272/",
-      "price": 0
+      "description": "Modular kitchens. se:café bar brings the essence of a café into the office and creates a central location for good coffee, hospitality and spontaneous conversations. It is",
+      "subCategory": "Sedus Smart Cafe",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Sedus Smart Cafe",
-      "family": "Sedus Stoll",
       "model": "se:café bar island",
-      "description": "Standing tables. The se:café bar island modules are free-standing supply units that can be flexibly integrated into the room and thus form the centre-piece for informal",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20799274/sedus-stoll_se-cafe-bar-island_e4d96601.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:cafe-bar-island-20799274/",
-      "price": 0
+      "description": "Standing tables. The se:café bar island modules are free-standing supply units that can be flexibly integrated into the room and thus form the centre-piece for informal",
+      "subCategory": "Sedus Smart Cafe",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Sedus Smart Cafe",
-      "family": "Sedus Stoll",
       "model": "se:café high bench",
-      "description": "Bar stools. <b>Fully upholstered bench with backrest and foot rail</b>\nse:café high bench takes comfort and functionality to a new level. Equipped with a backrest and",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20799281/sedus-stoll_se-cafe-high-bench_fd0d37b6.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:cafe-high-bench-20799281/",
-      "price": 0
+      "description": "Bar stools. <b>Fully upholstered bench with backrest and foot rail</b>\nse:café high bench takes comfort and functionality to a new level. Equipped with a backrest and",
+      "subCategory": "Sedus Smart Cafe",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Room In Room Screens And Acoustic",
-      "family": "Sedus Stoll",
       "model": "se:cube",
-      "description": "Telephone booths. Looking towards the future while setting new standards.\nIt’s a space that inspires, allows users to work independently and adapts to an extremely wide",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20088150/sedus-stoll_se-cube_d2ff9f45.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:cube-20088150/",
-      "price": 0
+      "description": "Telephone booths. Looking towards the future while setting new standards.\nIt’s a space that inspires, allows users to work independently and adapts to an extremely wide",
+      "subCategory": "Room In Room Screens And Acoustic",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Sedus Smart Cafe",
-      "family": "Sedus Stoll",
       "model": "se:café bar (wall module and room divider)",
-      "description": "Modular kitchens. se:café bar wall module and room divider: The se:café bar wall module is not only a supply point, but also a versatile design element. Positioned as a",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20799273/sedus-stoll_se-cafe-bar--wall-module-and-room-divider_4cc1c8d8.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:cafe-bar-(wall-module-and-room-divider)-20799273/",
-      "price": 0
+      "description": "Modular kitchens. se:café bar wall module and room divider: The se:café bar wall module is not only a supply point, but also a versatile design element. Positioned as a",
+      "subCategory": "Sedus Smart Cafe",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Sedus Smart Cafe",
-      "family": "Sedus Stoll",
       "model": "se:cafe bench",
-      "description": "Benches. <b>Fully upholstered benches for cosiness and comfort</b>\nA perfect spot for communication or temporary retreat – the se:café bench skilfully combines",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20799275/sedus-stoll_se-cafe-bench_2b41acb3.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:cafe-bench-20799275/",
-      "price": 0
+      "description": "Benches. <b>Fully upholstered benches for cosiness and comfort</b>\nA perfect spot for communication or temporary retreat – the se:café bench skilfully combines",
+      "subCategory": "Sedus Smart Cafe",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Sedus Smart Cafe",
-      "family": "Sedus Stoll",
       "model": "se:café soft stool",
-      "description": "Counter stools. The elegant <b>se:café soft stool</b> with its soft upholstered seat not only invites you to linger at a bar or a high dining table, but also proves to be",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20799304/sedus-stoll_se-cafe-soft-stool_d01801be.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:cafe-soft-stool-20799304/",
-      "price": 0
+      "description": "Counter stools. The elegant <b>se:café soft stool</b> with its soft upholstered seat not only invites you to linger at a bar or a high dining table, but also proves to be",
+      "subCategory": "Sedus Smart Cafe",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Sedus Smart Cafe",
-      "family": "Sedus Stoll",
       "model": "se:café soft lounge chair",
-      "description": "Armchairs. <b>Fully upholstered chair range in homely design</b>\nThe fully upholstered se:café soft lounge chair offers maximum comfort. Its robust design and",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20799299/sedus-stoll_se-cafe-soft-lounge-chair_24cab3c0.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:cafe-soft-lounge-chair-20799299/",
-      "price": 0
+      "description": "Armchairs. <b>Fully upholstered chair range in homely design</b>\nThe fully upholstered se:café soft lounge chair offers maximum comfort. Its robust design and",
+      "subCategory": "Sedus Smart Cafe",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Sedus Smart Cafe",
-      "family": "Sedus Stoll",
       "model": "se:cafe bench",
-      "description": "Benches. <b>Fully upholstered benches for cosiness and comfort</b>\nA perfect spot for communication or temporary retreat – the se:café bench skilfully combines",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20799276/sedus-stoll_se-cafe-bench_8809c852.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:cafe-bench-20799276/",
-      "price": 0
+      "description": "Benches. <b>Fully upholstered benches for cosiness and comfort</b>\nA perfect spot for communication or temporary retreat – the se:café bench skilfully combines",
+      "subCategory": "Sedus Smart Cafe",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Sedus Smart Cafe",
-      "family": "Sedus Stoll",
       "model": "se:café soft chair",
-      "description": "Chairs. <b>Fully upholstered chair range for a cosy atmosphere</b>\nRelaxation, variation and inspiration – the se:café soft chair range creates the perfect",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20799295/sedus-stoll_se-cafe-soft-chair_95a4f682.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:cafe-soft-chair-20799295/",
-      "price": 0
+      "description": "Chairs. <b>Fully upholstered chair range for a cosy atmosphere</b>\nRelaxation, variation and inspiration – the se:café soft chair range creates the perfect",
+      "subCategory": "Sedus Smart Cafe",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Sedus Smart Cafe",
-      "family": "Sedus Stoll",
       "model": "se:café soft chair",
-      "description": "Chairs. <b>Fully upholstered chair range for a cosy atmosphere</b>\nRelaxation, variation and inspiration – the se:café soft chair range creates the perfect",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20799294/sedus-stoll_se-cafe-soft-chair_ab06d044.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:cafe-soft-chair-20799294/",
-      "price": 0
+      "description": "Chairs. <b>Fully upholstered chair range for a cosy atmosphere</b>\nRelaxation, variation and inspiration – the se:café soft chair range creates the perfect",
+      "subCategory": "Sedus Smart Cafe",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Sedus Smart Cafe",
-      "family": "Sedus Stoll",
       "model": "se:café soft chair",
-      "description": "Chairs. <b>Fully upholstered chair range for a cosy atmosphere</b>\nRelaxation, variation and inspiration – the se:café soft chair range creates the perfect",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20799293/sedus-stoll_se-cafe-soft-chair_c073b776.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:cafe-soft-chair-20799293/",
-      "price": 0
+      "description": "Chairs. <b>Fully upholstered chair range for a cosy atmosphere</b>\nRelaxation, variation and inspiration – the se:café soft chair range creates the perfect",
+      "subCategory": "Sedus Smart Cafe",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Sedus Smart Cafe",
-      "family": "Sedus Stoll",
       "model": "se:café soft chair",
-      "description": "Chairs. <b>Fully upholstered chair range for a cosy atmosphere</b>\nRelaxation, variation and inspiration – the se:café soft chair range creates the perfect",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20799297/sedus-stoll_se-cafe-soft-chair_c75fff9b.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:cafe-soft-chair-20799297/",
-      "price": 0
+      "description": "Chairs. <b>Fully upholstered chair range for a cosy atmosphere</b>\nRelaxation, variation and inspiration – the se:café soft chair range creates the perfect",
+      "subCategory": "Sedus Smart Cafe",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Sedus Smart Cafe",
-      "family": "Sedus Stoll",
       "model": "se:café soft chair",
-      "description": "Chairs. <b>Fully upholstered chair range for a cosy atmosphere</b>\nRelaxation, variation and inspiration – the se:café soft chair range creates the perfect",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20799296/sedus-stoll_se-cafe-soft-chair_78dcf982.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:cafe-soft-chair-20799296/",
-      "price": 0
+      "description": "Chairs. <b>Fully upholstered chair range for a cosy atmosphere</b>\nRelaxation, variation and inspiration – the se:café soft chair range creates the perfect",
+      "subCategory": "Sedus Smart Cafe",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Sedus Smart Cafe",
-      "family": "Sedus Stoll",
       "model": "se:café soft lounge chair",
-      "description": "Armchairs. <b>Fully upholstered chair range in homely design</b>\nThe fully upholstered se:café soft lounge chair offers maximum comfort. Its robust design and",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20799298/sedus-stoll_se-cafe-soft-lounge-chair_f4350702.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:cafe-soft-lounge-chair-20799298/",
-      "price": 0
+      "description": "Armchairs. <b>Fully upholstered chair range in homely design</b>\nThe fully upholstered se:café soft lounge chair offers maximum comfort. Its robust design and",
+      "subCategory": "Sedus Smart Cafe",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Sedus Smart Cafe",
-      "family": "Sedus Stoll",
       "model": "se:café soft stool",
-      "description": "Bar stools. The elegant <b>se:café soft stool</b> with its soft upholstered seat not only invites you to linger at a bar or a high dining table, but also proves to be",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20799302/sedus-stoll_se-cafe-soft-stool_570378e6.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:cafe-soft-stool-20799302/",
-      "price": 0
+      "description": "Bar stools. The elegant <b>se:café soft stool</b> with its soft upholstered seat not only invites you to linger at a bar or a high dining table, but also proves to be",
+      "subCategory": "Sedus Smart Cafe",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Sedus Smart Cafe",
-      "family": "Sedus Stoll",
       "model": "se:café soft lounge chair",
-      "description": "Armchairs. <b>Fully upholstered chair range in homely design</b>\nThe fully upholstered se:café soft lounge chair offers maximum comfort. Its robust design and",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20799300/sedus-stoll_se-cafe-soft-lounge-chair_cf125955.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:cafe-soft-lounge-chair-20799300/",
-      "price": 0
+      "description": "Armchairs. <b>Fully upholstered chair range in homely design</b>\nThe fully upholstered se:café soft lounge chair offers maximum comfort. Its robust design and",
+      "subCategory": "Sedus Smart Cafe",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Sedus Smart Cafe",
-      "family": "Sedus Stoll",
       "model": "se:café soft chair",
-      "description": "Chairs. <b>Fully upholstered chair range for a cosy atmosphere</b>\nRelaxation, variation and inspiration – the se:café soft chair range creates the perfect",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20799292/sedus-stoll_se-cafe-soft-chair_8decd950.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:cafe-soft-chair-20799292/",
-      "price": 0
+      "description": "Chairs. <b>Fully upholstered chair range for a cosy atmosphere</b>\nRelaxation, variation and inspiration – the se:café soft chair range creates the perfect",
+      "subCategory": "Sedus Smart Cafe",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Sedus Smart Cafe",
-      "family": "Sedus Stoll",
       "model": "se:café soft stool",
-      "description": "Bar stools. The elegant <b>se:café soft stool</b> with its soft upholstered seat not only invites you to linger at a bar or a high dining table, but also proves to be",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20799303/sedus-stoll_se-cafe-soft-stool_ead22d66.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:cafe-soft-stool-20799303/",
-      "price": 0
+      "description": "Bar stools. The elegant <b>se:café soft stool</b> with its soft upholstered seat not only invites you to linger at a bar or a high dining table, but also proves to be",
+      "subCategory": "Sedus Smart Cafe",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Office Seating",
-      "family": "Sedus Stoll",
       "model": "black dot",
-      "description": "Office chairs. Swivel chair with high backrest and polished aluminium base Self-confident. Proud. Intelligent. Sedus black dot is a family of swivel chairs and",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20088117/sedus-stoll_black-dot_5f66a738.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-black-dot-20088117/",
-      "price": 0
+      "description": "Office chairs. Swivel chair with high backrest and polished aluminium base Self-confident. Proud. Intelligent. Sedus black dot is a family of swivel chairs and",
+      "subCategory": "Office Seating",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Sedus Smart Cafe",
-      "family": "Sedus Stoll",
       "model": "se:café soft chair",
-      "description": "Chairs. <b>Fully upholstered chair range for a cosy atmosphere</b>\nRelaxation, variation and inspiration – the se:café soft chair range creates the perfect",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20799290/sedus-stoll_se-cafe-soft-chair_946e3e90.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:cafe-soft-chair-20799290/",
-      "price": 0
+      "description": "Chairs. <b>Fully upholstered chair range for a cosy atmosphere</b>\nRelaxation, variation and inspiration – the se:café soft chair range creates the perfect",
+      "subCategory": "Sedus Smart Cafe",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Sedus Smart Cafe",
-      "family": "Sedus Stoll",
       "model": "se:café high diner",
-      "description": "Table-seat combinations. <b>Diner configuration consisting of two se:café high benches facing each other with foot rails, connecting privacy screen at the back and integrated",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20799285/sedus-stoll_se-cafe-high-diner_701f28bc.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:cafe-high-diner-20799285/",
-      "price": 0
+      "description": "Table-seat combinations. <b>Diner configuration consisting of two se:café high benches facing each other with foot rails, connecting privacy screen at the back and integrated",
+      "subCategory": "Sedus Smart Cafe",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Sedus Smart Cafe",
-      "family": "Sedus Stoll",
       "model": "se:café soft chair",
-      "description": "Chairs. <b>Fully upholstered chair range for a cosy atmosphere</b>\nRelaxation, variation and inspiration – the se:café soft chair range creates the perfect",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20799287/sedus-stoll_se-cafe-soft-chair_86932c45.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:cafe-soft-chair-20799287/",
-      "price": 0
+      "description": "Chairs. <b>Fully upholstered chair range for a cosy atmosphere</b>\nRelaxation, variation and inspiration – the se:café soft chair range creates the perfect",
+      "subCategory": "Sedus Smart Cafe",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Sedus Smart Cafe",
-      "family": "Sedus Stoll",
       "model": "se:café high diner",
-      "description": "Table-seat combinations. <b>Diner configuration consisting of two se:café high benches facing each other with foot rails, connecting privacy screen at the back and integrated",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20799283/sedus-stoll_se-cafe-high-diner_4ee54292.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:cafe-high-diner-20799283/",
-      "price": 0
+      "description": "Table-seat combinations. <b>Diner configuration consisting of two se:café high benches facing each other with foot rails, connecting privacy screen at the back and integrated",
+      "subCategory": "Sedus Smart Cafe",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Sedus Smart Cafe",
-      "family": "Sedus Stoll",
       "model": "se:café high diner",
-      "description": "Table-seat combinations. <b>Diner configuration consisting of two se:café high benches facing each other with foot rails, connecting privacy screen at the back and integrated",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20799284/sedus-stoll_se-cafe-high-diner_bcdf1041.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:cafe-high-diner-20799284/",
-      "price": 0
+      "description": "Table-seat combinations. <b>Diner configuration consisting of two se:café high benches facing each other with foot rails, connecting privacy screen at the back and integrated",
+      "subCategory": "Sedus Smart Cafe",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Sedus Smart Cafe",
-      "family": "Sedus Stoll",
       "model": "se:café high diner",
-      "description": "Table-seat combinations. <b>Diner configuration consisting of two se:café high benches facing each other with foot rails, connecting privacy screen at the back and integrated",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20799286/sedus-stoll_se-cafe-high-diner_ce5c8c7c.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:cafe-high-diner-20799286/",
-      "price": 0
+      "description": "Table-seat combinations. <b>Diner configuration consisting of two se:café high benches facing each other with foot rails, connecting privacy screen at the back and integrated",
+      "subCategory": "Sedus Smart Cafe",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Sedus Smart Cafe",
-      "family": "Sedus Stoll",
       "model": "se:café soft chair",
-      "description": "Chairs. <b>Fully upholstered chair range for a cosy atmosphere</b>\nRelaxation, variation and inspiration – the se:café soft chair range creates the perfect",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20799289/sedus-stoll_se-cafe-soft-chair_596c22bd.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:cafe-soft-chair-20799289/",
-      "price": 0
+      "description": "Chairs. <b>Fully upholstered chair range for a cosy atmosphere</b>\nRelaxation, variation and inspiration – the se:café soft chair range creates the perfect",
+      "subCategory": "Sedus Smart Cafe",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Office Furniture",
-      "family": "Sedus Stoll",
       "model": "reception desk",
-      "description": "Counters. A reception desk extends a welcome to visitors and represents the corporate identity, yet is also a workplace with ergonomic requirements. The range of",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/1183895/sedus-stoll_reception-desk_6eb298ca.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-reception-desk-1183895/",
-      "price": 0
+      "description": "Counters. A reception desk extends a welcome to visitors and represents the corporate identity, yet is also a workplace with ergonomic requirements. The range of",
+      "subCategory": "Office Furniture",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Room In Room Screens And Acoustic",
-      "family": "Sedus Stoll",
       "model": "se:cube",
-      "description": "Office Pods. Looking towards the future while setting new standards.\nIt’s a space that inspires, allows users to work independently and adapts to an extremely wide",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20088149/sedus-stoll_se-cube_221424c6.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:cube-20088149/",
-      "price": 0
+      "description": "Office Pods. Looking towards the future while setting new standards.\nIt’s a space that inspires, allows users to work independently and adapts to an extremely wide",
+      "subCategory": "Room In Room Screens And Acoustic",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Office Seating",
-      "family": "Sedus Stoll",
       "model": "se:motion net",
-      "description": "Office chairs. Office swivel chair for agile working\n\nCosy comfort for every workplace \nse:motion net stands out with its unique, kinematic movement concept and the",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20207405/sedus-stoll_se-motion-net_0319e7bd.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:motion-net-20207405/",
-      "price": 0
+      "description": "Office chairs. Office swivel chair for agile working\n\nCosy comfort for every workplace \nse:motion net stands out with its unique, kinematic movement concept and the",
+      "subCategory": "Office Seating",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Sedus Smart Cafe",
-      "family": "Sedus Stoll",
       "model": "se:café wooden chair",
-      "description": "Chairs. <b>Timeless solid wood chair in a high-quality design</b>\nOrganic design meets high-quality workmanship – the se:café wooden chair & lounge chair is a",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20799319/sedus-stoll_se-cafe-wooden-chair_c1dc416b.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:cafe-wooden-chair-20799319/",
-      "price": 0
+      "description": "Chairs. <b>Timeless solid wood chair in a high-quality design</b>\nOrganic design meets high-quality workmanship – the se:café wooden chair & lounge chair is a",
+      "subCategory": "Sedus Smart Cafe",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Sedus Smart Cafe",
-      "family": "Sedus Stoll",
       "model": "se:café soft stool",
-      "description": "Counter stools. The elegant <b>se:café soft stool</b> with its soft upholstered seat not only invites you to linger at a bar or a high dining table, but also proves to be",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20799305/sedus-stoll_se-cafe-soft-stool_f8bfe5c2.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:cafe-soft-stool-20799305/",
-      "price": 0
+      "description": "Counter stools. The elegant <b>se:café soft stool</b> with its soft upholstered seat not only invites you to linger at a bar or a high dining table, but also proves to be",
+      "subCategory": "Sedus Smart Cafe",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Room In Room Screens And Acoustic",
-      "family": "Sedus Stoll",
       "model": "se:cube",
-      "description": "Office Pods. Looking towards the future while setting new standards.\nIt’s a space that inspires, allows users to work independently and adapts to an extremely wide",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20088147/sedus-stoll_se-cube_85b36b94.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:cube-20088147/",
-      "price": 0
+      "description": "Office Pods. Looking towards the future while setting new standards.\nIt’s a space that inspires, allows users to work independently and adapts to an extremely wide",
+      "subCategory": "Room In Room Screens And Acoustic",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Room In Room Screens And Acoustic",
-      "family": "Sedus Stoll",
       "model": "se:cube",
-      "description": "Office Pods. Looking towards the future while setting new standards.\nIt’s a space that inspires, allows users to work independently and adapts to an extremely wide",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20088148/sedus-stoll_se-cube_322a2d84.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:cube-20088148/",
-      "price": 0
+      "description": "Office Pods. Looking towards the future while setting new standards.\nIt’s a space that inspires, allows users to work independently and adapts to an extremely wide",
+      "subCategory": "Room In Room Screens And Acoustic",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Sedus Smart Cafe",
-      "family": "Sedus Stoll",
       "model": "se:café wooden chair",
-      "description": "Chairs. <b>Timeless solid wood chair in a high-quality design</b>\nOrganic design meets high-quality workmanship – the se:café wooden chair & lounge chair is a",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20799320/sedus-stoll_se-cafe-wooden-chair_1d2a8cf8.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:cafe-wooden-chair-20799320/",
-      "price": 0
+      "description": "Chairs. <b>Timeless solid wood chair in a high-quality design</b>\nOrganic design meets high-quality workmanship – the se:café wooden chair & lounge chair is a",
+      "subCategory": "Sedus Smart Cafe",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Sedus Smart Cafe",
-      "family": "Sedus Stoll",
       "model": "se:café wooden lounge chair",
-      "description": "Armchairs. <b>High-quality solid wood chair in two seat heights</b>\nse:cafe wooden lounge chair is ideal for moments of relaxation and breaks in any setting. With",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20799322/sedus-stoll_se-cafe-wooden-lounge-chair_913af666.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:cafe-wooden-lounge-chair-20799322/",
-      "price": 0
+      "description": "Armchairs. <b>High-quality solid wood chair in two seat heights</b>\nse:cafe wooden lounge chair is ideal for moments of relaxation and breaks in any setting. With",
+      "subCategory": "Sedus Smart Cafe",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Office Seating",
-      "family": "Sedus Stoll",
       "model": "se:works",
-      "description": "Sofas. Sedus se:works combines aesthetic qualities and a feeling of domesticity with ergonomic comfort when seated, which is so cleverly configured that it",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/1456273/sedus-stoll_se-works_f1b32c05.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:works-1456273/",
-      "price": 0
+      "description": "Sofas. Sedus se:works combines aesthetic qualities and a feeling of domesticity with ergonomic comfort when seated, which is so cleverly configured that it",
+      "subCategory": "Office Seating",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Room In Room Screens And Acoustic",
-      "family": "Sedus Stoll",
       "model": "easy screen",
-      "description": "Sound absorbing table systems. With Sedus easy screen the name says it all. The screen elements can be easily integrated into any workstation. Whether on an individual table or a bench,",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20088125/sedus-stoll_easy-screen_c2478816.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-easy-screen-20088125/",
-      "price": 0
+      "description": "Sound absorbing table systems. With Sedus easy screen the name says it all. The screen elements can be easily integrated into any workstation. Whether on an individual table or a bench,",
+      "subCategory": "Room In Room Screens And Acoustic",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Sedus Smart Cafe",
-      "family": "Sedus Stoll",
       "model": "se:café wooden lounge chair",
-      "description": "Armchairs. <b>High-quality solid wood chair in two seat heights</b>\nse:cafe wooden lounge chair is ideal for moments of relaxation and breaks in any setting. With",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20799323/sedus-stoll_se-cafe-wooden-lounge-chair_b2da1455.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:cafe-wooden-lounge-chair-20799323/",
-      "price": 0
+      "description": "Armchairs. <b>High-quality solid wood chair in two seat heights</b>\nse:cafe wooden lounge chair is ideal for moments of relaxation and breaks in any setting. With",
+      "subCategory": "Sedus Smart Cafe",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Sedus Smart Cafe",
-      "family": "Sedus Stoll",
       "model": "se:café wooden chair",
-      "description": "Chairs. <b>Timeless solid wood chair in a high-quality design</b>\nOrganic design meets high-quality workmanship – the se:café wooden chair & lounge chair is a",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20799318/sedus-stoll_se-cafe-wooden-chair_25942b79.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:cafe-wooden-chair-20799318/",
-      "price": 0
+      "description": "Chairs. <b>Timeless solid wood chair in a high-quality design</b>\nOrganic design meets high-quality workmanship – the se:café wooden chair & lounge chair is a",
+      "subCategory": "Sedus Smart Cafe",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Break Out Furniture",
-      "family": "Sedus Stoll",
       "model": "se:café team table",
-      "description": "Contract tables. <b>Team table for socialising and after work</b>\nA central meeting point for everyone – the se:café team table brings a home-from-home feeling to the",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20799313/sedus-stoll_se-cafe-team-table_5241d1aa.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:cafe-team-table-20799313/",
-      "price": 0
+      "description": "Contract tables. <b>Team table for socialising and after work</b>\nA central meeting point for everyone – the se:café team table brings a home-from-home feeling to the",
+      "subCategory": "Break Out Furniture",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Break Out Furniture",
-      "family": "Sedus Stoll",
       "model": "se:café team table",
-      "description": "Contract tables. <b>Team table for socialising and after work</b>\nA central meeting point for everyone – the se:café team table brings a home-from-home feeling to the",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20799306/sedus-stoll_se-cafe-team-table_eedb8fb0.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:cafe-team-table-20799306/",
-      "price": 0
+      "description": "Contract tables. <b>Team table for socialising and after work</b>\nA central meeting point for everyone – the se:café team table brings a home-from-home feeling to the",
+      "subCategory": "Break Out Furniture",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Room In Room Screens And Acoustic",
-      "family": "Sedus Stoll",
       "model": "easy screen",
-      "description": "Sound absorbing table systems. With Sedus easy screen the name says it all. The screen elements can be easily integrated into any workstation. Whether on an individual table or a bench,",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20088124/sedus-stoll_easy-screen_1d966ba0.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-easy-screen-20088124/",
-      "price": 0
+      "description": "Sound absorbing table systems. With Sedus easy screen the name says it all. The screen elements can be easily integrated into any workstation. Whether on an individual table or a bench,",
+      "subCategory": "Room In Room Screens And Acoustic",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Break Out Furniture",
-      "family": "Sedus Stoll",
       "model": "se:café team table",
-      "description": "Contract tables. <b>Team table for socialising and after work</b>\nA central meeting point for everyone – the se:café team table brings a home-from-home feeling to the",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20799312/sedus-stoll_se-cafe-team-table_c9f1beae.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:cafe-team-table-20799312/",
-      "price": 0
+      "description": "Contract tables. <b>Team table for socialising and after work</b>\nA central meeting point for everyone – the se:café team table brings a home-from-home feeling to the",
+      "subCategory": "Break Out Furniture",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Break Out Furniture",
-      "family": "Sedus Stoll",
       "model": "se:café team table",
-      "description": "Contract tables. <b>Team table for socialising and after work</b>\nA central meeting point for everyone – the se:café team table brings a home-from-home feeling to the",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20799310/sedus-stoll_se-cafe-team-table_6c7464d4.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:cafe-team-table-20799310/",
-      "price": 0
+      "description": "Contract tables. <b>Team table for socialising and after work</b>\nA central meeting point for everyone – the se:café team table brings a home-from-home feeling to the",
+      "subCategory": "Break Out Furniture",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Break Out Furniture",
-      "family": "Sedus Stoll",
       "model": "se:café team table",
-      "description": "Contract tables. <b>Team table for socialising and after work</b>\nA central meeting point for everyone – the se:café team table brings a home-from-home feeling to the",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20799311/sedus-stoll_se-cafe-team-table_424f1a17.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:cafe-team-table-20799311/",
-      "price": 0
+      "description": "Contract tables. <b>Team table for socialising and after work</b>\nA central meeting point for everyone – the se:café team table brings a home-from-home feeling to the",
+      "subCategory": "Break Out Furniture",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Break Out Furniture",
-      "family": "Sedus Stoll",
       "model": "meet chair mt-201",
-      "description": "Chairs. Swivel chair with plastic shell in five colours, optionally available with felt upholstery, five-star base made of plastic in anthracite or black",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/1066638/sedus-stoll_meet-chair-mt-201_seating_10b0c17a.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-meet-chair-mt-201-1066638/",
-      "price": 0
+      "description": "Chairs. Swivel chair with plastic shell in five colours, optionally available with felt upholstery, five-star base made of plastic in anthracite or black",
+      "subCategory": "Break Out Furniture",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Break Out Furniture",
-      "family": "Sedus Stoll",
       "model": "meet table mt-334",
-      "description": "Standing tables. Round standing table mt-334\nfolding, parkable, table height \n1120 mm, top dimensions, ø 600 mm \nand ø 700 mm",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/1066645/sedus-stoll_meet-table-mt-334_97eaeaf2.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-meet-table-mt-334-1066645/",
-      "price": 0
+      "description": "Standing tables. Round standing table mt-334\nfolding, parkable, table height \n1120 mm, top dimensions, ø 600 mm \nand ø 700 mm",
+      "subCategory": "Break Out Furniture",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Break Out Furniture",
-      "family": "Sedus Stoll",
       "model": "over easy connecting element mt 323/3601",
-      "description": "Standing tables. Connecting element mt 323/3601\ntop size 1900 x 900 mm, for 2 meet table touchdown tables ø 700 mm \"Sedus meet table is an impressive range of tables for",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/1117117/sedus-stoll_over-easy-connecting-element-mt-3233601_95082d6d.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-over-easy-connecting-element-mt-3233601-1117117/",
-      "price": 0
+      "description": "Standing tables. Connecting element mt 323/3601\ntop size 1900 x 900 mm, for 2 meet table touchdown tables ø 700 mm \"Sedus meet table is an impressive range of tables for",
+      "subCategory": "Break Out Furniture",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Break Out Furniture",
-      "family": "Sedus Stoll",
       "model": "meet chair mt-222",
-      "description": "Chairs. Visitor chair with plastic shell in five colours, optionally available with felt upholstery, chromed double-butted steel frame, can be stacked 10 high",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/1117122/sedus-stoll_meet-chair-mt-222_seating_aa907c3e.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-meet-chair-mt-222-1117122/",
-      "price": 0
+      "description": "Chairs. Visitor chair with plastic shell in five colours, optionally available with felt upholstery, chromed double-butted steel frame, can be stacked 10 high",
+      "subCategory": "Break Out Furniture",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Break Out Furniture",
-      "family": "Sedus Stoll",
       "model": "sopha",
-      "description": "Sofas. Sometimes, the workplaces that ensure the highest productivity are the ones that least look like work. This applies to the Sedus sopha range of",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/1145600/sedus-stoll_sopha_013bebd8.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-sopha-1145600/",
-      "price": 0
+      "description": "Sofas. Sometimes, the workplaces that ensure the highest productivity are the ones that least look like work. This applies to the Sedus sopha range of",
+      "subCategory": "Break Out Furniture",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Break Out Furniture",
-      "family": "Sedus Stoll",
       "model": "meet chair mt-201",
-      "description": "Chairs. Swivel chair with plastic shell in five colours, optionally available with felt upholstery, five-star base made of plastic in anthracite or black",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/1145663/sedus-stoll_meet-chair-mt-201_seating_d96f8786.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-meet-chair-mt-201-1145663/",
-      "price": 0
+      "description": "Chairs. Swivel chair with plastic shell in five colours, optionally available with felt upholstery, five-star base made of plastic in anthracite or black",
+      "subCategory": "Break Out Furniture",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Break Out Furniture",
-      "family": "Sedus Stoll",
       "model": "on spot",
-      "description": "Chairs. With “on spot” Sedus provides another answer to how working efficiently and being relaxed can be achieved at the same time. The shell that flows around",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/1277498/sedus-stoll_on-spot_77b32359.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-on-spot-1277498/",
-      "price": 0
+      "description": "Chairs. With “on spot” Sedus provides another answer to how working efficiently and being relaxed can be achieved at the same time. The shell that flows around",
+      "subCategory": "Break Out Furniture",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Break Out Furniture",
-      "family": "Sedus Stoll",
       "model": "temptation high desk",
-      "description": "Standing tables. temptation high desk marks the arrival of a multifunctional communication element with a wide range of uses. Placed centrally in open-plan offices, it",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/1145861/sedus-stoll_temptation-high-desk_9959df05.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-temptation-high-desk-1145861/",
-      "price": 0
+      "description": "Standing tables. temptation high desk marks the arrival of a multifunctional communication element with a wide range of uses. Placed centrally in open-plan offices, it",
+      "subCategory": "Break Out Furniture",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Break Out Furniture",
-      "family": "Sedus Stoll",
       "model": "grand slam z",
-      "description": "Desks. Clever combinations of desks, storage space, screens and transparent elements, are just as in demand as cabinet elements that can be configured as",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/1456170/sedus-stoll_grand-slam-z_81ea63d1.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-grand-slam-z-1456170/",
-      "price": 0
+      "description": "Desks. Clever combinations of desks, storage space, screens and transparent elements, are just as in demand as cabinet elements that can be configured as",
+      "subCategory": "Break Out Furniture",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Break Out Furniture",
-      "family": "Sedus Stoll",
       "model": "se:spot",
-      "description": "Chairs. Inspired by the human body:\nse:spot not only looks great, but also impresses with its cosy charm. What’s more, it feels as good as it looks! The pleasant",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/1574505/sedus-stoll_se-spot_8836048d.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:spot-1574505/",
-      "price": 0
+      "description": "Chairs. Inspired by the human body:\nse:spot not only looks great, but also impresses with its cosy charm. What’s more, it feels as good as it looks! The pleasant",
+      "subCategory": "Break Out Furniture",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Break Out Furniture",
-      "family": "Sedus Stoll",
       "model": "on spot",
-      "description": "Chairs. With “on spot” Sedus provides another answer to how working efficiently and being relaxed can be achieved at the same time. The shell that flows around",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20088138/sedus-stoll_on-spot_f2a7933f.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-on-spot-20088138/",
-      "price": 0
+      "description": "Chairs. With “on spot” Sedus provides another answer to how working efficiently and being relaxed can be achieved at the same time. The shell that flows around",
+      "subCategory": "Break Out Furniture",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Break Out Furniture",
-      "family": "Sedus Stoll",
       "model": "se:fit",
-      "description": "Stools. Stimulating standing seat for flexible working.\nMovement is not just good for the body. Movement also stimulates the mind. With se:fit, Sedus has",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20088151/sedus-stoll_se-fit_0b4fc67a.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:fit-20088151/",
-      "price": 0
+      "description": "Stools. Stimulating standing seat for flexible working.\nMovement is not just good for the body. Movement also stimulates the mind. With se:fit, Sedus has",
+      "subCategory": "Break Out Furniture",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Break Out Furniture",
-      "family": "Sedus Stoll",
       "model": "se:lab boards",
-      "description": "Flip charts / Writing boards. Portable whiteboard to release your ideas\nse:lab boards are light, portable whiteboards that can be taken everywhere, thus promoting agile work. Both",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20207336/sedus-stoll_se-lab-boards_b7545050.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:lab-boards-20207336/",
-      "price": 0
+      "description": "Flip charts / Writing boards. Portable whiteboard to release your ideas\nse:lab boards are light, portable whiteboards that can be taken everywhere, thus promoting agile work. Both",
+      "subCategory": "Break Out Furniture",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Break Out Furniture",
-      "family": "Sedus Stoll",
       "model": "se:lab rack",
-      "description": "Trolleys. Easel to support your ideas\nCreative minds use se:lab rack for workshops, agile meetings and teamwork. Equipped with se:lab boards, plenty of space is",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://placehold.co/240x240/ffffff/000000?text=Image%20not%20found",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:lab-rack-20207387/",
-      "price": 0
+      "description": "Trolleys. Easel to support your ideas\nCreative minds use se:lab rack for workshops, agile meetings and teamwork. Equipped with se:lab boards, plenty of space is",
+      "subCategory": "Break Out Furniture",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Break Out Furniture",
-      "family": "Sedus Stoll",
       "model": "se:lab hopper",
-      "description": "Stools. Dynamic sitting with the workshop stool\nse:lab hopper is the ideal addition to workshops, project meetings or agile work settings. With a comfortable",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20207377/sedus-stoll_se-lab-hopper_c55c2b96.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:lab-hopper-20207377/",
-      "price": 0
+      "description": "Stools. Dynamic sitting with the workshop stool\nse:lab hopper is the ideal addition to workshops, project meetings or agile work settings. With a comfortable",
+      "subCategory": "Break Out Furniture",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Break Out Furniture",
-      "family": "Sedus Stoll",
       "model": "se:lab tableboard",
-      "description": "Contract tables. Convertible whiteboard-table on castors\nse:lab tableboard is a table and whiteboard in one. The mobile table, set on castors, is height-adjustable by",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20207394/sedus-stoll_se-lab-tableboard_434f01a2.png?format=webp&quality=50",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:lab-tableboard-20207394/",
-      "price": 0
+      "description": "Contract tables. Convertible whiteboard-table on castors\nse:lab tableboard is a table and whiteboard in one. The mobile table, set on castors, is height-adjustable by",
+      "subCategory": "Break Out Furniture",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Office Seating",
-      "family": "Sedus Stoll",
       "model": "black dot 24",
-      "description": "Office chairs. black dot 24 – complements the successful swivel chair family for 24-hour use and high load requirements.\r\n\r\nSedus is adding a new model to the successful",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/1267261/sedus-stoll_black-dot-24_e03cbbb2.png?width=600&format=webp&quality=90",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-black-dot-24-1267261/",
-      "price": 0
+      "description": "Office chairs. black dot 24 – complements the successful swivel chair family for 24-hour use and high load requirements.\r\n\r\nSedus is adding a new model to the successful",
+      "subCategory": "Office Seating",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Break Out Furniture",
-      "family": "Sedus Stoll",
       "model": "se:lab sofa",
-      "description": "Sofas. Mobile and adaptable sofa for agile workshops\nEasy to move and flexible, se:lab sofa presents itself as the ideal partner for agile workshop situations",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20207388/sedus-stoll_se-lab-sofa_d3c0f3ac.png?format=webp&quality=50",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:lab-sofa-20207388/",
-      "price": 0
+      "description": "Sofas. Mobile and adaptable sofa for agile workshops\nEasy to move and flexible, se:lab sofa presents itself as the ideal partner for agile workshop situations",
+      "subCategory": "Break Out Furniture",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Break Out Furniture",
-      "family": "Sedus Stoll",
       "model": "se:mood",
-      "description": "Chairs. se:mood - four-leg chair for workspaces and break areas\n\nWhen it comes to modern office and workplace concepts as well as areas in which people work",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20207402/sedus-stoll_se-mood_1cae6015.png?width=600&format=webp&quality=90",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:mood-20207402/",
-      "price": 0
+      "description": "Chairs. se:mood - four-leg chair for workspaces and break areas\n\nWhen it comes to modern office and workplace concepts as well as areas in which people work",
+      "subCategory": "Break Out Furniture",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Break Out Furniture",
-      "family": "Sedus Stoll",
       "model": "se:mood",
-      "description": "Chairs. se:mood - four-leg chair for workspaces and break areas\n\nWhen it comes to modern office and workplace concepts as well as areas in which people work",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20207403/sedus-stoll_se-mood_35a4938a.png?width=600&format=webp&quality=90",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:mood-20207403/",
-      "price": 0
+      "description": "Chairs. se:mood - four-leg chair for workspaces and break areas\n\nWhen it comes to modern office and workplace concepts as well as areas in which people work",
+      "subCategory": "Break Out Furniture",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Break Out Furniture",
-      "family": "Sedus Stoll",
       "model": "se:spot stool",
-      "description": "Bar stools. se:spot \"bar\" - ideal for sitting for longer periods at tables with a height of approx. 1050 mm - Sled frame",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20207435/sedus-stoll_se-spot-stool_2cf518b0.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:spot-stool-20207435/",
-      "price": 0
+      "description": "Bar stools. se:spot \"bar\" - ideal for sitting for longer periods at tables with a height of approx. 1050 mm - Sled frame",
+      "subCategory": "Break Out Furniture",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Break Out Furniture",
-      "family": "Sedus Stoll",
       "model": "se:spot stool",
-      "description": "Bar stools. se:spot \"bar\" - ideal for sitting for longer periods at tables with a height of approx. 1050 mm - Sled frame",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20207433/sedus-stoll_se-spot-stool_5bcaa66a.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:spot-stool-20207433/",
-      "price": 0
+      "description": "Bar stools. se:spot \"bar\" - ideal for sitting for longer periods at tables with a height of approx. 1050 mm - Sled frame",
+      "subCategory": "Break Out Furniture",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Break Out Furniture",
-      "family": "Sedus Stoll",
       "model": "se:spot stool",
-      "description": "Bar stools. se:spot \"bar\" - ideal for sitting for longer periods at tables with a height of approx. 1050 mm - Wood frame",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20207446/sedus-stoll_se-spot-stool_c99d735f.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:spot-stool-20207446/",
-      "price": 0
+      "description": "Bar stools. se:spot \"bar\" - ideal for sitting for longer periods at tables with a height of approx. 1050 mm - Wood frame",
+      "subCategory": "Break Out Furniture",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Break Out Furniture",
-      "family": "Sedus Stoll",
       "model": "se:spot stool",
-      "description": "Bar stools. se:spot \"bar\" - ideal for sitting for longer periods at tables with a height of approx. 1050 mm - Wood frame",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20207443/sedus-stoll_se-spot-stool_7d6b3c02.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:spot-stool-20207443/",
-      "price": 0
+      "description": "Bar stools. se:spot \"bar\" - ideal for sitting for longer periods at tables with a height of approx. 1050 mm - Wood frame",
+      "subCategory": "Break Out Furniture",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Break Out Furniture",
-      "family": "Sedus Stoll",
       "model": "se:spot stool",
-      "description": "Bar stools. se:spot \"bar\" - ideal for sitting for longer periods at tables with a height of approx. 1050 mm - Wood frame",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20207445/sedus-stoll_se-spot-stool_6dfa5270.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:spot-stool-20207445/",
-      "price": 0
+      "description": "Bar stools. se:spot \"bar\" - ideal for sitting for longer periods at tables with a height of approx. 1050 mm - Wood frame",
+      "subCategory": "Break Out Furniture",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Break Out Furniture",
-      "family": "Sedus Stoll",
       "model": "se:spot stool",
-      "description": "Counter stools. se:spot \"studio\" - ideal for a relaxed, supported sitting position at tables with a height of approx. 900 mm - Wood frame",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20207425/sedus-stoll_se-spot-stool_e82e99d8.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:spot-stool-20207425/",
-      "price": 0
+      "description": "Counter stools. se:spot \"studio\" - ideal for a relaxed, supported sitting position at tables with a height of approx. 900 mm - Wood frame",
+      "subCategory": "Break Out Furniture",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Break Out Furniture",
-      "family": "Sedus Stoll",
       "model": "grand slam locker unit",
-      "description": "Cabinets. When the structure and purpose of the office change, the furnishings must also adapt. More and more employees regularly work from home and come to the",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20274176/sedus-stoll_grand-slam-locker-unit_1494d875.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-grand-slam-locker-unit-20274176/",
-      "price": 0
+      "description": "Cabinets. When the structure and purpose of the office change, the furnishings must also adapt. More and more employees regularly work from home and come to the",
+      "subCategory": "Break Out Furniture",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Break Out Furniture",
-      "family": "Sedus Stoll",
       "model": "grand slam locker unit",
-      "description": "Cabinets. When the structure and purpose of the office change, the furnishings must also adapt. More and more employees regularly work from home and come to the",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20274175/sedus-stoll_grand-slam-locker-unit_5409521b.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-grand-slam-locker-unit-20274175/",
-      "price": 0
+      "description": "Cabinets. When the structure and purpose of the office change, the furnishings must also adapt. More and more employees regularly work from home and come to the",
+      "subCategory": "Break Out Furniture",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Conference Chairs",
-      "family": "Sedus Stoll",
       "model": "crossline prime",
-      "description": "Chairs. The experience of sitting in this management armchair is beyond comparison: like a shadow, the seat and backrest follow every body movement in absolute",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/1180459/sedus-stoll_crossline-prime_a831a7a2.png?width=600&format=webp&quality=90",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-crossline-prime-1180459/",
-      "price": 0
+      "description": "Chairs. The experience of sitting in this management armchair is beyond comparison: like a shadow, the seat and backrest follow every body movement in absolute",
+      "subCategory": "Conference Chairs",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Conference Chairs",
-      "family": "Sedus Stoll",
       "model": "crossline prime",
-      "description": "Chairs. The experience of sitting in this management armchair is beyond comparison: like a shadow, the seat and backrest follow every body movement in absolute",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/1181125/sedus-stoll_crossline-prime_949fec11.png?width=600&format=webp&quality=90",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-crossline-prime-1181125/",
-      "price": 0
+      "description": "Chairs. The experience of sitting in this management armchair is beyond comparison: like a shadow, the seat and backrest follow every body movement in absolute",
+      "subCategory": "Conference Chairs",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Conference Chairs",
-      "family": "Sedus Stoll",
       "model": "black dot net",
-      "description": "Chairs. Pinpoint dynamic sitting: \nSedus black dot stands for long-lasting quality, sophisticated design and numerous feature options.\nSitting still for a",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/1183533/sedus-stoll_black-dot-net_0bdd27bc.png?width=600&format=webp&quality=90",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-black-dot-net-1183533/",
-      "price": 0
+      "description": "Chairs. Pinpoint dynamic sitting: \nSedus black dot stands for long-lasting quality, sophisticated design and numerous feature options.\nSitting still for a",
+      "subCategory": "Conference Chairs",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Conference Chairs",
-      "family": "Sedus Stoll",
       "model": "on spot",
-      "description": "Chairs. With “on spot” Sedus provides another answer to how working efficiently and being relaxed can be achieved at the same time. The shell that flows around",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/1277509/sedus-stoll_on-spot_da6771fe.png?width=600&format=webp&quality=90",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-on-spot-1277509/",
-      "price": 0
+      "description": "Chairs. With “on spot” Sedus provides another answer to how working efficiently and being relaxed can be achieved at the same time. The shell that flows around",
+      "subCategory": "Conference Chairs",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Conference Furniture",
-      "family": "Sedus Stoll",
       "model": "se:lab island",
-      "description": "Contract tables. Multifunctional meeting island for agile working // Working, meeting, socialising – se:lab island is the ideal place for agile working with an outdoor",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://placehold.co/240x240/ffffff/000000?text=Image%20not%20found",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:lab-island-20799325/",
-      "price": 0
+      "description": "Contract tables. Multifunctional meeting island for agile working // Working, meeting, socialising – se:lab island is the ideal place for agile working with an outdoor",
+      "subCategory": "Conference Furniture",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Conference Furniture",
-      "family": "Sedus Stoll",
       "model": "se:lab island",
-      "description": "Contract tables. Multifunctional meeting island for agile working // Working, meeting, socialising – se:lab island is the ideal place for agile working with an outdoor",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://placehold.co/240x240/ffffff/000000?text=Image%20not%20found",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:lab-island-20799326/",
-      "price": 0
+      "description": "Contract tables. Multifunctional meeting island for agile working // Working, meeting, socialising – se:lab island is the ideal place for agile working with an outdoor",
+      "subCategory": "Conference Furniture",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Conference Furniture",
-      "family": "Sedus Stoll",
       "model": "se:lab island",
-      "description": "Contract tables. Multifunctional meeting island for agile working // Working, meeting, socialising – se:lab island is the ideal place for agile working with an outdoor",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://placehold.co/240x240/ffffff/000000?text=Image%20not%20found",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:lab-island-20799327/",
-      "price": 0
+      "description": "Contract tables. Multifunctional meeting island for agile working // Working, meeting, socialising – se:lab island is the ideal place for agile working with an outdoor",
+      "subCategory": "Conference Furniture",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Conference Furniture",
-      "family": "Sedus Stoll",
       "model": "se:lab island",
-      "description": "Contract tables. Multifunctional meeting island for agile working // Working, meeting, socialising – se:lab island is the ideal place for agile working with an outdoor",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://placehold.co/240x240/ffffff/000000?text=Image%20not%20found",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:lab-island-20799328/",
-      "price": 0
+      "description": "Contract tables. Multifunctional meeting island for agile working // Working, meeting, socialising – se:lab island is the ideal place for agile working with an outdoor",
+      "subCategory": "Conference Furniture",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Conference Furniture",
-      "family": "Sedus Stoll",
       "model": "se:lab island",
-      "description": "Contract tables. Multifunctional meeting island for agile working // Working, meeting, socialising – se:lab island is the ideal place for agile working with an outdoor",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://placehold.co/240x240/ffffff/000000?text=Image%20not%20found",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:lab-island-20799330/",
-      "price": 0
+      "description": "Contract tables. Multifunctional meeting island for agile working // Working, meeting, socialising – se:lab island is the ideal place for agile working with an outdoor",
+      "subCategory": "Conference Furniture",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Conference Furniture",
-      "family": "Sedus Stoll",
       "model": "invitation",
-      "description": "Contract tables. Whether on one’s own, face-to-face or in a meeting – with invitation you are always sitting at the best table. Individual tables in various sizes and",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/1049819/sedus-stoll_invitation_d52ff3ed.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-invitation-1049819/",
-      "price": 0
+      "description": "Contract tables. Whether on one’s own, face-to-face or in a meeting – with invitation you are always sitting at the best table. Individual tables in various sizes and",
+      "subCategory": "Conference Furniture",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Conference Furniture",
-      "family": "Sedus Stoll",
       "model": "temptation four",
-      "description": "Contract tables. Sedus temptation four is a basic table range which combines innovative design with intelligent technology and solid value for money. The latest",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/1067172/sedus-stoll_temptation-four_398052c1.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-temptation-four-1067172/",
-      "price": 0
+      "description": "Contract tables. Sedus temptation four is a basic table range which combines innovative design with intelligent technology and solid value for money. The latest",
+      "subCategory": "Conference Furniture",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Conference Furniture",
-      "family": "Sedus Stoll",
       "model": "mastermind",
-      "description": "Contract tables. Relaunch of the “mastermind” conference table system – communication culture with unlimited possibilities.\n\nThe solutions offered by Sedus with the",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/1312128/sedus-stoll_mastermind_a8cea1e1.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-mastermind-1312128/",
-      "price": 0
+      "description": "Contract tables. Relaunch of the “mastermind” conference table system – communication culture with unlimited possibilities.\n\nThe solutions offered by Sedus with the",
+      "subCategory": "Conference Furniture",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Conference Furniture",
-      "family": "Sedus Stoll",
       "model": "temptation four",
-      "description": "Contract tables. Sedus temptation four is a basic table range which combines innovative design with intelligent technology and solid value for money. The latest",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/1067173/sedus-stoll_temptation-four_cd7487e6.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-temptation-four-1067173/",
-      "price": 0
+      "description": "Contract tables. Sedus temptation four is a basic table range which combines innovative design with intelligent technology and solid value for money. The latest",
+      "subCategory": "Conference Furniture",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Conference Furniture",
-      "family": "Sedus Stoll",
       "model": "se:lab highdesk",
-      "description": "Standing tables. Workshop table for greater agility\nse:lab high desk combines all the advantages of the modern high desk concept: ideal for agile teamwork or as a",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20207367/sedus-stoll_se-lab-highdesk_0e0679fc.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:lab-highdesk-20207367/",
-      "price": 0
+      "description": "Standing tables. Workshop table for greater agility\nse:lab high desk combines all the advantages of the modern high desk concept: ideal for agile teamwork or as a",
+      "subCategory": "Conference Furniture",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Conference Furniture",
-      "family": "Sedus Stoll",
       "model": "se:lab highdesk",
-      "description": "Standing tables. Workshop table for greater agility\nse:lab high desk combines all the advantages of the modern high desk concept: ideal for agile teamwork or as a",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20207373/sedus-stoll_se-lab-highdesk_77dd6de1.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:lab-highdesk-20207373/",
-      "price": 0
+      "description": "Standing tables. Workshop table for greater agility\nse:lab high desk combines all the advantages of the modern high desk concept: ideal for agile teamwork or as a",
+      "subCategory": "Conference Furniture",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Conference Furniture",
-      "family": "Sedus Stoll",
       "model": "se:lab highdesk",
-      "description": "Contract tables. Workshop table for greater agility\nse:lab high desk combines all the advantages of the modern high desk concept: ideal for agile teamwork or as a",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20207375/sedus-stoll_se-lab-highdesk_7cc66901.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:lab-highdesk-20207375/",
-      "price": 0
+      "description": "Contract tables. Workshop table for greater agility\nse:lab high desk combines all the advantages of the modern high desk concept: ideal for agile teamwork or as a",
+      "subCategory": "Conference Furniture",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Conference Furniture",
-      "family": "Sedus Stoll",
       "model": "se:lab meet desk",
-      "description": "Contract tables. Uncomplicated desk for all occasions\nse:lab meet desk promises easy and flexible working. The four-legged desk in modern design can be used almost",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20207386/sedus-stoll_se-lab-meet-desk_7ecdfee5.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:lab-meet-desk-20207386/",
-      "price": 0
+      "description": "Contract tables. Uncomplicated desk for all occasions\nse:lab meet desk promises easy and flexible working. The four-legged desk in modern design can be used almost",
+      "subCategory": "Conference Furniture",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Office Furniture",
-      "family": "Sedus Stoll",
       "model": "se:assist",
-      "description": "Contract tables. <b>Multifunctional table range for different areas of application</b> // Desks are the ideal place to meet and exchange ideas, discuss proposals or",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://placehold.co/240x240/ffffff/000000?text=Image%20not%20found",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:assist-20799224/",
-      "price": 0
+      "description": "Contract tables. <b>Multifunctional table range for different areas of application</b> // Desks are the ideal place to meet and exchange ideas, discuss proposals or",
+      "subCategory": "Office Furniture",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Office Furniture",
-      "family": "Sedus Stoll",
       "model": "se:assist",
-      "description": "Contract tables. <b>Multifunctional table range for different areas of application</b> // Desks are the ideal place to meet and exchange ideas, discuss proposals or",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://placehold.co/240x240/ffffff/000000?text=Image%20not%20found",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:assist-20799220/",
-      "price": 0
+      "description": "Contract tables. <b>Multifunctional table range for different areas of application</b> // Desks are the ideal place to meet and exchange ideas, discuss proposals or",
+      "subCategory": "Office Furniture",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Office Furniture",
-      "family": "Sedus Stoll",
       "model": "se:assist",
-      "description": "Contract tables. <b>Multifunctional table range for different areas of application</b> // Desks are the ideal place to meet and exchange ideas, discuss proposals or",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://placehold.co/240x240/ffffff/000000?text=Image%20not%20found",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:assist-20799221/",
-      "price": 0
+      "description": "Contract tables. <b>Multifunctional table range for different areas of application</b> // Desks are the ideal place to meet and exchange ideas, discuss proposals or",
+      "subCategory": "Office Furniture",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Office Furniture",
-      "family": "Sedus Stoll",
       "model": "se:assist",
-      "description": "Contract tables. <b>Multifunctional table range for different areas of application</b> // Desks are the ideal place to meet and exchange ideas, discuss proposals or",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://placehold.co/240x240/ffffff/000000?text=Image%20not%20found",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:assist-20799222/",
-      "price": 0
+      "description": "Contract tables. <b>Multifunctional table range for different areas of application</b> // Desks are the ideal place to meet and exchange ideas, discuss proposals or",
+      "subCategory": "Office Furniture",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Office Furniture",
-      "family": "Sedus Stoll",
       "model": "502 Bad Gateway",
-      "description": "502 Bad Gateway",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://via.placeholder.com/400x400?text=No+Image",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:assist-20799219/",
-      "price": 0
+      "description": "502 Bad Gateway",
+      "subCategory": "Office Furniture",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Office Furniture",
-      "family": "Sedus Stoll",
       "model": "se:assist",
-      "description": "Contract tables. <b>Multifunctional table range for different areas of application</b> // Desks are the ideal place to meet and exchange ideas, discuss proposals or",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://placehold.co/240x240/ffffff/000000?text=Image%20not%20found",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:assist-20799231/",
-      "price": 0
+      "description": "Contract tables. <b>Multifunctional table range for different areas of application</b> // Desks are the ideal place to meet and exchange ideas, discuss proposals or",
+      "subCategory": "Office Furniture",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Office Furniture",
-      "family": "Sedus Stoll",
       "model": "se:do pro 2",
-      "description": "Office chairs. <b>Well-proven ergonomics in a modular system – convincing in price-performance</b>\nse:do pro 2 is the perfect companion for modern working environments.",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20799236/sedus-stoll_se-do-pro-2_17aafb8e.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:do-pro-2-20799236/",
-      "price": 0
+      "description": "Office chairs. <b>Well-proven ergonomics in a modular system – convincing in price-performance</b>\nse:do pro 2 is the perfect companion for modern working environments.",
+      "subCategory": "Office Furniture",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Office Furniture",
-      "family": "Sedus Stoll",
       "model": "se:assist",
-      "description": "Contract tables. <b>Multifunctional table range for different areas of application</b> // Desks are the ideal place to meet and exchange ideas, discuss proposals or",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://placehold.co/240x240/ffffff/000000?text=Image%20not%20found",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:assist-20799232/",
-      "price": 0
+      "description": "Contract tables. <b>Multifunctional table range for different areas of application</b> // Desks are the ideal place to meet and exchange ideas, discuss proposals or",
+      "subCategory": "Office Furniture",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Office Furniture",
-      "family": "Sedus Stoll",
       "model": "se:assist",
-      "description": "Contract tables. <b>Multifunctional table range for different areas of application</b> // Desks are the ideal place to meet and exchange ideas, discuss proposals or",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://placehold.co/240x240/ffffff/000000?text=Image%20not%20found",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:assist-20799233/",
-      "price": 0
+      "description": "Contract tables. <b>Multifunctional table range for different areas of application</b> // Desks are the ideal place to meet and exchange ideas, discuss proposals or",
+      "subCategory": "Office Furniture",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Office Furniture",
-      "family": "Sedus Stoll",
       "model": "se:assist",
-      "description": "Contract tables. <b>Multifunctional table range for different areas of application</b> // Desks are the ideal place to meet and exchange ideas, discuss proposals or",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20799230/sedus-stoll_se-assist_961d1b7c.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:assist-20799230/",
-      "price": 0
+      "description": "Contract tables. <b>Multifunctional table range for different areas of application</b> // Desks are the ideal place to meet and exchange ideas, discuss proposals or",
+      "subCategory": "Office Furniture",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Office Furniture",
-      "family": "Sedus Stoll",
       "model": "se:assist",
-      "description": "Contract tables. <b>Multifunctional table range for different areas of application</b> // Desks are the ideal place to meet and exchange ideas, discuss proposals or",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20799229/sedus-stoll_se-assist_64a64255.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:assist-20799229/",
-      "price": 0
+      "description": "Contract tables. <b>Multifunctional table range for different areas of application</b> // Desks are the ideal place to meet and exchange ideas, discuss proposals or",
+      "subCategory": "Office Furniture",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Office Furniture",
-      "family": "Sedus Stoll",
       "model": "invitation",
-      "description": "Desks. Table\n\nDouble bench Whether on one’s own, face-to-face or in a meeting – with invitation you are always sitting at the best table. Individual tables in",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/1030752/sedus-stoll_invitation_99d8e4c8.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-invitation-1030752/",
-      "price": 0
+      "description": "Desks. Table\n\nDouble bench Whether on one’s own, face-to-face or in a meeting – with invitation you are always sitting at the best table. Individual tables in",
+      "subCategory": "Office Furniture",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Office Furniture",
-      "family": "Sedus Stoll",
       "model": "invitation",
-      "description": "Desks. Table Whether on one’s own, face-to-face or in a meeting – with invitation you are always sitting at the best table. Individual tables in various sizes",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/1030753/sedus-stoll_invitation_f1b81a73.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-invitation-1030753/",
-      "price": 0
+      "description": "Desks. Table Whether on one’s own, face-to-face or in a meeting – with invitation you are always sitting at the best table. Individual tables in various sizes",
+      "subCategory": "Office Furniture",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Office Furniture",
-      "family": "Sedus Stoll",
       "model": "relations",
-      "description": "Trolleys. Storage units\nWidth 1600 mm Efficient knowledge work depends on outstanding team players. Creative synergy – \"relations\", the innovative furnishing",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/1033517/sedus-stoll_relations_c58a2407.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-relations-1033517/",
-      "price": 0
+      "description": "Trolleys. Storage units\nWidth 1600 mm Efficient knowledge work depends on outstanding team players. Creative synergy – \"relations\", the innovative furnishing",
+      "subCategory": "Office Furniture",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Office Furniture",
-      "family": "Sedus Stoll",
       "model": "relations",
-      "description": "Cabinets. Storage unit\nWidth 2400 mm Efficient knowledge work depends on outstanding team players. Creative synergy – \"relations\", the innovative furnishing concept",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/1049857/sedus-stoll_relations_2cd7fdbc.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-relations-1049857/",
-      "price": 0
+      "description": "Cabinets. Storage unit\nWidth 2400 mm Efficient knowledge work depends on outstanding team players. Creative synergy – \"relations\", the innovative furnishing concept",
+      "subCategory": "Office Furniture",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Office Furniture",
-      "family": "Sedus Stoll",
       "model": "grand slam",
-      "description": "Cabinets. Hinged door units grand slam, the universal storage system from Sedus, creates just that: the right work setting and the right work mindset. It provides",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/1107418/sedus-stoll_grand-slam_646437b3.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-grand-slam-1107418/",
-      "price": 0
+      "description": "Cabinets. Hinged door units grand slam, the universal storage system from Sedus, creates just that: the right work setting and the right work mindset. It provides",
+      "subCategory": "Office Furniture",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Office Furniture",
-      "family": "Sedus Stoll",
       "model": "grand slam",
-      "description": "Cabinets. Hinged door units with acoustic front grand slam, the universal storage system from Sedus, creates just that: the right work setting and the right work",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/1107420/sedus-stoll_grand-slam_73193cc2.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-grand-slam-1107420/",
-      "price": 0
+      "description": "Cabinets. Hinged door units with acoustic front grand slam, the universal storage system from Sedus, creates just that: the right work setting and the right work",
+      "subCategory": "Office Furniture",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Office Furniture",
-      "family": "Sedus Stoll",
       "model": "reception desk",
-      "description": "Counters. A reception desk extends a welcome to visitors and represents the corporate identity, yet is also a workplace with ergonomic requirements. The range of",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/1183613/sedus-stoll_reception-desk_a22e98d2.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-reception-desk-1183613/",
-      "price": 0
+      "description": "Counters. A reception desk extends a welcome to visitors and represents the corporate identity, yet is also a workplace with ergonomic requirements. The range of",
+      "subCategory": "Office Furniture",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Office Furniture",
-      "family": "Sedus Stoll",
       "model": "reception desk",
-      "description": "Counters. A reception desk extends a welcome to visitors and represents the corporate identity, yet is also a workplace with ergonomic requirements. The range of",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/1183614/sedus-stoll_reception-desk_0513cbac.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-reception-desk-1183614/",
-      "price": 0
+      "description": "Counters. A reception desk extends a welcome to visitors and represents the corporate identity, yet is also a workplace with ergonomic requirements. The range of",
+      "subCategory": "Office Furniture",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Office Furniture",
-      "family": "Sedus Stoll",
       "model": "reception desk",
-      "description": "Counters. A reception desk extends a welcome to visitors and represents the corporate identity, yet is also a workplace with ergonomic requirements. The range of",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/1183616/sedus-stoll_reception-desk_d1d366cf.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-reception-desk-1183616/",
-      "price": 0
+      "description": "Counters. A reception desk extends a welcome to visitors and represents the corporate identity, yet is also a workplace with ergonomic requirements. The range of",
+      "subCategory": "Office Furniture",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Office Furniture",
-      "family": "Sedus Stoll",
       "model": "reception desk",
-      "description": "Counters. A reception desk extends a welcome to visitors and represents the corporate identity, yet is also a workplace with ergonomic requirements. The range of",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/1183618/sedus-stoll_reception-desk_ecea8c94.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-reception-desk-1183618/",
-      "price": 0
+      "description": "Counters. A reception desk extends a welcome to visitors and represents the corporate identity, yet is also a workplace with ergonomic requirements. The range of",
+      "subCategory": "Office Furniture",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Office Furniture",
-      "family": "Sedus Stoll",
       "model": "reception desk",
-      "description": "Counters. A reception desk extends a welcome to visitors and represents the corporate identity, yet is also a workplace with ergonomic requirements. The range of",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/1183619/sedus-stoll_reception-desk_6ac3b9ce.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-reception-desk-1183619/",
-      "price": 0
+      "description": "Counters. A reception desk extends a welcome to visitors and represents the corporate identity, yet is also a workplace with ergonomic requirements. The range of",
+      "subCategory": "Office Furniture",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Office Furniture",
-      "family": "Sedus Stoll",
       "model": "reception desk",
-      "description": "Counters. A reception desk extends a welcome to visitors and represents the corporate identity, yet is also a workplace with ergonomic requirements. The range of",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/1183624/sedus-stoll_reception-desk_fa0e4042.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-reception-desk-1183624/",
-      "price": 0
+      "description": "Counters. A reception desk extends a welcome to visitors and represents the corporate identity, yet is also a workplace with ergonomic requirements. The range of",
+      "subCategory": "Office Furniture",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Office Furniture",
-      "family": "Sedus Stoll",
       "model": "reception desk",
-      "description": "Counters. A reception desk extends a welcome to visitors and represents the corporate identity, yet is also a workplace with ergonomic requirements. The range of",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/1183628/sedus-stoll_reception-desk_0bcffb2d.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-reception-desk-1183628/",
-      "price": 0
+      "description": "Counters. A reception desk extends a welcome to visitors and represents the corporate identity, yet is also a workplace with ergonomic requirements. The range of",
+      "subCategory": "Office Furniture",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Office Furniture",
-      "family": "Sedus Stoll",
       "model": "reception desk",
-      "description": "Counters. A reception desk extends a welcome to visitors and represents the corporate identity, yet is also a workplace with ergonomic requirements. The range of",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/1183892/sedus-stoll_reception-desk_a35d5210.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-reception-desk-1183892/",
-      "price": 0
+      "description": "Counters. A reception desk extends a welcome to visitors and represents the corporate identity, yet is also a workplace with ergonomic requirements. The range of",
+      "subCategory": "Office Furniture",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Office Furniture",
-      "family": "Sedus Stoll",
       "model": "reception desk",
-      "description": "Counters. A reception desk extends a welcome to visitors and represents the corporate identity, yet is also a workplace with ergonomic requirements. The range of",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/1183891/sedus-stoll_reception-desk_7ab0f3d8.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-reception-desk-1183891/",
-      "price": 0
+      "description": "Counters. A reception desk extends a welcome to visitors and represents the corporate identity, yet is also a workplace with ergonomic requirements. The range of",
+      "subCategory": "Office Furniture",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Office Furniture",
-      "family": "Sedus Stoll",
       "model": "tall pedestal",
-      "description": "Pedestals. 430 x 800/900/1000 x 1148 mm For perfect office organisation.\nShelving for documents, desk paraphernalia and personal items, a place to sit and standing",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/1267230/sedus-stoll_tall-pedestal_6cbd35b5.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-tall-pedestal-1267230/",
-      "price": 0
+      "description": "Pedestals. 430 x 800/900/1000 x 1148 mm For perfect office organisation.\nShelving for documents, desk paraphernalia and personal items, a place to sit and standing",
+      "subCategory": "Office Furniture",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Office Furniture",
-      "family": "Sedus Stoll",
       "model": "tall pedestal",
-      "description": "Pedestals. 430 x 800/900/1000 x 740 mm For perfect office organisation.\nShelving for documents, desk paraphernalia and personal items, a place to sit and standing",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/1267242/sedus-stoll_tall-pedestal_27707762.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-tall-pedestal-1267242/",
-      "price": 0
+      "description": "Pedestals. 430 x 800/900/1000 x 740 mm For perfect office organisation.\nShelving for documents, desk paraphernalia and personal items, a place to sit and standing",
+      "subCategory": "Office Furniture",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Office Furniture",
-      "family": "Sedus Stoll",
       "model": "tall pedestal",
-      "description": "Pedestals. 430 x 800/900/1000 x 1148 mm For perfect office organisation.\nShelving for documents, desk paraphernalia and personal items, a place to sit and standing",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/1267241/sedus-stoll_tall-pedestal_a30cb2ab.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-tall-pedestal-1267241/",
-      "price": 0
+      "description": "Pedestals. 430 x 800/900/1000 x 1148 mm For perfect office organisation.\nShelving for documents, desk paraphernalia and personal items, a place to sit and standing",
+      "subCategory": "Office Furniture",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Office Furniture",
-      "family": "Sedus Stoll",
       "model": "tall pedestal",
-      "description": "Pedestals. Add-on shelf\n\n430 x 800/900/1000 x 408 mm For perfect office organisation.\nShelving for documents, desk paraphernalia and personal items, a place to sit",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/1267243/sedus-stoll_tall-pedestal_d82d8c48.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-tall-pedestal-1267243/",
-      "price": 0
+      "description": "Pedestals. Add-on shelf\n\n430 x 800/900/1000 x 408 mm For perfect office organisation.\nShelving for documents, desk paraphernalia and personal items, a place to sit",
+      "subCategory": "Office Furniture",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Office Furniture",
-      "family": "Sedus Stoll",
       "model": "tall pedestal",
-      "description": "Pedestals. Add-on shelf\n\n430 x 800/900/1000 x 408 mm For perfect office organisation.\nShelving for documents, desk paraphernalia and personal items, a place to sit",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/1267248/sedus-stoll_tall-pedestal_f537b63b.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-tall-pedestal-1267248/",
-      "price": 0
+      "description": "Pedestals. Add-on shelf\n\n430 x 800/900/1000 x 408 mm For perfect office organisation.\nShelving for documents, desk paraphernalia and personal items, a place to sit",
+      "subCategory": "Office Furniture",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Office Furniture",
-      "family": "Sedus Stoll",
       "model": "mastermind highdesk",
-      "description": "Standing tables. Relaunch of the “mastermind” conference table system – communication culture with unlimited possibilities.\n\nThe solutions offered by Sedus with the",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/1312382/sedus-stoll_mastermind-highdesk_ac44ba82.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-mastermind-highdesk-1312382/",
-      "price": 0
+      "description": "Standing tables. Relaunch of the “mastermind” conference table system – communication culture with unlimited possibilities.\n\nThe solutions offered by Sedus with the",
+      "subCategory": "Office Furniture",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Office Furniture",
-      "family": "Sedus Stoll",
       "model": "get together",
-      "description": "Desks. With its multifunctional approach, the new “get together” bench programme offers all the prerequisites for a mobile and flexible way of working together.",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/1277473/sedus-stoll_get-together_2ff9a87c.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-get-together-1277473/",
-      "price": 0
+      "description": "Desks. With its multifunctional approach, the new “get together” bench programme offers all the prerequisites for a mobile and flexible way of working together.",
+      "subCategory": "Office Furniture",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Office Furniture",
-      "family": "Sedus Stoll",
       "model": "get together",
-      "description": "Desks. With its multifunctional approach, the new “get together” bench programme offers all the prerequisites for a mobile and flexible way of working together.",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20088127/sedus-stoll_get-together_11aaadaa.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-get-together-20088127/",
-      "price": 0
+      "description": "Desks. With its multifunctional approach, the new “get together” bench programme offers all the prerequisites for a mobile and flexible way of working together.",
+      "subCategory": "Office Furniture",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Office Seating",
-      "family": "Sedus Stoll",
       "model": "quarterback 2",
-      "description": "Office chairs. <b>Swivel chair for productive well-being</b> // The timeless classic with a hundred possibilities – flexibility is at the heart of the quarterback 2.",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20799217/sedus-stoll_quarterback-2_f13703dd.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-quarterback-2-20799217/",
-      "price": 0
+      "description": "Office chairs. <b>Swivel chair for productive well-being</b> // The timeless classic with a hundred possibilities – flexibility is at the heart of the quarterback 2.",
+      "subCategory": "Office Seating",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Office Seating",
-      "family": "Sedus Stoll",
       "model": "quarterback 2",
-      "description": "Office chairs. <b>Swivel chair for productive well-being</b> // The timeless classic with a hundred possibilities – flexibility is at the heart of the quarterback 2.",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20799218/sedus-stoll_quarterback-2_21e7ad34.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-quarterback-2-20799218/",
-      "price": 0
+      "description": "Office chairs. <b>Swivel chair for productive well-being</b> // The timeless classic with a hundred possibilities – flexibility is at the heart of the quarterback 2.",
+      "subCategory": "Office Seating",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Office Seating",
-      "family": "Sedus Stoll",
       "model": "open mind",
-      "description": "Office chairs. Swivel chair with membrane-covered backrest The concept of \"sitting, standing, lying on the job with Sedus open up\" has changed the way of working in the",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/1003213/sedus-stoll_open-mind_87b889f2.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-open-mind-1003213/",
-      "price": 0
+      "description": "Office chairs. Swivel chair with membrane-covered backrest The concept of \"sitting, standing, lying on the job with Sedus open up\" has changed the way of working in the",
+      "subCategory": "Office Seating",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Office Seating",
-      "family": "Sedus Stoll",
       "model": "mr. 24",
-      "description": "Office chairs. Swivel chair with armrests and height-adjustable headrest Workstations which are used on a continuous basis, for example in control rooms, place extreme",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/1030779/sedus-stoll_mr-24_6dcde2c4.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-mr.-24-1030779/",
-      "price": 0
+      "description": "Office chairs. Swivel chair with armrests and height-adjustable headrest Workstations which are used on a continuous basis, for example in control rooms, place extreme",
+      "subCategory": "Office Seating",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Office Seating",
-      "family": "Sedus Stoll",
       "model": "mr. 24",
-      "description": "Office chairs. Swivel chair with armrests Workstations which are used on a continuous basis, for example in control rooms, place extreme demands on office seating. When",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/1030778/sedus-stoll_mr-24_9c8fd6a2.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-mr.-24-1030778/",
-      "price": 0
+      "description": "Office chairs. Swivel chair with armrests Workstations which are used on a continuous basis, for example in control rooms, place extreme demands on office seating. When",
+      "subCategory": "Office Seating",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Office Seating",
-      "family": "Sedus Stoll",
       "model": "black dot net",
-      "description": "Office chairs. Pinpoint dynamic sitting: \nSedus black dot stands for long-lasting quality, sophisticated design and numerous feature options.\nSitting still for a",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/1030783/sedus-stoll_black-dot-net_b60a6495.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-black-dot-net-1030783/",
-      "price": 0
+      "description": "Office chairs. Pinpoint dynamic sitting: \nSedus black dot stands for long-lasting quality, sophisticated design and numerous feature options.\nSitting still for a",
+      "subCategory": "Office Seating",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Office Seating",
-      "family": "Sedus Stoll",
       "model": "crossline",
-      "description": "Office chairs. Swivel chair with high backrest and headrest Sedus crossline swivel chair with new Similar-Plus mechanism.\n\nWith “crossline”, Sedus is opening the door",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/1066589/sedus-stoll_crossline_2ff31685.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-crossline-1066589/",
-      "price": 0
+      "description": "Office chairs. Swivel chair with high backrest and headrest Sedus crossline swivel chair with new Similar-Plus mechanism.\n\nWith “crossline”, Sedus is opening the door",
+      "subCategory": "Office Seating",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Office Seating",
-      "family": "Sedus Stoll",
       "model": "crossline",
-      "description": "Office chairs. Swivel chair with normal-height backrest Sedus crossline swivel chair with new Similar-Plus mechanism.\n\nWith “crossline”, Sedus is opening the door to a",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/1066590/sedus-stoll_crossline_fb156b4a.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-crossline-1066590/",
-      "price": 0
+      "description": "Office chairs. Swivel chair with normal-height backrest Sedus crossline swivel chair with new Similar-Plus mechanism.\n\nWith “crossline”, Sedus is opening the door to a",
+      "subCategory": "Office Seating",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Office Seating",
-      "family": "Sedus Stoll",
       "model": "black dot 24",
-      "description": "Office chairs. black dot 24 – complements the successful swivel chair family for 24-hour use and high load requirements.\n\nSedus is adding a new model to the successful",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/1267262/sedus-stoll_black-dot-24_d27948c0.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-black-dot-24-1267262/",
-      "price": 0
+      "description": "Office chairs. black dot 24 – complements the successful swivel chair family for 24-hour use and high load requirements.\n\nSedus is adding a new model to the successful",
+      "subCategory": "Office Seating",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Office Seating",
-      "family": "Sedus Stoll",
       "model": "turn around",
-      "description": "Office chairs. The work environment of tomorrow is increasingly characterised by new spatial impressions. These also include standing workstations at high desks. With",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20088156/sedus-stoll_turn-around_b42dd676.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-turn-around-20088156/",
-      "price": 0
+      "description": "Office chairs. The work environment of tomorrow is increasingly characterised by new spatial impressions. These also include standing workstations at high desks. With",
+      "subCategory": "Office Seating",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Office Seating",
-      "family": "Sedus Stoll",
       "model": "turn around",
-      "description": "Office chairs. The work environment of tomorrow is increasingly characterised by new spatial impressions. These also include standing workstations at high desks. With",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/1277476/sedus-stoll_turn-around_6e48b86f.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-turn-around-1277476/",
-      "price": 0
+      "description": "Office chairs. The work environment of tomorrow is increasingly characterised by new spatial impressions. These also include standing workstations at high desks. With",
+      "subCategory": "Office Seating",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Office Seating",
-      "family": "Sedus Stoll",
       "model": "turn around",
-      "description": "Office chairs. The work environment of tomorrow is increasingly characterised by new spatial impressions. These also include standing workstations at high desks. With",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20088157/sedus-stoll_turn-around_30bca37f.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-turn-around-20088157/",
-      "price": 0
+      "description": "Office chairs. The work environment of tomorrow is increasingly characterised by new spatial impressions. These also include standing workstations at high desks. With",
+      "subCategory": "Office Seating",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Office Seating",
-      "family": "Sedus Stoll",
       "model": "turn around",
-      "description": "Counter stools. The work environment of tomorrow is increasingly characterised by new spatial impressions. These also include standing workstations at high desks. With",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/1277491/sedus-stoll_turn-around_ac1dac2a.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-turn-around-1277491/",
-      "price": 0
+      "description": "Counter stools. The work environment of tomorrow is increasingly characterised by new spatial impressions. These also include standing workstations at high desks. With",
+      "subCategory": "Office Seating",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Office Seating",
-      "family": "Sedus Stoll",
       "model": "se:works",
-      "description": "Sofas. Sedus se:works combines aesthetic qualities and a feeling of domesticity with ergonomic comfort when seated, which is so cleverly configured that it",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/1456268/sedus-stoll_se-works_bcb80cc1.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:works-1456268/",
-      "price": 0
+      "description": "Sofas. Sedus se:works combines aesthetic qualities and a feeling of domesticity with ergonomic comfort when seated, which is so cleverly configured that it",
+      "subCategory": "Office Seating",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Office Seating",
-      "family": "Sedus Stoll",
       "model": "se:works",
-      "description": "Sofas. Sedus se:works combines aesthetic qualities and a feeling of domesticity with ergonomic comfort when seated, which is so cleverly configured that it",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/1456277/sedus-stoll_se-works_b92173ed.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:works-1456277/",
-      "price": 0
+      "description": "Sofas. Sedus se:works combines aesthetic qualities and a feeling of domesticity with ergonomic comfort when seated, which is so cleverly configured that it",
+      "subCategory": "Office Seating",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Office Seating",
-      "family": "Sedus Stoll",
       "model": "se:works",
-      "description": "Sofas. Sedus se:works combines aesthetic qualities and a feeling of domesticity with ergonomic comfort when seated, which is so cleverly configured that it",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/1456280/sedus-stoll_se-works_a8805f26.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:works-1456280/",
-      "price": 0
+      "description": "Sofas. Sedus se:works combines aesthetic qualities and a feeling of domesticity with ergonomic comfort when seated, which is so cleverly configured that it",
+      "subCategory": "Office Seating",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Office Seating",
-      "family": "Sedus Stoll",
       "model": "se:joy",
-      "description": "Office chairs. Compact and comfortable\nWork used to be an emotionless way of earning a living. But today it is a more meaningful part of life where it is important to",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/1490886/sedus-stoll_se-joy_4e828f29.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:joy-1490886/",
-      "price": 0
+      "description": "Office chairs. Compact and comfortable\nWork used to be an emotionless way of earning a living. But today it is a more meaningful part of life where it is important to",
+      "subCategory": "Office Seating",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Office Seating",
-      "family": "Sedus Stoll",
       "model": "se:flex Besucherstuhl",
-      "description": "Chairs. Harmoniously designed visitor and conference chair - Four-leg chair, with armrests\n\nMeeting rooms, lounge or waiting areas: The visitor chair brings",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20207294/sedus-stoll_se-flex-besucherstuhl_da03c603.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:flex-besucherstuhl-20207294/",
-      "price": 0
+      "description": "Chairs. Harmoniously designed visitor and conference chair - Four-leg chair, with armrests\n\nMeeting rooms, lounge or waiting areas: The visitor chair brings",
+      "subCategory": "Office Seating",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Office Seating",
-      "family": "Sedus Stoll",
       "model": "se:joy",
-      "description": "Office chairs. Compact and comfortable\nWork used to be an emotionless way of earning a living. But today it is a more meaningful part of life where it is important to",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20088154/sedus-stoll_se-joy_f89e30ba.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:joy-20088154/",
-      "price": 0
+      "description": "Office chairs. Compact and comfortable\nWork used to be an emotionless way of earning a living. But today it is a more meaningful part of life where it is important to",
+      "subCategory": "Office Seating",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Office Seating",
-      "family": "Sedus Stoll",
       "model": "se:flex Besucherstuhl",
-      "description": "Chairs. Harmoniously designed visitor and conference chair - Four-leg chair, with armrests\n\nMeeting rooms, lounge or waiting areas: The visitor chair brings",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20207296/sedus-stoll_se-flex-besucherstuhl_996c824c.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:flex-besucherstuhl-20207296/",
-      "price": 0
+      "description": "Chairs. Harmoniously designed visitor and conference chair - Four-leg chair, with armrests\n\nMeeting rooms, lounge or waiting areas: The visitor chair brings",
+      "subCategory": "Office Seating",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Office Seating",
-      "family": "Sedus Stoll",
       "model": "se:flex Besucherstuhl",
-      "description": "Chairs. Harmoniously designed visitor and conference chair - Cantilever chair, with armrests\n\nMeeting rooms, lounge or waiting areas: The visitor chair brings",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20207306/sedus-stoll_se-flex-besucherstuhl_79e8e25e.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:flex-besucherstuhl-20207306/",
-      "price": 0
+      "description": "Chairs. Harmoniously designed visitor and conference chair - Cantilever chair, with armrests\n\nMeeting rooms, lounge or waiting areas: The visitor chair brings",
+      "subCategory": "Office Seating",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Office Seating",
-      "family": "Sedus Stoll",
       "model": "se:flex Besucherstuhl",
-      "description": "Chairs. Harmoniously designed visitor and conference chair - Four-leg chair, without armrests\n\nMeeting rooms, lounge or waiting areas: The visitor chair brings",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20207298/sedus-stoll_se-flex-besucherstuhl_807da793.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:flex-besucherstuhl-20207298/",
-      "price": 0
+      "description": "Chairs. Harmoniously designed visitor and conference chair - Four-leg chair, without armrests\n\nMeeting rooms, lounge or waiting areas: The visitor chair brings",
+      "subCategory": "Office Seating",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Office Seating",
-      "family": "Sedus Stoll",
       "model": "se:flex Besucherstuhl",
-      "description": "Chairs. Harmoniously designed visitor and conference chair - Cantilever chair, without armrests\n\nMeeting rooms, lounge or waiting areas: The visitor chair brings",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20207315/sedus-stoll_se-flex-besucherstuhl_9f9846f2.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:flex-besucherstuhl-20207315/",
-      "price": 0
+      "description": "Chairs. Harmoniously designed visitor and conference chair - Cantilever chair, without armrests\n\nMeeting rooms, lounge or waiting areas: The visitor chair brings",
+      "subCategory": "Office Seating",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Office Seating",
-      "family": "Sedus Stoll",
       "model": "se:flex Besucherstuhl",
-      "description": "Chairs. Harmoniously designed visitor and conference chair - Cantilever chair, with armrests\n\nMeeting rooms, lounge or waiting areas: The visitor chair brings",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20207308/sedus-stoll_se-flex-besucherstuhl_2981d1ab.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:flex-besucherstuhl-20207308/",
-      "price": 0
+      "description": "Chairs. Harmoniously designed visitor and conference chair - Cantilever chair, with armrests\n\nMeeting rooms, lounge or waiting areas: The visitor chair brings",
+      "subCategory": "Office Seating",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Office Seating",
-      "family": "Sedus Stoll",
       "model": "se:motion net",
-      "description": "Office chairs. Office swivel chair for agile working\n\nCosy comfort for every workplace \nse:motion net stands out with its unique, kinematic movement concept and the",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20207414/sedus-stoll_se-motion-net_7e878b84.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:motion-net-20207414/",
-      "price": 0
+      "description": "Office chairs. Office swivel chair for agile working\n\nCosy comfort for every workplace \nse:motion net stands out with its unique, kinematic movement concept and the",
+      "subCategory": "Office Seating",
+      "mainCategory": "Furniture"
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Office Seating",
-      "family": "Sedus Stoll",
       "model": "se:lounge",
-      "description": "Armchairs. Arrive, sit down, feel good: When the ambience is right, everything feels much easier. That’s why a piece of seating furniture can sometimes offer a",
+      "price": 0,
+      "family": "Sedus Stoll",
       "imageUrl": "https://media.architonic.com/m-on/3100165/product/20274189/sedus-stoll_se-lounge_743636f9.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:lounge-20274189/",
-      "price": 0
+      "description": "Armchairs. Arrive, sit down, feel good: When the ambience is right, everything feels much easier. That’s why a piece of seating furniture can sometimes offer a",
+      "subCategory": "Office Seating",
+      "mainCategory": "Furniture"
+    },
+    {
+      "brand": "Sedus Stoll",
+      "model": "Not Specified",
+      "imageUrl": "https://media.architonic.com/m-on/3100165/logo/sedus-stoll_logo_2a03183e.png",
+      "websiteUrl": "https://www.sedus.com",
+      "mainCategory": "Furniture",
+      "subCategory": "Office Furniture",
+      "family": "Sedus",
+      "price": 0,
+      "description": "Leading European manufacturer of ergonomic office seating, workstations, and holistic workplace concepts Made in Germany.",
+      "lastUpdated": "2026-05-06T12:52:19.709Z",
+      "source": "AI-Specialist-Discovery"
     }
   ],
-  "createdAt": "2026-05-01T08:58:29.649Z",
-  "updatedAt": "2026-05-01T08:58:29.649Z"
+  "source": "Cloud-Restore",
+  "budget_tier": "mid",
+  "logo": "https://media.architonic.com/m-on/3100165/logo/sedus-stoll_logo_2a03183e.png",
+  "updated_at": "2026-05-01T08:58:29.649+00:00",
+  "budgetTier": "mid",
+  "origin": "Cloud-Restore"
 }

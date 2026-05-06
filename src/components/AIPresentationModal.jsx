@@ -135,10 +135,13 @@ const AIPresentationModal = ({
 
     const getSwarmActiveImage = () => {
         if (!swarm || !swarm.lanes) return null;
-        const validLanes = Object.values(swarm.lanes).filter(l => l.image || (l.currentItem && l.currentItem.image));
+        const validLanes = Object.values(swarm.lanes).filter(l => 
+            l.image || 
+            (l.currentItem && (l.currentItem.image || l.currentItem.brandImage || l.currentItem.imageRef))
+        );
         if (validLanes.length === 0) return null;
         const lane = validLanes[swarmImageIndex % validLanes.length];
-        return lane.image || lane.currentItem.image;
+        return lane.image || lane.currentItem?.brandImage || lane.currentItem?.image || lane.currentItem?.imageRef;
     };
 
     const getSwarmActiveTier = () => {
@@ -150,6 +153,7 @@ const AIPresentationModal = ({
     };
 
     const getTierColor = () => {
+        if (swarm && Object.keys(swarm.lanes || {}).length > 1) return '#8a2be2'; // Swarm Purple
         if (tier === 'budgetary') return '#4f46e5'; // Indigo
         if (tier === 'mid') return '#7c3aed';      // Violet
         if (tier === 'high') return '#db2777';     // Pink
@@ -188,35 +192,45 @@ const AIPresentationModal = ({
     useEffect(() => {
         let timer;
         
+        // In swarm mode, we might not have a single 'foundModel' top-level prop, 
+        // but we can memoize the latest active swarm image/model for stability.
+        const swarmActive = getSwarmActiveImage();
+        const swarmLane = swarm && swarm.lanes ? Object.values(swarm.lanes).find(l => 
+            l.image === swarmActive || 
+            l.currentItem?.brandImage === swarmActive || 
+            l.currentItem?.image === swarmActive || 
+            l.currentItem?.imageRef === swarmActive
+        ) : null;
+
         if (status === 'success' && foundModel && foundModel !== lastMatchedModelRef.current) {
             lastMatchedModelRef.current = foundModel;
-            
-            // CRITICAL: Update immediately so the new model becomes the static background
-            // for the subsequent search, overcoming cleanup race conditions in batch processing.
             setMemoizedDisplay({
                 image: foundImage,
                 model: foundModel,
-                model: foundModel,
                 brand: brand,
                 accuracy: accuracy,
-                description: currentItem?.description || '', // Capture current description
-                category: currentItem?.category || ''        // Capture current category
+                description: currentItem?.description || '',
+                category: currentItem?.category || ''
             });
-            
-            // Brief high-intensity matching animation when a new candidate is authenticated
             setIsTransitioning(true);
-            
-            timer = setTimeout(() => {
-                setIsTransitioning(false);
-            }, 1000); // 1s matching animation duration
-        } else if (status !== 'success') {
+            timer = setTimeout(() => setIsTransitioning(false), 1000);
+        } else if (swarmLane && swarmLane.model && swarmLane.model !== memoizedDisplay.model) {
+            // Also update memoized display from swarm lanes for visual continuity
+            setMemoizedDisplay(prev => ({
+                ...prev,
+                image: swarmActive,
+                model: swarmLane.model,
+                brand: swarmLane.brand,
+                description: swarmLane.currentItem?.description || prev.description
+            }));
+        } else if (status !== 'success' && !swarm) {
             setIsTransitioning(false);
         }
 
         return () => {
             if (timer) clearTimeout(timer);
         };
-    }, [status, foundModel, foundImage, brand, accuracy]);
+    }, [status, foundModel, foundImage, brand, accuracy, swarm, swarmImageIndex]);
 
     useEffect(() => {
         if (isOpen) {
@@ -451,9 +465,10 @@ const AIPresentationModal = ({
                             {/* Logic: While transitioning or searching, prefer showing the last stable match (memoizedDisplay) 
                                 unless we finally have a fresh success. This eliminates the "progress placeholder" between items. */}
                             {(() => {
+                                const swarmImage = getSwarmActiveImage();
                                 const activeImage = isTransitioning 
                                     ? memoizedDisplay.image 
-                                    : (foundImage || memoizedDisplay.image);
+                                    : (foundImage || swarmImage || memoizedDisplay.image);
                                 
                                 if (!activeImage) {
                                     if (memoizedDisplay.model || foundModel) {

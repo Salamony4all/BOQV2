@@ -3351,7 +3351,7 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
             />
             {(() => {
                 const getActiveModals = (statuses, type, batchResult, progress, setStatuses, setBatchResult) => {
-                    const activeTiers = ['high', 'mid', 'budgetary'].filter(k => statuses[k]?.active);
+                    const activeTiers = ['budgetary', 'mid', 'high'].filter(k => statuses[k]?.active);
                     if (activeTiers.length > 0) {
                         return [{
                             type,
@@ -3379,7 +3379,7 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                     return [];
                 };
 
-                const furnitureModals = getActiveModals(furnitureStatuses, 'furniture', furnitureBatchResult, furnitureProgress, setFurnitureStatuses, setFurnitureBatchResult);
+                const furnitureModals = (swarm && swarm.active) ? [] : getActiveModals(furnitureStatuses, 'furniture', furnitureBatchResult, furnitureProgress, setFurnitureStatuses, setFurnitureBatchResult);
                 const fitoutModals = getActiveModals(fitoutStatuses, 'fitout', fitoutBatchResult, fitoutProgress, setFitoutStatuses, setFitoutBatchResult);
 
                 const globalModals = [...furnitureModals, ...fitoutModals];
@@ -3390,7 +3390,7 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                         swarm: swarm,
                         isResult: false,
                         displayStatus: { minimized: false },
-                        displayTier: 'mid',
+                        displayTier: 'high', // Default to high for premium visuals if available
                         progress: 0
                     });
                 }
