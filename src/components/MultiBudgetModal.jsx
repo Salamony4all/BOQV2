@@ -572,7 +572,14 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
             });
 
             try {
-                const routeRes = await fetch(`${API_BASE}/api/ve-route`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ items: routingPayload }) });
+                const routeRes = await fetch(`${API_BASE}/api/ve-route`, { 
+                    method: 'POST', 
+                    headers: { 'Content-Type': 'application/json' }, 
+                    body: JSON.stringify({ 
+                        items: routingPayload,
+                        providerModel
+                    }) 
+                });
                 const routeData = await routeRes.json();
                 if (routeData.status === 'success' && routeData.categoryMap?.status !== 'error') {
                     categoryMap = routeData.categoryMap;

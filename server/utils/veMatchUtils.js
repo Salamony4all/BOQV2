@@ -73,7 +73,7 @@ export async function veMatchSimple(description, brand, modelList = [], provider
         console.log(`  🤖 [VE Match Simple] Matching: ${description.substring(0, 50)}...`);
 
         try {
-            const parsed = await callGoogle(system, user, false, providerModel || GROUNDING_MODEL);
+            const parsed = await callGoogle(system, user, false, providerModel);
             if (!parsed || parsed.model === 'FAILED') throw new Error('AI failed to match');
             return { status: 'success', ...parsed };
         } catch (err) {
@@ -94,7 +94,7 @@ export async function veMatchAdvanced(description, brand, category, modelList = 
         console.log(`  🤖 [VE Match Advanced] Matching: ${description.substring(0, 50)}... in ${category}`);
 
         try {
-            const parsed = await callGoogle(system, user, false, providerModel || GROUNDING_MODEL);
+            const parsed = await callGoogle(system, user, false, providerModel);
             if (!parsed || parsed.model === 'FAILED') throw new Error('AI failed to match');
             return { status: 'success', ...parsed };
         } catch (err) {
@@ -139,7 +139,7 @@ export async function veGetProductDetails(brand, model, providerModel = null) {
         console.log(`  🌐 [VE Details] Fetching details for: ${brand} ${model}`);
 
         try {
-            const parsed = await callGoogle(system, user, true, providerModel || GROUNDING_MODEL);
+            const parsed = await callGoogle(system, user, true, providerModel);
 
             if (!parsed) throw new Error('Empty response from AI');
 
@@ -176,7 +176,7 @@ CRITICAL: Output ONLY valid JSON exactly matching this structure, with no markdo
         const user = `Categorize these items:\n${itemsList}`;
 
         console.log(`  🚀 [VE Route] Sending ${items.length} items to AI Router...`);
-        const result = await callGoogle(system, user, false, providerModel || GROUNDING_MODEL);
+        const result = await callGoogle(system, user, false, providerModel);
 
         // Validation: Force retry if AI hallucinates the structure
         if (!result || typeof result !== 'object') throw new Error("Router returned non-object");

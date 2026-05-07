@@ -6,11 +6,18 @@ import { TAXONOMY } from './normalizer.js';
 // ──────────────────────────────────────────────────────────────────────────────
 // CONFIGURATION
 // ──────────────────────────────────────────────────────────────────────────────
-const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY;
-const GOOGLE_FREE_KEY = process.env.GOOGLE_FREE_KEY || process.env.GEMINI_FREE_KEY || process.env.GEMINI_API_KEY_FREE;
+const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY;
+const GOOGLE_FREE_KEY = process.env.GOOGLE_FREE_KEY;
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
 const NVIDIA_API_KEY = process.env.NVIDIA_API_KEY;
 const FORCE_FREE_GOOGLE = process.env.FORCE_FREE_GOOGLE_KEY === 'true';
+
+// Global Model Defaults (from .env)
+export const GOOGLE_MODEL = process.env.GOOGLE_MODEL || 'gemma-4-31b-it';
+export const GROUNDING_MODEL = process.env.GOOGLE_MODEL || 'gemma-4-31b-it';
+export const VISION_MODEL = process.env.GOOGLE_VISION_MODEL || 'gemini-2.0-flash';
+export const OPENROUTER_MODEL = process.env.OPENROUTER_MODEL || 'google/gemma-4-31b-it:free';
+export const NVIDIA_MODEL = process.env.NVIDIA_MODEL || 'nvidia/llama-3.1-8b-instruct';
 
 const MODEL_MAPPING = {
     'gemini-3.1-pro': 'gemini-3.1-pro-preview',
@@ -45,23 +52,28 @@ const maskKey = (key) => {
     return `${key.substring(0, 4)}...${key.substring(key.length - 4)}`;
 };
 
+/** 
+ * Resolver for Google AI Models
+ * Ensures that if a model is Paid/Pro, it uses the Billed key.
+ */
 export function getGoogleAI(modelName) {
-    const normalizedModel = MODEL_MAPPING[modelName] || modelName;
-    const isFreeModel = FREE_GOOGLE_MODELS.includes(normalizedModel);
+    const normalizedModel = (modelName || '').toLowerCase().trim();
 
-    // 1. Force Free protocol if requested via environment variable
+    // 1. Force Free Key if environment override is active
     if (FORCE_FREE_GOOGLE) {
-        if (!GOOGLE_FREE_KEY) throw new Error('FORCE_FREE_GOOGLE set but GOOGLE_FREE_KEY is missing.');
-        console.log(`  🔍 [LLM Utils] FORCING FREE Google Key for model: ${normalizedModel} (Key: ${maskKey(GOOGLE_FREE_KEY)})`);
+        console.log(`  ⚠️ [LLM Utils] OVERRIDE: Forcing FREE Key for "${normalizedModel}" via FORCE_FREE_GOOGLE_KEY=true.`);
         return new GoogleGenerativeAI(GOOGLE_FREE_KEY);
     }
 
-    // 2. Strict Logic: Routing based on tier
+    // 2. Identify if model belongs to Free Tier
+    const isFreeModel = FREE_GOOGLE_MODELS.some(m => normalizedModel.includes(m.toLowerCase()));
+
     if (isFreeModel) {
-        if (!GOOGLE_FREE_KEY) throw new Error(`Model "${normalizedModel}" requires a Google Free Key (GOOGLE_FREE_KEY/GEMINI_FREE_KEY) which is missing in .env.`);
+        if (!GOOGLE_FREE_KEY) throw new Error(`Model "${normalizedModel}" is a Free Tier model but GOOGLE_FREE_KEY is missing.`);
         console.log(`  💎 [LLM Utils] Free Tier model detected: Using FREE Key (${maskKey(GOOGLE_FREE_KEY)}) for "${normalizedModel}".`);
         return new GoogleGenerativeAI(GOOGLE_FREE_KEY);
     } else {
+        // 3. Paid/Pro Models (Requires Billing)
         if (!GOOGLE_API_KEY) throw new Error(`Model "${normalizedModel}" requires a Google Billed Key (GOOGLE_API_KEY) which is missing in .env.`);
         console.log(`  💰 [LLM Utils] Billed Tier model detected: Using Billed Key (${maskKey(GOOGLE_API_KEY)}) for "${normalizedModel}".`);
         return new GoogleGenerativeAI(GOOGLE_API_KEY);
@@ -86,12 +98,9 @@ export const VALID_NVIDIA_MODELS = [
 export const VALID_LOCAL_MODELS = [
     'local/yolov8-llama3.2'
 ];
-export const GOOGLE_MODEL = VALID_GOOGLE_MODELS.includes(process.env.GOOGLE_MODEL) ? process.env.GOOGLE_MODEL : 'gemma-4-31b-it';
-export const OPENROUTER_MODEL = process.env.OPENROUTER_MODEL || 'google/gemma-4-31b-it:free';
-export const NVIDIA_MODEL = process.env.NVIDIA_MODEL || 'nvidia/google/gemma-4-31b-it';
+
 export const LOCAL_MODEL = 'local/yolov8-llama3.2';
 export const PYTHON_SERVICE_URL = process.env.PYTHON_SERVICE_URL || 'http://localhost:8001';
-export const GROUNDING_MODEL = process.env.GOOGLE_MODEL || 'gemma-4-31b-it'; // Standard model for this environment
 
 // Deprecated: use getGoogleAI(modelName) instead
 const genAI = new GoogleGenerativeAI(GOOGLE_API_KEY);
@@ -262,7 +271,9 @@ async function callNvidia(systemPrompt, userPrompt, modelName = null) {
 /** Google Gemini call with optional Grounding or specific Model override. */
 export async function callGoogle(systemPrompt, userPrompt, useSearch = false, modelName = null) {
     const tools = useSearch ? [{ googleSearch: {} }] : [];
-    const finalModelName = modelName || (useSearch ? GROUNDING_MODEL : GOOGLE_MODEL);
+    
+    // Resolve model name: passed param > env.GOOGLE_MODEL > default fallback
+    const finalModelName = modelName || GOOGLE_MODEL || 'gemma-4-31b-it';
     const finalModel = MODEL_MAPPING[finalModelName] || finalModelName;
     const genAIInstance = getGoogleAI(finalModel);
     const model = genAIInstance.getGenerativeModel({

@@ -664,7 +664,10 @@ export default function ValueEngineeredModal({
                 const routeRes = await fetch(`${API_BASE}/api/ve-route`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ items: routingPayload })
+                    body: JSON.stringify({ 
+                        items: routingPayload,
+                        providerModel: aiSettings?.model
+                    })
                 });
                 const routeData = await routeRes.json();
 

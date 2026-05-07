@@ -1,20 +1,12 @@
 import axios from 'axios';
 import 'dotenv/config';
-import { callUniversalMultimodalAI } from './llmUtils.js';
+import { callUniversalMultimodalAI, FREE_GOOGLE_MODELS, PAID_GOOGLE_MODELS } from './llmUtils.js';
 
 const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY;
 const GOOGLE_FREE_KEY = process.env.GOOGLE_FREE_KEY || process.env.GEMINI_FREE_KEY || process.env.GEMINI_API_KEY_FREE;
 const FORCE_FREE_GOOGLE = process.env.FORCE_FREE_GOOGLE_KEY === 'true';
 
-export const FREE_GOOGLE_MODELS = [
-    'gemma-4-31b-it',
-    'gemma-4-26b-a4b-it',
-    'gemma-4-e4b-it',
-    'gemma-4-e2b-it',
-    'gemini-2.0-flash',
-    'gemini-2.5-flash',
-    'gemini-3-0.01b-it'
-];
+// Tier lists are imported from llmUtils.js for consistency
 
 export const GEMMA4_FAMILY_MODELS = [
     'gemma-4-26b-a4b-it',

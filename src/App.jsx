@@ -351,7 +351,7 @@ function AppContent({ onOpenSettings }) {
     }
   };
 
-  const handlePlanAnalyze = async (scope, provider = aiSettings?.engine || 'google', providerModel = aiSettings?.model || 'gemma-4-31b-it') => {
+  const handlePlanAnalyze = async (scope, provider = aiSettings?.engine || 'google', providerModel = aiSettings?.model) => {
     if (!currentPlanFiles || currentPlanFiles.length === 0) return;
 
     setIsPlanScopeOpen(false);
