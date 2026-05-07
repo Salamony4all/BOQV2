@@ -35,17 +35,34 @@ export const getFullUrl = (input) => {
         'bossdesign.com'
     ];
 
-    const needsProxy = proxyDomains.some(domain => normalizedUrl.includes(domain)) || 
-                      (normalizedUrl.startsWith('http') && 
-                       !normalizedUrl.includes('images.unsplash.com') && 
-                       !normalizedUrl.includes('googleusercontent.com') &&
-                       !normalizedUrl.includes('localhost') &&
-                       !normalizedUrl.includes(window.location.hostname));
+    // EMF/WMF files ALWAYS need proxying for server-side conversion to PNG
+    const isEmfWmf = /\.(emf|wmf)(\?|$)/i.test(normalizedUrl);
+    if (isEmfWmf) {
+        return `${API_BASE}/api/image-proxy?url=${encodeURIComponent(normalizedUrl)}`;
+    }
 
+    // Domains that don't need proxying (public CDNs with CORS support)
+    const directDomains = [
+        'supabase.co',
+        'images.unsplash.com',
+        'googleusercontent.com',
+        'freeimage.host',
+        'iili.io',
+        'logo.clearbit.com',
+        'localhost'
+    ];
+
+    const isDirect = directDomains.some(d => normalizedUrl.includes(d)) ||
+                     normalizedUrl.includes(window.location.hostname);
+
+    if (isDirect) {
+        return normalizedUrl;
+    }
+
+    const needsProxy = proxyDomains.some(domain => normalizedUrl.includes(domain)) || 
+                      normalizedUrl.startsWith('http');
 
     if (needsProxy) {
-        // We use base64 for common domains to bypass some filters, or just raw for others
-        // Server expects base64 if it doesn't start with http, but we can just use the query param
         return `${API_BASE}/api/image-proxy?url=${encodeURIComponent(normalizedUrl)}`;
     }
 

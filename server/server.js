@@ -26,6 +26,7 @@ import { brandStorage, kv } from './storageProvider.js';
 import { getAiMatch, identifyModel, fetchProductDetails, searchAndEnrichModel, analyzePlan, matchFitoutItem, autoMatchSingleBrand, FREE_GOOGLE_MODELS, PAID_GOOGLE_MODELS, VALID_GOOGLE_MODELS, VALID_OPENROUTER_MODELS, VALID_NVIDIA_MODELS, GOOGLE_MODEL, OPENROUTER_MODEL, NVIDIA_MODEL } from './utils/llmUtils.js';
 import { veMatchSimple, veMatchAdvanced, veGetProductDetails, veRouteCategories } from './utils/veMatchUtils.js';
 import { generatePresentationPdf } from './utils/pptxExportService.js';
+import { convertEmfToPng } from './utils/emfConverter.js';
 import Fuse from 'fuse.js';
 
 
@@ -1764,10 +1765,58 @@ app.get('/api/image-proxy', async (req, res) => {
       }
     });
 
-    const contentType = response.headers['content-type'] || 'image/jpeg';
+    let data = response.data;
+    let contentType = response.headers['content-type'] || 'image/jpeg';
+
+    // Handle EMF/WMF conversion on the fly
+    if (imageUrl.toLowerCase().match(/\.(emf|wmf)$/) || contentType.includes('image/x-emf') || contentType.includes('image/x-wmf') || contentType.includes('application/x-msmetafile')) {
+      console.log(`[Image Proxy] Detected EMF/WMF, attempting on-the-fly conversion for: ${imageUrl.substring(0, 80)}...`);
+      let converted = false;
+      try {
+        const tempDir = isVercel ? '/tmp/uploads' : path.join(__dirname, '../uploads');
+        await fs.mkdir(tempDir, { recursive: true });
+        const tempInput = path.join(tempDir, `proxy_${Date.now()}_${path.basename(imageUrl)}`);
+        await fs.writeFile(tempInput, Buffer.from(data));
+
+        const pngPath = await convertEmfToPng(tempInput);
+        if (pngPath) {
+          data = await fs.readFile(pngPath);
+          contentType = 'image/png';
+          converted = true;
+          console.log(`[Image Proxy] On-the-fly conversion successful for ${imageUrl.substring(0, 80)}...`);
+          
+          // Cleanup
+          try { await fs.unlink(tempInput); } catch (e) {}
+          try { await fs.unlink(pngPath); } catch (e) {}
+        } else {
+          // Cleanup temp input
+          try { await fs.unlink(tempInput); } catch (e) {}
+        }
+      } catch (convErr) {
+        console.warn(`[Image Proxy] On-the-fly conversion failed: ${convErr.message}`);
+      }
+
+      // If conversion failed, serve a proper fallback instead of raw EMF bytes (browsers can't render EMF)
+      if (!converted) {
+        console.warn(`[Image Proxy] EMF conversion failed — serving placeholder for: ${imageUrl.substring(0, 80)}`);
+        try {
+          const fallbackUrl = "https://placehold.co/400x300/f1f5f9/475569?text=EMF+Image%0A(Conversion+Pending)";
+          const fbRes = await axios.get(fallbackUrl, { responseType: 'arraybuffer', timeout: 5000 });
+          res.set('Content-Type', 'image/png');
+          res.set('Cache-Control', 'no-cache'); // Don't cache placeholders
+          return res.send(fbRes.data);
+        } catch (e) {
+          // If even the placeholder fails, send a 1x1 transparent PNG
+          const transparentPng = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', 'base64');
+          res.set('Content-Type', 'image/png');
+          return res.send(transparentPng);
+        }
+      }
+    }
+
     res.set('Content-Type', contentType);
     res.set('Cache-Control', 'public, max-age=31536000');
-    res.send(response.data);
+    res.send(data);
 
   } catch (error) {
     const status = error.response?.status || 502;
