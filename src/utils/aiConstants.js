@@ -12,18 +12,18 @@ export const MODEL_OPTIONS = {
             'gemma-2-2b-it'
         ],
         gemini: [
-            'gemini-3-flash',
-            'gemini-3-flash-8b',
+            'gemini-3-flash-preview',
+            'gemini-3-flash-8b-preview',
             'gemini-2.5-flash',
             'gemini-2.0-flash',
             'gemini-2.0-flash-lite',
             'gemini-1.0-pro'
         ],
         paid: [
-            'gemini-3.1-pro',
-            'gemini-3-pro',
-            'gemini-2.5-pro',
-            'gemini-2.0-pro'
+            'gemini-3.1-pro-preview',
+            'gemini-3-pro-preview',
+            'gemini-2.5-pro-preview',
+            'gemini-2.0-pro-exp-02-05'
         ]
     },
     openrouter: [

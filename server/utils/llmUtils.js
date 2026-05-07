@@ -12,43 +12,52 @@ const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
 const NVIDIA_API_KEY = process.env.NVIDIA_API_KEY;
 const FORCE_FREE_GOOGLE = process.env.FORCE_FREE_GOOGLE_KEY === 'true';
 
+const MODEL_MAPPING = {
+    'gemini-3.1-pro': 'gemini-3.1-pro-preview',
+    'gemini-3-pro': 'gemini-3-pro-preview',
+    'gemini-3-flash': 'gemini-3-flash-preview',
+    'gemini-3-flash-8b': 'gemini-3-flash-8b-preview',
+    'gemini-2.5-pro': 'gemini-2.5-pro-preview'
+};
+
 export const FREE_GOOGLE_MODELS = [
     'gemma-4-31b-it',
     'gemma-4-26b-a4b-it',
     'gemma-4-e4b-it',
     'gemma-4-e2b-it',
     'gemini-2.0-flash',
-    'gemini-3-flash',
-    'gemini-3-flash-8b'
+    'gemini-3-flash-preview',
+    'gemini-3-flash-8b-preview'
 ];
 
 export const PAID_GOOGLE_MODELS = [
-    'gemini-3.1-pro',
-    'gemini-3-pro',
-    'gemini-2.5-pro',
+    'gemini-3.1-pro-preview',
+    'gemini-3-pro-preview',
+    'gemini-2.5-pro-preview',
     'gemini-2.0-pro-exp-02-05'
 ];
 
 export const VALID_GOOGLE_MODELS = [...FREE_GOOGLE_MODELS, ...PAID_GOOGLE_MODELS];
 
-function getGoogleAI(modelName) {
-    const isFreeModel = FREE_GOOGLE_MODELS.includes(modelName);
+export function getGoogleAI(modelName) {
+    const normalizedModel = MODEL_MAPPING[modelName] || modelName;
+    const isFreeModel = FREE_GOOGLE_MODELS.includes(normalizedModel);
 
     // 1. Force Free protocol if requested via environment variable
     if (FORCE_FREE_GOOGLE) {
         if (!GOOGLE_FREE_KEY) throw new Error('FORCE_FREE_GOOGLE set but GOOGLE_FREE_KEY is missing.');
-        if (process.env.DEBUG_AI === 'true') console.log(`  🔍 [LLM Utils] Forcing FREE Google Key for model: ${modelName}`);
+        if (process.env.DEBUG_AI === 'true') console.log(`  🔍 [LLM Utils] Forcing FREE Google Key for model: ${normalizedModel}`);
         return new GoogleGenerativeAI(GOOGLE_FREE_KEY);
     }
 
     // 2. Strict Logic: Routing based on tier
     if (isFreeModel) {
-        if (!GOOGLE_FREE_KEY) throw new Error(`Model "${modelName}" requires a Google Free Key (GOOGLE_FREE_KEY/GEMINI_FREE_KEY) which is missing in .env.`);
-        if (process.env.DEBUG_AI === 'true') console.log(`  💎 [LLM Utils] Free Tier model detected: Using FREE Key for "${modelName}".`);
+        if (!GOOGLE_FREE_KEY) throw new Error(`Model "${normalizedModel}" requires a Google Free Key (GOOGLE_FREE_KEY/GEMINI_FREE_KEY) which is missing in .env.`);
+        if (process.env.DEBUG_AI === 'true') console.log(`  💎 [LLM Utils] Free Tier model detected: Using FREE Key for "${normalizedModel}".`);
         return new GoogleGenerativeAI(GOOGLE_FREE_KEY);
     } else {
-        if (!GOOGLE_API_KEY) throw new Error(`Model "${modelName}" requires a Google Billed Key (GOOGLE_API_KEY) which is missing in .env.`);
-        if (process.env.DEBUG_AI === 'true') console.log(`  💰 [LLM Utils] Billed Tier model detected: Using Billed Key for "${modelName}".`);
+        if (!GOOGLE_API_KEY) throw new Error(`Model "${normalizedModel}" requires a Google Billed Key (GOOGLE_API_KEY) which is missing in .env.`);
+        if (process.env.DEBUG_AI === 'true') console.log(`  💰 [LLM Utils] Billed Tier model detected: Using Billed Key for "${normalizedModel}".`);
         return new GoogleGenerativeAI(GOOGLE_API_KEY);
     }
 }
@@ -247,7 +256,8 @@ async function callNvidia(systemPrompt, userPrompt, modelName = null) {
 /** Google Gemini call with optional Grounding or specific Model override. */
 export async function callGoogle(systemPrompt, userPrompt, useSearch = false, modelName = null) {
     const tools = useSearch ? [{ googleSearch: {} }] : [];
-    const finalModel = modelName || (useSearch ? GROUNDING_MODEL : GOOGLE_MODEL);
+    const finalModelName = modelName || (useSearch ? GROUNDING_MODEL : GOOGLE_MODEL);
+    const finalModel = MODEL_MAPPING[finalModelName] || finalModelName;
     const genAIInstance = getGoogleAI(finalModel);
     const model = genAIInstance.getGenerativeModel({
         model: finalModel,
