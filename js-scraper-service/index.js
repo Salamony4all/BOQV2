@@ -809,7 +809,7 @@ app.post('/upload-media', express.json({ limit: '20mb' }), async (req, res) => {
 
 // ===================== IMAGE CONVERSION =====================
 
-app.post('/convert-image', express.json({ limit: '20mb' }), async (req, res) => {
+app.post('/convert-image', express.json({ limit: '50mb' }), async (req, res) => {
     const { image, filename } = req.body;
 
     if (!image) {
@@ -829,33 +829,89 @@ app.post('/convert-image', express.json({ limit: '20mb' }), async (req, res) => 
         const buffer = Buffer.from(image, 'base64');
         await fs.writeFile(inputPath, buffer);
 
-        console.log(`[Conversion] Converting ${inputPath} to ${outputPath}...`);
+        console.log(`[Conversion] Converting ${filename} (${buffer.length} bytes) to PNG...`);
         
-        // Use ImageMagick (magick command)
-        let cmd = `magick "${inputPath}" "${outputPath}"`;
+        let conversionSuccess = false;
+        let lastError = '';
+
+        // Strategy 1: Inkscape (Gold standard for EMF/WMF on Linux)
         try {
-            await execAsync(cmd);
+            console.log(`[Conversion] Trying Inkscape...`);
+            await execAsync(`inkscape "${inputPath}" --export-filename="${outputPath}"`);
+            if ((await fs.stat(outputPath)).size > 0) {
+                conversionSuccess = true;
+                console.log(`[Conversion] Inkscape success!`);
+            }
         } catch (e) {
-            console.warn(`[Conversion] 'magick' failed, trying 'convert': ${e.message}`);
-            cmd = `convert "${inputPath}" "${outputPath}"`;
-            await execAsync(cmd);
+            lastError = `Inkscape: ${e.message}`;
+            console.warn(`[Conversion] Inkscape failed: ${e.message}`);
+        }
+
+        // Strategy 2: ImageMagick (Magick)
+        if (!conversionSuccess) {
+            try {
+                console.log(`[Conversion] Trying ImageMagick (magick)...`);
+                await execAsync(`magick "${inputPath}" "${outputPath}"`);
+                if ((await fs.stat(outputPath)).size > 0) {
+                    conversionSuccess = true;
+                    console.log(`[Conversion] Magick success!`);
+                }
+            } catch (e) {
+                lastError += ` | Magick: ${e.message}`;
+                console.warn(`[Conversion] Magick failed: ${e.message}`);
+            }
+        }
+
+        // Strategy 3: ImageMagick (Legacy convert)
+        if (!conversionSuccess) {
+            try {
+                console.log(`[Conversion] Trying ImageMagick (convert)...`);
+                await execAsync(`convert "${inputPath}" "${outputPath}"`);
+                if ((await fs.stat(outputPath)).size > 0) {
+                    conversionSuccess = true;
+                    console.log(`[Conversion] Convert success!`);
+                }
+            } catch (e) {
+                lastError += ` | Convert: ${e.message}`;
+                console.warn(`[Conversion] Convert failed: ${e.message}`);
+            }
+        }
+
+        // Strategy 4: libwmf (wmf2png) - Only for WMF
+        if (!conversionSuccess && inputExt === '.wmf') {
+            try {
+                console.log(`[Conversion] Trying wmf2png...`);
+                await execAsync(`wmf2png -o "${outputPath}" "${inputPath}"`);
+                if ((await fs.stat(outputPath)).size > 0) {
+                    conversionSuccess = true;
+                    console.log(`[Conversion] wmf2png success!`);
+                }
+            } catch (e) {
+                lastError += ` | wmf2png: ${e.message}`;
+                console.warn(`[Conversion] wmf2png failed: ${e.message}`);
+            }
+        }
+
+        if (!conversionSuccess) {
+            throw new Error(`All conversion strategies failed. Errors: ${lastError}`);
         }
 
         const pngBuffer = await fs.readFile(outputPath);
         const base64Png = pngBuffer.toString('base64');
 
         // Cleanup
-        await fs.unlink(inputPath);
-        await fs.unlink(outputPath);
+        try { await fs.unlink(inputPath); } catch (e) {}
+        try { await fs.unlink(outputPath); } catch (e) {}
 
         res.json({ 
             success: true, 
             image: base64Png,
-            format: 'png'
+            format: 'png',
+            size: pngBuffer.length
         });
 
     } catch (error) {
-        console.error('[Conversion] Error:', error.message);
+        console.error('[Conversion] Fatal Error:', error.message);
         
         // Cleanup on failure
         try { if (await fs.stat(inputPath)) await fs.unlink(inputPath); } catch (e) {}
