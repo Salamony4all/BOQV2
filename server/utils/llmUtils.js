@@ -39,6 +39,12 @@ export const PAID_GOOGLE_MODELS = [
 
 export const VALID_GOOGLE_MODELS = [...FREE_GOOGLE_MODELS, ...PAID_GOOGLE_MODELS];
 
+const maskKey = (key) => {
+    if (!key) return 'MISSING';
+    if (key.length <= 8) return '********';
+    return `${key.substring(0, 4)}...${key.substring(key.length - 4)}`;
+};
+
 export function getGoogleAI(modelName) {
     const normalizedModel = MODEL_MAPPING[modelName] || modelName;
     const isFreeModel = FREE_GOOGLE_MODELS.includes(normalizedModel);
@@ -46,18 +52,18 @@ export function getGoogleAI(modelName) {
     // 1. Force Free protocol if requested via environment variable
     if (FORCE_FREE_GOOGLE) {
         if (!GOOGLE_FREE_KEY) throw new Error('FORCE_FREE_GOOGLE set but GOOGLE_FREE_KEY is missing.');
-        if (process.env.DEBUG_AI === 'true') console.log(`  🔍 [LLM Utils] Forcing FREE Google Key for model: ${normalizedModel}`);
+        console.log(`  🔍 [LLM Utils] FORCING FREE Google Key for model: ${normalizedModel} (Key: ${maskKey(GOOGLE_FREE_KEY)})`);
         return new GoogleGenerativeAI(GOOGLE_FREE_KEY);
     }
 
     // 2. Strict Logic: Routing based on tier
     if (isFreeModel) {
         if (!GOOGLE_FREE_KEY) throw new Error(`Model "${normalizedModel}" requires a Google Free Key (GOOGLE_FREE_KEY/GEMINI_FREE_KEY) which is missing in .env.`);
-        if (process.env.DEBUG_AI === 'true') console.log(`  💎 [LLM Utils] Free Tier model detected: Using FREE Key for "${normalizedModel}".`);
+        console.log(`  💎 [LLM Utils] Free Tier model detected: Using FREE Key (${maskKey(GOOGLE_FREE_KEY)}) for "${normalizedModel}".`);
         return new GoogleGenerativeAI(GOOGLE_FREE_KEY);
     } else {
         if (!GOOGLE_API_KEY) throw new Error(`Model "${normalizedModel}" requires a Google Billed Key (GOOGLE_API_KEY) which is missing in .env.`);
-        if (process.env.DEBUG_AI === 'true') console.log(`  💰 [LLM Utils] Billed Tier model detected: Using Billed Key for "${normalizedModel}".`);
+        console.log(`  💰 [LLM Utils] Billed Tier model detected: Using Billed Key (${maskKey(GOOGLE_API_KEY)}) for "${normalizedModel}".`);
         return new GoogleGenerativeAI(GOOGLE_API_KEY);
     }
 }
