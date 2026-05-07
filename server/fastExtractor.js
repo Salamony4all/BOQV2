@@ -162,7 +162,42 @@ async function extractImagesAndMap(filePath, imagesDir, onBlobCreated = null) {
             const batch = mediaEntries.slice(i, i + BATCH_SIZE);
             await Promise.all(batch.map(async (entry) => {
                 const fileName = path.basename(entry.entryName);
-                const data = entry.getData();
+                let data = entry.getData();
+                let currentFileName = fileName;
+
+                // Handle EMF support: Convert to PNG early so it works for cloud storage too
+                if (fileName.toLowerCase().match(/\.(emf|wmf)$/)) {
+                    console.log(`[FastExtractor] Detected EMF/WMF: ${fileName}. Converting to PNG...`);
+                    const timestamp = Date.now();
+                    const tempInputPath = path.join(imagesDir, `temp_${timestamp}_${fileName}`);
+                    
+                    try {
+                        // Ensure imagesDir exists
+                        if (!fsSync.existsSync(imagesDir)) {
+                            fsSync.mkdirSync(imagesDir, { recursive: true });
+                        }
+                        
+                        fsSync.writeFileSync(tempInputPath, data);
+                        const pngPath = await convertEmfToPng(tempInputPath);
+                        
+                        if (pngPath && fsSync.existsSync(pngPath)) {
+                            data = fsSync.readFileSync(pngPath);
+                            currentFileName = path.basename(pngPath).replace(/^temp_/, '');
+                            console.log(`[FastExtractor] Successfully converted ${fileName} to ${currentFileName}`);
+                            
+                            // Cleanup temp files
+                            try {
+                                fsSync.unlinkSync(tempInputPath);
+                                fsSync.unlinkSync(pngPath);
+                            } catch (e) {}
+                        } else {
+                            console.warn(`[FastExtractor] EMF conversion failed for ${fileName}. Using original.`);
+                            try { if (fsSync.existsSync(tempInputPath)) fsSync.unlinkSync(tempInputPath); } catch (e) {}
+                        }
+                    } catch (err) {
+                        console.error(`[FastExtractor] Error during EMF conversion for ${fileName}:`, err);
+                    }
+                }
 
                 // Cloud Storage Strategy
                 try {
@@ -170,106 +205,54 @@ async function extractImagesAndMap(filePath, imagesDir, onBlobCreated = null) {
 
                     // Option 0: Supabase (Our own managed storage)
                     if (supabase) {
-                        try {
-                            const storagePath = `extracted-images/${timestamp}_${fileName}`;
-                            const result = await uploadToSupabase('assets', storagePath, data, {
-                                contentType: 'image/' + path.extname(fileName).substring(1).toLowerCase().replace('jpg', 'jpeg')
+                        const { data: uploadData, error } = await supabase.storage
+                            .from('product-images')
+                            .upload(`extracted/${timestamp}_${currentFileName}`, data, {
+                                contentType: currentFileName.endsWith('.png') ? 'image/png' : 'image/jpeg',
+                                cacheControl: '3600'
                             });
-                            directUrl = result.url;
-
-                            // Track the blob for cleanup
-                            if (onBlobCreated && directUrl) {
-                                onBlobCreated({
-                                    url: directUrl,
-                                    path: storagePath,
-                                    bucket: 'assets'
-                                });
-                            }
-                        } catch (err) {
-                            console.warn(`[FastExtractor] Supabase upload failed for ${fileName}:`, err.message);
+                        if (!error) {
+                            const { data: publicUrlData } = supabase.storage.from('product-images').getPublicUrl(`extracted/${timestamp}_${currentFileName}`);
+                            directUrl = publicUrlData.publicUrl;
+                            if (onBlobCreated) onBlobCreated({ url: directUrl, path: `extracted/${timestamp}_${currentFileName}`, bucket: 'product-images' });
                         }
                     }
 
                     if (!directUrl) {
-                        const base64Str = data.toString('base64');
-
-                    // Provider 1: FreeImage.host (Highest rate limit for anonymous bulk uploads)
-                    try {
-                        const formData1 = new FormData();
-                        formData1.append('key', '6d207e02198a847aa98d0a2a901485a5');
-                        formData1.append('action', 'upload');
-                        formData1.append('source', base64Str);
-                        formData1.append('format', 'json');
-
-                        const res1 = await axios.post('https://freeimage.host/api/1/upload', formData1, {
-                            headers: formData1.getHeaders()
-                        });
-                        if (res1.status === 200 && res1.data && res1.data.image) directUrl = res1.data.image.url;
-                    } catch (e1) {
-                        console.warn(`[FastExtractor] Provider 1 (FreeImage) failed for ${fileName}, falling back...`);
-                    }
-
-                    // Provider 2: Imgur (Secondary fallback, strict 50/hr ceiling per IP)
-                    if (!directUrl) {
                         try {
-                            const formData2 = new FormData();
-                            formData2.append('image', base64Str);
-
-                            const res2 = await axios.post('https://api.imgur.com/3/image', formData2, {
-                                headers: {
-                                    ...formData2.getHeaders(),
-                                    'Authorization': 'Client-ID 546c25a59c58ad7'
-                                }
-                            });
-                            if (res2.status === 200 || res2.status === 201) directUrl = res2.data.data.link;
-                        } catch (e2) {
-                            console.warn(`[FastExtractor] Provider 2 (Imgur) failed for ${fileName}, falling back...`);
+                            const form = new FormData();
+                            form.append('key', '6d207e02198a847aa98d0a2a901485a5');
+                            form.append('action', 'upload');
+                            form.append('source', data.toString('base64'));
+                            form.append('format', 'json');
+                            const res1 = await axios.post('https://freeimage.host/api/1/upload', form, { headers: form.getHeaders() });
+                            if (res1.status === 200 && res1.data && res1.data.image) directUrl = res1.data.image.url;
+                        } catch (e1) {
+                            console.warn(`[FastExtractor] Provider 1 (FreeImage) failed for ${fileName}, falling back...`);
                         }
-                    }
                     }
 
                     if (directUrl) {
                         savedImages[fileName] = directUrl;
-                        if (onBlobCreated) onBlobCreated(directUrl);
                         return;
-                    } else {
-                        throw new Error(`All remote cloud backup providers failed`);
                     }
                 } catch (err) {
                     console.error(`Free Tier storage bypass failed for ${fileName}, falling back to local:`, err.message);
                 }
 
-                // Local fallback
-                const targetName = `${timestamp}_${fileName}`;
+                const targetName = `${timestamp}_${currentFileName}`;
                 const targetPath = path.join(imagesDir, targetName);
                 try {
-                    // Pre-verify imagesDir again to be absolutely sure no race condition deleted it
                     if (!fsSync.existsSync(imagesDir)) fsSync.mkdirSync(imagesDir, { recursive: true });
-                    
                     fsSync.writeFileSync(targetPath, data);
-                    
-                    // Handle EMF support: Convert to PNG on-the-fly if on Windows
-                    if (fileName.toLowerCase().match(/\.(emf|wmf)$/)) {
-                        console.log(`[FastExtractor] Processing EMF: ${fileName}`);
-                        const pngPath = await convertEmfToPng(targetPath);
-                        if (pngPath) {
-                            const pngName = path.basename(pngPath);
-                            savedImages[fileName] = `/uploads/images/${pngName}`;
-                            console.log(`[FastExtractor] Applied PNG conversion for: ${fileName} -> ${pngName}`);
-                        } else {
-                            savedImages[fileName] = `/uploads/images/${targetName}`;
-                            console.warn(`[FastExtractor] EMF conversion failed for ${fileName}, browser may not display it.`);
-                        }
-                    } else {
-                        savedImages[fileName] = `/uploads/images/${targetName}`;
-                    }
-                } catch (err) {
-                    console.error(`   > Failed to write ${fileName} locally to ${targetPath}:`, err);
+                    savedImages[fileName] = `/uploads/images/${targetName}`;
+                    console.log(`[FastExtractor] Saved local image for ${fileName} as ${targetName}`);
+                } catch (localErr) {
+                    console.error(`[FastExtractor] Failed to save local image for ${fileName}:`, localErr);
                 }
             }));
         }
 
-        // 2. Parse relationships to map Cell -> Image
         const wbRelsEntry = zipEntries.find(e => e.entryName === 'xl/_rels/workbook.xml.rels');
         const wbEntry = zipEntries.find(e => e.entryName === 'xl/workbook.xml');
         const fileToSheetId = {};
