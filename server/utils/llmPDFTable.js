@@ -11,7 +11,6 @@ export const FREE_GOOGLE_MODELS = [
     'gemma-4-26b-a4b-it',
     'gemma-4-e4b-it',
     'gemma-4-e2b-it',
-    'gemini-1.5-flash',
     'gemini-2.0-flash',
     'gemini-2.5-flash',
     'gemini-3-0.01b-it'

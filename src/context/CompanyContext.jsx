@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import ALSHAYA_COLOR from '../assets/alshaya-color.png';
 import ALSHAYA_WHITE from '../assets/alshaya-white.png';
-import { DEFAULT_AI_SETTINGS } from '../utils/aiConstants';
+import { DEFAULT_AI_SETTINGS, MODEL_OPTIONS } from '../utils/aiConstants';
 
 // Create the context
 const CompanyContext = createContext(null);
@@ -80,6 +80,24 @@ export function CompanyProvider({ children }) {
                     accentColor: parsed.accentColor || DEFAULT_PROFILE.accentColor,
                     secondaryColor: parsed.secondaryColor || DEFAULT_PROFILE.secondaryColor
                 };
+
+                // Validate AI settings model
+                if (integratedProfile.aiSettings.engine === 'google' && MODEL_OPTIONS?.google) {
+                    const allValidGoogle = [
+                        ...(MODEL_OPTIONS.google.gemma || []),
+                        ...(MODEL_OPTIONS.google.gemini || []),
+                        ...(MODEL_OPTIONS.google.paid || [])
+                    ];
+                    if (!allValidGoogle.includes(integratedProfile.aiSettings.model)) {
+                        console.warn(`[Migration] Model "${integratedProfile.aiSettings.model}" is no longer supported. Resetting to default: ${DEFAULT_AI_SETTINGS.model}`);
+                        integratedProfile.aiSettings.model = DEFAULT_AI_SETTINGS.model;
+                    }
+                } else if (MODEL_OPTIONS && MODEL_OPTIONS[integratedProfile.aiSettings.engine]) {
+                    if (!MODEL_OPTIONS[integratedProfile.aiSettings.engine].includes(integratedProfile.aiSettings.model)) {
+                         integratedProfile.aiSettings.model = MODEL_OPTIONS[integratedProfile.aiSettings.engine][0];
+                    }
+                }
+
                 setProfile(integratedProfile);
                 applyThemeColors(integratedProfile.accentColor, integratedProfile.secondaryColor);
                 setShowSetupModal(false); // Hidden by default as requested

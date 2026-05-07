@@ -18,7 +18,6 @@ export const FREE_GOOGLE_MODELS = [
     'gemma-4-e4b-it',
     'gemma-4-e2b-it',
     'gemini-2.0-flash',
-    'gemini-1.5-flash',
     'gemini-3-flash',
     'gemini-3-flash-8b'
 ];
@@ -27,8 +26,7 @@ export const PAID_GOOGLE_MODELS = [
     'gemini-3.1-pro',
     'gemini-3-pro',
     'gemini-2.5-pro',
-    'gemini-2.0-pro-exp-02-05',
-    'gemini-1.5-pro'
+    'gemini-2.0-pro-exp-02-05'
 ];
 
 export const VALID_GOOGLE_MODELS = [...FREE_GOOGLE_MODELS, ...PAID_GOOGLE_MODELS];
@@ -56,7 +54,7 @@ function getGoogleAI(modelName) {
 }
 
 // Model ids
-// Default to 1.5-flash (fast & reliable) if .env is missing or has a typo
+// Default to gemma-4-31b-it if .env is missing or has a typo
 export const VALID_OPENROUTER_MODELS = [
     'google/gemini-4-31b-it:free',
     'google/gemma-4-26b-a4b-it:free',
@@ -73,12 +71,12 @@ export const VALID_NVIDIA_MODELS = [
 export const VALID_LOCAL_MODELS = [
     'local/yolov8-llama3.2'
 ];
-export const GOOGLE_MODEL = VALID_GOOGLE_MODELS.includes(process.env.GOOGLE_MODEL) ? process.env.GOOGLE_MODEL : 'gemini-1.5-flash';
-export const OPENROUTER_MODEL = process.env.OPENROUTER_MODEL || 'google/gemini-1.5-flash';
-export const NVIDIA_MODEL = process.env.NVIDIA_MODEL || 'nvidia/gemini-1.5-flash';
+export const GOOGLE_MODEL = VALID_GOOGLE_MODELS.includes(process.env.GOOGLE_MODEL) ? process.env.GOOGLE_MODEL : 'gemma-4-31b-it';
+export const OPENROUTER_MODEL = process.env.OPENROUTER_MODEL || 'google/gemma-4-31b-it:free';
+export const NVIDIA_MODEL = process.env.NVIDIA_MODEL || 'nvidia/google/gemma-4-31b-it';
 export const LOCAL_MODEL = 'local/yolov8-llama3.2';
 export const PYTHON_SERVICE_URL = process.env.PYTHON_SERVICE_URL || 'http://localhost:8001';
-export const GROUNDING_MODEL = process.env.GOOGLE_MODEL || 'gemini-1.5-flash'; // Standard model for this environment
+export const GROUNDING_MODEL = process.env.GOOGLE_MODEL || 'gemma-4-31b-it'; // Standard model for this environment
 
 // Deprecated: use getGoogleAI(modelName) instead
 const genAI = new GoogleGenerativeAI(GOOGLE_API_KEY);
@@ -834,7 +832,7 @@ Return ONLY valid JSON:
  * specialized function for rapid, highly-precise matching of fitout items from internal DB.
  * uses the selected AI model for high-speed lookup.
  */
-export async function matchFitoutItem(description, internalProducts = [], tier = 'mid', provider = 'google', providerModel = 'gemini-1.5-flash') {
+export async function matchFitoutItem(description, internalProducts = [], tier = 'mid', provider = 'google', providerModel = 'gemma-4-31b-it') {
     return withRetry(async () => {
         const system = `You are an Elite Fitout Estimator.
 Match the description to ONE specific item from the internal database below.
@@ -890,7 +888,7 @@ Return ONLY valid JSON:
             const responseText = await callLocalLLM(system, user, 'llama3.2');
             result = safeParseJSON(responseText);
         } else {
-            result = await callGoogle(system, user, false, 'gemini-1.5-flash');
+            result = await callGoogle(system, user, false, 'gemma-4-31b-it');
         }
 
         if (!result || result.status === 'error') {
