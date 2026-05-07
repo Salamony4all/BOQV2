@@ -158,6 +158,8 @@ async function extractImagesAndMap(filePath, imagesDir, onBlobCreated = null) {
 
         // Process in small batches to avoid timeouts/rate limits
         const BATCH_SIZE = 5;
+        console.log(`[FastExtractor] Env Check - Supabase: ${!!supabase}, Railway: ${!!process.env.JS_SCRAPER_SERVICE_URL}`);
+        
         for (let i = 0; i < mediaEntries.length; i += BATCH_SIZE) {
             const batch = mediaEntries.slice(i, i + BATCH_SIZE);
             await Promise.all(batch.map(async (entry) => {
@@ -204,17 +206,56 @@ async function extractImagesAndMap(filePath, imagesDir, onBlobCreated = null) {
                     let directUrl = null;
 
                     // Option 0: Supabase (Our own managed storage)
+                    const bucketName = 'assets';
+                    const supabasePath = `extracted-images/${timestamp}_${currentFileName}`;
+
                     if (supabase) {
-                        const { data: uploadData, error } = await supabase.storage
-                            .from('product-images')
-                            .upload(`extracted/${timestamp}_${currentFileName}`, data, {
-                                contentType: currentFileName.endsWith('.png') ? 'image/png' : 'image/jpeg',
-                                cacheControl: '3600'
-                            });
-                        if (!error) {
-                            const { data: publicUrlData } = supabase.storage.from('product-images').getPublicUrl(`extracted/${timestamp}_${currentFileName}`);
-                            directUrl = publicUrlData.publicUrl;
-                            if (onBlobCreated) onBlobCreated({ url: directUrl, path: `extracted/${timestamp}_${currentFileName}`, bucket: 'product-images' });
+                        console.log(`[FastExtractor] Attempting Supabase upload for ${currentFileName} to bucket "${bucketName}"...`);
+                        try {
+                            const { url, path: uploadedPath } = await uploadToSupabase(
+                                bucketName, 
+                                supabasePath, 
+                                data, 
+                                {
+                                    contentType: currentFileName.toLowerCase().endsWith('.png') ? 'image/png' : 
+                                                 currentFileName.toLowerCase().endsWith('.jpg') || currentFileName.toLowerCase().endsWith('.jpeg') ? 'image/jpeg' : 
+                                                 'application/octet-stream',
+                                    cacheControl: '3600'
+                                }
+                            );
+                            
+                            if (url) {
+                                directUrl = url;
+                                console.log(`[FastExtractor] Supabase upload success: ${directUrl}`);
+                                if (onBlobCreated) onBlobCreated({ url: directUrl, path: uploadedPath, bucket: bucketName });
+                            }
+                        } catch (supabaseErr) {
+                            console.error(`[FastExtractor] Supabase upload failed for ${currentFileName}:`, supabaseErr.message);
+                            // Continue to next provider
+                        }
+                    } else {
+                        console.warn(`[FastExtractor] Supabase client not initialized, skipping upload.`);
+                    }
+
+                    // Option 0.5: Railway Sidecar (Persistent fallback for Vercel)
+                    if (!directUrl && process.env.JS_SCRAPER_SERVICE_URL) {
+                        try {
+                            console.log(`[FastExtractor] Attempting Railway sidecar upload for ${currentFileName}...`);
+                            const response = await axios.post(`${process.env.JS_SCRAPER_SERVICE_URL}/upload-media`, {
+                                image: data.toString('base64'),
+                                filename: currentFileName
+                            }, { timeout: 15000 });
+
+                            if (response.data && response.data.url) {
+                                directUrl = process.env.JS_SCRAPER_SERVICE_URL + response.data.url;
+                                console.log(`[FastExtractor] Railway upload success: ${directUrl}`);
+                            }
+                        } catch (e_rail) {
+                            console.warn(`[FastExtractor] Railway sidecar upload failed for ${currentFileName}: ${e_rail.message}`);
+                            if (e_rail.response) {
+                                console.warn(`[FastExtractor] Railway error status: ${e_rail.response.status}`);
+                                console.warn(`[FastExtractor] Railway error data:`, e_rail.response.data);
+                            }
                         }
                     }
 
@@ -243,10 +284,15 @@ async function extractImagesAndMap(filePath, imagesDir, onBlobCreated = null) {
                 const targetName = `${timestamp}_${currentFileName}`;
                 const targetPath = path.join(imagesDir, targetName);
                 try {
+                    const isVercel = process.env.VERCEL === '1';
                     if (!fsSync.existsSync(imagesDir)) fsSync.mkdirSync(imagesDir, { recursive: true });
                     fsSync.writeFileSync(targetPath, data);
                     savedImages[fileName] = `/uploads/images/${targetName}`;
                     console.log(`[FastExtractor] Saved local image for ${fileName} as ${targetName}`);
+                    
+                    if (isVercel) {
+                        console.error(`⚠️ [Vercel Warning] Image ${fileName} saved to /tmp but will NOT be accessible in UI. Please configure Supabase or Railway Sidecar.`);
+                    }
                 } catch (localErr) {
                     console.error(`[FastExtractor] Failed to save local image for ${fileName}:`, localErr);
                 }

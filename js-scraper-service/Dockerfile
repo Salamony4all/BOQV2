@@ -11,6 +11,12 @@ WORKDIR /app
 # Copy package.json and package-lock.json
 COPY package*.json ./
 
+# Install system dependencies for image conversion
+RUN apt-get update && apt-get install -y \
+    imagemagick \
+    libwmf-bin \
+    && rm -rf /var/lib/apt/lists/*
+
 # Install dependencies (only production)
 # We use npm ci for a clean, reproducible install
 RUN npm ci --only=production

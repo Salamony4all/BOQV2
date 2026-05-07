@@ -13,6 +13,31 @@ export const supabase = (supabaseUrl && supabaseKey)
     : null;
 
 /**
+ * Ensures the specified bucket exists in Supabase storage
+ */
+async function ensureBucket(bucketName) {
+    if (!supabase) return false;
+    try {
+        const { data: buckets, error: listError } = await supabase.storage.listBuckets();
+        if (listError) throw listError;
+        
+        const exists = buckets.some(b => b.name === bucketName);
+        if (!exists) {
+            console.log(`[SupabaseStorage] Creating missing bucket: "${bucketName}"`);
+            const { error: createError } = await supabase.storage.createBucket(bucketName, {
+                public: true,
+                fileSizeLimit: 10485760, // 10MB
+            });
+            if (createError) throw createError;
+        }
+        return true;
+    } catch (err) {
+        console.error(`[SupabaseStorage] Failed to ensure bucket "${bucketName}":`, err.message);
+        return false;
+    }
+}
+
+/**
  * Uploads a file to a Supabase bucket
  * @param {string} bucket - The bucket name
  * @param {string} path - The path inside the bucket
@@ -20,7 +45,13 @@ export const supabase = (supabaseUrl && supabaseKey)
  * @param {object} options - Supabase storage options (e.g. contentType)
  */
 export async function uploadToSupabase(bucket, path, fileObject, options = {}) {
-    if (!supabase) throw new Error('Supabase client not initialized');
+    if (!supabase) {
+        console.warn('[SupabaseStorage] Supabase client NOT initialized. Check SUPABASE_URL and SUPABASE_ANON_KEY.');
+        throw new Error('Supabase client not initialized');
+    }
+
+    // Ensure bucket exists before upload
+    await ensureBucket(bucket);
 
     const { data, error } = await supabase.storage
         .from(bucket)
@@ -30,7 +61,9 @@ export async function uploadToSupabase(bucket, path, fileObject, options = {}) {
         });
 
     if (error) {
-        console.error(`❌ [SupabaseStorage] Upload failed:`, error.message);
+        console.error(`❌ [SupabaseStorage] Upload failed for path: ${path}`);
+        console.error(`❌ [SupabaseStorage] Error message:`, error.message);
+        console.error(`❌ [SupabaseStorage] Error details:`, error);
         throw error;
     }
 

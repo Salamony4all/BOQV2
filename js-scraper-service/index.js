@@ -26,11 +26,14 @@ import axios from 'axios';
 import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { exec } from 'child_process';
+import { promisify } from 'util';
 import ScraperService from './scraper.js';
 import StructureScraper from './structureScraper.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+const execAsync = promisify(exec);
 
 const app = express();
 const PORT = process.env.PORT || 3002;
@@ -38,6 +41,7 @@ const PORT = process.env.PORT || 3002;
 // Persistent storage directory (Railway volume mount point)
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
 const BRANDS_DIR = path.join(DATA_DIR, 'brands');
+const MEDIA_DIR = path.join(DATA_DIR, 'media');
 
 // Initialize scrapers
 const scraperService = new ScraperService();
@@ -46,6 +50,8 @@ const structureScraper = new StructureScraper();
 // Middleware
 app.use(cors());
 app.use(express.json());
+// Serve media files from persistent storage
+app.use('/media', express.static(MEDIA_DIR));
 
 // Task tracking for async operations (in-memory, for progress tracking)
 const tasks = new Map();
@@ -57,6 +63,7 @@ async function initStorage() {
     try {
         await fs.mkdir(DATA_DIR, { recursive: true });
         await fs.mkdir(BRANDS_DIR, { recursive: true });
+        await fs.mkdir(MEDIA_DIR, { recursive: true });
         console.log(`📁 Persistent storage initialized at ${DATA_DIR}`);
     } catch (e) {
         console.error('Failed to initialize storage:', e.message);
@@ -767,6 +774,100 @@ app.post('/brands/upload', express.text({ limit: '50mb' }), async (req, res) => 
 });
 
 
+
+// ===================== MEDIA STORAGE =====================
+
+app.post('/upload-media', express.json({ limit: '20mb' }), async (req, res) => {
+    const { image, filename } = req.body;
+
+    if (!image) {
+        return res.status(400).json({ error: 'No image data provided' });
+    }
+
+    try {
+        const buffer = Buffer.from(image, 'base64');
+        const timestamp = Date.now();
+        const safeName = `${timestamp}_${filename.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
+        const filepath = path.join(MEDIA_DIR, safeName);
+
+        await fs.writeFile(filepath, buffer);
+        console.log(`🖼️ Media saved to persistent storage: ${safeName}`);
+
+        // Construct the public URL
+        // Railway provides the domain in the RAILWAY_PUBLIC_DOMAIN env var or similar
+        // But we can just return the relative path if the client knows the base URL
+        res.json({ 
+            success: true, 
+            url: `/media/${safeName}`,
+            filename: safeName
+        });
+    } catch (error) {
+        console.error('Failed to save media:', error.message);
+        res.status(500).json({ error: 'Failed to save media' });
+    }
+});
+
+// ===================== IMAGE CONVERSION =====================
+
+app.post('/convert-image', express.json({ limit: '20mb' }), async (req, res) => {
+    const { image, filename } = req.body;
+
+    if (!image) {
+        return res.status(400).json({ error: 'No image data provided' });
+    }
+
+    const tempDir = path.join(__dirname, 'temp_conv');
+    const timestamp = Date.now();
+    const inputExt = filename?.toLowerCase().endsWith('.wmf') ? '.wmf' : '.emf';
+    const inputPath = path.join(tempDir, `conv_${timestamp}${inputExt}`);
+    const outputPath = path.join(tempDir, `conv_${timestamp}.png`);
+
+    try {
+        await fs.mkdir(tempDir, { recursive: true });
+        
+        // Decode base64
+        const buffer = Buffer.from(image, 'base64');
+        await fs.writeFile(inputPath, buffer);
+
+        console.log(`[Conversion] Converting ${inputPath} to ${outputPath}...`);
+        
+        // Use ImageMagick (magick command)
+        let cmd = `magick "${inputPath}" "${outputPath}"`;
+        try {
+            await execAsync(cmd);
+        } catch (e) {
+            console.warn(`[Conversion] 'magick' failed, trying 'convert': ${e.message}`);
+            cmd = `convert "${inputPath}" "${outputPath}"`;
+            await execAsync(cmd);
+        }
+
+        const pngBuffer = await fs.readFile(outputPath);
+        const base64Png = pngBuffer.toString('base64');
+
+        // Cleanup
+        await fs.unlink(inputPath);
+        await fs.unlink(outputPath);
+
+        res.json({ 
+            success: true, 
+            image: base64Png,
+            format: 'png'
+        });
+
+    } catch (error) {
+        console.error('[Conversion] Error:', error.message);
+        
+        // Cleanup on failure
+        try { if (await fs.stat(inputPath)) await fs.unlink(inputPath); } catch (e) {}
+        try { if (await fs.stat(outputPath)) await fs.unlink(outputPath); } catch (e) {}
+        
+        res.status(500).json({ 
+            error: 'Conversion failed', 
+            details: error.message 
+        });
+    }
+});
+
 // ===================== START SERVER =====================
 app.listen(PORT, () => {
     console.log(`\n🚀 JS Scraper Service running on port ${PORT}`);
@@ -774,4 +875,6 @@ app.listen(PORT, () => {
     console.log(`🌐 Universal scrape: POST /scrape`);
     console.log(`🏗️ Structure scrape: POST /scrape-structure`);
     console.log(`🏛️ Architonic scrape: POST /scrape-architonic`);
+    console.log(`🖼️ Image conversion: POST /convert-image`);
+    initStorage();
 });
