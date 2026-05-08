@@ -19,7 +19,7 @@ class ScraperService {
     constructor() {
         this.config = {
             timeout: 20000,
-            maxConcurrency: 3,
+            maxConcurrency: 1,
             maxRequestsPerCrawl: 500,
             userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
         };
@@ -432,7 +432,7 @@ class ScraperService {
         if (onProgress) onProgress(20, 'Discovering Categories...');
 
         const crawler = new PlaywrightCrawler({
-            maxConcurrency: 1, // Single browser for memory efficiency
+            maxConcurrency: 1, // Single browser for memory efficiency and rate-limit safety
             maxRequestsPerCrawl: 150, // Reduced for memory safety
             requestHandlerTimeoutSecs: 45,
             navigationTimeoutSecs: 30,
@@ -645,7 +645,7 @@ class ScraperService {
 
         const crawler = new PlaywrightCrawler({
             // === BALANCED SPEED + ANTI-BLOCK CONFIGURATION ===
-            maxConcurrency: 2, // Reduced from 5 to avoid 403 blocks
+            maxConcurrency: 1, // Single browser to avoid 403 blocks and ps EAGAIN resource limits
             minConcurrency: 1,
             maxRequestsPerCrawl: 10000,
             useSessionPool: true, // Enable session pool for cookie persistence
@@ -654,7 +654,7 @@ class ScraperService {
             navigationTimeoutSecs: 60,
 
             // Moderate delay to avoid rate limiting
-            sameDomainDelaySecs: 2, // Increased from 1 to avoid 403
+            sameDomainDelaySecs: 5, // Increased to avoid 403/429 blocks
             maxRequestRetries: 3, // Increased back to 3 for better recovery
 
             // Stealth browser settings
@@ -697,6 +697,10 @@ class ScraperService {
 
                 const { label } = request.userData;
                 log.info(`Processing ${request.url} [${label || 'START'}]`);
+
+                // Random human-like delay to bypass 429/403 blocks and reduce CPU load
+                const randomDelay = Math.floor(Math.random() * 2000) + 1500;
+                await page.waitForTimeout(randomDelay);
 
                 if (!label || label === 'START') {
                     try {
