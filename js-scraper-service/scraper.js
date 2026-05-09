@@ -654,8 +654,8 @@ class ScraperService {
             navigationTimeoutSecs: 60,
 
             // Moderate delay to avoid rate limiting
-            sameDomainDelaySecs: 5, // Increased to avoid 403/429 blocks
-            maxRequestRetries: 3, // Increased back to 3 for better recovery
+            sameDomainDelaySecs: 10, // Increased to 10s to avoid 403/429 blocks for large brands
+            maxRequestRetries: 5, // Increased retries for better recovery from blocks
 
             // Stealth browser settings
             launchContext: {
@@ -675,8 +675,32 @@ class ScraperService {
                 }
             },
 
-            async requestHandler({ request, page, enqueueLinks, log }) {
+            // Adaptive Rate Limiting Handler
+            postNavigationHooks: [
+                async ({ request, response, log }) => {
+                    if (response && response.status() === 429) {
+                        log.error(`🛑 [RateLimit] Blocked (429) on ${request.url}. Sleeping 60s before retry...`);
+                        await new Promise(r => setTimeout(r, 60000));
+                        throw new Error(`Rate limited (429) on ${request.url}`);
+                    }
+                    if (response && response.status() === 403) {
+                        log.error(`🛑 [AccessDenied] Blocked (403) on ${request.url}. Sleeping 30s before retry...`);
+                        await new Promise(r => setTimeout(r, 30000));
+                        throw new Error(`Access Denied (403) on ${request.url}`);
+                    }
+                }
+            ],
+
+            async requestHandler({ request, page, enqueueLinks, log, response }) {
                 console.log(`\n📄 [RequestHandler] Processing: ${request.url}`);
+
+                // Forced wait if we see 429/403 to let the IP cool down
+                if (response && (response.status() === 429 || response.status() === 403)) {
+                    const waitTime = response.status() === 429 ? 90000 : 30000;
+                    log.error(`🛑 [AntiBot] ${response.status()} detected on ${request.url}. Sleeping ${waitTime/1000}s...`);
+                    await new Promise(r => setTimeout(r, waitTime));
+                    throw new Error(`Rate limited ${response.status()}`);
+                }
 
                 // Speed optimization: Block unnecessary resources
                 await page.route('**/*', (route) => {
@@ -1364,7 +1388,9 @@ class ScraperService {
                         // The productUrl field already contains the full URL with the variant ID for reference
                         const variantModel = name;
 
-                        allProducts.push({
+                        // Check for duplicates before pushing
+                        const existingIdx = allProducts.findIndex(p => p.productUrl === request.url);
+                        const productData = {
                             mainCategory: 'Furniture',
                             subCategory: _coll || 'General',
                             family: _brand,
@@ -1373,7 +1399,14 @@ class ScraperService {
                             imageUrl: finalImg,
                             productUrl: request.url,
                             price: 0
-                        });
+                        };
+
+                        if (existingIdx !== -1) {
+                            // Update existing entry with better data
+                            allProducts[existingIdx] = productData;
+                        } else {
+                            allProducts.push(productData);
+                        }
                     }
                 }
             },
