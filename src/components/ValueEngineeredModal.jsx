@@ -88,6 +88,13 @@ export default function ValueEngineeredModal({
     const [pendingSeed, setPendingSeed] = useState(false);
 
     useEffect(() => {
+        console.log(`[VE Modal] Rendered with ${allBrands?.length || 0} brands`);
+        if (allBrands?.length > 0) {
+            console.log('[VE Modal] Brand names sample:', allBrands.map(b => b.name).filter(Boolean).slice(0, 5), '...');
+        }
+    }, [allBrands, isOpen]);
+
+    useEffect(() => {
         if (pendingSeed) {
             if (originalTables && originalTables.length > 0) {
                 setRows(buildBoqRows(originalTables));
@@ -566,7 +573,7 @@ export default function ValueEngineeredModal({
                                 <div className={mbs.aiLoadingCell}><div className={mbs.tinySpinner} /><span style={{ fontSize: '0.72rem' }}>AI Matching…</span></div>
                             ) : (
                                 <BrandDropdown
-                                    brands={allBrands.filter(b => !b.name?.toLowerCase().includes('fitout'))}
+                                    brands={allBrands.filter(b => b && b.name && !b.name.toLowerCase().includes('fitout'))}
                                     selectedBrands={row.selectedBrand}
                                     onSelect={(b) => handleVeCellChange(index, 'selectedBrand', b.name)}
                                     placeholder="Select Brand…"

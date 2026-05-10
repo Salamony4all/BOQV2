@@ -841,6 +841,7 @@ function AppContent({ onOpenSettings }) {
         isOpen={isValueEngineeredOpen}
         onClose={() => setValueEngineeredOpen(false)}
         originalTables={extractedData?.tables || []}
+        allBrands={allBrands}
         seededItems={seededPlanItems}
         onUploadBoq={handleFileUpload}
         onUploadPlan={handlePlanUpload}
