@@ -26,7 +26,8 @@ function TableViewer({
     onUploadPlan, 
     planPreviewUrl, 
     planPreviewType, 
-    planPreviewName 
+    planPreviewName,
+    seededItems = null
 }) {
     const profile = useCompanyProfile();
     const { companyName, logoOriginal, logoWhite, website, accentColor, secondaryColor } = profile;
@@ -3004,6 +3005,7 @@ function TableViewer({
                 planPreviewUrl={planPreviewUrl}
                 planPreviewType={planPreviewType}
                 planPreviewName={planPreviewName}
+                seededItems={seededItems}
                 onApplyFlow={(formattedData) => {
                     setTables(formattedData.tables);
                     setCostingFactors(formattedData.costingFactors);
@@ -3025,6 +3027,7 @@ function TableViewer({
                 planPreviewUrl={planPreviewUrl}
                 planPreviewType={planPreviewType}
                 planPreviewName={planPreviewName}
+                seededItems={seededItems}
                 onApply={(data) => {
                     setTables(data.tables);
                     if (data.costingFactors) setCostingFactors(data.costingFactors);

@@ -168,6 +168,14 @@ export default function ValueEngineeredModal({
         }
     };
 
+    useEffect(() => {
+        if (isOpen && rows.length === 0) {
+            if ((seededItems && seededItems.length > 0) || (originalTables && originalTables.length > 0)) {
+                loadDataIntoRows();
+            }
+        }
+    }, [isOpen, seededItems, originalTables, rows.length]);
+
     const handleFileSelect = (files) => {
         if (!files || files.length === 0) return;
         setPendingSeed(true);

@@ -397,11 +397,32 @@ function AppContent({ onOpenSettings }) {
       const data = await response.json();
       if (data && data.items) {
         setSeededPlanItems(data.items);
+        
+        // Format the extracted items into a table so TableViewer can display them directly
+        const planTable = {
+          sheetName: "Plan Analysis",
+          columnCount: 4,
+          header: ["Location", "Code", "Description", "QTY"],
+          rows: data.items.map(item => ({
+            cells: [
+              { value: item.location || item.Location || "General" },
+              { value: item.code || "" },
+              { value: item.description || item.Description || "" },
+              { value: item.qty || item.QTY || "1" }
+            ]
+          })),
+          extractedSummary: {
+            totalAmount: 0
+          }
+        };
+
+        setExtractedData({ tables: [planTable] });
         setProgress(100);
         setStage('Extraction Complete');
+        
         setTimeout(() => {
           setUploading(false);
-          setMultiBudgetOpen(true);
+          // Removed automatic setMultiBudgetOpen(true) to allow user-controlled routing
         }, 500);
       } else {
         throw new Error('No items detected in the provided drawings.');
@@ -527,6 +548,7 @@ function AppContent({ onOpenSettings }) {
             <TableViewer 
               data={extractedData} 
               allBrands={allBrands}
+              seededItems={seededPlanItems}
               onUploadBoq={handleFileUpload}
               onUploadPlan={handlePlanUpload}
               planPreviewUrl={planPreviewUrl}
