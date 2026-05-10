@@ -942,6 +942,14 @@ Return ONLY valid JSON:
 // ──────────────────────────────────────────────────────────────────────────────
 
 const PLAN_ANALYSIS_PROMPT = (includeFitout = false) => `You are an Elite Senior Quantity Surveyor (SQS). Your mission is to extract a high-precision BOQ from architectural drawings.
+${!includeFitout ? `
+### 🚨 STRICT SCOPE: FURNITURE ONLY
+- You MUST EXCLUSIVELY extract loose furniture items (Chairs, Desks, Tables, Sofas, Storage, etc.).
+- You MUST NOT extract any architectural or fitout elements such as Partition Walls, Flooring, Ceilings, or MEP services.
+` : `
+### 🏗️ SCOPE: FULL FITOUT & FURNITURE
+- Extract everything: Architectural elements (Partitions, Flooring, Ceilings), MEP services, and all Furniture items.
+`}
 
 ### 🎯 ACCURACY PROTOCOL - REJECT "LOT":
 You are strictly FORBIDDEN from using units like "Lot", "LS", "Lumpsum", or "Package". Every item MUST have a measurable numerical quantity and unit.
@@ -1275,14 +1283,27 @@ export async function analyzePlan(filesData, options = {}) {
         // Process extracted items
         let flatItems = [];
         if (parsed.items && Array.isArray(parsed.items)) {
-            flatItems = parsed.items.map(item => ({
-                location: String(item.location || 'General Area').trim(),
-                scope: String(item.scope || (includeFitout ? 'Fitout' : 'Furniture')).trim(),
-                code: item.code ? String(item.code).trim() : '',
-                description: String(item.description).trim(),
-                qty: cleanQty(item.qty),
-                unit: String(item.unit || 'Nos').trim()
-            }));
+            flatItems = parsed.items
+                .map(item => ({
+                    location: String(item.location || 'General Area').trim(),
+                    scope: String(item.scope || (includeFitout ? 'Fitout' : 'Furniture')).trim(),
+                    code: item.code ? String(item.code).trim() : '',
+                    description: String(item.description).trim(),
+                    qty: cleanQty(item.qty),
+                    unit: String(item.unit || 'Nos').trim()
+                }));
+
+            // Safety Filter: If user requested Furniture only, strip out anything labeled as Fitout
+            if (!includeFitout) {
+                const beforeCount = flatItems.length;
+                flatItems = flatItems.filter(item => 
+                    String(item.scope).toLowerCase().includes('furniture') || 
+                    !String(item.scope).toLowerCase().includes('fitout')
+                );
+                if (flatItems.length < beforeCount) {
+                    console.log(`  🧹 [Filter] Removed ${beforeCount - flatItems.length} fitout items from furniture-only request.`);
+                }
+            }
         }
 
         return {
