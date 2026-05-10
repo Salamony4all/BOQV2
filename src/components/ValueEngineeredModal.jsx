@@ -243,7 +243,8 @@ export default function ValueEngineeredModal({
                                 { value: String(row.sn || '') },
                                 {
                                     value: '',
-                                    images: row.brandImage ? [{ url: getFullUrl(row.brandImage) }] : row.imageRef ? [{ url: row.imageRef }] : []
+                                    image: row.brandImage || row.imageRef,
+                                    images: row.brandImage ? [{ url: row.brandImage }] : row.imageRef ? [{ url: row.imageRef }] : []
                                 },
                                 { value: row.brandDesc || row.description || 'N/A' },
                                 { value: row.selectedBrand || '' },

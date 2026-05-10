@@ -1183,8 +1183,8 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                                 { value: row.sn },
                                 {
                                     value: '',
-                                    image: row.brandImage,
-                                    images: row.brandImage ? [{ url: getFullUrl(row.brandImage) }] : []
+                                    image: row.brandImage || row.imageRef,
+                                    images: row.brandImage ? [{ url: row.brandImage }] : row.imageRef ? [{ url: row.imageRef }] : []
                                 },
                                 { value: row.brandDesc || row.description || 'N/A' },
                                 { value: row.qty || '0' },
