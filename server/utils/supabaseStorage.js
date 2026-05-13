@@ -12,14 +12,27 @@ export const supabase = (supabaseUrl && supabaseKey)
     ? createClient(supabaseUrl, supabaseKey)
     : null;
 
+// Cache for verified buckets to avoid redundant API calls
+const verifiedBuckets = new Set();
+
 /**
  * Ensures the specified bucket exists in Supabase storage
  */
 async function ensureBucket(bucketName) {
     if (!supabase) return false;
+    if (verifiedBuckets.has(bucketName)) return true;
+
     try {
+        // Attempt to list buckets to check existence
         const { data: buckets, error: listError } = await supabase.storage.listBuckets();
-        if (listError) throw listError;
+        
+        // If we can't list buckets (often due to RLS), we'll just try to upload anyway
+        // instead of failing. Most users don't have 'list' permissions on anon keys.
+        if (listError) {
+            console.warn(`[SupabaseStorage] Notice: Cannot list buckets (${listError.message}). Proceeding assuming "${bucketName}" exists.`);
+            verifiedBuckets.add(bucketName);
+            return true;
+        }
         
         const exists = buckets.some(b => b.name === bucketName);
         if (!exists) {
@@ -28,11 +41,18 @@ async function ensureBucket(bucketName) {
                 public: true,
                 fileSizeLimit: 10485760, // 10MB
             });
-            if (createError) throw createError;
+            if (createError) {
+                // If creation fails (RLS), it might still exist but be hidden
+                console.warn(`[SupabaseStorage] Warning: Failed to create bucket "${bucketName}" (${createError.message}). It may already exist.`);
+            }
         }
+        
+        verifiedBuckets.add(bucketName);
         return true;
     } catch (err) {
-        console.error(`[SupabaseStorage] Failed to ensure bucket "${bucketName}":`, err.message);
+        // Log once but don't block the upload attempt
+        console.error(`[SupabaseStorage] Error during bucket check for "${bucketName}":`, err.message);
+        verifiedBuckets.add(bucketName); // Mark as "checked" to stop retrying
         return false;
     }
 }
