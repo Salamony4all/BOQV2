@@ -1,13 +1,11 @@
 /**
  * Universal Web Scraper for Furniture Websites
- * 
- * Supports multiple website layouts:
+ * * Supports multiple website layouts:
  * - WooCommerce (existing)
  * - Custom PHP/HTML sites (M&W, Las, etc.)
  * - React/Vue SPAs
  * - Architonic (multi-brand platform)
- * 
- * Strategy: Intelligent product detection using multiple patterns
+ * * Strategy: Intelligent product detection using multiple patterns
  */
 
 import axios from 'axios';
@@ -89,7 +87,7 @@ class ScraperService {
 
             // Configure Crawlee for low-memory environment
             process.env.CRAWLEE_MEMORY_MB = '1800'; // Leave headroom below 2048 MB limit
-            process.env.CRAWLEE_AVAILABLE_MEMORY_RATIO = '0.85'; 
+            process.env.CRAWLEE_AVAILABLE_MEMORY_RATIO = '0.85';
 
             const config = Configuration.getGlobalConfig();
             config.set('logLevel', 'WARNING');
@@ -697,7 +695,7 @@ class ScraperService {
                 // Forced wait if we see 429/403 to let the IP cool down
                 if (response && (response.status() === 429 || response.status() === 403)) {
                     const waitTime = response.status() === 429 ? 90000 : 30000;
-                    log.error(`🛑 [AntiBot] ${response.status()} detected on ${request.url}. Sleeping ${waitTime/1000}s...`);
+                    log.error(`🛑 [AntiBot] ${response.status()} detected on ${request.url}. Sleeping ${waitTime / 1000}s...`);
                     await new Promise(r => setTimeout(r, waitTime));
                     throw new Error(`Rate limited ${response.status()}`);
                 }
@@ -923,7 +921,7 @@ class ScraperService {
                             const iterationResults = await page.evaluate(async (currentUrl) => {
                                 // Dynamic scroll amount based on page height
                                 window.scrollBy(0, 4000); // Increased scroll distance further for large brands
-                                await new Promise(r => setTimeout(r, 600)); 
+                                await new Promise(r => setTimeout(r, 600));
 
                                 // 1. Find Load More
                                 const elements = Array.from(document.querySelectorAll('button, a, span, div'));
@@ -1148,7 +1146,7 @@ class ScraperService {
                         }
                     });
 
-                                        // === STEP 4: Extract ALL product links and basic metadata as fallback ===
+                    // === STEP 4: Extract ALL product links and basic metadata as fallback ===
                     const discoveredProducts = await page.evaluate(() => {
                         const items = [];
                         // 1. Target links with specific classes used by Architonic for product cards
@@ -1195,7 +1193,7 @@ class ScraperService {
                         if (!alreadyIn && prod.name) {
                             // Extract category from collection name
                             let category = collectionName || 'General';
-                            
+
                             // Clean image URL
                             let finalImageUrl = prod.imageUrl || 'https://via.placeholder.com/400x400?text=No+Image';
                             if (finalImageUrl.includes('media.architonic.com') && finalImageUrl.includes('?')) {
@@ -1344,12 +1342,6 @@ class ScraperService {
                     if (!description || description.length < 50) {
                         try {
                             const details = await page.evaluate(() => {
-                                // Extract key attributes if visible
-                                const attrElements = Array.from(document.querySelectorAll('div[class*="Attribute"]'));
-                                if (attrElements.length > 0) {
-                                    return attrElements.map(el => el.innerText.trim()).join(' | ');
-                                }
-
                                 const selectors = ['.product-description', '#description', '.details-content', '.about-product', '.font-book.leading-normal'];
                                 for (const sel of selectors) {
                                     const el = document.querySelector(sel);
@@ -1577,16 +1569,6 @@ class ScraperService {
                             product.description = desc;
                             enriched++;
                             break;
-                        }
-                    }
-
-                    // Fallback: Meta description
-                    if (!product.description || product.description === product.model) {
-                        let metaDesc = $('meta[name="description"]').attr('content') || '';
-                        metaDesc = metaDesc.trim().replace(/\s+/g, ' ');
-                        if (metaDesc.length > 15 && metaDesc.length < 500) {
-                            product.description = metaDesc;
-                            enriched++;
                         }
                     }
 
