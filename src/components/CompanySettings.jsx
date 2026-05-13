@@ -60,8 +60,14 @@ export default function CompanySettings({ isModal = false, onClose = null }) {
     // Update model when engine changes
     useEffect(() => {
         if (selectedEngine === 'google') {
-            // Default to gemma-4-26b-a4b-it if engine is google
-            if (!MODEL_OPTIONS.google.gemini.concat(MODEL_OPTIONS.google.gemma).concat(MODEL_OPTIONS.google.paid).includes(selectedModel)) {
+            const cleanModel = selectedModel.replace(':billed', '');
+            const allGoogleModels = [
+                ...MODEL_OPTIONS.google.gemini, 
+                ...MODEL_OPTIONS.google.gemma, 
+                ...MODEL_OPTIONS.google.paid
+            ];
+            
+            if (!allGoogleModels.includes(cleanModel)) {
                 setSelectedModel(DEFAULT_AI_SETTINGS.model);
             }
         } else {
@@ -307,8 +313,10 @@ export default function CompanySettings({ isModal = false, onClose = null }) {
                                                 <optgroup label="Free Tier (Gemini 1, 2, 3 Models)">
                                                     {MODEL_OPTIONS.google.gemini.map(m => <option key={m} value={m}>{m}</option>)}
                                                 </optgroup>
-                                                <optgroup label="Paid Tier (Gemini 1, 2, 3 Paid API)">
-                                                    {MODEL_OPTIONS.google.paid.map(m => <option key={m} value={m}>{m}</option>)}
+                                                <optgroup label="Paid Tier (Billed — Pro, Flash, Image)">
+                                                    {MODEL_OPTIONS.google.paid.map(m => (
+                                                        <option key={m} value={`${m}:billed`}>{m}</option>
+                                                    ))}
                                                 </optgroup>
                                             </>
                                         ) : (

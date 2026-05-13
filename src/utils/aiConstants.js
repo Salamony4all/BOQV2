@@ -16,14 +16,23 @@ export const MODEL_OPTIONS = {
             'gemini-3-flash-8b-preview',
             'gemini-2.5-flash',
             'gemini-2.0-flash',
-            'gemini-2.0-flash-lite',
-            'gemini-1.0-pro'
+            'gemini-2.0-flash-lite'
         ],
         paid: [
+            // ── Stable GA (Production-Ready) ──
+            'gemini-2.5-pro',
+            'gemini-2.5-flash',
+            'gemini-2.5-flash-lite',
+            // ── Image Generation (Paid) ──
+            'gemini-2.5-flash-image',
+            'gemini-3.1-flash-image-preview',
+            'gemini-3-pro-image-preview',
+            // ── Flash-Lite (High Volume) ──
+            'gemini-3.1-flash-lite',
+            // ── Preview / Cutting-Edge ──
             'gemini-3.1-pro-preview',
-            'gemini-3-pro-preview',
-            'gemini-2.5-pro-preview',
-            'gemini-2.0-pro-exp-02-05'
+            'gemini-3-flash-preview',
+            'gemini-2.5-pro-preview'
         ]
     },
     openrouter: [

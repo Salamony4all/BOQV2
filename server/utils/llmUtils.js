@@ -20,11 +20,11 @@ export const OPENROUTER_MODEL = process.env.OPENROUTER_MODEL || 'google/gemma-4-
 export const NVIDIA_MODEL = process.env.NVIDIA_MODEL || 'nvidia/llama-3.1-8b-instruct';
 
 const MODEL_MAPPING = {
-    'gemini-3.1-pro': 'gemini-3.1-pro-preview',
-    'gemini-3-pro': 'gemini-3-pro-preview',
-    'gemini-3-flash': 'gemini-3-flash-preview',
-    'gemini-3-flash-8b': 'gemini-3-flash-8b-preview',
-    'gemini-2.5-pro': 'gemini-2.5-pro-preview'
+    // We map generic names to their most stable GA versions
+    'gemini-pro': 'gemini-1.5-pro-latest',
+    'gemini-flash': 'gemini-1.5-flash-latest',
+    'gemini-2-pro': 'gemini-2.0-pro-exp-02-05',
+    'gemini-2-flash': 'gemini-2.0-flash',
 };
 
 export const FREE_GOOGLE_MODELS = [
@@ -32,16 +32,31 @@ export const FREE_GOOGLE_MODELS = [
     'gemma-4-26b-a4b-it',
     'gemma-4-e4b-it',
     'gemma-4-e2b-it',
+    'gemma-2-27b-it',
+    'gemma-2-9b-it',
+    'gemma-2-2b-it',
     'gemini-2.0-flash',
+    'gemini-2.0-flash-lite',
     'gemini-3-flash-preview',
     'gemini-3-flash-8b-preview'
 ];
 
 export const PAID_GOOGLE_MODELS = [
+    'gemini-2.5-pro',
+    'gemini-2.5-flash',
+    'gemini-2.5-flash-lite',
+    'gemini-2.5-flash-image',
+    'gemini-3.1-flash-image-preview',
+    'gemini-3-pro-image-preview',
+    'gemini-3.1-flash-lite',
     'gemini-3.1-pro-preview',
-    'gemini-3-pro-preview',
+    'gemini-3-flash-preview',
     'gemini-2.5-pro-preview',
-    'gemini-2.0-pro-exp-02-05'
+    'gemini-2.0-pro-exp-02-05',
+    'gemini-2.0-flash-thinking-exp-01-21',
+    'gemini-1.5-pro',
+    'gemini-exp-1206',
+    'imagen-3.0-generate-001'
 ];
 
 export const VALID_GOOGLE_MODELS = [...FREE_GOOGLE_MODELS, ...PAID_GOOGLE_MODELS];
@@ -57,7 +72,14 @@ const maskKey = (key) => {
  * Ensures that if a model is Paid/Pro, it uses the Billed key.
  */
 export function getGoogleAI(modelName) {
-    const normalizedModel = (modelName || '').toLowerCase().trim();
+    let normalizedModel = (modelName || '').toLowerCase().trim();
+    let forceBilled = false;
+
+    // Support explicit billing override via suffix (e.g. "gemini-3-flash-preview:billed")
+    if (normalizedModel.endsWith(':billed')) {
+        forceBilled = true;
+        normalizedModel = normalizedModel.replace(':billed', '').trim();
+    }
 
     // 1. Force Free Key if environment override is active
     if (FORCE_FREE_GOOGLE) {
@@ -68,14 +90,14 @@ export function getGoogleAI(modelName) {
     // 2. Identify if model belongs to Free Tier
     const isFreeModel = FREE_GOOGLE_MODELS.some(m => normalizedModel.includes(m.toLowerCase()));
 
-    if (isFreeModel) {
+    if (isFreeModel && !forceBilled) {
         if (!GOOGLE_FREE_KEY) throw new Error(`Model "${normalizedModel}" is a Free Tier model but GOOGLE_FREE_KEY is missing.`);
         console.log(`  💎 [LLM Utils] Free Tier model detected: Using FREE Key (${maskKey(GOOGLE_FREE_KEY)}) for "${normalizedModel}".`);
         return new GoogleGenerativeAI(GOOGLE_FREE_KEY);
     } else {
         // 3. Paid/Pro Models (Requires Billing)
         if (!GOOGLE_API_KEY) throw new Error(`Model "${normalizedModel}" requires a Google Billed Key (GOOGLE_API_KEY) which is missing in .env.`);
-        console.log(`  💰 [LLM Utils] Billed Tier model detected: Using Billed Key (${maskKey(GOOGLE_API_KEY)}) for "${normalizedModel}".`);
+        console.log(`  💰 [LLM Utils] Billed Tier ${forceBilled ? '(FORCED) ' : ''}detected: Using Billed Key (${maskKey(GOOGLE_API_KEY)}) for "${normalizedModel}".`);
         return new GoogleGenerativeAI(GOOGLE_API_KEY);
     }
 }
@@ -273,9 +295,11 @@ export async function callGoogle(systemPrompt, userPrompt, useSearch = false, mo
     const tools = useSearch ? [{ googleSearch: {} }] : [];
     
     // Resolve model name: passed param > env.GOOGLE_MODEL > default fallback
-    const finalModelName = modelName || GOOGLE_MODEL || 'gemma-4-31b-it';
-    const finalModel = MODEL_MAPPING[finalModelName] || finalModelName;
-    const genAIInstance = getGoogleAI(finalModel);
+    const rawModelName = modelName || GOOGLE_MODEL || 'gemma-4-31b-it';
+    const cleanModelName = rawModelName.replace(':billed', '').trim();
+    const finalModel = MODEL_MAPPING[cleanModelName] || cleanModelName;
+
+    const genAIInstance = getGoogleAI(rawModelName);
     const model = genAIInstance.getGenerativeModel({
         model: finalModel,
         systemInstruction: systemPrompt,
@@ -1115,9 +1139,13 @@ export async function callUniversalMultimodalAI(systemPrompt, userPrompt, assets
     }
 
     if (provider === 'google') {
-        const genAIInstance = getGoogleAI(finalModel);
+        const rawModelName = finalModel;
+        const cleanModelName = rawModelName.replace(':billed', '').trim();
+        const sdkModelName = MODEL_MAPPING[cleanModelName] || cleanModelName;
+
+        const genAIInstance = getGoogleAI(rawModelName);
         const model = genAIInstance.getGenerativeModel({
-            model: finalModel,
+            model: sdkModelName,
             systemInstruction: systemPrompt,
             generationConfig: {
                 temperature: 0.1,
