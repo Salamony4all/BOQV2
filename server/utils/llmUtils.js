@@ -1238,12 +1238,14 @@ export async function analyzePlan(filesData, options = {}) {
 
         if (provider === 'google') {
             // Use Google Gemini SDK with multimodal support
-            const modelName = providerModel || GOOGLE_MODEL;
-            console.log(`  📍 Using Google model: ${modelName}`);
+            const rawModel = providerModel || GOOGLE_MODEL;
+            const cleanModel = rawModel.replace(':billed', '').trim();
+            const sdkModel = MODEL_MAPPING[cleanModel] || cleanModel;
+            console.log(`  📍 Using Google model: ${sdkModel} (Source: ${rawModel})`);
 
-            const genAIInstance = getGoogleAI(modelName);
+            const genAIInstance = getGoogleAI(rawModel);
             const model = genAIInstance.getGenerativeModel({
-                model: modelName,
+                model: sdkModel,
                 generationConfig: { temperature: 0.1, maxOutputTokens: 16384 }
             });
 
