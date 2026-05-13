@@ -83,12 +83,13 @@ export function CompanyProvider({ children }) {
 
                 // Validate AI settings model
                 if (integratedProfile.aiSettings.engine === 'google' && MODEL_OPTIONS?.google) {
+                    const cleanModel = (integratedProfile.aiSettings.model || '').replace(':billed', '');
                     const allValidGoogle = [
-                        ...(MODEL_OPTIONS.google.gemma || []),
-                        ...(MODEL_OPTIONS.google.gemini || []),
-                        ...(MODEL_OPTIONS.google.paid || [])
+                        ...(MODEL_OPTIONS.google.tier1 || []),
+                        ...(MODEL_OPTIONS.google.tier2 || []),
+                        ...(MODEL_OPTIONS.google.tier3 || [])
                     ];
-                    if (!allValidGoogle.includes(integratedProfile.aiSettings.model)) {
+                    if (!allValidGoogle.includes(cleanModel)) {
                         console.warn(`[Migration] Model "${integratedProfile.aiSettings.model}" is no longer supported. Resetting to default: ${DEFAULT_AI_SETTINGS.model}`);
                         integratedProfile.aiSettings.model = DEFAULT_AI_SETTINGS.model;
                     }

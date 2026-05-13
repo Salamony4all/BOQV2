@@ -21,8 +21,13 @@ const PlanScopeModal = ({ isOpen, onClose, onSelect }) => {
     useEffect(() => {
         const engineOptions = MODEL_OPTIONS[selectedEngine];
         if (selectedEngine === 'google') {
-            const allGoogle = [...MODEL_OPTIONS.google.gemma, ...MODEL_OPTIONS.google.gemini, ...MODEL_OPTIONS.google.paid];
-            if (!allGoogle.includes(selectedModel)) {
+            const cleanModel = (selectedModel || '').replace(':billed', '');
+            const allGoogle = [
+                ...(MODEL_OPTIONS.google.tier1 || []), 
+                ...(MODEL_OPTIONS.google.tier2 || []), 
+                ...(MODEL_OPTIONS.google.tier3 || [])
+            ];
+            if (!allGoogle.includes(cleanModel)) {
                 setSelectedModel(DEFAULT_AI_SETTINGS.model);
             }
         } else if (engineOptions && !engineOptions.includes(selectedModel)) {
