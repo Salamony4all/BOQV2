@@ -62,9 +62,9 @@ export default function CompanySettings({ isModal = false, onClose = null }) {
         if (selectedEngine === 'google') {
             const cleanModel = selectedModel.replace(':billed', '');
             const allGoogleModels = [
-                ...MODEL_OPTIONS.google.gemini, 
-                ...MODEL_OPTIONS.google.gemma, 
-                ...MODEL_OPTIONS.google.paid
+                ...MODEL_OPTIONS.google.tier1, 
+                ...MODEL_OPTIONS.google.tier2, 
+                ...MODEL_OPTIONS.google.tier3
             ];
             
             if (!allGoogleModels.includes(cleanModel)) {
@@ -307,14 +307,14 @@ export default function CompanySettings({ isModal = false, onClose = null }) {
                                     >
                                         {selectedEngine === 'google' ? (
                                             <>
-                                                <optgroup label="Free Tier (Gemma Models)">
-                                                    {MODEL_OPTIONS.google.gemma.map(m => <option key={m} value={m}>{m}</option>)}
+                                                <optgroup label="Tier 1: Free / Development (Gemma)">
+                                                    {MODEL_OPTIONS.google.tier1.map(m => <option key={m} value={m}>{m}</option>)}
                                                 </optgroup>
-                                                <optgroup label="Free Tier (Gemini 1, 2, 3 Models)">
-                                                    {MODEL_OPTIONS.google.gemini.map(m => <option key={m} value={m}>{m}</option>)}
+                                                <optgroup label="Tier 2: Standard (Gemini Flash)">
+                                                    {MODEL_OPTIONS.google.tier2.map(m => <option key={m} value={m}>{m}</option>)}
                                                 </optgroup>
-                                                <optgroup label="Paid Tier (Billed — Pro, Flash, Image)">
-                                                    {MODEL_OPTIONS.google.paid.map(m => (
+                                                <optgroup label="Tier 3: Pro / Paid (Billed Models)">
+                                                    {MODEL_OPTIONS.google.tier3.map(m => (
                                                         <option key={m} value={`${m}:billed`}>{m}</option>
                                                     ))}
                                                 </optgroup>

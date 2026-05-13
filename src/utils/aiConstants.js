@@ -1,6 +1,6 @@
 export const MODEL_OPTIONS = {
     google: {
-        gemma: [
+        tier1: [ // Tier 1: Free / Development (Gemma & Legacy)
             'gemma-4-31b-it',
             'gemma-4-26b-a4b-it',
             'gemma-4-e4b-it',
@@ -11,28 +11,23 @@ export const MODEL_OPTIONS = {
             'gemma-2-9b-it',
             'gemma-2-2b-it'
         ],
-        gemini: [
-            'gemini-3-flash-preview',
-            'gemini-3-flash-8b-preview',
-            'gemini-2.5-flash',
+        tier2: [ // Tier 2: Standard / Flash (Production Ready)
             'gemini-2.0-flash',
-            'gemini-2.0-flash-lite'
+            'gemini-2.0-flash-lite',
+            'gemini-1.5-flash',
+            'gemini-1.5-flash-8b',
+            'gemini-2.0-flash-lite-preview-02-05'
         ],
-        paid: [
-            // ── Stable GA (Production-Ready) ──
+        tier3: [ // Tier 3: Pro / Paid (Complex Reasoning & Multimodality)
+            'gemini-1.5-pro',
+            'gemini-2.0-pro-exp-02-05',
+            'gemini-2.0-flash-thinking-exp-01-21',
             'gemini-2.5-pro',
             'gemini-2.5-flash',
             'gemini-2.5-flash-lite',
-            // ── Image Generation (Paid) ──
             'gemini-2.5-flash-image',
-            'gemini-3.1-flash-image-preview',
-            'gemini-3-pro-image-preview',
-            // ── Flash-Lite (High Volume) ──
             'gemini-3.1-flash-lite',
-            // ── Preview / Cutting-Edge ──
-            'gemini-3.1-pro-preview',
-            'gemini-3-flash-preview',
-            'gemini-2.5-pro-preview'
+            'gemini-3.1-pro-preview'
         ]
     },
     openrouter: [

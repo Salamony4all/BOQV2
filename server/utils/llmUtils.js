@@ -28,33 +28,35 @@ const MODEL_MAPPING = {
 };
 
 export const FREE_GOOGLE_MODELS = [
+    // Tier 1: Development
     'gemma-4-31b-it',
     'gemma-4-26b-a4b-it',
     'gemma-4-e4b-it',
     'gemma-4-e2b-it',
+    'gemma-4-9b-it',
+    'gemma-4-2b-it',
     'gemma-2-27b-it',
     'gemma-2-9b-it',
     'gemma-2-2b-it',
+    // Tier 2: Standard (Flash)
     'gemini-2.0-flash',
     'gemini-2.0-flash-lite',
-    'gemini-3-flash-preview',
-    'gemini-3-flash-8b-preview'
+    'gemini-1.5-flash',
+    'gemini-1.5-flash-8b',
+    'gemini-2.0-flash-lite-preview-02-05'
 ];
 
 export const PAID_GOOGLE_MODELS = [
+    // Tier 3: Pro / Premium
+    'gemini-1.5-pro',
+    'gemini-2.0-pro-exp-02-05',
+    'gemini-2.0-flash-thinking-exp-01-21',
     'gemini-2.5-pro',
     'gemini-2.5-flash',
     'gemini-2.5-flash-lite',
     'gemini-2.5-flash-image',
-    'gemini-3.1-flash-image-preview',
-    'gemini-3-pro-image-preview',
     'gemini-3.1-flash-lite',
     'gemini-3.1-pro-preview',
-    'gemini-3-flash-preview',
-    'gemini-2.5-pro-preview',
-    'gemini-2.0-pro-exp-02-05',
-    'gemini-2.0-flash-thinking-exp-01-21',
-    'gemini-1.5-pro',
     'gemini-exp-1206',
     'imagen-3.0-generate-001'
 ];
