@@ -34,7 +34,7 @@ export const tempImageStore = new Map();
  *
  * On local dev: use the full pdfjs text-extraction + image-anchoring pipeline.
  */
-export async function extractProductBoqFromPdf(filePath, progressCallback = () => {}, modelName = null) {
+export async function extractProductBoqFromPdf(filePath, progressCallback = () => { }, modelName = null) {
     console.log(`\n🚀 [PdfProductExtractor] Starting Extraction: ${path.basename(filePath)}${modelName ? ` using ${modelName}` : ''}`);
 
     const data = await fs.readFile(filePath);
@@ -48,138 +48,147 @@ export async function extractProductBoqFromPdf(filePath, progressCallback = () =
         // On Vercel (serverless), we embed images as base64 data URIs directly into
         // cell data because the in-memory tempImageStore is not shared across
         // invocations — /api/temp-image/:id requests hit a fresh instance.
-            const imageRefs = []; 
-            try {
-                const mupdf = await import('mupdf');
-                const doc = mupdf.Document.openDocument(new Uint8Array(data), 'application/pdf');
-                
-                // Track SN to Image mapping: Map<sn_string, dataUri>
-                const snImageMap = new Map();
-                let imgCounter = 1;
+        const imageRefs = [];
+        try {
+            const mupdf = await import('mupdf');
+            const doc = mupdf.Document.openDocument(new Uint8Array(data), 'application/pdf');
 
-                for (let pageIdx = 0; pageIdx < doc.countPages(); pageIdx++) {
-                    const page = doc.loadPage(pageIdx);
-                    let headerY = -1;
-                    let tableStartY = -1;
-                    let imageColumnX = -1;
-                    const snAnchors = []; // { sn, y }
-                    
-                    // 1. EXTRACT ALL TEXT LINES
-                    const lines = [];
-                    page.toStructuredText().walk({
-                        onLine(bbox, line) {
-                            lines.push({ bbox, text: line.trim().toLowerCase() });
-                        }
-                    });
+            // Track SN to Image mapping: Map<sn_string, dataUri>
+            const snImageMap = new Map();
+            let imgCounter = 1;
 
-                    // 2. DETECT HEADER & TABLE BOUNDARY
-                    let maxHits = 0;
-                    const keywords = ['sl.no', 's.n', 'sr.no', 'no.', 'item', 'description', 'image', 'qty', 'unit', 'total', 'rate', 'price'];
-                    for (let i = 0; i < lines.length; i++) {
-                        let hits = 0;
-                        let currentY = lines[i].bbox[1];
-                        let imgX = -1;
-                        
-                        // Check neighbors for header structure
-                        for (let j = 0; j < lines.length; j++) {
-                            if (Math.abs(lines[j].bbox[1] - currentY) < 15) {
-                                for (const k of keywords) {
-                                    if (lines[j].text.includes(k)) {
-                                        hits++;
-                                        if (lines[j].text.includes('image')) imgX = lines[j].bbox[0];
-                                    }
-                                }
-                            }
-                        }
-                        
-                        if (hits > maxHits) {
-                            maxHits = hits;
-                            headerY = currentY;
-                            if (imgX !== -1) imageColumnX = imgX;
-                        }
+            for (let pageIdx = 0; pageIdx < doc.countPages(); pageIdx++) {
+                const page = doc.loadPage(pageIdx);
+                let headerY = -1;
+                let tableStartY = -1;
+                let imageColumnX = -1;
+                const snAnchors = []; // { sn, y }
+
+                // 1. EXTRACT ALL TEXT LINES
+                const lines = [];
+                page.toStructuredText().walk({
+                    onLine(bbox, line) {
+                        lines.push({ bbox, text: line.trim().toLowerCase() });
                     }
+                });
 
-                    // 3. IDENTIFY ALL SN ANCHORS & DEFINE HARD BOUNDARY
-                    for (const line of lines) {
-                        // S.N. column is usually leftmost (x < 120)
-                        if (line.bbox[0] < 120) {
-                            const snMatch = line.text.match(/^\s*(\d+)[.\s-]*$/);
-                            if (snMatch) {
-                                const snVal = parseInt(snMatch[1]).toString();
-                                const midY = (line.bbox[1] + line.bbox[3]) / 2;
-                                snAnchors.push({ sn: snVal, y: midY });
-                                // The very first serial number (1, 10, etc) defines where the table rows start
-                                if (tableStartY === -1 || line.bbox[1] < tableStartY) {
-                                    tableStartY = line.bbox[1];
+                // 2. DETECT HEADER & TABLE BOUNDARY
+                let maxHits = 0;
+                const keywords = ['sl.no', 's.n', 'sr.no', 'no.', 'item', 'description', 'image', 'qty', 'unit', 'total', 'rate', 'price'];
+                for (let i = 0; i < lines.length; i++) {
+                    let hits = 0;
+                    let currentY = lines[i].bbox[1];
+                    let imgX = -1;
+
+                    // Check neighbors for header structure
+                    for (let j = 0; j < lines.length; j++) {
+                        if (Math.abs(lines[j].bbox[1] - currentY) < 15) {
+                            for (const k of keywords) {
+                                if (lines[j].text.includes(k)) {
+                                    hits++;
+                                    if (lines[j].text.includes('image')) imgX = lines[j].bbox[0];
                                 }
                             }
                         }
                     }
 
-                    // Fallback: If no S.N. found, use headerY
-                    const hardLogoBoundary = tableStartY !== -1 ? tableStartY : (headerY !== -1 ? headerY : 150);
-                    console.log(`   🎯 Page ${pageIdx + 1}: Table Head at Y=${Math.round(hardLogoBoundary)}`);
-
-                    // 4. EXTRACT AND FILTER IMAGES
-                    const pageImgsForSort = [];
-                    page.toStructuredText('preserve-images').walk({
-                        onImageBlock(bbox, _transform, image) {
-                            try {
-                                const w = bbox[2] - bbox[0];
-                                const h = bbox[3] - bbox[1];
-                                const imgY = (bbox[1] + bbox[3]) / 2;
-                                const imgX = bbox[0];
-
-                                // A. HARD BOUNDARY FILTER
-                                // If image is above the first Serial Number or Header, it is 100% a logo.
-                                if (bbox[1] < (hardLogoBoundary - 10)) {
-                                    console.log(`     🚫 Skipping logo above table start (y=${Math.round(bbox[1])} < start=${Math.round(hardLogoBoundary)})`);
-                                    return;
-                                }
-
-                                if (w < 20 || h < 20) return;
-
-                                const pngBytes = image.toPixmap(mupdf.Matrix.identity, mupdf.ColorSpace.DeviceRGB, false).asPNG();
-                                if (pngBytes.length < 500) return;
-                                const dataUri = `data:image/png;base64,${Buffer.from(pngBytes).toString('base64')}`;
-
-                                // B. SPATIAL LOCK TO S.N.
-                                let matchedSN = null;
-                                let bestDist = 120;
-                                for (const anchor of snAnchors) {
-                                    const vDist = Math.abs(anchor.y - imgY);
-                                    if (vDist < bestDist) {
-                                        bestDist = vDist;
-                                        matchedSN = anchor.sn;
-                                    }
-                                }
-
-                                if (matchedSN) {
-                                    snImageMap.set(`${pageIdx}_${matchedSN}`, dataUri);
-                                }
-                                
-                                pageImgsForSort.push({ y: bbox[1], url: dataUri });
-                            } catch (err) { }
-                        }
-                    });
-
-                    pageImgsForSort.sort((a, b) => a.y - b.y);
-                    for (const img of pageImgsForSort) {
-                        imageRefs.push({ ref: imgCounter++, url: img.url });
+                    if (hits > maxHits) {
+                        maxHits = hits;
+                        headerY = currentY;
+                        if (imgX !== -1) imageColumnX = imgX;
                     }
                 }
-                
-                imageRefs.spatialMap = snImageMap;
-                console.log(`   📸 Extraction complete: ${imageRefs.length} images, ${snImageMap.size} spatial locks.`);
-            } catch (err) {
-                console.error(`   ❌ mupdf critical extraction error:`, err);
+
+                // 3. IDENTIFY ALL SN ANCHORS & DEFINE HARD BOUNDARY
+                for (const line of lines) {
+                    // S.N. column is usually leftmost (x < 120)
+                    if (line.bbox[0] < 120) {
+                        const snMatch = line.text.match(/^\s*(\d+)[.\s-]*$/);
+                        if (snMatch) {
+                            const snVal = parseInt(snMatch[1]).toString();
+                            const midY = (line.bbox[1] + line.bbox[3]) / 2;
+                            snAnchors.push({ sn: snVal, y: midY });
+                            // The very first serial number (1, 10, etc) defines where the table rows start
+                            if (tableStartY === -1 || line.bbox[1] < tableStartY) {
+                                tableStartY = line.bbox[1];
+                            }
+                        }
+                    }
+                }
+
+                // Fallback: If no S.N. found, use headerY
+                const hardLogoBoundary = tableStartY !== -1 ? tableStartY : (headerY !== -1 ? headerY : 150);
+                console.log(`   🎯 Page ${pageIdx + 1}: Table Head at Y=${Math.round(hardLogoBoundary)}`);
+
+                // 4. EXTRACT AND FILTER IMAGES
+                const pageImgsForSort = [];
+                page.toStructuredText('preserve-images').walk({
+                    onImageBlock(bbox, _transform, image) {
+                        try {
+                            const w = bbox[2] - bbox[0];
+                            const h = bbox[3] - bbox[1];
+                            const imgY = (bbox[1] + bbox[3]) / 2;
+                            const imgX = bbox[0];
+
+                            // 👉 NEW FIX: Aspect Ratio Filter
+                            // If the image is 4x wider than it is tall (a banner) 
+                            // or very tall and skinny, skip it immediately.
+                            const aspectRatio = w / h;
+                            if (aspectRatio > 4 || aspectRatio < 0.25) {
+                                console.log(`     🚫 Skipping extreme aspect ratio (likely logo/banner). AR: ${aspectRatio.toFixed(2)}`);
+                                return; // Skip this image
+                            }
+
+                            // A. HARD BOUNDARY FILTER
+                            // If image is above the first Serial Number or Header, it is 100% a logo.
+                            if (bbox[1] < (hardLogoBoundary - 10)) {
+                                console.log(`     🚫 Skipping logo above table start (y=${Math.round(bbox[1])} < start=${Math.round(hardLogoBoundary)})`);
+                                return;
+                            }
+
+                            if (w < 20 || h < 20) return;
+
+                            const pngBytes = image.toPixmap(mupdf.Matrix.identity, mupdf.ColorSpace.DeviceRGB, false).asPNG();
+                            if (pngBytes.length < 500) return;
+                            const dataUri = `data:image/png;base64,${Buffer.from(pngBytes).toString('base64')}`;
+
+                            // B. SPATIAL LOCK TO S.N.
+                            let matchedSN = null;
+                            let bestDist = 120;
+                            for (const anchor of snAnchors) {
+                                const vDist = Math.abs(anchor.y - imgY);
+                                if (vDist < bestDist) {
+                                    bestDist = vDist;
+                                    matchedSN = anchor.sn;
+                                }
+                            }
+
+                            if (matchedSN) {
+                                snImageMap.set(`${pageIdx}_${matchedSN}`, dataUri);
+                            }
+
+                            pageImgsForSort.push({ y: bbox[1], url: dataUri });
+                        } catch (err) { }
+                    }
+                });
+
+                pageImgsForSort.sort((a, b) => a.y - b.y);
+                for (const img of pageImgsForSort) {
+                    imageRefs.push({ ref: imgCounter++, url: img.url });
+                }
             }
+
+            imageRefs.spatialMap = snImageMap;
+            console.log(`   📸 Extraction complete: ${imageRefs.length} images, ${snImageMap.size} spatial locks.`);
+        } catch (err) {
+            console.error(`   ❌ mupdf critical extraction error:`, err);
+        }
 
         progressCallback({ percent: 20, message: `Sending PDF to ${modelName || 'Gemma'} AI...` });
 
         // ── STEP 2: Extract BOQ data using universal model ────────
         const provider = getProviderForModel(modelName || 'gemma-4-26b-a4b-it');
-        
+
         let assets = [];
         if (provider === 'google') {
             assets = [{ base64Data: data.toString('base64'), mimeType: 'application/pdf' }];
@@ -190,9 +199,9 @@ export async function extractProductBoqFromPdf(filePath, progressCallback = () =
                     const page = doc.loadPage(i);
                     const pixmap = page.toPixmap(mupdf.Matrix.scale(1.2, 1.2), mupdf.ColorSpace.DeviceRGB, false);
                     const png = pixmap.asPNG();
-                    assets.push({ 
-                        base64Data: Buffer.from(png).toString('base64'), 
-                        mimeType: 'image/png' 
+                    assets.push({
+                        base64Data: Buffer.from(png).toString('base64'),
+                        mimeType: 'image/png'
                     });
                 }
             } catch (renderErr) {
@@ -237,7 +246,7 @@ Instructions:
         );
 
         console.log(`🤖 AI Response Received (${modelName || 'Gemma'}):`, JSON.stringify(aiResponse).substring(0, 200));
-        
+
         const extractedItems = aiResponse.items || aiResponse.rows || [];
 
         progressCallback({ percent: 90, message: 'Building table...' });
@@ -253,55 +262,55 @@ Instructions:
         let imgCursor = 0;
         const spatialMap = imageRefs.spatialMap;
 
-            const rows = items.map((item, index) => {
-                let imgMatch = null;
-                const sn = item.sn ? String(item.sn) : null;
+        const rows = items.map((item, index) => {
+            let imgMatch = null;
+            const sn = item.sn ? String(item.sn) : null;
 
-                // Priority 1: Spatial SN anchoring (Look across all possible page prefixes)
-                if (sn && spatialMap) {
-                    // Check if any page has this SN. Since we don't know the exact page from the AI,
-                    // we try common prefixes or just finding any match for this SN if it's unique.
-                    for (let pCandidate = 0; pCandidate < 50; pCandidate++) {
-                        const candidateKey = `${pCandidate}_${sn}`;
-                        if (spatialMap.has(candidateKey)) {
-                            imgMatch = { url: spatialMap.get(candidateKey) };
-                            break;
-                        }
+            // Priority 1: Spatial SN anchoring (Look across all possible page prefixes)
+            if (sn && spatialMap) {
+                // Check if any page has this SN. Since we don't know the exact page from the AI,
+                // we try common prefixes or just finding any match for this SN if it's unique.
+                for (let pCandidate = 0; pCandidate < 50; pCandidate++) {
+                    const candidateKey = `${pCandidate}_${sn}`;
+                    if (spatialMap.has(candidateKey)) {
+                        imgMatch = { url: spatialMap.get(candidateKey) };
+                        break;
                     }
                 }
+            }
 
-                // Priority 2: hasImage-based sequential (if spatial failed or no SN)
-                if (!imgMatch && Array.isArray(imageRefs)) {
-                    if (item.hasImage && imgCursor < imageRefs.length) {
-                        imgMatch = imageRefs[imgCursor];
-                        imgCursor++;
-                    }
+            // Priority 2: hasImage-based sequential (if spatial failed or no SN)
+            if (!imgMatch && Array.isArray(imageRefs)) {
+                if (item.hasImage && imgCursor < imageRefs.length) {
+                    imgMatch = imageRefs[imgCursor];
+                    imgCursor++;
                 }
-
-                return {
-                    cells: [
-                        { value: sn || String(index + 1) },
-                        { value: '', image: imgMatch ? { url: imgMatch.url } : null },
-                        { value: item.description || '' },
-                        { value: item.qty != null ? String(item.qty) : '' },
-                        { value: item.unit || '' },
-                        { value: item.rate != null ? String(item.rate) : '' },
-                        { value: item.total != null ? String(item.total) : '' }
-                    ]
-                };
-            });
-
-            progressCallback({ percent: 100, message: 'Done' });
+            }
 
             return {
-                tables: [{
-                    sheetName: 'AI PDF BOQ',
-                    header: ['S.N', 'Image', 'Description', 'Qty', 'Unit', 'Rate', 'Total'],
-                    rows,
-                    columnCount: 7
-                }],
-                totalTables: 1
+                cells: [
+                    { value: sn || String(index + 1) },
+                    { value: '', image: imgMatch ? { url: imgMatch.url } : null },
+                    { value: item.description || '' },
+                    { value: item.qty != null ? String(item.qty) : '' },
+                    { value: item.unit || '' },
+                    { value: item.rate != null ? String(item.rate) : '' },
+                    { value: item.total != null ? String(item.total) : '' }
+                ]
             };
+        });
+
+        progressCallback({ percent: 100, message: 'Done' });
+
+        return {
+            tables: [{
+                sheetName: 'AI PDF BOQ',
+                header: ['S.N', 'Image', 'Description', 'Qty', 'Unit', 'Rate', 'Total'],
+                rows,
+                columnCount: 7
+            }],
+            totalTables: 1
+        };
     }
 
 
@@ -385,7 +394,7 @@ Instructions:
                         if (imgObj && imgObj.data) {
                             allImagesOnPage.push({ y: imgY, data: imgObj.data });
                         }
-                    } catch (err) {}
+                    } catch (err) { }
                 }
             } else if (fn === OPS.transform) {
                 currentTransform = args;

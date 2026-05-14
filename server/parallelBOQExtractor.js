@@ -53,11 +53,11 @@ async function _saveAndPairImage(matchedImage, row, pageNum, tempDir, uploadId, 
         }
 
         // Update row so metadata.json write picks it up
-        row.image = { 
+        row.image = {
             url: `/temp/extracted_images/${uploadId}/${filename}`,
-            sn: row.sn 
+            sn: row.sn
         };
-        
+
         if (onFileCreated) {
             onFileCreated(imgLocalPath);
         }
@@ -67,19 +67,19 @@ async function _saveAndPairImage(matchedImage, row, pageNum, tempDir, uploadId, 
     }
 }
 
-export async function extractParallelBOQData(filePath, mimeType, progressCallback = () => {}, modelName = null, onFileCreated = null, onFolderCreated = null) {
+export async function extractParallelBOQData(filePath, mimeType, progressCallback = () => { }, modelName = null, onFileCreated = null, onFolderCreated = null) {
     const isVercel = process.env.VERCEL === '1';
     const uploadId = crypto.randomUUID();
-    
+
     // Choose writable directory
     const baseTempDir = isVercel ? '/tmp/extracted_images' : path.join(process.cwd(), 'public', 'temp', 'extracted_images');
     const tempDir = path.join(baseTempDir, uploadId);
-    
+
     await fs.mkdir(tempDir, { recursive: true });
     if (onFolderCreated) onFolderCreated(tempDir);
 
     console.log(`  ⏱️ [Parallel Extractor] Launching concurrent processes... Environment: ${isVercel ? 'Vercel' : 'Local'}${modelName ? ` | Model: ${modelName}` : ''}`);
-    
+
     // Kick off fast screenshot rendering for AI
     const simpleImages = await renderPDFToSimpleImages(filePath);
     progressCallback(30);
@@ -98,22 +98,22 @@ export async function extractParallelBOQData(filePath, mimeType, progressCallbac
         try {
             console.log(`  🤖 [AI] Analyzing Page ${pageNum}...`);
             const base64 = pageBuffer.toString('base64');
-            
+
             const result = await callGoogleMultimodalFallback(
                 PARALLEL_BOQ_SYSTEM,
                 `MANDATORY: Convert Page ${pageNum} to JSON. Capture EVERY row verbatim INCLUDING the original Serial Number (S.N) column. Output JSON only starting with {`,
                 [{ base64Data: base64, mimeType: 'image/png' }],
                 modelName || 'gemma-4-26b-a4b-it',
-                true 
+                true
             );
-            
+
             if (result && (result.rows || result.items)) {
                 const rows = result.rows || result.items;
                 return rows.map((row, rowIdx) => {
                     const aiSN = String(row.sn || '').trim();
                     const isValidSN = aiSN.length > 0 && !aiSN.includes('undefined');
                     const displaySN = isValidSN ? aiSN : String(globalRowCounter++);
-                    
+
                     return {
                         ...row,
                         sn: displaySN,
@@ -139,7 +139,7 @@ export async function extractParallelBOQData(filePath, mimeType, progressCallbac
     progressCallback(100);
 
     const allRowsArr = pageResults.flat();
-    
+
     const headerKeywords = ["sl.no", "description", "qty", "unit", "rate", "total", "amount", "price"];
     const filteredRows = allRowsArr.filter(r => {
         const desc = (r.description || '').toLowerCase();
@@ -162,13 +162,13 @@ export async function extractParallelBOQData(filePath, mimeType, progressCallbac
         }))
     };
     await fs.writeFile(path.join(tempDir, 'metadata.json'), JSON.stringify(metadata, null, 2));
-    
+
     // Handle BACKGROUND Image Matching (Heavy processing)
     console.log(`  🕒 [Parallel Extractor] Starting background image extraction for UploadID: ${uploadId}`);
     setTimeout(async () => {
         try {
             console.log(`  🖼️ [Background] Positional image pairing for ${uploadId}...`);
-            
+
             for (const layout of layouts) {
                 const pageNum = layout.page;
                 if (!layout.extractedImages || layout.extractedImages.length === 0) continue;
@@ -178,13 +178,30 @@ export async function extractParallelBOQData(filePath, mimeType, progressCallbac
                     .filter(r => r.pageNum === pageNum)
                     .sort((a, b) => a.rowIdx - b.rowIdx);
 
-                // Identify Table Header Y to skip logos
+                // 👉 Identify Table Header Y to skip logos (IMPROVED FIX)
                 let headerY = -1;
+
+                // Group text items by roughly the same Y-coordinate to find the actual table row
+                const yGroups = {};
                 for (const it of layout.textItems || []) {
-                    const txt = String(it.str || '').toLowerCase();
-                    if (txt.includes('s.n') || txt.includes('sl.no') || txt.includes('item') || 
-                        txt.includes('description') || txt.includes('qty') || txt.includes('total')) {
-                        if (headerY === -1 || it.y < headerY) headerY = it.y;
+                    const y = Math.round(it.y / 10) * 10; // Group within 10px bands
+                    if (!yGroups[y]) yGroups[y] = [];
+                    yGroups[y].push(String(it.str || '').toLowerCase());
+                }
+
+                const headerKeywordsForMatch = ['s.n', 'sl.no', 'description', 'qty', 'unit', 'rate', 'total'];
+                let maxHits = 0;
+
+                for (const [yStr, words] of Object.entries(yGroups)) {
+                    let hits = 0;
+                    const yPos = parseInt(yStr);
+                    for (const word of words) {
+                        if (headerKeywordsForMatch.some(k => word.includes(k))) hits++;
+                    }
+                    // Must have at least 2 matching column headers to be considered the table start
+                    if (hits >= 2 && hits > maxHits) {
+                        maxHits = hits;
+                        if (headerY === -1 || yPos < headerY) headerY = yPos;
                     }
                 }
 
@@ -216,7 +233,7 @@ export async function extractParallelBOQData(filePath, mimeType, progressCallbac
                 // For each row, find the image whose Y-center is closest to the row's text Y.
                 // Each image can only be claimed once (greedy nearest-neighbor).
                 const usedImageIndices = new Set();
-                
+
                 // Build row Y positions from text items
                 const textItems = layout.textItems || [];
                 const normalize = (s) => String(s || '').replace(/[^a-z0-9]/gi, '').toLowerCase();
@@ -266,7 +283,7 @@ export async function extractParallelBOQData(filePath, mimeType, progressCallbac
                     }
                 }
             }
-            
+
             // CRITICAL: Update metadata.json with the new image paths
             await fs.writeFile(path.join(tempDir, 'metadata.json'), JSON.stringify(metadata, null, 2));
             console.log(`  ✅ [Background] Lazy image matching finished and metadata updated for ${uploadId}.`);
