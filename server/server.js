@@ -22,6 +22,7 @@ import { syncLocalToSupabase } from './scripts/syncLocalToSupabase.js';
 import axios from 'axios';
 import https from 'https';
 import { ExcelDbManager } from './excelManager.js';
+import { convertXlsToXlsx } from './utils/xlsToXlsxConverter.js';
 import { brandStorage, kv } from './storageProvider.js';
 import { getAiMatch, identifyModel, fetchProductDetails, searchAndEnrichModel, analyzePlan, matchFitoutItem, autoMatchSingleBrand, FREE_GOOGLE_MODELS, PAID_GOOGLE_MODELS, VALID_GOOGLE_MODELS, VALID_OPENROUTER_MODELS, VALID_NVIDIA_MODELS, GOOGLE_MODEL, OPENROUTER_MODEL, NVIDIA_MODEL } from './utils/llmUtils.js';
 import { veMatchSimple, veMatchAdvanced, veGetProductDetails, veRouteCategories } from './utils/veMatchUtils.js';
@@ -846,6 +847,111 @@ app.delete('/api/brands/:id', async (req, res) => {
     res.json({ success: true });
   } catch (error) {
     res.status(500).json({ error: 'Failed to delete brand' });
+  }
+});
+
+// Excel Export/Import for Brands
+app.get('/api/brands/:id/export', async (req, res) => {
+  try {
+    const brand = await brandStorage.getBrandById(req.params.id);
+    if (!brand) return res.status(404).json({ error: 'Brand not found' });
+
+    const workbook = await dbManager.exportToExcel(brand);
+    
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    );
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename=${brand.name.replace(/\s+/g, '_')}_products.xlsx`
+    );
+
+    await workbook.xlsx.write(res);
+    res.end();
+  } catch (error) {
+    console.error('Export error:', error);
+    res.status(500).json({ error: 'Export failed: ' + error.message });
+  }
+});
+
+app.post('/api/brands/:id/import', upload.single('file'), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+
+    let filePath = req.file.path;
+    const isXls = req.file.originalname.toLowerCase().endsWith('.xls');
+
+    if (isXls) {
+      console.log('🔄 Converting legacy .xls to .xlsx...');
+      try {
+        filePath = await convertXlsToXlsx(filePath);
+      } catch (convErr) {
+        console.error('Conversion failed, trying direct import:', convErr.message);
+      }
+    }
+
+    const brand = await brandStorage.getBrandById(req.params.id);
+    if (!brand) return res.status(404).json({ error: 'Brand not found' });
+
+    const importedProducts = await dbManager.importFromExcel(filePath);
+    
+    // Merge Logic: Preserve existing metadata, only update price
+    const existingProducts = brand.products || [];
+    const mergedProducts = [...existingProducts];
+    let updatedCount = 0;
+    let addedCount = 0;
+
+    importedProducts.forEach(newP => {
+      if (!newP.model) return;
+
+      const existingIndex = mergedProducts.findIndex(p => 
+        p.model && String(p.model).trim().toLowerCase() === String(newP.model).trim().toLowerCase()
+      );
+
+      if (existingIndex !== -1) {
+        // Update price only, preserve everything else
+        mergedProducts[existingIndex].price = newP.price;
+        updatedCount++;
+      } else {
+        // User requested: "excel sheet purpose is only to update the price, nothing else to be changed"
+        // So we skip adding new products that are not already in the database
+        addedCount++; 
+      }
+    });
+
+    brand.products = mergedProducts;
+    brand.updatedAt = new Date();
+
+    console.log(`📊 [Import] Brand "${brand.name}" merge complete. Updated: ${updatedCount}, Skipped (New): ${addedCount}, Total Products: ${mergedProducts.length}`);
+
+    // Ensure brand integrity before saving
+    if (!brand.name || !brand.id) {
+      console.error('❌ [Import] Aborting save: Brand object lost its identity during processing.');
+      return res.status(500).json({ error: 'Data integrity error: Brand identity lost.' });
+    }
+
+    const saveSuccess = await brandStorage.saveBrand(brand);
+    if (!saveSuccess) {
+      throw new Error('Failed to save updated brand data to Supabase/Local storage.');
+    }
+
+    // Cleanup temp file
+    try { await fs.unlink(req.file.path); } catch (e) { }
+    if (isXls && filePath !== req.file.path) {
+      try { await fs.unlink(filePath); } catch (e) { }
+    }
+
+    res.json({ 
+      success: true, 
+      count: importedProducts.length,
+      updatedCount,
+      skippedCount: addedCount,
+      brandName: brand.name
+    });
+  } catch (error) {
+    console.error('Import error:', error);
+    res.status(500).json({ error: 'Import failed: ' + error.message });
   }
 });
 

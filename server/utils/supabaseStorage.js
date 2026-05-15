@@ -185,13 +185,11 @@ export async function saveSupabaseBrand(brand) {
         .upsert({
             id: brandId,
             name: brandName,
-            logo: brand.logo,
-            budget_tier: brand.budgetTier,
             products: brand.products || [],
-            source: brand.origin || 'App',
-            updated_at: new Date().toISOString()
-        }, {
-            onConflict: 'id'
+            source: brand.origin || brand.source || 'App',
+            budget_tier: brand.budgetTier || brand.budget_tier || 'mid'
+        }, { 
+            onConflict: 'id' 
         })
         .select();
 

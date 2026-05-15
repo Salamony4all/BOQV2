@@ -31,23 +31,60 @@ class ExcelDbManager {
         const workbook = new ExcelJS.Workbook();
         await workbook.xlsx.readFile(filePath);
         const sheet = workbook.getWorksheet(1);
+        if (!sheet) return [];
+
         const products = [];
+        const headers = {};
+
+        // 1. Identify columns from the first row
+        const firstRow = sheet.getRow(1);
+        firstRow.eachCell((cell, colNumber) => {
+            const header = String(cell.value || '').toLowerCase().trim();
+            if (header.includes('main category')) headers.mainCategory = colNumber;
+            else if (header.includes('sub category')) headers.subCategory = colNumber;
+            else if (header.includes('family')) headers.family = colNumber;
+            else if (header.includes('model')) headers.model = colNumber;
+            else if (header.includes('description')) headers.description = colNumber;
+            else if (header.includes('image url')) headers.imageUrl = colNumber;
+            else if (header.includes('price')) headers.price = colNumber;
+            else if (header.includes('product url')) headers.productUrl = colNumber;
+        });
+
+        // Fallback to indices if headers not found (backward compatibility)
+        const getVal = (row, key, index) => {
+            const col = headers[key] || index;
+            const cell = row.getCell(col);
+            return cell.value;
+        };
 
         sheet.eachRow((row, rowNumber) => {
             if (rowNumber === 1) return;
-            const vals = row.values;
-            if (vals.length > 0) {
-                products.push({
-                    mainCategory: vals[1] ? String(vals[1]).trim() : '',
-                    subCategory: vals[2] ? String(vals[2]).trim() : '',
-                    family: vals[3] ? String(vals[3]).trim() : '',
-                    model: vals[4] ? String(vals[4]).trim() : '',
-                    description: vals[5] ? String(vals[5]).trim() : '',
-                    imageUrl: vals[6] ? String(vals[6]).trim() : '',
-                    price: vals[7] ? parseFloat(String(vals[7]).replace(/[^0-9.-]+/g, '')) || 0 : 0,
-                    productUrl: vals[8] ? String(vals[8]).trim() : ''
-                });
+            
+            const model = getVal(row, 'model', 4);
+            if (!model || String(model).trim() === '') return; // Skip rows without model
+
+            const priceVal = getVal(row, 'price', 7);
+            let price = 0;
+            if (priceVal !== null && priceVal !== undefined) {
+                if (typeof priceVal === 'number') {
+                    price = priceVal;
+                } else if (typeof priceVal === 'object' && priceVal.result) { // Formula result
+                    price = parseFloat(priceVal.result) || 0;
+                } else {
+                    price = parseFloat(String(priceVal).replace(/[^0-9.-]+/g, '')) || 0;
+                }
             }
+
+            products.push({
+                mainCategory: String(getVal(row, 'mainCategory', 1) || '').trim(),
+                subCategory: String(getVal(row, 'subCategory', 2) || '').trim(),
+                family: String(getVal(row, 'family', 3) || '').trim(),
+                model: String(model).trim(),
+                description: String(getVal(row, 'description', 5) || '').trim(),
+                imageUrl: String(getVal(row, 'imageUrl', 6) || '').trim(),
+                price: price,
+                productUrl: String(getVal(row, 'productUrl', 8) || '').trim()
+            });
         });
         return products;
     }

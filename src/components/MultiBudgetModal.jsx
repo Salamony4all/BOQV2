@@ -2887,25 +2887,7 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                                 </div>
                             ) : (
                                 <BrandDropdown
-                                    brands={brands.filter(b => {
-                                        const bTier = (b.budgetTier || 'mid').toLowerCase();
-                                        const aTier = activeTier.toLowerCase();
-                                        let tierMatch = false;
-                                        if (aTier === 'budgetary') tierMatch = ['budgetary', 'low'].includes(bTier);
-                                        else if (aTier === 'high') tierMatch = ['high', 'high-end', 'premium'].includes(bTier);
-                                        else tierMatch = !['budgetary', 'low', 'high', 'high-end', 'premium'].includes(bTier);
-
-                                        if (!tierMatch) return false;
-
-                                        const rowScope = (row.scope || 'Furniture').toLowerCase();
-                                        const brandType = (b.type || (b.name.toLowerCase().includes('fitout') ? 'fitout' : 'furniture')).toLowerCase();
-
-                                        if (rowScope.includes('fitout')) {
-                                            return brandType === 'fitout';
-                                        } else {
-                                            return brandType !== 'fitout';
-                                        }
-                                    }).map(b => ({
+                                    brands={brands.map(b => ({
                                         ...b,
                                         logo: getFullUrl(b.logo || b.imageUrl)
                                     }))}

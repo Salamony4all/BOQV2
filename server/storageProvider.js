@@ -145,6 +145,12 @@ export const brandStorage = {
     },
 
     async saveBrand(brand) {
+        // Integrity check: prevent saving corrupted or incomplete brand objects
+        if (!brand || !brand.id || !brand.name) {
+            console.error('❌ [Storage] Rejecting save: Brand object is missing critical identity fields (id or name).', brand);
+            return false;
+        }
+
         // 1. Supabase Save (Success here is primary completion)
         if (supabase) {
             try {
