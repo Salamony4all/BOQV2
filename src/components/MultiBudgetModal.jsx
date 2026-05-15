@@ -299,7 +299,7 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
         if (!tables || tables.length === 0) return [];
         const sourceTable = tables[0];
         const header = sourceTable.header || [];
-        let idxDesc = findCol(header, /description|desc|disc|item|product|specification/i);
+        let idxDesc = findCol(header, /description|desc|disc|product|specification|material|particulars/i);
         if (idxDesc === -1) idxDesc = 1;
         let idxQty = findCol(header, /^(?!.*(rate|price|amount)).*(qty|quantity)/i);
         if (idxQty === -1) idxQty = findCol(header, /qty|quantity/i);

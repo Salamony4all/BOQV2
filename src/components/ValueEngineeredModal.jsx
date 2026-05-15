@@ -119,7 +119,7 @@ export default function ValueEngineeredModal({
         const header = sourceTable.header || [];
         const findCol = (regex) => header.findIndex(h => h && regex.test(String(h)));
 
-        let idxDesc = findCol(/description|desc|disc|item|product|specification|material|particulars/i);
+        let idxDesc = findCol(/description|desc|disc|product|specification|material|particulars/i);
         if (idxDesc === -1) idxDesc = 1;
         let idxQty = findCol(/^(?!.*(rate|price|amount)).*(qty|quantity)/i);
         if (idxQty === -1) idxQty = findCol(/qty|quantity/i);
