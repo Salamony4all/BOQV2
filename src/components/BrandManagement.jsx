@@ -210,7 +210,10 @@ export default function BrandManagement({ onBrandAdded, onBrandUpdated, onClose,
             const data = await res.json();
 
             if (data.success) {
+                // Immediately remove from local UI state (optimistic update)
+                setAllBrands(prev => prev.filter(b => String(b.id) !== String(brand.id)));
                 alert(`"${brand.name}" has been deleted successfully.`);
+                // Also trigger a full refresh from server as backup
                 fetchBrands();
                 if (onBrandUpdated) onBrandUpdated();
             } else {

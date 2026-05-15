@@ -18,6 +18,10 @@ const __dirname = path.dirname(__filename);
 
 const isVercel = process.env.VERCEL === '1';
 
+// In-memory tombstone set — tracks IDs deleted during this server lifetime
+// Prevents deleted brands from reappearing via stale local filesystem JSON files
+const deletedBrandIds = new Set();
+
 
 // Support multiple Vercel environment naming conventions
 const KV_URL = process.env.KV_REST_API_URL || process.env.STORAGE_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL || process.env.KV_URL;
@@ -128,6 +132,13 @@ export const brandStorage = {
         });
 
 
+        // 3. Filter out any brands that were deleted during this server lifetime
+        if (deletedBrandIds.size > 0) {
+            for (const [id] of brandMap) {
+                if (deletedBrandIds.has(id)) brandMap.delete(id);
+            }
+        }
+
         return Array.from(brandMap.values());
     },
 
@@ -234,6 +245,9 @@ export const brandStorage = {
 
     async deleteBrand(brandId) {
         let actualCloudDeletionSuccess = false;
+
+        // Mark as deleted immediately so getAllBrands filters it out
+        deletedBrandIds.add(String(brandId));
 
         // 1. Supabase Delete — use admin client (service role) to bypass RLS
         const deleteClient = supabaseAdmin || supabase;
