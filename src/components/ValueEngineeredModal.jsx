@@ -57,6 +57,7 @@ export default function ValueEngineeredModal({
     const [rows, setRows] = useState([]);
     const rowsRef = useRef(rows);
     useEffect(() => { rowsRef.current = rows; }, [rows]);
+    const lastLoadedTablesRef = useRef(null);
 
     const [openBrandDropdown, setOpenBrandDropdown] = useState(null);
     const [previewImage, setPreviewImage] = useState(null);
@@ -118,7 +119,7 @@ export default function ValueEngineeredModal({
         const header = sourceTable.header || [];
         const findCol = (regex) => header.findIndex(h => h && regex.test(String(h)));
 
-        let idxDesc = findCol(/description|desc|disc|item|product/i);
+        let idxDesc = findCol(/description|desc|disc|item|product|specification|material|particulars/i);
         if (idxDesc === -1) idxDesc = 1;
         let idxQty = findCol(/^(?!.*(rate|price|amount)).*(qty|quantity)/i);
         if (idxQty === -1) idxQty = findCol(/qty|quantity/i);
@@ -131,7 +132,14 @@ export default function ValueEngineeredModal({
             if (idx === -1 || !row.cells?.[idx]) return '';
             const cell = row.cells[idx];
             if (cell.richText && Array.isArray(cell.richText)) return cell.richText.map(t => t.text || '').join('').trim();
-            return String(cell.value ?? '').trim();
+            const v = cell.value;
+            if (v === null || v === undefined) return '';
+            if (typeof v === 'object') {
+                if (v.text) return String(v.text).trim();       // Hyperlink
+                if (v.result !== undefined) return String(v.result).trim(); // Formula
+                return '';
+            }
+            return String(v).trim();
         };
 
         return sourceTable.rows.map((row, i) => {
@@ -169,12 +177,16 @@ export default function ValueEngineeredModal({
     };
 
     useEffect(() => {
-        if (isOpen && rows.length === 0) {
+        if (!isOpen) return;
+        const tablesChanged = originalTables && originalTables !== lastLoadedTablesRef.current;
+        const shouldLoad = rows.length === 0 || tablesChanged;
+        if (shouldLoad) {
             if ((seededItems && seededItems.length > 0) || (originalTables && originalTables.length > 0)) {
                 loadDataIntoRows();
+                lastLoadedTablesRef.current = originalTables;
             }
         }
-    }, [isOpen, seededItems, originalTables, rows.length]);
+    }, [isOpen, seededItems, originalTables]);
 
     const handleFileSelect = (files) => {
         if (!files || files.length === 0) return;

@@ -299,7 +299,7 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
         if (!tables || tables.length === 0) return [];
         const sourceTable = tables[0];
         const header = sourceTable.header || [];
-        let idxDesc = findCol(header, /description|desc/i);
+        let idxDesc = findCol(header, /description|desc|disc|item|product|specification/i);
         if (idxDesc === -1) idxDesc = 1;
         let idxQty = findCol(header, /^(?!.*(rate|price|amount)).*(qty|quantity)/i);
         if (idxQty === -1) idxQty = findCol(header, /qty|quantity/i);
@@ -310,7 +310,19 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
         if (idxTotal === -1) idxTotal = findCol(header, /amount|total/i);
 
         return sourceTable.rows.map((row, i) => {
-            const getVal = (idx) => (idx !== -1 && row.cells[idx]) ? (row.cells[idx].value || '') : '';
+            const getVal = (idx) => {
+                if (idx === -1 || !row.cells[idx]) return '';
+                const cell = row.cells[idx];
+                if (cell.richText && Array.isArray(cell.richText)) return cell.richText.map(t => t.text || '').join('').trim();
+                const v = cell.value;
+                if (v === null || v === undefined) return '';
+                if (typeof v === 'object') {
+                    if (v.text) return String(v.text).trim();
+                    if (v.result !== undefined) return String(v.result).trim();
+                    return '';
+                }
+                return String(v).trim();
+            };
             const imageCell = row.cells.find(c => c.image || (c.images && c.images.length > 0));
             let imgSrc = imageCell ? (imageCell.image || imageCell.images[0]) : null;
             if (imgSrc && typeof imgSrc === 'object' && imgSrc.url) imgSrc = imgSrc.url;

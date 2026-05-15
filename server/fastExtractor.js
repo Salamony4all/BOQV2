@@ -20,7 +20,7 @@ const parser = new xml2js.Parser({ explicitArray: false, mergeAttrs: true });
 const parseString = promisify(parser.parseString);
 
 // Header patterns for BOQ detection (Must match at least 2 to be considered a table)
-const BOQ_HEADER_KEYWORDS = [/description|desc/i, /qty|quantity/i, /unit/i, /rate|price/i, /amount|total/i, /image|photo/i, /sn|s\.n|no\.|item/i];
+const BOQ_HEADER_KEYWORDS = [/description|desc|disc|product|specification|material|particulars/i, /qty|quantity|quanity|qnty|q'?ty/i, /unit|uom|untit/i, /rate|price|prise|u\.?rate/i, /amount|total|sub\s*total/i, /image|photo|picture|img/i, /sn|s\.n|no\.|item|sr|sl/i];
 
 /**
  * Fast extraction using Stream Reader + Direct Zip Access for images
