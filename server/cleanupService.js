@@ -14,10 +14,10 @@ class CleanupService {
         this.sessions = new Map(); // sessionId -> { files: Set, folders: Set, cloudFolders: Set, blobs: Map<url, {path, bucket}> }
         this.cleanupTimeout = 2 * 60 * 60 * 1000; // 2 hours
         this.timers = new Map(); // sessionId -> timeout
-        
+
         // Start deep cleanup interval (every 3 hours)
         this.deepCleanupInterval = setInterval(() => {
-            this.performDeepCloudCleanup().catch(err => 
+            this.performDeepCloudCleanup().catch(err =>
                 console.error('[Cleanup] Deep cleanup error:', err)
             );
         }, 3 * 60 * 60 * 1000);
@@ -177,14 +177,14 @@ class CleanupService {
     async performDeepCloudCleanup() {
         if (!supabase) return;
         console.log('[Cleanup] 🔍 Starting Deep Cloud Cleanup scan...');
-        
+
         try {
             const bucket = 'assets';
             const rootFolders = ['temp-uploads', 'extracted-images', 'manual-upload', 'vision-crops'];
-            
+
             for (const rootFolder of rootFolders) {
                 const { data: sessionFolders, error: listError } = await supabase.storage.from(bucket).list(rootFolder);
-                
+
                 if (listError) {
                     console.warn(`[Cleanup] Could not list ${rootFolder}:`, listError.message);
                     continue;
@@ -192,17 +192,16 @@ class CleanupService {
                 if (!sessionFolders) continue;
 
                 for (const item of sessionFolders) {
-                    // Check if it's a folder (Supabase list returns items, folders usually have no id)
-                    // and if it's not an active session
+                    // Case 1: Item is a SUBFOLDER (no id) — check if it's an old session folder
                     if (!item.id && !this.sessions.has(item.name)) {
-                        
+
                         // Check if it looks like a temporary session folder or is old
                         const isSessionFolder = item.name.startsWith('sess-') || item.name.length > 20;
                         const isOld = (Date.now() - new Date(item.created_at).getTime()) > 2 * 60 * 60 * 1000; // 2 hours
-                        
+
                         if (isSessionFolder && isOld) {
                             console.log(`[Cleanup] 🗑️ Deep cleaning abandoned session folder: ${rootFolder}/${item.name}`);
-                            
+
                             // List files in folder
                             const { data: files } = await supabase.storage.from(bucket).list(`${rootFolder}/${item.name}`);
                             if (files && files.length > 0) {
@@ -210,6 +209,15 @@ class CleanupService {
                                 await supabase.storage.from(bucket).remove(pathsToDelete);
                                 console.log(`[Cleanup] Deleted ${pathsToDelete.length} files from ${rootFolder}/${item.name}`);
                             }
+                        }
+                    }
+                    // Case 2: Item is a FLAT FILE (has id) — delete if older than 2 hours
+                    // This catches orphaned extracted-images that aren't in session subfolders
+                    else if (item.id && item.created_at) {
+                        const fileAge = Date.now() - new Date(item.created_at).getTime();
+                        if (fileAge > 2 * 60 * 60 * 1000) { // 2 hours
+                            await supabase.storage.from(bucket).remove([`${rootFolder}/${item.name}`]);
+                            console.log(`[Cleanup] 🗑️ Removed orphaned flat file: ${rootFolder}/${item.name} (age: ${Math.round(fileAge / 60000)}min)`);
                         }
                     }
                 }
@@ -225,6 +233,35 @@ class CleanupService {
         const sessionIds = Array.from(this.sessions.keys());
         for (const sessionId of sessionIds) {
             await this.cleanupSession(sessionId);
+        }
+
+        // FORCE WIPE ROOT STORAGE DIRECTORIES IN SUPABASE (Handles stateless instances/Vercel boots)
+        if (supabase) {
+            console.log('[Cleanup] 🌀 Executing complete target folder evacuation in Supabase assets...');
+            const bucket = 'assets';
+            const rootFolders = ['temp-uploads', 'extracted-images', 'manual-upload', 'vision-crops'];
+
+            for (const rootFolder of rootFolders) {
+                try {
+                    const { data: items } = await supabase.storage.from(bucket).list(rootFolder);
+                    if (items && items.length > 0) {
+                        for (const item of items) {
+                            if (!item.id) { // This item is a subfolder directory
+                                const { data: subFiles } = await supabase.storage.from(bucket).list(`${rootFolder}/${item.name}`);
+                                if (subFiles && subFiles.length > 0) {
+                                    const paths = subFiles.map(f => `${rootFolder}/${item.name}/${f.name}`);
+                                    await supabase.storage.from(bucket).remove(paths);
+                                }
+                            } else { // This item is a file directly inside root folder
+                                await supabase.storage.from(bucket).remove([`${rootFolder}/${item.name}`]);
+                            }
+                        }
+                        console.log(`[Cleanup] Successfully evacuated root bucket directory: ${rootFolder}`);
+                    }
+                } catch (err) {
+                    console.error(`[Cleanup] Core folder evacuation bypassed for ${rootFolder}:`, err.message);
+                }
+            }
         }
 
         // Clean deep cloud too

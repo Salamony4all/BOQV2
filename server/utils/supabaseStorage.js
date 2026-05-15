@@ -3,14 +3,26 @@ import 'dotenv/config';
 
 const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 if (!supabaseUrl || !supabaseKey) {
-    console.warn('⚠️  [SupabaseStorage] Supabase credentials missing (SUPABASE_URL / NEXT_PUBLIC_SUPABASE_URL)');
+    console.warn('⚠️  [SupabaseStorage] Supabase credentials missing (SUPABASE_URL / SUPABASE_ANON_KEY)');
 }
 
-export const supabase = (supabaseUrl && supabaseKey) 
+// Standard client (subject to RLS policies — safe for reads and inserts)
+export const supabase = (supabaseUrl && supabaseKey)
     ? createClient(supabaseUrl, supabaseKey)
     : null;
+
+// Admin client (bypasses RLS — used ONLY for trusted server-side destructive ops like DELETE)
+// Falls back to anon client if service role key is not configured
+export const supabaseAdmin = (supabaseUrl && supabaseServiceKey)
+    ? createClient(supabaseUrl, supabaseServiceKey, { auth: { autoRefreshToken: false, persistSession: false } })
+    : supabase;
+
+if (supabaseUrl && !supabaseServiceKey) {
+    console.warn('⚠️  [SupabaseStorage] SUPABASE_SERVICE_ROLE_KEY not set — DELETE operations may be blocked by RLS. Add it to your Vercel environment variables.');
+}
 
 // Cache for verified buckets to avoid redundant API calls
 const verifiedBuckets = new Set();
@@ -25,7 +37,7 @@ async function ensureBucket(bucketName) {
     try {
         // Attempt to list buckets to check existence
         const { data: buckets, error: listError } = await supabase.storage.listBuckets();
-        
+
         // If we can't list buckets (often due to RLS), we'll just try to upload anyway
         // instead of failing. Most users don't have 'list' permissions on anon keys.
         if (listError) {
@@ -33,7 +45,7 @@ async function ensureBucket(bucketName) {
             verifiedBuckets.add(bucketName);
             return true;
         }
-        
+
         const exists = buckets.some(b => b.name === bucketName);
         if (!exists) {
             console.log(`[SupabaseStorage] Creating missing bucket: "${bucketName}"`);
@@ -46,7 +58,7 @@ async function ensureBucket(bucketName) {
                 console.warn(`[SupabaseStorage] Warning: Failed to create bucket "${bucketName}" (${createError.message}). It may already exist.`);
             }
         }
-        
+
         verifiedBuckets.add(bucketName);
         return true;
     } catch (err) {
@@ -188,8 +200,8 @@ export async function saveSupabaseBrand(brand) {
             products: brand.products || [],
             source: brand.origin || brand.source || 'App',
             budget_tier: brand.budgetTier || brand.budget_tier || 'mid'
-        }, { 
-            onConflict: 'id' 
+        }, {
+            onConflict: 'id'
         })
         .select();
 
@@ -215,7 +227,7 @@ export async function getSupabaseStats() {
 
     try {
         const { count: brandCount } = await supabase.from('brands').select('*', { count: 'exact', head: true });
-        
+
         // Sum products across all brands
         const { data: brands } = await supabase.from('brands').select('products');
         const productCount = (brands || []).reduce((acc, b) => acc + (b.products?.length || 0), 0);

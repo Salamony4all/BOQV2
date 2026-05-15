@@ -2256,6 +2256,37 @@ app.post('/api/cleanup', async (req, res) => {
   res.json({ success: true });
 });
 
+// Session-specific cleanup (called by frontend on refresh/close/new session)
+app.post('/api/cleanup/session', async (req, res) => {
+  const sessionId = req.body?.sessionId || 'default';
+  console.log(`[Cleanup] Manual cleanup request for session: ${sessionId}`);
+
+  // Track the standard cloud folders for this session
+  cleanupService.trackCloudFolder(sessionId, 'assets', `temp-uploads/${sessionId}`);
+  cleanupService.trackCloudFolder(sessionId, 'assets', 'extracted-images');
+
+  // Run session cleanup (deletes tracked blobs + cloud folders)
+  await cleanupService.cleanupSession(sessionId);
+
+  // Also do a sweep of orphaned flat files in extracted-images
+  if (supabase) {
+    try {
+      const { data: files } = await supabase.storage.from('assets').list('extracted-images', { limit: 500 });
+      if (files && files.length > 0) {
+        const filePaths = files.filter(f => f.id).map(f => `extracted-images/${f.name}`);
+        if (filePaths.length > 0) {
+          await supabase.storage.from('assets').remove(filePaths);
+          console.log(`[Cleanup] Purged ${filePaths.length} orphaned files from extracted-images`);
+        }
+      }
+    } catch (err) {
+      console.warn('[Cleanup] extracted-images sweep failed:', err.message);
+    }
+  }
+
+  res.json({ success: true });
+});
+
 // Global Error Handler
 app.use((error, req, res, next) => {
   console.error('[ServerError]', error);

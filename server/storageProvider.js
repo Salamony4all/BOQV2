@@ -1,10 +1,11 @@
-import { 
-    supabase, 
-    getSupabaseBrands, 
-    saveSupabaseBrand, 
-    uploadToSupabase, 
-    listSupabaseFiles, 
-    deleteFromSupabase 
+import {
+    supabase,
+    supabaseAdmin,
+    getSupabaseBrands,
+    saveSupabaseBrand,
+    uploadToSupabase,
+    listSupabaseFiles,
+    deleteFromSupabase
 } from './utils/supabaseStorage.js';
 import { createClient as createKvClient } from '@vercel/kv';
 import axios from 'axios';
@@ -64,9 +65,9 @@ async function getLocalBrands() {
                             console.warn(`⚠️ [Storage] Missing brand.id in ${file}`);
                         }
                         return parsed;
-                    } catch (e) { 
+                    } catch (e) {
                         console.error(`❌ [Storage] Error reading/parsing ${fullPath}:`, e.message);
-                        return null; 
+                        return null;
                     }
                 }));
 
@@ -80,7 +81,7 @@ async function getLocalBrands() {
                     }
                 }
             }
-        } catch (e) { 
+        } catch (e) {
             console.log(`ℹ️ [Storage] Path not found or inaccessible: ${brandsPath}`);
         }
     }
@@ -186,27 +187,6 @@ export const brandStorage = {
             await fs.writeFile(filePath, JSON.stringify(brand, null, 2));
             console.log(`💾 [Storage] Successfully saved brand ${brand.name} to ${filePath}`);
 
-            // MASTER DATABASE PERSISTENCE (DISABLED to use standalone brand databases)
-            /*
-            try {
-              let masterDb = { products: [] };
-              try {
-                const data = await fs.readFile(MASTER_DB_PATH, 'utf8');
-                masterDb = JSON.parse(data);
-              } catch (e) { }
-
-              // Merge products
-              (brand.products || []).forEach(p => {
-                const exists = masterDb.products.some(mp => mp.model === p.model && mp.family === p.family);
-                if (!exists) masterDb.products.push({ ...p, brandId: brand.id, brandName: brand.name });
-              });
-
-              await fs.mkdir(path.dirname(MASTER_DB_PATH), { recursive: true });
-              await fs.writeFile(MASTER_DB_PATH, JSON.stringify(masterDb, null, 2));
-              console.log(`✅ [Storage] Master DB updated with ${brand.products?.length || 0} products from ${brand.name}`);
-            } catch (e) { console.error('[Storage] Master DB save failed:', e.message); }
-            */
-
             return true;
         } catch (error) {
             console.error('[Storage] Filesystem save failed:', error);
@@ -217,8 +197,8 @@ export const brandStorage = {
     async addProductToBrand(brandName, budgetTier, product) {
         const brands = await this.getAllBrands();
         // Case-insensitive match for name and tier
-        const targetBrand = brands.find(b => 
-            b.name.toLowerCase().trim() === brandName.toLowerCase().trim() && 
+        const targetBrand = brands.find(b =>
+            b.name.toLowerCase().trim() === brandName.toLowerCase().trim() &&
             (b.budgetTier || 'mid').toLowerCase() === budgetTier.toLowerCase()
         );
 
@@ -231,13 +211,13 @@ export const brandStorage = {
         if (!targetBrand.products) targetBrand.products = [];
 
         // Check if product already exists (by model name/number)
-        const exists = targetBrand.products.some(p => 
+        const exists = targetBrand.products.some(p =>
             String(p.model).toLowerCase().trim() === String(product.model).toLowerCase().trim()
         );
 
         if (exists) {
             console.log(`ℹ️ [Storage] Product "${product.model}" already exists in ${brandName}. Skipping hardening.`);
-            return true; 
+            return true;
         }
 
         // Append new product with metadata, cleaning up AI internal fields
@@ -253,13 +233,29 @@ export const brandStorage = {
     },
 
     async deleteBrand(brandId) {
-        // 1. Supabase Delete
-        if (supabase) {
+        let actualCloudDeletionSuccess = false;
+
+        // 1. Supabase Delete — use admin client (service role) to bypass RLS
+        const deleteClient = supabaseAdmin || supabase;
+        if (deleteClient) {
             try {
-                const { error } = await supabase.from('brands').delete().eq('id', brandId);
-                if (error) console.error('Supabase delete error', error);
-                else console.log(`✅ [Storage] Deleted brand ${brandId} from Supabase.`);
-            } catch (err) {}
+                const { data, error } = await deleteClient
+                    .from('brands')
+                    .delete()
+                    .eq('id', String(brandId))
+                    .select();
+
+                if (error) {
+                    console.error('❌ [Storage] Supabase backend deletion call returned error:', error.message);
+                } else if (data && data.length > 0) {
+                    console.log(`✅ [Storage] Brand safely extracted and killed in Supabase for ID: ${brandId}`);
+                    actualCloudDeletionSuccess = true;
+                } else {
+                    console.warn(`⚠️ [Storage] Supabase table returned status 200, but ZERO matching items matched target ID: ${brandId}`);
+                }
+            } catch (err) {
+                console.error('❌ [Storage] Supabase cross-network context error:', err.message);
+            }
         }
 
         if (kv) {
@@ -268,23 +264,33 @@ export const brandStorage = {
             } catch (error) { }
         }
 
-
-        // Local Delete
+        // Local /tmp and base fallback cache validation purge loop
         try {
-            const baseDir = isVercel ? '/tmp/data/brands' : path.join(__dirname, 'data/brands');
-            try { await fs.access(baseDir); } catch { return false; }
+            const workspacePaths = [
+                isVercel ? '/tmp/data/brands' : path.join(process.cwd(), 'server/data/brands'),
+                path.join(process.cwd(), 'server/data/brands'),
+                path.join(__dirname, 'data/brands')
+            ];
 
-            const files = await fs.readdir(baseDir);
-            for (const file of files) {
-                const fullPath = path.join(baseDir, file);
-                const content = await fs.readFile(fullPath, 'utf8');
-                const data = JSON.parse(content);
-                if (String(data.id) === String(brandId)) {
-                    await fs.unlink(fullPath);
-                    return true;
-                }
+            for (const baseDir of workspacePaths) {
+                try {
+                    const files = await fs.readdir(baseDir);
+                    for (const file of files) {
+                        if (!file.endsWith('.json')) continue;
+                        const fullPath = path.join(baseDir, file);
+                        const content = await fs.readFile(fullPath, 'utf8');
+                        const data = JSON.parse(content);
+
+                        if (String(data.id) === String(brandId)) {
+                            await fs.unlink(fullPath);
+                            console.log(`🗑️ [Storage] Erased local cache database tracker file to protect runtime consistency: ${fullPath}`);
+                        }
+                    }
+                } catch (e) { /* Segment path inaccessible, skipped safely */ }
             }
-            return false;
-        } catch (error) { return false; }
+            return actualCloudDeletionSuccess;
+        } catch (error) {
+            return actualCloudDeletionSuccess;
+        }
     }
 };
