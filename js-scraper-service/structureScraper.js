@@ -214,6 +214,34 @@ class StructureScraper {
                         } catch (e) { console.log('      ⚠️ Logo refinement failed:', e.message); }
                     }
 
+                    // Trigger dynamic AJAX menus by hovering over main category links in the header/menu
+                    try {
+                        console.log('   🖱️ Hovering over header menu items to trigger AJAX subcategories...');
+                        const menuSelectors = [
+                            'header a',
+                            'nav a',
+                            '.menu a',
+                            '.navigation a',
+                            'ul.menu-vertical.nav > li > a',
+                            'ul.menu-horizontal > li > a',
+                            '.menu-item-has-children > a'
+                        ];
+                        const menuElements = await page.$$(menuSelectors.join(','));
+                        console.log(`     Found ${menuElements.length} potential menu elements to hover.`);
+                        for (const el of menuElements) {
+                            try {
+                                const text = await el.innerText();
+                                if (text && text.trim().length > 1) {
+                                    await el.hover();
+                                    await page.waitForTimeout(400); // Wait for AJAX menu popups to render
+                                }
+                            } catch (e) {}
+                        }
+                        await page.evaluate(() => window.scrollTo(0, 0));
+                    } catch (e) {
+                        console.log('   ⚠️ Menu hover failed:', e.message);
+                    }
+
                     // Find Main Categories
                     const categories = await this.discoverHierarchyLinks(page, baseUrl);
                     console.log(`   Found ${categories.length} main categories/links`);
@@ -227,14 +255,11 @@ class StructureScraper {
                             await page.goto(productsUrl, { waitUntil: 'domcontentloaded', timeout: 20000 });
                             await this.handleInterstitials(page);
 
-                            // Re-scan for categories on the products page
                             const prodCategories = await this.discoverHierarchyLinks(page, baseUrl);
                             if (prodCategories.length > 0) {
                                 console.log(`   Found ${prodCategories.length} categories on /products`);
                                 categories.push(...prodCategories);
                             } else {
-                                // If still no categories, maybe the sidebar links are just filters? 
-                                // Let's try to grab the "Name (Count)" links specifically seen on Amara Art
                                 const sidebarCategories = await this.extractSidebarCategories(page, baseUrl);
                                 if (sidebarCategories.length > 0) {
                                     console.log(`   Found ${sidebarCategories.length} sidebar categories`);
@@ -258,7 +283,11 @@ class StructureScraper {
                     for (const cat of categories) {
                         await crawler.addRequests([{
                             url: cat.url,
-                            userData: { label: 'CATEGORY', category: cat.title }
+                            userData: { 
+                                label: 'CATEGORY', 
+                                category: cat.parentTitle || cat.title, 
+                                subCategory: cat.parentTitle ? cat.title : undefined 
+                            }
                         }]);
                     }
                 } else if (label === 'CATEGORY') {
@@ -317,6 +346,9 @@ class StructureScraper {
                             
                             const hrefLower = href.toLowerCase();
                             if (excludeWords.some(w => hrefLower.includes(w))) return;
+
+                            // Skip pagination links (should not be enqueued as subcategories)
+                            if (hrefLower.includes('/page/') || hrefLower.includes('paged=')) return;
                             
                             // Check if it is a single product page
                             const isProductPage = (
@@ -353,7 +385,7 @@ class StructureScraper {
                         if (!visitedUrls.has(sub.url)) {
                             await crawler.addRequests([{
                                 url: sub.url,
-                                userData: { label: 'CATEGORY', category: sub.title || category, subCategory: sub.title || subCategory || category }
+                                userData: { label: 'CATEGORY', category: category, subCategory: sub.title }
                             }]);
                         }
                     }
@@ -467,6 +499,9 @@ class StructureScraper {
                 // Skip excludes
                 if (excludeKeywords.some(k => urlLower.includes(k) || textLower.includes(k))) return;
 
+                // Skip pagination links
+                if (urlLower.includes('/page/') || urlLower.includes('paged=')) return;
+
                 // Filter out single product detail pages
                 const isProductPage = (
                     urlLower.includes('/en/p/') || 
@@ -483,6 +518,19 @@ class StructureScraper {
                 );
                 if (isProductPage) return;
 
+                // Traverse DOM upwards to check if this is a subcategory nested inside a dropdown menu
+                let parentTitle = null;
+                const dropdownContainer = a.closest('.dropdown-menu, .sub-menu, ul ul');
+                if (dropdownContainer) {
+                    const parentLi = dropdownContainer.closest('li');
+                    if (parentLi) {
+                        const parentLink = parentLi.querySelector('a');
+                        if (parentLink && parentLink !== a) {
+                            parentTitle = parentLink.innerText.trim().split('\n')[0];
+                        }
+                    }
+                }
+
                 // Priority: Navigation menus, category-like words
                 const isNav = !!a.closest('nav, header, .menu, .navigation, .sidebar');
                 const hasKeyword = productKeywords.some(k => urlLower.includes(k) || textLower.includes(k)) ||
@@ -493,7 +541,8 @@ class StructureScraper {
                         seenUrls.add(fullUrl);
                         links.push({
                             url: fullUrl,
-                            title: text
+                            title: text,
+                            parentTitle: parentTitle
                         });
                     }
                 }
