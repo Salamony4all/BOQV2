@@ -123,6 +123,16 @@ class StructureScraper {
             },
 
             requestHandler: async ({ page, request, enqueueLinks }) => {
+                // Forward browser console logs to Node console for debugging
+                page.on('console', msg => {
+                    const text = msg.text();
+                    const textLower = text.toLowerCase();
+                    // Filter out noisy, irrelevant deprecation/migrator messages
+                    if (!textLower.includes('[deprecated]') && !textLower.includes('failed to load resource') && !textLower.includes('jqmigrate') && !textLower.includes('chrome-extension')) {
+                        console.log(`     [BROWSER] ${text}`);
+                    }
+                });
+
                 // Check for external cancellation
                 if (onProgress && onProgress.isCancelled && onProgress.isCancelled()) {
                     console.log('🛑 [Structure Scraper] Cancellation detected. Aborting...');
@@ -291,6 +301,16 @@ class StructureScraper {
                         }]);
                     }
                 } else if (label === 'CATEGORY') {
+                    // Discover the best intelligent product container selector first
+                    const analysis = await this.analyzePage(page);
+                    let scrollSelector = 'a[href*="/en/p/"], a[href*="/p/"], [class*="product-card"], .product, .product-block, .product-item, a[href*="/product/"], a[href*="/products/"]';
+                    if (analysis.length > 0) {
+                        scrollSelector = analysis[0].selector;
+                        console.log(`      ⚡ Intelligent scroll selector detected: ${scrollSelector} (score: ${analysis[0].score.toFixed(0)})`);
+                    } else {
+                        console.log(`      ⚠️ No specific selector detected yet, using generic union fallback...`);
+                    }
+
                     // ── SCROLL LOOP: force lazy-loaded products into the DOM ──
                     console.log(`      ⏬ Scrolling to load all products on: ${currentUrl}`);
                     let lastCount = 0;
@@ -299,11 +319,13 @@ class StructureScraper {
                         await page.evaluate(() => window.scrollBy(0, window.innerHeight * 1.5));
                         await page.waitForTimeout(800);
 
-                        const currentCount = await page.evaluate(() =>
-                            document.querySelectorAll(
-                                'a[href*="/en/p/"], a[href*="/p/"], .size-full.relative, [class*="product-card"]'
-                            ).length
-                        );
+                        const currentCount = await page.evaluate((selector) => {
+                            try {
+                                return document.querySelectorAll(selector).length;
+                            } catch (e) {
+                                return document.querySelectorAll('a[href*="/en/p/"], a[href*="/p/"], .product, .product-card').length;
+                            }
+                        }, scrollSelector);
 
                         // Try to click "Load more" / "Show more" buttons if present
                         try {
@@ -332,8 +354,12 @@ class StructureScraper {
                     products.push(...pageProducts);
                     console.log(`      ✓ Extracted ${pageProducts.length} products from ${category}`);
 
+                    // Clean and normalize currentUrl for hierarchical subcategory matching
+                    const cleanCurrent = currentUrl.split(/[?#]/)[0];
+                    const normalizedCurrent = cleanCurrent.endsWith('/') ? cleanCurrent : cleanCurrent + '/';
+
                     // Discover nested sub-categories on this page and enqueue them
-                    const subCats = await page.evaluate(({ baseUrl, currentUrl }) => {
+                    const subCats = await page.evaluate(({ baseUrl, currentUrl, normalizedCurrent }) => {
                         const seen = new Set();
                         seen.add(currentUrl);
                         const links = [];
@@ -368,18 +394,21 @@ class StructureScraper {
                             if (isProductPage) return;
 
                             // Only enqueue Legitimate category/collection hierarchy pages (not product detail pages)
-                            if (
+                            const isCategory = (
                                 hrefLower.includes('/en/pg/') || 
                                 hrefLower.includes('/collection/') || 
                                 hrefLower.includes('/category/') || 
-                                hrefLower.includes('/product-category/')
-                            ) {
+                                hrefLower.includes('/product-category/') ||
+                                (normalizedCurrent && hrefLower.startsWith(normalizedCurrent))
+                            );
+
+                            if (isCategory) {
                                 seen.add(href);
                                 links.push({ url: href, title: (a.innerText || '').trim().slice(0, 60) });
                             }
                         });
                         return links;
-                    }, { baseUrl, currentUrl });
+                    }, { baseUrl, currentUrl, normalizedCurrent });
 
                     for (const sub of subCats) {
                         if (!visitedUrls.has(sub.url)) {
@@ -622,16 +651,47 @@ class StructureScraper {
             containers.forEach(el => {
                 // Extract Title
                 let title = '';
-                const titleSelectors = ['h2', 'h3', 'h4', '.title', '.name', '[class*="product-title"]', 'p', 'span'];
+                const titleSelectors = [
+                    'h2', 'h3', 'h4', 
+                    '.product-title', '.product-name', '.item-title', '.item-name',
+                    '[class*="product-title"]', '[class*="product-name"]', '[class*="ProductName"]',
+                    '.title', '.name', '.heading', 'a[title]'
+                ];
+                
+                const fallbackTitleSelectors = ['p', 'span'];
+                const genericTexts = ['sale!', 'add to cart', 'select options', 'out of stock', 'read more', 'quick view', 'new', 'hot', 'featured', 'select option'];
+
                 for (const sel of titleSelectors) {
                     try {
                         const elTitle = el.querySelector(sel);
-                        if (elTitle && elTitle.innerText.trim().length > 2) {
-                            title = elTitle.innerText.trim();
-                            break;
+                        if (elTitle) {
+                            const txt = elTitle.innerText.trim();
+                            const txtLower = txt.toLowerCase();
+                            if (txt.length > 2 && !genericTexts.some(gt => txtLower === gt || txtLower.includes(gt))) {
+                                title = txt;
+                                break;
+                            }
                         }
                     } catch (e) {}
                 }
+
+                // Try fallbacks only if strict title not found yet
+                if (!title) {
+                    for (const sel of fallbackTitleSelectors) {
+                        try {
+                            const elTitle = el.querySelector(sel);
+                            if (elTitle) {
+                                const txt = elTitle.innerText.trim();
+                                const txtLower = txt.toLowerCase();
+                                if (txt.length > 2 && !genericTexts.some(gt => txtLower === gt || txtLower.includes(gt))) {
+                                    title = txt;
+                                    break;
+                                }
+                            }
+                        } catch (e) {}
+                    }
+                }
+
                 if (!title) title = el.getAttribute('title') || el.innerText.trim() || '';
                 
                 // Clean up title (remove common Architonic boilerplate like "18 Products")
@@ -716,13 +776,24 @@ class StructureScraper {
         return await page.evaluate((baseUrl) => {
             const pgLinks = [];
             const seen = new Set();
-            const selectors = ['.pagination a', '.pager a', 'a[class*="page"]', 'a[href*="page="]'];
+            const selectors = [
+                '.pagination a', '.pager a', '.woocommerce-pagination a',
+                'a[class*="page"]', 'a[class*="next"]', 'a[rel="next"]',
+                'a[href*="page="]', 'a[href*="paged="]'
+            ];
 
             selectors.forEach(sel => {
                 document.querySelectorAll(sel).forEach(a => {
                     try {
-                        const href = new URL(a.getAttribute('href'), baseUrl).href;
+                        const rawHref = a.getAttribute('href');
+                        if (!rawHref || rawHref === '#' || rawHref.startsWith('javascript')) return;
+
+                        const href = new URL(rawHref, baseUrl).href;
                         if (href.startsWith(baseUrl) && !seen.has(href)) {
+                            const hrefLower = href.toLowerCase();
+                            const excludeWords = ['wishlist', 'cart', 'checkout', 'my-account', 'contact', 'about', 'privacy', 'terms'];
+                            if (excludeWords.some(w => hrefLower.includes(w))) return;
+
                             seen.add(href);
                             pgLinks.push(href);
                         }
