@@ -101,6 +101,7 @@ class StructureScraper {
             maxConcurrency: 1,       // Serialise — scroll loops + Playwright are CPU-heavy
             maxRequestsPerCrawl: 1000, // Allow all sub-categories to be visited
             navigationTimeoutSecs: 90, // Longer timeout for scroll-heavy pages
+            requestHandlerTimeoutSecs: 300, // Resilient timeout for intensive page hovers/scrolling
             // Ensure headless on production (Railway), optional debug locally
             headless: true,
 
@@ -218,16 +219,15 @@ class StructureScraper {
                     try {
                         console.log('   🖱️ Hovering over header menu items to trigger AJAX subcategories...');
                         const menuSelectors = [
-                            'header a',
-                            'nav a',
-                            '.menu a',
-                            '.navigation a',
-                            'ul.menu-vertical.nav > li > a',
-                            'ul.menu-horizontal > li > a',
-                            '.menu-item-has-children > a'
+                            '.menu-item-has-children > a',
+                            'li:has(ul) > a',
+                            'li:has(.dropdown-menu) > a',
+                            'li:has(.sub-menu) > a',
+                            '.dropdown-toggle',
+                            '.nav-item.dropdown > a'
                         ];
                         const menuElements = await page.$$(menuSelectors.join(','));
-                        console.log(`     Found ${menuElements.length} potential menu elements to hover.`);
+                        console.log(`     Found ${menuElements.length} potential dropdown menu elements to hover.`);
                         for (const el of menuElements) {
                             try {
                                 const text = await el.innerText();
