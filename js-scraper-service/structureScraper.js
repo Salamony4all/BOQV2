@@ -21,7 +21,8 @@ class StructureScraper {
         this.excludeKeywords = [
             'contact', 'about', 'login', 'cart', 'privacy', 'social', 'news', 'blog', 'terms', 'careers', 'account', 'faq', 'help',
             'project', 'history', 'download', 'press', 'event', 'exhibition', 'case-study', 'award', 'designer', 'sustainability',
-            'video', 'career', 'partner', 'showroom', 'location', 'search', 'media', 'document'
+            'video', 'career', 'partner', 'showroom', 'location', 'search', 'media', 'document',
+            'wishlist', 'wpnonce', 'add_to_wishlist', 'add-to-cart', 'add_to_cart', 'quote'
         ];
     }
 
@@ -307,12 +308,15 @@ class StructureScraper {
                         const seen = new Set();
                         seen.add(currentUrl);
                         const links = [];
+                        const excludeWords = ['wishlist', 'wpnonce', 'add_to_wishlist', 'add-to-cart', 'add_to_cart', 'quote', 'cart', 'checkout', 'my-account'];
+                        
                         document.querySelectorAll('a[href]').forEach(a => {
                             const href = a.href;
                             if (!href || !href.startsWith(baseUrl)) return;
                             if (seen.has(href)) return;
                             
                             const hrefLower = href.toLowerCase();
+                            if (excludeWords.some(w => hrefLower.includes(w))) return;
                             
                             // Check if it is a single product page
                             const isProductPage = (
