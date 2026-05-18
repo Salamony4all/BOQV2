@@ -311,10 +311,32 @@ class StructureScraper {
                             const href = a.href;
                             if (!href || !href.startsWith(baseUrl)) return;
                             if (seen.has(href)) return;
-                            // Only enqueue Architonic category/collection hierarchy pages (not product detail pages)
+                            
+                            const hrefLower = href.toLowerCase();
+                            
+                            // Check if it is a single product page
+                            const isProductPage = (
+                                hrefLower.includes('/en/p/') || 
+                                hrefLower.includes('/de/p/') || 
+                                hrefLower.includes('/fr/p/') || 
+                                hrefLower.includes('/it/p/') ||
+                                (hrefLower.includes('/product/') && !hrefLower.includes('/product-category/')) ||
+                                (hrefLower.includes('/products/') && (() => {
+                                    const after = hrefLower.split('/products/')[1];
+                                    return after && after.trim().length > 0 && after.replace(/\/$/, '').length > 0;
+                                })()) ||
+                                (hrefLower.includes('/item/') && !hrefLower.includes('/items/')) ||
+                                (/\/p\/[a-z0-9_-]+/i.test(hrefLower) && !hrefLower.includes('/products/') && !hrefLower.includes('/page/'))
+                            );
+                            
+                            if (isProductPage) return;
+
+                            // Only enqueue Legitimate category/collection hierarchy pages (not product detail pages)
                             if (
-                                (href.includes('/en/pg/') || href.includes('/collection/') || href.includes('/category/')) &&
-                                !href.includes('/en/p/')  // exclude product detail pages
+                                hrefLower.includes('/en/pg/') || 
+                                hrefLower.includes('/collection/') || 
+                                hrefLower.includes('/category/') || 
+                                hrefLower.includes('/product-category/')
                             ) {
                                 seen.add(href);
                                 links.push({ url: href, title: (a.innerText || '').trim().slice(0, 60) });
@@ -441,8 +463,24 @@ class StructureScraper {
                 // Skip excludes
                 if (excludeKeywords.some(k => urlLower.includes(k) || textLower.includes(k))) return;
 
+                // Filter out single product detail pages
+                const isProductPage = (
+                    urlLower.includes('/en/p/') || 
+                    urlLower.includes('/de/p/') || 
+                    urlLower.includes('/fr/p/') || 
+                    urlLower.includes('/it/p/') ||
+                    (urlLower.includes('/product/') && !urlLower.includes('/product-category/')) ||
+                    (urlLower.includes('/products/') && (() => {
+                        const after = urlLower.split('/products/')[1];
+                        return after && after.trim().length > 0 && after.replace(/\/$/, '').length > 0;
+                    })()) ||
+                    (urlLower.includes('/item/') && !urlLower.includes('/items/')) ||
+                    (/\/p\/[a-z0-9_-]+/i.test(urlLower) && !urlLower.includes('/products/') && !urlLower.includes('/page/'))
+                );
+                if (isProductPage) return;
+
                 // Priority: Navigation menus, category-like words
-                        const isNav = !!a.closest('nav, header, .menu, .navigation, .sidebar');
+                const isNav = !!a.closest('nav, header, .menu, .navigation, .sidebar');
                 const hasKeyword = productKeywords.some(k => urlLower.includes(k) || textLower.includes(k)) ||
                     categoryKeywords.some(k => urlLower.includes(k) || textLower.includes(k));
 
