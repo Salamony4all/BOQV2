@@ -183,7 +183,7 @@ class ScraperService {
     // Analyzes page structure to find the best product container pattern
 
     async analyzePage(page) {
-        const analysis = await page.evaluate((containerSelectors, titleSelectors) => {
+        const analysis = await page.evaluate(({ containerSelectors, titleSelectors }) => {
             const results = [];
 
             for (const selector of containerSelectors) {
@@ -244,7 +244,7 @@ class ScraperService {
             results.sort((a, b) => b.score - a.score);
             return results.slice(0, 3); // Top 3 candidates
 
-        }, this.productContainerSelectors, this.titleSelectors);
+        }, { containerSelectors: this.productContainerSelectors, titleSelectors: this.titleSelectors });
 
         if (analysis.length > 0) {
             console.log(`      ⚡ Intelligent selector found: "${analysis[0].selector}" (score: ${analysis[0].score.toFixed(0)}, items: ${analysis[0].count})`);
