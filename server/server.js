@@ -2512,7 +2512,8 @@ app.post('/api/brands/sync', async (req, res) => {
         url: website,
         brand_name: brandName,
         strategy: syncStrategy,
-        sync: true
+        sync: true,
+        js_scraper_url: process.env.JS_SCRAPER_SERVICE_URL
       }),
       signal: AbortSignal.timeout(120000)
     });
