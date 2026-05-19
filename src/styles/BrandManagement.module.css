@@ -353,3 +353,76 @@
     justify-content: flex-end;
   }
 }
+
+.engineContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  background: rgba(255, 255, 255, 0.01);
+  padding: 1.25rem;
+  border-radius: 10px;
+  border: 1px dashed var(--border-color);
+  margin-bottom: 0.5rem;
+}
+
+.engineSelector {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-top: 0.5rem;
+}
+
+.engineBtn {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+  text-align: left;
+}
+
+.engineBtn:hover {
+  border-color: var(--warning);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.activeEngine {
+  border-color: var(--warning);
+  background: rgba(245, 158, 11, 0.08) !important;
+  box-shadow: 0 0 0 1px var(--warning);
+}
+
+.engineIcon {
+  font-size: 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.engineInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.engineName {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.engineDesc {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+@media (max-width: 680px) {
+  .engineSelector {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+  }
+}

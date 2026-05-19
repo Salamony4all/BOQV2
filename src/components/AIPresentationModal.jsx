@@ -91,9 +91,11 @@ const AIPresentationModal = ({
     // Derive dynamic panel label from title prop
     const agentLabel = title?.toLowerCase().includes('multi budget')
         ? 'BUDGET AGENTS'
-        : title?.toLowerCase().includes('value engineer')
-            ? 'CATEGORY AGENTS'
-            : 'SWARM AGENTS';
+        : title?.toLowerCase().includes('auto detect')
+            ? 'SPECIFICATION AGENTS'
+            : title?.toLowerCase().includes('value engineer')
+                ? 'CATEGORY AGENTS'
+                : 'SWARM AGENTS';
     
     // DRAGGING STATE
     const [position, setPosition] = useState({ x: 0, y: 0 });
@@ -235,7 +237,8 @@ const AIPresentationModal = ({
     useEffect(() => {
         if (isOpen) {
             if (status === 'routing') {
-                setLogs(prev => [...prev, 'Orchestrating Swarm Lanes...', 'Analyzing BOQ Structure...', 'AI Router Online'].slice(-5));
+                const isAuto = title?.toLowerCase().includes('auto detect');
+                setLogs(prev => [...prev, 'Orchestrating Swarm Lanes...', isAuto ? 'Analyzing Specifications...' : 'Analyzing BOQ Structure...', isAuto ? 'AI AutoDetect Router Online' : 'AI Router Online'].slice(-5));
             } else if (AI_STEPS[stepIndex]) {
                 setLogs(prev => [...prev, `${AI_STEPS[stepIndex].icon} ${AI_STEPS[stepIndex].label}`].slice(-5));
             }

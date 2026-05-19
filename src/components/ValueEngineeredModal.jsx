@@ -460,7 +460,7 @@ export default function ValueEngineeredModal({
         const subCats = mergeUnique(matchingByMain, 'normalization.subCategory', 'subCategory');
         const families = Array.from(new Set(brandProducts.filter(p => (p.normalization?.category || p.mainCategory) === row.selectedMainCat && (p.normalization?.subCategory || p.subCategory) === row.selectedSubCat).map(p => p.family).filter(Boolean))).sort();
 
-        const allRawModels = brandProducts.filter(p => (p.normalization?.category || p.mainCategory) === row.selectedMainCat && (p.normalization?.subCategory || p.subCategory) === row.selectedSubCat && (p.family || '') === (row.selectedFamily || ''));
+        const allRawModels = brandProducts.filter(p => (p.normalization?.category || p.mainCategory) === row.selectedMainCat && (p.normalization?.subCategory || p.subCategory) === row.selectedSubCat);
         const rawModels = [];
         const seenUids = new Set();
         allRawModels.forEach(p => {
@@ -615,12 +615,6 @@ export default function ValueEngineeredModal({
                             </select>
                         )}
                         {row.selectedSubCat && (
-                            <select className={mbs.productSelect} value={row.selectedFamily} onChange={e => handleVeCellChange(index, 'selectedFamily', e.target.value)}>
-                                <option value="">Family…</option>
-                                {(families || []).map(c => <option key={c} value={c}>{c}</option>)}
-                            </select>
-                        )}
-                        {row.selectedFamily && (
                             <select className={mbs.productSelect} value={row.selectedModelUrl || ''} onChange={e => {
                                 const opt = modelOptions.find(o => o.value === e.target.value);
                                 handleVeCellChange(index, 'selectedModel', { model: opt?.rawModel || '', url: e.target.value });
@@ -661,15 +655,16 @@ export default function ValueEngineeredModal({
         const workableRows = currentData.filter(r => !isHeaderRow(r.description, r) && !r.isTotalRow);
         setProgress({ current: 0, total: workableRows.length });
         
-        // Initialize Swarm Lanes for all 4 categories
-        const categoryKeys = ['desking', 'seating', 'softSeating', 'accessories'];
+        // Initialize Swarm Lanes
+        const categoryKeys = brandMode === 'auto_detect' ? ['specifications'] : ['desking', 'seating', 'softSeating', 'accessories'];
         const initialLanes = {};
         for (const catKey of categoryKeys) {
-            const targetBrand = brandMode === 'simple' ? globalBrand : categoryBrands[catKey];
+            const label = catKey === 'specifications' ? 'Specification Matcher' : VE_UI_CONFIG.labels[catKey];
+            const targetBrand = brandMode === 'simple' ? globalBrand : (brandMode === 'auto_detect' ? 'Auto Detected' : categoryBrands[catKey]);
             const localBrand = allBrands.find(b => b.name === targetBrand);
             initialLanes[catKey] = {
                 id: catKey,
-                label: VE_UI_CONFIG.labels[catKey],
+                label: label,
                 status: 'idle',
                 current: 0,
                 total: 0,
@@ -689,7 +684,8 @@ export default function ValueEngineeredModal({
             const routingPayload = workableRows.map(r => ({ id: String(r.id), desc: r.description }));
 
             try {
-                const routeRes = await fetch(`${API_BASE}/api/ve-route`, {
+                const endpoint = '/api/ve-route';
+                const routeRes = await fetch(`${API_BASE}${endpoint}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ 
@@ -728,18 +724,28 @@ export default function ValueEngineeredModal({
                 setAiStatus(prev => ({ ...prev, active: false }));
                 return;
             }
+        } else if (brandMode === 'auto_detect') {
+            console.log('🚀 [VE AI] Auto Detect mode active, bypassing Category AI Router...');
+            categoryMap = { specifications: workableRows.map(r => String(r.id)), status: 'success' };
+            setSwarm(prev => ({
+                ...prev,
+                lanes: {
+                    specifications: {
+                        ...prev.lanes.specifications,
+                        total: workableRows.length,
+                        status: workableRows.length > 0 ? 'active' : 'idle'
+                    }
+                }
+            }));
+            await sleep(800); // UI visual delay
+
         } else {
-            // Simple mode: all items go to their respective lanes but use global brand
-            // Actually in simple mode, we don't have routing, so we can't easily split items into lanes 
-            // unless we route them anyway. 
-            // For now, let's just make the lanes "active" if they would have items, or just keep them idle.
-            // A better way is to still route them even in simple mode so we can show the swarm lanes.
-            
+            // Simple mode: lanes start as active or idle
             setSwarm(prev => {
                 const newLanes = { ...prev.lanes };
                 for (const catKey of categoryKeys) {
-                    newLanes[catKey].status = 'active'; // In simple mode, treat all as potentially active
-                    newLanes[catKey].total = workableRows.length; // Approximate
+                    newLanes[catKey].status = 'idle';
+                    newLanes[catKey].total = workableRows.length;
                 }
                 return { ...prev, lanes: newLanes };
             });
@@ -748,13 +754,23 @@ export default function ValueEngineeredModal({
         let successCount = 0, errorCount = 0;
         const rowsRefCurrent = rowsRef.current;
 
+        // Dynamic category helper for Simple/Advanced modes
+        const mapCategoryToKey = (cat) => {
+            if (!cat) return 'accessories';
+            const c = cat.toLowerCase();
+            if (c.includes('desk') || c.includes('table') || c.includes('workstation') || c.includes('meeting') || c.includes('conference')) return 'desking';
+            if (c.includes('task chair') || c.includes('executive') || c.includes('operational') || (c.includes('chair') && !c.includes('lounge') && !c.includes('armchair'))) return 'seating';
+            if (c.includes('sofa') || c.includes('lounge') || c.includes('armchair') || c.includes('ottoman') || c.includes('couch')) return 'softSeating';
+            return 'accessories';
+        };
+
         // Reusable Single-Row Processor
         const processSingleRow = async (rowIndex, targetBrand, categoryScope, laneId = null) => {
             const row = rowsRef.current[rowIndex];
             if (!row || row.aiStatus === 'success') return;
 
-            // If we don't have a laneId (simple mode), we can try to guess it or just use 'accessories' as fallback
-            const effectiveLaneId = laneId || 'accessories';
+            // If we don't have a laneId (simple mode), default to accessories for initial visualization
+            const effectiveLaneId = laneId || (brandMode === 'auto_detect' ? 'specifications' : 'accessories');
 
             setSwarm(prev => ({
                 ...prev,
@@ -775,17 +791,20 @@ export default function ValueEngineeredModal({
             const sizeContext = [row.qty && `Qty: ${row.qty}`, row.unit && `Unit: ${row.unit}`].filter(Boolean).join(', ');
             const enrichedDesc = sizeContext ? `${row.description} | ${sizeContext}` : row.description;
 
+            const isAuto = brandMode === 'auto_detect';
             const payload = {
                 description: enrichedDesc,
-                brand: targetBrand,
                 qty: row.qty,
                 unit: row.unit,
                 providerModel: aiSettings?.model,
-                ...(categoryScope ? { category: categoryScope } : {})
+                ...(row.imageRef && isAuto ? { imageUrl: row.imageRef } : {}),
+                ...(!isAuto ? { brand: targetBrand } : {}),
+                ...(categoryScope && !isAuto ? { category: categoryScope } : {})
             };
 
             try {
-                const response = await fetch(`${API_BASE}/api/ve-match`, {
+                const endpoint = isAuto ? '/api/ve-match-auto' : '/api/ve-match';
+                const response = await fetch(`${API_BASE}${endpoint}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
@@ -807,20 +826,22 @@ export default function ValueEngineeredModal({
                     let resolvedModelUrl = match.websiteUrl || match.productUrl || match.imageUrl || '';
 
                     const localBrand = allBrands.find(b => b.name?.toLowerCase().trim() === matchedBrand.toLowerCase().trim());
+                    const resolvedLaneId = effectiveLaneId;
 
                     setSwarm(prev => {
-                        const lane = prev?.lanes?.[effectiveLaneId];
+                        const lane = prev?.lanes?.[resolvedLaneId];
                         return {
                             ...prev,
                             lanes: {
                                 ...prev?.lanes,
-                                [effectiveLaneId]: {
+                                [resolvedLaneId]: {
                                     ...lane,
                                     status: 'success',
                                     model: finalModel,
                                     image: finalImageUrl,
-                                    progress: lane.total > 0 ? Math.min(100, Math.round(((lane.current + 1) / lane.total) * 100)) : 100,
-                                    current: lane.current + 1
+                                    total: lane?.total || 0,
+                                    progress: (lane?.total > 0 ? Math.min(100, Math.round(((lane.current + 1) / lane.total) * 100)) : 100),
+                                    current: (lane?.current || 0) + 1
                                 }
                             }
                         };
@@ -837,7 +858,7 @@ export default function ValueEngineeredModal({
                         selectedModelUrl: resolvedModelUrl,
                         brandImage: finalImageUrl,
                         brandLogo: localBrand?.logo || '',
-                        brandDesc: finalBrandDesc,
+                        brandDesc: isAuto ? '' : finalBrandDesc,
                         rate: finalRate,
                         basePrice: finalBasePrice,
                         amount: (parseFloat(finalRate) * (parseFloat(r.qty) || 0)).toFixed(2),
@@ -846,17 +867,19 @@ export default function ValueEngineeredModal({
                     } : r));
                     successCount++;
                 } else {
+                    const resolvedLaneId = effectiveLaneId;
                     setSwarm(prev => {
-                        const lane = prev?.lanes?.[effectiveLaneId];
+                        const lane = prev?.lanes?.[resolvedLaneId];
                         return {
                             ...prev,
                             lanes: {
                                 ...prev?.lanes,
-                                [effectiveLaneId]: {
+                                [resolvedLaneId]: {
                                     ...lane,
                                     status: 'error',
-                                    progress: lane.total > 0 ? Math.min(100, Math.round(((lane.current + 1) / lane.total) * 100)) : 100,
-                                    current: lane.current + 1
+                                    total: lane?.total || 0,
+                                    progress: (lane?.total > 0 ? Math.min(100, Math.round(((lane.current + 1) / lane.total) * 100)) : 100),
+                                    current: (lane?.current || 0) + 1
                                 }
                             }
                         };
@@ -865,16 +888,19 @@ export default function ValueEngineeredModal({
                     errorCount++;
                 }
             } catch (err) {
+                const resolvedLaneId = effectiveLaneId;
                 setSwarm(prev => {
-                    const lane = prev?.lanes?.[effectiveLaneId];
+                    const lane = prev?.lanes?.[resolvedLaneId];
                     return {
                         ...prev,
                         lanes: {
                             ...prev?.lanes,
-                            [effectiveLaneId]: {
+                            [resolvedLaneId]: {
                                 ...lane,
                                 status: 'error',
-                                current: lane.current + 1
+                                total: lane?.total || 0,
+                                progress: (lane?.total > 0 ? Math.min(100, Math.round(((lane.current + 1) / lane.total) * 100)) : 100),
+                                current: (lane?.current || 0) + 1
                             }
                         }
                     };
@@ -887,13 +913,14 @@ export default function ValueEngineeredModal({
         };
 
         // --- PHASE 2: SWARM EXECUTION ---
-        if (brandMode === 'advanced' && categoryMap && categoryMap.status !== 'error') {
+        if ((brandMode === 'advanced' || brandMode === 'auto_detect') && categoryMap && categoryMap.status !== 'error') {
             const swarmPromises = [];
             for (const catKey of categoryKeys) {
                 const itemIds = categoryMap[catKey] || [];
                 if (!itemIds || itemIds.length === 0) continue;
 
-                const targetBrand = categoryBrands[catKey];
+                const targetBrand = brandMode === 'auto_detect' ? 'Auto Detected' : categoryBrands[catKey];
+                if (!targetBrand && brandMode !== 'auto_detect') continue;
                 if (!targetBrand) continue;
 
                 const stringItemIds = itemIds.map(String);
@@ -940,7 +967,7 @@ export default function ValueEngineeredModal({
         setTimeout(() => setBatchResult(null), 8000);
     };
 
-    const canStartAI = brandMode === 'simple' ? globalBrand !== '' : Object.values(categoryBrands).some(b => b !== '');
+    const canStartAI = brandMode === 'auto_detect' ? true : (brandMode === 'simple' ? globalBrand !== '' : Object.values(categoryBrands).some(b => b !== ''));
 
     return (
         <>
@@ -1163,11 +1190,62 @@ export default function ValueEngineeredModal({
 
                         <div className={afStyles.content}>
                             <div className={afStyles.section}>
-                                <div className={afStyles.brandSectionHeader}>
+                                <div className={afStyles.brandSectionHeader} style={{ marginBottom: '1rem' }}>
                                     <span className={afStyles.sectionTitle}>Select Target Strategy</span>
                                 </div>
 
-                                <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem' }}>
+                                {/* Premium Auto Detect Toggle */}
+                                <div style={{
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'center',
+                                    padding: '1rem 1.2rem',
+                                    borderRadius: '12px',
+                                    background: brandMode === 'auto_detect' ? 'linear-gradient(135deg, rgba(99, 102, 241, 0.15) 0%, rgba(168, 85, 247, 0.15) 100%)' : 'rgba(255,255,255,0.02)',
+                                    border: brandMode === 'auto_detect' ? '2px solid #8b5cf6' : '1px solid rgba(255,255,255,0.1)',
+                                    marginBottom: '1.5rem',
+                                    cursor: 'pointer',
+                                    transition: 'all 0.3s ease'
+                                }} onClick={() => setBrandMode(brandMode === 'auto_detect' ? 'simple' : 'auto_detect')}>
+                                    <div style={{ flex: 1, paddingRight: '1rem' }}>
+                                        <div style={{ fontWeight: 700, color: brandMode === 'auto_detect' ? '#a855f7' : '#e2e8f0', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '1rem' }}>
+                                            🤖 Auto Detect Brand & Model
+                                            {brandMode === 'auto_detect' && <span style={{ background: 'linear-gradient(135deg, #6366f1, #a855f7)', color: 'white', fontSize: '0.7rem', padding: '2px 8px', borderRadius: '20px', fontWeight: 600 }}>ACTIVE</span>}
+                                        </div>
+                                        <div style={{ fontSize: '0.8rem', color: '#94a3b8', marginTop: '0.2rem' }}>
+                                            Specification/Model driven Matching: AI will dynamically extract the model and brand from the description.
+                                        </div>
+                                    </div>
+                                    <div style={{
+                                        position: 'relative',
+                                        width: '48px',
+                                        height: '24px',
+                                        background: brandMode === 'auto_detect' ? '#8b5cf6' : 'rgba(255,255,255,0.1)',
+                                        borderRadius: '12px',
+                                        transition: 'all 0.3s'
+                                    }}>
+                                        <div style={{
+                                            position: 'absolute',
+                                            top: '2px',
+                                            left: brandMode === 'auto_detect' ? '26px' : '2px',
+                                            width: '20px',
+                                            height: '20px',
+                                            background: '#ffffff',
+                                            borderRadius: '50%',
+                                            boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+                                            transition: 'all 0.3s'
+                                        }} />
+                                    </div>
+                                </div>
+
+                                <div style={{ 
+                                    display: 'flex', 
+                                    gap: '1rem', 
+                                    marginBottom: '1.5rem',
+                                    opacity: brandMode === 'auto_detect' ? 0.4 : 1,
+                                    pointerEvents: brandMode === 'auto_detect' ? 'none' : 'auto',
+                                    transition: 'all 0.3s'
+                                }}>
                                     <div
                                         onClick={() => setBrandMode('simple')}
                                         style={{ flex: 1, padding: '1.2rem', borderRadius: '12px', border: brandMode === 'simple' ? '2px solid #3b82f6' : '1px solid rgba(255,255,255,0.1)', background: brandMode === 'simple' ? 'rgba(59,130,246,0.1)' : 'rgba(255,255,255,0.02)', cursor: 'pointer', transition: 'all 0.2s' }}
@@ -1290,7 +1368,7 @@ export default function ValueEngineeredModal({
                             isMinimized={status.minimized}
                             onToggleMinimize={() => setAiStatus(prev => ({ ...prev, minimized: !prev.minimized }))}
                             minimizedOffset={minimizedOffset}
-                            title="Value Engineer - Category Based AI Active"
+                            title={brandMode === 'auto_detect' ? "Value Engineer - Auto Detect AI Active" : "Value Engineer - Category Based AI Active"}
                         />
                     );
                 });

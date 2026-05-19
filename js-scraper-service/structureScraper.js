@@ -383,12 +383,8 @@ class StructureScraper {
                                 hrefLower.includes('/fr/p/') || 
                                 hrefLower.includes('/it/p/') ||
                                 (hrefLower.includes('/product/') && !hrefLower.includes('/product-category/')) ||
-                                (hrefLower.includes('/products/') && (() => {
-                                    const after = hrefLower.split('/products/')[1];
-                                    return after && after.trim().length > 0 && after.replace(/\/$/, '').length > 0;
-                                })()) ||
                                 (hrefLower.includes('/item/') && !hrefLower.includes('/items/')) ||
-                                (/\/p\/[a-z0-9_-]+/i.test(hrefLower) && !hrefLower.includes('/products/') && !hrefLower.includes('/page/'))
+                                (/\/p\/[a-z0-9_-]+/i.test(hrefLower) && !hrefLower.includes('/page/'))
                             );
                             
                             if (isProductPage) return;
@@ -538,12 +534,8 @@ class StructureScraper {
                     urlLower.includes('/fr/p/') || 
                     urlLower.includes('/it/p/') ||
                     (urlLower.includes('/product/') && !urlLower.includes('/product-category/')) ||
-                    (urlLower.includes('/products/') && (() => {
-                        const after = urlLower.split('/products/')[1];
-                        return after && after.trim().length > 0 && after.replace(/\/$/, '').length > 0;
-                    })()) ||
                     (urlLower.includes('/item/') && !urlLower.includes('/items/')) ||
-                    (/\/p\/[a-z0-9_-]+/i.test(urlLower) && !urlLower.includes('/products/') && !urlLower.includes('/page/'))
+                    (/\/p\/[a-z0-9_-]+/i.test(urlLower) && !urlLower.includes('/page/'))
                 );
                 if (isProductPage) return;
 
@@ -663,15 +655,16 @@ class StructureScraper {
 
                 for (const sel of titleSelectors) {
                     try {
-                        const elTitle = el.querySelector(sel);
-                        if (elTitle) {
+                        const elTitles = el.querySelectorAll(sel);
+                        for (const elTitle of elTitles) {
                             const txt = elTitle.innerText.trim();
                             const txtLower = txt.toLowerCase();
-                            if (txt.length > 2 && !genericTexts.some(gt => txtLower === gt || txtLower.includes(gt))) {
+                            if (txt.length > 2 && !genericTexts.includes(txtLower)) {
                                 title = txt;
                                 break;
                             }
                         }
+                        if (title) break;
                     } catch (e) {}
                 }
 
@@ -679,15 +672,16 @@ class StructureScraper {
                 if (!title) {
                     for (const sel of fallbackTitleSelectors) {
                         try {
-                            const elTitle = el.querySelector(sel);
-                            if (elTitle) {
+                            const elTitles = el.querySelectorAll(sel);
+                            for (const elTitle of elTitles) {
                                 const txt = elTitle.innerText.trim();
                                 const txtLower = txt.toLowerCase();
-                                if (txt.length > 2 && !genericTexts.some(gt => txtLower === gt || txtLower.includes(gt))) {
+                                if (txt.length > 2 && !genericTexts.includes(txtLower)) {
                                     title = txt;
                                     break;
                                 }
                             }
+                            if (title) break;
                         } catch (e) {}
                     }
                 }

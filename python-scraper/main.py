@@ -29,7 +29,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Import scrapers
-from scraper import scrape_url
+from scraper import scrape_url, scrape_italian, scrape_firecrawl
 
 # Try to import Architonic scraper
 try:
@@ -62,6 +62,8 @@ tasks: Dict[str, Dict[str, Any]] = {}
 class ScrapeRequest(BaseModel):
     url: str
     name: Optional[str] = None
+    brand_name: Optional[str] = None
+    strategy: Optional[str] = "universal"
     sync: bool = False  # If True, wait for result. If False, return taskId
 
 class TaskResponse(BaseModel):
@@ -217,6 +219,10 @@ def run_scrape_task(task_id: str, url: str, name: Optional[str], scraper_type: s
         # Run appropriate scraper
         if scraper_type == "architonic" and HAS_ARCHITONIC:
             result = scrape_architonic(url)
+        elif scraper_type == "italian":
+            result = scrape_italian(url, name)
+        elif scraper_type == "firecrawl":
+            result = scrape_firecrawl(url, name)
         else:
             result = scrape_url(url)
         
@@ -257,22 +263,36 @@ def run_scrape_task(task_id: str, url: str, name: Optional[str], scraper_type: s
         })
 
 @app.post("/scrape")
+@app.post("/api/scrape")
 async def scrape_endpoint(req: ScrapeRequest, background_tasks: BackgroundTasks):
-    """Universal scraping endpoint"""
-    logger.info(f"Received scrape request for: {req.url}")
+    """Universal scraping endpoint with strategy routing"""
+    logger.info(f"Received scrape request for: {req.url} (Strategy: {req.strategy})")
     
-    # Detect if Architonic
-    is_architonic = "architonic.com" in req.url.lower()
-    scraper_type = "architonic" if is_architonic and HAS_ARCHITONIC else "universal"
+    # Resolve strategy
+    req_name = req.brand_name or req.name
+    scraper_type = req.strategy or "universal"
     
+    # Auto-detect architonic if universal
+    if scraper_type == "universal" and "architonic.com" in req.url.lower():
+        scraper_type = "architonic"
+        
     # Sync mode - wait for result
     if req.sync:
         try:
             loop = asyncio.get_event_loop()
-            if scraper_type == "architonic":
+            if scraper_type == "architonic" and HAS_ARCHITONIC:
                 data = await loop.run_in_executor(None, scrape_architonic, req.url)
+            elif scraper_type == "italian":
+                data = await loop.run_in_executor(None, scrape_italian, req.url, req_name)
+            elif scraper_type == "firecrawl":
+                data = await loop.run_in_executor(None, scrape_firecrawl, req.url, req_name)
             else:
                 data = await loop.run_in_executor(None, scrape_url, req.url)
+                
+            # If name was provided but not matched by scraper, enforce it
+            if req_name and ("brandInfo" in data) and (not data["brandInfo"].get("name") or data["brandInfo"]["name"] == "Unknown Brand"):
+                data["brandInfo"]["name"] = req_name
+                
             return {
                 "success": True,
                 "products": data.get("products", []),
@@ -290,12 +310,12 @@ async def scrape_endpoint(req: ScrapeRequest, background_tasks: BackgroundTasks)
         "status": "processing",
         "progress": 10,
         "stage": f"Initializing {scraper_type} scraper...",
-        "brandName": req.name or "Detecting...",
+        "brandName": req_name or "Detecting...",
         "startedAt": datetime.utcnow().isoformat()
     }
     
     # Run in background
-    background_tasks.add_task(run_scrape_task, task_id, req.url, req.name, scraper_type)
+    background_tasks.add_task(run_scrape_task, task_id, req.url, req_name, scraper_type)
     
     return {
         "success": True,

@@ -9,7 +9,8 @@ export default function BrandManagement({ onBrandAdded, onBrandUpdated, onClose,
     const [website, setWebsite] = useState('');
     const [origin, setOrigin] = useState('');
     const [budgetTier, setBudgetTier] = useState('mid');
-    const [scrapingMethod, setScrapingMethod] = useState('ai');
+    const [scrapingMethod, setScrapingMethod] = useState('standard');
+    const [scrapingEngine, setScrapingEngine] = useState('js'); // 'js' or 'python'
     const [scraperSource, setScraperSource] = useState('railway'); // 'railway' or 'local'
     const [loading, setLoading] = useState(false);
 
@@ -27,7 +28,14 @@ export default function BrandManagement({ onBrandAdded, onBrandUpdated, onClose,
     const fileInputRef = useRef(null);
 
     // Global scraping context
-    const { isActive: isScrapingActive, startScrapingWithTask, failScraping } = useScraping();
+    const { 
+        isActive: isScrapingActive, 
+        startScraping, 
+        startScrapingWithTask, 
+        updateProgress, 
+        completeScraping, 
+        failScraping 
+    } = useScraping();
 
     useEffect(() => {
         fetchBrands();
@@ -107,6 +115,15 @@ export default function BrandManagement({ onBrandAdded, onBrandUpdated, onClose,
         }
     };
 
+    const handleEngineChange = (engine) => {
+        setScrapingEngine(engine);
+        if (engine === 'js') {
+            setScrapingMethod('standard');
+        } else {
+            setScrapingMethod('py_universal');
+        }
+    };
+
     const handleScraping = async (e) => {
         e.preventDefault();
         setLoading(true);
@@ -115,29 +132,75 @@ export default function BrandManagement({ onBrandAdded, onBrandUpdated, onClose,
 
         try {
             const apiBase = getApiBase();
-            let endpoint;
-            if (scrapingMethod === 'ai') endpoint = `${apiBase}/api/scrape-ai`;
-            else if (scrapingMethod === 'scrapling') endpoint = `${apiBase}/api/scrape-scrapling`;
-            else endpoint = `${apiBase}/api/scrape-brand`;
-
-            const res = await fetch(endpoint, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name, url: website, origin, budgetTier, scraperSource })
-            });
-
-            if (!res.ok) throw new Error('Failed to start scraping');
-            const startData = await res.json();
-            const taskId = startData.taskId;
-
-            startScrapingWithTask(name, taskId, (data) => {
-                if (data.success !== false) {
-                    if (onBrandAdded) onBrandAdded(data.brand || data);
-                    fetchBrands();
+            
+            // Check if using the new strategy-based scraping endpoints
+            const isStrategyBased = ['py_universal', 'py_architonic', 'py_requests', 'italian', 'firecrawl'].includes(scrapingMethod);
+            
+            if (isStrategyBased) {
+                // Use new unified strategy sync
+                // Start progress bar in frontend context
+                startScraping(name, (data) => {
+                    if (data.success !== false) {
+                        if (onBrandAdded) onBrandAdded(data.brand || data);
+                        fetchBrands();
+                    }
+                }, (error) => {
+                    console.error('Scraping failed:', error.message);
+                });
+                
+                const strategyValue = scrapingMethod === 'py_universal' ? 'universal' : 
+                                      scrapingMethod === 'py_architonic' ? 'architonic' : 
+                                      scrapingMethod === 'py_requests' ? 'requests' : 
+                                      scrapingMethod;
+                
+                updateProgress(15, `Initializing strategy: ${strategyValue}...`);
+                
+                const res = await fetch(`${apiBase}/api/brands/sync`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        brandName: name,
+                        website,
+                        syncStrategy: strategyValue,
+                        origin,
+                        budgetTier
+                    })
+                });
+                
+                if (!res.ok) {
+                    const errData = await res.json().catch(() => ({}));
+                    throw new Error(errData.error || `Failed scraping with strategy ${strategyValue}`);
                 }
-            }, (error) => {
-                console.error('Scraping failed:', error.message);
-            });
+                
+                const data = await res.json();
+                updateProgress(90, 'Saving brand & finalizing products...');
+                completeScraping(data);
+            } else {
+                // Legacy Scraping Methods (ai, scrapling, requests/standard)
+                let endpoint;
+                if (scrapingMethod === 'ai') endpoint = `${apiBase}/api/scrape-ai`;
+                else if (scrapingMethod === 'scrapling') endpoint = `${apiBase}/api/scrape-scrapling`;
+                else endpoint = `${apiBase}/api/scrape-brand`;
+
+                const res = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, url: website, origin, budgetTier, scraperSource })
+                });
+
+                if (!res.ok) throw new Error('Failed to start scraping');
+                const startData = await res.json();
+                const taskId = startData.taskId;
+
+                startScrapingWithTask(name, taskId, (data) => {
+                    if (data.success !== false) {
+                        if (onBrandAdded) onBrandAdded(data.brand || data);
+                        fetchBrands();
+                    }
+                }, (error) => {
+                    console.error('Scraping failed:', error.message);
+                });
+            }
 
             setLoading(false);
             // Reset form
@@ -284,24 +347,61 @@ export default function BrandManagement({ onBrandAdded, onBrandUpdated, onClose,
                     </div>
                 </div>
 
-                <div className={styles.formGroup}>
-                    <label className={styles.label}>Scraping Method</label>
-                    <select className={styles.select} value={scrapingMethod} onChange={e => setScrapingMethod(e.target.value)}>
-                        <option value="ai">🤖 AI Scraper (Intelligent extraction)</option>
-                        <option value="scrapling">🧠 Scrapling (Undetectable Python)</option>
-                        <option value="requests">🔧 Specialized Scraper (Architonic)</option>
-                    </select>
-                </div>
+                <div className={styles.engineContainer}>
+                    <div className={styles.formGroup} style={{ marginBottom: '1.25rem' }}>
+                        <label className={styles.label}>Scraping Service (Engine)</label>
+                        <div className={styles.engineSelector}>
+                            <button
+                                type="button"
+                                className={`${styles.engineBtn} ${scrapingEngine === 'js' ? styles.activeEngine : ''}`}
+                                onClick={() => handleEngineChange('js')}
+                            >
+                                <span className={styles.engineIcon}>🟨</span>
+                                <div className={styles.engineInfo}>
+                                    <span className={styles.engineName}>JS Scraper Service</span>
+                                    <span className={styles.engineDesc}>Playwright & Crawlee (High Fidelity)</span>
+                                </div>
+                            </button>
+                            <button
+                                type="button"
+                                className={`${styles.engineBtn} ${scrapingEngine === 'python' ? styles.activeEngine : ''}`}
+                                onClick={() => handleEngineChange('python')}
+                            >
+                                <span className={styles.engineIcon}>🟦</span>
+                                <div className={styles.engineInfo}>
+                                    <span className={styles.engineName}>Python Scraper Service</span>
+                                    <span className={styles.engineDesc}>FastAPI, Requests & AI (High Performance)</span>
+                                </div>
+                            </button>
+                        </div>
+                    </div>
 
-                {scrapingMethod === 'requests' && (
-                    <div className={styles.formGroup}>
-                        <label className={styles.label}>Execution Engine</label>
-                        <select className={styles.select} value={scraperSource} onChange={e => setScraperSource(e.target.value)}>
-                            <option value="railway">🚂 Railway Service (Recommended)</option>
-                            <option value="local">🏠 Local Server (Debug)</option>
+                    <div className={styles.formGroup} style={{ marginBottom: '0.75rem' }}>
+                        <label className={styles.label}>Scraping Strategy</label>
+                        <select 
+                            className={styles.select} 
+                            value={scrapingMethod} 
+                            onChange={e => setScrapingMethod(e.target.value)}
+                        >
+                            {scrapingEngine === 'js' ? (
+                                <>
+                                    <option value="standard">🤖 Universal Scraper (Intelligent WooCommerce/Standard)</option>
+                                    <option value="architonic">🔧 Specialized Scraper (Architonic)</option>
+                                    <option value="ai">🤖 AI Scraper (Legacy Structure-based)</option>
+                                    <option value="scrapling">🧠 Scrapling (Legacy Playwright Python)</option>
+                                </>
+                            ) : (
+                                <>
+                                    <option value="py_universal">🐍 Universal Scraper (Python API)</option>
+                                    <option value="py_architonic">🔧 Architonic Platform (Python API)</option>
+                                    <option value="py_requests">🐍 Python Requests (Fast / API-based)</option>
+                                    <option value="italian">🇮🇹 Italian Furniture (Martex, Manerba, etc.)</option>
+                                    <option value="firecrawl">🔥 Firecrawl AI (Complex / Unstructured sites)</option>
+                                </>
+                            )}
                         </select>
                     </div>
-                )}
+                </div>
 
                 <div className={styles.actionRow}>
                     <button className={styles.getProductsBtn} onClick={handleScraping} disabled={loading || !name || !website}>

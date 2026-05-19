@@ -2,7 +2,7 @@ import StructureScraper from './structureScraper.js';
 
 (async () => {
     const scraper = new StructureScraper();
-    const url = 'https://www.architonic.com/en/b/greyfox/collections/10007013/';
+    const url = 'https://ottimouae.com/';
     console.log('Testing scraper for:', url);
     try {
         const result = await scraper.scrapeBrand(url, null, (p, msg) => console.log(`Progress ${p}%: ${msg}`));

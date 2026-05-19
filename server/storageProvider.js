@@ -186,6 +186,26 @@ export const brandStorage = {
             } catch (error) { /* continue */ }
         }
 
+        // 3. Railway Persistent Volume Replication
+        const scraperUrl = process.env.JS_SCRAPER_SERVICE_URL;
+        if (scraperUrl) {
+            try {
+                const sanitizedName = brand.name.toLowerCase().replace(/[^a-z0-9]/g, '_');
+                const filename = `${sanitizedName}-${brand.budgetTier || 'mid'}.json`;
+                
+                console.log(`☁️ [Storage] Replicating brand "${brand.name}" to Railway persistent volume...`);
+                await axios.post(`${scraperUrl}/brands/upload`, JSON.stringify(brand, null, 2), {
+                    headers: {
+                        'Content-Type': 'text/plain',
+                        'X-Filename': filename
+                    },
+                    timeout: 10000
+                });
+                console.log(`✅ [Storage] Successfully backed up brand "${brand.name}" to Railway volume.`);
+            } catch (err) {
+                console.warn(`⚠️ [Storage] Railway volume replication warning:`, err.message);
+            }
+        }
 
         // Local / Try-Hard Strategy
         try {
