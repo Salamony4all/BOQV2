@@ -2469,6 +2469,7 @@ async function handleScrapeRequest(req, res, method = 'standard') {
         origin: origin || 'Unknown',
         budgetTier: budgetTier || 'mid',
         products: results.products || [],
+        logo: results.brandInfo?.logo || results.brand?.logo || results.logo || '',
         lastScraped: new Date().toISOString()
       };
 

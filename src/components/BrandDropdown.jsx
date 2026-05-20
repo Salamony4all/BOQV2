@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import styles from '../styles/BrandDropdown.module.css';
+import { getBrandLogo, getBrandLogoFallback } from '../utils/urlUtils';
 
 /**
  * Modern Brand Dropdown Component
@@ -74,7 +75,7 @@ const BrandDropdown = ({
                 <div className={styles.triggerText}>
                     {selectedBrand ? (
                         <>
-                            {selectedBrand.logo && <img src={selectedBrand.logo} alt="" className={styles.triggerLogo} />}
+                            <img src={getBrandLogo(selectedBrand)} alt="" className={styles.triggerLogo} onError={(e) => { e.target.onerror = null; e.target.src = getBrandLogoFallback(selectedBrand); }} />
                             <span>{selectedBrand.name}</span>
                         </>
                     ) : (
@@ -105,7 +106,7 @@ const BrandDropdown = ({
                                     className={`${styles.option} ${isSelected(brand.name) ? styles.isSelected : ""}`}
                                     onClick={() => handleSelect(brand)}
                                 >
-                                    {brand.logo && <img src={brand.logo} alt="" className={styles.optionLogo} />}
+                                    <img src={getBrandLogo(brand)} alt="" className={styles.optionLogo} onError={(e) => { e.target.onerror = null; e.target.src = getBrandLogoFallback(brand); }} />
                                     <span className={styles.optionName}>{brand.name}</span>
                                     {isSelected(brand.name) && <span className={styles.checkIcon}>✓</span>}
                                 </div>
@@ -124,7 +125,7 @@ const BrandDropdown = ({
                         if (!brand) return null;
                         return (
                             <div key={brandName} className={styles.brandChip}>
-                                {brand.logo && <img src={brand.logo} alt="" className={styles.chipLogo} />}
+                                <img src={getBrandLogo(brand)} alt="" className={styles.chipLogo} onError={(e) => { e.target.onerror = null; e.target.src = getBrandLogoFallback(brand); }} />
                                 <span>{brandName}</span>
                                 <button 
                                     className={styles.removeChip}

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import styles from '../styles/SupabaseDashboard.module.css';
 import { getApiBase } from '../utils/apiBase';
 import { useTheme } from '../context/ThemeContext';
+import { getBrandLogo, getBrandLogoFallback } from '../utils/urlUtils';
 
 const SupabaseDashboard = ({ isOpen, onClose }) => {
     const { theme } = useTheme();
@@ -290,7 +291,15 @@ const SupabaseDashboard = ({ isOpen, onClose }) => {
                             ) : filteredBrands.map((brand, idx) => (
                                 <div key={idx} className={styles.brandCard}>
                                     <div className={styles.brandHeader}>
-                                        <img src={brand.logo || 'https://via.placeholder.com/50'} alt="" className={styles.brandLogo} />
+                                        <img 
+                                            src={getBrandLogo(brand)} 
+                                            alt="" 
+                                            className={styles.brandLogo} 
+                                            onError={(e) => { 
+                                                e.target.onerror = null;
+                                                e.target.src = getBrandLogoFallback(brand); 
+                                            }} 
+                                        />
                                         <div className={styles.brandTitle}>
                                             <div className={styles.brandName}>{brand.name}</div>
                                             <div className={styles.brandTier}>{brand.budgetTier || 'Mid Range'}</div>

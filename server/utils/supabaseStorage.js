@@ -199,7 +199,8 @@ export async function saveSupabaseBrand(brand) {
             name: brandName,
             products: brand.products || [],
             source: brand.origin || brand.source || 'App',
-            budget_tier: brand.budgetTier || brand.budget_tier || 'mid'
+            budget_tier: brand.budgetTier || brand.budget_tier || 'mid',
+            logo: brand.logo || ''
         }, {
             onConflict: 'id'
         })
