@@ -539,6 +539,15 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
         cleanupService.trackBlob(sessionId, blob);
       });
     } else {
+      // Diagnostic check for file presence on disk
+      const exists = fs_sync.existsSync(filePath);
+      const stats = exists ? fs_sync.statSync(filePath) : null;
+      console.log(`[Upload-Diagnostics] Processing Excel file. Path: ${filePath} | Exists: ${exists} | Size: ${stats ? stats.size : 'N/A'} bytes | Vercel: ${isVercel}`);
+      
+      if (!exists) {
+        throw new Error(`Uploaded Excel file not found on disk at: ${filePath}. Multer might have failed to write it, or directory permissions are restrictive.`);
+      }
+
       // Extract data from Excel
       extractedData = await extractExcelData(filePath, () => { }, (blob) => {
         cleanupService.trackBlob(sessionId, blob);

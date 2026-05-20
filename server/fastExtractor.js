@@ -20,7 +20,15 @@ const parser = new xml2js.Parser({ explicitArray: false, mergeAttrs: true });
 const parseString = promisify(parser.parseString);
 
 // Header patterns for BOQ detection (Must match at least 2 to be considered a table)
-const BOQ_HEADER_KEYWORDS = [/description|desc|disc|product|specification|material|particulars/i, /qty|quantity|quanity|qnty|q'?ty/i, /unit|uom|untit/i, /rate|price|prise|u\.?rate/i, /amount|total|sub\s*total/i, /image|photo|picture|img/i, /sn|s\.n|no\.|item|sr|sl/i];
+const BOQ_HEADER_KEYWORDS = [
+    /\b(description|desc|disc|product|specification|material|particulars)s?\b/i,
+    /\b(qty|quantity|quanity|qnty|q'?ty)\b/i,
+    /\b(unit|uom|untit)\b/i,
+    /\b(rate|price|prise|u\.?rate)\b/i,
+    /\b(amount|total|sub\s*total)\b/i,
+    /\b(image|photo|picture|img)\b/i,
+    /\b(sn|s\.n|no\.|item|sr|sl)\b/i
+];
 
 /**
  * Fast extraction using Stream Reader + Direct Zip Access for images
@@ -57,8 +65,12 @@ async function extractExcelData(filePath, progressCallback = () => { }, onBlobCr
             }
         }
     } catch (err) {
-        if (err.message.includes(".xls") || err.message.includes("LegacyExtractor") || err.message.includes("XlsConverter")) throw err;
-        throw new Error(`Excel file not found at path: ${filePath}. It may have been cleaned up or upload failed.`);
+        console.error('[FastExtractor] Error in extractExcelData:', err);
+        // Do not mask the real error. Throw an enriched error message containing the original details.
+        const enrichedError = new Error(`Excel extraction failed at path: ${filePath}. Original Error: ${err.message}. Code: ${err.code || 'N/A'}`);
+        enrichedError.code = err.code;
+        enrichedError.stack = err.stack;
+        throw enrichedError;
     }
 
     const workbookReader = new ExcelJS.stream.xlsx.WorkbookReader(filePath, {
@@ -473,7 +485,9 @@ async function processWorksheetStream(worksheetReader, imageMap, sheetIndex) {
         const isSummaryRow = rowStrings.some(str => /^total\s*(amount)?$/i.test(str));
 
         const isRepeatedHeader = !isSummaryRow && BOQ_HEADER_KEYWORDS.reduce((count, pattern) => {
-            return count + (rowStrings.some(str => pattern.test(str)) ? 1 : 0);
+            // Only search in cell strings that are reasonably short (e.g., under 50 characters)
+            // to avoid false positives in long, multi-sentence product descriptions.
+            return count + (rowStrings.some(str => str.length < 50 && pattern.test(str)) ? 1 : 0);
         }, 0) >= 3; // Increased from 2 to 3 for stricter matching
 
         if (isRepeatedHeader) continue;
