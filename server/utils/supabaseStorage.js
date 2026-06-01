@@ -242,3 +242,53 @@ export async function getSupabaseStats() {
         return { brands: 0, products: 0, lastSync: null };
     }
 }
+
+/**
+ * Blueprint DB Logic - Get blueprint for a specific domain
+ */
+export async function getSupabaseBlueprint(domain_name) {
+    if (!supabase) return null;
+
+    try {
+        const { data, error } = await supabase
+            .from('portal_blueprints')
+            .select('blueprint')
+            .eq('domain_name', domain_name)
+            .single();
+
+        if (error || !data) return null;
+        return data.blueprint;
+    } catch (err) {
+        console.error(`❌ [SupabaseStorage] Fetch blueprint failed:`, err.message);
+        return null;
+    }
+}
+
+/**
+ * Blueprint DB Logic - Save blueprint for a domain
+ */
+export async function saveSupabaseBlueprint(domain_name, blueprint) {
+    if (!supabase) {
+        console.warn('⚠️ [SupabaseStorage] Cannot save blueprint: Supabase client not initialized');
+        return false;
+    }
+
+    console.log(`📡 [SupabaseStorage] Attempting to upsert blueprint for domain: "${domain_name}"`);
+
+    const { error } = await supabase
+        .from('portal_blueprints')
+        .upsert({
+            domain_name,
+            blueprint
+        }, {
+            onConflict: 'domain_name'
+        });
+
+    if (error) {
+        console.error(`❌ [SupabaseStorage] Upsert blueprint failed for "${domain_name}":`, error.message);
+        return false;
+    }
+
+    console.log(`✅ [SupabaseStorage] Successfully upserted blueprint for "${domain_name}".`);
+    return true;
+}

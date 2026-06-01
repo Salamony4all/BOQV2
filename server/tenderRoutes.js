@@ -1,6 +1,6 @@
 import express from 'express';
 import axios from 'axios';
-import { supabase } from './utils/supabaseStorage.js';
+import { supabase, getSupabaseBlueprint, saveSupabaseBlueprint } from './utils/supabaseStorage.js';
 import { callGoogle } from './utils/llmUtils.js';
 
 const router = express.Router();
@@ -243,11 +243,20 @@ router.post('/map-platform', async (req, res) => {
     if (!session_id || !domain_name) return res.status(400).json({ error: 'Missing session_id or domain_name' });
     
     const ctx = sessionTracker.get(session_id);
-    if (ctx) appendLog(ctx, `🔍 Extracting site DOM blueprint for ${domain_name}...`);
-
     try {
+        // Try to load cached blueprint from Supabase first
+        const existingBlueprint = await getSupabaseBlueprint(domain_name);
+        if (existingBlueprint) {
+            if (ctx) appendLog(ctx, `✅ Loaded existing blueprint for ${domain_name} from Supabase.`);
+            return res.json({ success: true, blueprint: existingBlueprint });
+        }
+
+        if (ctx) appendLog(ctx, `🔍 No cached blueprint found. Extracting site DOM blueprint for ${domain_name}...`);
+
         const observeRes = await axios.post(`${AUTO_BROWSER_SERVICE_URL}/sessions/${session_id}/observe`, { limit: 100, preset: "normal" });
-        const domOutline = observeRes.data.dom_outline || '';
+        const rawState = observeRes.data.dom_outline || observeRes.data || '';
+        const domString = typeof rawState === 'string' ? rawState : JSON.stringify(rawState);
+        const safeOutline = domString.substring(0, 15000);
         
         const prompt = `Analyze this web page snapshot and output ONLY a valid JSON schema blueprint for data entry. 
 Target Domain: ${domain_name}
@@ -259,7 +268,7 @@ Determine the following fields:
 - input_selector: The selector for the actual input field (e.g. "input[type='text']" or "input") once active.
 
 DOM Outline:
-${domOutline.substring(0, 15000)}
+${safeOutline}
 `;
         if (ctx) appendLog(ctx, `🤖 Analyzing layout using gemma-4-31b-it proxy...`);
         const llmResult = await callGoogle(
@@ -271,13 +280,9 @@ ${domOutline.substring(0, 15000)}
         
         if (ctx) appendLog(ctx, `✅ Blueprint generated: ${JSON.stringify(llmResult)}`);
 
-        const { error } = await supabase
-            .from('portal_blueprints')
-            .upsert({ domain_name, blueprint: llmResult }, { onConflict: 'domain_name' });
-            
-        if (error) throw error;
-        
-        if (ctx) appendLog(ctx, `💾 Blueprint securely persisted to Supabase for ${domain_name}.`);
+        // Save new blueprint to Supabase for future use
+        const saved = await saveSupabaseBlueprint(domain_name, llmResult);
+        if (saved && ctx) appendLog(ctx, `💾 Blueprint securely persisted to Supabase for ${domain_name}.`);
 
         return res.json({ success: true, blueprint: llmResult });
     } catch (err) {
@@ -292,27 +297,18 @@ ${domOutline.substring(0, 15000)}
  * POST /api/tender/execute-bulk-blueprint
  */
 router.post('/execute-bulk-blueprint', async (req, res) => {
-    const { session_id, domain_name, boq_data } = req.body;
-    if (!session_id || !domain_name || !boq_data) return res.status(400).json({ error: 'Missing required parameters' });
+    const { session_id, domain_name, boq_data, blueprint } = req.body;
+    if (!session_id || !domain_name || !boq_data || !blueprint) return res.status(400).json({ error: 'Missing required parameters including blueprint' });
     
     const ctx = sessionTracker.get(session_id);
     if (ctx) {
         ctx.status = 'executing';
-        appendLog(ctx, `⚡ Initiating deterministic Bulk Fill script for ${boq_data.length} items using Supabase Blueprint.`);
+        appendLog(ctx, `⚡ Initiating deterministic Bulk Fill script for ${boq_data.length} items using provided Blueprint.`);
     }
 
     // Fire and forget deterministic execution loop
     (async () => {
         try {
-            const { data: bData, error } = await supabase
-                .from('portal_blueprints')
-                .select('blueprint')
-                .eq('domain_name', domain_name)
-                .single();
-                
-            if (error || !bData) throw new Error("Blueprint not found in Supabase. Please map platform first.");
-            
-            const blueprint = bData.blueprint;
             if (ctx) appendLog(ctx, `📜 Blueprint Loaded! Click-to-edit: ${blueprint.requires_click_to_edit}`);
 
             for (let i = 0; i < boq_data.length; i++) {

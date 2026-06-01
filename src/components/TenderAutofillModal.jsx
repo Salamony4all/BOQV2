@@ -15,6 +15,7 @@ function TenderAutofillModal({ isOpen, onClose, tables, apiBase }) {
     const [itemsPerPage, setItemsPerPage] = useState(20);
     const [completedPages, setCompletedPages] = useState(new Set());
     const [globalFields, setGlobalFields] = useState([{ name: '', value: '' }]);
+    const [blueprint, setBlueprint] = useState(null);
     const logEndRef = useRef(null);
     const pollingRef = useRef(null);
 
@@ -144,6 +145,7 @@ function TenderAutofillModal({ isOpen, onClose, tables, apiBase }) {
             });
             const data = await response.json();
             if (data.success) {
+                setBlueprint(data.blueprint);
                 setLogs(prev => [...prev, `✅ Platform successfully mapped and blueprint stored.`]);
             } else {
                 throw new Error(data.error || 'Failed to map platform.');
@@ -176,6 +178,7 @@ function TenderAutofillModal({ isOpen, onClose, tables, apiBase }) {
                     session_id: sessionInfo.id,
                     domain_name: domainName,
                     boq_data: pageData,
+                    blueprint: blueprint,
                     page_number: currentPage,
                     total_pages: totalPages,
                     global_fields: globalFields.filter(f => f.name.trim() !== '')
