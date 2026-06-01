@@ -324,21 +324,21 @@ router.post('/execute-bulk-blueprint', async (req, res) => {
                 if (targetCellSelector.includes('ITEM_CODE')) {
                     targetCellSelector = targetCellSelector.replace('ITEM_CODE', anchorText);
                 } else {
-                    targetCellSelector = \`tr:has-text('\${anchorText}')\`;
+                    targetCellSelector = `tr:has-text('${anchorText}')`;
                 }
                 
-                targetCellSelector = \`\${targetCellSelector} td:nth-child(\${blueprint.rate_column_index})\`;
+                targetCellSelector = `${targetCellSelector} td:nth-child(${blueprint.rate_column_index})`;
                 
                 if (blueprint.requires_click_to_edit) {
-                    await axios.post(\`\${AUTO_BROWSER_SERVICE_URL}/sessions/\${session_id}/actions/click\`, {
+                    await axios.post(`${AUTO_BROWSER_SERVICE_URL}/sessions/${session_id}/actions/click`, {
                         selector: targetCellSelector
                     });
                     await new Promise(r => setTimeout(r, 400));
                 }
                 
-                const finalInputSelector = \`\${targetCellSelector} \${blueprint.input_selector}\`;
+                const finalInputSelector = `${targetCellSelector} ${blueprint.input_selector}`;
                 
-                await axios.post(\`\${AUTO_BROWSER_SERVICE_URL}/sessions/\${session_id}/actions/type\`, {
+                await axios.post(`${AUTO_BROWSER_SERVICE_URL}/sessions/${session_id}/actions/type`, {
                     selector: finalInputSelector,
                     text: item.rate.toString(),
                     clear_first: false
@@ -348,13 +348,13 @@ router.post('/execute-bulk-blueprint', async (req, res) => {
             }
             
             if (ctx) {
-                appendLog(ctx, \`✅ Bulk execution successfully completed for \${boq_data.length} items.\`);
+                appendLog(ctx, `✅ Bulk execution successfully completed for ${boq_data.length} items.`);
                 ctx.status = 'completed';
             }
         } catch (err) {
             console.error("Bulk Exec Error:", err);
             if (ctx) {
-                appendLog(ctx, \`❌ Bulk execution aborted: \${err.message}\`);
+                appendLog(ctx, `❌ Bulk execution aborted: ${err.message}`);
                 ctx.status = 'failed';
                 ctx.error = err.message;
             }
