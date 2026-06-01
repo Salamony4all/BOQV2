@@ -150,52 +150,29 @@ router.post('/execute', async (req, res) => {
         }
 
         const webhookBase = process.env.WEBHOOK_BASE_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3001');
-        
-        const functionalAgentPrompt = `You are an intelligent data-entry agent controlling a live browser session.
-Your task is to fill a web form or table on the CURRENTLY VISIBLE page with the provided data.
+        const functionalAgentPrompt = `You are a precision data-entry agent.
+Your task is to enter prices for the following items into the visible table:
 
-Items to fill on this page (${testBoqData.length} rows - TEST MODE):
 ${itemsSummary}
 
-Workflow:
-1. Analyze the visible page to identify the data entry grid, table, or form.
-2. For each item in the list above, find its matching row or section based on the description, code, or context.
-3. Locate the appropriate cell or input field for entering the "Rate in figures" (or unit price) for that match.
-4. If the cell is a generic table cell (e.g., <td>) that needs to be clicked to reveal an input box, DO NOT use the \`type\` action immediately. Instead, first output a \`click\` action targeting that cell. Then, IN YOUR NEXT STEP, output the \`type\` action targeting the newly revealed input box.
-5. If the field is already an empty input box, use the \`type\` action directly to enter the numeric Rate value. YOU MUST SET \`"clear_first": false\` in your action JSON to prevent a bug that selects the entire page text. ${globalFieldsInstructions ? 'Then, find the input fields for the global fields listed below and type their exact values for this row, also using `"clear_first": false`.' : ''}
-6. After filling all matched rows, look for a "Save", "Partially Save", or "Next" button and click it to persist progress.
-7. Report completion via POST to ${webhookBase}/api/tender/webhook-update with body: {"session_id": "${session_id}", "is_complete": true, "message": "Page ${pageNum} filled successfully (${testBoqData.length} items)"}
-${globalFieldsInstructions}
-CRITICAL RULES:
-- Be highly adaptable: The website structure, column names, and language may vary. Look for contextual clues indicating where the price should be entered.
-- NEVER target a non-input element with the \`type\` action. If you try to type into a generic cell or label, it will select all text on the page and fail. Make absolutely sure the \`element_id\` points to an input field.
-- ALWAYS set \`"clear_first": false\` when typing, otherwise you will trigger a catastrophic page selection error!
-- NEVER guess or hallucinate CSS selectors. You MUST use the \`element_id\` (data-operator-id) provided in your state representation for all target elements.
-- Only fill rows visible on the current page. Do not navigate to other pages.
-- If an item doesn't have an exact or close match, skip it.
-- Type numbers carefully \u2014 no currency symbols, just the numeric value.
+⚠️ CRITICAL SYSTEM LIMITATION - READ CAREFULLY ⚠️
+The web table is currently in "LOCKED / READ-ONLY" mode. 
+There are NO active text input fields on the screen right now. The cells are just plain text.
+If you attempt to use the "type" action on a locked cell, the automation will crash and you will fail.
+
+MANDATORY 2-STEP EXECUTION PROTOCOL:
+STEP 1: You MUST output a "click" action targeting the item's rate cell. This click will unlock the cell and force the website to generate the text box.
+STEP 2: The system will send you the updated page showing the active input field. ONLY THEN can you output a "type" action to enter the number (using "clear_first": false).
 
 JSON OUTPUT FORMAT:
-You must output ONLY valid, raw JSON. 
-DO NOT wrap your response in markdown code blocks (e.g. \`\`\`json). 
-DO NOT include any text outside the JSON object.
+Output ONLY valid, raw JSON. Do not wrap your response in markdown code blocks.
 
-EXAMPLE VALID RESPONSE (FOR CLICKING A CELL TO REVEAL INPUT):
+EXAMPLE OF YOUR REQUIRED FIRST STEP (UNLOCKING):
 {
   "action": "click",
-  "reason": "Clicking the table cell for Item 1 to reveal the input box",
+  "reason": "Clicking the locked rate cell for Item 1.1 to reveal the text input box.",
   "element_id": "op-abcdef",
-  "confidence": 0.95
-}
-
-EXAMPLE VALID RESPONSE (FOR TYPING INTO AN INPUT BOX):
-{
-  "action": "type",
-  "reason": "Entering the rate for Item 1",
-  "element_id": "op-abcdef",
-  "text": "123.45",
-  "clear_first": false,
-  "confidence": 0.95
+  "confidence": 1.0
 }`;
 
         let cleanModel = provider_model;
