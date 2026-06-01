@@ -266,6 +266,10 @@ CRITICAL INSTRUCTIONS FOR OUTPUT:
             "gemma-4-31b-it"
         );
 
+        if (!llmResult || !llmResult.row_selector || !llmResult.input_selector) {
+            throw new Error("AI failed to extract a valid blueprint. The page might be empty, black, or still loading in the container.");
+        }
+
         if (ctx) appendLog(ctx, `✅ Blueprint generated: ${JSON.stringify(llmResult)}`);
 
         // Save new blueprint to Supabase for future use
