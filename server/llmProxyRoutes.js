@@ -4,14 +4,22 @@ import { safeParseJSON, OPENROUTER_MODEL, FREE_GOOGLE_MODELS } from './utils/llm
 
 const router = express.Router();
 
+// Debug middleware to trace all requests hitting the LLM Proxy
+router.use((req, res, next) => {
+    console.log(`🔍 [LLM Proxy Router] Incoming: ${req.method} ${req.url} (Original: ${req.originalUrl})`);
+    next();
+});
+
 // 1. Google Gemini API Proxy Route
 // The python agent using gemini_adapter will send POST to /models/{model}:generateContent
 router.post('/models/:modelStr', async (req, res) => {
     try {
         const modelStr = req.params.modelStr; // e.g. "gemma-4-31b-it:generateContent"
+        console.log(`🔍 [LLM Proxy] Matched /models/:modelStr! parsed modelStr = "${modelStr}"`);
         
         // We only want to handle generateContent calls
         if (!modelStr || !modelStr.endsWith(':generateContent')) {
+            console.log(`⚠️ [LLM Proxy] Invalid modelStr suffix: ${modelStr}`);
             return res.status(404).json({ error: 'Not found' });
         }
         
