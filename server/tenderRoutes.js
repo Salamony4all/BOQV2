@@ -269,6 +269,12 @@ Determine the following fields:
 
 DOM Outline:
 ${safeOutline}
+
+CRITICAL INSTRUCTIONS FOR OUTPUT:
+- DO NOT include any conversational text, reasoning, or explanations.
+- DO NOT use markdown code blocks (e.g., \`\`\`json). 
+- DO NOT output your internal thinking process.
+- You must output ONLY a single, valid, raw JSON object.
 `;
         if (ctx) appendLog(ctx, `🤖 Analyzing layout using gemma-4-31b-it proxy...`);
         const llmResult = await callGoogle(
