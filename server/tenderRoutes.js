@@ -159,13 +159,14 @@ Workflow:
 1. Analyze the visible page to identify the data entry grid, table, or form.
 2. For each item in the list above, find its matching row or section based on the description, code, or context.
 3. Locate the appropriate input field for entering the "Rate in figures" (or unit price) for that match. Ensure you choose the actual empty input box, NOT the text label or the row container!
-4. Use the \`type\` action directly to enter the numeric Rate value into the input field. ${globalFieldsInstructions ? 'Then, find the input fields for the global fields listed below and type their exact values for this row.' : ''}
+4. Use the \`type\` action directly to enter the numeric Rate value into the input field. YOU MUST SET \`"clear_first": false\` in your action JSON to prevent a bug that selects the entire page text. ${globalFieldsInstructions ? 'Then, find the input fields for the global fields listed below and type their exact values for this row, also using `"clear_first": false`.' : ''}
 5. After filling all matched rows, look for a "Save", "Partially Save", or "Next" button and click it to persist progress.
 6. Report completion via POST to ${webhookBase}/api/tender/webhook-update with body: {"session_id": "${session_id}", "is_complete": true, "message": "Page ${pageNum} filled successfully (${boq_data.length} items)"}
 ${globalFieldsInstructions}
 CRITICAL RULES:
 - Be highly adaptable: The website structure, column names, and language may vary. Look for contextual clues indicating where the price should be entered.
 - NEVER target a non-input element with the \`type\` action. If you try to type into a generic cell or label, it will select all text on the page and fail. Make absolutely sure the \`element_id\` points to an input field.
+- ALWAYS set \`"clear_first": false\` when typing, otherwise you will trigger a catastrophic page selection error!
 - NEVER guess or hallucinate CSS selectors. You MUST use the \`element_id\` (data-operator-id) provided in your state representation for all target elements.
 - Only fill rows visible on the current page. Do not navigate to other pages.
 - If an item doesn't have an exact or close match, skip it.
