@@ -175,7 +175,9 @@ CRITICAL RULES:
 JSON OUTPUT FORMAT:
 You must output ONLY valid, raw JSON. 
 DO NOT wrap your response in markdown code blocks (e.g. \`\`\`json). 
-DO NOT include any conversational text before or after the JSON.`;
+DO NOT include any conversational text before or after the JSON.
+Example of a valid \`type\` action JSON payload:
+{"action": "type", "reason": "Entering rate for Item X", "confidence": 1.0, "risk_category": "write", "element_id": "xyz123", "text": "440", "clear_first": false}`;
 
         let cleanModel = provider_model;
         if (cleanModel && cleanModel.includes(':billed')) {
