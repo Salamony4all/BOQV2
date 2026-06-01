@@ -119,7 +119,7 @@ router.get('/status/:session_id', (req, res) => {
  * POST /api/tender/execute
  */
 router.post('/execute', async (req, res) => {
-    const { session_id, boq_data, page_number, total_pages, provider, provider_model } = req.body;
+    const { session_id, boq_data, page_number, total_pages, provider, provider_model, global_fields } = req.body;
 
     if (!session_id || !boq_data || !Array.isArray(boq_data)) {
         return res.status(400).json({ error: 'Missing active session signature mapping profile elements.' });
@@ -140,31 +140,36 @@ router.post('/execute', async (req, res) => {
             `${i + 1}. "${item.description.substring(0, 60)}" | Qty: ${item.quantity} | Rate: ${item.rate}`
         ).join('\n');
 
+        let globalFieldsInstructions = '';
+        if (global_fields && global_fields.length > 0) {
+            const fieldsList = global_fields.map(f => `- "${f.name}": Enter "${f.value}"`).join('\n');
+            globalFieldsInstructions = `\nAdditionally, for EACH matched row, you must ALSO fill these global fields with the exact specified values:\n${fieldsList}\n`;
+        }
+
         const webhookBase = process.env.WEBHOOK_BASE_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3001');
         
-        const functionalAgentPrompt = `You are a BOQ pricing agent controlling a live browser session on Oman's eTendering portal.
-The user is logged in and has navigated to Page ${pageNum} of ${numPages} of the BOQ pricing form.
-
-Your task: Fill the unit rate/price fields for each matching row on the CURRENTLY VISIBLE page only.
-Do NOT click page navigation links \u2014 the human operator handles page changes.
+        const functionalAgentPrompt = `You are an intelligent data-entry agent controlling a live browser session.
+Your task is to fill a web form or table on the CURRENTLY VISIBLE page with the provided data.
 
 Items to fill on this page (${boq_data.length} rows):
 ${itemsSummary}
 
 Workflow:
-1. Read the visible table rows. Match each row's description text against the items above.
-2. For each match, find the input field under the "Unit Price in Fig" column.
-3. Use the \`type\` action directly to enter the Rate value into that input field. DO NOT use the \`click\` action first.
-4. After filling all matching rows, click "Partially Save" to persist progress.
-5. Report completion via POST to ${webhookBase}/api/tender/webhook-update with body: {"session_id": "${session_id}", "is_complete": true, "message": "Page ${pageNum} filled successfully (${boq_data.length} items)"}
-
-Rules:
+1. Analyze the visible page to identify the data entry grid, table, or form.
+2. For each item in the list above, find its matching row or section based on the description, code, or context.
+3. Locate the appropriate input field for entering the "Rate in figures" (or unit price) for that match.
+4. Use the \`type\` action directly to enter the numeric Rate value. ${globalFieldsInstructions ? 'Then, find the input fields for the global fields listed below and type their exact values for this row.' : ''}
+5. After filling all matched rows, look for a "Save", "Partially Save", or "Next" button and click it to persist progress.
+6. Report completion via POST to ${webhookBase}/api/tender/webhook-update with body: {"session_id": "${session_id}", "is_complete": true, "message": "Page ${pageNum} filled successfully (${boq_data.length} items)"}
+${globalFieldsInstructions}
+CRITICAL RULES:
+- Be highly adaptable: The website structure, column names, and language may vary. Look for contextual clues indicating where the price should be entered.
+- NEVER guess or hallucinate CSS selectors. You MUST use the \`element_id\` (data-operator-id) provided in your state representation for all target elements.
 - Only fill rows visible on the current page. Do not navigate to other pages.
-- If a description doesn't have an exact match, skip it.
-- Type numbers carefully \u2014 no currency symbols, just the numeric rate value.
-- The input fields are specifically in the "Unit Price in Fig" column.
+- If an item doesn't have an exact or close match, skip it.
+- Type numbers carefully \u2014 no currency symbols, just the numeric value.
 
-CRITICAL JSON RULES:
+JSON OUTPUT FORMAT:
 You must output ONLY valid, raw JSON. 
 DO NOT wrap your response in markdown code blocks (e.g. \`\`\`json). 
 DO NOT include any conversational text before or after the JSON.`;

@@ -12,6 +12,7 @@ function TenderAutofillModal({ isOpen, onClose, tables, apiBase }) {
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(50);
     const [completedPages, setCompletedPages] = useState(new Set());
+    const [globalFields, setGlobalFields] = useState([{ name: '', value: '' }]);
     const logEndRef = useRef(null);
     const pollingRef = useRef(null);
 
@@ -154,7 +155,8 @@ function TenderAutofillModal({ isOpen, onClose, tables, apiBase }) {
                     page_number: currentPage,
                     total_pages: totalPages,
                     provider: aiSettings?.engine,
-                    provider_model: aiSettings?.model
+                    provider_model: aiSettings?.model,
+                    global_fields: globalFields.filter(f => f.name.trim() !== '')
                 })
             });
 
@@ -184,6 +186,63 @@ function TenderAutofillModal({ isOpen, onClose, tables, apiBase }) {
 
                 {/* Layout Body Splits */}
                 <div style={{ flex: 1, backgroundColor: '#0f172a', display: 'flex', position: 'relative' }}>
+
+                    {/* Left Sidebar: Global Fields */}
+                    <div style={{ width: '320px', borderRight: '1px solid #334155', display: 'flex', flexDirection: 'column', backgroundColor: '#1e293b' }}>
+                        <div style={{ padding: '20px 16px', borderBottom: '1px solid #334155' }}>
+                            <h3 style={{ margin: '0 0 8px 0', color: '#f8fafc', fontSize: '1.05rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <span>📋</span> Global Fields
+                            </h3>
+                            <p style={{ margin: 0, color: '#94a3b8', fontSize: '0.8rem', lineHeight: 1.4 }}>
+                                Define required fields (e.g. Manufacturer, Delivery Schedule) to be filled with the exact same value across <strong>all rows</strong>.
+                            </p>
+                        </div>
+                        <div style={{ padding: '16px', flex: 1, overflowY: 'auto' }}>
+                            {globalFields.map((field, idx) => (
+                                <div key={idx} style={{ marginBottom: '16px', background: '#0f172a', padding: '12px', borderRadius: '8px', border: '1px solid #334155' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                                        <label style={{ fontSize: '0.75rem', color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase' }}>Field {idx + 1}</label>
+                                        {globalFields.length > 1 && (
+                                            <button 
+                                                onClick={() => setGlobalFields(globalFields.filter((_, i) => i !== idx))}
+                                                style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '0.8rem', padding: 0 }}
+                                            >Remove</button>
+                                        )}
+                                    </div>
+                                    <input 
+                                        type="text" 
+                                        placeholder="Column Name (e.g. Manufacturer/ Country)" 
+                                        value={field.name}
+                                        onChange={e => {
+                                            const newFields = [...globalFields];
+                                            newFields[idx].name = e.target.value;
+                                            setGlobalFields(newFields);
+                                        }}
+                                        style={{ width: '100%', padding: '8px 10px', marginBottom: '10px', backgroundColor: '#1e293b', border: '1px solid #475569', color: '#f8fafc', borderRadius: '6px', fontSize: '0.85rem', outline: 'none' }}
+                                    />
+                                    <input 
+                                        type="text" 
+                                        placeholder="Value to fill (e.g. Oman)" 
+                                        value={field.value}
+                                        onChange={e => {
+                                            const newFields = [...globalFields];
+                                            newFields[idx].value = e.target.value;
+                                            setGlobalFields(newFields);
+                                        }}
+                                        style={{ width: '100%', padding: '8px 10px', backgroundColor: '#1e293b', border: '1px solid #475569', color: '#f8fafc', borderRadius: '6px', fontSize: '0.85rem', outline: 'none' }}
+                                    />
+                                </div>
+                            ))}
+                            <button 
+                                onClick={() => setGlobalFields([...globalFields, { name: '', value: '' }])}
+                                style={{ width: '100%', padding: '10px', background: 'transparent', border: '1px dashed #475569', color: '#cbd5e1', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 600, transition: 'all 0.2s', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '6px' }}
+                                onMouseOver={e => { e.currentTarget.style.borderColor = '#38bdf8'; e.currentTarget.style.color = '#38bdf8'; e.currentTarget.style.background = 'rgba(56, 189, 248, 0.05)'; }}
+                                onMouseOut={e => { e.currentTarget.style.borderColor = '#475569'; e.currentTarget.style.color = '#cbd5e1'; e.currentTarget.style.background = 'transparent'; }}
+                            >
+                                <span>+</span> Add Another Field
+                            </button>
+                        </div>
+                    </div>
 
                     {/* Stream Viewport Frame */}
                     <div style={{ flex: 1, position: 'relative', background: '#0b1121' }}>
