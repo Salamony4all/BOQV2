@@ -5,6 +5,7 @@ import CostingModal from './CostingModal';
 import MultiBudgetModal from './MultiBudgetModal';
 import ValueEngineeredModal from './ValueEngineeredModal';
 import ProjectSettingsPanel from './ProjectSettingsPanel';
+import TenderAutofillModal from './TenderAutofillModal';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
@@ -39,6 +40,7 @@ function TableViewer({
     const [isMultiBudgetOpen, setMultiBudgetOpen] = useState(false);
     const [isValueEngineeredOpen, setValueEngineeredOpen] = useState(false);
     const [isProjectPanelOpen, setProjectPanelOpen] = useState(false);
+    const [isTenderAutofillOpen, setTenderAutofillOpen] = useState(false);
     // Per-table VAT rate for extracted summary (GCC default = 5%)
     const [vatRates, setVatRates] = useState({});
     const [isGeneratingPpt, setIsGeneratingPpt] = useState(false);
@@ -2923,6 +2925,7 @@ function TableViewer({
                     <button className={`${actionStyles.actionBtn} ${actionStyles.actionBtnMir}`} onClick={() => handleGenerateMIR(tables)}>🔍 Generate MIR</button>
                     <button className={`${actionStyles.actionBtn} ${actionStyles.actionBtnWir}`} onClick={() => handleGenerateWIR(tables)}>🔧 Generate WIR</button>
                     <button className={`${actionStyles.actionBtn} ${actionStyles.actionBtnDn}`} onClick={() => handleGenerateDeliveryNote(tables)}>🚚 Delivery Note</button>
+                    <button className={`${actionStyles.actionBtn} ${actionStyles.actionBtnDn}`} style={{ background: '#10b981', color: '#ffffff', borderColor: '#059669', fontWeight: '500' }} onClick={() => setTenderAutofillOpen(true)}>🤖 Autofill on Tender Board</button>
                 </div>
             </div>
 
@@ -2995,6 +2998,8 @@ function TableViewer({
                     </div>
                 </div>
             )}
+
+            <TenderAutofillModal isOpen={isTenderAutofillOpen} onClose={() => setTenderAutofillOpen(false)} tables={tables} apiBase={API_BASE} />
 
             <MultiBudgetModal
                 isOpen={isMultiBudgetOpen}
