@@ -20,19 +20,21 @@ function TenderAutofillModal({ isOpen, onClose, tables, apiBase }) {
     const payloadData = useMemo(() => {
         return (tables || []).flatMap(table => {
             const header = table.header || [];
-            const descIdx = header.findIndex(h => /description|desc|disc|item|product/i.test(h));
+            const itemCodeIdx = header.findIndex(h => /code|bill.*no|item.*no/i.test(h));
+            const descIdx = header.findIndex(h => /description|desc|disc|product/i.test(h));
             const qtyIdx = header.findIndex(h => /qty|quantity|qt/i.test(h));
             const rateIdx = header.findIndex(h => /rate|price|unit.*price|unit.*rate/i.test(h));
 
             return (table.rows || [])
                 .filter(r => r && r.cells && !r.isHeader && !r.isSummary)
                 .map(row => {
+                    const itemCodeVal = itemCodeIdx !== -1 ? String(row.cells[itemCodeIdx]?.value || '').trim() : '';
                     const descVal = descIdx !== -1 ? String(row.cells[descIdx]?.value || '').trim() : '';
                     const qtyVal = qtyIdx !== -1 ? parseFloat(String(row.cells[qtyIdx]?.value || '').replace(/,/g, '')) : 0;
                     const rateVal = rateIdx !== -1 ? parseFloat(String(row.cells[rateIdx]?.value || '').replace(/,/g, '')) : 0;
 
-                    if (!descVal && !qtyVal && !rateVal) return null;
-                    return { description: descVal, quantity: isNaN(qtyVal) ? 0 : qtyVal, rate: isNaN(rateVal) ? 0 : rateVal };
+                    if (!itemCodeVal && !descVal && !qtyVal && !rateVal) return null;
+                    return { item_code: itemCodeVal, description: descVal, quantity: isNaN(qtyVal) ? 0 : qtyVal, rate: isNaN(rateVal) ? 0 : rateVal };
                 })
                 .filter(Boolean);
         });
