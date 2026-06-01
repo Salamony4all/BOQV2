@@ -178,9 +178,25 @@ CRITICAL RULES:
 JSON OUTPUT FORMAT:
 You must output ONLY valid, raw JSON. 
 DO NOT wrap your response in markdown code blocks (e.g. \`\`\`json). 
-DO NOT include any conversational text before or after the JSON.
-Example of a valid \`type\` action JSON payload:
-{"action": "type", "reason": "Entering rate for Item X", "confidence": 1.0, "risk_category": "write", "element_id": "xyz123", "text": "440", "clear_first": false}`;
+DO NOT include any text outside the JSON object.
+
+EXAMPLE VALID RESPONSE (FOR CLICKING A CELL TO REVEAL INPUT):
+{
+  "action": "click",
+  "reason": "Clicking the table cell for Item 1 to reveal the input box",
+  "element_id": "op-abcdef",
+  "confidence": 0.95
+}
+
+EXAMPLE VALID RESPONSE (FOR TYPING INTO AN INPUT BOX):
+{
+  "action": "type",
+  "reason": "Entering the rate for Item 1",
+  "element_id": "op-abcdef",
+  "text": "123.45",
+  "clear_first": false,
+  "confidence": 0.95
+}`;
 
         let cleanModel = provider_model;
         if (cleanModel && cleanModel.includes(':billed')) {
