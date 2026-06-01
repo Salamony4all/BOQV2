@@ -323,11 +323,14 @@ router.post('/execute-bulk-blueprint', async (req, res) => {
                 if (ctx) appendLog(ctx, `✏️ [${i+1}/${boq_data.length}] Processing item: ${anchorText}`);
                 
                 let targetCellSelector = blueprint.row_selector;
-                if (targetCellSelector.includes('ITEM_CODE')) {
+                
+                // Guard against Playwright/jQuery specific text selectors which crash standard CSS engines
+                if (targetCellSelector.includes(':has-text') || targetCellSelector.includes(':contains')) {
+                    targetCellSelector = `tr:nth-of-type(${i + 2})`; // i+2 to safely skip a 1-row header
+                } else if (targetCellSelector.includes('ITEM_CODE')) {
                     targetCellSelector = targetCellSelector.replace('ITEM_CODE', anchorText);
-                } else {
-                    // Fallback to standard CSS structural indexing instead of non-standard :has-text()
-                    targetCellSelector = `tr:nth-of-type(${i + 1})`;
+                } else if (!targetCellSelector || targetCellSelector === 'tr') {
+                    targetCellSelector = `tr:nth-of-type(${i + 2})`;
                 }
                 
                 targetCellSelector = `${targetCellSelector} td:nth-child(${blueprint.rate_column_index})`;
