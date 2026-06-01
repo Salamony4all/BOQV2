@@ -1,5 +1,7 @@
 import express from 'express';
 import axios from 'axios';
+import { supabase } from './utils/supabaseStorage.js';
+import { callGoogle } from './utils/llmUtils.js';
 
 const router = express.Router();
 
@@ -184,7 +186,8 @@ EXAMPLE OF YOUR REQUIRED FIRST STEP (UNLOCKING):
         const providerMap = { google: 'gemini', anthropic: 'claude', openai: 'openai' };
         const cleanProvider = providerMap[provider] || provider || 'gemini';
 
-        // Direct fire-and-forget backplane proxy eliminates server connection boundary drops
+        // Deprecated: old dynamic LLM inference loop
+        /*
         axios.post(`${AUTO_BROWSER_SERVICE_URL}/sessions/${session_id}/agent/jobs/run`, {
             goal: functionalAgentPrompt,
             provider: cleanProvider,
@@ -200,6 +203,8 @@ EXAMPLE OF YOUR REQUIRED FIRST STEP (UNLOCKING):
                 appendLog(ctx, `\u274C Agent deployment failed: ${err.message}`);
             }
         });
+        */
+        if (sessionCtx) appendLog(sessionCtx, `⚠️ Legacy dynamic LLM execution bypassed in favor of deterministic blueprints.`);
 
         // Simulate local worker progress steps only when real agent webhooks aren't connected
         if (process.env.USE_TELEMETRY_SIMULATOR === 'true') {
@@ -227,6 +232,136 @@ router.post('/webhook-update', (req, res) => {
         }
     }
     return res.json({ success: true });
+});
+
+/**
+ * Route 4: Map Platform Blueprint
+ * POST /api/tender/map-platform
+ */
+router.post('/map-platform', async (req, res) => {
+    const { session_id, domain_name } = req.body;
+    if (!session_id || !domain_name) return res.status(400).json({ error: 'Missing session_id or domain_name' });
+    
+    const ctx = sessionTracker.get(session_id);
+    if (ctx) appendLog(ctx, `🔍 Extracting site DOM blueprint for ${domain_name}...`);
+
+    try {
+        const observeRes = await axios.post(`${AUTO_BROWSER_SERVICE_URL}/sessions/${session_id}/observe`, { limit: 100, preset: "normal" });
+        const domOutline = observeRes.data.dom_outline || '';
+        
+        const prompt = `Analyze this web page snapshot and output ONLY a valid JSON schema blueprint for data entry. 
+Target Domain: ${domain_name}
+We need to fill a table of BoQ items. 
+Determine the following fields:
+- row_selector: The CSS selector to identify a table row containing an item (use "tr:has-text('ITEM_CODE')" format if applicable).
+- rate_column_index: The 1-based index of the column for the "Unit Price", "Rate", or "Price".
+- requires_click_to_edit: boolean (true if the rate cell is just plain text and needs a click to become an active input field).
+- input_selector: The selector for the actual input field (e.g. "input[type='text']" or "input") once active.
+
+DOM Outline:
+${domOutline.substring(0, 15000)}
+`;
+        if (ctx) appendLog(ctx, `🤖 Analyzing layout using gemma-4-31b-it proxy...`);
+        const llmResult = await callGoogle(
+            "You are a strict data-extraction AI. Output ONLY pure valid JSON with no markdown formatting.", 
+            prompt, 
+            false, 
+            "gemma-4-31b-it"
+        );
+        
+        if (ctx) appendLog(ctx, `✅ Blueprint generated: ${JSON.stringify(llmResult)}`);
+
+        const { error } = await supabase
+            .from('portal_blueprints')
+            .upsert({ domain_name, blueprint: llmResult }, { onConflict: 'domain_name' });
+            
+        if (error) throw error;
+        
+        if (ctx) appendLog(ctx, `💾 Blueprint securely persisted to Supabase for ${domain_name}.`);
+
+        return res.json({ success: true, blueprint: llmResult });
+    } catch (err) {
+        console.error("Map Platform Error:", err);
+        if (ctx) appendLog(ctx, `❌ Blueprint mapping failed: ${err.message}`);
+        return res.status(500).json({ error: 'Failed to map platform' });
+    }
+});
+
+/**
+ * Route 5: Execute Bulk Blueprint
+ * POST /api/tender/execute-bulk-blueprint
+ */
+router.post('/execute-bulk-blueprint', async (req, res) => {
+    const { session_id, domain_name, boq_data } = req.body;
+    if (!session_id || !domain_name || !boq_data) return res.status(400).json({ error: 'Missing required parameters' });
+    
+    const ctx = sessionTracker.get(session_id);
+    if (ctx) {
+        ctx.status = 'executing';
+        appendLog(ctx, `⚡ Initiating deterministic Bulk Fill script for ${boq_data.length} items using Supabase Blueprint.`);
+    }
+
+    // Fire and forget deterministic execution loop
+    (async () => {
+        try {
+            const { data: bData, error } = await supabase
+                .from('portal_blueprints')
+                .select('blueprint')
+                .eq('domain_name', domain_name)
+                .single();
+                
+            if (error || !bData) throw new Error("Blueprint not found in Supabase. Please map platform first.");
+            
+            const blueprint = bData.blueprint;
+            if (ctx) appendLog(ctx, `📜 Blueprint Loaded! Click-to-edit: ${blueprint.requires_click_to_edit}`);
+
+            for (let i = 0; i < boq_data.length; i++) {
+                const item = boq_data[i];
+                const anchorText = item.item_code || item.description.substring(0, 15);
+                if (ctx) appendLog(ctx, `✏️ [${i+1}/${boq_data.length}] Processing item: ${anchorText}`);
+                
+                let targetCellSelector = blueprint.row_selector;
+                if (targetCellSelector.includes('ITEM_CODE')) {
+                    targetCellSelector = targetCellSelector.replace('ITEM_CODE', anchorText);
+                } else {
+                    targetCellSelector = \`tr:has-text('\${anchorText}')\`;
+                }
+                
+                targetCellSelector = \`\${targetCellSelector} td:nth-child(\${blueprint.rate_column_index})\`;
+                
+                if (blueprint.requires_click_to_edit) {
+                    await axios.post(\`\${AUTO_BROWSER_SERVICE_URL}/sessions/\${session_id}/actions/click\`, {
+                        selector: targetCellSelector
+                    });
+                    await new Promise(r => setTimeout(r, 400));
+                }
+                
+                const finalInputSelector = \`\${targetCellSelector} \${blueprint.input_selector}\`;
+                
+                await axios.post(\`\${AUTO_BROWSER_SERVICE_URL}/sessions/\${session_id}/actions/type\`, {
+                    selector: finalInputSelector,
+                    text: item.rate.toString(),
+                    clear_first: false
+                });
+                
+                await new Promise(r => setTimeout(r, 400));
+            }
+            
+            if (ctx) {
+                appendLog(ctx, \`✅ Bulk execution successfully completed for \${boq_data.length} items.\`);
+                ctx.status = 'completed';
+            }
+        } catch (err) {
+            console.error("Bulk Exec Error:", err);
+            if (ctx) {
+                appendLog(ctx, \`❌ Bulk execution aborted: \${err.message}\`);
+                ctx.status = 'failed';
+                ctx.error = err.message;
+            }
+        }
+    })();
+
+    return res.json({ success: true, message: "Bulk execution sequence initiated." });
 });
 
 // Local Fallback Telemetry Simulator to keep logs running if agent updates are delayed

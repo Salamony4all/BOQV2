@@ -5,6 +5,8 @@ import styles from '../styles/TableViewer.module.css';
 // Removed hardcoded ITEMS_PER_PAGE to use state
 function TenderAutofillModal({ isOpen, onClose, tables, apiBase }) {
     const { aiSettings } = useCompanyProfile();
+    const domainName = 'etendering.tenderboard.gov.om';
+    
     const [tenderStatus, setTenderStatus] = useState('idle'); // idle, loading_browser, ready, executing, page_done, completed, error
     const [sessionInfo, setSessionInfo] = useState({ id: null, vncUrl: null });
     const [errorMessage, setErrorMessage] = useState('');
@@ -132,8 +134,27 @@ function TenderAutofillModal({ isOpen, onClose, tables, apiBase }) {
         }
     };
 
-    const handleStartAutofill = async () => {
-        // Slice only the current page's items
+    const handleMapPlatform = async () => {
+        setLogs(prev => [...prev, `🔍 Mapping platform for ${domainName}...`]);
+        try {
+            const response = await fetch(`${apiBase}/api/tender/map-platform`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ session_id: sessionInfo.id, domain_name: domainName })
+            });
+            const data = await response.json();
+            if (data.success) {
+                setLogs(prev => [...prev, `✅ Platform successfully mapped and blueprint stored.`]);
+            } else {
+                throw new Error(data.error || 'Failed to map platform.');
+            }
+        } catch (err) {
+            setErrorMessage(err.message);
+            setTenderStatus('error');
+        }
+    };
+
+    const handleExecuteBulkRun = async () => {
         const startIdx = (currentPage - 1) * itemsPerPage;
         const endIdx = startIdx + itemsPerPage;
         const pageData = payloadData.slice(startIdx, endIdx);
@@ -145,29 +166,27 @@ function TenderAutofillModal({ isOpen, onClose, tables, apiBase }) {
         }
 
         setTenderStatus('executing');
-        setLogs(prev => [...prev, `🚀 Deploying agent for Page ${currentPage}/${totalPages} (${pageData.length} items)...`]);
+        setLogs(prev => [...prev, `🚀 Deploying bulk script for Page ${currentPage}/${totalPages} (${pageData.length} items)...`]);
 
         try {
-            const response = await fetch(`${apiBase}/api/tender/execute`, {
+            const response = await fetch(`${apiBase}/api/tender/execute-bulk-blueprint`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     session_id: sessionInfo.id,
+                    domain_name: domainName,
                     boq_data: pageData,
                     page_number: currentPage,
                     total_pages: totalPages,
-                    provider: aiSettings?.engine,
-                    provider_model: aiSettings?.model,
                     global_fields: globalFields.filter(f => f.name.trim() !== '')
                 })
             });
 
             const result = await response.json();
             if (result.success) {
-                // Initialize background log stream polling tracker
                 startPolling(sessionInfo.id, currentPage, totalPages);
             } else {
-                throw new Error(result.error || 'Agent deployment rejected by backend runner.');
+                throw new Error(result.error || 'Bulk execution deployment rejected.');
             }
         } catch (err) {
             setErrorMessage(err.message);
@@ -298,26 +317,45 @@ function TenderAutofillModal({ isOpen, onClose, tables, apiBase }) {
                         </div>
                     </div>
 
-                    {/* Right: Deploy Button */}
-                    <button
-                        onClick={handleStartAutofill}
-                        disabled={tenderStatus !== 'ready'}
-                        style={{
-                            padding: '12px 28px',
-                            background: tenderStatus === 'ready' ? '#10b981' : '#1e293b',
-                            color: tenderStatus === 'ready' ? '#ffffff' : '#475569',
-                            border: tenderStatus === 'ready' ? 'none' : '1px solid #334155',
-                            borderRadius: '6px',
-                            cursor: tenderStatus === 'ready' ? 'pointer' : 'not-allowed',
-                            fontWeight: 600,
-                            fontSize: '0.95rem',
-                            transition: 'all 0.15s ease',
-                            whiteSpace: 'nowrap',
-                            boxShadow: tenderStatus === 'ready' ? '0 4px 12px rgba(16, 185, 129, 0.3)' : 'none'
-                        }}
-                    >
-                        {tenderStatus === 'executing' ? `⏳ Running Agent...` : `Deploy Autofill ⚡`}
-                    </button>
+                    {/* Right: Deploy Buttons */}
+                    <div style={{ display: 'flex', gap: '12px' }}>
+                        <button
+                            onClick={handleMapPlatform}
+                            disabled={tenderStatus !== 'idle' && tenderStatus !== 'ready'}
+                            style={{
+                                padding: '12px 20px',
+                                background: 'transparent',
+                                color: (tenderStatus === 'idle' || tenderStatus === 'ready') ? '#38bdf8' : '#475569',
+                                border: `1px solid ${(tenderStatus === 'idle' || tenderStatus === 'ready') ? '#38bdf8' : '#334155'}`,
+                                borderRadius: '6px',
+                                cursor: (tenderStatus === 'idle' || tenderStatus === 'ready') ? 'pointer' : 'not-allowed',
+                                fontWeight: 600,
+                                fontSize: '0.95rem',
+                                transition: 'all 0.15s ease'
+                            }}
+                        >
+                            🔍 Map platform
+                        </button>
+                        <button
+                            onClick={handleExecuteBulkRun}
+                            disabled={tenderStatus !== 'ready'}
+                            style={{
+                                padding: '12px 28px',
+                                background: tenderStatus === 'ready' ? '#10b981' : '#1e293b',
+                                color: tenderStatus === 'ready' ? '#ffffff' : '#475569',
+                                border: tenderStatus === 'ready' ? 'none' : '1px solid #334155',
+                                borderRadius: '6px',
+                                cursor: tenderStatus === 'ready' ? 'pointer' : 'not-allowed',
+                                fontWeight: 600,
+                                fontSize: '0.95rem',
+                                transition: 'all 0.15s ease',
+                                whiteSpace: 'nowrap',
+                                boxShadow: tenderStatus === 'ready' ? '0 4px 12px rgba(16, 185, 129, 0.3)' : 'none'
+                            }}
+                        >
+                            {tenderStatus === 'executing' ? `⏳ Running Script...` : `Execute Bulk Fill ⚡`}
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
