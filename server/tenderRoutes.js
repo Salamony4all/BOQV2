@@ -42,7 +42,7 @@ setInterval(() => {
 router.post('/setup', async (req, res) => {
     try {
         console.log(`🌐 [Tender Router] Provisioning isolated execution container profile instance...`);
-        
+
         let session_id;
         let vnc_url;
 
@@ -64,7 +64,7 @@ router.post('/setup', async (req, res) => {
                 throw postError;
             }
         }
-        
+
         // Initialize state defaults inside telemetry map tracking layer
         sessionTracker.set(session_id, {
             status: 'ready',
@@ -89,9 +89,9 @@ router.post('/setup', async (req, res) => {
     } catch (error) {
         console.error('❌ [Tender Setup Route Core Exception]:', error.message);
         if (error.response) console.error('Response data:', error.response.data);
-        return res.status(502).json({ 
-            success: false, 
-            error: 'Failed to map browser runtime worker node context. Verify container health states.' 
+        return res.status(502).json({
+            success: false,
+            error: 'Failed to map browser runtime worker node context. Verify container health states.'
         });
     }
 });
@@ -103,11 +103,11 @@ router.post('/setup', async (req, res) => {
 router.get('/status/:session_id', (req, res) => {
     const { session_id } = req.params;
     const tracking = sessionTracker.get(session_id);
-    
+
     if (!tracking) {
         return res.status(404).json({ success: false, error: 'Target tracking profile signature not found.' });
     }
-    
+
     return res.json({
         success: true,
         status: tracking.status,
@@ -133,7 +133,7 @@ router.post('/execute', async (req, res) => {
     const sessionCtx = sessionTracker.get(session_id);
     if (sessionCtx) {
         sessionCtx.status = 'executing';
-        appendLog(sessionCtx, `\u{1F4C4} Page ${pageNum}/${numPages} \u2014 ${boq_data.length} items to fill on this page.`);
+        appendLog(sessionCtx, `📄 Page ${pageNum}/${numPages} — ${boq_data.length} items to fill on this page.`);
     }
 
     try {
@@ -186,24 +186,6 @@ EXAMPLE OF YOUR REQUIRED FIRST STEP (UNLOCKING):
         const providerMap = { google: 'gemini', anthropic: 'claude', openai: 'openai' };
         const cleanProvider = providerMap[provider] || provider || 'gemini';
 
-        // Deprecated: old dynamic LLM inference loop
-        /*
-        axios.post(`${AUTO_BROWSER_SERVICE_URL}/sessions/${session_id}/agent/jobs/run`, {
-            goal: functionalAgentPrompt,
-            provider: cleanProvider,
-            provider_model: cleanModel,
-            max_steps: 20
-        }).catch(err => {
-            const rejectionBody = err.response && err.response.data ? JSON.stringify(err.response.data).substring(0, 500) : 'No response body';
-            console.error(`\u26A0\uFE0F [Tender Agent] Error from auto-browser \u2014 Status: ${err.response ? err.response.status : 'N/A'} | Body: ${rejectionBody}`);
-            const ctx = sessionTracker.get(session_id);
-            if (ctx) {
-                ctx.status = 'failed';
-                ctx.error = `Auto-browser rejected (${err.response ? err.response.status : 'network'}): ${rejectionBody}`;
-                appendLog(ctx, `\u274C Agent deployment failed: ${err.message}`);
-            }
-        });
-        */
         if (sessionCtx) appendLog(sessionCtx, `⚠️ Legacy dynamic LLM execution bypassed in favor of deterministic blueprints.`);
 
         // Simulate local worker progress steps only when real agent webhooks aren't connected
@@ -214,7 +196,7 @@ EXAMPLE OF YOUR REQUIRED FIRST STEP (UNLOCKING):
         return res.json({ success: true, message: `Page ${pageNum}/${numPages} agent deployed (${testBoqData.length} items - TEST MODE).` });
 
     } catch (error) {
-        console.error('\u274C [Tender Execution Configuration Exception Error]:', error.message);
+        console.error('❌ [Tender Execution Configuration Exception Error]:', error.message);
         return res.status(500).json({ error: 'Internal worker exception mapping agent processes.' });
     }
 });
@@ -241,7 +223,7 @@ router.post('/webhook-update', (req, res) => {
 router.post('/map-platform', async (req, res) => {
     const { session_id, domain_name } = req.body;
     if (!session_id || !domain_name) return res.status(400).json({ error: 'Missing session_id or domain_name' });
-    
+
     const ctx = sessionTracker.get(session_id);
     try {
         // Try to load cached blueprint from Supabase first
@@ -257,7 +239,7 @@ router.post('/map-platform', async (req, res) => {
         const rawState = observeRes.data.dom_outline || observeRes.data || '';
         const domString = typeof rawState === 'string' ? rawState : JSON.stringify(rawState);
         const safeOutline = domString.substring(0, 15000);
-        
+
         const prompt = `Analyze this web page snapshot and output ONLY a valid JSON schema blueprint for data entry. 
 Target Domain: ${domain_name}
 We need to fill a table of BoQ items. 
@@ -278,12 +260,12 @@ CRITICAL INSTRUCTIONS FOR OUTPUT:
 `;
         if (ctx) appendLog(ctx, `🤖 Analyzing layout using gemma-4-31b-it proxy...`);
         const llmResult = await callGoogle(
-            "You are a strict data-extraction AI. Output ONLY pure valid JSON with no markdown formatting.", 
-            prompt, 
-            false, 
+            "You are a strict data-extraction AI. Output ONLY pure valid JSON with no markdown formatting.",
+            prompt,
+            false,
             "gemma-4-31b-it"
         );
-        
+
         if (ctx) appendLog(ctx, `✅ Blueprint generated: ${JSON.stringify(llmResult)}`);
 
         // Save new blueprint to Supabase for future use
@@ -305,7 +287,7 @@ CRITICAL INSTRUCTIONS FOR OUTPUT:
 router.post('/execute-bulk-blueprint', async (req, res) => {
     const { session_id, domain_name, boq_data, blueprint } = req.body;
     if (!session_id || !domain_name || !boq_data || !blueprint) return res.status(400).json({ error: 'Missing required parameters including blueprint' });
-    
+
     const ctx = sessionTracker.get(session_id);
     if (ctx) {
         ctx.status = 'executing';
@@ -320,10 +302,10 @@ router.post('/execute-bulk-blueprint', async (req, res) => {
             for (let i = 0; i < boq_data.length; i++) {
                 const item = boq_data[i];
                 const anchorText = item.item_code || item.description.substring(0, 15);
-                if (ctx) appendLog(ctx, `✏️ [${i+1}/${boq_data.length}] Processing item: ${anchorText}`);
-                
+                if (ctx) appendLog(ctx, `✏️ [${i + 1}/${boq_data.length}] Processing item: ${anchorText}`);
+
                 let targetCellSelector = blueprint.row_selector;
-                
+
                 // Guard against Playwright/jQuery specific text selectors which crash standard CSS engines
                 if (targetCellSelector.includes(':has-text') || targetCellSelector.includes(':contains')) {
                     targetCellSelector = `tr:nth-of-type(${i + 2})`; // i+2 to safely skip a 1-row header
@@ -332,9 +314,9 @@ router.post('/execute-bulk-blueprint', async (req, res) => {
                 } else if (!targetCellSelector || targetCellSelector === 'tr') {
                     targetCellSelector = `tr:nth-of-type(${i + 2})`;
                 }
-                
+
                 targetCellSelector = `${targetCellSelector} td:nth-child(${blueprint.rate_column_index})`;
-                
+
                 if (blueprint.requires_click_to_edit) {
                     try {
                         await axios.post(`${AUTO_BROWSER_SERVICE_URL}/sessions/${session_id}/actions/click`, {
@@ -345,9 +327,10 @@ router.post('/execute-bulk-blueprint', async (req, res) => {
                         console.warn(`Click failed for ${targetCellSelector}, continuing to type...`);
                     }
                 }
-                
+
                 const complexSelector = `${targetCellSelector} ${blueprint.input_selector}`;
-                
+
+                // --- THE GLOBAL XPATH FALLBACK FIX ---
                 try {
                     await axios.post(`${AUTO_BROWSER_SERVICE_URL}/sessions/${session_id}/actions/type`, {
                         selector: complexSelector,
@@ -355,31 +338,22 @@ router.post('/execute-bulk-blueprint', async (req, res) => {
                         clear_first: false
                     });
                 } catch (err) {
-                    if (ctx) appendLog(ctx, `⚠️ Primary selector failed. Trying standard CSS row-scoped fallback...`);
-                    
-                    // Fallback 1: Assume 1 header row, scope input to the (i+2)th row
-                    const fallbackSelector1 = `tr:nth-of-type(${i + 2}) input[type='text'], tr:nth-of-type(${i + 2}) input`;
-                    
-                    try {
-                        await axios.post(`${AUTO_BROWSER_SERVICE_URL}/sessions/${session_id}/actions/type`, {
-                            selector: fallbackSelector1,
-                            text: item.rate.toString(),
-                            clear_first: false
-                        });
-                    } catch (err2) {
-                        // Fallback 2: Assume tbody resets the row count, scope to (i+1)th row in tbody
-                        const fallbackSelector2 = `tbody tr:nth-of-type(${i + 1}) input[type='text'], tbody tr:nth-of-type(${i + 1}) input`;
-                        await axios.post(`${AUTO_BROWSER_SERVICE_URL}/sessions/${session_id}/actions/type`, {
-                            selector: fallbackSelector2,
-                            text: item.rate.toString(),
-                            clear_first: false
-                        });
-                    }
+                    if (ctx) appendLog(ctx, `⚠️ Primary selector rejected. Engaging XPath fallback for input #${i + 1}...`);
+
+                    // Fallback: The Bulletproof Global XPath Index
+                    // This explicitly bypasses strict mode and container parsing limitations
+                    const fallbackXPath = `xpath=(//input[@type='text'])[${i + 1}]`;
+
+                    await axios.post(`${AUTO_BROWSER_SERVICE_URL}/sessions/${session_id}/actions/type`, {
+                        selector: fallbackXPath,
+                        text: item.rate.toString(),
+                        clear_first: false
+                    });
                 }
-                
+
                 await new Promise(r => setTimeout(r, 400));
             }
-            
+
             if (ctx) {
                 appendLog(ctx, `✅ Bulk execution successfully completed for ${boq_data.length} items.`);
                 ctx.status = 'completed';
@@ -409,13 +383,13 @@ function simulateBackgroundTelemetryUpdates(sessionId, boqData, pageNum, numPage
 
         if (index < boqData.length) {
             const item = boqData[index];
-            appendLog(ctx, `\u270F\uFE0F [Page ${pageNum}] Filling [${index + 1}/${boqData.length}]: "${item.description.substring(0, 30)}..." \u2192 Rate: ${item.rate}`);
+            appendLog(ctx, `✏️ [Page ${pageNum}] Filling [${index + 1}/${boqData.length}]: "${item.description.substring(0, 30)}..." → Rate: ${item.rate}`);
             index++;
         } else if (index === boqData.length) {
-            appendLog(ctx, `\uD83E\uDDEE [Page ${pageNum}] Clicking "Partially Save" to persist page progress...`);
+            appendLog(ctx, `💾 [Page ${pageNum}] Clicking "Partially Save" to persist page progress...`);
             index++;
         } else {
-            appendLog(ctx, `\u2705 Page ${pageNum}/${numPages} completed. ${boqData.length} items filled.`);
+            appendLog(ctx, `✅ Page ${pageNum}/${numPages} completed. ${boqData.length} items filled.`);
             ctx.status = 'completed';
             clearInterval(interval);
         }
