@@ -292,7 +292,8 @@ export async function callGoogle(systemPrompt, userPrompt, useSearch = false, mo
         systemInstruction: systemPrompt,
         tools: tools,
         generationConfig: {
-            temperature: 0.1
+            temperature: 0.1,
+            responseMimeType: "application/json"
         }
     });
     const result = await model.generateContent(userPrompt);
