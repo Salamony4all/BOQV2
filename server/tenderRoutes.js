@@ -196,7 +196,7 @@ Example of a valid \`type\` action JSON payload:
             goal: functionalAgentPrompt,
             provider: cleanProvider,
             provider_model: cleanModel,
-            max_steps: 150
+            max_steps: 20
         }).catch(err => {
             const rejectionBody = err.response && err.response.data ? JSON.stringify(err.response.data).substring(0, 500) : 'No response body';
             console.error(`\u26A0\uFE0F [Tender Agent] Error from auto-browser \u2014 Status: ${err.response ? err.response.status : 'N/A'} | Body: ${rejectionBody}`);
