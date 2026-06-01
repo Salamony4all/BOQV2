@@ -137,7 +137,7 @@ router.post('/execute', async (req, res) => {
     try {
         // Build a compact items summary to reduce prompt token count
         const itemsSummary = boq_data.map((item, i) =>
-            `${i + 1}. "${item.description.substring(0, 60)}" | Qty: ${item.quantity} | Rate: ${item.rate}`
+            `${i + 1}. "${item.description.substring(0, 45)}" | Rate: ${item.rate}`
         ).join('\n');
 
         let globalFieldsInstructions = '';

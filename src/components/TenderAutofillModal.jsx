@@ -10,7 +10,7 @@ function TenderAutofillModal({ isOpen, onClose, tables, apiBase }) {
     const [errorMessage, setErrorMessage] = useState('');
     const [logs, setLogs] = useState([]);
     const [currentPage, setCurrentPage] = useState(1);
-    const [itemsPerPage, setItemsPerPage] = useState(50);
+    const [itemsPerPage, setItemsPerPage] = useState(20);
     const [completedPages, setCompletedPages] = useState(new Set());
     const [globalFields, setGlobalFields] = useState([{ name: '', value: '' }]);
     const logEndRef = useRef(null);
