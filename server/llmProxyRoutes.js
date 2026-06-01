@@ -6,12 +6,12 @@ const router = express.Router();
 
 // 1. Google Gemini API Proxy Route
 // The python agent using gemini_adapter will send POST to /models/{model}:generateContent
-router.post('/models/:modelStr', async (req, res) => {
+router.post('/models/*', async (req, res) => {
     try {
-        const modelStr = req.params.modelStr; // e.g. "gemma-4-31b-it:generateContent"
+        const modelStr = req.params[0]; // e.g. "gemma-4-31b-it:generateContent"
         
         // We only want to handle generateContent calls
-        if (!modelStr.endsWith(':generateContent')) {
+        if (!modelStr || !modelStr.endsWith(':generateContent')) {
             return res.status(404).json({ error: 'Not found' });
         }
         
