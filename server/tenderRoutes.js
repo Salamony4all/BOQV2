@@ -161,8 +161,8 @@ There are NO active text input fields on the screen right now. The cells are jus
 If you attempt to use the "type" action on a locked cell, the automation will crash and you will fail.
 
 MANDATORY 2-STEP EXECUTION PROTOCOL:
-STEP 1: You MUST output a "click" action targeting the item's rate cell. This click will unlock the cell and force the website to generate the text box.
-STEP 2: The system will send you the updated page showing the active input field. ONLY THEN can you output a "type" action to enter the number (using "clear_first": false).
+STEP 1: You MUST output a "click" action targeting the item's rate cell. Because the locked cell is just plain text, it does NOT have an \`element_id\`. You MUST use the \`selector\` field with a Playwright locator: \`tr:has-text('ITEM_CODE_HERE') td:nth-child(8)\`. This clicks the 8th column ("Unit Price in Fig") of the matching row.
+STEP 2: The system will send you the updated page showing the active input field. ONLY THEN can you output a "type" action to enter the number (using "clear_first": false and the newly generated \`element_id\` of the input box).
 
 JSON OUTPUT FORMAT:
 Output ONLY valid, raw JSON. Do not wrap your response in markdown code blocks.
@@ -171,7 +171,7 @@ EXAMPLE OF YOUR REQUIRED FIRST STEP (UNLOCKING):
 {
   "action": "click",
   "reason": "Clicking the locked rate cell for Item 1.1 to reveal the text input box.",
-  "element_id": "op-abcdef",
+  "selector": "tr:has-text('Bill No 1.1') td:nth-child(8)",
   "confidence": 1.0
 }`;
 
