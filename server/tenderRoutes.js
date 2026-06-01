@@ -326,25 +326,41 @@ router.post('/execute-bulk-blueprint', async (req, res) => {
                 if (targetCellSelector.includes('ITEM_CODE')) {
                     targetCellSelector = targetCellSelector.replace('ITEM_CODE', anchorText);
                 } else {
-                    targetCellSelector = `tr:has-text('${anchorText}')`;
+                    // Fallback to standard CSS structural indexing instead of non-standard :has-text()
+                    targetCellSelector = `tr:nth-of-type(${i + 1})`;
                 }
                 
                 targetCellSelector = `${targetCellSelector} td:nth-child(${blueprint.rate_column_index})`;
                 
                 if (blueprint.requires_click_to_edit) {
-                    await axios.post(`${AUTO_BROWSER_SERVICE_URL}/sessions/${session_id}/actions/click`, {
-                        selector: targetCellSelector
-                    });
-                    await new Promise(r => setTimeout(r, 400));
+                    try {
+                        await axios.post(`${AUTO_BROWSER_SERVICE_URL}/sessions/${session_id}/actions/click`, {
+                            selector: targetCellSelector
+                        });
+                        await new Promise(r => setTimeout(r, 400));
+                    } catch (e) {
+                        console.warn(`Click failed for ${targetCellSelector}, continuing to type...`);
+                    }
                 }
                 
-                const finalInputSelector = `${targetCellSelector} ${blueprint.input_selector}`;
+                const complexSelector = `${targetCellSelector} ${blueprint.input_selector}`;
+                const fallbackSelector = `input:nth-of-type(${i + 1}), input[type='text']:nth-of-type(${i + 1})`;
                 
-                await axios.post(`${AUTO_BROWSER_SERVICE_URL}/sessions/${session_id}/actions/type`, {
-                    selector: finalInputSelector,
-                    text: item.rate.toString(),
-                    clear_first: false
-                });
+                try {
+                    await axios.post(`${AUTO_BROWSER_SERVICE_URL}/sessions/${session_id}/actions/type`, {
+                        selector: complexSelector,
+                        text: item.rate.toString(),
+                        clear_first: false
+                    });
+                } catch (err) {
+                    if (ctx) appendLog(ctx, `⚠️ Primary selector failed. Using robust sequential fallback selector...`);
+                    const finalSelector = `input[type='text']:nth-of-type(${i + 1})`;
+                    await axios.post(`${AUTO_BROWSER_SERVICE_URL}/sessions/${session_id}/actions/type`, {
+                        selector: finalSelector,
+                        text: item.rate.toString(),
+                        clear_first: false
+                    });
+                }
                 
                 await new Promise(r => setTimeout(r, 400));
             }
