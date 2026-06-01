@@ -136,7 +136,9 @@ router.post('/execute', async (req, res) => {
 
     try {
         // Build a compact items summary to reduce prompt token count
-        const itemsSummary = boq_data.map((item, i) => {
+        // TEST MODE: Only take the FIRST item to verify if the agent can edit the fields.
+        const testBoqData = boq_data.slice(0, 1);
+        const itemsSummary = testBoqData.map((item, i) => {
             const anchor = item.item_code ? `Item Code: "${item.item_code}"` : `Item: "${(item.description || '').substring(0, 30)}"`;
             return `${i + 1}. ${anchor} | Rate: ${item.rate}`;
         }).join('\n');
@@ -152,7 +154,7 @@ router.post('/execute', async (req, res) => {
         const functionalAgentPrompt = `You are an intelligent data-entry agent controlling a live browser session.
 Your task is to fill a web form or table on the CURRENTLY VISIBLE page with the provided data.
 
-Items to fill on this page (${boq_data.length} rows):
+Items to fill on this page (${testBoqData.length} rows - TEST MODE):
 ${itemsSummary}
 
 Workflow:
@@ -207,10 +209,10 @@ Example of a valid \`type\` action JSON payload:
 
         // Simulate local worker progress steps only when real agent webhooks aren't connected
         if (process.env.USE_TELEMETRY_SIMULATOR === 'true') {
-            simulateBackgroundTelemetryUpdates(session_id, boq_data, pageNum, numPages);
+            simulateBackgroundTelemetryUpdates(session_id, testBoqData, pageNum, numPages);
         }
 
-        return res.json({ success: true, message: `Page ${pageNum}/${numPages} agent deployed (${boq_data.length} items).` });
+        return res.json({ success: true, message: `Page ${pageNum}/${numPages} agent deployed (${testBoqData.length} items - TEST MODE).` });
 
     } catch (error) {
         console.error('\u274C [Tender Execution Configuration Exception Error]:', error.message);
