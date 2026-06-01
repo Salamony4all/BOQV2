@@ -247,10 +247,11 @@ export async function getSupabaseStats() {
  * Blueprint DB Logic - Get blueprint for a specific domain
  */
 export async function getSupabaseBlueprint(domain_name) {
-    if (!supabase) return null;
+    const client = supabaseAdmin || supabase;
+    if (!client) return null;
 
     try {
-        const { data, error } = await supabase
+        const { data, error } = await client
             .from('portal_blueprints')
             .select('blueprint')
             .eq('domain_name', domain_name)
@@ -268,14 +269,15 @@ export async function getSupabaseBlueprint(domain_name) {
  * Blueprint DB Logic - Save blueprint for a domain
  */
 export async function saveSupabaseBlueprint(domain_name, blueprint) {
-    if (!supabase) {
+    const client = supabaseAdmin || supabase;
+    if (!client) {
         console.warn('⚠️ [SupabaseStorage] Cannot save blueprint: Supabase client not initialized');
         return false;
     }
 
     console.log(`📡 [SupabaseStorage] Attempting to upsert blueprint for domain: "${domain_name}"`);
 
-    const { error } = await supabase
+    const { error } = await client
         .from('portal_blueprints')
         .upsert({
             domain_name,
