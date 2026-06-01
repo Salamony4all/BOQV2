@@ -162,7 +162,12 @@ Rules:
 - Only fill rows visible on the current page. Do not navigate to other pages.
 - If a description doesn't have an exact match, skip it.
 - Type numbers carefully \u2014 no currency symbols, just the numeric rate value.
-- The input fields are specifically in the "Unit Price in Fig" column.`;
+- The input fields are specifically in the "Unit Price in Fig" column.
+
+CRITICAL JSON RULES:
+You must output ONLY valid, raw JSON. 
+DO NOT wrap your response in markdown code blocks (e.g. \`\`\`json). 
+DO NOT include any conversational text before or after the JSON.`;
 
         let cleanModel = provider_model;
         if (cleanModel && cleanModel.includes(':billed')) {
