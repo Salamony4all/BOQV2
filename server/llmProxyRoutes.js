@@ -60,23 +60,37 @@ router.post('/models/:modelStr', async (req, res) => {
         
         // Intercept the response and repair JSON if needed
         // Gemini returns: { candidates: [ { content: { parts: [ { text: "..." } ] } } ] }
+        // IMPORTANT: Skip parts with thought:true (Gemini thinking) — they are NOT JSON
         if (responseData.candidates && responseData.candidates[0] && responseData.candidates[0].content) {
             const parts = responseData.candidates[0].content.parts;
             if (parts && parts.length > 0) {
                 for (let part of parts) {
+                    // Skip thinking parts — they contain freeform reasoning, not JSON
+                    if (part.thought === true) {
+                        console.log('🧠 [LLM Proxy] Skipping thinking part (thought=true)');
+                        continue;
+                    }
                     if (part.text && typeof part.text === 'string') {
                         const rawText = part.text;
-                        // Only try to repair if it looks like it might have markdown or valid JSON structure
-                        if (rawText.includes('```') || rawText.trim().startsWith('{')) {
+                        // Log the raw decision for diagnostics
+                        console.log(`📋 [LLM Proxy] Raw AI response text (first 300 chars): ${rawText.substring(0, 300)}`);
+                        // Only try to repair if it looks like it might have markdown wrapping
+                        if (rawText.includes('```')) {
                             try {
-                                console.log('🤖 [LLM Proxy] Attempting to repair Gemini JSON text...');
-                                // Try to parse using our robust parser
+                                console.log('🤖 [LLM Proxy] Attempting to repair markdown-wrapped JSON...');
                                 const repairedJson = safeParseJSON(rawText);
-                                // Serialize back to clean string without markdown
                                 part.text = JSON.stringify(repairedJson);
                                 console.log('✅ [LLM Proxy] Successfully repaired Gemini JSON text!');
                             } catch (repairErr) {
                                 console.warn('⚠️ [LLM Proxy] Failed to repair Gemini JSON text, passing raw:', repairErr.message);
+                            }
+                        } else {
+                            // For clean JSON, just validate it parses but don't modify
+                            try {
+                                const parsed = JSON.parse(rawText);
+                                console.log(`✅ [LLM Proxy] Clean JSON — action: "${parsed.action || 'unknown'}", reason: "${(parsed.reason || '').substring(0, 100)}"`);
+                            } catch (e) {
+                                console.log('ℹ️ [LLM Proxy] Non-JSON text part, passing through as-is');
                             }
                         }
                     }
