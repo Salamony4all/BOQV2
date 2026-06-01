@@ -160,10 +160,11 @@ ${itemsSummary}
 Workflow:
 1. Analyze the visible page to identify the data entry grid, table, or form.
 2. For each item in the list above, find its matching row or section based on the description, code, or context.
-3. Locate the appropriate input field for entering the "Rate in figures" (or unit price) for that match. Ensure you choose the actual empty input box, NOT the text label or the row container!
-4. Use the \`type\` action directly to enter the numeric Rate value into the input field. YOU MUST SET \`"clear_first": false\` in your action JSON to prevent a bug that selects the entire page text. ${globalFieldsInstructions ? 'Then, find the input fields for the global fields listed below and type their exact values for this row, also using `"clear_first": false`.' : ''}
-5. After filling all matched rows, look for a "Save", "Partially Save", or "Next" button and click it to persist progress.
-6. Report completion via POST to ${webhookBase}/api/tender/webhook-update with body: {"session_id": "${session_id}", "is_complete": true, "message": "Page ${pageNum} filled successfully (${boq_data.length} items)"}
+3. Locate the appropriate cell or input field for entering the "Rate in figures" (or unit price) for that match.
+4. If the cell is a generic table cell (e.g., <td>) that needs to be clicked to reveal an input box, DO NOT use the \`type\` action immediately. Instead, first output a \`click\` action targeting that cell. Then, IN YOUR NEXT STEP, output the \`type\` action targeting the newly revealed input box.
+5. If the field is already an empty input box, use the \`type\` action directly to enter the numeric Rate value. YOU MUST SET \`"clear_first": false\` in your action JSON to prevent a bug that selects the entire page text. ${globalFieldsInstructions ? 'Then, find the input fields for the global fields listed below and type their exact values for this row, also using `"clear_first": false`.' : ''}
+6. After filling all matched rows, look for a "Save", "Partially Save", or "Next" button and click it to persist progress.
+7. Report completion via POST to ${webhookBase}/api/tender/webhook-update with body: {"session_id": "${session_id}", "is_complete": true, "message": "Page ${pageNum} filled successfully (${testBoqData.length} items)"}
 ${globalFieldsInstructions}
 CRITICAL RULES:
 - Be highly adaptable: The website structure, column names, and language may vary. Look for contextual clues indicating where the price should be entered.
@@ -195,7 +196,7 @@ Example of a valid \`type\` action JSON payload:
             goal: functionalAgentPrompt,
             provider: cleanProvider,
             provider_model: cleanModel,
-            max_steps: 20
+            max_steps: 150
         }).catch(err => {
             const rejectionBody = err.response && err.response.data ? JSON.stringify(err.response.data).substring(0, 500) : 'No response body';
             console.error(`\u26A0\uFE0F [Tender Agent] Error from auto-browser \u2014 Status: ${err.response ? err.response.status : 'N/A'} | Body: ${rejectionBody}`);
