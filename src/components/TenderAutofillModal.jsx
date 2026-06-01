@@ -185,7 +185,7 @@ function TenderAutofillModal({ isOpen, onClose, tables, apiBase }) {
                 <button className={styles.innerCloseButton} onClick={onClose} style={{ position: 'absolute', right: '16px', top: '16px', zIndex: 100, color: '#f8fafc', fontSize: '1.8rem', background: 'rgba(0,0,0,0.5)', border: 'none', cursor: 'pointer', padding: '0 8px', borderRadius: '6px', lineHeight: 1 }}>×</button>
 
                 {/* Layout Body Splits */}
-                <div style={{ flex: 1, backgroundColor: '#0f172a', display: 'flex', position: 'relative' }}>
+                <div style={{ flex: 1, backgroundColor: '#0f172a', display: 'flex', position: 'relative', minHeight: 0 }}>
 
                     {/* Left Sidebar: Global Fields */}
                     <div style={{ width: '320px', borderRight: '1px solid #334155', display: 'flex', flexDirection: 'column', backgroundColor: '#1e293b' }}>
