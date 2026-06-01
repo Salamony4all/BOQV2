@@ -344,7 +344,6 @@ router.post('/execute-bulk-blueprint', async (req, res) => {
                 }
                 
                 const complexSelector = `${targetCellSelector} ${blueprint.input_selector}`;
-                const fallbackSelector = `input:nth-of-type(${i + 1}), input[type='text']:nth-of-type(${i + 1})`;
                 
                 try {
                     await axios.post(`${AUTO_BROWSER_SERVICE_URL}/sessions/${session_id}/actions/type`, {
@@ -354,7 +353,9 @@ router.post('/execute-bulk-blueprint', async (req, res) => {
                     });
                 } catch (err) {
                     if (ctx) appendLog(ctx, `⚠️ Primary selector failed. Using robust sequential fallback selector...`);
-                    const finalSelector = `input[type='text']:nth-of-type(${i + 1})`;
+                    // Use Playwright's 0-indexed global nth= selector to avoid strict mode violations
+                    // caused by nth-of-type matching multiple inputs inside different parent cells.
+                    const finalSelector = `input[type='text'] >> nth=${i}`;
                     await axios.post(`${AUTO_BROWSER_SERVICE_URL}/sessions/${session_id}/actions/type`, {
                         selector: finalSelector,
                         text: item.rate.toString(),
