@@ -342,17 +342,26 @@ router.post('/execute-bulk-blueprint', async (req, res) => {
                         clear_first: false
                     });
                 } catch (err) {
-                    if (ctx) appendLog(ctx, `⚠️ Primary selector rejected. Engaging XPath fallback for input #${i + 1}...`);
-
-                    // Fallback: The Bulletproof Global XPath Index
-                    // This explicitly bypasses strict mode and container parsing limitations
-                    const fallbackXPath = `xpath=(//input[@type='text'])[${i + 1}]`;
-
-                    await axios.post(`${AUTO_BROWSER_SERVICE_URL}/sessions/${session_id}/actions/type`, {
-                        selector: fallbackXPath,
-                        text: item.rate.toString(),
-                        clear_first: false
-                    });
+                    if (ctx) appendLog(ctx, `⚠️ Primary selector failed. Engaging standard CSS row-scoped fallback...`);
+                    
+                    // Fallback 1: Assume 1 header row, scope input to the (i+2)th row
+                    const fallbackSelector1 = `tr:nth-of-type(${i + 2}) input[type='text'], tr:nth-of-type(${i + 2}) input`;
+                    
+                    try {
+                        await axios.post(`${AUTO_BROWSER_SERVICE_URL}/sessions/${session_id}/actions/type`, {
+                            selector: fallbackSelector1,
+                            text: item.rate.toString(),
+                            clear_first: false
+                        });
+                    } catch (err2) {
+                        // Fallback 2: Assume tbody resets the row count, scope to (i+1)th row in tbody
+                        const fallbackSelector2 = `tbody tr:nth-of-type(${i + 1}) input[type='text'], tbody tr:nth-of-type(${i + 1}) input`;
+                        await axios.post(`${AUTO_BROWSER_SERVICE_URL}/sessions/${session_id}/actions/type`, {
+                            selector: fallbackSelector2,
+                            text: item.rate.toString(),
+                            clear_first: false
+                        });
+                    }
                 }
 
                 await new Promise(r => setTimeout(r, 400));
