@@ -32,6 +32,7 @@ import { convertEmfToPng } from './utils/emfConverter.js';
 import Fuse from 'fuse.js';
 import { TAXONOMY } from './utils/normalizer.js';
 import tenderRouter from './tenderRoutes.js';
+import llmProxyRouter from './llmProxyRoutes.js';
 
 // ALL heavy PDF/Vision extractors are LAZY to prevent Vercel boot crash
 // (pdfProductExtractor uses pdfjs, visionBOQExtractor uses Playwright)
@@ -195,6 +196,7 @@ app.use(cors());
 app.use(express.json({ limit: '20mb' }));
 app.use(express.urlencoded({ limit: '20mb', extended: true }));
 app.use('/api/tender', tenderRouter);
+app.use('/api/llm-proxy', llmProxyRouter);
 
 // Path logger
 app.use((req, res, next) => {
