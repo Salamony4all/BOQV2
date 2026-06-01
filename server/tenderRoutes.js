@@ -352,18 +352,11 @@ router.post('/execute-bulk-blueprint', async (req, res) => {
                         clear_first: false
                     });
                 } catch (err) {
-                    if (ctx) appendLog(ctx, `⚠️ Primary selector failed. Using raw DOM JS evaluation fallback...`);
-                    await axios.post(`${AUTO_BROWSER_SERVICE_URL}/sessions/${session_id}/evaluate`, {
-                        script: `
-                            const inputs = document.querySelectorAll("input[type='text']");
-                            if (inputs.length > ${i}) {
-                                const el = inputs[${i}];
-                                el.value = '${item.rate.toString()}';
-                                // Trigger React/Angular events just in case
-                                el.dispatchEvent(new Event('input', { bubbles: true }));
-                                el.dispatchEvent(new Event('change', { bubbles: true }));
-                            }
-                        `
+                    if (ctx) appendLog(ctx, `⚠️ Primary selector failed. Using robust XPath fallback selector...`);
+                    await axios.post(`${AUTO_BROWSER_SERVICE_URL}/sessions/${session_id}/actions/type`, {
+                        selector: `xpath=(//input[@type='text'])[${i + 1}]`,
+                        text: item.rate.toString(),
+                        clear_first: false
                     });
                 }
                 
