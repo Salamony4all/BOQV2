@@ -226,14 +226,16 @@ router.post('/execute-bulk-blueprint', async (req, res) => {
     const ctx = sessionTracker.get(session_id);
     if (ctx) {
         ctx.status = 'executing';
-        appendLog(ctx, `⚡ Initiating Target-Sweep Bulk Fill script for ${boq_data.length} items.`);
+        appendLog(ctx, `⚡ Initiating Adaptive-Sweep Bulk Fill script for ${boq_data.length} items.`);
     }
 
     (async () => {
         try {
             if (ctx) appendLog(ctx, `📜 Base Rate Column mapped to: ${blueprint.rate_column_index}`);
 
-            let consecutiveFailures = 0; // The Circuit Breaker
+            let consecutiveFailures = 0;
+            // Adaptive Tracker: We use this to remember the correct column once we find it!
+            let activeColIndex = blueprint.rate_column_index;
 
             for (let i = 0; i < boq_data.length; i++) {
                 const item = boq_data[i];
@@ -242,43 +244,54 @@ router.post('/execute-bulk-blueprint', async (req, res) => {
 
                 if (ctx) appendLog(ctx, `✏️ [${i + 1}/${boq_data.length}] Processing item: ${anchorTextRaw}`);
 
+                // We prioritize the actively tracked column. If it shifted, we check adjacent cells.
                 const columnTargets = [
-                    blueprint.rate_column_index,
-                    blueprint.rate_column_index + 1,
-                    blueprint.rate_column_index + 2,
-                    blueprint.rate_column_index - 1
+                    activeColIndex,
+                    activeColIndex + 1,
+                    activeColIndex + 2
                 ];
+
+                // Deduplicate targets to avoid redundant searches
+                const uniqueTargets = [...new Set(columnTargets)];
 
                 let typedSuccessfully = false;
 
-                for (const colIndex of columnTargets) {
-                    // table:visible perfectly filters out ghost tables BEFORE looking for the row.
+                for (const colIndex of uniqueTargets) {
                     const cellSelector = `table:visible tr:has-text("${anchorText}") td:nth-child(${colIndex})`;
 
                     try {
+                        // NO AXIOS TIMEOUT! This explicitly blocks Node from spamming the container and causing OOM crashes.
                         await axios.post(`${AUTO_BROWSER_SERVICE_URL}/sessions/${session_id}/actions/click`, {
                             selector: cellSelector
-                        }, { timeout: 2000 });
-                        await new Promise(r => setTimeout(r, 400));
+                        });
+                        await new Promise(r => setTimeout(r, 600)); // Give UI time to swap plain text to <input>
                     } catch (e) {
-                        // Ignore click timeout, the input might already be exposed
+                        // Ignore click timeout, input might be permanently exposed
                     }
 
                     const inputSelector = `${cellSelector} input`;
 
                     try {
+                        // NO AXIOS TIMEOUT! Safely wait for container to report success or failure natively.
                         await axios.post(`${AUTO_BROWSER_SERVICE_URL}/sessions/${session_id}/actions/type`, {
                             selector: inputSelector,
                             text: item.rate.toString(),
                             clear_first: false
-                        }, { timeout: 2500 });
+                        });
 
                         typedSuccessfully = true;
-                        consecutiveFailures = 0; // Reset circuit breaker
-                        if (ctx) appendLog(ctx, `✅ Filled Rate in Column ${colIndex}`);
+                        consecutiveFailures = 0;
+
+                        // Adaptive Learning: If we had to sweep to find the correct column, update our tracker!
+                        if (activeColIndex !== colIndex) {
+                            activeColIndex = colIndex;
+                            if (ctx) appendLog(ctx, `🧠 AI Learned Layout Offset! Permanently shifted target to column ${colIndex}.`);
+                        }
+
+                        if (ctx) appendLog(ctx, `✅ Filled Rate successfully in column ${colIndex}.`);
                         break;
                     } catch (err) {
-                        // Failed to find an input in THIS column. Loop to the next column target.
+                        console.warn(`Column ${colIndex} rejected. Sweeping to next...`);
                     }
                 }
 
@@ -286,14 +299,13 @@ router.post('/execute-bulk-blueprint', async (req, res) => {
                     consecutiveFailures++;
                     if (ctx) appendLog(ctx, `❌ Failed to find Rate input for ${anchorTextRaw} in any expected column.`);
 
-                    // Trigger the Circuit Breaker if the container has crashed
-                    if (consecutiveFailures >= 3) {
-                        if (ctx) appendLog(ctx, `🚨 CRITICAL: 3 consecutive failures. Browser container likely crashed (TargetClosedError). Aborting loop.`);
+                    if (consecutiveFailures >= 2) {
+                        if (ctx) appendLog(ctx, `🚨 CRITICAL: 2 consecutive failures. Container browser has likely crashed. Aborting loop.`);
                         throw new Error("Container browser crashed or disconnected.");
                     }
                 }
 
-                // THROTTLING: Wait 1.5 seconds between items to let Railway's memory flush
+                // GC THROTTLING: Wait 1.5 seconds between items to let Railway's garbage collector dump the massive screenshots
                 await new Promise(r => setTimeout(r, 1500));
             }
 
