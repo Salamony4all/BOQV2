@@ -252,8 +252,8 @@ router.post('/execute-bulk-blueprint', async (req, res) => {
                 let typedSuccessfully = false;
 
                 for (const colIndex of columnTargets) {
-                    // td:visible perfectly filters out ghost tables because Ghost TDs are invisible, while bypassing the tr:visible 0x0 bug
-                    const cellSelector = `tr:has-text("${anchorText}") td:nth-child(${colIndex}):visible`;
+                    // table:visible perfectly filters out ghost tables BEFORE looking for the row.
+                    const cellSelector = `table:visible tr:has-text("${anchorText}") td:nth-child(${colIndex})`;
 
                     try {
                         await axios.post(`${AUTO_BROWSER_SERVICE_URL}/sessions/${session_id}/actions/click`, {
