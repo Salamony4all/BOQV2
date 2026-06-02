@@ -252,8 +252,8 @@ router.post('/execute-bulk-blueprint', async (req, res) => {
                 let typedSuccessfully = false;
 
                 for (const colIndex of columnTargets) {
-                    // :visible ignores hidden ghost tables used for mobile/print layouts
-                    const cellSelector = `tr:has-text("${anchorText}"):visible td:nth-child(${colIndex})`;
+                    // :visible on the table avoids ghost tables; tr:has-text finds the row even if Playwright calculates it as 0x0
+                    const cellSelector = `table:visible tr:has-text("${anchorText}") td:nth-child(${colIndex})`;
 
                     // 1. THE AWAKENING CLICK
                     try {
@@ -266,7 +266,7 @@ router.post('/execute-bulk-blueprint', async (req, res) => {
                     }
 
                     // 2. THE TARGETED TYPE
-                    const inputSelector = `${cellSelector} input:visible`;
+                    const inputSelector = `${cellSelector} input`;
 
                     try {
                         await axios.post(`${AUTO_BROWSER_SERVICE_URL}/sessions/${session_id}/actions/type`, {
