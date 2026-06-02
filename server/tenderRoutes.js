@@ -77,7 +77,6 @@ router.post('/setup', async (req, res) => {
         if (vnc_url && vnc_url.includes('127.0.0.1:6080')) {
             const publicVncBase = process.env.AUTO_BROWSER_VNC_URL || 'https://browser-node-production.up.railway.app';
             vnc_url = vnc_url.replace('http://127.0.0.1:6080', publicVncBase);
-            // Use resize=scale to preserve the original Playwright coordinate system.
             vnc_url = vnc_url.replace('resize=remote', 'resize=scale');
         }
 
@@ -88,7 +87,6 @@ router.post('/setup', async (req, res) => {
         });
     } catch (error) {
         console.error('❌ [Tender Setup Route Core Exception]:', error.message);
-        if (error.response) console.error('Response data:', error.response.data);
         return res.status(502).json({
             success: false,
             error: 'Failed to map browser runtime worker node context. Verify container health states.'
@@ -104,7 +102,6 @@ router.get('/status/:session_id', (req, res) => {
     const { session_id } = req.params;
     const tracking = sessionTracker.get(session_id);
 
-    // VERCEL SERVERLESS PATCH: Prevent 404 UI crashes when Vercel memory wipes
     if (!tracking) {
         return res.json({
             success: true,
@@ -127,85 +124,9 @@ router.get('/status/:session_id', (req, res) => {
  * POST /api/tender/execute
  */
 router.post('/execute', async (req, res) => {
-    const { session_id, boq_data, page_number, total_pages, provider, provider_model, global_fields } = req.body;
-
-    if (!session_id || !boq_data || !Array.isArray(boq_data)) {
-        return res.status(400).json({ error: 'Missing active session signature mapping profile elements.' });
-    }
-
-    const pageNum = page_number || 1;
-    const numPages = total_pages || 1;
-
-    const sessionCtx = sessionTracker.get(session_id);
-    if (sessionCtx) {
-        sessionCtx.status = 'executing';
-        appendLog(sessionCtx, `📄 Page ${pageNum}/${numPages} — ${boq_data.length} items to fill on this page.`);
-    }
-
-    try {
-        // Build a compact items summary to reduce prompt token count
-        const testBoqData = boq_data.slice(0, 1);
-        const itemsSummary = testBoqData.map((item, i) => {
-            const anchor = item.item_code ? `Item Code: "${item.item_code}"` : `Item: "${(item.description || '').substring(0, 30)}"`;
-            return `${i + 1}. ${anchor} | Rate: ${item.rate}`;
-        }).join('\n');
-
-        let globalFieldsInstructions = '';
-        if (global_fields && global_fields.length > 0) {
-            const fieldsList = global_fields.map(f => `- "${f.name}": Enter "${f.value}"`).join('\n');
-            globalFieldsInstructions = `\nAdditionally, for EACH matched row, you must ALSO fill these global fields with the exact specified values:\n${fieldsList}\n`;
-        }
-
-        const webhookBase = process.env.WEBHOOK_BASE_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3001');
-        const functionalAgentPrompt = `You are a precision data-entry agent.
-Your task is to enter prices for the following items into the visible table:
-
-${itemsSummary}
-
-⚠️ CRITICAL SYSTEM LIMITATION - READ CAREFULLY ⚠️
-The web table is currently in "LOCKED / READ-ONLY" mode. 
-There are NO active text input fields on the screen right now. The cells are just plain text.
-If you attempt to use the "type" action on a locked cell, the automation will crash and you will fail.
-
-MANDATORY 2-STEP EXECUTION PROTOCOL:
-STEP 1: You MUST output a "click" action targeting the item's rate cell. Because the locked cell is just plain text, it does NOT have an \`element_id\`. You MUST use the \`selector\` field with a Playwright locator: \`tr:has-text('ITEM_CODE_HERE') td:nth-child(8)\`. This clicks the 8th column ("Unit Price in Fig") of the matching row.
-STEP 2: The system will send you the updated page showing the active input field. ONLY THEN can you output a "type" action to enter the number (using "clear_first": false and the newly generated \`element_id\` of the input box).
-
-JSON OUTPUT FORMAT:
-Output ONLY valid, raw JSON. Do not wrap your response in markdown code blocks.
-
-EXAMPLE OF YOUR REQUIRED FIRST STEP (UNLOCKING):
-{
-  "action": "click",
-  "reason": "Clicking the locked rate cell for Item 1.1 to reveal the text input box.",
-  "selector": "tr:has-text('Bill No 1.1') td:nth-child(8)",
-  "confidence": 1.0
-}`;
-
-        let cleanModel = provider_model;
-        if (cleanModel && cleanModel.includes(':billed')) {
-            cleanModel = cleanModel.replace(':billed', '');
-        }
-
-        const providerMap = { google: 'gemini', anthropic: 'claude', openai: 'openai' };
-        const cleanProvider = providerMap[provider] || provider || 'gemini';
-
-        if (sessionCtx) appendLog(sessionCtx, `⚠️ Legacy dynamic LLM execution bypassed in favor of deterministic blueprints.`);
-
-        // Simulate local worker progress steps only when real agent webhooks aren't connected
-        if (process.env.USE_TELEMETRY_SIMULATOR === 'true') {
-            simulateBackgroundTelemetryUpdates(session_id, testBoqData, pageNum, numPages);
-        }
-
-        return res.json({ success: true, message: `Page ${pageNum}/${numPages} agent deployed (${testBoqData.length} items - TEST MODE).` });
-
-    } catch (error) {
-        console.error('❌ [Tender Execution Configuration Exception Error]:', error.message);
-        return res.status(500).json({ error: 'Internal worker exception mapping agent processes.' });
-    }
+    return res.json({ success: true, message: "Legacy route active. Please use deterministic bulk execution." });
 });
 
-// Telemetry Webhook Endpoint for direct Agent callback feedback logging
 router.post('/webhook-update', (req, res) => {
     const { session_id, message, is_complete, is_failed, error_msg } = req.body;
     const ctx = sessionTracker.get(session_id);
@@ -231,7 +152,6 @@ router.post('/map-platform', async (req, res) => {
     const ctx = sessionTracker.get(session_id);
     try {
         if (!force_remap) {
-            // Try to load cached blueprint from Supabase first
             const existingBlueprint = await getSupabaseBlueprint(domain_name);
             if (existingBlueprint) {
                 if (ctx) appendLog(ctx, `✅ Loaded existing blueprint for ${domain_name} from Supabase.`);
@@ -250,9 +170,9 @@ router.post('/map-platform', async (req, res) => {
 Target Domain: ${domain_name}
 We need to fill a table of BoQ items. 
 Determine the following fields:
-- row_selector: The CSS selector to identify a table row containing an item (use "tr:has-text('ITEM_CODE')" format if applicable).
-- rate_column_index: The 1-based index of the column for the "Unit Price in Fig", "Unit Price", "Rate", or "Price". (Make sure to count the columns accurately! For example, if "Unit Price in Fig" is the 8th column, this should be 8).
-- requires_click_to_edit: boolean (true if the rate cell is just plain text and needs a click to become an active input field).
+- row_selector: The CSS selector to identify a table row containing an item.
+- rate_column_index: The 1-based index of the column for the "Unit Price in Fig", "Unit Price", "Rate", or "Price".
+- requires_click_to_edit: boolean.
 - input_selector: The selector for the actual input field (e.g. "input[type='text']" or "input") once active.
 
 DOM Outline:
@@ -261,7 +181,6 @@ ${safeOutline}
 CRITICAL INSTRUCTIONS FOR OUTPUT:
 - DO NOT include any conversational text, reasoning, or explanations.
 - DO NOT use markdown code blocks (e.g., \`\`\`json). 
-- DO NOT output your internal thinking process.
 - You must output ONLY a single, valid, raw JSON object.
 `;
         if (ctx) appendLog(ctx, `🤖 Analyzing layout using gemma-4-31b-it proxy...`);
@@ -273,14 +192,13 @@ CRITICAL INSTRUCTIONS FOR OUTPUT:
         );
 
         if (!llmResult || !llmResult.row_selector || !llmResult.input_selector) {
-            throw new Error("AI failed to extract a valid blueprint. The page might be empty, black, or still loading in the container.");
+            throw new Error("AI failed to extract a valid blueprint.");
         }
 
         if (ctx) appendLog(ctx, `✅ Blueprint generated: ${JSON.stringify(llmResult)}`);
 
-        // Save new blueprint to Supabase for future use
-        const saved = await saveSupabaseBlueprint(domain_name, llmResult);
-        if (saved && ctx) appendLog(ctx, `💾 Blueprint securely persisted to Supabase for ${domain_name}.`);
+        await saveSupabaseBlueprint(domain_name, llmResult);
+        if (ctx) appendLog(ctx, `💾 Blueprint securely persisted to Supabase for ${domain_name}.`);
 
         return res.json({ success: true, blueprint: llmResult });
     } catch (err) {
@@ -301,72 +219,75 @@ router.post('/execute-bulk-blueprint', async (req, res) => {
     if (!blueprint) {
         blueprint = await getSupabaseBlueprint(domain_name);
         if (!blueprint) {
-            return res.status(400).json({ error: "No mapping available for this platform. Please click 'Map platform' first." });
+            return res.status(400).json({ error: "No mapping available for this platform." });
         }
     }
 
     const ctx = sessionTracker.get(session_id);
     if (ctx) {
         ctx.status = 'executing';
-        appendLog(ctx, `⚡ Initiating Native Playwright Bulk Fill script for ${boq_data.length} items.`);
+        appendLog(ctx, `⚡ Initiating Target-Sweep Bulk Fill script for ${boq_data.length} items.`);
     }
 
-    // Fire and forget deterministic execution loop
     (async () => {
         try {
-            if (ctx) appendLog(ctx, `📜 Blueprint Loaded! Rate Column: ${blueprint.rate_column_index}`);
+            if (ctx) appendLog(ctx, `📜 Base Rate Column mapped to: ${blueprint.rate_column_index}`);
 
             for (let i = 0; i < boq_data.length; i++) {
                 const item = boq_data[i];
                 const anchorTextRaw = item.item_code || item.description.substring(0, 15);
-                const anchorText = anchorTextRaw.replace(/'/g, "\\'"); // Escape single quotes safely
+                const anchorText = anchorTextRaw.replace(/'/g, "\\'");
 
                 if (ctx) appendLog(ctx, `✏️ [${i + 1}/${boq_data.length}] Processing item: ${anchorTextRaw}`);
 
-                // 1. THE ABSOLUTE PLAYWRIGHT SELECTOR
-                // :has-text() guarantees we find the row with our specific item code, completely ignoring hidden tables or layout junk.
-                const cellSelector = `tr:has-text("${anchorText}") td:nth-child(${blueprint.rate_column_index})`;
+                // THE NEIGHBORHOOD SWEEP ARRAY
+                // If there are hidden HTML columns, the visual index shifts. We check the AI's guess, then +1, +2, and -1.
+                const columnTargets = [
+                    blueprint.rate_column_index,
+                    blueprint.rate_column_index + 1,
+                    blueprint.rate_column_index + 2,
+                    blueprint.rate_column_index - 1
+                ];
 
-                // 2. THE AWAKENING CLICK
-                // Always click the cell to trigger the portal's JS and turn the plain text into an <input>
-                try {
-                    await axios.post(`${AUTO_BROWSER_SERVICE_URL}/sessions/${session_id}/actions/click`, {
-                        selector: cellSelector
-                    }, { timeout: 3500 });
-                    await new Promise(r => setTimeout(r, 600)); // Give the portal UI time to swap the element
-                } catch (e) {
-                    console.warn(`Click failed or timed out for ${cellSelector}, continuing...`);
-                }
+                let typedSuccessfully = false;
 
-                // 3. THE TARGETED TYPE
-                // Now target the freshly spawned input specifically inside that active cell
-                const inputSelector = `${cellSelector} input`;
+                for (const colIndex of columnTargets) {
+                    // :visible ignores hidden ghost tables used for mobile/print layouts
+                    const cellSelector = `tr:has-text("${anchorText}"):visible td:nth-child(${colIndex})`;
 
-                try {
-                    await axios.post(`${AUTO_BROWSER_SERVICE_URL}/sessions/${session_id}/actions/type`, {
-                        selector: inputSelector,
-                        text: item.rate.toString(),
-                        clear_first: false
-                    }, { timeout: 3500 });
-                } catch (err) {
-                    if (ctx) appendLog(ctx, `⚠️ Cell input failed. Engaging broad row fallback...`);
+                    // 1. THE AWAKENING CLICK
+                    try {
+                        await axios.post(`${AUTO_BROWSER_SERVICE_URL}/sessions/${session_id}/actions/click`, {
+                            selector: cellSelector
+                        }, { timeout: 2000 });
+                        await new Promise(r => setTimeout(r, 400));
+                    } catch (e) {
+                        // Ignore click timeout, the input might already be exposed
+                    }
 
-                    // 4. FALLBACK
-                    // If the input isn't directly in the TD, just find ANY input in that specific item's row
+                    // 2. THE TARGETED TYPE
+                    const inputSelector = `${cellSelector} input:visible`;
+
                     try {
                         await axios.post(`${AUTO_BROWSER_SERVICE_URL}/sessions/${session_id}/actions/type`, {
-                            selector: `tr:has-text("${anchorText}") input`,
+                            selector: inputSelector,
                             text: item.rate.toString(),
                             clear_first: false
-                        }, { timeout: 4000 });
-                    } catch (err3) {
-                        if (ctx) appendLog(ctx, `❌ Failed to type for item: ${anchorTextRaw}. Skipping to next.`);
-                        console.warn(`All fallbacks failed for item ${anchorTextRaw}`);
-                        continue;
+                        }, { timeout: 2500 });
+
+                        typedSuccessfully = true;
+                        if (ctx) appendLog(ctx, `✅ Filled Rate in Column ${colIndex}`);
+                        break; // Success! Break out of the column sweep loop so we don't overwrite anything else.
+                    } catch (err) {
+                        // Failed to find an input in THIS specific column. Let the loop try the next column target.
                     }
                 }
 
-                await new Promise(r => setTimeout(r, 200)); // Brief pause between items to let UI breathe
+                if (!typedSuccessfully) {
+                    if (ctx) appendLog(ctx, `❌ Failed to find Rate input for ${anchorTextRaw} in any expected column. Skipping to prevent data corruption.`);
+                }
+
+                await new Promise(r => setTimeout(r, 200));
             }
 
             if (ctx) {
@@ -386,7 +307,6 @@ router.post('/execute-bulk-blueprint', async (req, res) => {
     return res.json({ success: true, message: "Bulk execution sequence initiated." });
 });
 
-// Local Fallback Telemetry Simulator to keep logs running if agent updates are delayed
 function simulateBackgroundTelemetryUpdates(sessionId, boqData, pageNum, numPages) {
     let index = 0;
     const interval = setInterval(() => {
@@ -404,7 +324,7 @@ function simulateBackgroundTelemetryUpdates(sessionId, boqData, pageNum, numPage
             appendLog(ctx, `💾 [Page ${pageNum}] Clicking "Partially Save" to persist page progress...`);
             index++;
         } else {
-            appendLog(ctx, `✅ Page ${pageNum}/${numPages} completed. ${boqData.length} items filled.`);
+            appendLog(ctx, `✅ Page ${pageNum}/${numPages} completed.`);
             ctx.status = 'completed';
             clearInterval(interval);
         }
