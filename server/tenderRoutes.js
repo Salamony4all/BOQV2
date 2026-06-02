@@ -8,6 +8,7 @@ const router = express.Router();
 
 const AUTO_BROWSER_SERVICE_URL = process.env.AUTO_BROWSER_URL || 'http://auto-browser-container:8000';
 const BROWSER_GATEWAY_TOKEN = process.env.BROWSER_GATEWAY_TOKEN || '';
+const AUTO_BROWSER_HEADERS = BROWSER_GATEWAY_TOKEN ? { Authorization: `Bearer ${BROWSER_GATEWAY_TOKEN}` } : {};
 
 // In-Memory Telemetry Tracker for Background Loop Updates
 const sessionTracker = new Map();
@@ -48,14 +49,18 @@ router.post('/setup', async (req, res) => {
         let vnc_url;
 
         try {
-            const response = await axios.post(`${AUTO_BROWSER_SERVICE_URL}/sessions`, {
-                start_url: "https://etendering.tenderboard.gov.om/product/publicDash?CTRL_STRDIRECTION=LTR"
-            }, { timeout: 25000 });
+            const response = await axios.post(
+                `${AUTO_BROWSER_SERVICE_URL}/sessions`,
+                {
+                    start_url: "https://etendering.tenderboard.gov.om/product/publicDash?CTRL_STRDIRECTION=LTR"
+                },
+                { timeout: 25000, headers: AUTO_BROWSER_HEADERS }
+            );
             session_id = response.data.id;
             vnc_url = response.data.takeover_url;
         } catch (postError) {
             if (postError.response && postError.response.status === 409) {
-                const getResponse = await axios.get(`${AUTO_BROWSER_SERVICE_URL}/sessions`);
+                const getResponse = await axios.get(`${AUTO_BROWSER_SERVICE_URL}/sessions`, { headers: AUTO_BROWSER_HEADERS });
                 if (getResponse.data && getResponse.data.length > 0) {
                     session_id = getResponse.data[0].id;
                     vnc_url = getResponse.data[0].takeover_url;
@@ -63,6 +68,9 @@ router.post('/setup', async (req, res) => {
                     throw new Error("409 Conflict but no active sessions found.");
                 }
             } else {
+                const status = postError.response?.status;
+                const data = postError.response?.data;
+                console.error('Auto-browser session create failed:', status, data || postError.message);
                 throw postError;
             }
         }
@@ -124,7 +132,11 @@ router.post('/map-platform', async (req, res) => {
 
         if (ctx) appendLog(ctx, `🔍 Extracting site DOM blueprint for ${domain_name}...`);
 
-        const observeRes = await axios.post(`${AUTO_BROWSER_SERVICE_URL}/sessions/${session_id}/observe`, { limit: 100, preset: "normal" });
+        const observeRes = await axios.post(
+            `${AUTO_BROWSER_SERVICE_URL}/sessions/${session_id}/observe`,
+            { limit: 100, preset: "normal" },
+            { headers: AUTO_BROWSER_HEADERS }
+        );
         const rawState = observeRes.data.dom_outline || observeRes.data || '';
         const domString = typeof rawState === 'string' ? rawState : JSON.stringify(rawState);
         const safeOutline = domString.substring(0, 15000);
