@@ -223,19 +223,21 @@ router.post('/webhook-update', (req, res) => {
  * POST /api/tender/map-platform
  */
 router.post('/map-platform', async (req, res) => {
-    const { session_id, domain_name } = req.body;
+    const { session_id, domain_name, force_remap } = req.body;
     if (!session_id || !domain_name) return res.status(400).json({ error: 'Missing session_id or domain_name' });
 
     const ctx = sessionTracker.get(session_id);
     try {
-        // Try to load cached blueprint from Supabase first
-        const existingBlueprint = await getSupabaseBlueprint(domain_name);
-        if (existingBlueprint) {
-            if (ctx) appendLog(ctx, `✅ Loaded existing blueprint for ${domain_name} from Supabase.`);
-            return res.json({ success: true, blueprint: existingBlueprint });
+        if (!force_remap) {
+            // Try to load cached blueprint from Supabase first
+            const existingBlueprint = await getSupabaseBlueprint(domain_name);
+            if (existingBlueprint) {
+                if (ctx) appendLog(ctx, `✅ Loaded existing blueprint for ${domain_name} from Supabase.`);
+                return res.json({ success: true, blueprint: existingBlueprint });
+            }
         }
 
-        if (ctx) appendLog(ctx, `🔍 No cached blueprint found. Extracting site DOM blueprint for ${domain_name}...`);
+        if (ctx) appendLog(ctx, `🔍 Extracting site DOM blueprint for ${domain_name}...`);
 
         const observeRes = await axios.post(`${AUTO_BROWSER_SERVICE_URL}/sessions/${session_id}/observe`, { limit: 100, preset: "normal" });
         const rawState = observeRes.data.dom_outline || observeRes.data || '';
@@ -247,7 +249,7 @@ Target Domain: ${domain_name}
 We need to fill a table of BoQ items. 
 Determine the following fields:
 - row_selector: The CSS selector to identify a table row containing an item (use "tr:has-text('ITEM_CODE')" format if applicable).
-- rate_column_index: The 1-based index of the column for the "Unit Price", "Rate", or "Price".
+- rate_column_index: The 1-based index of the column for the "Unit Price in Fig", "Unit Price", "Rate", or "Price". (Make sure to count the columns accurately! For example, if "Unit Price in Fig" is the 8th column, this should be 8).
 - requires_click_to_edit: boolean (true if the rate cell is just plain text and needs a click to become an active input field).
 - input_selector: The selector for the actual input field (e.g. "input[type='text']" or "input") once active.
 
@@ -291,8 +293,15 @@ CRITICAL INSTRUCTIONS FOR OUTPUT:
  * POST /api/tender/execute-bulk-blueprint
  */
 router.post('/execute-bulk-blueprint', async (req, res) => {
-    const { session_id, domain_name, boq_data, blueprint } = req.body;
-    if (!session_id || !domain_name || !boq_data || !blueprint) return res.status(400).json({ error: 'Missing required parameters including blueprint' });
+    let { session_id, domain_name, boq_data, blueprint } = req.body;
+    if (!session_id || !domain_name || !boq_data) return res.status(400).json({ error: 'Missing required parameters' });
+
+    if (!blueprint) {
+        blueprint = await getSupabaseBlueprint(domain_name);
+        if (!blueprint) {
+            return res.status(400).json({ error: "No mapping available for this platform. Please click 'Map platform' first." });
+        }
+    }
 
     const ctx = sessionTracker.get(session_id);
     if (ctx) {

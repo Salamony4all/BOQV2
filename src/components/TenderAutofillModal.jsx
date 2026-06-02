@@ -141,7 +141,7 @@ function TenderAutofillModal({ isOpen, onClose, tables, apiBase }) {
             const response = await fetch(`${apiBase}/api/tender/map-platform`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ session_id: sessionInfo.id, domain_name: domainName })
+                body: JSON.stringify({ session_id: sessionInfo.id, domain_name: domainName, force_remap: true })
             });
             const data = await response.json();
             if (data.success) {
