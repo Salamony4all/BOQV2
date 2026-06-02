@@ -233,6 +233,8 @@ router.post('/execute-bulk-blueprint', async (req, res) => {
         try {
             if (ctx) appendLog(ctx, `📜 Base Rate Column mapped to: ${blueprint.rate_column_index}`);
 
+            let consecutiveFailures = 0; // The Circuit Breaker
+
             for (let i = 0; i < boq_data.length; i++) {
                 const item = boq_data[i];
                 const anchorTextRaw = item.item_code || item.description.substring(0, 15);
@@ -240,8 +242,6 @@ router.post('/execute-bulk-blueprint', async (req, res) => {
 
                 if (ctx) appendLog(ctx, `✏️ [${i + 1}/${boq_data.length}] Processing item: ${anchorTextRaw}`);
 
-                // THE NEIGHBORHOOD SWEEP ARRAY
-                // If there are hidden HTML columns, the visual index shifts. We check the AI's guess, then +1, +2, and -1.
                 const columnTargets = [
                     blueprint.rate_column_index,
                     blueprint.rate_column_index + 1,
@@ -252,10 +252,9 @@ router.post('/execute-bulk-blueprint', async (req, res) => {
                 let typedSuccessfully = false;
 
                 for (const colIndex of columnTargets) {
-                    // :visible on the table avoids ghost tables; tr:has-text finds the row even if Playwright calculates it as 0x0
+                    // table:visible on the table avoids ghost tables; tr:has-text finds the row
                     const cellSelector = `table:visible tr:has-text("${anchorText}") td:nth-child(${colIndex})`;
 
-                    // 1. THE AWAKENING CLICK
                     try {
                         await axios.post(`${AUTO_BROWSER_SERVICE_URL}/sessions/${session_id}/actions/click`, {
                             selector: cellSelector
@@ -265,7 +264,6 @@ router.post('/execute-bulk-blueprint', async (req, res) => {
                         // Ignore click timeout, the input might already be exposed
                     }
 
-                    // 2. THE TARGETED TYPE
                     const inputSelector = `${cellSelector} input`;
 
                     try {
@@ -276,21 +274,30 @@ router.post('/execute-bulk-blueprint', async (req, res) => {
                         }, { timeout: 2500 });
 
                         typedSuccessfully = true;
+                        consecutiveFailures = 0; // Reset circuit breaker
                         if (ctx) appendLog(ctx, `✅ Filled Rate in Column ${colIndex}`);
-                        break; // Success! Break out of the column sweep loop so we don't overwrite anything else.
+                        break;
                     } catch (err) {
-                        // Failed to find an input in THIS specific column. Let the loop try the next column target.
+                        // Failed to find an input in THIS column. Loop to the next column target.
                     }
                 }
 
                 if (!typedSuccessfully) {
-                    if (ctx) appendLog(ctx, `❌ Failed to find Rate input for ${anchorTextRaw} in any expected column. Skipping to prevent data corruption.`);
+                    consecutiveFailures++;
+                    if (ctx) appendLog(ctx, `❌ Failed to find Rate input for ${anchorTextRaw} in any expected column.`);
+
+                    // Trigger the Circuit Breaker if the container has crashed
+                    if (consecutiveFailures >= 3) {
+                        if (ctx) appendLog(ctx, `🚨 CRITICAL: 3 consecutive failures. Browser container likely crashed (TargetClosedError). Aborting loop.`);
+                        throw new Error("Container browser crashed or disconnected.");
+                    }
                 }
 
-                await new Promise(r => setTimeout(r, 200));
+                // THROTTLING: Wait 1.5 seconds between items to let Railway's memory flush
+                await new Promise(r => setTimeout(r, 1500));
             }
 
-            if (ctx) {
+            if (ctx && ctx.status !== 'failed') {
                 appendLog(ctx, `✅ Bulk execution successfully completed for ${boq_data.length} items.`);
                 ctx.status = 'completed';
             }
