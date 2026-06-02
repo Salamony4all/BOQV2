@@ -308,70 +308,57 @@ router.post('/execute-bulk-blueprint', async (req, res) => {
     const ctx = sessionTracker.get(session_id);
     if (ctx) {
         ctx.status = 'executing';
-        appendLog(ctx, `⚡ Initiating deterministic Bulk Fill script for ${boq_data.length} items using provided Blueprint.`);
+        appendLog(ctx, `⚡ Initiating Native Playwright Bulk Fill script for ${boq_data.length} items.`);
     }
 
     // Fire and forget deterministic execution loop
     (async () => {
         try {
-            if (ctx) appendLog(ctx, `📜 Blueprint Loaded! Click-to-edit: ${blueprint.requires_click_to_edit}`);
+            if (ctx) appendLog(ctx, `📜 Blueprint Loaded! Rate Column: ${blueprint.rate_column_index}`);
 
             for (let i = 0; i < boq_data.length; i++) {
                 const item = boq_data[i];
                 const anchorTextRaw = item.item_code || item.description.substring(0, 15);
-                const anchorText = anchorTextRaw.replace(/'/g, "\\'"); // Escape single quotes for Playwright selector safely
+                const anchorText = anchorTextRaw.replace(/'/g, "\\'"); // Escape single quotes safely
+
                 if (ctx) appendLog(ctx, `✏️ [${i + 1}/${boq_data.length}] Processing item: ${anchorTextRaw}`);
 
-                let targetCellSelector = blueprint.row_selector;
+                // 1. THE ABSOLUTE PLAYWRIGHT SELECTOR
+                // :has-text() guarantees we find the row with our specific item code, completely ignoring hidden tables or layout junk.
+                const cellSelector = `tr:has-text("${anchorText}") td:nth-child(${blueprint.rate_column_index})`;
 
-                // --- THE PARADOX GUARD ---
-                // Catch hallucinated state-dependent pseudo-classes
-                if (targetCellSelector.includes(':has(') || targetCellSelector.includes(':has-text') || targetCellSelector.includes(':contains')) {
-                    targetCellSelector = `tr:nth-of-type(${i + 2})`;
-                } else if (targetCellSelector.includes('ITEM_CODE')) {
-                    targetCellSelector = targetCellSelector.replace('ITEM_CODE', anchorText);
-                } else if (!targetCellSelector || targetCellSelector === 'tr') {
-                    targetCellSelector = `tr:nth-of-type(${i + 2})`;
-                }
-
-                targetCellSelector = `${targetCellSelector} td:nth-child(${blueprint.rate_column_index})`;
-
-                // --- AXIOS FAST-ABORT CLICK ---
-                // Only wait 2.5 seconds. If Playwright hangs, bypass instantly!
+                // 2. THE AWAKENING CLICK
+                // Always click the cell to trigger the portal's JS and turn the plain text into an <input>
                 try {
                     await axios.post(`${AUTO_BROWSER_SERVICE_URL}/sessions/${session_id}/actions/click`, {
-                        selector: targetCellSelector
-                    }, { timeout: 2500 });
-                    await new Promise(r => setTimeout(r, 400));
+                        selector: cellSelector
+                    }, { timeout: 3500 });
+                    await new Promise(r => setTimeout(r, 600)); // Give the portal UI time to swap the element
                 } catch (e) {
-                    console.warn(`Click failed for ${targetCellSelector}, continuing to type...`);
+                    console.warn(`Click failed or timed out for ${cellSelector}, continuing...`);
                 }
 
-                let inputSelector = blueprint.input_selector;
-                if (!inputSelector.includes(':visible')) {
-                    inputSelector = inputSelector.split(',').map(s => s.trim() + ':visible').join(', ');
-                }
-                const complexSelector = `${targetCellSelector} ${inputSelector}`;
+                // 3. THE TARGETED TYPE
+                // Now target the freshly spawned input specifically inside that active cell
+                const inputSelector = `${cellSelector} input`;
 
-                // --- AXIOS FAST-ABORT TYPE ---
                 try {
                     await axios.post(`${AUTO_BROWSER_SERVICE_URL}/sessions/${session_id}/actions/type`, {
-                        selector: complexSelector,
+                        selector: inputSelector,
                         text: item.rate.toString(),
                         clear_first: false
-                    }, { timeout: 3000 });
+                    }, { timeout: 3500 });
                 } catch (err) {
-                    if (ctx) appendLog(ctx, `⚠️ Primary selector failed. Engaging Global XPath fallback for input #${i + 1}...`);
+                    if (ctx) appendLog(ctx, `⚠️ Cell input failed. Engaging broad row fallback...`);
 
-                    // THE TRUE GLOBAL XPATH FALLBACK
-                    const fallbackXPath = `xpath=(//input[@type='text'])[${i + 1}]`;
-
+                    // 4. FALLBACK
+                    // If the input isn't directly in the TD, just find ANY input in that specific item's row
                     try {
                         await axios.post(`${AUTO_BROWSER_SERVICE_URL}/sessions/${session_id}/actions/type`, {
-                            selector: fallbackXPath,
+                            selector: `tr:has-text("${anchorText}") input`,
                             text: item.rate.toString(),
                             clear_first: false
-                        }, { timeout: 5000 });
+                        }, { timeout: 4000 });
                     } catch (err3) {
                         if (ctx) appendLog(ctx, `❌ Failed to type for item: ${anchorTextRaw}. Skipping to next.`);
                         console.warn(`All fallbacks failed for item ${anchorTextRaw}`);
@@ -379,7 +366,7 @@ router.post('/execute-bulk-blueprint', async (req, res) => {
                     }
                 }
 
-                await new Promise(r => setTimeout(r, 400));
+                await new Promise(r => setTimeout(r, 200)); // Brief pause between items to let UI breathe
             }
 
             if (ctx) {
