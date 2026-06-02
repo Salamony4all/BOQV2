@@ -335,7 +335,12 @@ router.post('/execute-bulk-blueprint', async (req, res) => {
                     console.warn(`Click failed for ${targetCellSelector}, continuing to type...`);
                 }
 
-                const complexSelector = `${targetCellSelector} ${blueprint.input_selector}`;
+                let inputSelector = blueprint.input_selector;
+                if (!inputSelector.includes(':visible')) {
+                    // Split by comma in case of multiple selectors and append :visible to each
+                    inputSelector = inputSelector.split(',').map(s => s.trim() + ':visible').join(', ');
+                }
+                const complexSelector = `${targetCellSelector} ${inputSelector}`;
 
                 // --- THE GLOBAL XPATH FALLBACK FIX ---
                 try {
@@ -348,7 +353,7 @@ router.post('/execute-bulk-blueprint', async (req, res) => {
                     if (ctx) appendLog(ctx, `⚠️ Primary selector failed. Engaging standard CSS row-scoped fallback...`);
                     
                     // Fallback 1: Assume 1 header row, scope input to the (i+2)th row
-                    const fallbackSelector1 = `tr:nth-of-type(${i + 2}) input[type='text'], tr:nth-of-type(${i + 2}) input`;
+                    const fallbackSelector1 = `tr:nth-of-type(${i + 2}) input[type='text']:visible, tr:nth-of-type(${i + 2}) input:not([type='hidden']):visible`;
                     
                     try {
                         await axios.post(`${AUTO_BROWSER_SERVICE_URL}/sessions/${session_id}/actions/type`, {
@@ -358,7 +363,7 @@ router.post('/execute-bulk-blueprint', async (req, res) => {
                         });
                     } catch (err2) {
                         // Fallback 2: Assume tbody resets the row count, scope to (i+1)th row in tbody
-                        const fallbackSelector2 = `tbody tr:nth-of-type(${i + 1}) input[type='text'], tbody tr:nth-of-type(${i + 1}) input`;
+                        const fallbackSelector2 = `tbody tr:nth-of-type(${i + 1}) input[type='text']:visible, tbody tr:nth-of-type(${i + 1}) input:not([type='hidden']):visible`;
                         
                         try {
                             await axios.post(`${AUTO_BROWSER_SERVICE_URL}/sessions/${session_id}/actions/type`, {
