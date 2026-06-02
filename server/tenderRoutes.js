@@ -77,8 +77,10 @@ router.post('/setup', async (req, res) => {
         if (vnc_url && vnc_url.includes('127.0.0.1:6080')) {
             const publicVncBase = process.env.AUTO_BROWSER_VNC_URL || 'https://browser-node-production.up.railway.app';
             vnc_url = vnc_url.replace('http://127.0.0.1:6080', publicVncBase);
-            // Force noVNC to resize the remote server to our iframe's exact dimensions instead of just scaling a static resolution
-            vnc_url = vnc_url.replace('resize=scale', 'resize=remote');
+            // Use resize=scale to preserve the original Playwright coordinate system.
+            // Using resize=remote changes the underlying X11 resolution on connection,
+            // which breaks Playwright's coordinate math for 'click' and 'type' actions!
+            vnc_url = vnc_url.replace('resize=remote', 'resize=scale');
         }
 
         return res.json({
@@ -310,10 +312,9 @@ router.post('/execute-bulk-blueprint', async (req, res) => {
 
                 let targetCellSelector = blueprint.row_selector;
 
-                // Guard against Playwright/jQuery specific text selectors which crash standard CSS engines
-                if (targetCellSelector.includes(':has-text') || targetCellSelector.includes(':contains')) {
-                    targetCellSelector = `tr:nth-of-type(${i + 2})`; // i+2 to safely skip a 1-row header
-                } else if (targetCellSelector.includes('ITEM_CODE')) {
+                // Auto Browser uses Playwright natively, so Playwright selectors like :has-text() are FULLY supported.
+                // We just need to inject the specific ITEM_CODE for this row.
+                if (targetCellSelector.includes('ITEM_CODE')) {
                     targetCellSelector = targetCellSelector.replace('ITEM_CODE', anchorText);
                 } else if (!targetCellSelector || targetCellSelector === 'tr') {
                     targetCellSelector = `tr:nth-of-type(${i + 2})`;
