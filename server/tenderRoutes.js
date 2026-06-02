@@ -48,7 +48,9 @@ router.post('/setup', async (req, res) => {
         let vnc_url;
 
         try {
-            const response = await axios.post(`${AUTO_BROWSER_SERVICE_URL}/sessions`, {}, { timeout: 25000 });
+            const response = await axios.post(`${AUTO_BROWSER_SERVICE_URL}/sessions`, {
+                start_url: "https://etendering.tenderboard.gov.om/product/publicDash?CTRL_STRDIRECTION=LTR"
+            }, { timeout: 25000 });
             session_id = response.data.id;
             vnc_url = response.data.takeover_url;
         } catch (postError) {
