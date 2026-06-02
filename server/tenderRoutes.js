@@ -322,9 +322,12 @@ router.post('/execute-bulk-blueprint', async (req, res) => {
 
                 let targetCellSelector = blueprint.row_selector;
 
-                // Auto Browser uses Playwright natively, so Playwright selectors like :has-text() are FULLY supported.
-                // We just need to inject the specific ITEM_CODE for this row.
-                if (targetCellSelector.includes('ITEM_CODE')) {
+                // --- FIX 1: THE PARADOX GUARD ---
+                // Catch hallucinated state-dependent pseudo-classes (like :has or :has-text) 
+                // and immediately override them with standard structural indexing.
+                if (targetCellSelector.includes(':has(') || targetCellSelector.includes(':has-text') || targetCellSelector.includes(':contains')) {
+                    targetCellSelector = `tr:nth-of-type(${i + 2})`;
+                } else if (targetCellSelector.includes('ITEM_CODE')) {
                     targetCellSelector = targetCellSelector.replace('ITEM_CODE', anchorText);
                 } else if (!targetCellSelector || targetCellSelector === 'tr') {
                     targetCellSelector = `tr:nth-of-type(${i + 2})`;
@@ -351,7 +354,7 @@ router.post('/execute-bulk-blueprint', async (req, res) => {
                 }
                 const complexSelector = `${targetCellSelector} ${inputSelector}`;
 
-                // --- THE GLOBAL XPATH FALLBACK FIX ---
+                // --- FIX 2: THE TRUE GLOBAL XPATH FALLBACK ---
                 try {
                     await axios.post(`${AUTO_BROWSER_SERVICE_URL}/sessions/${session_id}/actions/type`, {
                         selector: complexSelector,
@@ -359,32 +362,21 @@ router.post('/execute-bulk-blueprint', async (req, res) => {
                         clear_first: false
                     });
                 } catch (err) {
-                    if (ctx) appendLog(ctx, `⚠️ Primary selector failed. Engaging standard CSS row-scoped fallback...`);
-                    
-                    // Fallback 1: Assume 1 header row, scope input to the (i+2)th row
-                    const fallbackSelector1 = `tr:nth-of-type(${i + 2}) input[type='text']:visible, tr:nth-of-type(${i + 2}) input:not([type='hidden']):visible`;
-                    
+                    if (ctx) appendLog(ctx, `⚠️ Primary selector failed. Engaging Global XPath fallback for input #${i + 1}...`);
+
+                    // The Bulletproof Global XPath Index
+                    const fallbackXPath = `xpath=(//input[@type='text'])[${i + 1}]`;
+
                     try {
                         await axios.post(`${AUTO_BROWSER_SERVICE_URL}/sessions/${session_id}/actions/type`, {
-                            selector: fallbackSelector1,
+                            selector: fallbackXPath,
                             text: item.rate.toString(),
                             clear_first: false
                         });
-                    } catch (err2) {
-                        // Fallback 2: Assume tbody resets the row count, scope to (i+1)th row in tbody
-                        const fallbackSelector2 = `tbody tr:nth-of-type(${i + 1}) input[type='text']:visible, tbody tr:nth-of-type(${i + 1}) input:not([type='hidden']):visible`;
-                        
-                        try {
-                            await axios.post(`${AUTO_BROWSER_SERVICE_URL}/sessions/${session_id}/actions/type`, {
-                                selector: fallbackSelector2,
-                                text: item.rate.toString(),
-                                clear_first: false
-                            });
-                        } catch (err3) {
-                            if (ctx) appendLog(ctx, `❌ Failed to type for item: ${anchorTextRaw}. Skipping to next.`);
-                            console.warn(`All fallbacks failed for item ${anchorTextRaw}`);
-                            continue; // Skip to the next item instead of crashing the entire loop
-                        }
+                    } catch (err3) {
+                        if (ctx) appendLog(ctx, `❌ Failed to type for item: ${anchorTextRaw}. Skipping to next.`);
+                        console.warn(`All fallbacks failed for item ${anchorTextRaw}`);
+                        continue; // Skip to the next item instead of crashing the entire loop
                     }
                 }
 
