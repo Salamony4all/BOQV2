@@ -185,14 +185,10 @@ router.post('/execute-bulk-blueprint', async (req, res) => {
                 .replace('http://', 'ws://')
                 .replace('https://', 'wss://');
 
-            // 2. Connect natively using your main app's Playwright driver engine via CDP
-            browser = await chromium.connectOverCDP(wsEndpoint);
+            // 2. Connect natively using your main app's Playwright driver engine
+            browser = await chromium.connect(wsEndpoint);
             const contexts = browser.contexts();
-            const page = contexts[0]?.pages()[0];
-            
-            if (!page) {
-                throw new Error("Target page closed or unreachable in the active CDP session.");
-            }
+            const page = contexts[0]?.pages()[0] || await browser.newPage();
 
             if (ctx) appendLog(ctx, `⚡ Connected! Activating dynamic speed filters on browser viewport...`);
 
