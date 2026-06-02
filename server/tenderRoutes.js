@@ -307,8 +307,9 @@ router.post('/execute-bulk-blueprint', async (req, res) => {
 
             for (let i = 0; i < boq_data.length; i++) {
                 const item = boq_data[i];
-                const anchorText = item.item_code || item.description.substring(0, 15);
-                if (ctx) appendLog(ctx, `✏️ [${i + 1}/${boq_data.length}] Processing item: ${anchorText}`);
+                const anchorTextRaw = item.item_code || item.description.substring(0, 15);
+                const anchorText = anchorTextRaw.replace(/'/g, "\\'"); // Escape single quotes for Playwright selector safely
+                if (ctx) appendLog(ctx, `✏️ [${i + 1}/${boq_data.length}] Processing item: ${anchorTextRaw}`);
 
                 let targetCellSelector = blueprint.row_selector;
 
@@ -357,11 +358,18 @@ router.post('/execute-bulk-blueprint', async (req, res) => {
                     } catch (err2) {
                         // Fallback 2: Assume tbody resets the row count, scope to (i+1)th row in tbody
                         const fallbackSelector2 = `tbody tr:nth-of-type(${i + 1}) input[type='text'], tbody tr:nth-of-type(${i + 1}) input`;
-                        await axios.post(`${AUTO_BROWSER_SERVICE_URL}/sessions/${session_id}/actions/type`, {
-                            selector: fallbackSelector2,
-                            text: item.rate.toString(),
-                            clear_first: false
-                        });
+                        
+                        try {
+                            await axios.post(`${AUTO_BROWSER_SERVICE_URL}/sessions/${session_id}/actions/type`, {
+                                selector: fallbackSelector2,
+                                text: item.rate.toString(),
+                                clear_first: false
+                            });
+                        } catch (err3) {
+                            if (ctx) appendLog(ctx, `❌ Failed to type for item: ${anchorTextRaw}. Skipping to next.`);
+                            console.warn(`All fallbacks failed for item ${anchorTextRaw}`);
+                            continue; // Skip to the next item instead of crashing the entire loop
+                        }
                     }
                 }
 
