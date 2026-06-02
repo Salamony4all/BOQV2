@@ -137,39 +137,13 @@ const isValidProviderModel = (provider, model) => {
 // HELPERS
 // ──────────────────────────────────────────────────────────────────────────────
 
-/** Strip markdown fences, then parse JSON with surgical precision. */
 export function safeParseJSON(text) {
     if (!text) throw new Error('Empty AI response');
 
-    // 1. Structural Anchor Discovery (Regex-based)
-    let cleaned = text;
-    const itemsMatch = text.match(/\{\s*"items"\s*:/);
-    const invMatch = text.match(/\{\s*"inventory"\s*:/);
-
-    const itemsStartIdx = itemsMatch ? itemsMatch.index : -1;
-    const invStartIdx = invMatch ? invMatch.index : -1;
-
-    let startIdx = -1;
-    if (itemsStartIdx !== -1 && invStartIdx !== -1) {
-        startIdx = Math.min(itemsStartIdx, invStartIdx);
-    } else {
-        startIdx = itemsStartIdx !== -1 ? itemsStartIdx : invStartIdx;
-    }
-
-    const lastBraceIdx = text.lastIndexOf('}');
-
-    // If we have specific JSON anchors, prioritize them. Else use first '{'.
-    const firstBraceIdx = text.indexOf('{');
-    const finalStartIdx = (startIdx !== -1) ? startIdx : firstBraceIdx;
-
-    if (finalStartIdx !== -1 && lastBraceIdx !== -1 && lastBraceIdx > finalStartIdx) {
-        cleaned = text.substring(finalStartIdx, lastBraceIdx + 1);
-    } else {
-        cleaned = text
-            .replace(/^```(?:json)?\s*/i, '')
-            .replace(/\s*```$/i, '')
-            .trim();
-    }
+    const cleanText = text
+        .replace(/^```(?:json)?\s*/im, '')
+        .replace(/\s*```$/im, '')
+        .trim();
 
     const attemptParse = (str) => {
         try {
@@ -181,12 +155,64 @@ export function safeParseJSON(text) {
         }
     };
 
-    let result = attemptParse(cleaned);
+    // 1. Try parsing directly
+    let result = attemptParse(cleanText);
     if (result) return result;
+
+    // 2. Helper to find balanced JSON structure (handles appended text or duplicate objects)
+    const extractBalancedJSON = (txt, openChar, closeChar) => {
+        const startIdx = txt.indexOf(openChar);
+        if (startIdx === -1) return null;
+        
+        let depth = 0;
+        let inString = false;
+        let escapeNext = false;
+        
+        for (let i = startIdx; i < txt.length; i++) {
+            const char = txt[i];
+            if (escapeNext) {
+                escapeNext = false;
+                continue;
+            }
+            if (char === '\\') {
+                escapeNext = true;
+                continue;
+            }
+            if (char === '"') {
+                inString = !inString;
+                continue;
+            }
+            if (!inString) {
+                if (char === openChar) depth++;
+                else if (char === closeChar) {
+                    depth--;
+                    if (depth === 0) {
+                        return txt.substring(startIdx, i + 1);
+                    }
+                }
+            }
+        }
+        return null;
+    };
+
+    // 3. Try extracting first object
+    const firstObj = extractBalancedJSON(cleanText, '{', '}');
+    if (firstObj) {
+        result = attemptParse(firstObj);
+        if (result) return result;
+    }
+
+    // 4. Try extracting first array
+    const firstArr = extractBalancedJSON(cleanText, '[', ']');
+    if (firstArr) {
+        result = attemptParse(firstArr);
+        if (result) return result;
+    }
 
     console.warn('  ⚠️ [LLM Utils] Standard parse failed, attempting surgical repair...');
 
-    let fixed = cleaned;
+    // 5. Fallback repair (balances unclosed braces)
+    let fixed = cleanText;
     const quoteMatches = fixed.match(/"/g) || [];
     if (quoteMatches.length % 2 !== 0) {
         fixed += '"';
