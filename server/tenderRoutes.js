@@ -144,12 +144,12 @@ router.post('/map-platform', async (req, res) => {
 
         const prompt = `Analyze this web page snapshot and output ONLY a valid JSON schema blueprint for data entry. 
 Target Domain: ${domain_name}
-We need to fill a table of BoQ items. Determine:
-- row_selector: The CSS selector to identify a table row.
-- rate_column_index: The 1-based index of the column for the "Unit Price in Fig".
+We need to fill only the "Unit Price In Fig" field for each BoQ row. Determine:
+- row_selector: A CSS selector that matches each BoQ data row.
+- input_selector: A CSS selector that identifies the editable Unit Price In Fig input inside that row.
 - requires_click_to_edit: boolean.
-- input_selector: The selector for the input field.
 
+IMPORTANT: Do not return selectors for any other columns or fields.
 DOM Outline:
 ${safeOutline}
 
@@ -213,10 +213,20 @@ router.post('/execute-bulk-blueprint', async (req, res) => {
                 headers: { 'Authorization': `Bearer ${BROWSER_GATEWAY_TOKEN}` }
             }).catch(() => console.log("Speed filter dynamic activation complete."));
 
-            let activeColIndex = blueprint.rate_column_index;
-            const rowOffset = 2; // Data rows start at index 2 under the layout header
+            const rowSelector = blueprint.row_selector;
+            const inputSelector = blueprint.input_selector;
+            const requiresClickToEdit = Boolean(blueprint.requires_click_to_edit);
 
-            if (ctx) appendLog(ctx, `🚀 Unleashing low-latency data injection stream for ${boq_data.length} rows.`);
+            if (ctx) appendLog(ctx, `🚀 Unleashing low-latency data injection stream for ${boq_data.length} rows using the Unit Price In Fig blueprint.`);
+            if (ctx) appendLog(ctx, `📘 Blueprint: ${JSON.stringify({ row_selector: rowSelector, input_selector: inputSelector, requires_click_to_edit: requiresClickToEdit })}`);
+
+            const targetRows = page.locator(rowSelector);
+            const rowCount = await targetRows.count();
+            if (ctx) appendLog(ctx, `🔎 Blueprint detected ${rowCount} matching rows for selector: ${rowSelector}`);
+
+            if (rowCount === 0) {
+                throw new Error(`No rows found using blueprint row_selector: ${rowSelector}`);
+            }
 
             for (let i = 0; i < boq_data.length; i++) {
                 const item = boq_data[i];
@@ -224,46 +234,39 @@ router.post('/execute-bulk-blueprint', async (req, res) => {
 
                 if (ctx) appendLog(ctx, `✏️ [${i + 1}/${boq_data.length}] Processing: ${anchorTextRaw}`);
 
-                // Direct Grid Anchor combined with combinator boundary stepping '>>'
-                const gridAnchor = `table:has(tr:has-text("Unit Price")):visible`;
-                const currentRowIndex = i + rowOffset;
-                const rowSelector = `${gridAnchor} >> tr:nth-of-type(${currentRowIndex})`;
+                if (i >= rowCount) {
+                    if (ctx) appendLog(ctx, `⚠️ No matching row ${i + 1} found for selector: ${rowSelector}`);
+                    continue;
+                }
 
-                const columnTargets = [
-                    activeColIndex,
-                    activeColIndex + 1,
-                    activeColIndex + 2,
-                    activeColIndex - 1
-                ];
-
-                const uniqueTargets = [...new Set(columnTargets)];
+                const row = targetRows.nth(i);
                 let typedSuccessfully = false;
+                let input = row.locator(inputSelector).first();
+                const inputCount = await input.count();
 
-                for (const colIndex of uniqueTargets) {
-                    const cellSelector = `${rowSelector} >> td:nth-child(${colIndex})`;
+                if (inputCount === 0) {
+                    if (ctx) appendLog(ctx, `⚠️ Blueprint input_selector not found inside row, trying global selector: ${inputSelector}`);
+                    input = page.locator(inputSelector).first();
+                }
 
-                    try {
-                        // Use native page locator handling with real-time browser-level auto-wait mechanisms
-                        const cell = page.locator(cellSelector).first();
-                        await cell.click({ timeout: 400 });
-
-                        const input = page.locator(`${cellSelector} >> input`).first();
-                        await input.fill(item.rate.toString(), { timeout: 400 });
-
-                        typedSuccessfully = true;
-
-                        if (activeColIndex !== colIndex) {
-                            activeColIndex = colIndex;
-                            if (ctx) appendLog(ctx, `🧠 Layout offset synchronized to column ${colIndex}.`);
-                        }
-                        break;
-                    } catch (err) {
-                        // Sweeping to next adjacent target column coordinate instantly
+                try {
+                    if (requiresClickToEdit) {
+                        if (ctx) appendLog(ctx, `🖱️ Clicking row to activate edit mode.`);
+                        await row.click({ timeout: 2000 }).catch(() => undefined);
                     }
+
+                    await input.scrollIntoViewIfNeeded({ timeout: 2000 });
+                    await input.click({ timeout: 2000 });
+                    await input.fill(item.rate.toString(), { timeout: 3000 });
+                    typedSuccessfully = true;
+
+                    if (ctx) appendLog(ctx, `✅ Filled row ${i + 1} using blueprint input selector.`);
+                } catch (err) {
+                    if (ctx) appendLog(ctx, `⚠️ Blueprint fill failed for row ${i + 1}: ${err.message}`);
                 }
 
                 if (!typedSuccessfully) {
-                    if (ctx) appendLog(ctx, `⚠️ Skipped row ${currentRowIndex} (Input element focus match timeout).`);
+                    if (ctx) appendLog(ctx, `⚠️ Skipped item ${i + 1} because no editable Unit Price In Fig input could be matched.`);
                 }
             }
 
