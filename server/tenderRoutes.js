@@ -180,15 +180,16 @@ router.post('/execute-bulk-blueprint', async (req, res) => {
     (async () => {
         let browser;
         try {
-            // 1. Construct the dynamic tokenized connection endpoint
-            const wsEndpoint = `${AUTO_BROWSER_SERVICE_URL}/sessions/${session_id}/connect?token=${BROWSER_GATEWAY_TOKEN}`
+            // 1. Construct the dynamic tokenized connection endpoint for CDP
+            const wsEndpoint = `${AUTO_BROWSER_SERVICE_URL}/sessions/${session_id}/cdp?token=${BROWSER_GATEWAY_TOKEN}`
                 .replace('http://', 'ws://')
                 .replace('https://', 'wss://');
 
             // 2. Connect natively using your main app's Playwright driver engine
-            browser = await chromium.connect(wsEndpoint);
+            browser = await chromium.connectOverCDP(wsEndpoint);
             const contexts = browser.contexts();
-            const page = contexts[0]?.pages()[0] || await browser.newPage();
+            // Use the very first context (the default one shown in VNC) and its active page
+            const page = contexts[0].pages()[0];
 
             if (ctx) appendLog(ctx, `⚡ Connected! Activating dynamic speed filters on browser viewport...`);
 
@@ -262,11 +263,6 @@ router.post('/execute-bulk-blueprint', async (req, res) => {
                 appendLog(ctx, `❌ Execution aborted: ${err.message}`);
                 ctx.status = 'failed';
                 ctx.error = err.message;
-            }
-        } finally {
-            if (browser) {
-                // Disconnect cleanly so we release control handles without dropping the active session page context
-                await browser.disconnect();
             }
         }
     })();
