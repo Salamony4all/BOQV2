@@ -323,15 +323,16 @@ router.post('/execute-bulk-blueprint', async (req, res) => {
 
                 targetCellSelector = `${targetCellSelector} td:nth-child(${blueprint.rate_column_index})`;
 
-                if (blueprint.requires_click_to_edit) {
-                    try {
-                        await axios.post(`${AUTO_BROWSER_SERVICE_URL}/sessions/${session_id}/actions/click`, {
-                            selector: targetCellSelector
-                        });
-                        await new Promise(r => setTimeout(r, 400));
-                    } catch (e) {
-                        console.warn(`Click failed for ${targetCellSelector}, continuing to type...`);
-                    }
+                // ALWAYS click the cell first, regardless of what the LLM guessed. 
+                // Many grids require a click to activate the input, and if skipped, the input remains 
+                // hidden (`display: none`), causing Playwright to timeout with "element is not visible".
+                try {
+                    await axios.post(`${AUTO_BROWSER_SERVICE_URL}/sessions/${session_id}/actions/click`, {
+                        selector: targetCellSelector
+                    });
+                    await new Promise(r => setTimeout(r, 400));
+                } catch (e) {
+                    console.warn(`Click failed for ${targetCellSelector}, continuing to type...`);
                 }
 
                 const complexSelector = `${targetCellSelector} ${blueprint.input_selector}`;
