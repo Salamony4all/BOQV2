@@ -214,10 +214,12 @@ router.post('/execute-bulk-blueprint', async (req, res) => {
 
                 if (ctx) appendLog(ctx, `✏️ [${i + 1}/${boq_data.length}] Processing item: ${anchorTextRaw}`);
 
-                // STRUCTURAL ROW INDEXING: Bypasses ALL text formatting traps!
-                const currentRowIndex = i + rowOffset;
-                // Scope to table:visible to completely bypass the Ghost Table!
-                const rowSelector = `table:visible tr:nth-of-type(${currentRowIndex})`;
+                // THE GRID ANCHOR
+                // Force Playwright to find the specific visible table containing the BOQ headers, 
+                // then use structural indexing to bypass all internal cell formatting traps.
+                const gridAnchor = `table:has(tr:has-text("Unit Price")):visible`;
+                const currentRowIndex = i + rowOffset; // Assuming row 1 is the header
+                const rowSelector = `${gridAnchor} tr:nth-of-type(${currentRowIndex})`;
 
                 // The Neighborhood Sweep
                 const columnTargets = [
@@ -236,10 +238,9 @@ router.post('/execute-bulk-blueprint', async (req, res) => {
                     const cellSelector = `${rowSelector} td:nth-child(${colIndex})`;
 
                     try {
-                        // NO AXIOS TIMEOUT! This prevents Node from spamming the container while Playwright is still searching.
                         await axios.post(`${AUTO_BROWSER_SERVICE_URL}/sessions/${session_id}/actions/click`, {
                             selector: cellSelector
-                        });
+                        }, { timeout: 2500 });
                         await new Promise(r => setTimeout(r, 600));
                     } catch (e) {
                         // Ignore click timeout, the input might already be exposed
@@ -248,12 +249,11 @@ router.post('/execute-bulk-blueprint', async (req, res) => {
                     const inputSelector = `${cellSelector} input`;
 
                     try {
-                        // NO AXIOS TIMEOUT! 
                         await axios.post(`${AUTO_BROWSER_SERVICE_URL}/sessions/${session_id}/actions/type`, {
                             selector: inputSelector,
                             text: item.rate.toString(),
                             clear_first: false
-                        });
+                        }, { timeout: 3000 });
 
                         typedSuccessfully = true;
                         consecutiveFailures = 0; // Reset circuit breaker
