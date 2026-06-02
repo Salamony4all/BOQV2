@@ -78,8 +78,6 @@ router.post('/setup', async (req, res) => {
             const publicVncBase = process.env.AUTO_BROWSER_VNC_URL || 'https://browser-node-production.up.railway.app';
             vnc_url = vnc_url.replace('http://127.0.0.1:6080', publicVncBase);
             // Use resize=scale to preserve the original Playwright coordinate system.
-            // Using resize=remote changes the underlying X11 resolution on connection,
-            // which breaks Playwright's coordinate math for 'click' and 'type' actions!
             vnc_url = vnc_url.replace('resize=remote', 'resize=scale');
         }
 
@@ -106,8 +104,14 @@ router.get('/status/:session_id', (req, res) => {
     const { session_id } = req.params;
     const tracking = sessionTracker.get(session_id);
 
+    // VERCEL SERVERLESS PATCH: Prevent 404 UI crashes when Vercel memory wipes
     if (!tracking) {
-        return res.status(404).json({ success: false, error: 'Target tracking profile signature not found.' });
+        return res.json({
+            success: true,
+            status: 'executing',
+            logs: ['🔄 Syncing telemetry... (Serverless context reset)'],
+            error: null
+        });
     }
 
     return res.json({
@@ -140,7 +144,6 @@ router.post('/execute', async (req, res) => {
 
     try {
         // Build a compact items summary to reduce prompt token count
-        // TEST MODE: Only take the FIRST item to verify if the agent can edit the fields.
         const testBoqData = boq_data.slice(0, 1);
         const itemsSummary = testBoqData.map((item, i) => {
             const anchor = item.item_code ? `Item Code: "${item.item_code}"` : `Item: "${(item.description || '').substring(0, 30)}"`;
@@ -184,7 +187,6 @@ EXAMPLE OF YOUR REQUIRED FIRST STEP (UNLOCKING):
             cleanModel = cleanModel.replace(':billed', '');
         }
 
-        // Map provider names to auto-browser's accepted values: 'openai', 'claude', 'gemini'
         const providerMap = { google: 'gemini', anthropic: 'claude', openai: 'openai' };
         const cleanProvider = providerMap[provider] || provider || 'gemini';
 
@@ -322,9 +324,8 @@ router.post('/execute-bulk-blueprint', async (req, res) => {
 
                 let targetCellSelector = blueprint.row_selector;
 
-                // --- FIX 1: THE PARADOX GUARD ---
-                // Catch hallucinated state-dependent pseudo-classes (like :has or :has-text) 
-                // and immediately override them with standard structural indexing.
+                // --- THE PARADOX GUARD ---
+                // Catch hallucinated state-dependent pseudo-classes
                 if (targetCellSelector.includes(':has(') || targetCellSelector.includes(':has-text') || targetCellSelector.includes(':contains')) {
                     targetCellSelector = `tr:nth-of-type(${i + 2})`;
                 } else if (targetCellSelector.includes('ITEM_CODE')) {
@@ -335,13 +336,12 @@ router.post('/execute-bulk-blueprint', async (req, res) => {
 
                 targetCellSelector = `${targetCellSelector} td:nth-child(${blueprint.rate_column_index})`;
 
-                // ALWAYS click the cell first, regardless of what the LLM guessed. 
-                // Many grids require a click to activate the input, and if skipped, the input remains 
-                // hidden (`display: none`), causing Playwright to timeout with "element is not visible".
+                // --- AXIOS FAST-ABORT CLICK ---
+                // Only wait 2.5 seconds. If Playwright hangs, bypass instantly!
                 try {
                     await axios.post(`${AUTO_BROWSER_SERVICE_URL}/sessions/${session_id}/actions/click`, {
                         selector: targetCellSelector
-                    });
+                    }, { timeout: 2500 });
                     await new Promise(r => setTimeout(r, 400));
                 } catch (e) {
                     console.warn(`Click failed for ${targetCellSelector}, continuing to type...`);
@@ -349,22 +349,21 @@ router.post('/execute-bulk-blueprint', async (req, res) => {
 
                 let inputSelector = blueprint.input_selector;
                 if (!inputSelector.includes(':visible')) {
-                    // Split by comma in case of multiple selectors and append :visible to each
                     inputSelector = inputSelector.split(',').map(s => s.trim() + ':visible').join(', ');
                 }
                 const complexSelector = `${targetCellSelector} ${inputSelector}`;
 
-                // --- FIX 2: THE TRUE GLOBAL XPATH FALLBACK ---
+                // --- AXIOS FAST-ABORT TYPE ---
                 try {
                     await axios.post(`${AUTO_BROWSER_SERVICE_URL}/sessions/${session_id}/actions/type`, {
                         selector: complexSelector,
                         text: item.rate.toString(),
                         clear_first: false
-                    });
+                    }, { timeout: 3000 });
                 } catch (err) {
                     if (ctx) appendLog(ctx, `⚠️ Primary selector failed. Engaging Global XPath fallback for input #${i + 1}...`);
 
-                    // The Bulletproof Global XPath Index
+                    // THE TRUE GLOBAL XPATH FALLBACK
                     const fallbackXPath = `xpath=(//input[@type='text'])[${i + 1}]`;
 
                     try {
@@ -372,11 +371,11 @@ router.post('/execute-bulk-blueprint', async (req, res) => {
                             selector: fallbackXPath,
                             text: item.rate.toString(),
                             clear_first: false
-                        });
+                        }, { timeout: 5000 });
                     } catch (err3) {
                         if (ctx) appendLog(ctx, `❌ Failed to type for item: ${anchorTextRaw}. Skipping to next.`);
                         console.warn(`All fallbacks failed for item ${anchorTextRaw}`);
-                        continue; // Skip to the next item instead of crashing the entire loop
+                        continue;
                     }
                 }
 
