@@ -49,6 +49,7 @@ router.post('/setup', async (req, res) => {
         let vnc_url;
 
         try {
+            console.log('Tender setup auth present:', !!BROWSER_GATEWAY_TOKEN, 'AUTO_BROWSER_SERVICE_URL=', AUTO_BROWSER_SERVICE_URL);
             const response = await axios.post(
                 `${AUTO_BROWSER_SERVICE_URL}/sessions`,
                 {
