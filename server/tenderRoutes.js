@@ -195,7 +195,7 @@ router.post('/execute-bulk-blueprint', async (req, res) => {
     const ctx = sessionTracker.get(session_id);
     if (ctx) {
         ctx.status = 'executing';
-        appendLog(ctx, `⚡ Initiating Structural-Sweep Bulk Fill script for ${boq_data.length} items.`);
+        appendLog(ctx, `⚡ Initiating Playwright Grid-Anchor Bulk Fill script for ${boq_data.length} items.`);
     }
 
     (async () => {
@@ -214,12 +214,12 @@ router.post('/execute-bulk-blueprint', async (req, res) => {
 
                 if (ctx) appendLog(ctx, `✏️ [${i + 1}/${boq_data.length}] Processing item: ${anchorTextRaw}`);
 
-                // THE GRID ANCHOR
-                // Force Playwright to find the specific visible table containing the BOQ headers, 
-                // then use structural indexing to bypass all internal cell formatting traps.
+                // THE GRID ANCHOR 
+                // We use Playwright's `>>` operator to step INTO the bounded table before calculating nth-of-type.
+                // This completely isolates the data grid and guarantees we don't accidentally index the site header or sidebar.
                 const gridAnchor = `table:has(tr:has-text("Unit Price")):visible`;
-                const currentRowIndex = i + rowOffset; // Assuming row 1 is the header
-                const rowSelector = `${gridAnchor} tr:nth-of-type(${currentRowIndex})`;
+                const currentRowIndex = i + rowOffset;
+                const rowSelector = `${gridAnchor} >> tr:nth-of-type(${currentRowIndex})`;
 
                 // The Neighborhood Sweep
                 const columnTargets = [
@@ -235,25 +235,25 @@ router.post('/execute-bulk-blueprint', async (req, res) => {
 
                 for (const colIndex of uniqueTargets) {
                     // Exact grid coordinates: Row X, Column Y
-                    const cellSelector = `${rowSelector} td:nth-child(${colIndex})`;
+                    const cellSelector = `${rowSelector} >> td:nth-child(${colIndex})`;
 
                     try {
                         await axios.post(`${AUTO_BROWSER_SERVICE_URL}/sessions/${session_id}/actions/click`, {
                             selector: cellSelector
-                        }, { timeout: 2500 });
-                        await new Promise(r => setTimeout(r, 600));
+                        }, { timeout: 2000 });
+                        await new Promise(r => setTimeout(r, 400));
                     } catch (e) {
                         // Ignore click timeout, the input might already be exposed
                     }
 
-                    const inputSelector = `${cellSelector} input`;
+                    const inputSelector = `${cellSelector} >> input`;
 
                     try {
                         await axios.post(`${AUTO_BROWSER_SERVICE_URL}/sessions/${session_id}/actions/type`, {
                             selector: inputSelector,
                             text: item.rate.toString(),
                             clear_first: false
-                        }, { timeout: 3000 });
+                        }, { timeout: 2500 }); // Fast-fail if input isn't in this column
 
                         typedSuccessfully = true;
                         consecutiveFailures = 0; // Reset circuit breaker
