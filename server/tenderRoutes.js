@@ -1,6 +1,5 @@
 import express from 'express';
 import axios from 'axios';
-import { chromium } from 'playwright-core'; // High-speed native browser connector
 import { supabase, getSupabaseBlueprint, saveSupabaseBlueprint } from './utils/supabaseStorage.js';
 import { callGoogle } from './utils/llmUtils.js';
 
@@ -174,7 +173,11 @@ CRITICAL: Output ONLY pure valid JSON with no markdown formatting.`;
 });
 
 /**
- * Route 5: Execute Bulk Blueprint (NATIVE WEBSOCKET TUNNEL EXTRACTION)
+ * Route 5: Execute Bulk Blueprint (SERVER-SIDE CDP — Full Speed)
+ *
+ * Delegates the entire fill loop to the auto-browser controller on Railway,
+ * which runs it internally using its already-connected Playwright instance
+ * at full CDP speed. Vercel just fires one HTTP POST — no WebSocket needed.
  */
 router.post('/execute-bulk-blueprint', async (req, res) => {
     let { session_id, domain_name, boq_data, blueprint } = req.body;
@@ -188,95 +191,119 @@ router.post('/execute-bulk-blueprint', async (req, res) => {
     const ctx = sessionTracker.get(session_id);
     if (ctx) {
         ctx.status = 'executing';
-        appendLog(ctx, `🔌 Establishing direct secure WebSocket channel to container browser core...`);
+        appendLog(ctx, `🚀 Dispatching bulk fill job to browser engine (${boq_data.length} items)...`);
     }
 
-    // Run native Playwright connection asynchronously to keep the HTTP response non-blocking
+    // Fire the bulk-fill request to Railway and track progress asynchronously
     (async () => {
-        let browser;
         try {
-            // 1. Construct the dynamic tokenized connection endpoint for CDP
-            const wsEndpoint = `${AUTO_BROWSER_SERVICE_URL}/sessions/${session_id}/cdp?token=${BROWSER_GATEWAY_TOKEN}`
-                .replace('http://', 'ws://')
-                .replace('https://', 'wss://');
+            // Attempt the dedicated server-side bulk-fill endpoint first
+            const bulkFillPayload = {
+                blueprint: {
+                    row_selector: blueprint.row_selector,
+                    input_selector: blueprint.input_selector,
+                    requires_click_to_edit: Boolean(blueprint.requires_click_to_edit)
+                },
+                items: boq_data.map(item => ({
+                    label: item.item_code || (item.description ? item.description.substring(0, 30) : ''),
+                    value: (item.rate || item.unit_price || 0).toString()
+                }))
+            };
 
-            // 2. Connect natively using your main app's Playwright driver engine
-            browser = await chromium.connectOverCDP(wsEndpoint);
-            const contexts = browser.contexts();
-            // Use the very first context (the default one shown in VNC) and its active page
-            const page = contexts[0].pages()[0];
+            if (ctx) appendLog(ctx, `📘 Blueprint: ${JSON.stringify(bulkFillPayload.blueprint)}`);
 
-            if (ctx) appendLog(ctx, `⚡ Connected! Activating dynamic speed filters on browser viewport...`);
+            let usedBulkEndpoint = false;
 
-            // 3. Enable high-speed dynamic resource filter to stop graphics bloat
-            await axios.post(`${AUTO_BROWSER_SERVICE_URL}/sessions/${session_id}/speed-filter`, {}, {
-                headers: { 'Authorization': `Bearer ${BROWSER_GATEWAY_TOKEN}` }
-            }).catch(() => console.log("Speed filter dynamic activation complete."));
+            try {
+                const bulkRes = await axios.post(
+                    `${AUTO_BROWSER_SERVICE_URL}/sessions/${session_id}/bulk-fill`,
+                    bulkFillPayload,
+                    { timeout: 300000, headers: AUTO_BROWSER_HEADERS } // 5min timeout for large jobs
+                );
 
-            const rowSelector = blueprint.row_selector;
-            const inputSelector = blueprint.input_selector;
-            const requiresClickToEdit = Boolean(blueprint.requires_click_to_edit);
+                usedBulkEndpoint = true;
+                const result = bulkRes.data;
 
-            if (ctx) appendLog(ctx, `🚀 Unleashing low-latency data injection stream for ${boq_data.length} rows using the Unit Price In Fig blueprint.`);
-            if (ctx) appendLog(ctx, `📘 Blueprint: ${JSON.stringify({ row_selector: rowSelector, input_selector: inputSelector, requires_click_to_edit: requiresClickToEdit })}`);
-
-            const targetRows = page.locator(rowSelector);
-            const rowCount = await targetRows.count();
-            if (ctx) appendLog(ctx, `🔎 Blueprint detected ${rowCount} matching rows for selector: ${rowSelector}`);
-
-            if (rowCount === 0) {
-                throw new Error(`No rows found using blueprint row_selector: ${rowSelector}`);
+                if (ctx) {
+                    for (const log of (result.logs || [])) {
+                        appendLog(ctx, log);
+                    }
+                    appendLog(ctx, `✅ Bulk fill completed: ${result.success_count || 0} succeeded, ${result.fail_count || 0} failed.`);
+                    ctx.status = (result.fail_count === boq_data.length) ? 'failed' : 'completed';
+                    if (result.fail_count > 0 && result.fail_count < boq_data.length) {
+                        ctx.error = `${result.fail_count} items could not be filled.`;
+                    }
+                }
+            } catch (bulkErr) {
+                // bulk-fill endpoint not available — fall back to sequential action calls
+                if (bulkErr.response?.status === 404 || bulkErr.response?.status === 405 || bulkErr.code === 'ECONNREFUSED') {
+                    if (ctx) appendLog(ctx, `⚠️ Bulk endpoint not available, falling back to sequential action calls...`);
+                } else {
+                    throw bulkErr;
+                }
             }
 
-            for (let i = 0; i < boq_data.length; i++) {
-                const item = boq_data[i];
-                const anchorTextRaw = item.item_code || item.description.substring(0, 15);
+            // Fallback: drive the browser via individual REST action calls
+            if (!usedBulkEndpoint) {
+                const rowSelector = blueprint.row_selector;
+                const inputSelector = blueprint.input_selector;
+                const requiresClickToEdit = Boolean(blueprint.requires_click_to_edit);
 
-                if (ctx) appendLog(ctx, `✏️ [${i + 1}/${boq_data.length}] Processing: ${anchorTextRaw}`);
+                let successCount = 0;
+                let failCount = 0;
 
-                if (i >= rowCount) {
-                    if (ctx) appendLog(ctx, `⚠️ No matching row ${i + 1} found for selector: ${rowSelector}`);
-                    continue;
-                }
+                for (let i = 0; i < boq_data.length; i++) {
+                    const item = boq_data[i];
+                    const priceValue = (item.rate || item.unit_price || 0).toString();
+                    const label = item.item_code || (item.description ? item.description.substring(0, 15) : `Row ${i + 1}`);
 
-                const row = targetRows.nth(i);
-                let typedSuccessfully = false;
-                let input = row.locator(inputSelector).first();
-                const inputCount = await input.count();
+                    if (ctx) appendLog(ctx, `✏️ [${i + 1}/${boq_data.length}] ${label} → ${priceValue}`);
 
-                if (inputCount === 0) {
-                    if (ctx) appendLog(ctx, `⚠️ Blueprint input_selector not found inside row, trying global selector: ${inputSelector}`);
-                    input = page.locator(inputSelector).first();
-                }
+                    try {
+                        // Use the nth-of-type selector to target this specific row's input
+                        const nthRowSelector = `${rowSelector}:nth-child(${i + 1})`;
+                        const targetInput = `${nthRowSelector} ${inputSelector}`;
 
-                try {
-                    if (requiresClickToEdit) {
-                        if (ctx) appendLog(ctx, `🖱️ Clicking row to activate edit mode.`);
-                        await row.click({ timeout: 2000 }).catch(() => undefined);
+                        if (requiresClickToEdit) {
+                            await axios.post(
+                                `${AUTO_BROWSER_SERVICE_URL}/sessions/${session_id}/actions/click`,
+                                { selector: nthRowSelector },
+                                { timeout: 15000, headers: AUTO_BROWSER_HEADERS }
+                            );
+                            await new Promise(r => setTimeout(r, 200));
+                        }
+
+                        // Scroll + click + type via the action endpoints (each uses Playwright internally = CDP speed)
+                        await axios.post(
+                            `${AUTO_BROWSER_SERVICE_URL}/sessions/${session_id}/actions/type`,
+                            { selector: targetInput, text: priceValue, clear_first: true },
+                            { timeout: 15000, headers: AUTO_BROWSER_HEADERS }
+                        );
+
+                        successCount++;
+                        if (ctx) appendLog(ctx, `✅ [${i + 1}/${boq_data.length}] Filled: ${priceValue}`);
+
+                    } catch (err) {
+                        failCount++;
+                        const msg = err.response?.data?.detail || err.message;
+                        if (ctx) appendLog(ctx, `⚠️ [${i + 1}/${boq_data.length}] Failed: ${msg}`);
                     }
 
-                    await input.scrollIntoViewIfNeeded({ timeout: 2000 });
-                    await input.click({ timeout: 2000 });
-                    await input.fill(item.rate.toString(), { timeout: 3000 });
-                    typedSuccessfully = true;
-
-                    if (ctx) appendLog(ctx, `✅ Filled row ${i + 1} using blueprint input selector.`);
-                } catch (err) {
-                    if (ctx) appendLog(ctx, `⚠️ Blueprint fill failed for row ${i + 1}: ${err.message}`);
+                    // Small delay between rows
+                    if (i < boq_data.length - 1) await new Promise(r => setTimeout(r, 100));
                 }
 
-                if (!typedSuccessfully) {
-                    if (ctx) appendLog(ctx, `⚠️ Skipped item ${i + 1} because no editable Unit Price In Fig input could be matched.`);
+                if (ctx) {
+                    appendLog(ctx, `✅ Sequential fill completed: ${successCount} succeeded, ${failCount} failed out of ${boq_data.length} items.`);
+                    ctx.status = failCount === boq_data.length ? 'failed' : 'completed';
+                    if (failCount > 0 && failCount < boq_data.length) {
+                        ctx.error = `${failCount} items could not be filled.`;
+                    }
                 }
-            }
-
-            if (ctx) {
-                appendLog(ctx, `✅ Form matrix population successfully completed for ${boq_data.length} items!`);
-                ctx.status = 'completed';
             }
 
         } catch (err) {
-            console.error("Direct WebSocket Execution Fault:", err);
+            console.error("Bulk Fill Dispatch Fault:", err);
             if (ctx) {
                 appendLog(ctx, `❌ Execution aborted: ${err.message}`);
                 ctx.status = 'failed';
@@ -285,7 +312,7 @@ router.post('/execute-bulk-blueprint', async (req, res) => {
         }
     })();
 
-    return res.json({ success: true, message: "Direct WebSocket orchestration stream initialized safely." });
+    return res.json({ success: true, message: "Bulk fill job dispatched to browser engine." });
 });
 
 export default router;
