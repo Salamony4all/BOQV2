@@ -181,7 +181,7 @@ router.post('/map-platform', async (req, res) => {
 Target Domain: ${domain_name}
 We need to fill only the "Unit Price In Fig" field for each BoQ row. Determine:
 - row_selector: A CSS selector that matches each BoQ data row.
-- input_selector: A CSS selector that identifies the editable Unit Price In Fig input inside that row.
+- input_selector: A CSS selector that identifies the EDITABLE Unit Price In Fig input inside that row (e.g. 'input[type="text"]:not([readonly])' or similar). Exclude readonly fields.
 - requires_click_to_edit: boolean.
 
 IMPORTANT: Do not return selectors for any other columns or fields.
