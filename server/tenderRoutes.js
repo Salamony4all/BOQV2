@@ -104,20 +104,40 @@ router.post('/setup', async (req, res) => {
 /**
  * Route 2: Get Telemetry State Updates
  */
-router.get('/status/:session_id', (req, res) => {
+router.get('/status/:session_id', async (req, res) => {
     const { session_id } = req.params;
-    const tracking = sessionTracker.get(session_id);
+    try {
+        // Query the auto-browser server for current session summary which contains the persistent bulk_fill state
+        const response = await axios.get(
+            `${AUTO_BROWSER_SERVICE_URL}/sessions/${session_id}`,
+            { headers: AUTO_BROWSER_HEADERS, timeout: 5000 }
+        );
+        const sessionData = response.data;
 
-    if (!tracking) {
-        return res.json({
-            success: true,
-            status: 'executing',
-            logs: ['🔄 Syncing telemetry... (Serverless context reset)'],
-            error: null
-        });
+        if (sessionData && sessionData.metadata && sessionData.metadata.bulk_fill) {
+            const bf = sessionData.metadata.bulk_fill;
+            return res.json({
+                success: true,
+                status: bf.status, // 'executing', 'completed', 'failed'
+                logs: bf.logs || [],
+                error: bf.error || null
+            });
+        }
+    } catch (err) {
+        console.warn(`[Tender Router] Telemetry sync from Railway failed: ${err.message}`);
     }
 
-    return res.json({ success: true, status: tracking.status, logs: tracking.logs, error: tracking.error });
+    const tracking = sessionTracker.get(session_id);
+    if (tracking) {
+        return res.json({ success: true, status: tracking.status, logs: tracking.logs, error: tracking.error });
+    }
+
+    return res.json({
+        success: true,
+        status: 'executing',
+        logs: ['🔄 Syncing telemetry... (Serverless context reset)'],
+        error: null
+    });
 });
 
 /**
@@ -201,125 +221,106 @@ router.post('/execute-bulk-blueprint', async (req, res) => {
         appendLog(ctx, `🚀 Dispatching bulk fill job to browser engine (${boq_data.length} items)...`);
     }
 
-    // Fire the bulk-fill request to Railway and track progress asynchronously
-    (async () => {
-        try {
-            // Attempt the dedicated server-side bulk-fill endpoint first
-            const bulkFillPayload = {
-                blueprint: {
-                    row_selector: blueprint.row_selector,
-                    input_selector: blueprint.input_selector,
-                    requires_click_to_edit: Boolean(blueprint.requires_click_to_edit)
-                },
-                items: boq_data.map(item => ({
-                    label: item.item_code || (item.description ? item.description.substring(0, 30) : ''),
-                    value: (item.rate || item.unit_price || 0).toString()
-                }))
-            };
+    const bulkFillPayload = {
+        blueprint: {
+            row_selector: blueprint.row_selector,
+            input_selector: blueprint.input_selector,
+            requires_click_to_edit: Boolean(blueprint.requires_click_to_edit)
+        },
+        items: boq_data.map(item => ({
+            label: item.item_code || (item.description ? item.description.substring(0, 30) : ''),
+            value: (item.rate || item.unit_price || 0).toString()
+        }))
+    };
 
-            if (ctx) appendLog(ctx, `📘 Blueprint: ${JSON.stringify(bulkFillPayload.blueprint)}`);
+    if (ctx) appendLog(ctx, `📘 Blueprint: ${JSON.stringify(bulkFillPayload.blueprint)}`);
 
-            let usedBulkEndpoint = false;
+    try {
+        // Call the native bulk-fill endpoint. It returns instantly because it executes as a BackgroundTask.
+        await axios.post(
+            `${AUTO_BROWSER_SERVICE_URL}/sessions/${session_id}/bulk-fill`,
+            bulkFillPayload,
+            { timeout: 15000, headers: AUTO_BROWSER_HEADERS }
+        );
 
-            try {
-                const bulkRes = await axios.post(
-                    `${AUTO_BROWSER_SERVICE_URL}/sessions/${session_id}/bulk-fill`,
-                    bulkFillPayload,
-                    { timeout: 300000, headers: AUTO_BROWSER_HEADERS } // 5min timeout for large jobs
-                );
+        if (ctx) appendLog(ctx, `🚀 Native bulk fill dispatched successfully on Railway.`);
+        return res.json({ success: true, message: "Bulk fill job dispatched to browser engine." });
+    } catch (bulkErr) {
+        // Fallback to sequential REST action calls if bulk-fill is not available
+        const isNotAvailable = bulkErr.response?.status === 404 || bulkErr.response?.status === 405 || bulkErr.code === 'ECONNREFUSED';
+        if (isNotAvailable) {
+            if (ctx) appendLog(ctx, `⚠️ Native bulk endpoint not available, falling back to sequential action calls...`);
 
-                usedBulkEndpoint = true;
-                const result = bulkRes.data;
+            // Run the sequential fallback asynchronously
+            (async () => {
+                try {
+                    const rowSelector = blueprint.row_selector;
+                    const inputSelector = blueprint.input_selector;
+                    const requiresClickToEdit = Boolean(blueprint.requires_click_to_edit);
 
-                if (ctx) {
-                    for (const log of (result.logs || [])) {
-                        appendLog(ctx, log);
-                    }
-                    appendLog(ctx, `✅ Bulk fill completed: ${result.success_count || 0} succeeded, ${result.fail_count || 0} failed.`);
-                    ctx.status = (result.fail_count === boq_data.length) ? 'failed' : 'completed';
-                    if (result.fail_count > 0 && result.fail_count < boq_data.length) {
-                        ctx.error = `${result.fail_count} items could not be filled.`;
-                    }
-                }
-            } catch (bulkErr) {
-                // bulk-fill endpoint not available — fall back to sequential action calls
-                if (bulkErr.response?.status === 404 || bulkErr.response?.status === 405 || bulkErr.code === 'ECONNREFUSED') {
-                    if (ctx) appendLog(ctx, `⚠️ Bulk endpoint not available, falling back to sequential action calls...`);
-                } else {
-                    throw bulkErr;
-                }
-            }
+                    let successCount = 0;
+                    let failCount = 0;
 
-            // Fallback: drive the browser via individual REST action calls
-            if (!usedBulkEndpoint) {
-                const rowSelector = blueprint.row_selector;
-                const inputSelector = blueprint.input_selector;
-                const requiresClickToEdit = Boolean(blueprint.requires_click_to_edit);
+                    for (let i = 0; i < boq_data.length; i++) {
+                        const item = boq_data[i];
+                        const priceValue = (item.rate || item.unit_price || 0).toString();
+                        const label = item.item_code || (item.description ? item.description.substring(0, 15) : `Row ${i + 1}`);
 
-                let successCount = 0;
-                let failCount = 0;
+                        if (ctx) appendLog(ctx, `✏️ [${i + 1}/${boq_data.length}] ${label} → ${priceValue}`);
 
-                for (let i = 0; i < boq_data.length; i++) {
-                    const item = boq_data[i];
-                    const priceValue = (item.rate || item.unit_price || 0).toString();
-                    const label = item.item_code || (item.description ? item.description.substring(0, 15) : `Row ${i + 1}`);
+                        try {
+                            const nthRowSelector = `${rowSelector}:nth-child(${i + 1})`;
+                            const targetInput = `${nthRowSelector} ${inputSelector}`;
 
-                    if (ctx) appendLog(ctx, `✏️ [${i + 1}/${boq_data.length}] ${label} → ${priceValue}`);
+                            if (requiresClickToEdit) {
+                                await axios.post(
+                                    `${AUTO_BROWSER_SERVICE_URL}/sessions/${session_id}/actions/click`,
+                                    { selector: nthRowSelector },
+                                    { timeout: 15000, headers: AUTO_BROWSER_HEADERS }
+                                );
+                                await new Promise(r => setTimeout(r, 200));
+                            }
 
-                    try {
-                        // Use the nth-of-type selector to target this specific row's input
-                        const nthRowSelector = `${rowSelector}:nth-child(${i + 1})`;
-                        const targetInput = `${nthRowSelector} ${inputSelector}`;
-
-                        if (requiresClickToEdit) {
                             await axios.post(
-                                `${AUTO_BROWSER_SERVICE_URL}/sessions/${session_id}/actions/click`,
-                                { selector: nthRowSelector },
+                                `${AUTO_BROWSER_SERVICE_URL}/sessions/${session_id}/actions/type`,
+                                { selector: targetInput, text: priceValue, clear_first: true },
                                 { timeout: 15000, headers: AUTO_BROWSER_HEADERS }
                             );
-                            await new Promise(r => setTimeout(r, 200));
+
+                            successCount++;
+                            if (ctx) appendLog(ctx, `✅ [${i + 1}/${boq_data.length}] Filled: ${priceValue}`);
+                        } catch (err) {
+                            failCount++;
+                            const msg = err.response?.data?.detail || err.message;
+                            if (ctx) appendLog(ctx, `⚠️ [${i + 1}/${boq_data.length}] Failed: ${msg}`);
                         }
 
-                        // Scroll + click + type via the action endpoints (each uses Playwright internally = CDP speed)
-                        await axios.post(
-                            `${AUTO_BROWSER_SERVICE_URL}/sessions/${session_id}/actions/type`,
-                            { selector: targetInput, text: priceValue, clear_first: true },
-                            { timeout: 15000, headers: AUTO_BROWSER_HEADERS }
-                        );
-
-                        successCount++;
-                        if (ctx) appendLog(ctx, `✅ [${i + 1}/${boq_data.length}] Filled: ${priceValue}`);
-
-                    } catch (err) {
-                        failCount++;
-                        const msg = err.response?.data?.detail || err.message;
-                        if (ctx) appendLog(ctx, `⚠️ [${i + 1}/${boq_data.length}] Failed: ${msg}`);
+                        if (i < boq_data.length - 1) await new Promise(r => setTimeout(r, 100));
                     }
 
-                    // Small delay between rows
-                    if (i < boq_data.length - 1) await new Promise(r => setTimeout(r, 100));
-                }
-
-                if (ctx) {
-                    appendLog(ctx, `✅ Sequential fill completed: ${successCount} succeeded, ${failCount} failed out of ${boq_data.length} items.`);
-                    ctx.status = failCount === boq_data.length ? 'failed' : 'completed';
-                    if (failCount > 0 && failCount < boq_data.length) {
-                        ctx.error = `${failCount} items could not be filled.`;
+                    if (ctx) {
+                        appendLog(ctx, `✅ Sequential fill completed: ${successCount} succeeded, ${failCount} failed.`);
+                        ctx.status = failCount === boq_data.length ? 'failed' : 'completed';
+                        if (failCount > 0 && failCount < boq_data.length) {
+                            ctx.error = `${failCount} items could not be filled.`;
+                        }
                     }
+                } catch (err) {
+                    console.error("Sequential Fill dispatch fault:", err);
                 }
-            }
+            })();
 
-        } catch (err) {
-            console.error("Bulk Fill Dispatch Fault:", err);
+            return res.json({ success: true, message: "Bulk fill job dispatched via sequential fallback." });
+        } else {
+            console.error("Bulk Fill Dispatch Fault:", bulkErr);
             if (ctx) {
-                appendLog(ctx, `❌ Execution aborted: ${err.message}`);
+                appendLog(ctx, `❌ Execution aborted: ${bulkErr.message}`);
                 ctx.status = 'failed';
-                ctx.error = err.message;
+                ctx.error = bulkErr.message;
             }
+            return res.status(500).json({ error: bulkErr.message });
         }
-    })();
-
-    return res.json({ success: true, message: "Bulk fill job dispatched to browser engine." });
+    }
 });
 
 export default router;
