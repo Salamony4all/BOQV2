@@ -353,7 +353,28 @@ function TenderAutofillModal({ isOpen, onClose, tables, apiBase }) {
                             <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', color: '#34d399', backgroundColor: 'rgba(15, 23, 42, 0.95)', zIndex: 10 }}>
                                 <div style={{ fontSize: '3rem', marginBottom: '14px' }}>🏆</div>
                                 <p style={{ margin: '0 0 6px 0', fontSize: '1.2rem', fontWeight: 'bold' }}>Tender Form Matrix Fully Synchronized</p>
-                                <p style={{ margin: 0, color: '#64748b', fontSize: '0.85rem' }}>All pages completed. {payloadData.length} items filled successfully.</p>
+                                <p style={{ margin: 0, color: '#94a3b8', fontSize: '0.85rem' }}>All pages completed. {payloadData.length} items processed.</p>
+                                <button
+                                    onClick={() => {
+                                        setCompletedPages(new Set());
+                                        setTenderStatus('ready');
+                                    }}
+                                    style={{
+                                        marginTop: '20px',
+                                        padding: '10px 24px',
+                                        backgroundColor: '#10b981',
+                                        color: '#ffffff',
+                                        border: 'none',
+                                        borderRadius: '6px',
+                                        cursor: 'pointer',
+                                        fontWeight: 600,
+                                        fontSize: '0.9rem',
+                                        boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)',
+                                        transition: 'all 0.2s'
+                                    }}
+                                >
+                                    Continue Filling next page / Reset 🔄
+                                </button>
                             </div>
                         )}
 
