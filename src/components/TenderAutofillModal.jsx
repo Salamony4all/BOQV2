@@ -12,7 +12,7 @@ function TenderAutofillModal({ isOpen, onClose, tables, apiBase }) {
     const [errorMessage, setErrorMessage] = useState('');
     const [logs, setLogs] = useState([]);
     const [currentPage, setCurrentPage] = useState(1);
-    const [itemsPerPage, setItemsPerPage] = useState(20);
+    const [itemsPerPage, setItemsPerPage] = useState(50);
     const [completedPages, setCompletedPages] = useState(new Set());
     const [globalFields, setGlobalFields] = useState([{ name: '', value: '' }]);
     const [blueprint, setBlueprint] = useState(null);
@@ -266,6 +266,69 @@ function TenderAutofillModal({ isOpen, onClose, tables, apiBase }) {
                                 <span>+</span> Add Another Field
                             </button>
                         </div>
+
+                        {/* Session Fill Progress checklist */}
+                        <div style={{ padding: '16px', borderTop: '1px solid #334155', backgroundColor: '#1e293b' }}>
+                            <h3 style={{ margin: '0 0 12px 0', color: '#f8fafc', fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <span>📊</span> Fill Progress
+                            </h3>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '180px', overflowY: 'auto' }}>
+                                {Array.from({ length: totalPages }, (_, i) => {
+                                    const pageNum = i + 1;
+                                    const isCompleted = completedPages.has(pageNum);
+                                    const isActive = pageNum === currentPage;
+                                    const isExecuting = isActive && tenderStatus === 'executing';
+                                    
+                                    const startIdx = i * itemsPerPage;
+                                    const endIdx = Math.min(startIdx + itemsPerPage, payloadData.length);
+                                    const rangeText = itemsPerPage === 99999 ? `All (${payloadData.length} items)` : `Items ${startIdx + 1}-${endIdx}`;
+
+                                    let statusIcon = '⏳';
+                                    let statusColor = '#94a3b8';
+                                    let statusText = 'Pending';
+
+                                    if (isCompleted) {
+                                        statusIcon = '✅';
+                                        statusColor = '#34d399';
+                                        statusText = 'Completed';
+                                    } else if (isExecuting) {
+                                        statusIcon = '🔄';
+                                        statusColor = '#38bdf8';
+                                        statusText = 'Executing...';
+                                    } else if (isActive) {
+                                        statusIcon = '⚡';
+                                        statusColor = '#f59e0b';
+                                        statusText = 'Current Page';
+                                    }
+
+                                    return (
+                                        <div 
+                                            key={pageNum} 
+                                            style={{ 
+                                                display: 'flex', 
+                                                alignItems: 'center', 
+                                                justifyContent: 'space-between', 
+                                                padding: '8px 12px', 
+                                                borderRadius: '6px', 
+                                                backgroundColor: isActive ? 'rgba(56, 189, 248, 0.08)' : '#0f172a',
+                                                border: `1px solid ${isActive ? '#38bdf8' : '#334155'}`,
+                                                fontSize: '0.8rem',
+                                                transition: 'all 0.2s'
+                                            }}
+                                        >
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                                <span style={{ color: '#f8fafc', fontWeight: 600 }}>Page {pageNum}</span>
+                                                <span style={{ color: '#64748b', fontSize: '0.7rem' }}>{rangeText}</span>
+                                            </div>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: statusColor, fontWeight: 500 }}>
+                                                <span>{statusIcon}</span>
+                                                <span>{statusText}</span>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
                     </div>
 
                     {/* Stream Viewport Frame */}
@@ -311,7 +374,7 @@ function TenderAutofillModal({ isOpen, onClose, tables, apiBase }) {
                 <div style={{ padding: '12px 24px', background: '#1e293b', borderTop: '1px solid #334155', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '16px' }}>
 
                     {/* Left: Latest Telemetry Event */}
-                    <div style={{ flex: 1, overflow: 'hidden' }}>
+                    <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
                         <div style={{ fontSize: '0.8rem', color: '#94a3b8', fontWeight: 'bold', marginBottom: '4px' }}>
                             <span style={{ color: '#f59e0b' }}>💡 Auto-Fill Agent</span> | {payloadData.length} items mapped
                         </div>
@@ -320,8 +383,95 @@ function TenderAutofillModal({ isOpen, onClose, tables, apiBase }) {
                         </div>
                     </div>
 
+                    {/* Middle: Pagination and Chunking Controls */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px', backgroundColor: '#0f172a', padding: '6px 16px', borderRadius: '8px', border: '1px solid #334155', flexShrink: 0 }}>
+                        {/* Chunk Size Dropdown */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{ color: '#94a3b8', fontSize: '0.8rem', fontWeight: 600, textTransform: 'uppercase' }}>Chunk:</span>
+                            <select
+                                value={itemsPerPage === 99999 ? 'all' : itemsPerPage}
+                                onChange={e => {
+                                    const val = e.target.value;
+                                    if (val === 'all') {
+                                        setItemsPerPage(99999);
+                                    } else {
+                                        setItemsPerPage(Number(val));
+                                    }
+                                    setCurrentPage(1);
+                                    setCompletedPages(new Set());
+                                }}
+                                disabled={tenderStatus === 'executing'}
+                                style={{
+                                    backgroundColor: '#1e293b',
+                                    border: '1px solid #475569',
+                                    color: '#f8fafc',
+                                    borderRadius: '6px',
+                                    padding: '4px 8px',
+                                    fontSize: '0.85rem',
+                                    outline: 'none',
+                                    cursor: tenderStatus === 'executing' ? 'not-allowed' : 'pointer'
+                                }}
+                            >
+                                <option value="20">20 rows</option>
+                                <option value="50">50 rows</option>
+                                <option value="100">100 rows</option>
+                                <option value="all">All (Auto Match)</option>
+                            </select>
+                        </div>
+
+                        {/* Vertical Separator */}
+                        <div style={{ width: '1px', height: '16px', backgroundColor: '#334155' }} />
+
+                        {/* Page Navigator */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <button
+                                onClick={() => {
+                                    if (currentPage > 1) {
+                                        setCurrentPage(currentPage - 1);
+                                    }
+                                }}
+                                disabled={currentPage === 1 || tenderStatus === 'executing'}
+                                style={{
+                                    background: 'transparent',
+                                    border: '1px solid #475569',
+                                    color: (currentPage === 1 || tenderStatus === 'executing') ? '#475569' : '#cbd5e1',
+                                    borderRadius: '4px',
+                                    padding: '2px 8px',
+                                    cursor: (currentPage === 1 || tenderStatus === 'executing') ? 'not-allowed' : 'pointer',
+                                    fontSize: '0.85rem',
+                                    transition: 'all 0.15s ease'
+                                }}
+                            >
+                                ◀
+                            </button>
+                            <span style={{ color: '#cbd5e1', fontSize: '0.85rem', minWidth: '85px', textAlign: 'center' }}>
+                                Page {currentPage} of {totalPages}
+                            </span>
+                            <button
+                                onClick={() => {
+                                    if (currentPage < totalPages) {
+                                        setCurrentPage(currentPage + 1);
+                                    }
+                                }}
+                                disabled={currentPage === totalPages || tenderStatus === 'executing'}
+                                style={{
+                                    background: 'transparent',
+                                    border: '1px solid #475569',
+                                    color: (currentPage === totalPages || tenderStatus === 'executing') ? '#475569' : '#cbd5e1',
+                                    borderRadius: '4px',
+                                    padding: '2px 8px',
+                                    cursor: (currentPage === totalPages || tenderStatus === 'executing') ? 'not-allowed' : 'pointer',
+                                    fontSize: '0.85rem',
+                                    transition: 'all 0.15s ease'
+                                }}
+                            >
+                                ▶
+                            </button>
+                        </div>
+                    </div>
+
                     {/* Right: Deploy Buttons */}
-                    <div style={{ display: 'flex', gap: '12px' }}>
+                    <div style={{ display: 'flex', gap: '12px', flexShrink: 0 }}>
                         <button
                             onClick={handleMapPlatform}
                             disabled={tenderStatus !== 'idle' && tenderStatus !== 'ready'}
