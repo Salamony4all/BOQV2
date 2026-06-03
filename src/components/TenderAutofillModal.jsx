@@ -349,36 +349,7 @@ function TenderAutofillModal({ isOpen, onClose, tables, apiBase }) {
                             </div>
                         )}
 
-                        {tenderStatus === 'completed' && allPagesDone && (
-                            <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', color: '#34d399', backgroundColor: 'rgba(15, 23, 42, 0.95)', zIndex: 10 }}>
-                                <div style={{ fontSize: '3rem', marginBottom: '14px' }}>🏆</div>
-                                <p style={{ margin: '0 0 6px 0', fontSize: '1.2rem', fontWeight: 'bold' }}>Tender Form Matrix Fully Synchronized</p>
-                                <p style={{ margin: 0, color: '#94a3b8', fontSize: '0.85rem' }}>All pages completed. {payloadData.length} items processed.</p>
-                                <button
-                                    onClick={() => {
-                                        setCompletedPages(new Set());
-                                        setTenderStatus('ready');
-                                    }}
-                                    style={{
-                                        marginTop: '20px',
-                                        padding: '10px 24px',
-                                        backgroundColor: '#10b981',
-                                        color: '#ffffff',
-                                        border: 'none',
-                                        borderRadius: '6px',
-                                        cursor: 'pointer',
-                                        fontWeight: 600,
-                                        fontSize: '0.9rem',
-                                        boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)',
-                                        transition: 'all 0.2s'
-                                    }}
-                                >
-                                    Continue Filling next page / Reset 🔄
-                                </button>
-                            </div>
-                        )}
-
-                        {(tenderStatus === 'ready' || tenderStatus === 'executing') && sessionInfo.vncUrl && (
+                        {(tenderStatus === 'ready' || tenderStatus === 'executing' || tenderStatus === 'completed') && sessionInfo.vncUrl && (
                             <div style={{ width: '100%', height: '100%', overflow: 'hidden', background: '#ffffff' }}>
                                 <iframe
                                     src={sessionInfo.vncUrl.replace('resize=remote', 'resize=scale').includes('resize=scale') ? sessionInfo.vncUrl.replace('resize=remote', 'resize=scale') : `${sessionInfo.vncUrl}&resize=scale`}
@@ -420,6 +391,9 @@ function TenderAutofillModal({ isOpen, onClose, tables, apiBase }) {
                                     }
                                     setCurrentPage(1);
                                     setCompletedPages(new Set());
+                                    if (tenderStatus === 'completed') {
+                                        setTenderStatus('ready');
+                                    }
                                 }}
                                 disabled={tenderStatus === 'executing'}
                                 style={{
@@ -449,6 +423,9 @@ function TenderAutofillModal({ isOpen, onClose, tables, apiBase }) {
                                 onClick={() => {
                                     if (currentPage > 1) {
                                         setCurrentPage(currentPage - 1);
+                                        if (tenderStatus === 'completed') {
+                                            setTenderStatus('ready');
+                                        }
                                     }
                                 }}
                                 disabled={currentPage === 1 || tenderStatus === 'executing'}
@@ -472,6 +449,9 @@ function TenderAutofillModal({ isOpen, onClose, tables, apiBase }) {
                                 onClick={() => {
                                     if (currentPage < totalPages) {
                                         setCurrentPage(currentPage + 1);
+                                        if (tenderStatus === 'completed') {
+                                            setTenderStatus('ready');
+                                        }
                                     }
                                 }}
                                 disabled={currentPage === totalPages || tenderStatus === 'executing'}
@@ -492,17 +472,34 @@ function TenderAutofillModal({ isOpen, onClose, tables, apiBase }) {
                     </div>
 
                     {/* Right: Deploy Buttons */}
-                    <div style={{ display: 'flex', gap: '12px', flexShrink: 0 }}>
+                    <div style={{ display: 'flex', gap: '12px', flexShrink: 0, alignItems: 'center' }}>
+                        {tenderStatus === 'completed' && (
+                            <div style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                                padding: '8px 12px',
+                                background: 'rgba(16, 185, 129, 0.15)',
+                                border: '1px solid rgba(16, 185, 129, 0.3)',
+                                borderRadius: '6px',
+                                color: '#34d399',
+                                fontSize: '0.85rem',
+                                fontWeight: 600,
+                                animation: 'fadeInUp 0.3s ease-out'
+                            }}>
+                                <span>✅</span> Bulk fill done!
+                            </div>
+                        )}
                         <button
                             onClick={handleMapPlatform}
-                            disabled={tenderStatus !== 'idle' && tenderStatus !== 'ready'}
+                            disabled={tenderStatus !== 'idle' && tenderStatus !== 'ready' && tenderStatus !== 'completed'}
                             style={{
                                 padding: '12px 20px',
                                 background: 'transparent',
-                                color: (tenderStatus === 'idle' || tenderStatus === 'ready') ? '#38bdf8' : '#475569',
-                                border: `1px solid ${(tenderStatus === 'idle' || tenderStatus === 'ready') ? '#38bdf8' : '#334155'}`,
+                                color: (tenderStatus === 'idle' || tenderStatus === 'ready' || tenderStatus === 'completed') ? '#38bdf8' : '#475569',
+                                border: `1px solid ${(tenderStatus === 'idle' || tenderStatus === 'ready' || tenderStatus === 'completed') ? '#38bdf8' : '#334155'}`,
                                 borderRadius: '6px',
-                                cursor: (tenderStatus === 'idle' || tenderStatus === 'ready') ? 'pointer' : 'not-allowed',
+                                cursor: (tenderStatus === 'idle' || tenderStatus === 'ready' || tenderStatus === 'completed') ? 'pointer' : 'not-allowed',
                                 fontWeight: 600,
                                 fontSize: '0.95rem',
                                 transition: 'all 0.15s ease'
@@ -512,19 +509,19 @@ function TenderAutofillModal({ isOpen, onClose, tables, apiBase }) {
                         </button>
                         <button
                             onClick={handleExecuteBulkRun}
-                            disabled={tenderStatus !== 'ready'}
+                            disabled={tenderStatus !== 'ready' && tenderStatus !== 'completed'}
                             style={{
                                 padding: '12px 28px',
-                                background: tenderStatus === 'ready' ? '#10b981' : '#1e293b',
-                                color: tenderStatus === 'ready' ? '#ffffff' : '#475569',
-                                border: tenderStatus === 'ready' ? 'none' : '1px solid #334155',
+                                background: (tenderStatus === 'ready' || tenderStatus === 'completed') ? '#10b981' : '#1e293b',
+                                color: (tenderStatus === 'ready' || tenderStatus === 'completed') ? '#ffffff' : '#475569',
+                                border: (tenderStatus === 'ready' || tenderStatus === 'completed') ? 'none' : '1px solid #334155',
                                 borderRadius: '6px',
-                                cursor: tenderStatus === 'ready' ? 'pointer' : 'not-allowed',
+                                cursor: (tenderStatus === 'ready' || tenderStatus === 'completed') ? 'pointer' : 'not-allowed',
                                 fontWeight: 600,
                                 fontSize: '0.95rem',
                                 transition: 'all 0.15s ease',
                                 whiteSpace: 'nowrap',
-                                boxShadow: tenderStatus === 'ready' ? '0 4px 12px rgba(16, 185, 129, 0.3)' : 'none'
+                                boxShadow: (tenderStatus === 'ready' || tenderStatus === 'completed') ? '0 4px 12px rgba(16, 185, 129, 0.3)' : 'none'
                             }}
                         >
                             {tenderStatus === 'executing' ? `⏳ Running Script...` : `Execute Bulk Fill ⚡`}
