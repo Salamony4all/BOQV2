@@ -125,6 +125,15 @@ router.get('/status/:session_id', async (req, res) => {
         }
     } catch (err) {
         console.warn(`[Tender Router] Telemetry sync from Railway failed: ${err.message}`);
+        if (err.response && err.response.status === 404) {
+            sessionTracker.delete(session_id);
+            return res.json({
+                success: true,
+                status: 'failed',
+                logs: ['❌ Browser session expired or terminated on remote node.'],
+                error: 'Browser session expired or terminated on remote node. Please re-allocate context.'
+            });
+        }
     }
 
     const tracking = sessionTracker.get(session_id);
