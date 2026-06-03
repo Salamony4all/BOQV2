@@ -51,13 +51,20 @@ router.post('/setup', async (req, res) => {
             console.log('Tender setup auth present:', !!BROWSER_GATEWAY_TOKEN, 'AUTO_BROWSER_SERVICE_URL=', AUTO_BROWSER_SERVICE_URL);
             const response = await axios.post(
                 `${AUTO_BROWSER_SERVICE_URL}/sessions`,
-                {
-                    start_url: "https://etendering.tenderboard.gov.om/product/publicDash?CTRL_STRDIRECTION=LTR"
-                },
+                {},
                 { timeout: 25000, headers: AUTO_BROWSER_HEADERS }
             );
             session_id = response.data.id;
             vnc_url = response.data.takeover_url;
+
+            // Navigate to target URL in background to prevent slow portals from failing the setup response
+            axios.post(
+                `${AUTO_BROWSER_SERVICE_URL}/sessions/${session_id}/actions/navigate`,
+                { url: "https://etendering.tenderboard.gov.om/product/publicDash?CTRL_STRDIRECTION=LTR" },
+                { headers: AUTO_BROWSER_HEADERS }
+            ).catch(err => {
+                console.warn("[Tender Router] Background navigation trigger warning:", err.message);
+            });
         } catch (postError) {
             if (postError.response && postError.response.status === 409) {
                 const getResponse = await axios.get(`${AUTO_BROWSER_SERVICE_URL}/sessions`, { headers: AUTO_BROWSER_HEADERS });
