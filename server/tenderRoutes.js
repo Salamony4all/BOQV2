@@ -239,7 +239,8 @@ router.post('/execute-bulk-blueprint', async (req, res) => {
         items: boq_data.map(item => ({
             label: item.item_code || (item.description ? item.description.substring(0, 30) : ''),
             value: (item.rate || item.unit_price || 0).toString()
-        }))
+        })),
+        global_fields: req.body.global_fields || []
     };
 
     if (ctx) appendLog(ctx, `📘 Blueprint: ${JSON.stringify(bulkFillPayload.blueprint)}`);
