@@ -1,6 +1,6 @@
 import axios from 'axios';
 import 'dotenv/config';
-import { callUniversalMultimodalAI, FREE_GOOGLE_MODELS, PAID_GOOGLE_MODELS } from './llmUtils.js';
+import { callUniversalMultimodalAI } from './llmUtils.js';
 
 const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY;
 const GOOGLE_FREE_KEY = process.env.GOOGLE_FREE_KEY || process.env.GEMINI_FREE_KEY || process.env.GEMINI_API_KEY_FREE;

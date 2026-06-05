@@ -1,7 +1,10 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { AsyncLocalStorage } from 'async_hooks';
 import axios from 'axios';
 import 'dotenv/config';
 import { TAXONOMY } from './normalizer.js';
+
+export const aiKeyStorage = new AsyncLocalStorage();
 
 // ──────────────────────────────────────────────────────────────────────────────
 // CONFIGURATION
@@ -19,7 +22,7 @@ export const VISION_MODEL = process.env.GOOGLE_VISION_MODEL || 'gemini-2.0-flash
 export const OPENROUTER_MODEL = process.env.OPENROUTER_MODEL || 'google/gemma-4-31b-it:free';
 export const NVIDIA_MODEL = process.env.NVIDIA_MODEL || 'nvidia/llama-3.1-8b-instruct';
 
-const MODEL_MAPPING = {
+export const MODEL_MAPPING = {
     // We map generic names to their most stable verified versions
     'gemini-pro': 'gemini-pro-latest',
     'gemini-flash': 'gemini-2.0-flash',
@@ -27,26 +30,8 @@ const MODEL_MAPPING = {
     'gemini-2-flash': 'gemini-2.0-flash',
 };
 
-export const FREE_GOOGLE_MODELS = [
-    // Tier 1: Development
-    'gemma-4-31b-it',
-    'gemma-4-26b-a4b-it',
-    // Tier 2: Standard (Flash)
-    'gemini-2.0-flash',
-    'gemini-2.5-flash',
-    'gemini-3.1-flash-lite'
-];
-
-export const PAID_GOOGLE_MODELS = [
-    // Tier 3: Pro / Premium
-    'gemini-pro-latest',
-    'gemini-2.5-pro',
-    'gemini-3.1-pro-preview',
-    'imagen-4.0-fast-generate-001',
-    'gemini-exp-1206'
-];
-
-export const VALID_GOOGLE_MODELS = [...FREE_GOOGLE_MODELS, ...PAID_GOOGLE_MODELS];
+// Dynamic Google model lists are fetched in real-time from the Google API.
+// No hardcoded model name arrays are maintained here.
 
 const maskKey = (key) => {
     if (!key) return 'MISSING';
@@ -68,24 +53,50 @@ export function getGoogleAI(modelName) {
         normalizedModel = normalizedModel.replace(':billed', '').trim();
     }
 
+    // Retrieve request-scoped keys from AsyncLocalStorage
+    const contextStore = aiKeyStorage.getStore() || {};
+    const reqGoogleApiKey = contextStore.googleApiKey;
+    const reqGoogleFreeKey = contextStore.googleFreeKey;
+    const reqActiveTier = contextStore.activeTier;
+
+    const finalApiKey = reqGoogleApiKey || GOOGLE_API_KEY;
+    const finalFreeApiKey = reqGoogleFreeKey || GOOGLE_FREE_KEY;
+
     // 1. Force Free Key if environment override is active
     if (FORCE_FREE_GOOGLE) {
         console.log(`  ⚠️ [LLM Utils] OVERRIDE: Forcing FREE Key for "${normalizedModel}" via FORCE_FREE_GOOGLE_KEY=true.`);
-        return new GoogleGenerativeAI(GOOGLE_FREE_KEY);
+        return new GoogleGenerativeAI(finalFreeApiKey || finalApiKey);
     }
 
-    // 2. Identify if model belongs to Free Tier
-    const isFreeModel = FREE_GOOGLE_MODELS.some(m => normalizedModel.includes(m.toLowerCase()));
-
-    if (isFreeModel && !forceBilled) {
-        if (!GOOGLE_FREE_KEY) throw new Error(`Model "${normalizedModel}" is a Free Tier model but GOOGLE_FREE_KEY is missing.`);
-        console.log(`  💎 [LLM Utils] Free Tier model detected: Using FREE Key (${maskKey(GOOGLE_FREE_KEY)}) for "${normalizedModel}".`);
-        return new GoogleGenerativeAI(GOOGLE_FREE_KEY);
+    // Determine whether to use Billed Key or Free Key based on active tier of the request
+    let useBilledKey = false;
+    if (reqActiveTier) {
+        useBilledKey = (reqActiveTier === 'billed');
     } else {
-        // 3. Paid/Pro Models (Requires Billing)
-        if (!GOOGLE_API_KEY) throw new Error(`Model "${normalizedModel}" requires a Google Billed Key (GOOGLE_API_KEY) which is missing in .env.`);
-        console.log(`  💰 [LLM Utils] Billed Tier ${forceBilled ? '(FORCED) ' : ''}detected: Using Billed Key (${maskKey(GOOGLE_API_KEY)}) for "${normalizedModel}".`);
-        return new GoogleGenerativeAI(GOOGLE_API_KEY);
+        // Fallback for requests without header/context context
+        useBilledKey = forceBilled || !finalFreeApiKey;
+    }
+
+    if (useBilledKey) {
+        if (!finalApiKey) {
+            if (finalFreeApiKey) {
+                console.log(`  💎 [LLM Utils] Billed key missing, falling back to Free Key (${maskKey(finalFreeApiKey)}) for "${normalizedModel}".`);
+                return new GoogleGenerativeAI(finalFreeApiKey);
+            }
+            throw new Error(`Model "${normalizedModel}" requires a Google Billed Key which is missing.`);
+        }
+        console.log(`  💰 [LLM Utils] Using Billed Key (${maskKey(finalApiKey)}) for "${normalizedModel}".`);
+        return new GoogleGenerativeAI(finalApiKey);
+    } else {
+        if (!finalFreeApiKey) {
+            if (finalApiKey) {
+                console.log(`  💰 [LLM Utils] Free key missing, falling back to Billed Key (${maskKey(finalApiKey)}) for "${normalizedModel}".`);
+                return new GoogleGenerativeAI(finalApiKey);
+            }
+            throw new Error(`Model "${normalizedModel}" is selected in Free Tier but Free API key is missing.`);
+        }
+        console.log(`  💎 [LLM Utils] Using FREE Key (${maskKey(finalFreeApiKey)}) for "${normalizedModel}".`);
+        return new GoogleGenerativeAI(finalFreeApiKey);
     }
 }
 
@@ -127,7 +138,7 @@ export const getProviderForModel = (modelName) => {
 const isValidProviderModel = (provider, model) => {
     if (!model) return false;
     if (provider === 'local') return true;
-    if (provider === 'google') return VALID_GOOGLE_MODELS.includes(model) || !model.includes('/');
+    if (provider === 'google') return true; // Since models are fetched dynamically, any model name is valid
     if (provider === 'openrouter') return VALID_OPENROUTER_MODELS.includes(model) || model.includes('/');
     if (provider === 'nvidia') return VALID_NVIDIA_MODELS.includes(model);
     return false;
@@ -307,8 +318,12 @@ async function callNvidia(systemPrompt, userPrompt, modelName = null) {
 export async function callGoogle(systemPrompt, userPrompt, useSearch = false, modelName = null) {
     const tools = useSearch ? [{ googleSearch: {} }] : [];
     
-    // Resolve model name: passed param > env.GOOGLE_MODEL > default fallback
-    const rawModelName = modelName || GOOGLE_MODEL || 'gemma-4-31b-it';
+    // Retrieve request-scoped keys/model from AsyncLocalStorage
+    const contextStore = aiKeyStorage.getStore() || {};
+    const reqGoogleModel = contextStore.googleModel;
+
+    // Resolve model name: context model (if provider matches) > passed param > env.GOOGLE_MODEL > default fallback
+    const rawModelName = reqGoogleModel || modelName || GOOGLE_MODEL || 'gemma-4-31b-it';
     const cleanModelName = rawModelName.replace(':billed', '').trim();
     const finalModel = MODEL_MAPPING[cleanModelName] || cleanModelName;
 
@@ -1140,8 +1155,16 @@ async function callLocalLLM(systemPrompt, userPrompt, model = 'llama3.2') {
  * Routes to Google SDK or OpenAI-style Vision API (Nvidia/OpenRouter)
  */
 export async function callUniversalMultimodalAI(systemPrompt, userPrompt, assets = [], modelName = null, jsonMode = false) {
+    const contextStore = aiKeyStorage.getStore() || {};
+    const reqGoogleModel = contextStore.googleModel;
+
     const provider = getProviderForModel(modelName);
-    let finalModel = modelName || (provider === 'google' ? GOOGLE_MODEL : provider === 'openrouter' ? OPENROUTER_MODEL : NVIDIA_MODEL);
+    let finalModel = modelName;
+    if (provider === 'google' && reqGoogleModel) {
+        finalModel = reqGoogleModel;
+    } else if (!finalModel) {
+        finalModel = provider === 'google' ? (reqGoogleModel || GOOGLE_MODEL) : provider === 'openrouter' ? OPENROUTER_MODEL : NVIDIA_MODEL;
+    }
 
     // FIX: Auto-expand short names for NVIDIA known models
     if (provider === 'nvidia' && !finalModel.includes('/')) {
@@ -1239,13 +1262,17 @@ export async function callUniversalMultimodalAI(systemPrompt, userPrompt, assets
 
 export async function analyzePlan(filesData, options = {}) {
     const { includeFitout = false, provider = 'google', providerModel = null } = options;
+    
+    // Retrieve request-scoped keys/model from AsyncLocalStorage
+    const contextStore = aiKeyStorage.getStore() || {};
+    const reqGoogleModel = contextStore.googleModel;
     console.log(`\\n🏗️ [Plan Analyzer] Analyzing ${filesData.length} sheets with provider=${provider}, model=${providerModel || ''}...`);
 
     if (!filesData || filesData.length === 0) {
         return { status: 'error', error_message: 'No files provided for analysis' };
     }
 
-    const selectedModel = providerModel || (provider === 'google' ? GOOGLE_MODEL : provider === 'openrouter' ? OPENROUTER_MODEL : NVIDIA_MODEL);
+    const selectedModel = providerModel || (provider === 'google' ? (reqGoogleModel || GOOGLE_MODEL) : provider === 'openrouter' ? OPENROUTER_MODEL : NVIDIA_MODEL);
     if (!isValidProviderModel(provider, selectedModel)) {
         const invalidMsg = `Invalid model for provider ${provider}: ${selectedModel}. Please choose a supported model.`;
         console.error(`  ❌ [Plan Analyzer Validation] ${invalidMsg}`);
@@ -1265,7 +1292,7 @@ export async function analyzePlan(filesData, options = {}) {
 
         if (provider === 'google') {
             // Use Google Gemini SDK with multimodal support
-            const rawModel = providerModel || GOOGLE_MODEL;
+            const rawModel = reqGoogleModel || providerModel || GOOGLE_MODEL;
             const cleanModel = rawModel.replace(':billed', '').trim();
             const sdkModel = MODEL_MAPPING[cleanModel] || cleanModel;
             console.log(`  📍 Using Google model: ${sdkModel} (Source: ${rawModel})`);

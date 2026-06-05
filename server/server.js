@@ -24,7 +24,7 @@ import https from 'https';
 import { ExcelDbManager } from './excelManager.js';
 import { convertXlsToXlsx } from './utils/xlsToXlsxConverter.js';
 import { brandStorage, kv } from './storageProvider.js';
-import { getAiMatch, identifyModel, fetchProductDetails, searchAndEnrichModel, analyzePlan, matchFitoutItem, autoMatchSingleBrand, FREE_GOOGLE_MODELS, PAID_GOOGLE_MODELS, VALID_GOOGLE_MODELS, VALID_OPENROUTER_MODELS, VALID_NVIDIA_MODELS, GOOGLE_MODEL, OPENROUTER_MODEL, NVIDIA_MODEL } from './utils/llmUtils.js';
+import { getAiMatch, identifyModel, fetchProductDetails, searchAndEnrichModel, analyzePlan, matchFitoutItem, autoMatchSingleBrand, VALID_OPENROUTER_MODELS, VALID_NVIDIA_MODELS, GOOGLE_MODEL, OPENROUTER_MODEL, NVIDIA_MODEL, aiKeyStorage } from './utils/llmUtils.js';
 import { veMatchSimple, veMatchAdvanced, veGetProductDetails, veRouteCategories } from './utils/veMatchUtils.js';
 import { veMatchAuto } from './utils/veAutoDetectUtils.js'; // Removed unused veAutoDetectRoute
 import { generatePresentationPdf } from './utils/pptxExportService.js';
@@ -195,6 +195,20 @@ async function pollJsScraperTask(taskId, onProgress = null, maxWaitMs = 3600000)
 app.use(cors());
 app.use(express.json({ limit: '20mb' }));
 app.use(express.urlencoded({ limit: '20mb', extended: true }));
+
+// Middleware to propagate request-scoped API keys via AsyncLocalStorage
+app.use('/api', (req, res, next) => {
+  const store = {
+    googleApiKey: req.headers['x-google-api-key'] || '',
+    googleFreeKey: req.headers['x-google-free-key'] || '',
+    activeTier: req.headers['x-google-active-tier'] || 'free',
+    googleModel: req.headers['x-google-model'] || ''
+  };
+  aiKeyStorage.run(store, () => {
+    next();
+  });
+});
+
 app.use('/api/tender', tenderRouter);
 app.use('/api/llm-proxy', llmProxyRouter);
 
@@ -494,6 +508,13 @@ app.get('/api/scraper-config', (req, res) => {
       { id: 'local', name: 'Local Instance (Developer / Internal)', description: 'Use your local machine resources' }
     ],
     dashboardUrl: process.env.RAILWAY_DASHBOARD_URL || (JS_SCRAPER_SERVICE_URL ? `${JS_SCRAPER_SERVICE_URL}/dashboard` : 'https://railway.app')
+  });
+});
+
+app.get('/api/ai/env-keys', (req, res) => {
+  res.json({
+    googleApiKey: process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY || '',
+    googleFreeKey: process.env.GOOGLE_FREE_KEY || process.env.GEMINI_FREE_KEY || process.env.GEMINI_API_KEY_FREE || ''
   });
 });
 app.post('/api/upload', upload.single('file'), async (req, res) => {
@@ -804,13 +825,36 @@ app.post('/api/brands', async (req, res) => {
 // Models availability
 
 // Provide the current available model lists for frontend selection
-app.get('/api/models/available', (req, res) => {
+app.get('/api/models/available', async (req, res) => {
+  const contextStore = aiKeyStorage.getStore() || {};
+  const activeKey = (contextStore.activeTier === 'billed' ? contextStore.googleApiKey : contextStore.googleFreeKey)
+    || process.env.GOOGLE_FREE_KEY || process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY;
+
+  let googleModels = [];
+  if (activeKey) {
+    try {
+      const response = await axios.get(`https://generativelanguage.googleapis.com/v1beta/models?key=${activeKey}`, { timeout: 10000 });
+      if (response.data && Array.isArray(response.data.models)) {
+        googleModels = response.data.models
+          .filter(m => m.supportedGenerationMethods && m.supportedGenerationMethods.includes('generateContent'))
+          .map(m => m.name.replace(/^models\//, ''));
+      }
+    } catch (err) {
+      console.warn('[Server] Failed to fetch available models from Google API, using default fallbacks:', err.message);
+    }
+  }
+
+  // If no models were fetched (offline, key invalid, etc.), use a clean fallback
+  if (googleModels.length === 0) {
+    googleModels = ['gemini-2.0-flash', 'gemini-2.5-flash', 'gemini-2.5-pro'];
+  }
+
   res.json({
-    google: VALID_GOOGLE_MODELS,
+    google: googleModels,
     openrouter: VALID_OPENROUTER_MODELS,
     nvidia: VALID_NVIDIA_MODELS,
     defaults: {
-      google: GOOGLE_MODEL,
+      google: googleModels[0] || 'gemini-2.0-flash',
       openrouter: OPENROUTER_MODEL,
       nvidia: NVIDIA_MODEL
     }

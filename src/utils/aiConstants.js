@@ -1,21 +1,5 @@
 export const MODEL_OPTIONS = {
-    google: {
-        tier1: [ // Tier 1: Free / Development (Verified Gemma 4)
-            'gemma-4-31b-it',
-            'gemma-4-26b-a4b-it'
-        ],
-        tier2: [ // Tier 2: Standard / Flash (Verified Flash)
-            'gemini-2.0-flash',
-            'gemini-2.5-flash',
-            'gemini-3.1-flash-lite'
-        ],
-        tier3: [ // Tier 3: Pro / Paid (Verified Pro & Image Gen)
-            'gemini-pro-latest',
-            'gemini-2.5-pro',
-            'gemini-3.1-pro-preview',
-            'imagen-4.0-fast-generate-001'
-        ]
-    },
+    google: [],
     openrouter: [
         'google/gemini-2.5-flash-lite-001',
         'google/gemini-4-31b-it:free',

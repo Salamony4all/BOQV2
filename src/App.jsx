@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import ActionCard from './components/ActionCard';
 import ProgressModal from './components/ProgressModal';
 import TableViewer from './components/TableViewer';
@@ -13,6 +13,7 @@ import { useTheme } from './context/ThemeContext';
 import PdfModelModal from './components/PdfModelModal';
 import ValueEngineeredModal from './components/ValueEngineeredModal';
 import CostingModal from './components/CostingModal';
+import { MODEL_OPTIONS } from './utils/aiConstants';
 
 import { createClient } from '@supabase/supabase-js';
 
@@ -31,6 +32,40 @@ import { getApiBase } from './utils/apiBase';
 
 const API_BASE = getApiBase();
 console.debug('[API] Using API_BASE:', API_BASE);
+
+// Intercept all fetch requests to automatically inject user-defined Gemini API keys
+const originalFetch = window.fetch;
+window.fetch = async function (url, options = {}) {
+  const urlStr = typeof url === 'string' ? url : (url instanceof URL ? url.toString() : '');
+  if (urlStr.includes('/api/')) {
+    const stored = localStorage.getItem('boqflow_company_profile');
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored);
+        const aiSettings = parsed.aiSettings;
+        if (aiSettings) {
+          if (options.headers instanceof Headers) {
+            options.headers.set('x-google-api-key', aiSettings.googleApiKey || '');
+            options.headers.set('x-google-free-key', aiSettings.googleFreeKey || '');
+            options.headers.set('x-google-active-tier', aiSettings.activeTier || 'free');
+            options.headers.set('x-google-model', aiSettings.model || '');
+          } else {
+            options.headers = {
+              ...options.headers,
+              'x-google-api-key': aiSettings.googleApiKey || '',
+              'x-google-free-key': aiSettings.googleFreeKey || '',
+              'x-google-active-tier': aiSettings.activeTier || 'free',
+              'x-google-model': aiSettings.model || ''
+            };
+          }
+        }
+      } catch (e) {
+        console.error('[Fetch Interceptor] Error parsing profile for headers:', e);
+      }
+    }
+  }
+  return originalFetch(url, options);
+};
 
 const apiUrl = (path) => {
   // If a base is configured, join it with the path.
@@ -77,6 +112,87 @@ const ThemeToggle = () => {
   );
 };
 
+// AI Model Selector Component
+const AiModelSelector = ({ defaultGoogleModels }) => {
+  const { aiSettings, updateAiSettings } = useCompanyProfile();
+  const { theme } = useTheme();
+  const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
+  if (aiSettings?.engine !== 'google') return null;
+
+  const models = aiSettings?.verifiedModels && aiSettings.verifiedModels.length > 0
+    ? aiSettings.verifiedModels
+    : defaultGoogleModels;
+
+  const currentModel = aiSettings?.model || '';
+
+  return (
+    <div ref={dropdownRef} className={styles.aiSelectorWrapper}>
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        style={{
+          background: theme === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)',
+          border: theme === 'dark' ? '1px solid rgba(255, 255, 255, 0.2)' : '1px solid rgba(0, 0, 0, 0.1)',
+          borderRadius: '50%',
+          width: '40px',
+          height: '40px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          cursor: 'pointer',
+          color: theme === 'dark' ? '#fbbf24' : '#6d28d9', // Amber in dark mode, deep purple in light mode
+          fontSize: '1.2rem',
+          zIndex: 100,
+          backdropFilter: 'blur(5px)',
+          transition: 'all 0.2s',
+          boxShadow: theme === 'dark' ? 'none' : '0 2px 5px rgba(0,0,0,0.05)',
+          padding: 0
+        }}
+        title={`Select AI Model (Current: ${currentModel})`}
+      >
+        🤖
+      </button>
+
+      {isOpen && (
+        <div className={styles.aiSelectorDropdown}>
+          <div className={styles.aiSelectorHeader}>Select AI Model</div>
+          <div className={styles.aiSelectorDivider} />
+          {models.length === 0 ? (
+            <div className={styles.aiSelectorEmpty}>No models. Set API Key in Settings.</div>
+          ) : (
+            models.map(m => (
+              <button
+                key={m}
+                onClick={() => {
+                  updateAiSettings({ model: m });
+                  setIsOpen(false);
+                }}
+                className={`${styles.aiSelectorOption} ${currentModel === m ? styles.aiSelectorOptionActive : ''}`}
+              >
+                <span>{m}</span>
+                {currentModel === m && <span className={styles.aiSelectorCheck}>✓</span>}
+              </button>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
 function AppContent({ onOpenSettings }) {
   const { 
     logoOriginal, 
@@ -84,7 +200,8 @@ function AppContent({ onOpenSettings }) {
     companyName, 
     aiSettings, 
     accentColor, 
-    secondaryColor 
+    secondaryColor,
+    updateAiSettings
   } = useCompanyProfile();
   const { theme } = useTheme();
 
@@ -94,6 +211,23 @@ function AppContent({ onOpenSettings }) {
       document.title = `${companyName} | Intelligent Estimator`;
     }
   }, [companyName]);
+  const [defaultGoogleModels, setDefaultGoogleModels] = useState([]);
+
+  // Fetch available models from server on mount
+  useEffect(() => {
+    fetch(apiUrl('/api/models/available'))
+      .then(res => {
+        if (res.ok) return res.json();
+        throw new Error('Failed to fetch available models');
+      })
+      .then(data => {
+        if (data.google && Array.isArray(data.google)) {
+          setDefaultGoogleModels(data.google);
+        }
+      })
+      .catch(err => console.warn('[App] Could not load available models:', err));
+  }, []);
+
   const [sessionId, setSessionId] = useState(() => {
     // Generate initial ID, but it will be managed in useEffect
     return `sess_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
@@ -312,6 +446,21 @@ function AppContent({ onOpenSettings }) {
           xhr.setRequestHeader('x-model-name', modelName);
         }
 
+        const stored = localStorage.getItem('boqflow_company_profile');
+        if (stored) {
+          try {
+            const parsed = JSON.parse(stored);
+            const aiSettings = parsed.aiSettings;
+            if (aiSettings) {
+              xhr.setRequestHeader('x-google-api-key', aiSettings.googleApiKey || '');
+              xhr.setRequestHeader('x-google-free-key', aiSettings.googleFreeKey || '');
+              xhr.setRequestHeader('x-google-active-tier', aiSettings.activeTier || 'free');
+            }
+          } catch (e) {
+            console.error('[XHR Headers] Error reading settings:', e);
+          }
+        }
+
         const progressInterval = setInterval(() => {
           setProgress(prev => {
             if (prev < 25) return prev;
@@ -485,7 +634,8 @@ function AppContent({ onOpenSettings }) {
                 <span className={styles.logoTextSmall}>BOQ FLOW</span>
               )}
             </div>
-            <div style={{ marginLeft: 'auto', marginRight: '1rem' }}>
+            <div style={{ marginLeft: 'auto', marginRight: '1rem', display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <AiModelSelector defaultGoogleModels={defaultGoogleModels} />
               <ThemeToggle />
             </div>
           </header>
@@ -654,8 +804,9 @@ function AppContent({ onOpenSettings }) {
         <span className={styles.hamburgerLine}></span>
       </button>
 
-      {/* Theme Toggle - Fixed Top Right */}
-      <div style={{ position: 'fixed', top: '20px', right: '20px', zIndex: 10000 }}>
+      {/* Theme Toggle & Model Select - Fixed Top Right */}
+      <div style={{ position: 'fixed', top: '20px', right: '20px', zIndex: 10000, display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <AiModelSelector defaultGoogleModels={defaultGoogleModels} />
         <ThemeToggle />
       </div>
 

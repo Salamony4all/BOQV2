@@ -21,7 +21,11 @@ const DEFAULT_PROFILE = {
     },
     aiSettings: {
         engine: DEFAULT_AI_SETTINGS.engine,
-        model: DEFAULT_AI_SETTINGS.model
+        model: DEFAULT_AI_SETTINGS.model,
+        googleApiKey: '',
+        googleFreeKey: '',
+        activeTier: 'free',
+        verifiedModels: []
     },
     accentColor: '#3b82f6', // Default blue
     secondaryColor: '#f59e0b', // Default gold
@@ -82,16 +86,12 @@ export function CompanyProvider({ children }) {
                 };
 
                 // Validate AI settings model
-                if (integratedProfile.aiSettings.engine === 'google' && MODEL_OPTIONS?.google) {
+                if (integratedProfile.aiSettings.engine === 'google') {
                     const cleanModel = (integratedProfile.aiSettings.model || '').replace(':billed', '');
-                    const allValidGoogle = [
-                        ...(MODEL_OPTIONS.google.tier1 || []),
-                        ...(MODEL_OPTIONS.google.tier2 || []),
-                        ...(MODEL_OPTIONS.google.tier3 || [])
-                    ];
-                    if (!allValidGoogle.includes(cleanModel)) {
-                        console.warn(`[Migration] Model "${integratedProfile.aiSettings.model}" is no longer supported. Resetting to default: ${DEFAULT_AI_SETTINGS.model}`);
-                        integratedProfile.aiSettings.model = DEFAULT_AI_SETTINGS.model;
+                    const verifiedList = integratedProfile.aiSettings.verifiedModels || [];
+                    if (verifiedList.length > 0 && !verifiedList.includes(cleanModel)) {
+                        console.warn(`[Migration] Model "${integratedProfile.aiSettings.model}" is not in the verified list. Resetting to default: ${verifiedList[0]}`);
+                        integratedProfile.aiSettings.model = verifiedList[0];
                     }
                 } else if (MODEL_OPTIONS && MODEL_OPTIONS[integratedProfile.aiSettings.engine]) {
                     if (!MODEL_OPTIONS[integratedProfile.aiSettings.engine].includes(integratedProfile.aiSettings.model)) {
@@ -116,13 +116,15 @@ export function CompanyProvider({ children }) {
     }, []);
 
     // Save profile to localStorage
-    const saveProfile = useCallback((newProfile) => {
+    const saveProfile = useCallback((newProfile, shouldCloseModal = true) => {
         try {
             const profileToSave = { ...newProfile, setupComplete: true };
             localStorage.setItem(STORAGE_KEY, JSON.stringify(profileToSave));
             setProfile(profileToSave);
             applyThemeColors(profileToSave.accentColor, profileToSave.secondaryColor);
-            setShowSetupModal(false);
+            if (shouldCloseModal) {
+                setShowSetupModal(false);
+            }
             return { success: true };
         } catch (error) {
             console.error('Failed to save company profile:', error);
@@ -308,7 +310,7 @@ export function CompanyProvider({ children }) {
                     ...prev,
                     aiSettings: { ...prev.aiSettings, ...settings }
                 };
-                result = saveProfile(updated);
+                result = saveProfile(updated, false);
                 return updated;
             });
             return result;

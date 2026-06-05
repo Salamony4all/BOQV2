@@ -1,7 +1,7 @@
 import express from 'express';
 import axios from 'axios';
 import { supabase, getSupabaseBlueprint, saveSupabaseBlueprint } from './utils/supabaseStorage.js';
-import { callGoogle } from './utils/llmUtils.js';
+import { callGoogle, aiKeyStorage } from './utils/llmUtils.js';
 
 const router = express.Router();
 
@@ -190,8 +190,12 @@ ${safeOutline}
 
 CRITICAL: Output ONLY pure valid JSON with no markdown formatting.`;
 
-        if (ctx) appendLog(ctx, `🤖 Analyzing layout using gemma-4-31b-it proxy...`);
-        const llmResult = await callGoogle("Output ONLY pure valid JSON.", prompt, false, "gemma-4-31b-it");
+        const contextStore = aiKeyStorage.getStore() || {};
+        const reqGoogleModel = contextStore.googleModel;
+        const activeModel = reqGoogleModel || "gemma-4-31b-it";
+
+        if (ctx) appendLog(ctx, `🤖 Analyzing layout using ${activeModel}...`);
+        const llmResult = await callGoogle("Output ONLY pure valid JSON.", prompt, false, activeModel);
 
         if (!llmResult || !llmResult.row_selector || !llmResult.input_selector) {
             throw new Error("AI failed to extract a valid blueprint.");

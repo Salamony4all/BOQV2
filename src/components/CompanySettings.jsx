@@ -39,6 +39,18 @@ export default function CompanySettings({ isModal = false, onClose = null }) {
     // AI Settings State
     const [selectedEngine, setSelectedEngine] = useState(storedAiSettings?.engine || DEFAULT_AI_SETTINGS.engine);
     const [selectedModel, setSelectedModel] = useState(storedAiSettings?.model || DEFAULT_AI_SETTINGS.model);
+    const [googleApiKey, setGoogleApiKey] = useState(storedAiSettings?.googleApiKey || '');
+    const [googleFreeKey, setGoogleFreeKey] = useState(storedAiSettings?.googleFreeKey || '');
+    const [activeTier, setActiveTier] = useState(storedAiSettings?.activeTier || 'free');
+    const [verifiedModels, setVerifiedModels] = useState(storedAiSettings?.verifiedModels || []);
+    const [defaultGoogleModels, setDefaultGoogleModels] = useState([]);
+    
+    // Key testing and visibility states
+    const [showApiKey, setShowApiKey] = useState(false);
+    const [showFreeKey, setShowFreeKey] = useState(false);
+    const [isTestingKey, setIsTestingKey] = useState(false);
+    const [testError, setTestError] = useState(null);
+    const [testSuccess, setTestSuccess] = useState(null);
     
     // UI State
     const [expandedSection, setExpandedSection] = useState(null); // 'branding', 'ai', or null for collapsed
@@ -55,20 +67,62 @@ export default function CompanySettings({ isModal = false, onClose = null }) {
         if (storedLogo) setLogo(storedLogo);
         if (storedAiSettings?.engine) setSelectedEngine(storedAiSettings.engine);
         if (storedAiSettings?.model) setSelectedModel(storedAiSettings.model);
+        if (storedAiSettings?.googleApiKey !== undefined) setGoogleApiKey(storedAiSettings.googleApiKey);
+        if (storedAiSettings?.googleFreeKey !== undefined) setGoogleFreeKey(storedAiSettings.googleFreeKey);
+        if (storedAiSettings?.activeTier !== undefined) setActiveTier(storedAiSettings.activeTier);
+        if (storedAiSettings?.verifiedModels !== undefined) setVerifiedModels(storedAiSettings.verifiedModels);
     }, [companyName, storedWebsite, storedLogo, storedAiSettings]);
+
+    // Fall back to env keys on mount if empty
+    useEffect(() => {
+        const fetchEnvKeys = async () => {
+            try {
+                const res = await fetch('/api/ai/env-keys');
+                if (res.ok) {
+                    const data = await res.json();
+                    if (!googleApiKey && data.googleApiKey) {
+                        setGoogleApiKey(data.googleApiKey);
+                    }
+                    if (!googleFreeKey && data.googleFreeKey) {
+                        setGoogleFreeKey(data.googleFreeKey);
+                    }
+                }
+            } catch (err) {
+                console.warn('[CompanySettings] Failed to fetch fallback env keys:', err);
+            }
+        };
+        
+        if (!googleApiKey || !googleFreeKey) {
+            fetchEnvKeys();
+        }
+    }, [googleApiKey, googleFreeKey]);
+
+    // Fetch default Google models from server on mount
+    useEffect(() => {
+        const fetchAvailableModels = async () => {
+            try {
+                const res = await fetch('/api/models/available');
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.google && Array.isArray(data.google)) {
+                        setDefaultGoogleModels(data.google);
+                    }
+                }
+            } catch (err) {
+                console.warn('[CompanySettings] Failed to fetch default models:', err);
+            }
+        };
+        fetchAvailableModels();
+    }, []);
 
     // Update model when engine changes
     useEffect(() => {
         if (selectedEngine === 'google') {
             const cleanModel = selectedModel.replace(':billed', '');
-            const allGoogleModels = [
-                ...MODEL_OPTIONS.google.tier1, 
-                ...MODEL_OPTIONS.google.tier2, 
-                ...MODEL_OPTIONS.google.tier3
-            ];
+            const modelsList = verifiedModels.length > 0 ? verifiedModels : defaultGoogleModels;
             
-            if (!allGoogleModels.includes(cleanModel)) {
-                setSelectedModel(DEFAULT_AI_SETTINGS.model);
+            if (modelsList.length > 0 && !modelsList.includes(cleanModel)) {
+                setSelectedModel(modelsList[0]);
             }
         } else {
             const options = MODEL_OPTIONS[selectedEngine];
@@ -76,7 +130,7 @@ export default function CompanySettings({ isModal = false, onClose = null }) {
                 setSelectedModel(options[0]);
             }
         }
-    }, [selectedEngine]);
+    }, [selectedEngine, verifiedModels, defaultGoogleModels]);
 
     const handleLogoUpload = async (e, type = 'original') => {
         const file = e.target.files?.[0];
@@ -139,6 +193,58 @@ export default function CompanySettings({ isModal = false, onClose = null }) {
         }
     };
 
+    const handleTestKey = async () => {
+        setIsTestingKey(true);
+        setTestError(null);
+        setTestSuccess(null);
+        
+        const activeKey = activeTier === 'free' ? googleFreeKey : googleApiKey;
+        
+        if (!activeKey) {
+            setTestError(`Please enter a key for the selected ${activeTier === 'free' ? 'Free' : 'Billed'} tier first.`);
+            setIsTestingKey(false);
+            return;
+        }
+        
+        try {
+            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${activeKey}`);
+            if (!response.ok) {
+                const errData = await response.json().catch(() => ({}));
+                const errMsg = errData.error?.message || `HTTP ${response.status}: ${response.statusText}`;
+                throw new Error(errMsg);
+            }
+            
+            const data = await response.json();
+            if (!data.models || !Array.isArray(data.models)) {
+                throw new Error('Invalid response structure from Google API.');
+            }
+            
+            const filtered = data.models
+                .filter(m => m.supportedGenerationMethods && m.supportedGenerationMethods.includes('generateContent'))
+                .map(m => m.name.replace(/^models\//, ''));
+                
+            if (filtered.length === 0) {
+                throw new Error('No models supporting content generation were found for this key.');
+            }
+            
+            setVerifiedModels(filtered);
+            setTestSuccess(`Successfully verified key! Found ${filtered.length} authorized models.`);
+            
+            // Automatically save verifiedModels and keys to context
+            updateAiSettings({
+                googleApiKey,
+                googleFreeKey,
+                activeTier,
+                verifiedModels: filtered
+            });
+        } catch (err) {
+            console.error('[Key Verification Error]:', err);
+            setTestError(err.message || 'Verification failed. Please check your network and API key.');
+        } finally {
+            setIsTestingKey(false);
+        }
+    };
+
     const handleSave = async () => {
         setIsProcessing(true);
         setError('');
@@ -156,7 +262,11 @@ export default function CompanySettings({ isModal = false, onClose = null }) {
                 }
             }, {
                 engine: selectedEngine,
-                model: selectedModel
+                model: selectedModel,
+                googleApiKey,
+                googleFreeKey,
+                activeTier,
+                verifiedModels
             });
 
             if (result.success) {
@@ -298,6 +408,142 @@ export default function CompanySettings({ isModal = false, onClose = null }) {
                                     </div>
                                 </div>
 
+                                {selectedEngine === 'google' && (
+                                    <div style={{ marginTop: '16px', marginBottom: '24px', padding: '16px', background: 'rgba(255, 255, 255, 0.02)', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+                                        <h4 style={{ margin: '0 0 16px 0', fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Google API Credentials</h4>
+                                        
+                                        {/* Free Tier Key */}
+                                        <div className={styles.field} style={{ marginBottom: '16px' }}>
+                                            <label className={styles.label} style={{ fontSize: '0.75rem' }}>Free Tier API Key</label>
+                                            <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                                                <input
+                                                    type={showFreeKey ? 'text' : 'password'}
+                                                    className={styles.input}
+                                                    value={googleFreeKey}
+                                                    onChange={(e) => setGoogleFreeKey(e.target.value)}
+                                                    placeholder="Enter Google Free Tier API Key"
+                                                    style={{ paddingRight: '45px' }}
+                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setShowFreeKey(!showFreeKey)}
+                                                    style={{ position: 'absolute', right: '12px', background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '1.1rem' }}
+                                                >
+                                                    {showFreeKey ? '👁️' : '👁️‍🗨️'}
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        {/* Billed Tier Key */}
+                                        <div className={styles.field} style={{ marginBottom: '16px' }}>
+                                            <label className={styles.label} style={{ fontSize: '0.75rem' }}>Billed Tier API Key</label>
+                                            <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                                                <input
+                                                    type={showApiKey ? 'text' : 'password'}
+                                                    className={styles.input}
+                                                    value={googleApiKey}
+                                                    onChange={(e) => setGoogleApiKey(e.target.value)}
+                                                    placeholder="Enter Google Billed Tier API Key"
+                                                    style={{ paddingRight: '45px' }}
+                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setShowApiKey(!showApiKey)}
+                                                    style={{ position: 'absolute', right: '12px', background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '1.1rem' }}
+                                                >
+                                                    {showApiKey ? '👁️' : '👁️‍🗨️'}
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        {/* Active Tier Selector */}
+                                        <div className={styles.field} style={{ marginBottom: '16px' }}>
+                                            <label className={styles.label} style={{ fontSize: '0.75rem' }}>Active Tier Preference</label>
+                                            <select
+                                                value={activeTier}
+                                                onChange={(e) => setActiveTier(e.target.value)}
+                                                className={styles.modelSelect}
+                                                style={{ width: '100%', marginTop: '6px' }}
+                                            >
+                                                <option value="free">Free Tier Key</option>
+                                                <option value="billed">Billed Tier Key</option>
+                                            </select>
+                                        </div>
+
+                                        {/* Test active key */}
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                            <button
+                                                type="button"
+                                                className={styles.saveBtn}
+                                                onClick={handleTestKey}
+                                                disabled={isTestingKey}
+                                                style={{
+                                                    background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                                                    boxShadow: '0 4px 6px -1px rgba(16, 185, 129, 0.2)',
+                                                    width: '100%',
+                                                    padding: '10px'
+                                                }}
+                                            >
+                                                {isTestingKey ? 'Verifying Key...' : 'Test Active Key'}
+                                            </button>
+                                            
+                                            {testError && <div style={{ color: '#ef4444', fontSize: '0.8rem', padding: '6px', background: 'rgba(239, 68, 68, 0.1)', borderRadius: '6px', border: '1px solid rgba(239, 68, 68, 0.2)' }}>⚠️ {testError}</div>}
+                                            {testSuccess && <div style={{ color: '#10b981', fontSize: '0.8rem', padding: '6px', background: 'rgba(16, 185, 129, 0.1)', borderRadius: '6px', border: '1px solid rgba(16, 185, 129, 0.2)' }}>✅ {testSuccess}</div>}
+
+                                            {/* Verified Models Display */}
+                                            {verifiedModels && verifiedModels.length > 0 && (
+                                                <div 
+                                                    style={{ 
+                                                        marginTop: '16px', 
+                                                        padding: '16px', 
+                                                        background: theme === 'dark' ? 'rgba(139, 92, 246, 0.03)' : 'rgba(139, 92, 246, 0.02)', 
+                                                        borderRadius: '12px', 
+                                                        border: theme === 'dark' ? '1px dashed rgba(139, 92, 246, 0.3)' : '1px dashed rgba(139, 92, 246, 0.45)',
+                                                        boxShadow: 'inset 0 0 12px rgba(139, 92, 246, 0.05)',
+                                                        animation: 'fadeIn 0.3s ease-in-out'
+                                                    }}
+                                                >
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                                                        <div style={{ fontSize: '0.75rem', fontWeight: 700, color: theme === 'dark' ? '#c084fc' : '#6d28d9', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                                            ✓ Verified Models List
+                                                        </div>
+                                                        <span style={{ fontSize: '0.7rem', padding: '2px 6px', background: theme === 'dark' ? 'rgba(139, 92, 246, 0.2)' : 'rgba(139, 92, 246, 0.1)', color: theme === 'dark' ? '#e9d5ff' : '#6d28d9', borderRadius: '20px', fontWeight: 600 }}>
+                                                            {verifiedModels.length} Models
+                                                        </span>
+                                                    </div>
+                                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', maxHeight: '120px', overflowY: 'auto', padding: '2px', scrollbarWidth: 'thin' }}>
+                                                        {verifiedModels.map(m => (
+                                                            <span
+                                                                key={m}
+                                                                style={{
+                                                                    fontSize: '0.7rem',
+                                                                    padding: '4px 10px',
+                                                                    background: theme === 'dark' ? 'rgba(139, 92, 246, 0.1)' : 'rgba(139, 92, 246, 0.06)',
+                                                                    color: theme === 'dark' ? '#e9d5ff' : '#5b21b6',
+                                                                    borderRadius: '8px',
+                                                                    border: theme === 'dark' ? '1px solid rgba(139, 92, 246, 0.2)' : '1px solid rgba(139, 92, 246, 0.25)',
+                                                                    transition: 'all 0.2s ease',
+                                                                    cursor: 'default'
+                                                                }}
+                                                                onMouseOver={(e) => {
+                                                                    e.currentTarget.style.background = theme === 'dark' ? 'rgba(139, 92, 246, 0.2)' : 'rgba(139, 92, 246, 0.12)';
+                                                                    e.currentTarget.style.borderColor = theme === 'dark' ? 'rgba(139, 92, 246, 0.4)' : 'rgba(139, 92, 246, 0.45)';
+                                                                }}
+                                                                onMouseOut={(e) => {
+                                                                    e.currentTarget.style.background = theme === 'dark' ? 'rgba(139, 92, 246, 0.1)' : 'rgba(139, 92, 246, 0.06)';
+                                                                    e.currentTarget.style.borderColor = theme === 'dark' ? 'rgba(139, 92, 246, 0.2)' : 'rgba(139, 92, 246, 0.25)';
+                                                                }}
+                                                            >
+                                                                {m}
+                                                            </span>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+
                                 <div className={styles.field}>
                                     <label className={styles.label}>Default Model</label>
                                     <select 
@@ -306,22 +552,12 @@ export default function CompanySettings({ isModal = false, onClose = null }) {
                                         onChange={(e) => setSelectedModel(e.target.value)}
                                     >
                                         {selectedEngine === 'google' ? (
-                                            <>
-                                                <optgroup label="Tier 1: Free / Development (Gemma)">
-                                                    {MODEL_OPTIONS.google.tier1.map(m => <option key={m} value={m}>{m}</option>)}
-                                                </optgroup>
-                                                <optgroup label="Tier 2: Standard (Gemini Flash)">
-                                                    {MODEL_OPTIONS.google.tier2.map(m => <option key={m} value={m}>{m}</option>)}
-                                                </optgroup>
-                                                <optgroup label="Tier 3: Pro / Paid (Billed Models)">
-                                                    {MODEL_OPTIONS.google.tier3.map(m => (
-                                                        <option key={m} value={`${m}:billed`}>{m}</option>
-                                                    ))}
-                                                </optgroup>
-                                            </>
+                                            (verifiedModels && verifiedModels.length > 0 ? verifiedModels : defaultGoogleModels).map(m => (
+                                                <option key={m} value={m}>{m}</option>
+                                            ))
                                         ) : (
-                                            MODEL_OPTIONS[selectedEngine]?.map(m => <option key={m} value={m}>{m}</option>)
-                                        )}
+                                            MODEL_OPTIONS[selectedEngine]?.map(m => <option key={m} value={m}>{m}</option>
+                                        ))}
                                     </select>
                                 </div>
                             </div>

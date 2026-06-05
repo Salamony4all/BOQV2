@@ -1,6 +1,6 @@
 import express from 'express';
 import axios from 'axios';
-import { safeParseJSON, OPENROUTER_MODEL, FREE_GOOGLE_MODELS } from './utils/llmUtils.js';
+import { safeParseJSON, OPENROUTER_MODEL, MODEL_MAPPING, aiKeyStorage } from './utils/llmUtils.js';
 
 const router = express.Router();
 
@@ -26,15 +26,19 @@ router.post('/models/:modelStr', async (req, res) => {
         const modelName = modelStr.replace(':generateContent', '');
         console.log(`🤖 [LLM Proxy] Intercepted Gemini API request for model: ${modelName}`);
         
-        // Use the official Google API key from the app
-        const googleApiKey = process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY;
-        const googleFreeKey = process.env.GOOGLE_FREE_KEY || process.env.GEMINI_FREE_KEY || process.env.GEMINI_API_KEY_FREE;
+        // Retrieve request-scoped keys from AsyncLocalStorage or request headers
+        const contextStore = aiKeyStorage.getStore() || {};
+        const reqGoogleApiKey = contextStore.googleApiKey || req.headers['x-google-api-key'];
+        const reqGoogleFreeKey = contextStore.googleFreeKey || req.headers['x-google-free-key'];
+        const reqActiveTier = contextStore.activeTier || req.headers['x-google-active-tier'] || 'free';
+        const reqGoogleModel = contextStore.googleModel || req.headers['x-google-model'];
+
+        const googleApiKey = reqGoogleApiKey || process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY;
+        const googleFreeKey = reqGoogleFreeKey || process.env.GOOGLE_FREE_KEY || process.env.GEMINI_FREE_KEY || process.env.GEMINI_API_KEY_FREE;
         const FORCE_FREE_GOOGLE = process.env.FORCE_FREE_GOOGLE_KEY === 'true';
         
-        const isFreeModel = FREE_GOOGLE_MODELS.some(m => modelName.toLowerCase().includes(m.toLowerCase()));
-        
         let apiKey = googleApiKey;
-        if (FORCE_FREE_GOOGLE || isFreeModel) {
+        if (FORCE_FREE_GOOGLE || reqActiveTier !== 'billed') {
             apiKey = googleFreeKey || googleApiKey;
         }
 
@@ -44,9 +48,14 @@ router.post('/models/:modelStr', async (req, res) => {
 
         const payload = req.body;
         
+        // Use client-selected model if available, fallback to the URL modelName
+        const finalModelName = reqGoogleModel || modelName;
+        const cleanFinalModel = finalModelName.replace(':billed', '').trim();
+        const sdkModelName = MODEL_MAPPING[cleanFinalModel] || cleanFinalModel;
+
         // Forward the request to the official Google Gemini API
         const response = await axios.post(
-            `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`,
+            `https://generativelanguage.googleapis.com/v1beta/models/${sdkModelName}:generateContent?key=${apiKey}`,
             payload,
             {
                 headers: {
