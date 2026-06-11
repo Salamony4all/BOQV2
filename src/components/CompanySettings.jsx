@@ -33,7 +33,7 @@ export default function CompanySettings({ isModal = false, onClose = null }) {
         isLight: false,
         whiteLogo: logoWhite || ''
     });
-    const [accentColor, setAccentColor] = useState(initialAccent || '#3b82f6');
+    const [accentColor, setAccentColor] = useState(initialAccent || '#0f3e67');
     const [secondaryColor, setSecondaryColor] = useState(initialSecondary || '#f59e0b');
 
     // AI Settings State

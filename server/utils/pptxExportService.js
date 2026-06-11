@@ -23,8 +23,13 @@ export async function generatePresentationPdf(data) {
 
     const fixHex = (hex) => (hex || '').replace('#', '');
 
+    let primaryColorHex = fixHex(accentColor) || '0F3E67';
+    if (primaryColorHex === '3B82F6' || primaryColorHex === '1E5FA8' || primaryColorHex === '2563EB') {
+        primaryColorHex = '0F3E67';
+    }
+
     const brandColors = {
-        primary: fixHex(accentColor) || '1E5FA8',
+        primary: primaryColorHex,
         accent: fixHex(secondaryColor) || 'F5A623',
         text: '333333',
         lightText: '666666',
@@ -49,21 +54,30 @@ export async function generatePresentationPdf(data) {
         if (resolved) slideObj.addImage({ ...resolved, ...opts });
     };
 
-    // Define Slide Master matching frontend exactly
+    // Define Slide Master with empty objects to make background elements selectable & editable
     const logoPpt = resolveImg(logoWhite || logoOriginal);
     pres.defineSlideMaster({
         title: 'BOQ_MASTER',
         background: { color: brandColors.bg },
-        objects: [
-            { rect: { x: 0, y: 0, w: '100%', h: 0.8, fill: { color: brandColors.primary } } },
-            { rect: { x: 0, y: 0.8, w: '100%', h: 0.03, fill: { color: brandColors.accent } } },
-            { rect: { x: 0, y: 5.3, w: '100%', h: 0.2, fill: { color: brandColors.lightBg } } },
-            ...(logoPpt ? [{ image: { x: 8.5, y: 0.1, w: 1.2, h: 0.6, ...logoPpt, sizing: { type: 'contain', w: 1.2, h: 0.6 } } }] : [])
-        ]
+        objects: []
     });
+
+    const drawSlideDecorations = (slideObj) => {
+        // Header bar (blue) - drawn on slide directly to make it selectable/editable
+        slideObj.addShape('rect', { x: 0, y: 0, w: '100%', h: 0.8, fill: { color: brandColors.primary } });
+        // Gold accent line
+        slideObj.addShape('rect', { x: 0, y: 0.8, w: '100%', h: 0.03, fill: { color: brandColors.accent } });
+        // Footer background
+        slideObj.addShape('rect', { x: 0, y: 5.3, w: '100%', h: 0.2, fill: { color: brandColors.lightBg } });
+        // Company logo
+        if (logoPpt) {
+            slideObj.addImage({ ...logoPpt, x: 8.5, y: 0.1, w: 1.2, h: 0.6, sizing: { type: 'contain', w: 1.2, h: 0.6 } });
+        }
+    };
 
     // 1. Title Slide
     const titleSlide = pres.addSlide({ masterName: 'BOQ_MASTER' });
+    drawSlideDecorations(titleSlide);
     if (logoOriginal || logoWhite) {
         addImg(titleSlide, logoOriginal || logoWhite, { x: 3.5, y: 1.2, w: 3.0, h: 1.5, sizing: { type: 'contain', w: 3.0, h: 1.5 } });
     }
@@ -95,6 +109,7 @@ export async function generatePresentationPdf(data) {
             if (row.isHeader || row.isSummary || !row.cells.some(c => c.value)) continue;
             
             const slide = pres.addSlide({ masterName: 'BOQ_MASTER' });
+            drawSlideDecorations(slide);
 
             const imageCell = row.cells.find(c => c.images?.length > 0 || c.image);
             const allImages = imageCell?.images || (imageCell?.image ? [imageCell.image] : []);
@@ -185,12 +200,12 @@ export async function generatePresentationPdf(data) {
 
             slide.addText('Description:', {
                 x: detailX, y: detailY, w: detailW, h: 0.25,
-                fontSize: 11, bold: true, color: brandColors.text, fontFace: 'Arial'
+                fontSize: 11, bold: true, color: brandColors.primary, fontFace: 'Arial'
             });
             detailY += 0.28;
 
             const fullDesc = desc.trim();
-            const maxDescY = 3.5;
+            const maxDescY = 4.8;
             const availableDescH = maxDescY - detailY;
             const estLines = Math.ceil(fullDesc.length / 60) + (fullDesc.match(/[\n*•]/g) || []).length;
             const descBoxH = Math.min(availableDescH, Math.max(0.4, estLines * 0.15));
@@ -202,37 +217,13 @@ export async function generatePresentationPdf(data) {
             });
             detailY += descBoxH + 0.08;
 
-            const maxContentY = 4.5;
-            if (detailY < maxContentY - 0.3) {
-                slide.addText('Brand:', { x: detailX, y: detailY, w: 1, h: 0.22, fontSize: 10, bold: true, color: brandColors.text, fontFace: 'Arial' });
-                slide.addText(brand || 'N/A', { x: detailX + 0.55, y: detailY, w: detailW - 0.55, h: 0.22, fontSize: 9, color: brandColors.text, fontFace: 'Arial' });
-                detailY += 0.28;
-            }
+            // Brand and Qty side-by-side above the footer
+            const footerY = 4.72;
+            slide.addText('Brand:', { x: detailX, y: footerY, w: 0.75, h: 0.35, fontSize: 10, bold: true, color: brandColors.primary, fontFace: 'Arial', valign: 'middle' });
+            slide.addText(brand || 'N/A', { x: detailX + 0.75, y: footerY, w: 1.65, h: 0.35, fontSize: 9, color: brandColors.text, fontFace: 'Arial', valign: 'middle' });
 
-            if (detailY < maxContentY - 0.3) {
-                slide.addText('Quantity:', { x: detailX, y: detailY, w: 1, h: 0.22, fontSize: 10, bold: true, color: brandColors.text, fontFace: 'Arial' });
-                slide.addText(qty || 'As per BOQ', { x: detailX + 0.7, y: detailY, w: detailW - 0.7, h: 0.22, fontSize: 9, color: brandColors.text, fontFace: 'Arial' });
-                detailY += 0.28;
-            }
-
-            if (detailY < maxContentY - 0.4) {
-                slide.addText('Specifications:', { x: detailX, y: detailY, w: detailW, h: 0.22, fontSize: 10, bold: true, color: brandColors.primary, fontFace: 'Arial' });
-                detailY += 0.22;
-
-                const specs = [];
-                if (finish) specs.push(`• Finish: ${finish}`);
-                if (desc.includes('mm')) {
-                    const sizeMatch = desc.match(/\d+\s*[xX×]\s*\d+\s*(mm|cm)?/);
-                    if (sizeMatch) specs.push(`• Dimensions: ${sizeMatch[0]}`);
-                }
-                specs.push('• Warranty: As per manufacturer');
-
-                const specsH = Math.min(maxContentY - detailY, 0.6);
-                slide.addText(specs.join('\n') || '• As per manufacturer specifications', {
-                    x: detailX + 0.1, y: detailY, w: detailW - 0.1, h: specsH,
-                    fontSize: 8, color: brandColors.text, fontFace: 'Arial', valign: 'top'
-                });
-            }
+            slide.addText('Qty:', { x: detailX + 2.5, y: footerY, w: 0.5, h: 0.35, fontSize: 10, bold: true, color: brandColors.primary, fontFace: 'Arial', valign: 'middle' });
+            slide.addText(qty || 'As per BOQ', { x: detailX + 3.0, y: footerY, w: 1.7, h: 0.35, fontSize: 9, color: brandColors.text, fontFace: 'Arial', valign: 'middle' });
 
             // ===== FOOTER =====
             slide.addText('Warranty', { x: 0.2, y: 5.08, w: 1, h: 0.18, fontSize: 8, bold: true, color: brandColors.primary });

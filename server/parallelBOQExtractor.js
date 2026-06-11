@@ -38,7 +38,7 @@ Your goal is to create a 1:1 digital replica of the table data in the provided i
  * Saves a matched native image to the temp dir and updates the row's image field.
  * Called by all three pairing strategies to avoid code duplication.
  */
-async function _saveAndPairImage(matchedImage, row, pageNum, tempDir, uploadId, onFileCreated = null) {
+export async function _saveAndPairImage(matchedImage, row, pageNum, tempDir, uploadId, onFileCreated = null) {
     try {
         const filename = `page_${pageNum}_row_${row.rowIdx}.jpg`;
         const imgLocalPath = path.join(tempDir, filename);

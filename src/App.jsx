@@ -332,9 +332,9 @@ function AppContent({ onOpenSettings }) {
     };
   }, [uploadedPlanFile]);
 
-  const handleFileUpload = async (file, modelName = null) => {
-    // If it's a PDF and no model is selected yet, show the model selection modal
-    if (file && file.name.toLowerCase().endsWith('.pdf') && !modelName) {
+  const handleFileUpload = async (file, modelName = null, pipeline = null, options = null) => {
+    // If it's a PDF and no pipeline is selected yet, show the model+pipeline selection modal
+    if (file && file.name.toLowerCase().endsWith('.pdf') && !pipeline) {
       setPendingPdfFile(file);
       setIsPdfModalOpen(true);
       return;
@@ -437,11 +437,20 @@ function AppContent({ onOpenSettings }) {
           setUploading(false);
         });
 
+        // Map pipeline selection to extraction mode header
+        const extractionModeHeader =
+          pipeline === 'docling' ? 'docling' :
+          pipeline === 'paddle'  ? 'paddle'  :
+          'parallel'; // default / legacy
+
         const uploadUrl = apiUrl('/api/upload');
-        console.log('[Upload] uploading to', uploadUrl);
+        console.log('[Upload] uploading to', uploadUrl, '| pipeline:', pipeline, '| mode:', extractionModeHeader);
         xhr.open('POST', uploadUrl);
         xhr.setRequestHeader('x-session-id', sessionId);
-        xhr.setRequestHeader('x-extraction-mode', 'parallel'); // Request Parallel High-Fidelity Extraction
+        xhr.setRequestHeader('x-extraction-mode', extractionModeHeader);
+        if (options?.doclingOcr) {
+          xhr.setRequestHeader('x-docling-ocr', '1');
+        }
         if (modelName) {
           xhr.setRequestHeader('x-model-name', modelName);
         }
@@ -735,15 +744,16 @@ function AppContent({ onOpenSettings }) {
           
           <PdfModelModal
             isOpen={isPdfModalOpen}
+            fileName={pendingPdfFile?.name}
             onClose={() => {
               setIsPdfModalOpen(false);
               setPendingPdfFile(null);
             }}
-            onExtract={(modelName) => {
+            onExtract={(modelName, pipeline, options) => {
               const file = pendingPdfFile;
               setIsPdfModalOpen(false);
               setPendingPdfFile(null);
-              handleFileUpload(file, modelName);
+              handleFileUpload(file, modelName, pipeline, options);
             }}
           />
         </div>
@@ -1002,11 +1012,15 @@ function AppContent({ onOpenSettings }) {
 
       <PdfModelModal
         isOpen={isPdfModalOpen}
-        onClose={() => setIsPdfModalOpen(false)}
         fileName={pendingPdfFile?.name}
-        onExtract={(model) => {
+        onClose={() => {
           setIsPdfModalOpen(false);
-          handleFileUpload(pendingPdfFile, model);
+          setPendingPdfFile(null);
+        }}
+        onExtract={(model, pipeline, options) => {
+          setIsPdfModalOpen(false);
+          handleFileUpload(pendingPdfFile, model, pipeline, options);
+          setPendingPdfFile(null);
         }}
       />
 
@@ -1085,13 +1099,12 @@ function AppWithSetup() {
 }
 
 // Main App component with all providers
+// Note: CompanyProvider and ThemeProvider are supplied by main.jsx
 function App() {
   return (
-    <CompanyProvider>
-      <ScrapingProvider>
-        <AppWithSetup />
-      </ScrapingProvider>
-    </CompanyProvider>
+    <ScrapingProvider>
+      <AppWithSetup />
+    </ScrapingProvider>
   );
 }
 

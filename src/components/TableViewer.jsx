@@ -322,6 +322,10 @@ function TableViewer({
         // Convert Hex/RGB to [R, G, B] array for jsPDF
         const parseColor = (colorStr, defaultVal) => {
             if (!colorStr) return defaultVal;
+            const clean = colorStr.trim().replace('#', '').toUpperCase();
+            if (clean === '3B82F6' || clean === '1E5FA8' || clean === '2563EB') {
+                return [15, 62, 103]; // RGB for #0F3E67
+            }
             if (colorStr.startsWith('rgb')) {
                 const match = colorStr.match(/\d+/g);
                 return match ? match.slice(0, 3).map(Number) : defaultVal;
@@ -343,6 +347,7 @@ function TableViewer({
             accent: [16, 185, 129],      // Emerald 500
             text: [51, 65, 85],          // Slate 600
             lightBg: [248, 250, 252],    // Slate 50
+            border: [226, 232, 240],     // Slate 200
             white: [255, 255, 255]
         };
 
@@ -385,13 +390,13 @@ function TableViewer({
         doc.setFont('helvetica', 'normal');
         doc.text('Bill of Quantities & Pricing Schedule', pageWidth / 2, 120, { align: 'center' });
 
-        // Date Badge
+        // Date Badge - Moved down to Y=80 to prevent overlaps
         doc.setFillColor(...colors.secondary);
-        doc.roundedRect(pageWidth / 2 - 20, 52, 40, 8, 1.5, 1.5, 'F');
+        doc.roundedRect(pageWidth / 2 - 20, 80, 40, 8, 1.5, 1.5, 'F');
         doc.setFontSize(9);
         doc.setTextColor(...colors.primary);
         const today = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-        doc.text(today, pageWidth / 2, 57.5, { align: 'center' });
+        doc.text(today, pageWidth / 2, 85.5, { align: 'center' });
 
         // Document Info Section
         doc.setTextColor(...colors.text);
@@ -415,6 +420,67 @@ function TableViewer({
         const totalItems = sourceTables.reduce((acc, t) => acc + t.rows.length, 0);
         doc.text(`${totalItems} Line Items`, 70, infoY);
 
+        // Add Client Logo on Cover Page if available
+        if (project.clientLogo) {
+            try {
+                const cLogoData = await getImageData(project.clientLogo, { format: 'image/png', maxWidth: 600 });
+                if (cLogoData) {
+                    const cFit = calcFitSize(cLogoData.width, cLogoData.height, 50, 20);
+                    // Draw in top right of cover page next to info
+                    doc.addImage(cLogoData.dataUrl, 'PNG', pageWidth - 20 - cFit.w, 105, cFit.w, cFit.h);
+                }
+            } catch (e) { }
+        }
+
+        // Draw Project Details Box on Cover Page if settings exist
+        if (project.projectName || project.clientName) {
+            let projY = infoY + 20; // Around 155
+            doc.setFillColor(...colors.lightBg);
+            doc.setDrawColor(...colors.secondary);
+            doc.setLineWidth(0.5);
+            doc.roundedRect(20, projY, pageWidth - 40, 48, 2, 2, 'FD');
+
+            doc.setFillColor(...colors.primary);
+            doc.roundedRect(20, projY, pageWidth - 40, 7, 1, 1, 'F');
+            doc.setTextColor(...colors.white);
+            doc.setFontSize(9.5);
+            doc.setFont('helvetica', 'bold');
+            doc.text('PROJECT INFORMATION', pageWidth / 2, projY + 5, { align: 'center' });
+
+            doc.setTextColor(...colors.text);
+            doc.setFontSize(8.5);
+            let rowY = projY + 12;
+            const leftX = 25;
+            const rightX = pageWidth / 2 + 5;
+            const rHeight = 6;
+
+            const processText = (txt) => (arabicLoaded && hasArabic(txt)) ? fixArabic(txt) : String(txt || '');
+
+            const contractorText = project.includeContractor !== false ? (project.contractor || '—') : '—';
+            const consultantText = project.includeConsultant !== false ? (project.consultant || '—') : '—';
+
+            const projRows = [
+                ['Project:', project.projectName || '—', 'Client:', project.clientName || '—'],
+                ['Project No:', project.projectNumber || '—', 'Location / Zone:', project.locationZone || '—'],
+                ['Contractor:', contractorText, 'Consultant:', consultantText],
+                ['Site Engineer:', project.siteEngineer || '—', 'Issue Date:', project.issueDate || today],
+                ['Revision:', project.revision || '—', '', '']
+            ];
+
+            projRows.forEach((r, idx) => {
+                const y = rowY + idx * rHeight;
+                doc.setFont('helvetica', 'bold'); doc.text(r[0], leftX, y);
+                doc.setFont('helvetica', 'normal'); doc.text(processText(r[1]), leftX + 24, y);
+                
+                if (r[2]) {
+                    doc.setFont('helvetica', 'bold'); doc.text(r[2], rightX, y);
+                    doc.setFont('helvetica', 'normal'); doc.text(processText(r[3]), rightX + 24, y);
+                }
+            });
+            
+            infoY = projY + 48; // Shift infoY down for the decorative line
+        }
+
         // Decorative Line
         doc.setDrawColor(...colors.secondary);
         doc.setLineWidth(2);
@@ -429,7 +495,8 @@ function TableViewer({
         doc.text(isArabicFooter ? fixArabic(footerText) : footerText, pageWidth / 2, pageHeight - 15, { align: 'center' });
 
         // ===== DATA PAGES =====
-        for (const table of sourceTables) {
+        for (let tableIndex = 0; tableIndex < sourceTables.length; tableIndex++) {
+            const table = sourceTables[tableIndex];
             doc.addPage();
 
             // Page Header
@@ -479,6 +546,22 @@ function TableViewer({
             const brandColIdx = header.findIndex(h => /brand|maker|country|origin/i.test(h));
             const uomColIdx = header.findIndex(h => /uom|unit/i.test(h));
 
+            // Detect currency from amount or rate header (e.g. "Amount OMR" -> "OMR", "Total (USD)" -> "USD")
+            let detectedCurrency = 'AED';
+            if (amountColIdx !== -1) {
+                const headerText = String(header[amountColIdx]);
+                const match = headerText.match(/\(([^)]+)\)/) || headerText.match(/([A-Z]{3})/);
+                if (match) {
+                    detectedCurrency = match[1] || match[0];
+                }
+            } else if (rateColIdx !== -1) {
+                const headerText = String(header[rateColIdx]);
+                const match = headerText.match(/\(([^)]+)\)/) || headerText.match(/([A-Z]{3})/);
+                if (match) {
+                    detectedCurrency = match[1] || match[0];
+                }
+            }
+
             // Dynamic column widths - larger for images and descriptions
             const colWidths = {};
             const usableWidth = pageWidth - 10; // 5mm margin each side
@@ -493,21 +576,19 @@ function TableViewer({
 
             pdfHeader.forEach((h, i) => {
                 if (i === snColIdx || (i === 0 && snColIdx === -1)) {
-                    colWidths[i] = { cellWidth: 7, halign: 'center' };
+                    colWidths[i] = { cellWidth: 12, halign: 'center' };
                 } else if (i === imgColIdx) {
-                    colWidths[i] = { cellWidth: 30, halign: 'center' };
+                    colWidths[i] = { cellWidth: 32, halign: 'center' };
                 } else if (i === descColIdx) {
-                    colWidths[i] = { cellWidth: 50, halign: 'left' };
-                } else if (i === brandColIdx) {
-                    colWidths[i] = { cellWidth: 25, halign: 'left' };
+                    colWidths[i] = { cellWidth: 'auto', halign: 'left' };
                 } else if (i === qtyColIdx) {
                     colWidths[i] = { cellWidth: 10, halign: 'center' };
                 } else if (i === uomColIdx) {
-                    colWidths[i] = { cellWidth: 10, halign: 'center' };
+                    colWidths[i] = { cellWidth: 12, halign: 'center' };
                 } else if (i === rateColIdx) {
-                    colWidths[i] = { cellWidth: 16, halign: 'right' };
+                    colWidths[i] = { cellWidth: 22, halign: 'right' };
                 } else if (i === amountColIdx) {
-                    colWidths[i] = { cellWidth: 20, halign: 'right' };
+                    colWidths[i] = { cellWidth: 25, halign: 'right' };
                 } else {
                     colWidths[i] = { cellWidth: 'auto' };
                 }
@@ -545,6 +626,15 @@ function TableViewer({
                 return 60; // For 5+ images
             });
 
+            // Construct tableSummary
+            const tableSummary = table.summary || (table.extractedSummary ? {
+                subtotal: parseFloat(table.extractedSummary.totalAmount).toFixed(2),
+                vatPercent: vatRates[tableIndex] !== undefined ? vatRates[tableIndex] : 5,
+                vatAmount: (parseFloat(table.extractedSummary.totalAmount) * (vatRates[tableIndex] !== undefined ? vatRates[tableIndex] : 5) / 100).toFixed(2),
+                grandTotal: (parseFloat(table.extractedSummary.totalAmount) * (1 + (vatRates[tableIndex] !== undefined ? vatRates[tableIndex] : 5) / 100)).toFixed(2),
+                currency: detectedCurrency
+            } : null);
+
             // Prepare table data
             const head = [header.map((h, i) => i === imgColIdx ? 'Image' : h)];
             const body = table.rows.map(row => row.cells.map((c, i) => {
@@ -553,11 +643,110 @@ function TableViewer({
                 return (arabicLoaded && hasArabic(val)) ? fixArabic(val) : val;
             }));
 
+            // Append summary rows directly to body
+            if (tableSummary) {
+                const targetColIdx = amountColIdx !== -1 ? amountColIdx : (header.length > 0 ? header.length - 1 : 0);
+                const labelColSpan = targetColIdx > 0 ? targetColIdx : 1;
+
+                // Subtotal Row
+                const subtotalRow = [];
+                subtotalRow.push({
+                    content: 'Subtotal:',
+                    colSpan: labelColSpan,
+                    styles: { halign: 'right', fontStyle: 'bold', fillColor: [241, 245, 249], textColor: colors.primary }
+                });
+                subtotalRow.push({
+                    content: `${tableSummary.subtotal} ${tableSummary.currency}`,
+                    styles: { halign: 'right', fontStyle: 'bold', fillColor: [241, 245, 249], textColor: colors.primary }
+                });
+                for (let k = targetColIdx + 1; k < header.length; k++) {
+                    subtotalRow.push({ content: '', styles: { fillColor: [241, 245, 249] } });
+                }
+                body.push(subtotalRow);
+
+                // VAT Row
+                const vatRow = [];
+                vatRow.push({
+                    content: `VAT (${tableSummary.vatPercent}%):`,
+                    colSpan: labelColSpan,
+                    styles: { halign: 'right', fontStyle: 'bold', fillColor: [241, 245, 249], textColor: colors.primary }
+                });
+                vatRow.push({
+                    content: `${tableSummary.vatAmount} ${tableSummary.currency}`,
+                    styles: { halign: 'right', fontStyle: 'bold', fillColor: [241, 245, 249], textColor: colors.primary }
+                });
+                for (let k = targetColIdx + 1; k < header.length; k++) {
+                    vatRow.push({ content: '', styles: { fillColor: [241, 245, 249] } });
+                }
+                body.push(vatRow);
+
+                // Grand Total Row
+                const grandTotalRow = [];
+                grandTotalRow.push({
+                    content: 'GRAND TOTAL:',
+                    colSpan: labelColSpan,
+                    styles: { halign: 'right', fontStyle: 'bold', fillColor: colors.primary, textColor: [255, 255, 255] }
+                });
+                grandTotalRow.push({
+                    content: `${tableSummary.grandTotal} ${tableSummary.currency}`,
+                    styles: { halign: 'right', fontStyle: 'bold', fillColor: colors.primary, textColor: [255, 255, 255] }
+                });
+                for (let k = targetColIdx + 1; k < header.length; k++) {
+                    grandTotalRow.push({ content: '', styles: { fillColor: colors.primary } });
+                }
+                body.push(grandTotalRow);
+            }
+
+            // Draw compact Project Info at the top of the sheet (only if project details are filled)
+            let startY = 30; // Default start Y for table if no project info
+            
+            if (project.projectName || project.clientName) {
+                const pY = 28;
+                doc.setFillColor(...colors.lightBg);
+                doc.setDrawColor(...colors.border);
+                doc.setLineWidth(0.3);
+                doc.roundedRect(5, pY, pageWidth - 10, 18, 1.5, 1.5, 'FD');
+
+                doc.setFontSize(7);
+                doc.setTextColor(...colors.text);
+
+                const processText = (txt) => (arabicLoaded && hasArabic(txt)) ? fixArabic(txt) : String(txt || '');
+                const contractorText = project.includeContractor !== false ? (project.contractor || '—') : '—';
+                const consultantText = project.includeConsultant !== false ? (project.consultant || '—') : '—';
+
+                const pRows = [
+                    ['Project:', project.projectName || '—', 'Client:', project.clientName || '—'],
+                    ['Proj No:', project.projectNumber || '—', 'Location:', project.locationZone || '—'],
+                    ['Contractor:', contractorText, 'Consultant:', consultantText],
+                ];
+
+                pRows.forEach((r, i) => {
+                    const y = pY + 4.5 + i * 4.2;
+                    doc.setFont('helvetica', 'bold'); doc.text(r[0], 8, y);
+                    doc.setFont('helvetica', 'normal'); doc.text(processText(r[1]), 22, y);
+                    doc.setFont('helvetica', 'bold'); doc.text(r[2], pageWidth / 2 + 5, y);
+                    doc.setFont('helvetica', 'normal'); doc.text(processText(r[3]), pageWidth / 2 + 22, y);
+                });
+
+                // Client Logo in Project Info box if available
+                if (project.clientLogo) {
+                    try {
+                        const cLogo = await getImageData(project.clientLogo, { format: 'image/png', maxWidth: 300 });
+                        if (cLogo) {
+                            const cFit = calcFitSize(cLogo.width, cLogo.height, 25, 12);
+                            doc.addImage(cLogo.dataUrl, 'PNG', pageWidth - 10 - cFit.w - 3, pY + 3, cFit.w, cFit.h);
+                        }
+                    } catch (e) { }
+                }
+                
+                startY = 50; // Push table start Y down to clear the project info block
+            }
+
             autoTable(doc, {
                 head: head,
                 body: body,
-                startY: 55,
-                margin: { left: 5, right: 5 },
+                startY: startY,
+                margin: { top: 28, left: 5, right: 5 },
                 theme: 'grid',
                 styles: {
                     fontSize: 7,
@@ -586,11 +775,19 @@ function TableViewer({
                 didParseCell: (data) => {
                     // Set dynamic row height based on image count
                     if (data.section === 'body') {
+                        const isSummaryRow = tableSummary && data.row.index >= body.length - 3;
+                        if (isSummaryRow) {
+                            data.cell.styles.minCellHeight = 8;
+                            return;
+                        }
                         const customHeight = rowHeights[data.row.index] || 10;
                         data.cell.styles.minCellHeight = customHeight;
                     }
                 },
                 didDrawCell: (data) => {
+                    const isSummaryRow = tableSummary && data.row.index >= body.length - 3;
+                    if (isSummaryRow) return;
+
                     // Draw multiple images in a grid layout
                     if (imgColIdx >= 0 && data.column.index === imgColIdx && data.section === 'body') {
                         const images = imageDataMap[data.row.index];
@@ -644,55 +841,7 @@ function TableViewer({
                 }
             });
 
-            // Add Summary Section after table
-            if (table.summary) {
-                const finalY = doc.lastAutoTable.finalY || 25;
-                const summaryX = pageWidth - 70;
 
-                // Ensure summary doesn't go off page
-                if (finalY + 30 > pageHeight - 20) {
-                    doc.addPage();
-                    // Redraw header for new page
-                    doc.setFillColor(...colors.primary);
-                    doc.rect(0, 0, pageWidth, 20, 'F');
-                    doc.setTextColor(...colors.white);
-                    doc.setFontSize(12);
-                    doc.text(`${table.sheetName || 'Offer Schedule'} (Summary)`, 10, 13);
-                }
-
-                let currentY = (doc.lastAutoTable.finalY + 15 > pageHeight - 40) ? 35 : doc.lastAutoTable.finalY + 15;
-                if (doc.lastAutoTable.finalY + 15 > pageHeight - 40) doc.addPage();
-                currentY = doc.lastAutoTable.finalY + 15;
-
-                // Simple Rect for Summary
-                doc.setFillColor(...colors.lightBg);
-                doc.setDrawColor(...colors.primary);
-                doc.setLineWidth(0.1);
-                doc.rect(summaryX - 5, currentY - 8, 70, 32, 'F');
-
-                doc.setFontSize(9);
-                doc.setTextColor(...colors.text);
-                doc.setFont('helvetica', 'normal');
-
-                doc.text('Subtotal:', summaryX, currentY);
-                doc.text(`${table.summary.subtotal} ${table.summary.currency}`, pageWidth - 10, currentY, { align: 'right' });
-
-                currentY += 7;
-                doc.text(`VAT (${table.summary.vatPercent}%):`, summaryX, currentY);
-                doc.text(`${table.summary.vatAmount} ${table.summary.currency}`, pageWidth - 10, currentY, { align: 'right' });
-
-                currentY += 10;
-                doc.setFont('helvetica', 'bold');
-                doc.setTextColor(...colors.primary);
-                doc.setFontSize(11);
-                doc.text('GRAND TOTAL:', summaryX, currentY);
-                doc.text(`${table.summary.grandTotal} ${table.summary.currency}`, pageWidth - 10, currentY, { align: 'right' });
-
-                // Decorative accent for total
-                doc.setDrawColor(...colors.secondary);
-                doc.setLineWidth(1);
-                doc.line(summaryX, currentY + 2, pageWidth - 10, currentY + 2);
-            }
         }
 
         doc.save(`${filename}.pdf`);
@@ -708,23 +857,39 @@ function TableViewer({
 
         const parseToArgb = (colorStr, defaultHex) => {
             if (!colorStr) return defaultHex;
-            if (colorStr.startsWith('#')) return colorStr.replace('#', '').toUpperCase();
-            if (colorStr.startsWith('rgb')) {
+            let hex = defaultHex;
+            if (colorStr.startsWith('#')) {
+                hex = colorStr.replace('#', '').toUpperCase();
+            } else if (colorStr.startsWith('rgb')) {
                 const match = colorStr.match(/\d+/g);
                 if (match && match.length >= 3) {
                     const r = parseInt(match[0]).toString(16).padStart(2, '0');
                     const g = parseInt(match[1]).toString(16).padStart(2, '0');
                     const b = parseInt(match[2]).toString(16).padStart(2, '0');
-                    return (r + g + b).toUpperCase();
+                    hex = (r + g + b).toUpperCase();
                 }
             }
-            return defaultHex;
+            if (hex === '3B82F6' || hex === '1E5FA8' || hex === '2563EB') {
+                return '0F3E67';
+            }
+            return hex;
         };
 
         const primaryArgb = parseToArgb(accentColor, '1E293B');
         const secondaryArgb = parseToArgb(secondaryColor, 'F59E0B');
 
-        for (const table of sourceTables) {
+        const getColLetter = (idx) => {
+            let letter = '';
+            let temp = idx;
+            while (temp >= 0) {
+                letter = String.fromCharCode((temp % 26) + 65) + letter;
+                temp = Math.floor(temp / 26) - 1;
+            }
+            return letter;
+        };
+
+        for (let tableIndex = 0; tableIndex < sourceTables.length; tableIndex++) {
+            const table = sourceTables[tableIndex];
             const ws = workbook.addWorksheet(table.sheetName || 'BOQ Schedule', {
                 properties: { tabColor: { argb: secondaryArgb } }
             });
@@ -743,13 +908,145 @@ function TableViewer({
                 }
             }
 
-            const descColIdx = header.findIndex(h => /description|desc|disc|item|product/i.test(h));
+            const cleanHeader = header.map(h => String(h || '').replace(/\s+/g, ' ').trim());
+            const descColIdx = cleanHeader.findIndex(h => /description|desc|disc|item|product/i.test(h));
+            const amountColIdx = cleanHeader.findIndex(h => /amount|total(?!.*(qty|quantity))/i.test(h));
+            const rateColIdx = cleanHeader.findIndex(h => /rate|price|unit.*price|unit.*rate/i.test(h));
+            const qtyColIdx = cleanHeader.findIndex(h => /qty|quantity|qt/i.test(h));
+
+            // Detect currency from amount or rate header (e.g. "Amount OMR" -> "OMR", "Total (USD)" -> "USD")
+            let detectedCurrency = 'AED';
+            if (amountColIdx !== -1) {
+                const headerText = String(header[amountColIdx]);
+                const match = headerText.match(/\(([^)]+)\)/) || headerText.match(/([A-Z]{3})/);
+                if (match) {
+                    detectedCurrency = match[1] || match[0];
+                }
+            } else if (rateColIdx !== -1) {
+                const headerText = String(header[rateColIdx]);
+                const match = headerText.match(/\(([^)]+)\)/) || headerText.match(/([A-Z]{3})/);
+                if (match) {
+                    detectedCurrency = match[1] || match[0];
+                }
+            }
 
             const hasArInHeader = header.some(h => hasArabic(h));
             const hasArInBody = table.rows.some(r => r.cells.some(c => hasArabic(c.value)));
 
             if (hasArInHeader || hasArInBody) {
                 ws.views = [{ rightToLeft: true }];
+            }
+
+            // Determine offsets and insert details dynamically
+            let startRowOffset = 0;
+            const hasProjectInfo = !!(project.projectName || project.clientName || project.projectNumber);
+            const hasCosting = !!costingFactors;
+
+            if (hasProjectInfo) {
+                // Row 1: Document Branding / Title
+                const titleRow = ws.addRow([`COMMERCIAL OFFER - ${table.sheetName || 'BOQ Schedule'}`]);
+                titleRow.getCell(1).font = { bold: true, size: 14, color: { argb: primaryArgb } };
+                ws.mergeCells(1, 1, 1, Math.max(header.length, 5));
+                ws.getRow(1).height = 25;
+
+                // Row 2: Section Header
+                const secRow = ws.addRow(['PROJECT INFORMATION']);
+                secRow.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'F1F5F9' } };
+                secRow.getCell(1).font = { bold: true, color: { argb: '1E293B' }, size: 10 };
+                secRow.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
+                ws.mergeCells(2, 1, 2, Math.max(header.length, 5));
+                ws.getRow(2).height = 20;
+
+                // Rows 3-6: Project details
+                const contractorText = project.includeContractor !== false ? (project.contractor || '—') : '—';
+                const consultantText = project.includeConsultant !== false ? (project.consultant || '—') : '—';
+
+                const detailsRows = [
+                    ['Project:', project.projectName || '—', '', 'Client:', project.clientName || '—'],
+                    ['Project No:', project.projectNumber || '—', '', 'Location / Zone:', project.locationZone || '—'],
+                    ['Contractor:', contractorText, '', 'Consultant:', consultantText],
+                    ['Site Engineer:', project.siteEngineer || '—', '', 'Issue Date:', project.issueDate || '—']
+                ];
+
+                detailsRows.forEach((rowVals, idx) => {
+                    const rNum = idx + 3;
+                    const rowObj = ws.getRow(rNum);
+                    rowObj.values = rowVals;
+                    rowObj.height = 18;
+                    
+                    const cellA = rowObj.getCell(1);
+                    const cellB = rowObj.getCell(2);
+                    const cellD = rowObj.getCell(4);
+                    const cellE = rowObj.getCell(5);
+
+                    cellA.font = { bold: true, size: 10, color: { argb: '475569' } };
+                    cellD.font = { bold: true, size: 10, color: { argb: '475569' } };
+                    cellB.font = { size: 10, color: { argb: '0F172A' } };
+                    cellE.font = { size: 10, color: { argb: '0F172A' } };
+
+                    [cellA, cellB, cellD, cellE].forEach(c => {
+                        c.alignment = { vertical: 'middle' };
+                    });
+
+                    ws.mergeCells(rNum, 2, rNum, 3);
+                    ws.mergeCells(rNum, 5, rNum, Math.max(header.length, 5));
+                });
+
+                startRowOffset = 6;
+
+                // Row 7: Costing Factors details row (if costed)
+                if (hasCosting) {
+                    const costingRow = ws.getRow(7);
+                    costingRow.values = [
+                        `Costing Factors:`,
+                        `Profit: ${costingFactors.profit}% | Freight: ${costingFactors.freight}% | Customs: ${costingFactors.customs}% | Installation: ${costingFactors.installation}% | Exchange Rate: ${costingFactors.exchangeRate}`
+                    ];
+                    costingRow.height = 18;
+                    costingRow.getCell(1).font = { bold: true, size: 10, color: { argb: 'F59E0B' } };
+                    costingRow.getCell(2).font = { size: 10, color: { argb: '475569' } };
+                    ws.mergeCells(7, 2, 7, Math.max(header.length, 5));
+                    
+                    ws.addRow([]); // Row 8 is gap row
+                    ws.getRow(8).height = 15;
+                    startRowOffset = 8;
+                } else {
+                    ws.addRow([]); // Row 7 is gap row
+                    ws.getRow(7).height = 15;
+                    startRowOffset = 7;
+                }
+
+                // Add Client Logo if available
+                if (project.clientLogo) {
+                    try {
+                        const cImgResult = await getImageData(project.clientLogo, { maxWidth: 300, format: 'image/png' });
+                        if (cImgResult) {
+                            const cBase64 = cImgResult.dataUrl.split(',')[1];
+                            const cImageId = workbook.addImage({
+                                base64: cBase64,
+                                extension: 'png'
+                            });
+                            const logoCol = Math.max(header.length - 1, 4);
+                            const fit = calcFitSize(cImgResult.width, cImgResult.height, 80, 30);
+                            ws.addImage(cImageId, {
+                                tl: { col: logoCol + 0.1, row: 0.1 },
+                                ext: { width: fit.w, height: fit.h }
+                            });
+                        }
+                    } catch (e) { }
+                }
+            } else if (hasCosting) {
+                // Costing factors only (no project details)
+                const costingRow = ws.addRow([
+                    `Costing Factors:`,
+                    `Profit: ${costingFactors.profit}% | Freight: ${costingFactors.freight}% | Customs: ${costingFactors.customs}% | Installation: ${costingFactors.installation}% | Exchange Rate: ${costingFactors.exchangeRate}`
+                ]);
+                costingRow.height = 18;
+                costingRow.getCell(1).font = { bold: true, size: 10, color: { argb: 'F59E0B' } };
+                costingRow.getCell(2).font = { size: 10, color: { argb: '475569' } };
+                ws.mergeCells(costingRow.number, 2, costingRow.number, Math.max(header.length, 5));
+                
+                ws.addRow([]);
+                startRowOffset = 2;
             }
 
             // Add header row
@@ -802,11 +1099,17 @@ function TableViewer({
                 }
             }
 
-            // Add data rows with dynamic heights based on image count
+            const maxImages = Math.max(...Object.values(imageDataByRow).map(arr => arr?.length || 0), 1);
             table.rows.forEach((row, rowIndex) => {
                 const rowData = row.cells.map((c, i) => {
                     if (i === imgColIdx) return ''; // Clear image column text
-                    return c.value;
+                    const valStr = String(c && c.value !== undefined ? c.value : '').trim();
+                    if (i === rateColIdx || i === amountColIdx || i === qtyColIdx) {
+                        const cleanVal = valStr.replace(/[^0-9.-]/g, '');
+                        const num = parseFloat(cleanVal);
+                        return isNaN(num) ? valStr : num;
+                    }
+                    return c ? c.value : '';
                 });
                 const dataRow = ws.addRow(rowData);
 
@@ -820,24 +1123,42 @@ function TableViewer({
                 dataRow.height = rowHeight;
 
                 const isEven = rowIndex % 2 === 0;
-                dataRow.eachCell((cell) => {
+                dataRow.eachCell((cell, colNumber) => {
+                    const colIdx = colNumber - 1;
                     cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: isEven ? 'F8FAFC' : 'FFFFFF' } };
                     cell.font = { color: { argb: '334155' }, size: 10 };
                     cell.alignment = { vertical: 'middle', wrapText: true };
                     cell.border = { bottom: { style: 'thin', color: { argb: 'E2E8F0' } } };
+                    
+                    if (colIdx === qtyColIdx) {
+                        cell.alignment = { horizontal: 'center', vertical: 'middle' };
+                        cell.numFmt = '#,##0';
+                    } else if (colIdx === rateColIdx || colIdx === amountColIdx) {
+                        cell.alignment = { horizontal: 'right', vertical: 'middle' };
+                        cell.numFmt = '#,##0.00';
+                    }
                 });
 
                 // Add multiple images to cell in grid layout
                 if (imgColIdx >= 0 && imageDataByRow[rowIndex]?.length > 0) {
                     const images = imageDataByRow[rowIndex];
-                    const excelRow = rowIndex + 2; // +1 for header, +1 for 1-indexed
+                    const excelRow = rowIndex + startRowOffset + 2; // +1 for header, +1 for 1-indexed, offset by project info rows
                     const baseImgSize = 50;
 
                     if (images.length === 1) {
-                        // Single image - centered
-                        ws.addImage(images[0].imageId, {
-                            tl: { col: imgColIdx + 0.05, row: excelRow - 1 + 0.05 },
-                            ext: { width: baseImgSize, height: baseImgSize }
+                        // Single image - centered with aspect ratio preservation
+                        const imgData = images[0];
+                        const fit = calcFitSize(imgData.width, imgData.height, baseImgSize, baseImgSize);
+                        
+                        const colWidthChars = maxImages > 1 ? 18 : 12;
+                        const colWidthPx = colWidthChars * 7.5;
+                        const colOffset = Math.max(0, (colWidthPx - fit.w) / 2) / colWidthPx;
+                        const fitHPoints = fit.h * 0.75;
+                        const rowOffset = Math.max(0, (rowHeight - fitHPoints) / 2) / rowHeight;
+
+                        ws.addImage(imgData.imageId, {
+                            tl: { col: imgColIdx + colOffset, row: excelRow - 1 + rowOffset },
+                            ext: { width: fit.w, height: fit.h }
                         });
                     } else {
                         // Multiple images - grid layout (2 columns)
@@ -871,49 +1192,99 @@ function TableViewer({
                 } else {
                     let maxLength = 12;
                     column.eachCell({ includeEmpty: true }, (cell) => {
-                        const cellLength = cell.value ? String(cell.value).length : 0;
-                        if (cellLength > maxLength) maxLength = cellLength;
+                        if (cell.row.number > startRowOffset) {
+                            let cellLength = 0;
+                            if (cell.value) {
+                                if (typeof cell.value === 'object' && cell.value.formula) {
+                                    cellLength = cell.value.result ? String(cell.value.result).length : 10;
+                                } else {
+                                    cellLength = String(cell.value).length;
+                                }
+                            }
+                            if (cellLength > maxLength) maxLength = cellLength;
+                        }
                     });
                     column.width = Math.min(maxLength + 2, 50);
                 }
             });
 
-            ws.views = [{ state: 'frozen', ySplit: 1 }];
-            const summaryStartCol = Math.max(header.length - 1, 1);
+            ws.views = [{ state: 'frozen', ySplit: startRowOffset + 1 }];
 
-            if (table.summary) {
-                ws.addRow([]); // Gap
+            // Construct tableSummary
+            const tableSummary = table.summary || (table.extractedSummary ? {
+                subtotal: parseFloat(table.extractedSummary.totalAmount).toFixed(2),
+                vatPercent: vatRates[tableIndex] !== undefined ? vatRates[tableIndex] : 5,
+                vatAmount: (parseFloat(table.extractedSummary.totalAmount) * (vatRates[tableIndex] !== undefined ? vatRates[tableIndex] : 5) / 100).toFixed(2),
+                grandTotal: (parseFloat(table.extractedSummary.totalAmount) * (1 + (vatRates[tableIndex] !== undefined ? vatRates[tableIndex] : 5) / 100)).toFixed(2),
+                currency: detectedCurrency
+            } : null);
 
-                // Subtotal
+            const firstDataRow = startRowOffset + 2;
+            const lastDataRow = startRowOffset + 1 + table.rows.length;
+
+            if (tableSummary) {
+                ws.addRow([]); // Gap row at lastDataRow + 1
+
+                const amountLetter = getColLetter(amountColIdx !== -1 ? amountColIdx : header.length - 1);
+                const valColNum = amountColIdx !== -1 ? amountColIdx + 1 : header.length;
+                const labelColNum = valColNum - 1 > 0 ? valColNum - 1 : 1;
+
+                const currencyFmt = `#,##0.00 "${tableSummary.currency}"`;
+                const labelFont = { bold: true, size: 10, color: { argb: '334155' } };
+                const valFont = { bold: true, size: 10, color: { argb: '334155' } };
+
+                // Row 1: Subtotal
+                const subtotalRowNum = lastDataRow + 2;
                 const subtotalRow = ws.addRow([]);
-                subtotalRow.getCell(summaryStartCol).value = 'Subtotal:';
-                subtotalRow.getCell(summaryStartCol + 1).value = `${table.summary.subtotal} ${table.summary.currency}`;
-                subtotalRow.getCell(summaryStartCol).font = { bold: true };
-                subtotalRow.getCell(summaryStartCol + 1).alignment = { horizontal: 'right' };
+                subtotalRow.height = 20;
+                subtotalRow.getCell(labelColNum).value = 'Subtotal:';
+                subtotalRow.getCell(valColNum).value = {
+                    formula: `SUM(${amountLetter}${firstDataRow}:${amountLetter}${lastDataRow})`,
+                    result: parseFloat(tableSummary.subtotal)
+                };
+                subtotalRow.getCell(labelColNum).font = labelFont;
+                subtotalRow.getCell(valColNum).font = valFont;
+                subtotalRow.getCell(valColNum).numFmt = currencyFmt;
+                subtotalRow.getCell(labelColNum).alignment = { horizontal: 'right', vertical: 'middle' };
+                subtotalRow.getCell(valColNum).alignment = { horizontal: 'right', vertical: 'middle' };
 
-                // VAT
+                // Row 2: VAT
+                const vatRowNum = lastDataRow + 3;
                 const vatRow = ws.addRow([]);
-                vatRow.getCell(summaryStartCol).value = `VAT (${table.summary.vatPercent}%):`;
-                vatRow.getCell(summaryStartCol + 1).value = `${table.summary.vatAmount} ${table.summary.currency}`;
-                vatRow.getCell(summaryStartCol + 1).alignment = { horizontal: 'right' };
+                vatRow.height = 20;
+                vatRow.getCell(labelColNum).value = `VAT (${tableSummary.vatPercent}%):`;
+                vatRow.getCell(valColNum).value = {
+                    formula: `${amountLetter}${subtotalRowNum}*${tableSummary.vatPercent}/100`,
+                    result: parseFloat(tableSummary.vatAmount)
+                };
+                vatRow.getCell(labelColNum).font = labelFont;
+                vatRow.getCell(valColNum).font = valFont;
+                vatRow.getCell(valColNum).numFmt = currencyFmt;
+                vatRow.getCell(labelColNum).alignment = { horizontal: 'right', vertical: 'middle' };
+                vatRow.getCell(valColNum).alignment = { horizontal: 'right', vertical: 'middle' };
 
-                // Grand Total
+                // Row 3: Grand Total
                 const totalRow = ws.addRow([]);
-                totalRow.getCell(summaryStartCol).value = 'GRAND TOTAL:';
-                totalRow.getCell(summaryStartCol + 1).value = `${table.summary.grandTotal} ${table.summary.currency}`;
+                totalRow.height = 24;
+                totalRow.getCell(labelColNum).value = 'GRAND TOTAL:';
+                totalRow.getCell(valColNum).value = {
+                    formula: `${amountLetter}${subtotalRowNum}+${amountLetter}${vatRowNum}`,
+                    result: parseFloat(tableSummary.grandTotal)
+                };
 
-                const totalLabelCell = totalRow.getCell(summaryStartCol);
-                const totalValueCell = totalRow.getCell(summaryStartCol + 1);
+                const totalLabelCell = totalRow.getCell(labelColNum);
+                const totalValueCell = totalRow.getCell(valColNum);
 
                 [totalLabelCell, totalValueCell].forEach(cell => {
                     cell.font = { bold: true, size: 12, color: { argb: 'FFFFFF' } };
-                    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '1E293B' } };
-                    cell.alignment = { horizontal: cell === totalValueCell ? 'right' : 'left' };
+                    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: primaryArgb } };
+                    cell.alignment = { horizontal: cell === totalValueCell ? 'right' : 'left', vertical: 'middle' };
                     cell.border = {
-                        top: { style: 'medium', color: { argb: 'F59E0B' } },
-                        bottom: { style: 'medium', color: { argb: 'F59E0B' } }
+                        top: { style: 'medium', color: { argb: secondaryArgb } },
+                        bottom: { style: 'medium', color: { argb: secondaryArgb } }
                     };
                 });
+                totalValueCell.numFmt = currencyFmt;
 
                 // Add Website Footer
                 ws.addRow([]);
@@ -923,7 +1294,7 @@ function TableViewer({
                 ws.mergeCells(footerRow.number, 1, footerRow.number, 5);
             } else {
                 const summaryRow = ws.addRow([`Total: ${table.rows.length} items`]);
-                summaryRow.getCell(1).font = { bold: true, color: { argb: 'F59E0B' } };
+                summaryRow.getCell(1).font = { bold: true, color: { argb: secondaryArgb } };
             }
         }
 
@@ -940,6 +1311,7 @@ function TableViewer({
         const pageHeight = doc.internal.pageSize.getHeight();
 
         const arabicLoaded = await loadArabicFont(doc);
+        const processText = (txt) => (arabicLoaded && hasArabic(txt)) ? fixArabic(txt) : String(txt || '');
 
         let pageAdded = false;
         let itemNumber = 1;
@@ -989,13 +1361,55 @@ function TableViewer({
                     } catch (e) { }
                 }
 
+                // Client Logo in Header if available
+                if (project.clientLogo) {
+                    try {
+                        const cdl = await getImageData(project.clientLogo, { format: 'image/png', maxWidth: 600 });
+                        if (cdl) {
+                            // Refined size
+                            const cfit = calcFitSize(cdl.width, cdl.height, 60, 18);
+                            doc.addImage(cdl.dataUrl, 'PNG', 10, 4, cfit.w, cfit.h);
+                        }
+                    } catch (e) { }
+                }
+
+                // Draw Project Info block between header and info bar (Y=32 to Y=50)
+                const pY = 32;
+                doc.setFillColor(...colors.lightBg);
+                doc.setDrawColor(...colors.border);
+                doc.setLineWidth(0.3);
+                doc.roundedRect(8, pY, pageWidth - 16, 18, 2, 2, 'FD');
+
+                const leftCol = 12, rightCol = pageWidth / 2 + 4;
+                const rowH = 4.0;
+                doc.setFontSize(7.5);
+                doc.setTextColor(...colors.text);
+
+                const contractorText = project.includeContractor !== false ? (project.contractor || '—') : '—';
+                const consultantText = project.includeConsultant !== false ? (project.consultant || '—') : '—';
+                const today = new Date().toLocaleDateString('en-GB');
+
+                const pRows = [
+                    ['Project:', project.projectName || '—', 'Client:', project.clientName || '—'],
+                    ['Project No:', project.projectNumber || '—', 'Location / Zone:', project.locationZone || '—'],
+                    ['Contractor:', contractorText, 'Consultant:', consultantText],
+                    ['Site Engineer:', project.siteEngineer || '—', 'Issue Date:', project.issueDate || today],
+                ];
+
+                pRows.forEach((r, i) => {
+                    const y = pY + 4 + i * rowH;
+                    doc.setFont('helvetica', 'bold'); doc.text(r[0], leftCol, y);
+                    doc.setFont('helvetica', 'normal'); doc.text(processText(r[1]), leftCol + 26, y);
+                    doc.setFont('helvetica', 'bold'); doc.text(r[2], rightCol, y);
+                    doc.setFont('helvetica', 'normal'); doc.text(processText(r[3]), rightCol + 30, y);
+                });
+
                 // Info bar
                 doc.setFillColor(...colors.lightBg);
                 doc.rect(0, 52, pageWidth, 12, 'F');
                 doc.setTextColor(...colors.text);
                 doc.setFontSize(8);
                 doc.setFont('helvetica', 'normal');
-                const today = new Date().toLocaleDateString('en-GB');
                 doc.text(`Date: ${today}`, 10, 60);
                 doc.text(`Item: ${String(itemNumber).padStart(3, '0')}`, pageWidth / 2, 60, { align: 'center' });
                 doc.text(`Ref: MAS-${Date.now().toString().slice(-6)}`, pageWidth - 10, 60, { align: 'right' });
@@ -1090,10 +1504,9 @@ function TableViewer({
 
                 // ===== COMPACT DETAILS TABLE =====
                 const desc = descIdx > -1 ? row.cells[descIdx].value : 'N/A';
-                const brand = brandIdx > -1 ? row.cells[brandIdx].value : 'N/A';
+                const rowBrand = brandIdx > -1 ? String(row.cells[brandIdx].value || '').trim() : '';
+                const brand = rowBrand || project.brand || project.brandOrigin || companyName || 'N/A';
                 const qty = qtyIdx > -1 ? row.cells[qtyIdx].value : 'As per BOQ';
-
-                const processText = (txt) => (arabicLoaded && hasArabic(txt)) ? fixArabic(txt) : String(txt || '');
 
                 autoTable(doc, {
                     startY: contentY,
@@ -1294,7 +1707,7 @@ function TableViewer({
 
                 // ── ITEM DETAILS ──
                 const desc = descIdx > -1 ? row.cells[descIdx].value : 'N/A';
-                const brand = project.brandOrigin ? project.brandOrigin : (brandIdx > -1 ? row.cells[brandIdx].value : '');
+                const brand = project.brand || project.brandOrigin || (brandIdx > -1 ? row.cells[brandIdx].value : '') || companyName || 'N/A';
                 const qty = qtyIdx > -1 ? row.cells[qtyIdx].value : 'As per BOQ';
                 const uom = project.unitOfMeasure ? project.unitOfMeasure : (uomIdx > -1 ? row.cells[uomIdx].value : '');
 
@@ -1659,7 +2072,7 @@ function TableViewer({
                     head: [[processText('Field'), processText('Details')]],
                     body: [
                         [processText('Work Description'), processText(desc)],
-                        [processText('Brand / Material'), processText(project.brandOrigin ? project.brandOrigin : (brandIdx > -1 ? row.cells[brandIdx].value : ''))],
+                        [processText('Brand / Material'), processText(project.brand || project.brandOrigin || (brandIdx > -1 ? row.cells[brandIdx].value : '') || companyName || 'N/A')],
                         [processText('Quantity'), processText(qty)],
                         [processText('Unit'), processText(project.unitOfMeasure ? project.unitOfMeasure : (uomIdx > -1 ? row.cells[uomIdx].value : ''))],
                         [processText('Work Area / Zone'), processText(project.locationZone || '')],
@@ -1810,35 +2223,34 @@ function TableViewer({
             logoOriginal ? getImageData(logoOriginal, { format: 'image/png', maxWidth: 400 }).catch(() => null) : Promise.resolve(null)
         ]);
 
-        // Header Helper
+        // Header Helper - Shrunk to height 30 and symmetric logo
         const drawHeader = () => {
             doc.setFillColor(...colors.primary);
-            doc.rect(0, 0, pageWidth, 60, 'F');
+            doc.rect(0, 0, pageWidth, 30, 'F');
             doc.setFillColor(...colors.accent);
-            doc.rect(0, 60, pageWidth, 2, 'F');
+            doc.rect(0, 30, pageWidth, 1, 'F');
 
             const dlWhite = whiteLogoInfo || colorLogoInfo;
             if (dlWhite) {
-                // Enlarged 3x (from 45x20 to 135x60)
-                const fit = calcFitSize(dlWhite.width, dlWhite.height, 135, 60);
-                doc.addImage(dlWhite.dataUrl, 'PNG', 10, 5, fit.w, fit.h);
+                const fit = calcFitSize(dlWhite.width, dlWhite.height, 60, 18);
+                doc.addImage(dlWhite.dataUrl, 'PNG', 10, 6, fit.w, fit.h);
             }
 
             doc.setTextColor(...colors.white);
-            doc.setFontSize(22);
+            doc.setFontSize(14);
             doc.setFont('helvetica', 'bold');
-            doc.text('DELIVERY NOTE', pageWidth - 10, 25, { align: 'right' });
+            doc.text('DELIVERY NOTE', pageWidth - 10, 12, { align: 'right' });
 
-            doc.setFontSize(10);
+            doc.setFontSize(8.5);
             doc.setFont('helvetica', 'normal');
-            doc.text(`Reference: ${dnRef}`, pageWidth - 10, 35, { align: 'right' });
-            doc.text(`Date: ${today}`, pageWidth - 10, 42, { align: 'right' });
+            doc.text(`Ref: ${dnRef}`, pageWidth - 10, 18, { align: 'right' });
+            doc.text(`Date: ${today}`, pageWidth - 10, 24, { align: 'right' });
         };
 
         drawHeader();
 
-        // Project Info
-        let currentY = 50;
+        // Project Info - Card starting at Y=35 to fix overlaps
+        let currentY = 35;
         doc.setFillColor(...colors.lightBg);
         doc.setDrawColor(...colors.border);
         doc.roundedRect(10, currentY, pageWidth - 20, 35, 2, 2, 'FD');
@@ -1977,6 +2389,7 @@ function TableViewer({
     const handleGeneratePresentation = async (sourceTables, returnBase64 = false) => {
         const PptxGenJS = (await import('pptxgenjs')).default;
         const pres = new PptxGenJS();
+        const totalItems = sourceTables.reduce((acc, t) => acc + t.rows.length, 0);
 
         pres.author = 'BOQFlow';
         pres.title = 'Product Presentation';
@@ -1984,67 +2397,127 @@ function TableViewer({
 
         const brandColors = getBrandColors(accentColor, secondaryColor);
 
-        let masterLogo = [];
+        // Pre-load company and client logos for slide header
+        let companyLogoData = null;
+        let clientLogoData = null;
         if (logoWhite || logoOriginal) {
             try {
-                const logoImg = await getImageData(logoWhite || logoOriginal, { format: 'image/png', maxWidth: 800 });
-                if (logoImg) {
-                    masterLogo = [{
-                        image: { x: 8.3, y: 0.1, data: logoImg.dataUrl, sizing: { type: 'contain', w: 1.5, h: 0.6 } }
-                    }];
-                }
-            } catch (e) {
-                console.error("Failed to load logo for PPTX master", e);
-            }
+                companyLogoData = await getImageData(logoWhite || logoOriginal, { format: 'image/png', maxWidth: 400 });
+            } catch (e) {}
+        }
+        if (project.clientLogo) {
+            try {
+                clientLogoData = await getImageData(project.clientLogo, { format: 'image/png', maxWidth: 400 });
+            } catch (e) {}
         }
 
-        // Light theme master slide
+        // Light theme master slide (logos and shapes drawn inside loop so they are editable/movable)
         pres.defineSlideMaster({
             title: 'BOQ_MASTER',
             background: { color: brandColors.bg },
-            objects: [
-                // Header bar (blue)
-                { rect: { x: 0, y: 0, w: '100%', h: 0.8, fill: { color: brandColors.primary } } },
-                // Gold accent line
-                { rect: { x: 0, y: 0.8, w: '100%', h: 0.03, fill: { color: brandColors.accent } } },
-                // Footer background
-                { rect: { x: 0, y: 5.3, w: '100%', h: 0.2, fill: { color: brandColors.lightBg } } },
-                // Logo in header
-                ...masterLogo
-            ]
+            objects: []
         });
+
+        const drawSlideDecorations = (slideObj) => {
+            // Header bar (blue) - drawn on slide directly to make it selectable/editable
+            slideObj.addShape('rect', { x: 0, y: 0, w: '100%', h: 0.8, fill: { color: brandColors.primary } });
+            // Gold accent line
+            slideObj.addShape('rect', { x: 0, y: 0.8, w: '100%', h: 0.03, fill: { color: brandColors.accent } });
+            // Footer background
+            slideObj.addShape('rect', { x: 0, y: 5.3, w: '100%', h: 0.2, fill: { color: brandColors.lightBg } });
+        };
 
         // Title Slide
         const titleSlide = pres.addSlide({ masterName: 'BOQ_MASTER' });
+        drawSlideDecorations(titleSlide);
         
-        // Add prominent logo to cover
-        if (logoOriginal || logoWhite) {
-            try {
-                const coverLogo = await getImageData(logoOriginal || logoWhite, { format: 'image/png', maxWidth: 800 });
-                if (coverLogo) {
-                    titleSlide.addImage({
-                        data: coverLogo.dataUrl,
-                        x: 2.5, y: 1.2,
-                        sizing: { type: 'contain', w: 5.0, h: 1.8 }
-                    });
-                }
-            } catch(e) {}
+        // Draw Company Logo on header of cover slide if available (small, far right)
+        if (companyLogoData) {
+            const maxW = 1.5;
+            const maxH = 0.6;
+            const fit = calcFitSize(companyLogoData.width, companyLogoData.height, maxW * 96, maxH * 96);
+            const fitW = fit.w / 96;
+            const fitH = fit.h / 96;
+            const logoX = 9.8 - fitW;
+            const centeredY = 0.1 + (0.6 - fitH) / 2;
+            titleSlide.addImage({
+                data: companyLogoData.dataUrl,
+                x: logoX, y: centeredY,
+                w: fitW, h: fitH
+            });
         }
 
-        titleSlide.addText('PRODUCT SHOWCASE', {
-            x: 0, y: 3.4, w: '100%', h: 0.6,
-            fontSize: 42, bold: true, color: brandColors.primary, fontFace: 'Arial', align: 'center'
-        });
+        // Add prominent client logo centered if uploaded, otherwise company logo (never stretched or distorted)
+        if (project.clientLogo && clientLogoData) {
+            const maxW = 3.2;
+            const maxH = 1.5;
+            const fit = calcFitSize(clientLogoData.width, clientLogoData.height, maxW * 96, maxH * 96);
+            const fitW = fit.w / 96;
+            const fitH = fit.h / 96;
+            const centeredX = 3.4 + (3.2 - fitW) / 2;
+            const centeredY = 1.2 + (1.5 - fitH) / 2;
+
+            titleSlide.addImage({
+                data: clientLogoData.dataUrl,
+                x: centeredX, y: centeredY,
+                w: fitW, h: fitH
+            });
+        } else if (companyLogoData) {
+            const maxW = 3.2;
+            const maxH = 1.5;
+            const fit = calcFitSize(companyLogoData.width, companyLogoData.height, maxW * 96, maxH * 96);
+            const fitW = fit.w / 96;
+            const fitH = fit.h / 96;
+            const centeredX = 3.4 + (3.2 - fitW) / 2;
+            const centeredY = 1.2 + (1.5 - fitH) / 2;
+
+            titleSlide.addImage({
+                data: companyLogoData.dataUrl,
+                x: centeredX, y: centeredY,
+                w: fitW, h: fitH
+            });
+        }
+
+        if (project.projectName) {
+            titleSlide.addText(project.projectName.toUpperCase(), {
+                x: 0, y: 2.8, w: '100%', h: 0.6,
+                fontSize: 32, bold: true, color: brandColors.primary, fontFace: 'Arial', align: 'center'
+            });
+        } else {
+            titleSlide.addText('PRODUCT SHOWCASE', {
+                x: 0, y: 2.8, w: '100%', h: 0.6,
+                fontSize: 36, bold: true, color: brandColors.primary, fontFace: 'Arial', align: 'center'
+            });
+        }
         
-        titleSlide.addText('Bill of Quantities - Product Presentation', {
-            x: 0, y: 4.1, w: '100%', h: 0.4,
+        const subtitle = project.clientName ? `Prepared for: ${project.clientName}` : 'Bill of Quantities - Product Presentation';
+        titleSlide.addText(subtitle, {
+            x: 0, y: 3.4, w: '100%', h: 0.4,
             fontSize: 14, color: brandColors.lightText, fontFace: 'Arial', align: 'center'
         });
+
         const todayStr = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' });
-        const totalItems = sourceTables.reduce((acc, t) => acc + t.rows.length, 0);
-        titleSlide.addText(`Date: ${todayStr}  |  Total Items: ${totalItems}`, {
-            x: 0, y: 4.6, w: '100%', h: 0.3, fontSize: 11, color: brandColors.lightText, align: 'center'
+        const contractorText = project.includeContractor !== false ? (project.contractor || '—') : '—';
+        const consultantText = project.includeConsultant !== false ? (project.consultant || '—') : '—';
+
+        let detailsPptText = `Date: ${project.issueDate || todayStr}   |   Revision: ${project.revision || 'Rev 0'}`;
+        if (project.projectNumber) detailsPptText += `   |   Project No: ${project.projectNumber}`;
+        if (project.locationZone) detailsPptText += `   |   Location: ${project.locationZone}`;
+        
+        let partiesPptText = '';
+        if (project.contractor && project.includeContractor !== false) partiesPptText += `Contractor: ${project.contractor}   `;
+        if (project.consultant && project.includeConsultant !== false) partiesPptText += `|   Consultant: ${project.consultant}   `;
+        if (project.siteEngineer) partiesPptText += `|   Site Engineer: ${project.siteEngineer}`;
+
+        titleSlide.addText(detailsPptText, {
+            x: 0, y: 3.9, w: '100%', h: 0.3, fontSize: 10, color: brandColors.lightText, align: 'center'
         });
+
+        if (partiesPptText.trim()) {
+            titleSlide.addText(partiesPptText.trim(), {
+                x: 0, y: 4.2, w: '100%', h: 0.3, fontSize: 9.5, color: brandColors.lightText, align: 'center'
+            });
+        }
 
         let itemNum = 1;
 
@@ -2059,6 +2532,7 @@ function TableViewer({
                 if (!row.cells.some(c => c.value)) continue;
 
                 const slide = pres.addSlide({ masterName: 'BOQ_MASTER' });
+                drawSlideDecorations(slide);
 
                 // Get all images from the row
                 const imageCell = row.cells.find(c => c.images?.length > 0 || c.image);
@@ -2066,7 +2540,7 @@ function TableViewer({
 
                 // Get product info
                 const desc = descIdx > -1 ? String(row.cells[descIdx].value || '') : '';
-                const brand = brandIdx > -1 ? String(row.cells[brandIdx].value || '') : '';
+                const brandVal = brandIdx > -1 ? String(row.cells[brandIdx].value || '') : '';
                 const qty = qtyIdx > -1 ? String(row.cells[qtyIdx].value || '') : '';
                 const finish = finishIdx > -1 ? String(row.cells[finishIdx].value || '') : '';
 
@@ -2074,19 +2548,51 @@ function TableViewer({
                 const firstLine = desc.split(/[\n*•]/)[0].trim();
                 const headerTitle = firstLine.length > 50 ? firstLine.substring(0, 47) + '...' : firstLine;
 
-                slide.addText(`Item ${itemNum}: ${headerTitle}`, {
-                    x: 0.2, y: 0.15, w: 8.0, h: 0.4,
-                    fontSize: 14, color: brandColors.bg, bold: true, fontFace: 'Arial', valign: 'middle'
-                });
-
-                // Company logo area (top right) is handled by the master slide
-                // Only write text fallback if NO logo is provided
-                if (!logoWhite && !logoOriginal) {
-                    slide.addText(companyName || 'LOGO', {
-                        x: 8.2, y: 0.25, w: 1.5, h: 0.2,
-                        fontSize: 8, color: brandColors.lightText, align: 'center'
+                let clientLogoW = 0;
+                let clientLogoH = 0;
+                let clientCenteredY = 0.1;
+                // Draw Client Logo on header if available (never stretched or distorted)
+                if (clientLogoData) {
+                    const maxW = 1.5;
+                    const maxH = 0.6;
+                    const fit = calcFitSize(clientLogoData.width, clientLogoData.height, maxW * 96, maxH * 96);
+                    clientLogoW = fit.w / 96;
+                    clientLogoH = fit.h / 96;
+                    clientCenteredY = 0.1 + (0.6 - clientLogoH) / 2;
+                    slide.addImage({
+                        data: clientLogoData.dataUrl,
+                        x: 0.2, y: clientCenteredY,
+                        w: clientLogoW, h: clientLogoH
                     });
                 }
+
+                let companyLogoW = 0;
+                let companyLogoH = 0;
+                let companyCenteredY = 0.1;
+                // Draw Company Logo on header if available (never stretched or distorted)
+                if (companyLogoData) {
+                    const maxW = 1.5;
+                    const maxH = 0.6;
+                    const fit = calcFitSize(companyLogoData.width, companyLogoData.height, maxW * 96, maxH * 96);
+                    companyLogoW = fit.w / 96;
+                    companyLogoH = fit.h / 96;
+                    companyCenteredY = 0.1 + (0.6 - companyLogoH) / 2;
+                    const logoX = 9.8 - companyLogoW;
+                    slide.addImage({
+                        data: companyLogoData.dataUrl,
+                        x: logoX, y: companyCenteredY,
+                        w: companyLogoW, h: companyLogoH
+                    });
+                }
+
+                // Dynamically offset titleX and titleW based on logos width to prevent any overlapping
+                const titleX = clientLogoData ? (0.2 + clientLogoW + 0.15) : 0.2;
+                const titleW = 10 - titleX - (companyLogoData ? (companyLogoW + 0.15) : 0.2);
+
+                slide.addText(`Item ${itemNum}: ${headerTitle}`, {
+                    x: titleX, y: 0.15, w: titleW, h: 0.4,
+                    fontSize: 14, color: brandColors.bg, bold: true, fontFace: 'Arial', valign: 'middle'
+                });
 
                 // ===== LEFT SIDE: IMAGE(S) - Pre-load and calculate exact dimensions =====
                 const imgAreaX = 0.25;
@@ -2138,7 +2644,8 @@ function TableViewer({
                         x: centeredX,
                         y: centeredY,
                         w: fitW,
-                        h: fitH
+                        h: fitH,
+                        sizing: { type: 'contain', w: fitW, h: fitH }
                     });
                 } else if (loadedImages.length === 2) {
                     // 2 images - side by side with exact dimensions
@@ -2161,7 +2668,8 @@ function TableViewer({
                             x: centeredX,
                             y: centeredY,
                             w: fitW,
-                            h: fitH
+                            h: fitH,
+                            sizing: { type: 'contain', w: fitW, h: fitH }
                         });
                     });
                 } else if (loadedImages.length >= 3) {
@@ -2191,7 +2699,8 @@ function TableViewer({
                             x: centeredX,
                             y: centeredY,
                             w: fitW,
-                            h: fitH
+                            h: fitH,
+                            sizing: { type: 'contain', w: fitW, h: fitH }
                         });
                     });
 
@@ -2205,91 +2714,66 @@ function TableViewer({
                 }
 
                 // ===== RIGHT SIDE: PRODUCT DETAILS =====
-                const detailX = 5;
+                const detailX = 5.0;
                 const detailW = 4.7;
-                let detailY = 0.95;
 
                 // "Product Details" Header
                 slide.addText('Product Details', {
-                    x: detailX, y: detailY, w: detailW, h: 0.35,
+                    x: detailX, y: 0.95, w: detailW, h: 0.35,
                     fontSize: 18, bold: true, color: brandColors.primary, fontFace: 'Arial'
                 });
-                detailY += 0.45;
 
                 // Description sub-section
                 slide.addText('Description:', {
-                    x: detailX, y: detailY, w: detailW, h: 0.25,
-                    fontSize: 11, bold: true, color: brandColors.text, fontFace: 'Arial'
+                    x: detailX, y: 1.35, w: detailW, h: 0.25,
+                    fontSize: 11, bold: true, color: brandColors.primary, fontFace: 'Arial'
                 });
-                detailY += 0.28;
 
-                // Full description with word wrap - capped height to fit slide
+                // Full description with word wrap - dynamic font size to prevent overlapping sections below
                 const fullDesc = desc.trim();
-                // Max height: leave room for Brand, Qty, Specs (~1.5") before footer at 4.7"
-                const maxDescY = 3.5; // Max Y position after description
-                const availableDescH = maxDescY - detailY;
-                const estLines = Math.ceil(fullDesc.length / 60) + (fullDesc.match(/[\n*•]/g) || []).length;
-                const descBoxH = Math.min(availableDescH, Math.max(0.4, estLines * 0.15));
+                const estimatedLines = fullDesc.split('\n').reduce((acc, line) => {
+                    return acc + Math.max(1, Math.ceil(line.length / 60));
+                }, 0);
+
+                let descFontSize = 9.5;
+                if (estimatedLines > 28) {
+                    descFontSize = 6.5;
+                } else if (estimatedLines > 20) {
+                    descFontSize = 7.5;
+                } else if (estimatedLines > 12) {
+                    descFontSize = 8.5;
+                }
 
                 slide.addText(fullDesc, {
-                    x: detailX, y: detailY, w: detailW, h: descBoxH,
-                    fontSize: 9, color: brandColors.text, fontFace: 'Arial', valign: 'top',
+                    x: detailX, y: 1.6, w: detailW, h: 3.1,
+                    fontSize: descFontSize, color: brandColors.text, fontFace: 'Arial', valign: 'top',
                     wrap: true, shrinkText: true
                 });
-                detailY += descBoxH + 0.08;
 
-                // Ensure we don't overflow - cap at safe Y
-                const maxContentY = 4.5; // Footer starts around 4.7"
+                // Brand fallback logic
+                const rowBrand = brandVal.trim();
+                const brand = rowBrand || project.brand || project.brandOrigin || companyName || 'N/A';
 
-                // Brand sub-section
-                if (detailY < maxContentY - 0.3) {
-                    slide.addText('Brand:', {
-                        x: detailX, y: detailY, w: 1, h: 0.22,
-                        fontSize: 10, bold: true, color: brandColors.text, fontFace: 'Arial'
-                    });
-                    slide.addText(brand || 'N/A', {
-                        x: detailX + 0.55, y: detailY, w: detailW - 0.55, h: 0.22,
-                        fontSize: 9, color: brandColors.text, fontFace: 'Arial'
-                    });
-                    detailY += 0.28;
-                }
+                // Brand and Qty side-by-side above the footer
+                const footerY = 4.72;
+                slide.addText('Brand:', {
+                    x: detailX, y: footerY, w: 0.75, h: 0.35,
+                    fontSize: 10, bold: true, color: brandColors.primary, fontFace: 'Arial', valign: 'middle'
+                });
+                slide.addText(brand, {
+                    x: detailX + 0.75, y: footerY, w: 1.65, h: 0.35,
+                    fontSize: 9, color: brandColors.text, fontFace: 'Arial', valign: 'middle'
+                });
 
-                // Quantity sub-section
-                if (detailY < maxContentY - 0.3) {
-                    slide.addText('Quantity:', {
-                        x: detailX, y: detailY, w: 1, h: 0.22,
-                        fontSize: 10, bold: true, color: brandColors.text, fontFace: 'Arial'
-                    });
-                    slide.addText(qty || 'As per BOQ', {
-                        x: detailX + 0.7, y: detailY, w: detailW - 0.7, h: 0.22,
-                        fontSize: 9, color: brandColors.text, fontFace: 'Arial'
-                    });
-                    detailY += 0.28;
-                }
-
-                // Specifications sub-section - only if space available
-                if (detailY < maxContentY - 0.4) {
-                    slide.addText('Specifications:', {
-                        x: detailX, y: detailY, w: detailW, h: 0.22,
-                        fontSize: 10, bold: true, color: brandColors.primary, fontFace: 'Arial'
-                    });
-                    detailY += 0.22;
-
-                    // Build specifications from available data
-                    const specs = [];
-                    if (finish) specs.push(`• Finish: ${finish}`);
-                    if (desc.includes('mm')) {
-                        const sizeMatch = desc.match(/\d+\s*[xX×]\s*\d+\s*(mm|cm)?/);
-                        if (sizeMatch) specs.push(`• Dimensions: ${sizeMatch[0]}`);
-                    }
-                    specs.push('• Warranty: As per manufacturer');
-
-                    const specsH = Math.min(maxContentY - detailY, 0.6);
-                    slide.addText(specs.join('\n') || '• As per manufacturer specifications', {
-                        x: detailX + 0.1, y: detailY, w: detailW - 0.1, h: specsH,
-                        fontSize: 8, color: brandColors.text, fontFace: 'Arial', valign: 'top'
-                    });
-                }
+                // Quantity
+                slide.addText('Qty:', {
+                    x: detailX + 2.5, y: footerY, w: 0.5, h: 0.35,
+                    fontSize: 10, bold: true, color: brandColors.primary, fontFace: 'Arial', valign: 'middle'
+                });
+                slide.addText(qty || 'As per BOQ', {
+                    x: detailX + 3.0, y: footerY, w: 1.7, h: 0.35,
+                    fontSize: 9, color: brandColors.text, fontFace: 'Arial', valign: 'middle'
+                });
 
                 // ===== FOOTER =====
                 // Warranty notice
@@ -2434,7 +2918,8 @@ function TableViewer({
                 const allImages = imageCell?.images || (imageCell?.image ? [imageCell.image] : []);
 
                 const desc = descIdx > -1 ? String(row.cells[descIdx].value || '') : '';
-                const brand = brandIdx > -1 ? String(row.cells[brandIdx].value || '') : '';
+                const rowBrand = brandIdx > -1 ? String(row.cells[brandIdx].value || '').trim() : '';
+                const brand = rowBrand || project.brand || project.brandOrigin || companyName || 'N/A';
                 const qty = qtyIdx > -1 ? String(row.cells[qtyIdx].value || '') : '';
                 const finish = finishIdx > -1 ? String(row.cells[finishIdx].value || '') : '';
 
@@ -2567,55 +3052,50 @@ function TableViewer({
                 detailY += 5;
 
                 doc.setFont(arabicLoaded ? 'Almarai' : 'helvetica', 'normal');
-                doc.setFontSize(9);
-                const descText = desc.length > 350 ? desc.substring(0, 347) + '...' : desc;
+                const descText = desc.trim();
 
-                // Break into manual lines for precise control
+                // Estimate lines count to scale text size dynamically
+                const rawLinesDefault = doc.splitTextToSize(processText(descText), detailW);
+                let descFontSize = 9.5;
+                let lineSpacing = 4.8;
+
+                if (rawLinesDefault.length > 16) {
+                    descFontSize = 6.5;
+                    lineSpacing = 3.2;
+                } else if (rawLinesDefault.length > 12) {
+                    descFontSize = 7.5;
+                    lineSpacing = 3.8;
+                } else if (rawLinesDefault.length > 8) {
+                    descFontSize = 8.5;
+                    lineSpacing = 4.2;
+                }
+
+                doc.setFontSize(descFontSize);
                 const rawLines = doc.splitTextToSize(processText(descText), detailW);
-                const displayLines = rawLines.slice(0, 12);
+                const displayLines = rawLines.slice(0, 14);
 
                 displayLines.forEach((line) => {
                     doc.text(line, detailX, detailY);
-                    detailY += 7; // Increased to 7 for better spacing
+                    detailY += lineSpacing;
                 });
-                detailY += 6;
+                detailY += 4;
 
-                // Brand sub-section
-                doc.setFont('helvetica', 'bold');
-                doc.setFontSize(10);
-                doc.text('Brand:', detailX, detailY);
-                doc.setFont('helvetica', 'normal');
-                doc.text(brand || 'N/A', detailX + 22, detailY);
-                detailY += 8; // Adjusted padding
-
-                // Quantity sub-section
-                doc.setFont('helvetica', 'bold');
-                doc.text('Quantity:', detailX, detailY);
-                doc.setFont('helvetica', 'normal');
-                doc.text(qty || 'As per BOQ', detailX + 22, detailY);
-                detailY += 12;
-
-                // Specifications sub-section
+                // Brand and Qty — anchored above footer in dark navy
+                const brandQtyY = pageHeight - 30;
                 doc.setTextColor(...colors.primary);
                 doc.setFont('helvetica', 'bold');
-                doc.text('Specifications:', detailX, detailY);
-                detailY += 6;
-
-                // Build specifications from available data
-                doc.setTextColor(...colors.text);
+                doc.setFontSize(10);
+                doc.text('Brand:', detailX, brandQtyY);
                 doc.setFont('helvetica', 'normal');
-                doc.setFontSize(9);
-                const specs = [];
-                if (finish) specs.push(`• Finish: ${finish}`);
-                if (desc.includes('mm')) {
-                    const sizeMatch = desc.match(/\d+\s*[xX×]\s*\d+\s*(mm|cm)?/);
-                    if (sizeMatch) specs.push(`• Dimensions: ${sizeMatch[0]}`);
-                }
-                specs.push('• Warranty: As per manufacturer');
+                doc.setTextColor(...colors.text);
+                doc.text(brand || 'N/A', detailX + 22, brandQtyY);
 
-                specs.forEach((spec, idx) => {
-                    doc.text(spec, detailX + 3, detailY + idx * 5);
-                });
+                doc.setTextColor(...colors.primary);
+                doc.setFont('helvetica', 'bold');
+                doc.text('Qty:', detailX + 60, brandQtyY);
+                doc.setFont('helvetica', 'normal');
+                doc.setTextColor(...colors.text);
+                doc.text(qty || 'As per BOQ', detailX + 75, brandQtyY);
 
                 // ===== FOOTER =====
                 doc.setFillColor(...colors.lightBg);
@@ -2910,21 +3390,21 @@ function TableViewer({
                     </button>
                 </div>
                 <div className={actionStyles.buttonGroup}>
-                    <button className={actionStyles.actionBtn} onClick={() => handleDownloadPDF(tables, 'Original_Offer')}>📄 Download Offer PDF</button>
-                    <button className={actionStyles.actionBtn} onClick={() => handleDownloadExcel(tables, 'Original_Offer')}>📊 Download Offer Excel</button>
-                    <button className={actionStyles.actionBtn} onClick={() => handleGeneratePresentation(tables)}>📽️ Generate Presentation</button>
+                    <button className={actionStyles.actionBtn} onClick={() => handleDownloadPDF(tablesWithSummary, 'Original_Offer')}>📄 Download Offer PDF</button>
+                    <button className={actionStyles.actionBtn} onClick={() => handleDownloadExcel(tablesWithSummary, 'Original_Offer')}>📊 Download Offer Excel</button>
+                    <button className={actionStyles.actionBtn} onClick={() => handleGeneratePresentation(tablesWithSummary)}>📽️ Generate Presentation</button>
                     <button 
                         className={`${actionStyles.actionBtn} ${isGeneratingPpt ? actionStyles.loading : ''}`} 
-                        onClick={() => handleGeneratePptPdf(tables)}
+                        onClick={() => handleGeneratePptPdf(tablesWithSummary)}
                         disabled={isGeneratingPpt}
                     >
                         {isGeneratingPpt ? '⏳ Generating...' : '📑 Presentation PDF'}
                     </button>
 
-                    <button className={actionStyles.actionBtn} onClick={() => handleGenerateMas(tables)}>📋 Generate MAS</button>
-                    <button className={`${actionStyles.actionBtn} ${actionStyles.actionBtnMir}`} onClick={() => handleGenerateMIR(tables)}>🔍 Generate MIR</button>
-                    <button className={`${actionStyles.actionBtn} ${actionStyles.actionBtnWir}`} onClick={() => handleGenerateWIR(tables)}>🔧 Generate WIR</button>
-                    <button className={`${actionStyles.actionBtn} ${actionStyles.actionBtnDn}`} onClick={() => handleGenerateDeliveryNote(tables)}>🚚 Delivery Note</button>
+                    <button className={actionStyles.actionBtn} onClick={() => handleGenerateMas(tablesWithSummary)}>📋 Generate MAS</button>
+                    <button className={`${actionStyles.actionBtn} ${actionStyles.actionBtnMir}`} onClick={() => handleGenerateMIR(tablesWithSummary)}>🔍 Generate MIR</button>
+                    <button className={`${actionStyles.actionBtn} ${actionStyles.actionBtnWir}`} onClick={() => handleGenerateWIR(tablesWithSummary)}>🔧 Generate WIR</button>
+                    <button className={`${actionStyles.actionBtn} ${actionStyles.actionBtnDn}`} onClick={() => handleGenerateDeliveryNote(tablesWithSummary)}>🚚 Delivery Note</button>
                     <button className={`${actionStyles.actionBtn} ${actionStyles.actionBtnDn}`} style={{ background: '#10b981', color: '#ffffff', borderColor: '#059669', fontWeight: '500' }} onClick={() => setTenderAutofillOpen(true)}>🤖 Autofill on Tender Board</button>
                 </div>
             </div>

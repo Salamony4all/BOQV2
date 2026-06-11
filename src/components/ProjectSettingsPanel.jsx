@@ -15,6 +15,7 @@ const FIELDS = [
     { key: 'revision', label: 'Revision', placeholder: 'e.g. Rev 0', icon: '🔄' },
     { key: 'mirReference', label: 'MIR Reference / Code', placeholder: 'e.g. MIR-001', icon: '📝' },
     { key: 'wirReference', label: 'WIR Reference / Code', placeholder: 'e.g. WIR-001', icon: '📝' },
+    { key: 'brand', label: 'Brand', placeholder: 'e.g. Dauphin', icon: '🏷️' },
     { key: 'brandOrigin', label: 'Brand / Origin (Preset)', placeholder: 'e.g. Sony / Japan', icon: '🏷️' },
     { key: 'unitOfMeasure', label: 'Unit of Measure (Preset)', placeholder: 'e.g. PCS, Nos', icon: '📏' },
     { key: 'originatorName', label: 'Originator Name', placeholder: 'e.g. John Doe', icon: '👤' },

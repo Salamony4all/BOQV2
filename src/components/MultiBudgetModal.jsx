@@ -1590,7 +1590,7 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
         ws.mergeCells('A2:C2');
         const titleCell = ws.getCell('A2');
         titleCell.value = `${activeTier.toUpperCase()} TIER OFFER`;
-        titleCell.font = { bold: true, size: 14, color: { argb: '1E5FA8' } };
+        titleCell.font = { bold: true, size: 14, color: { argb: '0F3E67' } };
 
         ws.getCell('A3').value = `Generated on: ${new Date().toLocaleDateString()}`;
         ws.getCell('A3').font = { italic: true, size: 10, color: { argb: '64748B' } };
@@ -1655,19 +1655,33 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
         const headerRow = ws.addRow(header);
         headerRow.height = 25;
         headerRow.eachCell(cell => {
-            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '1E5FA8' } };
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '0F3E67' } };
             cell.font = { color: { argb: 'FFFFFF' }, bold: true, size: 11 };
             cell.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
             cell.border = {
-                top: { style: 'thin', color: { argb: '1E5FA8' } },
+                top: { style: 'thin', color: { argb: '0F3E67' } },
                 bottom: { style: 'medium', color: { argb: 'F5A623' } }
             };
         });
 
+        const qtyColNum = isBoqMode ? 8 : 6;
+        const rateColNum = isBoqMode ? 10 : 8;
+        const amountColNum = isBoqMode ? 11 : 9;
+        const amountLetter = isBoqMode ? 'K' : 'I';
+
         for (let i = 0; i < tier.rows.length; i++) {
             const row = tier.rows[i];
-            const amount = (parseFloat(row.qty || 0) * parseFloat(row.rate || 0)).toFixed(2);
             const brandName = (row.selectedBrand || '').replace(/Explore collections by/i, '').trim();
+
+            const qtyStr = String(row.qty || '').trim();
+            const cleanQty = qtyStr.replace(/[^0-9.-]/g, '');
+            const parsedQty = parseFloat(cleanQty);
+            const qtyVal = isNaN(parsedQty) ? '' : parsedQty;
+
+            const rateStr = String(row.rate || '').trim();
+            const cleanRate = rateStr.replace(/[^0-9.-]/g, '');
+            const parsedRate = parseFloat(cleanRate);
+            const rateVal = isNaN(parsedRate) ? '' : parsedRate;
 
             const dataRow = isBoqMode
                 ? [
@@ -1678,10 +1692,10 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                     row.description || '',
                     '',
                     row.brandDesc || '',
-                    row.qty || '',
+                    qtyVal,
                     row.unit || '',
-                    row.rate || '',
-                    amount
+                    rateVal,
+                    '' // amount placeholder
                 ]
                 : [
                     row.sn,
@@ -1689,22 +1703,35 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                     row.scope || '-',
                     '',
                     row.brandDesc || '',
-                    row.qty || '',
+                    qtyVal,
                     row.unit || '',
-                    row.rate || '',
-                    amount
+                    rateVal,
+                    '' // amount placeholder
                 ];
 
             const excelRow = ws.addRow(dataRow);
             const rowNumber = excelRow.number;
             excelRow.height = 75;
 
+            const qtyColLetter = isBoqMode ? 'H' : 'F';
+            const rateColLetter = isBoqMode ? 'J' : 'H';
+            excelRow.getCell(amountColNum).value = {
+                formula: `${qtyColLetter}${rowNumber}*${rateColLetter}${rowNumber}`,
+                result: (typeof qtyVal === 'number' && typeof rateVal === 'number') ? qtyVal * rateVal : 0
+            };
+
             excelRow.eachCell((cell, colNumber) => {
                 cell.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
                 cell.border = {
                     bottom: { style: 'thin', color: { argb: 'E2E8F0' } }
                 };
-                if ([2, 3, 5, 7].includes(colNumber)) {
+                if (colNumber === qtyColNum) {
+                    cell.alignment = { vertical: 'middle', horizontal: 'center' };
+                    cell.numFmt = '#,##0';
+                } else if (colNumber === rateColNum || colNumber === amountColNum) {
+                    cell.alignment = { vertical: 'middle', horizontal: 'right' };
+                    cell.numFmt = '#,##0.00';
+                } else if ([2, 3, 5, 7].includes(colNumber)) {
                     cell.alignment = { vertical: 'middle', horizontal: 'left', wrapText: true };
                 }
             });
@@ -1719,8 +1746,12 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                             extension: 'jpeg'
                         });
                         const fit = calcFitSize(imgData.width, imgData.height, 100, 70);
+                        const colWidthPx = 15 * 7.5;
+                        const colOffset = Math.max(0, (colWidthPx - fit.w) / 2) / colWidthPx;
+                        const fitHPoints = fit.h * 0.75;
+                        const rowOffset = Math.max(0, (75 - fitHPoints) / 2) / 75;
                         ws.addImage(imageId, {
-                            tl: { col: 3.05, row: rowNumber - 1 + 0.1 },
+                            tl: { col: 3 + colOffset, row: rowNumber - 1 + rowOffset },
                             ext: { width: fit.w, height: fit.h }
                         });
                     }
@@ -1738,8 +1769,10 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                             extension: 'png'
                         });
                         const logoFit = calcFitSize(logoData.width, logoData.height, 60, 20);
+                        const colWidthPx = 18 * 7.5;
+                        const colOffset = Math.max(0, (colWidthPx - logoFit.w) / 2) / colWidthPx;
                         ws.addImage(logoId, {
-                            tl: { col: brandImgCol + 0.1, row: rowNumber - 1 + 0.05 },
+                            tl: { col: brandImgCol + colOffset, row: rowNumber - 1 + 0.05 },
                             ext: { width: logoFit.w, height: logoFit.h }
                         });
                     }
@@ -1755,43 +1788,72 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                             extension: 'jpeg'
                         });
                         const imgFit = calcFitSize(brandImgData.width, brandImgData.height, 120, 50);
+                        const colWidthPx = 18 * 7.5;
+                        const colOffset = Math.max(0, (colWidthPx - imgFit.w) / 2) / colWidthPx;
                         ws.addImage(brandId, {
-                            tl: { col: brandImgCol + 0.05, row: rowNumber - 1 + 0.3 },
+                            tl: { col: brandImgCol + colOffset, row: rowNumber - 1 + 0.3 },
                             ext: { width: imgFit.w, height: imgFit.h }
                         });
                     }
                 } catch (e) { console.log('Brand image error:', e); }
             }
         }
-        const subtotal = tier.rows.reduce((sum, row) => sum + (parseFloat(row.qty || 0) * parseFloat(row.rate || 0)), 0);
+
+        const subtotal = tier.rows.reduce((sum, row) => {
+            const qtyStr = String(row.qty || '').trim();
+            const cleanQty = qtyStr.replace(/[^0-9.-]/g, '');
+            const parsedQty = parseFloat(cleanQty);
+            const qtyVal = isNaN(parsedQty) ? 0 : parsedQty;
+
+            const rateStr = String(row.rate || '').trim();
+            const cleanRate = rateStr.replace(/[^0-9.-]/g, '');
+            const parsedRate = parseFloat(cleanRate);
+            const rateVal = isNaN(parsedRate) ? 0 : parsedRate;
+
+            return sum + (qtyVal * rateVal);
+        }, 0);
         const vatAmount = subtotal * ((costingFactors.vat || 0) / 100);
         const grandTotal = subtotal + vatAmount;
 
         ws.addRow([]);
-        let summaryStartCol = isBoqMode ? 8 : 6;
+        const valColNum = amountColNum;
+        const labelColNum = rateColNum;
+        const lastDataRow = 5 + tier.rows.length;
 
         const stRow = ws.addRow([]);
-        stRow.getCell(summaryStartCol).value = 'Subtotal';
-        stRow.getCell(summaryStartCol + 1).value = subtotal;
-        stRow.getCell(summaryStartCol + 1).numFmt = '#,##0.00 " ' + costingFactors.toCurrency + '"';
-        stRow.getCell(summaryStartCol).font = { bold: true };
-        stRow.getCell(summaryStartCol + 1).alignment = { horizontal: 'right' };
+        stRow.getCell(labelColNum).value = 'Subtotal';
+        stRow.getCell(valColNum).value = {
+            formula: `SUM(${amountLetter}6:${amountLetter}${lastDataRow})`,
+            result: subtotal
+        };
+        stRow.getCell(valColNum).numFmt = '#,##0.00 " ' + costingFactors.toCurrency + '"';
+        stRow.getCell(labelColNum).font = { bold: true };
+        stRow.getCell(labelColNum).alignment = { horizontal: 'right' };
+        stRow.getCell(valColNum).alignment = { horizontal: 'right' };
 
         const vRow = ws.addRow([]);
-        vRow.getCell(summaryStartCol).value = `VAT (${costingFactors.vat}%)`;
-        vRow.getCell(summaryStartCol + 1).value = vatAmount;
-        vRow.getCell(summaryStartCol + 1).numFmt = '#,##0.00 " ' + costingFactors.toCurrency + '"';
-        vRow.getCell(summaryStartCol + 1).alignment = { horizontal: 'right' };
+        vRow.getCell(labelColNum).value = `VAT (${costingFactors.vat}%)`;
+        vRow.getCell(valColNum).value = {
+            formula: `${amountLetter}${stRow.number}*${costingFactors.vat}/100`,
+            result: vatAmount
+        };
+        vRow.getCell(valColNum).numFmt = '#,##0.00 " ' + costingFactors.toCurrency + '"';
+        vRow.getCell(labelColNum).font = { bold: true };
+        vRow.getCell(labelColNum).alignment = { horizontal: 'right' };
+        vRow.getCell(valColNum).alignment = { horizontal: 'right' };
 
         const gtRow = ws.addRow([]);
-        gtRow.getCell(summaryStartCol).value = 'GRAND TOTAL';
-        gtRow.getCell(summaryStartCol + 1).value = grandTotal;
-        gtRow.getCell(summaryStartCol + 1).numFmt = '#,##0.00 " ' + costingFactors.toCurrency + '"';
+        gtRow.getCell(labelColNum).value = 'GRAND TOTAL';
+        gtRow.getCell(valColNum).value = {
+            formula: `${amountLetter}${stRow.number}+${amountLetter}${vRow.number}`,
+            result: grandTotal
+        };
+        gtRow.getCell(valColNum).numFmt = '#,##0.00 " ' + costingFactors.toCurrency + '"';
         gtRow.height = 30;
 
-        [gtRow.getCell(summaryStartCol), gtRow.getCell(summaryStartCol + 1)].forEach(cell => {
+        [gtRow.getCell(labelColNum), gtRow.getCell(valColNum)].forEach(cell => {
             cell.font = { bold: true, size: 14, color: { argb: 'FFFFFF' } };
-            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '1E5FA8' } };
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '0F3E67' } };
             cell.alignment = { vertical: 'middle', horizontal: 'right' };
             cell.border = {
                 top: { style: 'medium', color: { argb: 'F5A623' } },
@@ -1816,7 +1878,7 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
         const isBoqMode = tier.mode === 'boq';
 
         const colors = {
-            primary: '1E5FA8',
+            primary: '0F3E67',
             accent: 'F5A623',
             text: '2D3748',
             lightText: '718096',
@@ -1828,14 +1890,17 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
         pres.defineSlideMaster({
             title: 'PREMIUM_MASTER',
             background: { color: colors.white },
-            objects: [
-                { rect: { x: 0, y: 0, w: '100%', h: 0.75, fill: { color: colors.primary } } },
-                { rect: { x: 0, y: 0.75, w: '100%', h: 0.06, fill: { color: colors.accent } } },
-                { rect: { x: 0, y: 5.2, w: '100%', h: 0.3, fill: { color: colors.lightBg } } }
-            ]
+            objects: []
         });
 
+        const drawSlideDecorations = (slideObj) => {
+            slideObj.addShape('rect', { x: 0, y: 0, w: '100%', h: 0.75, fill: { color: colors.primary } });
+            slideObj.addShape('rect', { x: 0, y: 0.75, w: '100%', h: 0.06, fill: { color: colors.accent } });
+            slideObj.addShape('rect', { x: 0, y: 5.2, w: '100%', h: 0.3, fill: { color: colors.lightBg } });
+        };
+
         const titleSlide = pres.addSlide({ masterName: 'PREMIUM_MASTER' });
+        drawSlideDecorations(titleSlide);
         titleSlide.addText('PROJECT PROPOSAL', {
             x: 0.3, y: 0.2, w: 4, h: 0.4, fontSize: 14, bold: true, color: colors.white
         });
@@ -1881,6 +1946,7 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
         for (const row of tier.rows) {
             if (!row.brandImage && !row.brandDesc) continue;
             const slide = pres.addSlide({ masterName: 'PREMIUM_MASTER' });
+            drawSlideDecorations(slide);
             const brandName = (row.selectedBrand || '').replace(/Explore collections by/i, '').trim();
 
             const descForHeader = (row.brandDesc || '');
@@ -1992,12 +2058,12 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
             rightY += 0.15;
 
             slide.addText('Description:', {
-                x: rightX, y: rightY, w: rightWidth, h: 0.25, fontSize: 10, bold: true, color: colors.text
+                x: rightX, y: rightY, w: rightWidth, h: 0.25, fontSize: 10, bold: true, color: colors.primary
             });
             rightY += 0.25;
 
             const fullDescription = (row.brandDesc || 'N/A').trim();
-            const maxDescY = 3.2;
+            const maxDescY = 4.7;
             const availableH = maxDescY - rightY;
             const estDescLines = Math.ceil(fullDescription.length / 55) + (fullDescription.match(/[\n*•]/g) || []).length;
             const descBoxHeight = Math.min(availableH, Math.max(0.4, estDescLines * 0.14));
@@ -2009,42 +2075,24 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
             });
             rightY += descBoxHeight + 0.08;
 
-            const maxContentY = 4.4;
+            // Brand and Qty side-by-side above the footer
+            const footerY = 4.65;
+            slide.addText('Brand:', {
+                x: rightX, y: footerY, w: 0.75, h: 0.35, fontSize: 9, bold: true, color: colors.primary, valign: 'middle'
+            });
+            slide.addText(brandName || 'N/A', {
+                x: rightX + 0.75, y: footerY, w: 1.65, h: 0.35, fontSize: 9, color: colors.text, valign: 'middle'
+            });
 
-            if (rightY < maxContentY - 0.25) {
-                slide.addText('Brand:', {
-                    x: rightX, y: rightY, w: 0.7, h: 0.2, fontSize: 9, bold: true, color: colors.text
-                });
-                slide.addText(brandName || 'N/A', {
-                    x: rightX + 0.55, y: rightY, w: rightWidth - 0.55, h: 0.2, fontSize: 9, color: colors.primary
-                });
-                rightY += 0.25;
-            }
-
-            if (rightY < maxContentY - 0.25) {
-                slide.addText('Quantity:', {
-                    x: rightX, y: rightY, w: 0.8, h: 0.2, fontSize: 9, bold: true, color: colors.text
-                });
-                slide.addText(String(row.qty || 'As per BOQ'), {
-                    x: rightX + 0.7, y: rightY, w: rightWidth - 0.7, h: 0.2, fontSize: 9, color: colors.text
-                });
-                rightY += 0.28;
-            }
-
-            if (rightY < maxContentY - 0.35) {
-                slide.addText('Specifications:', {
-                    x: rightX, y: rightY, w: rightWidth, h: 0.2, fontSize: 9, bold: true, color: colors.primary
-                });
-                rightY += 0.22;
-
-                const specsH = Math.min(maxContentY - rightY, 0.4);
-                slide.addText('• Warranty: As per manufacturer', {
-                    x: rightX + 0.1, y: rightY, w: rightWidth - 0.1, h: specsH, fontSize: 8, color: colors.text
-                });
-            }
+            slide.addText('Qty:', {
+                x: rightX + 2.5, y: footerY, w: 0.5, h: 0.35, fontSize: 9, bold: true, color: colors.primary, valign: 'middle'
+            });
+            slide.addText(String(row.qty || 'As per BOQ'), {
+                x: rightX + 3.0, y: footerY, w: 1.7, h: 0.35, fontSize: 9, color: colors.text, valign: 'middle'
+            });
 
             slide.addText('Warranty', {
-                x: 0.3, y: 4.65, w: 1.0, h: 0.2, fontSize: 9, bold: true, color: colors.text
+                x: 0.3, y: 4.65, w: 1.0, h: 0.2, fontSize: 9, bold: true, color: colors.primary
             });
             slide.addText('As per manufacturer - 5 years', {
                 x: 0.3, y: 4.85, w: 2.0, h: 0.18, fontSize: 8, color: colors.lightText
@@ -2063,6 +2111,7 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
         const formatCurr = (val) => new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(val);
 
         const summarySlide = pres.addSlide({ masterName: 'PREMIUM_MASTER' });
+        drawSlideDecorations(summarySlide);
         summarySlide.addText('OFFER SUMMARY', {
             x: 0.3, y: 0.2, w: 4, h: 0.4, fontSize: 14, bold: true, color: colors.white
         });

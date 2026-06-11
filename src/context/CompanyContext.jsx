@@ -27,7 +27,7 @@ const DEFAULT_PROFILE = {
         activeTier: 'free',
         verifiedModels: []
     },
-    accentColor: '#3b82f6', // Default blue
+    accentColor: '#0f3e67', // Default dark blue
     secondaryColor: '#f59e0b', // Default gold
     setupComplete: true
 };
@@ -41,13 +41,17 @@ export function CompanyProvider({ children }) {
     // Apply colors to CSS variables
     const applyThemeColors = useCallback((primary, secondary) => {
         if (!primary) return;
-        document.documentElement.style.setProperty('--primary', primary);
+        let finalPrimary = primary;
+        const clean = primary.trim().replace('#', '').toUpperCase();
+        if (clean === '3B82F6' || clean === 'RGB(59, 130, 246)' || clean === '1E5FA8' || clean === '2563EB') {
+            finalPrimary = '#0f3e67';
+        }
+        document.documentElement.style.setProperty('--primary', finalPrimary);
         if (secondary) document.documentElement.style.setProperty('--accent', secondary);
         
         // Generate a slightly darker version for hover states if possible
-        // (Simple darkening logic)
         try {
-            document.documentElement.style.setProperty('--primary-dark', primary);
+            document.documentElement.style.setProperty('--primary-dark', finalPrimary === '#0f3e67' ? '#0b2d4b' : finalPrimary);
         } catch (e) {}
     }, []);
 
@@ -258,7 +262,7 @@ export function CompanyProvider({ children }) {
                     }
                     
                     // 3. Extract Dominant Color for UI
-                    let primaryColor = '#3b82f6'; // Default
+                    let primaryColor = '#0f3e67'; // Default
                     if (alphaCount > 0) {
                         const rAvg = Math.round(r / alphaCount);
                         const gAvg = Math.round(g / alphaCount);

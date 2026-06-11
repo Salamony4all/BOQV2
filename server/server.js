@@ -6,6 +6,7 @@ import cors from 'cors';
 import multer from 'multer';
 import path from 'path';
 import { promises as fs } from 'fs';
+import crypto from 'crypto';
 import fs_sync from 'fs';
 import { fileURLToPath } from 'url';
 import { extractExcelData } from './fastExtractor.js';
@@ -111,6 +112,322 @@ process.on('uncaughtException', (err) => {
 process.on('unhandledRejection', (reason, promise) => {
   console.error('🔥 UNHANDLED REJECTION:', reason);
 });
+
+async function processTextTablesWithNativeImages(fastapiRes, filePath, uploadId, sessionId) {
+  const fs = await import('fs');
+  const { renderPDFWithLayout } = await getPdfRenderer();
+  const { _saveAndPairImage } = await getParallelBOQExtractor();
+
+  const baseTempDir = isVercel ? '/tmp/extracted_images' : path.join(process.cwd(), 'public', 'temp', 'extracted_images');
+  const tempDir = path.join(baseTempDir, uploadId);
+  await fs.promises.mkdir(tempDir, { recursive: true });
+
+  console.log(`[processTextTablesWithNativeImages] Running layout rendering for ${path.basename(filePath)}...`);
+  const layouts = await renderPDFWithLayout(filePath).catch(err => {
+    console.error('Layout Extraction Failed:', err.message);
+    return [];
+  });
+
+  const allRowsArr = [];
+  let globalRowCounter = 1;
+
+  if (fastapiRes && Array.isArray(fastapiRes.tables)) {
+    for (const table of fastapiRes.tables) {
+      const pageNum = table.page || 1;
+      const header = table.header || [];
+      const rows = table.rows || [];
+
+      // Determine column indices matching standard keywords
+      const indices = {
+        sn: -1,
+        description: -1,
+        qty: -1,
+        unit: -1,
+        rate: -1,
+        amount: -1
+      };
+
+      header.forEach((h, idx) => {
+        const term = String(h || '').toLowerCase().trim();
+        if (!term) return;
+
+        if (indices.sn === -1 && (term === 'sn' || term === 's.n' || term === 's.n.' || term === 'sl.no' || term === 'sl' || term === 'sr' || term === 'no' || term === 'no.' || term === 'item' || term === 'item no' || term === 'sr.no')) {
+          indices.sn = idx;
+        } else if (indices.description === -1 && (term.includes('description') || term.includes('desc') || term.includes('disc') || term.includes('product') || term.includes('specification') || term.includes('material') || term.includes('particulars'))) {
+          indices.description = idx;
+        } else if (indices.qty === -1 && (term === 'qty' || term === 'quantity' || term === 'qnty' || term.startsWith('q\'ty') || term === 'qt')) {
+          indices.qty = idx;
+        } else if (indices.unit === -1 && (term === 'unit' || term === 'uom' || term === 'measure' || term === 'untit')) {
+          indices.unit = idx;
+        } else if (indices.rate === -1 && (term.includes('rate') || term.includes('price') || term.includes('unit price') || term.includes('u.rate') || term.includes('unit rate') || term.includes('u. price') || term.includes('u price'))) {
+          indices.rate = idx;
+        } else if (indices.amount === -1 && (term.includes('amount') || term.includes('total') || term.includes('subtotal') || term.includes('total price') || term.includes('value'))) {
+          indices.amount = idx;
+        }
+      });
+
+      // Fallback for description column if not found
+      if (indices.description === -1) {
+        let maxAvgLength = -1;
+        let bestIdx = -1;
+        for (let c = 0; c < header.length; c++) {
+          if (c === indices.sn || c === indices.qty || c === indices.rate || c === indices.amount) continue;
+          let totalLength = 0;
+          let count = 0;
+          rows.forEach(r => {
+            if (r.cells && r.cells[c]) {
+              totalLength += String(r.cells[c].value || '').length;
+              count++;
+            }
+          });
+          const avg = count > 0 ? totalLength / count : 0;
+          if (avg > maxAvgLength) {
+            maxAvgLength = avg;
+            bestIdx = c;
+          }
+        }
+        if (bestIdx !== -1) {
+          indices.description = bestIdx;
+        }
+      }
+
+      // Format rows
+      for (let rIdx = 0; rIdx < rows.length; rIdx++) {
+        const row = rows[rIdx];
+        if (!row || !row.cells) continue;
+
+        const cells = row.cells;
+        // Pad cells if row length is less than headers
+        while (cells.length < header.length) {
+          cells.push({ value: '' });
+        }
+
+        const rawSN = indices.sn !== -1 ? String(cells[indices.sn]?.value || '').trim() : '';
+        const rawDesc = indices.description !== -1 ? String(cells[indices.description]?.value || '').trim() : '';
+        const rawQty = indices.qty !== -1 ? String(cells[indices.qty]?.value || '').trim() : '';
+        const rawUnit = indices.unit !== -1 ? String(cells[indices.unit]?.value || '').trim() : '';
+        const rawRate = indices.rate !== -1 ? String(cells[indices.rate]?.value || '').trim() : '';
+        const rawAmount = indices.amount !== -1 ? String(cells[indices.amount]?.value || '').trim() : '';
+
+        // Skip completely empty rows
+        if (!rawSN && !rawDesc && !rawQty && !rawUnit && !rawRate && !rawAmount) {
+          continue;
+        }
+
+        const aiSN = rawSN;
+        const isValidSN = aiSN.length > 0 && !aiSN.includes('undefined');
+        const displaySN = isValidSN ? aiSN : String(globalRowCounter++);
+
+        // Helper to parse numeric string cleanly
+        const cleanNumber = (val) => {
+          if (!val) return '';
+          const cleaned = String(val).replace(/[^0-9.]/g, '');
+          const parsed = parseFloat(cleaned);
+          return isNaN(parsed) ? '' : parsed;
+        };
+
+        const mappedRow = {
+          sn: displaySN,
+          description: rawDesc,
+          qty: cleanNumber(rawQty),
+          unit: rawUnit,
+          rate: cleanNumber(rawRate),
+          amount: cleanNumber(rawAmount),
+          pageNum: row.page || pageNum,
+          rowIdx: allRowsArr.length, // use global counter for rowIdx to match layout pairing
+          image: {
+            url: `/api/lazy-image/${uploadId}/${row.page || pageNum}/${allRowsArr.length}`,
+            sn: displaySN
+          }
+        };
+
+        allRowsArr.push(mappedRow);
+      }
+    }
+  }
+
+  // Filter out table headers embedded in the row data
+  const headerKeywords = ["sl.no", "description", "qty", "unit", "rate", "total", "amount", "price"];
+  const filteredRows = allRowsArr.filter(r => {
+    const desc = (r.description || '').toLowerCase();
+    const matches = headerKeywords.filter(k => desc.includes(k));
+    if (matches.length >= 2 && desc.length < 80) return false;
+    return true;
+  });
+
+  // Re-index rowIdx after filtering to ensure they are sequential 0 to N-1
+  filteredRows.forEach((r, idx) => {
+    r.rowIdx = idx;
+    r.image.url = `/api/lazy-image/${uploadId}/${r.pageNum}/${idx}`;
+  });
+
+  // SAVE METADATA
+  const metadata = {
+    uploadId,
+    pdfPath: path.resolve(filePath),
+    rows: filteredRows,
+    pages: layouts.map(l => ({
+      page: l.page,
+      textItems: l.textItems,
+      nativeImages: l.extractedImages,
+      viewport: l.viewport
+    }))
+  };
+  await fs.promises.writeFile(path.join(tempDir, 'metadata.json'), JSON.stringify(metadata, null, 2));
+
+  // BACKGROUND POSITION MATCHING (Same logic as parallelBOQExtractor.js)
+  console.log(`[processTextTablesWithNativeImages] Scheduling background image matching for ${uploadId}`);
+  setTimeout(async () => {
+    try {
+      console.log(`  🖼️ [Background] Positional image pairing for ${uploadId}...`);
+
+      for (const layout of layouts) {
+        const pageNum = layout.page;
+        if (!layout.extractedImages || layout.extractedImages.length === 0) continue;
+
+        const isActualItem = (r) => {
+          const hasQty = r.qty !== undefined && r.qty !== null && r.qty !== '';
+          const hasRate = r.rate !== undefined && r.rate !== null && r.rate !== '';
+          const hasAmount = r.amount !== undefined && r.amount !== null && r.amount !== '';
+          return hasQty || hasRate || hasAmount;
+        };
+
+        const pageRows = filteredRows
+          .filter(r => r.pageNum === pageNum && isActualItem(r))
+          .sort((a, b) => a.rowIdx - b.rowIdx);
+
+        let headerY = -1;
+        const yGroups = {};
+        for (const it of layout.textItems || []) {
+          const y = Math.round(it.y / 10) * 10;
+          if (!yGroups[y]) yGroups[y] = [];
+          yGroups[y].push(String(it.str || '').toLowerCase());
+        }
+
+        const headerKeywordsForMatch = ['s.n', 'sl.no', 'description', 'qty', 'unit', 'rate', 'total'];
+        let maxHits = 0;
+
+        for (const [yStr, words] of Object.entries(yGroups)) {
+          let hits = 0;
+          const yPos = parseInt(yStr);
+          for (const word of words) {
+            if (headerKeywordsForMatch.some(k => word.includes(k))) hits++;
+          }
+          if (hits >= 2 && hits > maxHits) {
+            maxHits = hits;
+            if (headerY === -1 || yPos < headerY) headerY = yPos;
+          }
+        }
+
+        const productImages = layout.extractedImages
+          .filter(img => {
+            const isSizeOk = img.h >= 30 && img.w >= 30;
+            const isNotHeader = headerY === -1 || img.y >= (headerY - 10);
+            if (isSizeOk && !isNotHeader) {
+              console.log(`    🚫 [Background] P${pageNum}: Skipping header image (y=${Math.round(img.y)} < headerY=${Math.round(headerY)})`);
+            }
+            return isSizeOk && isNotHeader;
+          })
+          .sort((a, b) => a.y - b.y || a.x - b.x);
+
+        console.log(`    📐 [Background] Page ${pageNum}: ${pageRows.length} rows, ${productImages.length} images (HeaderY: ${Math.round(headerY)})`);
+
+        if (productImages.length === pageRows.length && pageRows.length > 0) {
+          console.log(`    ✅ [Background] P${pageNum}: Perfect 1:1 positional pairing`);
+          for (let i = 0; i < pageRows.length; i++) {
+            await _saveAndPairImage(productImages[i], pageRows[i], pageNum, tempDir, uploadId, (file) => {
+              if (sessionId && cleanupService) cleanupService.trackFile(sessionId, file);
+            });
+          }
+          continue;
+        }
+
+        const usedImageIndices = new Set();
+        const textItems = layout.textItems || [];
+        const normalize = (s) => String(s || '').replace(/[^a-z0-9]/gi, '').toLowerCase();
+
+        for (const row of pageRows) {
+          const targetSN = normalize(row.sn);
+          const descPrefix = normalize((row.description || '').substring(0, 20));
+
+          let anchorY = null;
+          const snMatch = textItems.find(it => {
+            const norm = normalize(it.str);
+            return norm === targetSN && norm.length > 0;
+          });
+          if (snMatch) anchorY = snMatch.y;
+
+          if (anchorY === null && descPrefix.length > 3) {
+            const descMatch = textItems.find(it => normalize(it.str).includes(descPrefix.substring(0, 10)));
+            if (descMatch) anchorY = descMatch.y;
+          }
+
+          let bestIdx = -1;
+          let bestDist = Infinity;
+          for (let i = 0; i < productImages.length; i++) {
+            if (usedImageIndices.has(i)) continue;
+            const img = productImages[i];
+            const imgCenterY = img.y + img.h / 2;
+            const dist = anchorY !== null
+              ? Math.abs(imgCenterY - anchorY)
+              : Math.abs(i - pageRows.indexOf(row)) * 200;
+            if (dist < bestDist) { bestDist = dist; bestIdx = i; }
+          }
+
+          if (bestIdx !== -1 && bestDist < 300) {
+            usedImageIndices.add(bestIdx);
+            await _saveAndPairImage(productImages[bestIdx], row, pageNum, tempDir, uploadId, (file) => {
+              if (sessionId && cleanupService) cleanupService.trackFile(sessionId, file);
+            });
+          } else {
+            const fallbackIdx = pageRows.indexOf(row);
+            if (fallbackIdx < productImages.length && !usedImageIndices.has(fallbackIdx)) {
+              usedImageIndices.add(fallbackIdx);
+              await _saveAndPairImage(productImages[fallbackIdx], row, pageNum, tempDir, uploadId, (file) => {
+                if (sessionId && cleanupService) cleanupService.trackFile(sessionId, file);
+              });
+              console.log(`    ⚡ [Background] P${pageNum} Row ${row.sn}: positional fallback → img[${fallbackIdx}]`);
+            }
+          }
+        }
+      }
+
+      await fs.promises.writeFile(path.join(tempDir, 'metadata.json'), JSON.stringify(metadata, null, 2));
+      console.log(`  ✅ [Background] Lazy image matching finished and metadata updated for ${uploadId}.`);
+    } catch (e) {
+      console.error('  ❌ [Background Error] Image matching failed:', e.message, e.stack);
+    }
+  }, 100);
+
+  const header = ["S.N", "Image", "Description", "Qty", "Unit", "Rate", "Amount"];
+  const formattedRows = filteredRows.map(r => {
+    return {
+      cells: [
+        { value: r.sn || '', images: [], isMerged: false },
+        { value: '', image: r.image, images: [r.image], isMerged: false },
+        { value: r.description || '', images: [], isMerged: false },
+        { value: r.qty !== '' ? r.qty : '', images: [], isMerged: false },
+        { value: r.unit || '', images: [], isMerged: false },
+        { value: r.rate !== '' ? r.rate : '', images: [], isMerged: false },
+        { value: r.amount !== '' ? r.amount : '', images: [], isMerged: false }
+      ],
+      isHeader: false,
+      isSummary: false
+    };
+  });
+
+  return {
+    tables: [{
+      sheetName: "AI Fast Extraction",
+      header,
+      rows: formattedRows,
+      columnCount: header.length,
+      uploadId,
+      engineUsed: fastapiRes.engineUsed || 'docling'
+    }],
+    totalTables: 1
+  };
+}
 
 const app = express();
 const PORT = 3001;
@@ -376,9 +693,16 @@ app.get('/api/lazy-image/:uploadId/:page/:rowId', async (req, res) => {
     // PRIORITY STAGE: Check for Native (Layered) Image Match
     if (pageLayout.nativeImages && pageLayout.nativeImages.length > 0) {
 
+      const isActualItem = (r) => {
+        const hasQty = r.qty !== undefined && r.qty !== null && r.qty !== '';
+        const hasRate = r.rate !== undefined && r.rate !== null && r.rate !== '';
+        const hasAmount = r.amount !== undefined && r.amount !== null && r.amount !== '';
+        return hasQty || hasRate || hasAmount;
+      };
+
       // Get all rows on this page sorted by rowIdx (visual order)
       const sortedPageRows = metadata.rows
-        .filter(r => r.pageNum === pNum)
+        .filter(r => r.pageNum === pNum && isActualItem(r))
         .sort((a, b) => a.rowIdx - b.rowIdx);
 
       // Sort native images top-to-bottom by Y (same as Python now does, but double-ensure)
@@ -531,25 +855,97 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
 
     const extractionMode = req.headers['x-extraction-mode'] || 'parallel';
     const modelName = req.headers['x-model-name'];
+    const doclingOcr = req.headers['x-docling-ocr'] === '1';
 
-    console.log(`[Upload] Processing: ${fileName} | Mode: ${extractionMode}${modelName ? ` | Model: ${modelName}` : ''}`);
+    console.log(`[Upload] Processing: ${fileName} | Mode: ${extractionMode} | OCR: ${doclingOcr}${modelName ? ` | Model: ${modelName}` : ''}`);
 
     // Track file for cleanup
     cleanupService.trackFile(sessionId, filePath);
 
     let extractedData;
     if (isPdf) {
+      // ── Shared helper: call FastAPI /extract and extract real error detail ──
+      const fastApiExtract = async ({ usePaddleFallback = true, usePaddleOnly = false } = {}) => {
+        const fs = await import('fs');
+        const FormData = (await import('form-data')).default;
+        const form = new FormData();
+        form.append('file', fs.createReadStream(filePath), { filename: fileName, contentType: 'application/pdf' });
+        // Send 1/0 so FastAPI bool Form parsing works reliably
+        form.append('use_paddle_fallback', usePaddleFallback ? '1' : '0');
+        form.append('use_paddle_only',     usePaddleOnly     ? '1' : '0');
+        form.append('do_ocr',              doclingOcr        ? '1' : '0');
+
+        let fastapiRes;
+        try {
+          fastapiRes = await axios.post('http://localhost:8000/extract', form, {
+            headers: form.getHeaders(),
+            maxContentLength: Infinity,
+            maxBodyLength: Infinity,
+            timeout: 300000
+          });
+        } catch (axiosErr) {
+          // Prefer the FastAPI response detail over the generic axios message
+          const detail =
+            axiosErr.response?.data?.detail ||
+            axiosErr.response?.data?.error ||
+            (typeof axiosErr.response?.data === 'string' ? axiosErr.response.data : null) ||
+            axiosErr.message ||
+            'FastAPI service unavailable';
+          console.error('[FastAPI] Request failed:', detail);
+          throw new Error(detail);
+        }
+
+        if (!fastapiRes.data?.success) {
+          throw new Error(fastapiRes.data?.detail || fastapiRes.data?.error || 'FastAPI returned unsuccessful status');
+        }
+        return fastapiRes.data;
+      };
+
       if (isVercel) {
         console.log(`[Upload] Running in Vercel - Using light extraction (pdfjs)`);
         const { extractProductBoqFromPdf } = await getPdfProductExtractor();
         extractedData = await extractProductBoqFromPdf(filePath, () => { }, modelName);
       } else if (extractionMode === 'parallel') {
-        const { extractParallelBOQData } = await getParallelBOQExtractor();
-        extractedData = await extractParallelBOQData(filePath, 'application/pdf', () => { }, modelName, (file) => {
-          cleanupService.trackFile(sessionId, file);
-        }, (folder) => {
-          cleanupService.trackFolder(sessionId, folder);
-        });
+        // ── Legacy: try Docling+Paddle auto-fallback, then JS extractor ─────────
+        try {
+          console.log(`[Upload] [parallel] Attempting FastAPI Docling+Paddle extraction...`);
+          const fastapiRaw = await fastApiExtract({ usePaddleFallback: true, usePaddleOnly: false });
+          console.log(`[Upload] [parallel] FastAPI OK. engineUsed: ${fastapiRaw.engineUsed}`);
+          const uploadId = crypto.randomUUID();
+          extractedData = await processTextTablesWithNativeImages(fastapiRaw, filePath, uploadId, sessionId);
+        } catch (fastapiErr) {
+          console.warn(`[Upload] [parallel] FastAPI failed (${fastapiErr.message}). Falling back to JS Parallel Extractor.`);
+          const { extractParallelBOQData } = await getParallelBOQExtractor();
+          extractedData = await extractParallelBOQData(filePath, 'application/pdf', () => { }, modelName, (file) => {
+            cleanupService.trackFile(sessionId, file);
+          }, (folder) => {
+            cleanupService.trackFolder(sessionId, folder);
+          });
+        }
+      } else if (extractionMode === 'docling') {
+        // ── Docling-only (no Paddle) ─────────────────────────────────────────────
+        console.log(`[Upload] [docling] Docling-only pipeline.`);
+        try {
+          const fastapiRaw = await fastApiExtract({ usePaddleFallback: false, usePaddleOnly: false });
+          console.log(`[Upload] [docling] OK. engineUsed: ${fastapiRaw.engineUsed}`);
+          const uploadId = crypto.randomUUID();
+          extractedData = await processTextTablesWithNativeImages(fastapiRaw, filePath, uploadId, sessionId);
+        } catch (doclingErr) {
+          console.error(`[Upload] [docling] Failed: ${doclingErr.message}`);
+          throw new Error(`Docling extraction failed: ${doclingErr.message}`);
+        }
+      } else if (extractionMode === 'paddle') {
+        // ── Paddle OCR only (skip Docling) ───────────────────────────────────────
+        console.log(`[Upload] [paddle] Paddle-only pipeline.`);
+        try {
+          const fastapiRaw = await fastApiExtract({ usePaddleFallback: true, usePaddleOnly: true });
+          console.log(`[Upload] [paddle] OK. engineUsed: ${fastapiRaw.engineUsed}`);
+          const uploadId = crypto.randomUUID();
+          extractedData = await processTextTablesWithNativeImages(fastapiRaw, filePath, uploadId, sessionId);
+        } catch (paddleErr) {
+          console.error(`[Upload] [paddle] Failed: ${paddleErr.message}`);
+          throw new Error(`Paddle extraction failed: ${paddleErr.message}`);
+        }
       } else {
         // Legacy vision path
         const { extractVisionBOQData } = await getVisionBOQExtractor();
@@ -2308,6 +2704,21 @@ app.post('/api/supabase/sync', async (req, res) => {
     res.status(500).json({ success: false, error: error.message });
   }
 });
+
+// Proxy endpoint for Docling service assets (images)
+app.get('/docling/assets/:jobId/:filename', async (req, res) => {
+  const { jobId, filename } = req.params;
+  const targetUrl = `http://localhost:8000/docling/assets/${jobId}/${filename}`;
+  try {
+    const response = await axios.get(targetUrl, { responseType: 'stream' });
+    res.set('Content-Type', response.headers['content-type'] || 'image/png');
+    response.data.pipe(res);
+  } catch (err) {
+    console.error(`Error proxying docling asset ${jobId}/${filename}:`, err.message);
+    res.status(404).send('Asset not found');
+  }
+});
+
 
 // Image Proxy with robust error handling
 app.get('/api/image-proxy', async (req, res) => {

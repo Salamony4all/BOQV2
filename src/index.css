@@ -22,7 +22,7 @@
   --text-secondary: #94a3b8;
   --text-muted: #64748b;
   --border-color: rgba(255, 255, 255, 0.1);
-  --accent-color: #3b82f6;
+  --accent-color: #0f3e67;
   --card-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5);
   --shadow-lg: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
   --shadow-xl: 0 25px 50px -12px rgba(0, 0, 0, 0.6);
@@ -32,8 +32,8 @@
   --black: #000000;
 
   /* Brand Colors - Dark Mode Defaults */
-  --primary: #3b82f6;
-  --primary-dark: #2563eb;
+  --primary: #0f3e67;
+  --primary-dark: #0b2d4b;
   --accent: #f59e0b;
   --accent-light: #fbbf24;
   --accent-dark: #d97706;
@@ -42,7 +42,7 @@
   --danger: #ef4444;
   --success: #10b981;
   --warning: #f59e0b;
-  --info: #3b82f6;
+  --info: #0f3e67;
   --primary-accent: #6366f1;
   --secondary-accent: #8b5cf6;
   --orange-accent: #f97316;
@@ -76,13 +76,13 @@
   --overlay-bg: rgba(0, 0, 0, 0.35);
   --card-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
   --shadow-lg: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
-  --accent-color: #2563eb;
+  --accent-color: #0f3e67;
 
   /* Semantic Color Overrides */
   --danger: #ef4444;
   --success: #059669;
   --warning: #d97706;
-  --info: #2563eb;
+  --info: #0f3e67;
   --primary-accent: #4f46e5;
   --secondary-accent: #7c3aed;
   --orange-accent: #ea580c;

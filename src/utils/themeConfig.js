@@ -31,7 +31,10 @@ export const hexToRgb = (hex) => {
  * @param {string} secondaryColor - Secondary/Accent brand color (Hex)
  */
 export const getBrandColors = (accentColor, secondaryColor) => {
-    const primaryHex = fixHex(accentColor) || '1E5FA8';
+    let primaryHex = fixHex(accentColor) || '0F3E67';
+    if (primaryHex === '3B82F6' || primaryHex === '1E5FA8' || primaryHex === '2563EB') {
+        primaryHex = '0F3E67';
+    }
     const accentHex = fixHex(secondaryColor) || 'F5A623';
 
     return {
