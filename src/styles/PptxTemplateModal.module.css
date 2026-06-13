@@ -1,0 +1,206 @@
+.modalOverlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: var(--overlay-bg, rgba(15, 23, 42, 0.6));
+    backdrop-filter: blur(8px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    z-index: 3000;
+    animation: fadeIn 0.3s ease-out;
+}
+
+.modalContent {
+    background: var(--bg-card, #1e293b);
+    width: 800px;
+    max-width: 95vw;
+    border-radius: 20px;
+    box-shadow: var(--shadow-lg, 0 20px 25px -5px rgba(0, 0, 0, 0.3));
+    border: 1px solid var(--border-color, #334155);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    max-height: 90vh;
+    animation: scaleIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.header {
+    padding: 24px 32px;
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(139, 92, 246, 0.1));
+    border-bottom: 1px solid var(--border-color, #334155);
+}
+
+.title {
+    margin: 0;
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: var(--text-primary, #f8fafc);
+    background: linear-gradient(to right, #60a5fa, #a78bfa);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.subtitle {
+    margin: 6px 0 0;
+    font-size: 0.85rem;
+    color: var(--text-secondary, #94a3b8);
+}
+
+.body {
+    padding: 24px 32px;
+    overflow-y: auto;
+    flex: 1;
+}
+
+.templateGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+}
+
+.card {
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid var(--border-color, #334155);
+    border-radius: 14px;
+    padding: 16px;
+    cursor: pointer;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    position: relative;
+    overflow: hidden;
+}
+
+.card:hover {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: #60a5fa;
+    transform: translateY(-2px);
+}
+
+.card.active {
+    background: rgba(59, 130, 246, 0.06);
+    border-color: #3b82f6;
+    box-shadow: 0 0 16px rgba(59, 130, 246, 0.15);
+}
+
+.badge {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: #3b82f6;
+    color: #ffffff;
+    font-size: 0.65rem;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 12px;
+    text-transform: uppercase;
+}
+
+.cardName {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--text-primary, #f8fafc);
+}
+
+.cardDesc {
+    font-size: 0.75rem;
+    color: var(--text-secondary, #94a3b8);
+    line-height: 1.4;
+    flex-grow: 1;
+}
+
+.swatchBar {
+    display: flex;
+    height: 12px;
+    border-radius: 6px;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    margin-top: auto;
+}
+
+.swatch {
+    flex: 1;
+}
+
+.styleDetails {
+    background: rgba(0, 0, 0, 0.15);
+    border-radius: 8px;
+    padding: 8px;
+    font-size: 0.7rem;
+    color: var(--text-secondary, #94a3b8);
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.detailRow {
+    display: flex;
+    justify-content: space-between;
+}
+
+.detailLabel {
+    font-weight: 600;
+    color: var(--text-muted, #64748b);
+}
+
+.detailVal {
+    color: var(--text-primary, #f8fafc);
+}
+
+.actions {
+    padding: 20px 32px;
+    background: rgba(0, 0, 0, 0.15);
+    border-top: 1px solid var(--border-color, #334155);
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+}
+
+.cancelBtn {
+    background: none;
+    border: 1px solid var(--border-color, #334155);
+    color: var(--text-secondary, #94a3b8);
+    padding: 10px 20px;
+    border-radius: 10px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.cancelBtn:hover {
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--text-primary, #f8fafc);
+}
+
+.submitBtn {
+    padding: 10px 24px;
+    background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+    color: #ffffff;
+    border: none;
+    border-radius: 10px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.submitBtn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 10px 15px -3px rgba(37, 99, 235, 0.25);
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes scaleIn {
+    from { opacity: 0; transform: scale(0.95); }
+    to { opacity: 1; transform: scale(1); }
+}

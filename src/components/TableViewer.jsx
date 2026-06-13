@@ -6,6 +6,7 @@ import MultiBudgetModal from './MultiBudgetModal';
 import ValueEngineeredModal from './ValueEngineeredModal';
 import ProjectSettingsPanel from './ProjectSettingsPanel';
 import TenderAutofillModal from './TenderAutofillModal';
+import PptxTemplateModal from './PptxTemplateModal';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
@@ -44,6 +45,9 @@ function TableViewer({
     // Per-table VAT rate for extracted summary (GCC default = 5%)
     const [vatRates, setVatRates] = useState({});
     const [isGeneratingPpt, setIsGeneratingPpt] = useState(false);
+    const [showPptxModal, setShowPptxModal] = useState(false);
+    const [pptxSourceTables, setPptxSourceTables] = useState(null);
+    const [pptxAsPdf, setPptxAsPdf] = useState(false);
 
 
     // Close on Escape
@@ -855,6 +859,73 @@ function TableViewer({
         workbook.creator = 'BOQFlow';
         workbook.created = new Date();
 
+        const writeCostingFactorsToRight = (ws, startCol, factors) => {
+            const row = ws.getRow(1);
+
+            row.getCell(startCol).value = 'Costing Factors:';
+            row.getCell(startCol).font = { bold: true, size: 10, color: { argb: 'F59E0B' } };
+            row.getCell(startCol).alignment = { vertical: 'middle', horizontal: 'left' };
+
+            const labelFont = { bold: true, size: 9, color: { argb: '475569' } };
+            
+            const applyInputStyle = (cell, isPercent) => {
+                cell.font = { bold: true, size: 10, color: { argb: '0F172A' } };
+                cell.fill = {
+                    type: 'pattern',
+                    pattern: 'solid',
+                    fgColor: { argb: 'FEF3C7' } // Light yellow/gold background to show it's editable
+                };
+                cell.border = {
+                    top: { style: 'thin', color: { argb: 'F59E0B' } },
+                    bottom: { style: 'thin', color: { argb: 'F59E0B' } },
+                    left: { style: 'thin', color: { argb: 'F59E0B' } },
+                    right: { style: 'thin', color: { argb: 'F59E0B' } }
+                };
+                cell.alignment = { vertical: 'middle', horizontal: 'center' };
+                cell.numFmt = isPercent ? '0%' : '0.00';
+            };
+
+            row.getCell(startCol + 1).value = 'Profit:';
+            row.getCell(startCol + 1).font = labelFont;
+            row.getCell(startCol + 1).alignment = { vertical: 'middle', horizontal: 'right' };
+            
+            const profitCell = row.getCell(startCol + 2);
+            profitCell.value = factors.profit / 100;
+            applyInputStyle(profitCell, true);
+
+            row.getCell(startCol + 3).value = 'Freight:';
+            row.getCell(startCol + 3).font = labelFont;
+            row.getCell(startCol + 3).alignment = { vertical: 'middle', horizontal: 'right' };
+            
+            const freightCell = row.getCell(startCol + 4);
+            freightCell.value = factors.freight / 100;
+            applyInputStyle(freightCell, true);
+
+            row.getCell(startCol + 5).value = 'Customs:';
+            row.getCell(startCol + 5).font = labelFont;
+            row.getCell(startCol + 5).alignment = { vertical: 'middle', horizontal: 'right' };
+            
+            const customsCell = row.getCell(startCol + 6);
+            customsCell.value = factors.customs / 100;
+            applyInputStyle(customsCell, true);
+
+            row.getCell(startCol + 7).value = 'Installation:';
+            row.getCell(startCol + 7).font = labelFont;
+            row.getCell(startCol + 7).alignment = { vertical: 'middle', horizontal: 'right' };
+            
+            const installCell = row.getCell(startCol + 8);
+            installCell.value = factors.installation / 100;
+            applyInputStyle(installCell, true);
+
+            row.getCell(startCol + 9).value = 'Exchange Rate:';
+            row.getCell(startCol + 9).font = labelFont;
+            row.getCell(startCol + 9).alignment = { vertical: 'middle', horizontal: 'right' };
+            
+            const exrateCell = row.getCell(startCol + 10);
+            exrateCell.value = factors.exchangeRate;
+            applyInputStyle(exrateCell, false);
+        };
+
         const parseToArgb = (colorStr, defaultHex) => {
             if (!colorStr) return defaultHex;
             let hex = defaultHex;
@@ -893,6 +964,15 @@ function TableViewer({
             const ws = workbook.addWorksheet(table.sheetName || 'BOQ Schedule', {
                 properties: { tabColor: { argb: secondaryArgb } }
             });
+            let costingRowNum = null;
+            const excelCostingFactors = costingFactors || {
+                profit: 0,
+                freight: 0,
+                customs: 0,
+                installation: 0,
+                exchangeRate: 1
+            };
+            const hasCosting = true;
 
             const header = table.header || [];
             let imgColIdx = header.findIndex(h => /image|photo|picture|img|pic|ref/i.test(h));
@@ -940,7 +1020,6 @@ function TableViewer({
             // Determine offsets and insert details dynamically
             let startRowOffset = 0;
             const hasProjectInfo = !!(project.projectName || project.clientName || project.projectNumber);
-            const hasCosting = !!costingFactors;
 
             if (hasProjectInfo) {
                 // Row 1: Document Branding / Title
@@ -994,26 +1073,10 @@ function TableViewer({
 
                 startRowOffset = 6;
 
-                // Row 7: Costing Factors details row (if costed)
-                if (hasCosting) {
-                    const costingRow = ws.getRow(7);
-                    costingRow.values = [
-                        `Costing Factors:`,
-                        `Profit: ${costingFactors.profit}% | Freight: ${costingFactors.freight}% | Customs: ${costingFactors.customs}% | Installation: ${costingFactors.installation}% | Exchange Rate: ${costingFactors.exchangeRate}`
-                    ];
-                    costingRow.height = 18;
-                    costingRow.getCell(1).font = { bold: true, size: 10, color: { argb: 'F59E0B' } };
-                    costingRow.getCell(2).font = { size: 10, color: { argb: '475569' } };
-                    ws.mergeCells(7, 2, 7, Math.max(header.length, 5));
-                    
-                    ws.addRow([]); // Row 8 is gap row
-                    ws.getRow(8).height = 15;
-                    startRowOffset = 8;
-                } else {
-                    ws.addRow([]); // Row 7 is gap row
-                    ws.getRow(7).height = 15;
-                    startRowOffset = 7;
-                }
+                // Add gap row after project details
+                ws.addRow([]); // Row 7 is gap row
+                ws.getRow(7).height = 15;
+                startRowOffset = 7;
 
                 // Add Client Logo if available
                 if (project.clientLogo) {
@@ -1034,20 +1097,13 @@ function TableViewer({
                         }
                     } catch (e) { }
                 }
-            } else if (hasCosting) {
-                // Costing factors only (no project details)
-                const costingRow = ws.addRow([
-                    `Costing Factors:`,
-                    `Profit: ${costingFactors.profit}% | Freight: ${costingFactors.freight}% | Customs: ${costingFactors.customs}% | Installation: ${costingFactors.installation}% | Exchange Rate: ${costingFactors.exchangeRate}`
-                ]);
-                costingRow.height = 18;
-                costingRow.getCell(1).font = { bold: true, size: 10, color: { argb: 'F59E0B' } };
-                costingRow.getCell(2).font = { size: 10, color: { argb: '475569' } };
-                ws.mergeCells(costingRow.number, 2, costingRow.number, Math.max(header.length, 5));
-                
-                ws.addRow([]);
-                startRowOffset = 2;
+            } else {
+                startRowOffset = 0;
             }
+
+            // Always write costing factors exactly beside the table columns (1 empty column gap)
+            const startCol = header.length + 2;
+            writeCostingFactorsToRight(ws, startCol, excelCostingFactors);
 
             // Add header row
             if (header.length > 0) {
@@ -1139,10 +1195,60 @@ function TableViewer({
                     }
                 });
 
+                const excelRow = rowIndex + startRowOffset + 2; // +1 for header, +1 for 1-indexed, offset by project info rows
+
+                const hasQtyCol = qtyColIdx !== -1;
+                const hasRateCol = rateColIdx !== -1;
+                const hasAmountCol = amountColIdx !== -1;
+
+                const qtyVal = hasQtyCol ? rowData[qtyColIdx] : null;
+                const rateVal = hasRateCol ? rowData[rateColIdx] : null;
+                const amountVal = hasAmountCol ? rowData[amountColIdx] : null;
+
+                const isRateNumeric = hasRateCol && typeof rateVal === 'number';
+                const isAmountNumeric = hasAmountCol && typeof amountVal === 'number';
+
+                const qtyLetter = hasQtyCol ? getColLetter(qtyColIdx) : '';
+                const rateLetter = hasRateCol ? getColLetter(rateColIdx) : '';
+
+                if (hasCosting && isRateNumeric) {
+                    let originalPrice = rateVal;
+                    const originalRow = tables[tableIndex]?.rows[rowIndex];
+                    const originalRateCell = originalRow?.cells[rateColIdx];
+                    if (originalRateCell && originalRateCell.value !== undefined) {
+                        const origValStr = String(originalRateCell.value).trim();
+                        const cleanOrigVal = origValStr.replace(/[^0-9.-]/g, '');
+                        const parsedOrigPrice = parseFloat(cleanOrigVal);
+                        if (!isNaN(parsedOrigPrice)) {
+                            originalPrice = parsedOrigPrice;
+                        }
+                    }
+
+                    const startCol = header.length + 2;
+                    const profitColLetter = getColLetter(startCol + 2 - 1);
+                    const freightColLetter = getColLetter(startCol + 4 - 1);
+                    const customsColLetter = getColLetter(startCol + 6 - 1);
+                    const installColLetter = getColLetter(startCol + 8 - 1);
+                    const exrateColLetter = getColLetter(startCol + 10 - 1);
+
+                    const rateCell = dataRow.getCell(rateColIdx + 1);
+                    rateCell.value = {
+                        formula: `${originalPrice}*$${exrateColLetter}$1*(1+$${profitColLetter}$1+$${freightColLetter}$1+$${customsColLetter}$1+$${installColLetter}$1)`,
+                        result: rateVal
+                    };
+                }
+
+                if (isAmountNumeric && hasQtyCol && hasRateCol) {
+                    const amountCell = dataRow.getCell(amountColIdx + 1);
+                    amountCell.value = {
+                        formula: `${qtyLetter}${excelRow}*${rateLetter}${excelRow}`,
+                        result: amountVal
+                    };
+                }
+
                 // Add multiple images to cell in grid layout
                 if (imgColIdx >= 0 && imageDataByRow[rowIndex]?.length > 0) {
                     const images = imageDataByRow[rowIndex];
-                    const excelRow = rowIndex + startRowOffset + 2; // +1 for header, +1 for 1-indexed, offset by project info rows
                     const baseImgSize = 50;
 
                     if (images.length === 1) {
@@ -1295,6 +1401,15 @@ function TableViewer({
             } else {
                 const summaryRow = ws.addRow([`Total: ${table.rows.length} items`]);
                 summaryRow.getCell(1).font = { bold: true, color: { argb: secondaryArgb } };
+            }
+
+            // Set explicit Print Area to hide costing factors on printout
+            if (header.length > 0) {
+                const lastColLetter = getColLetter(header.length - 1);
+                const lastRowNumber = ws.lastRow ? ws.lastRow.number : 100;
+                ws.pageSetup = {
+                    printArea: `A1:${lastColLetter}${lastRowNumber}`
+                };
             }
         }
 
@@ -2386,7 +2501,7 @@ function TableViewer({
     };
 
     // ===================== PREMIUM POWERPOINT PRESENTATION (LIGHT THEME) =====================
-    const handleGeneratePresentation = async (sourceTables, returnBase64 = false) => {
+    const handleGeneratePresentation = async (sourceTables, returnBase64 = false, templateId = 'corporate') => {
         const PptxGenJS = (await import('pptxgenjs')).default;
         const pres = new PptxGenJS();
         const totalItems = sourceTables.reduce((acc, t) => acc + t.rows.length, 0);
@@ -2395,14 +2510,103 @@ function TableViewer({
         pres.title = 'Product Presentation';
         pres.subject = 'Bill of Quantities - Product Showcase';
 
-        const brandColors = getBrandColors(accentColor, secondaryColor);
+        const baseColors = getBrandColors(accentColor, secondaryColor);
+        
+        let brandColors = { ...baseColors };
+        let fontFace = 'Arial';
+        let layoutStyle = 'corporate'; // corporate, dark, minimalist, creative, tech
+
+        if (templateId === 'dark') {
+            brandColors.bg = '0F172A';
+            brandColors.text = 'E2E8F0';
+            brandColors.lightText = '94A3B8';
+            brandColors.border = '334155';
+            brandColors.lightBg = '1E293B';
+            fontFace = 'Calibri';
+            layoutStyle = 'dark';
+        } else if (templateId === 'minimalist') {
+            brandColors.bg = 'FFFFFF';
+            brandColors.primary = '111111';
+            brandColors.accent = baseColors.primary; // Use company primary as accent color
+            brandColors.text = '222222';
+            brandColors.lightText = '777777';
+            brandColors.border = 'E5E5E5';
+            brandColors.lightBg = 'FAFAFA';
+            fontFace = 'Georgia';
+            layoutStyle = 'minimalist';
+        } else if (templateId === 'creative') {
+            brandColors.bg = 'FAF8F5';
+            brandColors.text = '2C2520';
+            brandColors.lightText = '70655E';
+            brandColors.border = 'E5DFD9';
+            brandColors.lightBg = 'F3EFE9';
+            fontFace = 'Trebuchet MS';
+            layoutStyle = 'creative';
+        } else if (templateId === 'tech') {
+            brandColors.bg = 'F1F5F9';
+            brandColors.primary = '1E293B';
+            brandColors.accent = '0D9488';
+            brandColors.text = '0F172A';
+            brandColors.lightText = '475569';
+            brandColors.border = 'CBD5E1';
+            brandColors.lightBg = 'E2E8F0';
+            fontFace = 'Segoe UI';
+            layoutStyle = 'tech';
+        }
+
+        // Configure text colors based on template style
+        let mainTitleColor = brandColors.primary;
+        let subtitleColor = brandColors.lightText;
+        let detailsColor = brandColors.lightText;
+        let labelColor = brandColors.primary;
+        let valueColor = brandColors.text;
+        let detailHeaderColor = brandColors.primary;
+        let footerLinkColor = brandColors.primary;
+        let footerTextColor = brandColors.lightText;
+        let headerTextColor = 'FFFFFF';
+
+        if (layoutStyle === 'dark') {
+            mainTitleColor = 'FFFFFF';
+            subtitleColor = brandColors.accent;
+            detailsColor = brandColors.text;
+            labelColor = brandColors.accent;
+            valueColor = brandColors.text;
+            detailHeaderColor = '#FFFFFF';
+            footerLinkColor = brandColors.accent;
+            footerTextColor = brandColors.lightText;
+            headerTextColor = '#FFFFFF';
+        } else if (layoutStyle === 'minimalist') {
+            mainTitleColor = '111111';
+            subtitleColor = '777777';
+            detailsColor = '777777';
+            labelColor = brandColors.primary;
+            valueColor = brandColors.text;
+            detailHeaderColor = brandColors.primary;
+            footerLinkColor = brandColors.primary;
+            footerTextColor = brandColors.lightText;
+            headerTextColor = brandColors.primary;
+        } else if (layoutStyle === 'tech') {
+            mainTitleColor = '1E293B';
+            subtitleColor = '0D9488';
+            detailsColor = '475569';
+            labelColor = brandColors.primary;
+            valueColor = brandColors.text;
+            detailHeaderColor = brandColors.primary;
+            footerLinkColor = brandColors.accent;
+            footerTextColor = brandColors.lightText;
+            headerTextColor = '#FFFFFF';
+        }
 
         // Pre-load company and client logos for slide header
         let companyLogoData = null;
         let clientLogoData = null;
-        if (logoWhite || logoOriginal) {
+        const logoToUse = (layoutStyle === 'minimalist' || layoutStyle === 'creative') 
+            ? (logoOriginal || logoWhite) 
+            : (logoWhite || logoOriginal);
+
+        if (logoToUse) {
             try {
-                companyLogoData = await getImageData(logoWhite || logoOriginal, { format: 'image/png', maxWidth: 400 });
+                companyLogoData = await getImageData(logoToUse, { format: 'image/png', maxWidth: 400 });
             } catch (e) {}
         }
         if (project.clientLogo) {
@@ -2419,12 +2623,35 @@ function TableViewer({
         });
 
         const drawSlideDecorations = (slideObj) => {
-            // Header bar (blue) - drawn on slide directly to make it selectable/editable
-            slideObj.addShape('rect', { x: 0, y: 0, w: '100%', h: 0.8, fill: { color: brandColors.primary } });
-            // Gold accent line
-            slideObj.addShape('rect', { x: 0, y: 0.8, w: '100%', h: 0.03, fill: { color: brandColors.accent } });
-            // Footer background
-            slideObj.addShape('rect', { x: 0, y: 5.3, w: '100%', h: 0.2, fill: { color: brandColors.lightBg } });
+            if (layoutStyle === 'minimalist') {
+                // Just a thin top accent line or border
+                slideObj.addShape('rect', { x: 0, y: 0, w: '100%', h: 0.05, fill: { color: brandColors.primary } });
+                // Divider line below header text
+                slideObj.addShape('rect', { x: 0.2, y: 0.8, w: 9.6, h: 0.01, fill: { color: brandColors.border } });
+                // Footer divider
+                slideObj.addShape('rect', { x: 0.2, y: 5.3, w: 9.6, h: 0.01, fill: { color: brandColors.border } });
+            } else if (layoutStyle === 'tech') {
+                // Steel blue header bar
+                slideObj.addShape('rect', { x: 0, y: 0, w: '100%', h: 0.8, fill: { color: brandColors.primary } });
+                // Teal accent line
+                slideObj.addShape('rect', { x: 0, y: 0.8, w: '100%', h: 0.05, fill: { color: brandColors.accent } });
+                // Cool grid elements or blocky footer
+                slideObj.addShape('rect', { x: 0, y: 5.3, w: '100%', h: 0.2, fill: { color: brandColors.lightBg } });
+            } else if (layoutStyle === 'dark') {
+                // Header bar (dark slate)
+                slideObj.addShape('rect', { x: 0, y: 0, w: '100%', h: 0.8, fill: { color: brandColors.lightBg } });
+                // Colored accent line
+                slideObj.addShape('rect', { x: 0, y: 0.8, w: '100%', h: 0.03, fill: { color: brandColors.accent } });
+                // Footer background
+                slideObj.addShape('rect', { x: 0, y: 5.3, w: '100%', h: 0.2, fill: { color: brandColors.lightBg } });
+            } else {
+                // corporate & creative default header bar style
+                slideObj.addShape('rect', { x: 0, y: 0, w: '100%', h: 0.8, fill: { color: brandColors.primary } });
+                // Gold accent line
+                slideObj.addShape('rect', { x: 0, y: 0.8, w: '100%', h: 0.03, fill: { color: brandColors.accent } });
+                // Footer background
+                slideObj.addShape('rect', { x: 0, y: 5.3, w: '100%', h: 0.2, fill: { color: brandColors.lightBg } });
+            }
         };
 
         // Title Slide
@@ -2481,19 +2708,19 @@ function TableViewer({
         if (project.projectName) {
             titleSlide.addText(project.projectName.toUpperCase(), {
                 x: 0, y: 2.8, w: '100%', h: 0.6,
-                fontSize: 32, bold: true, color: brandColors.primary, fontFace: 'Arial', align: 'center'
+                fontSize: 32, bold: true, color: mainTitleColor, fontFace: fontFace, align: 'center'
             });
         } else {
             titleSlide.addText('PRODUCT SHOWCASE', {
                 x: 0, y: 2.8, w: '100%', h: 0.6,
-                fontSize: 36, bold: true, color: brandColors.primary, fontFace: 'Arial', align: 'center'
+                fontSize: 36, bold: true, color: mainTitleColor, fontFace: fontFace, align: 'center'
             });
         }
         
         const subtitle = project.clientName ? `Prepared for: ${project.clientName}` : 'Bill of Quantities - Product Presentation';
         titleSlide.addText(subtitle, {
             x: 0, y: 3.4, w: '100%', h: 0.4,
-            fontSize: 14, color: brandColors.lightText, fontFace: 'Arial', align: 'center'
+            fontSize: 14, color: subtitleColor, fontFace: fontFace, align: 'center'
         });
 
         const todayStr = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' });
@@ -2510,12 +2737,12 @@ function TableViewer({
         if (project.siteEngineer) partiesPptText += `|   Site Engineer: ${project.siteEngineer}`;
 
         titleSlide.addText(detailsPptText, {
-            x: 0, y: 3.9, w: '100%', h: 0.3, fontSize: 10, color: brandColors.lightText, align: 'center'
+            x: 0, y: 3.9, w: '100%', h: 0.3, fontSize: 10, color: detailsColor, fontFace: fontFace, align: 'center'
         });
 
         if (partiesPptText.trim()) {
             titleSlide.addText(partiesPptText.trim(), {
-                x: 0, y: 4.2, w: '100%', h: 0.3, fontSize: 9.5, color: brandColors.lightText, align: 'center'
+                x: 0, y: 4.2, w: '100%', h: 0.3, fontSize: 9.5, color: detailsColor, fontFace: fontFace, align: 'center'
             });
         }
 
@@ -2591,7 +2818,7 @@ function TableViewer({
 
                 slide.addText(`Item ${itemNum}: ${headerTitle}`, {
                     x: titleX, y: 0.15, w: titleW, h: 0.4,
-                    fontSize: 14, color: brandColors.bg, bold: true, fontFace: 'Arial', valign: 'middle'
+                    fontSize: 14, color: headerTextColor, bold: true, fontFace: fontFace, valign: 'middle'
                 });
 
                 // ===== LEFT SIDE: IMAGE(S) - Pre-load and calculate exact dimensions =====
@@ -2708,7 +2935,7 @@ function TableViewer({
                     if (allImages.length > 4) {
                         slide.addText(`+${allImages.length - 4} more`, {
                             x: imgAreaX + imgAreaW - 0.8, y: imgAreaY + imgAreaH - 0.3, w: 0.7, h: 0.2,
-                            fontSize: 8, color: brandColors.lightText, align: 'right'
+                            fontSize: 8, color: footerTextColor, fontFace: fontFace, align: 'right'
                         });
                     }
                 }
@@ -2720,13 +2947,13 @@ function TableViewer({
                 // "Product Details" Header
                 slide.addText('Product Details', {
                     x: detailX, y: 0.95, w: detailW, h: 0.35,
-                    fontSize: 18, bold: true, color: brandColors.primary, fontFace: 'Arial'
+                    fontSize: 18, bold: true, color: detailHeaderColor, fontFace: fontFace
                 });
 
                 // Description sub-section
                 slide.addText('Description:', {
                     x: detailX, y: 1.35, w: detailW, h: 0.25,
-                    fontSize: 11, bold: true, color: brandColors.primary, fontFace: 'Arial'
+                    fontSize: 11, bold: true, color: labelColor, fontFace: fontFace
                 });
 
                 // Full description with word wrap - dynamic font size to prevent overlapping sections below
@@ -2746,7 +2973,7 @@ function TableViewer({
 
                 slide.addText(fullDesc, {
                     x: detailX, y: 1.6, w: detailW, h: 3.1,
-                    fontSize: descFontSize, color: brandColors.text, fontFace: 'Arial', valign: 'top',
+                    fontSize: descFontSize, color: valueColor, fontFace: fontFace, valign: 'top',
                     wrap: true, shrinkText: true
                 });
 
@@ -2758,44 +2985,44 @@ function TableViewer({
                 const footerY = 4.72;
                 slide.addText('Brand:', {
                     x: detailX, y: footerY, w: 0.75, h: 0.35,
-                    fontSize: 10, bold: true, color: brandColors.primary, fontFace: 'Arial', valign: 'middle'
+                    fontSize: 10, bold: true, color: labelColor, fontFace: fontFace, valign: 'middle'
                 });
                 slide.addText(brand, {
                     x: detailX + 0.75, y: footerY, w: 1.65, h: 0.35,
-                    fontSize: 9, color: brandColors.text, fontFace: 'Arial', valign: 'middle'
+                    fontSize: 9, color: valueColor, fontFace: fontFace, valign: 'middle'
                 });
 
                 // Quantity
                 slide.addText('Qty:', {
                     x: detailX + 2.5, y: footerY, w: 0.5, h: 0.35,
-                    fontSize: 10, bold: true, color: brandColors.primary, fontFace: 'Arial', valign: 'middle'
+                    fontSize: 10, bold: true, color: labelColor, fontFace: fontFace, valign: 'middle'
                 });
                 slide.addText(qty || 'As per BOQ', {
                     x: detailX + 3.0, y: footerY, w: 1.7, h: 0.35,
-                    fontSize: 9, color: brandColors.text, fontFace: 'Arial', valign: 'middle'
+                    fontSize: 9, color: valueColor, fontFace: fontFace, valign: 'middle'
                 });
 
                 // ===== FOOTER =====
                 // Warranty notice
                 slide.addText('Warranty', {
                     x: 0.2, y: 5.08, w: 1, h: 0.18,
-                    fontSize: 8, bold: true, color: brandColors.primary
+                    fontSize: 8, bold: true, color: labelColor, fontFace: fontFace
                 });
                 slide.addText('As per manufacturer - 5 years', {
                     x: 0.2, y: 5.24, w: 2.5, h: 0.15,
-                    fontSize: 7, color: brandColors.lightText
+                    fontSize: 7, color: footerTextColor, fontFace: fontFace
                 });
 
                 // Page URL/reference
                 slide.addText(website || 'https://alshayaenterprises.com', {
                     x: 3.5, y: 5.32, w: 3, h: 0.15,
-                    fontSize: 7, color: brandColors.primary, align: 'center'
+                    fontSize: 7, color: footerLinkColor, fontFace: fontFace, align: 'center'
                 });
 
                 // Page number
                 slide.addText(`${itemNum} / ${totalItems}`, {
                     x: 8.5, y: 5.32, w: 1, h: 0.15,
-                    fontSize: 7, color: brandColors.lightText, align: 'right'
+                    fontSize: 7, color: footerTextColor, fontFace: fontFace, align: 'right'
                 });
 
                 itemNum++;
@@ -2808,14 +3035,39 @@ function TableViewer({
         }
     };
 
-    // ===================== PREMIUM PRESENTATION PDF (LIGHT THEME) =====================
-    const handleGeneratePptPdf = async (sourceTables) => {
+    const triggerPptxExport = (sourceTables, asPdf = false) => {
+        setPptxSourceTables(sourceTables);
+        setPptxAsPdf(asPdf);
+        setShowPptxModal(true);
+    };
+
+    const handleTemplateModalExport = async (templateId) => {
+        setShowPptxModal(false);
+        if (!pptxSourceTables) return;
+        
+        if (pptxAsPdf) {
+            await handleGeneratePptPdf(pptxSourceTables, templateId);
+        } else {
+            setIsGeneratingPpt(true);
+            try {
+                await handleGeneratePresentation(pptxSourceTables, false, templateId);
+            } catch (err) {
+                console.error(err);
+                alert(`Export failed: ${err.message}`);
+            } finally {
+                setIsGeneratingPpt(false);
+            }
+        }
+    };
+
+    // ===================== PREMIUM PRESENTATION PDF =====================
+    const handleGeneratePptPdf = async (sourceTables, templateId = 'corporate') => {
         setIsGeneratingPpt(true);
         try {
-            console.log('🚀 [Frontend] Generating PPTX natively to send for PDF conversion...');
+            console.log(`🚀 [Frontend] Generating PPTX natively with template ${templateId} to send for PDF conversion...`);
             
             // Generate the PPTX natively in frontend to ensure identical styling
-            const pptxBase64 = await handleGeneratePresentation(sourceTables, true);
+            const pptxBase64 = await handleGeneratePresentation(sourceTables, true, templateId);
             
             const payload = {
                 pptxBase64: pptxBase64
@@ -3392,10 +3644,10 @@ function TableViewer({
                 <div className={actionStyles.buttonGroup}>
                     <button className={actionStyles.actionBtn} onClick={() => handleDownloadPDF(tablesWithSummary, 'Original_Offer')}>📄 Download Offer PDF</button>
                     <button className={actionStyles.actionBtn} onClick={() => handleDownloadExcel(tablesWithSummary, 'Original_Offer')}>📊 Download Offer Excel</button>
-                    <button className={actionStyles.actionBtn} onClick={() => handleGeneratePresentation(tablesWithSummary)}>📽️ Generate Presentation</button>
+                    <button className={actionStyles.actionBtn} onClick={() => triggerPptxExport(tablesWithSummary, false)}>📽️ Generate Presentation</button>
                     <button 
                         className={`${actionStyles.actionBtn} ${isGeneratingPpt ? actionStyles.loading : ''}`} 
-                        onClick={() => handleGeneratePptPdf(tablesWithSummary)}
+                        onClick={() => triggerPptxExport(tablesWithSummary, true)}
                         disabled={isGeneratingPpt}
                     >
                         {isGeneratingPpt ? '⏳ Generating...' : '📑 Presentation PDF'}
@@ -3461,10 +3713,10 @@ function TableViewer({
                         <div className={actionStyles.buttonGroup}>
                             <button className={actionStyles.actionBtn} onClick={() => handleDownloadPDF(costedTables, 'Costed_Offer')}>📄 Download Costed PDF</button>
                             <button className={actionStyles.actionBtn} onClick={() => handleDownloadExcel(costedTables, 'Costed_Offer')}>📊 Download Costed Excel</button>
-                            <button className={actionStyles.actionBtn} onClick={() => handleGeneratePresentation(costedTables)}>📽️ Generate Costed Presentation</button>
+                            <button className={actionStyles.actionBtn} onClick={() => triggerPptxExport(costedTables, false)}>📽️ Generate Costed Presentation</button>
                             <button 
                                 className={`${actionStyles.actionBtn} ${isGeneratingPpt ? actionStyles.loading : ''}`} 
-                                onClick={() => handleGeneratePptPdf(costedTables)}
+                                onClick={() => triggerPptxExport(costedTables, true)}
                                 disabled={isGeneratingPpt}
                             >
                                 {isGeneratingPpt ? '⏳ Generating...' : '📑 Costed Presentation PDF'}
@@ -3532,6 +3784,13 @@ function TableViewer({
                     setCostingFactors(factors);
                     setCostingOpen(false);
                 }}
+            />
+
+            <PptxTemplateModal
+                isOpen={showPptxModal}
+                onClose={() => setShowPptxModal(false)}
+                onExport={handleTemplateModalExport}
+                isGenerating={isGeneratingPpt}
             />
 
             {selectedImage && (

@@ -54,6 +54,12 @@ export default function CompanySettings({ isModal = false, onClose = null }) {
     
     // UI State
     const [expandedSection, setExpandedSection] = useState(null); // 'branding', 'ai', or null for collapsed
+    const [showApiConfig, setShowApiConfig] = useState(false);
+    const [isEditingFreeKey, setIsEditingFreeKey] = useState(!storedAiSettings?.googleFreeKey);
+    const [isEditingBilledKey, setIsEditingBilledKey] = useState(!storedAiSettings?.googleApiKey);
+    const [tempFreeKey, setTempFreeKey] = useState('');
+    const [tempBilledKey, setTempBilledKey] = useState('');
+    const [isSavingKey, setIsSavingKey] = useState(null);
     const [error, setError] = useState(null);
     const [success, setSuccess] = useState(null);
     const [isProcessing, setIsProcessing] = useState(false);
@@ -67,8 +73,14 @@ export default function CompanySettings({ isModal = false, onClose = null }) {
         if (storedLogo) setLogo(storedLogo);
         if (storedAiSettings?.engine) setSelectedEngine(storedAiSettings.engine);
         if (storedAiSettings?.model) setSelectedModel(storedAiSettings.model);
-        if (storedAiSettings?.googleApiKey !== undefined) setGoogleApiKey(storedAiSettings.googleApiKey);
-        if (storedAiSettings?.googleFreeKey !== undefined) setGoogleFreeKey(storedAiSettings.googleFreeKey);
+        if (storedAiSettings?.googleApiKey !== undefined) {
+            setGoogleApiKey(storedAiSettings.googleApiKey);
+            setIsEditingBilledKey(!storedAiSettings.googleApiKey);
+        }
+        if (storedAiSettings?.googleFreeKey !== undefined) {
+            setGoogleFreeKey(storedAiSettings.googleFreeKey);
+            setIsEditingFreeKey(!storedAiSettings.googleFreeKey);
+        }
         if (storedAiSettings?.activeTier !== undefined) setActiveTier(storedAiSettings.activeTier);
         if (storedAiSettings?.verifiedModels !== undefined) setVerifiedModels(storedAiSettings.verifiedModels);
     }, [companyName, storedWebsite, storedLogo, storedAiSettings]);
@@ -82,9 +94,11 @@ export default function CompanySettings({ isModal = false, onClose = null }) {
                     const data = await res.json();
                     if (!googleApiKey && data.googleApiKey) {
                         setGoogleApiKey(data.googleApiKey);
+                        setIsEditingBilledKey(false);
                     }
                     if (!googleFreeKey && data.googleFreeKey) {
                         setGoogleFreeKey(data.googleFreeKey);
+                        setIsEditingFreeKey(false);
                     }
                 }
             } catch (err) {
@@ -193,12 +207,20 @@ export default function CompanySettings({ isModal = false, onClose = null }) {
         }
     };
 
+    const getMaskedKeyPreview = (key) => {
+        if (!key) return '';
+        if (key.length <= 8) return '••••';
+        return `${key.substring(0, 4)}...${key.substring(key.length - 4)}`;
+    };
+
     const handleTestKey = async () => {
         setIsTestingKey(true);
         setTestError(null);
         setTestSuccess(null);
         
-        const activeKey = activeTier === 'free' ? googleFreeKey : googleApiKey;
+        const activeKey = activeTier === 'free' 
+            ? (isEditingFreeKey ? tempFreeKey : googleFreeKey) 
+            : (isEditingBilledKey ? tempBilledKey : googleApiKey);
         
         if (!activeKey) {
             setTestError(`Please enter a key for the selected ${activeTier === 'free' ? 'Free' : 'Billed'} tier first.`);
@@ -230,13 +252,28 @@ export default function CompanySettings({ isModal = false, onClose = null }) {
             setVerifiedModels(filtered);
             setTestSuccess(`Successfully verified key! Found ${filtered.length} authorized models.`);
             
+            const finalFreeKey = isEditingFreeKey ? tempFreeKey : googleFreeKey;
+            const finalApiKey = isEditingBilledKey ? tempBilledKey : googleApiKey;
+
             // Automatically save verifiedModels and keys to context
             updateAiSettings({
-                googleApiKey,
-                googleFreeKey,
+                googleApiKey: finalApiKey,
+                googleFreeKey: finalFreeKey,
                 activeTier,
                 verifiedModels: filtered
             });
+
+            // Update local states if verified successfully
+            if (isEditingFreeKey && tempFreeKey) {
+                setGoogleFreeKey(tempFreeKey);
+                setIsEditingFreeKey(false);
+                setTempFreeKey('');
+            }
+            if (isEditingBilledKey && tempBilledKey) {
+                setGoogleApiKey(tempBilledKey);
+                setIsEditingBilledKey(false);
+                setTempBilledKey('');
+            }
         } catch (err) {
             console.error('[Key Verification Error]:', err);
             setTestError(err.message || 'Verification failed. Please check your network and API key.');
@@ -245,10 +282,44 @@ export default function CompanySettings({ isModal = false, onClose = null }) {
         }
     };
 
+    const handleSaveApiKey = async (tier, newKey) => {
+        setIsSavingKey(tier);
+        setError(null);
+        setSuccess(null);
+        try {
+            const isFree = tier === 'free';
+            const result = await updateAiSettings({
+                [isFree ? 'googleFreeKey' : 'googleApiKey']: newKey
+            });
+            if (result.success) {
+                if (isFree) {
+                    setGoogleFreeKey(newKey);
+                    setIsEditingFreeKey(false);
+                    setTempFreeKey('');
+                } else {
+                    setGoogleApiKey(newKey);
+                    setIsEditingBilledKey(false);
+                    setTempBilledKey('');
+                }
+                setSuccess(`${isFree ? 'Free' : 'Billed'} Tier API Key saved successfully!`);
+                setTimeout(() => setSuccess(null), 3000);
+            } else {
+                setError(result.error || 'Failed to save API key.');
+            }
+        } catch (err) {
+            setError(err.message || 'An error occurred while saving.');
+        } finally {
+            setIsSavingKey(null);
+        }
+    };
+
     const handleSave = async () => {
         setIsProcessing(true);
         setError('');
         setSuccess('');
+
+        const finalFreeKey = isEditingFreeKey ? tempFreeKey : googleFreeKey;
+        const finalApiKey = isEditingBilledKey ? tempBilledKey : googleApiKey;
 
         try {
             // Save everything at once to avoid race conditions and multiple re-renders
@@ -263,13 +334,24 @@ export default function CompanySettings({ isModal = false, onClose = null }) {
             }, {
                 engine: selectedEngine,
                 model: selectedModel,
-                googleApiKey,
-                googleFreeKey,
+                googleApiKey: finalApiKey,
+                googleFreeKey: finalFreeKey,
                 activeTier,
                 verifiedModels
             });
 
             if (result.success) {
+                if (isEditingFreeKey && tempFreeKey) {
+                    setGoogleFreeKey(tempFreeKey);
+                    setIsEditingFreeKey(false);
+                    setTempFreeKey('');
+                }
+                if (isEditingBilledKey && tempBilledKey) {
+                    setGoogleApiKey(tempBilledKey);
+                    setIsEditingBilledKey(false);
+                    setTempBilledKey('');
+                }
+                
                 setSuccess('Settings saved successfully!');
                 
                 // Keep success message visible for a bit then close if it was a modal
@@ -410,137 +492,343 @@ export default function CompanySettings({ isModal = false, onClose = null }) {
 
                                 {selectedEngine === 'google' && (
                                     <div style={{ marginTop: '16px', marginBottom: '24px', padding: '16px', background: 'rgba(255, 255, 255, 0.02)', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
-                                        <h4 style={{ margin: '0 0 16px 0', fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Google API Credentials</h4>
+                                        <div 
+                                            style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', userSelect: 'none' }}
+                                            onClick={() => setShowApiConfig(!showApiConfig)}
+                                        >
+                                            <h4 style={{ margin: 0, fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                                Configure API Key
+                                            </h4>
+                                            <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', transition: 'transform 0.3s ease', transform: showApiConfig ? 'rotate(180deg)' : 'rotate(0deg)' }}>
+                                                ▼
+                                            </span>
+                                        </div>
                                         
-                                        {/* Free Tier Key */}
-                                        <div className={styles.field} style={{ marginBottom: '16px' }}>
-                                            <label className={styles.label} style={{ fontSize: '0.75rem' }}>Free Tier API Key</label>
-                                            <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                                                <input
-                                                    type={showFreeKey ? 'text' : 'password'}
-                                                    className={styles.input}
-                                                    value={googleFreeKey}
-                                                    onChange={(e) => setGoogleFreeKey(e.target.value)}
-                                                    placeholder="Enter Google Free Tier API Key"
-                                                    style={{ paddingRight: '45px' }}
-                                                />
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setShowFreeKey(!showFreeKey)}
-                                                    style={{ position: 'absolute', right: '12px', background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '1.1rem' }}
-                                                >
-                                                    {showFreeKey ? '👁️' : '👁️‍🗨️'}
-                                                </button>
-                                            </div>
-                                        </div>
-
-                                        {/* Billed Tier Key */}
-                                        <div className={styles.field} style={{ marginBottom: '16px' }}>
-                                            <label className={styles.label} style={{ fontSize: '0.75rem' }}>Billed Tier API Key</label>
-                                            <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                                                <input
-                                                    type={showApiKey ? 'text' : 'password'}
-                                                    className={styles.input}
-                                                    value={googleApiKey}
-                                                    onChange={(e) => setGoogleApiKey(e.target.value)}
-                                                    placeholder="Enter Google Billed Tier API Key"
-                                                    style={{ paddingRight: '45px' }}
-                                                />
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setShowApiKey(!showApiKey)}
-                                                    style={{ position: 'absolute', right: '12px', background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '1.1rem' }}
-                                                >
-                                                    {showApiKey ? '👁️' : '👁️‍🗨️'}
-                                                </button>
-                                            </div>
-                                        </div>
-
-                                        {/* Active Tier Selector */}
-                                        <div className={styles.field} style={{ marginBottom: '16px' }}>
-                                            <label className={styles.label} style={{ fontSize: '0.75rem' }}>Active Tier Preference</label>
-                                            <select
-                                                value={activeTier}
-                                                onChange={(e) => setActiveTier(e.target.value)}
-                                                className={styles.modelSelect}
-                                                style={{ width: '100%', marginTop: '6px' }}
-                                            >
-                                                <option value="free">Free Tier Key</option>
-                                                <option value="billed">Billed Tier Key</option>
-                                            </select>
-                                        </div>
-
-                                        {/* Test active key */}
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                                            <button
-                                                type="button"
-                                                className={styles.saveBtn}
-                                                onClick={handleTestKey}
-                                                disabled={isTestingKey}
-                                                style={{
-                                                    background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                                                    boxShadow: '0 4px 6px -1px rgba(16, 185, 129, 0.2)',
-                                                    width: '100%',
-                                                    padding: '10px'
-                                                }}
-                                            >
-                                                {isTestingKey ? 'Verifying Key...' : 'Test Active Key'}
-                                            </button>
-                                            
-                                            {testError && <div style={{ color: '#ef4444', fontSize: '0.8rem', padding: '6px', background: 'rgba(239, 68, 68, 0.1)', borderRadius: '6px', border: '1px solid rgba(239, 68, 68, 0.2)' }}>⚠️ {testError}</div>}
-                                            {testSuccess && <div style={{ color: '#10b981', fontSize: '0.8rem', padding: '6px', background: 'rgba(16, 185, 129, 0.1)', borderRadius: '6px', border: '1px solid rgba(16, 185, 129, 0.2)' }}>✅ {testSuccess}</div>}
-
-                                            {/* Verified Models Display */}
-                                            {verifiedModels && verifiedModels.length > 0 && (
-                                                <div 
-                                                    style={{ 
-                                                        marginTop: '16px', 
-                                                        padding: '16px', 
-                                                        background: theme === 'dark' ? 'rgba(139, 92, 246, 0.03)' : 'rgba(139, 92, 246, 0.02)', 
-                                                        borderRadius: '12px', 
-                                                        border: theme === 'dark' ? '1px dashed rgba(139, 92, 246, 0.3)' : '1px dashed rgba(139, 92, 246, 0.45)',
-                                                        boxShadow: 'inset 0 0 12px rgba(139, 92, 246, 0.05)',
-                                                        animation: 'fadeIn 0.3s ease-in-out'
-                                                    }}
-                                                >
-                                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                                                        <div style={{ fontSize: '0.75rem', fontWeight: 700, color: theme === 'dark' ? '#c084fc' : '#6d28d9', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                                                            ✓ Verified Models List
+                                        {showApiConfig && (
+                                            <div style={{ marginTop: '16px', animation: 'slideDown 0.3s ease-out' }}>
+                                                {/* Free Tier Key */}
+                                                <div className={styles.field} style={{ marginBottom: '16px' }}>
+                                                    <label className={styles.label} style={{ fontSize: '0.75rem' }}>Free Tier API Key</label>
+                                                    <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                                                        <div style={{ position: 'relative', flex: 1, display: 'flex', alignItems: 'center' }}>
+                                                            <input
+                                                                type={isEditingFreeKey ? (showFreeKey ? 'text' : 'password') : 'text'}
+                                                                className={styles.input}
+                                                                value={isEditingFreeKey ? tempFreeKey : getMaskedKeyPreview(googleFreeKey)}
+                                                                onChange={(e) => isEditingFreeKey && setTempFreeKey(e.target.value)}
+                                                                placeholder={isEditingFreeKey ? "Enter Google Free Tier API Key" : "No key configured"}
+                                                                disabled={!isEditingFreeKey}
+                                                                style={{ 
+                                                                    paddingRight: isEditingFreeKey ? '45px' : '12px', 
+                                                                    width: '100%',
+                                                                    backgroundColor: !isEditingFreeKey ? 'rgba(255, 255, 255, 0.03)' : 'var(--input-bg)',
+                                                                    color: !isEditingFreeKey ? 'var(--text-secondary)' : 'var(--text-primary)',
+                                                                    cursor: !isEditingFreeKey ? 'not-allowed' : 'text',
+                                                                    opacity: !isEditingFreeKey ? 0.75 : 1
+                                                                }}
+                                                            />
+                                                            {isEditingFreeKey && (
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => setShowFreeKey(!showFreeKey)}
+                                                                    style={{ position: 'absolute', right: '12px', background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '1.1rem' }}
+                                                                >
+                                                                    {showFreeKey ? '👁️' : '👁️‍🗨️'}
+                                                                </button>
+                                                            )}
                                                         </div>
-                                                        <span style={{ fontSize: '0.7rem', padding: '2px 6px', background: theme === 'dark' ? 'rgba(139, 92, 246, 0.2)' : 'rgba(139, 92, 246, 0.1)', color: theme === 'dark' ? '#e9d5ff' : '#6d28d9', borderRadius: '20px', fontWeight: 600 }}>
-                                                            {verifiedModels.length} Models
-                                                        </span>
-                                                    </div>
-                                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', maxHeight: '120px', overflowY: 'auto', padding: '2px', scrollbarWidth: 'thin' }}>
-                                                        {verifiedModels.map(m => (
-                                                            <span
-                                                                key={m}
-                                                                style={{
-                                                                    fontSize: '0.7rem',
-                                                                    padding: '4px 10px',
-                                                                    background: theme === 'dark' ? 'rgba(139, 92, 246, 0.1)' : 'rgba(139, 92, 246, 0.06)',
-                                                                    color: theme === 'dark' ? '#e9d5ff' : '#5b21b6',
-                                                                    borderRadius: '8px',
-                                                                    border: theme === 'dark' ? '1px solid rgba(139, 92, 246, 0.2)' : '1px solid rgba(139, 92, 246, 0.25)',
-                                                                    transition: 'all 0.2s ease',
-                                                                    cursor: 'default'
-                                                                }}
-                                                                onMouseOver={(e) => {
-                                                                    e.currentTarget.style.background = theme === 'dark' ? 'rgba(139, 92, 246, 0.2)' : 'rgba(139, 92, 246, 0.12)';
-                                                                    e.currentTarget.style.borderColor = theme === 'dark' ? 'rgba(139, 92, 246, 0.4)' : 'rgba(139, 92, 246, 0.45)';
-                                                                }}
-                                                                onMouseOut={(e) => {
-                                                                    e.currentTarget.style.background = theme === 'dark' ? 'rgba(139, 92, 246, 0.1)' : 'rgba(139, 92, 246, 0.06)';
-                                                                    e.currentTarget.style.borderColor = theme === 'dark' ? 'rgba(139, 92, 246, 0.2)' : 'rgba(139, 92, 246, 0.25)';
-                                                                }}
-                                                            >
-                                                                {m}
-                                                            </span>
-                                                        ))}
+                                                        <div style={{ display: 'flex', gap: '8px' }}>
+                                                            {isEditingFreeKey ? (
+                                                                <>
+                                                                    <button
+                                                                        type="button"
+                                                                        className={styles.saveBtn}
+                                                                        onClick={() => handleSaveApiKey('free', tempFreeKey)}
+                                                                        disabled={isSavingKey === 'free' || !tempFreeKey}
+                                                                        style={{
+                                                                            padding: '10px 16px',
+                                                                            borderRadius: '10px',
+                                                                            border: 'none',
+                                                                            background: tempFreeKey 
+                                                                                ? 'linear-gradient(135deg, var(--info) 0%, var(--accent-color) 100%)' 
+                                                                                : 'rgba(255, 255, 255, 0.05)',
+                                                                            color: tempFreeKey ? '#fff' : 'var(--text-secondary)',
+                                                                            fontWeight: '600',
+                                                                            cursor: tempFreeKey ? 'pointer' : 'not-allowed',
+                                                                            fontSize: '0.85rem',
+                                                                            whiteSpace: 'nowrap',
+                                                                            height: '42px',
+                                                                            display: 'flex',
+                                                                            alignItems: 'center',
+                                                                            justifyContent: 'center',
+                                                                            minWidth: '70px'
+                                                                        }}
+                                                                    >
+                                                                        {isSavingKey === 'free' ? '...' : 'Save'}
+                                                                    </button>
+                                                                    {googleFreeKey && (
+                                                                        <button
+                                                                            type="button"
+                                                                            className={styles.skipBtn}
+                                                                            onClick={() => {
+                                                                                setIsEditingFreeKey(false);
+                                                                                setTempFreeKey('');
+                                                                            }}
+                                                                            style={{
+                                                                                padding: '10px 12px',
+                                                                                borderRadius: '10px',
+                                                                                border: '1px solid var(--border-color)',
+                                                                                color: 'var(--text-secondary)',
+                                                                                fontWeight: '500',
+                                                                                cursor: 'pointer',
+                                                                                fontSize: '0.85rem',
+                                                                                height: '42px',
+                                                                                display: 'flex',
+                                                                                alignItems: 'center',
+                                                                                justifyContent: 'center'
+                                                                            }}
+                                                                        >
+                                                                            Cancel
+                                                                        </button>
+                                                                    )}
+                                                                </>
+                                                            ) : (
+                                                                <button
+                                                                    type="button"
+                                                                    className={styles.saveBtn}
+                                                                    onClick={() => {
+                                                                        setIsEditingFreeKey(true);
+                                                                        setTempFreeKey('');
+                                                                    }}
+                                                                    style={{
+                                                                        padding: '10px 16px',
+                                                                        borderRadius: '10px',
+                                                                        border: 'none',
+                                                                        background: 'linear-gradient(135deg, var(--info) 0%, var(--accent-color) 100%)',
+                                                                        color: '#fff',
+                                                                        fontWeight: '600',
+                                                                        cursor: 'pointer',
+                                                                        fontSize: '0.85rem',
+                                                                        whiteSpace: 'nowrap',
+                                                                        height: '42px',
+                                                                        display: 'flex',
+                                                                        alignItems: 'center',
+                                                                        justifyContent: 'center',
+                                                                        minWidth: '70px'
+                                                                    }}
+                                                                >
+                                                                    Change
+                                                                </button>
+                                                            )}
+                                                        </div>
                                                     </div>
                                                 </div>
-                                            )}
-                                        </div>
+
+                                                {/* Billed Tier Key */}
+                                                <div className={styles.field} style={{ marginBottom: '16px' }}>
+                                                    <label className={styles.label} style={{ fontSize: '0.75rem' }}>Billed Tier API Key</label>
+                                                    <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                                                        <div style={{ position: 'relative', flex: 1, display: 'flex', alignItems: 'center' }}>
+                                                            <input
+                                                                type={isEditingBilledKey ? (showApiKey ? 'text' : 'password') : 'text'}
+                                                                className={styles.input}
+                                                                value={isEditingBilledKey ? tempBilledKey : getMaskedKeyPreview(googleApiKey)}
+                                                                onChange={(e) => isEditingBilledKey && setTempBilledKey(e.target.value)}
+                                                                placeholder={isEditingBilledKey ? "Enter Google Billed Tier API Key" : "No key configured"}
+                                                                disabled={!isEditingBilledKey}
+                                                                style={{ 
+                                                                    paddingRight: isEditingBilledKey ? '45px' : '12px', 
+                                                                    width: '100%',
+                                                                    backgroundColor: !isEditingBilledKey ? 'rgba(255, 255, 255, 0.03)' : 'var(--input-bg)',
+                                                                    color: !isEditingBilledKey ? 'var(--text-secondary)' : 'var(--text-primary)',
+                                                                    cursor: !isEditingBilledKey ? 'not-allowed' : 'text',
+                                                                    opacity: !isEditingBilledKey ? 0.75 : 1
+                                                                }}
+                                                            />
+                                                            {isEditingBilledKey && (
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => setShowApiKey(!showApiKey)}
+                                                                    style={{ position: 'absolute', right: '12px', background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '1.1rem' }}
+                                                                >
+                                                                    {showApiKey ? '👁️' : '👁️‍🗨️'}
+                                                                </button>
+                                                            )}
+                                                        </div>
+                                                        <div style={{ display: 'flex', gap: '8px' }}>
+                                                            {isEditingBilledKey ? (
+                                                                <>
+                                                                    <button
+                                                                        type="button"
+                                                                        className={styles.saveBtn}
+                                                                        onClick={() => handleSaveApiKey('billed', tempBilledKey)}
+                                                                        disabled={isSavingKey === 'billed' || !tempBilledKey}
+                                                                        style={{
+                                                                            padding: '10px 16px',
+                                                                            borderRadius: '10px',
+                                                                            border: 'none',
+                                                                            background: tempBilledKey 
+                                                                                ? 'linear-gradient(135deg, var(--info) 0%, var(--accent-color) 100%)' 
+                                                                                : 'rgba(255, 255, 255, 0.05)',
+                                                                            color: tempBilledKey ? '#fff' : 'var(--text-secondary)',
+                                                                            fontWeight: '600',
+                                                                            cursor: tempBilledKey ? 'pointer' : 'not-allowed',
+                                                                            fontSize: '0.85rem',
+                                                                            whiteSpace: 'nowrap',
+                                                                            height: '42px',
+                                                                            display: 'flex',
+                                                                            alignItems: 'center',
+                                                                            justifyContent: 'center',
+                                                                            minWidth: '70px'
+                                                                        }}
+                                                                    >
+                                                                        {isSavingKey === 'billed' ? '...' : 'Save'}
+                                                                    </button>
+                                                                    {googleApiKey && (
+                                                                        <button
+                                                                            type="button"
+                                                                            className={styles.skipBtn}
+                                                                            onClick={() => {
+                                                                                setIsEditingBilledKey(false);
+                                                                                setTempBilledKey('');
+                                                                            }}
+                                                                            style={{
+                                                                                padding: '10px 12px',
+                                                                                borderRadius: '10px',
+                                                                                border: '1px solid var(--border-color)',
+                                                                                color: 'var(--text-secondary)',
+                                                                                fontWeight: '500',
+                                                                                cursor: 'pointer',
+                                                                                fontSize: '0.85rem',
+                                                                                height: '42px',
+                                                                                display: 'flex',
+                                                                                alignItems: 'center',
+                                                                                justifyContent: 'center'
+                                                                            }}
+                                                                        >
+                                                                            Cancel
+                                                                        </button>
+                                                                    )}
+                                                                </>
+                                                            ) : (
+                                                                <button
+                                                                    type="button"
+                                                                    className={styles.saveBtn}
+                                                                    onClick={() => {
+                                                                        setIsEditingBilledKey(true);
+                                                                        setTempBilledKey('');
+                                                                    }}
+                                                                    style={{
+                                                                        padding: '10px 16px',
+                                                                        borderRadius: '10px',
+                                                                        border: 'none',
+                                                                        background: 'linear-gradient(135deg, var(--info) 0%, var(--accent-color) 100%)',
+                                                                        color: '#fff',
+                                                                        fontWeight: '600',
+                                                                        cursor: 'pointer',
+                                                                        fontSize: '0.85rem',
+                                                                        whiteSpace: 'nowrap',
+                                                                        height: '42px',
+                                                                        display: 'flex',
+                                                                        alignItems: 'center',
+                                                                        justifyContent: 'center',
+                                                                        minWidth: '70px'
+                                                                    }}
+                                                                >
+                                                                    Change
+                                                                </button>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                {/* Active Tier Selector */}
+                                                <div className={styles.field} style={{ marginBottom: '16px' }}>
+                                                    <label className={styles.label} style={{ fontSize: '0.75rem' }}>Active Tier Preference</label>
+                                                    <select
+                                                        value={activeTier}
+                                                        onChange={(e) => setActiveTier(e.target.value)}
+                                                        className={styles.modelSelect}
+                                                        style={{ width: '100%', marginTop: '6px' }}
+                                                    >
+                                                        <option value="free">Free Tier Key</option>
+                                                        <option value="billed">Billed Tier Key</option>
+                                                    </select>
+                                                </div>
+
+                                                {/* Test active key */}
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                                    <button
+                                                        type="button"
+                                                        className={styles.saveBtn}
+                                                        onClick={handleTestKey}
+                                                        disabled={isTestingKey}
+                                                        style={{
+                                                            background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                                                            boxShadow: '0 4px 6px -1px rgba(16, 185, 129, 0.2)',
+                                                            width: '100%',
+                                                            padding: '10px'
+                                                        }}
+                                                    >
+                                                        {isTestingKey ? 'Verifying Key...' : 'Test Active Key'}
+                                                    </button>
+                                                    
+                                                    {testError && <div style={{ color: '#ef4444', fontSize: '0.8rem', padding: '6px', background: 'rgba(239, 68, 68, 0.1)', borderRadius: '6px', border: '1px solid rgba(239, 68, 68, 0.2)' }}>⚠️ {testError}</div>}
+                                                    {testSuccess && <div style={{ color: '#10b981', fontSize: '0.8rem', padding: '6px', background: 'rgba(16, 185, 129, 0.1)', borderRadius: '6px', border: '1px solid rgba(16, 185, 129, 0.2)' }}>✅ {testSuccess}</div>}
+
+                                                    {/* Verified Models Display */}
+                                                    {verifiedModels && verifiedModels.length > 0 && (
+                                                        <div 
+                                                            style={{ 
+                                                                marginTop: '16px', 
+                                                                padding: '16px', 
+                                                                background: theme === 'dark' ? 'rgba(139, 92, 246, 0.03)' : 'rgba(139, 92, 246, 0.02)', 
+                                                                borderRadius: '12px', 
+                                                                border: theme === 'dark' ? '1px dashed rgba(139, 92, 246, 0.3)' : '1px dashed rgba(139, 92, 246, 0.45)',
+                                                                boxShadow: 'inset 0 0 12px rgba(139, 92, 246, 0.05)',
+                                                                animation: 'fadeIn 0.3s ease-in-out'
+                                                            }}
+                                                        >
+                                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                                                                <div style={{ fontSize: '0.75rem', fontWeight: 700, color: theme === 'dark' ? '#c084fc' : '#6d28d9', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                                                    ✓ Verified Models List
+                                                                </div>
+                                                                <span style={{ fontSize: '0.7rem', padding: '2px 6px', background: theme === 'dark' ? 'rgba(139, 92, 246, 0.2)' : 'rgba(139, 92, 246, 0.1)', color: theme === 'dark' ? '#e9d5ff' : '#6d28d9', borderRadius: '20px', fontWeight: 600 }}>
+                                                                    {verifiedModels.length} Models
+                                                                </span>
+                                                            </div>
+                                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', maxHeight: '120px', overflowY: 'auto', padding: '2px', scrollbarWidth: 'thin' }}>
+                                                                {verifiedModels.map(m => (
+                                                                    <span
+                                                                        key={m}
+                                                                        style={{
+                                                                            fontSize: '0.7rem',
+                                                                            padding: '4px 10px',
+                                                                            background: theme === 'dark' ? 'rgba(139, 92, 246, 0.1)' : 'rgba(139, 92, 246, 0.06)',
+                                                                            color: theme === 'dark' ? '#e9d5ff' : '#5b21b6',
+                                                                            borderRadius: '8px',
+                                                                            border: theme === 'dark' ? '1px solid rgba(139, 92, 246, 0.2)' : '1px solid rgba(139, 92, 246, 0.25)',
+                                                                            transition: 'all 0.2s ease',
+                                                                            cursor: 'default'
+                                                                        }}
+                                                                        onMouseOver={(e) => {
+                                                                            e.currentTarget.style.background = theme === 'dark' ? 'rgba(139, 92, 246, 0.2)' : 'rgba(139, 92, 246, 0.12)';
+                                                                            e.currentTarget.style.borderColor = theme === 'dark' ? 'rgba(139, 92, 246, 0.4)' : 'rgba(139, 92, 246, 0.45)';
+                                                                        }}
+                                                                        onMouseOut={(e) => {
+                                                                            e.currentTarget.style.background = theme === 'dark' ? 'rgba(139, 92, 246, 0.1)' : 'rgba(139, 92, 246, 0.06)';
+                                                                            e.currentTarget.style.borderColor = theme === 'dark' ? 'rgba(139, 92, 246, 0.2)' : 'rgba(139, 92, 246, 0.25)';
+                                                                        }}
+                                                                    >
+                                                                        {m}
+                                                                    </span>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
                                 )}
 
