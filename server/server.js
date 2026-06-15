@@ -35,7 +35,7 @@ import { TAXONOMY } from './utils/normalizer.js';
 import tenderRouter from './tenderRoutes.js';
 import llmProxyRouter from './llmProxyRoutes.js';
 
-const DOCLING_SERVICE_URL = process.env.DOCLING_SERVICE_URL || 'http://localhost:8000';
+const DOCLING_SERVICE_URL = (process.env.DOCLING_SERVICE_URL || 'http://localhost:8000').replace(/\/+$/, '');
 
 // ALL heavy PDF/Vision extractors are LAZY to prevent Vercel boot crash
 // (pdfProductExtractor uses pdfjs, visionBOQExtractor uses Playwright)
