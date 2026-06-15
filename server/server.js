@@ -115,10 +115,162 @@ process.on('unhandledRejection', (reason, promise) => {
   console.error('🔥 UNHANDLED REJECTION:', reason);
 });
 
+async function extractAndUploadNativePdfImages(filePath, sessionId) {
+  const fs = await import('fs');
+  const mupdf = await import('mupdf');
+  
+  const data = await fs.promises.readFile(filePath);
+  const doc = mupdf.Document.openDocument(new Uint8Array(data), 'application/pdf');
+  const pageCount = doc.countPages();
+  
+  const imagesToUpload = []; // { pageIdx, y, imgY, pngBytes, snAnchors }
+  const snImageMap = new Map(); // `${pageIdx}_${sn}` -> supabaseUrl
+
+  for (let pageIdx = 0; pageIdx < pageCount; pageIdx++) {
+    try {
+      const page = doc.loadPage(pageIdx);
+      let headerY = -1;
+      let tableStartY = -1;
+      const snAnchors = [];
+
+      // 1. EXTRACT ALL TEXT LINES
+      const lines = [];
+      page.toStructuredText().walk({
+        onLine(bbox, line) {
+          lines.push({ bbox, text: line.trim().toLowerCase() });
+        }
+      });
+
+      // 2. DETECT HEADER
+      let maxHits = 0;
+      const keywords = ['sl.no', 's.n', 'sr.no', 'no.', 'item', 'description', 'image', 'qty', 'unit', 'total', 'rate', 'price'];
+      for (let i = 0; i < lines.length; i++) {
+        let hits = 0;
+        let currentY = lines[i].bbox[1];
+        for (let j = 0; j < lines.length; j++) {
+          if (Math.abs(lines[j].bbox[1] - currentY) < 15) {
+            for (const k of keywords) {
+              if (lines[j].text.includes(k)) hits++;
+            }
+          }
+        }
+        if (hits > maxHits) {
+          maxHits = hits;
+          headerY = currentY;
+        }
+      }
+
+      // 3. IDENTIFY ALL SN ANCHORS
+      for (const line of lines) {
+        if (line.bbox[0] < 120) {
+          const snMatch = line.text.match(/^\s*(\d+)[.\s-]*$/);
+          if (snMatch) {
+            const snVal = parseInt(snMatch[1]).toString();
+            const midY = (line.bbox[1] + line.bbox[3]) / 2;
+            snAnchors.push({ sn: snVal, y: midY });
+            if (tableStartY === -1 || line.bbox[1] < tableStartY) {
+              tableStartY = line.bbox[1];
+            }
+          }
+        }
+      }
+
+      const hardLogoBoundary = tableStartY !== -1 ? tableStartY : (headerY !== -1 ? headerY : 150);
+
+      // 4. COLLECT IMAGES
+      page.toStructuredText('preserve-images').walk({
+        onImageBlock(bbox, _transform, image) {
+          try {
+            const w = bbox[2] - bbox[0];
+            const h = bbox[3] - bbox[1];
+            const imgY = (bbox[1] + bbox[3]) / 2;
+            const aspectRatio = w / h;
+            if (aspectRatio > 4 || aspectRatio < 0.25) return;
+            if (bbox[1] < (hardLogoBoundary - 10)) return;
+            if (w < 20 || h < 20) return;
+
+            const pngBytes = image.toPixmap(mupdf.Matrix.identity, mupdf.ColorSpace.DeviceRGB, false).asPNG();
+            if (pngBytes.length < 500) return;
+
+            imagesToUpload.push({
+              pageIdx,
+              y: bbox[1],
+              imgY,
+              pngBytes,
+              snAnchors
+            });
+          } catch (err) {}
+        }
+      });
+    } catch (pageErr) {
+      console.warn(`[extractAndUploadNativePdfImages] Page ${pageIdx + 1} extraction failed:`, pageErr.message);
+    }
+  }
+
+  // Upload in parallel
+  const pageImagesMap = new Map();
+
+  await Promise.all(imagesToUpload.map(async (img) => {
+    try {
+      const filename = `mupdf-crops/${sessionId}/${crypto.randomUUID()}.png`;
+      if (supabase) {
+        const uploadResult = await uploadToSupabase('assets', filename, Buffer.from(img.pngBytes), {
+          contentType: 'image/png'
+        });
+        if (uploadResult && uploadResult.url) {
+          const pageNum = img.pageIdx + 1;
+          if (!pageImagesMap.has(pageNum)) {
+            pageImagesMap.set(pageNum, []);
+          }
+          pageImagesMap.get(pageNum).push({
+            url: uploadResult.url,
+            y: img.y
+          });
+
+          // Match SN (Spatial Lock)
+          let matchedSN = null;
+          let bestDist = 120;
+          for (const anchor of img.snAnchors) {
+            const vDist = Math.abs(anchor.y - img.imgY);
+            if (vDist < bestDist) {
+              bestDist = vDist;
+              matchedSN = anchor.sn;
+            }
+          }
+          if (matchedSN) {
+            snImageMap.set(`${img.pageIdx}_${matchedSN}`, uploadResult.url);
+          }
+        }
+      }
+    } catch (uploadErr) {
+      console.error('[mupdf-upload] Failed upload:', uploadErr.message);
+    }
+  }));
+
+  // Sort each page's images by Y coordinate
+  for (const [pageNum, imgs] of pageImagesMap.entries()) {
+    imgs.sort((a, b) => a.y - b.y);
+  }
+
+  return { pageImagesMap, snImageMap };
+}
+
 async function processTextTablesWithNativeImages(fastapiRes, filePath, uploadId, sessionId, layoutsPromise = null) {
   const fs = await import('fs');
   const { renderPDFWithLayout } = await getPdfRenderer();
   const { _saveAndPairImage } = await getParallelBOQExtractor();
+
+  // Run MuPDF image extraction natively and upload to Supabase
+  let mupdfLayout = { pageImagesMap: new Map(), snImageMap: new Map() };
+  try {
+    console.log(`[processTextTablesWithNativeImages] Running MuPDF image extraction & uploading to Supabase...`);
+    mupdfLayout = await extractAndUploadNativePdfImages(filePath, sessionId);
+    console.log(`[processTextTablesWithNativeImages] MuPDF complete. Spatial locks count: ${mupdfLayout.snImageMap.size}`);
+  } catch (mupdfErr) {
+    console.error(`[processTextTablesWithNativeImages] MuPDF extraction failed:`, mupdfErr.message);
+  }
+
+  const pageImageCursorMap = new Map();
 
   const baseTempDir = isVercel ? '/tmp/extracted_images' : path.join(process.cwd(), 'public', 'temp', 'extracted_images');
   const tempDir = path.join(baseTempDir, uploadId);
@@ -295,12 +447,31 @@ async function processTextTablesWithNativeImages(fastapiRes, filePath, uploadId,
         // Format cells dynamically for the frontend, aligned to canonicalHeader
         const formattedCells = Array(canonicalHeader.length).fill(null).map((_, idx) => {
           if (idx === imgColIdx) {
-            const lazyImageUrl = `/api/lazy-image/${uploadId}/${row.page || pageNum}/${tableRows.length}`;
-            const lazyImage = { url: lazyImageUrl, sn: displaySN };
+            const pageNum = row.page || pageNum;
+            const pageIdx = pageNum - 1;
+            
+            // Try Spatial SN lock first
+            let finalImageUrl = null;
+            if (displaySN && mupdfLayout.snImageMap.has(`${pageIdx}_${displaySN}`)) {
+              finalImageUrl = mupdfLayout.snImageMap.get(`${pageIdx}_${displaySN}`);
+              console.log(`    🔗 [processTextTablesWithNativeImages] Spatial Lock Match: Page ${pageNum} SN ${displaySN} -> ${finalImageUrl}`);
+            } else {
+              // Positional fallback
+              const imgs = mupdfLayout.pageImagesMap.get(pageNum) || [];
+              const cursor = pageImageCursorMap.get(pageNum) || 0;
+              if (cursor < imgs.length) {
+                finalImageUrl = imgs[cursor].url;
+                pageImageCursorMap.set(pageNum, cursor + 1);
+                console.log(`    🔗 [processTextTablesWithNativeImages] Positional Match: Page ${pageNum} Row ${displaySN} (rank ${cursor}) -> ${finalImageUrl}`);
+              }
+            }
+
+            const imageObj = finalImageUrl ? { url: finalImageUrl, sn: displaySN } : null;
+            
             return {
               value: '',
-              image: lazyImage,
-              images: [lazyImage],
+              image: imageObj,
+              images: imageObj ? [imageObj] : [],
               isMerged: false
             };
           }
