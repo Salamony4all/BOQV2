@@ -61,3 +61,8 @@ scratch/
 logos_base64.txt
 logos/
 .agent/
+
+# Graphify output and config
+graphify-out/
+.graphifyignore
+

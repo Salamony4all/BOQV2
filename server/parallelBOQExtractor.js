@@ -210,7 +210,7 @@ export async function extractParallelBOQData(filePath, mimeType, progressCallbac
                 // ALSO Filter out images above the table header (logos in header area).
                 const productImages = layout.extractedImages
                     .filter(img => {
-                        const isSizeOk = img.h >= 30 && img.w >= 30;
+                        const isSizeOk = img.h >= 20 && img.w >= 20;
                         const isNotHeader = headerY === -1 || img.y >= (headerY - 10);
                         if (isSizeOk && !isNotHeader) console.log(`    🚫 [Background] P${pageNum}: Skipping header image (y=${Math.round(img.y)} < headerY=${Math.round(headerY)})`);
                         return isSizeOk && isNotHeader;
@@ -240,20 +240,48 @@ export async function extractParallelBOQData(filePath, mimeType, progressCallbac
 
                 for (const row of pageRows) {
                     const targetSN = normalize(row.sn);
-                    const descPrefix = normalize((row.description || '').substring(0, 20));
 
                     // Find best text anchor Y for this row
-                    let anchorY = null;
+                    // Find serial number match on the left side of the page (x < 150) and below table header
                     const snMatch = textItems.find(it => {
                         const norm = normalize(it.str);
-                        return norm === targetSN && norm.length > 0;
+                        const isXOk = it.x !== undefined && it.x < 150;
+                        const isNotHeader = headerY === -1 || it.y >= (headerY - 10);
+                        return norm === targetSN && norm.length > 0 && isXOk && isNotHeader;
                     });
-                    if (snMatch) anchorY = snMatch.y;
 
-                    if (anchorY === null && descPrefix.length > 3) {
-                        const descMatch = textItems.find(it => normalize(it.str).includes(descPrefix.substring(0, 10)));
-                        if (descMatch) anchorY = descMatch.y;
+                    let descMatch = null;
+                    if (!snMatch) {
+                        const descWords = (row.description || '')
+                            .split(/\s+/)
+                            .map(w => normalize(w))
+                            .filter(w => w.length > 3);
+
+                        if (descWords.length > 0) {
+                            const firstTargetWord = descWords[0];
+                            descMatch = textItems.find((it, itIdx) => {
+                                const normStr = normalize(it.str);
+                                if (normStr !== firstTargetWord) return false;
+                                
+                                const isNotHeader = headerY === -1 || it.y >= (headerY - 10);
+                                if (!isNotHeader) return false;
+
+                                if (descWords.length > 1) {
+                                    const secondTargetWord = descWords[1];
+                                    const limit = Math.min(textItems.length, itIdx + 6);
+                                    for (let nextIdx = itIdx + 1; nextIdx < limit; nextIdx++) {
+                                        if (normalize(textItems[nextIdx].str) === secondTargetWord) {
+                                            return true;
+                                        }
+                                    }
+                                    return false;
+                                }
+                                return true;
+                            });
+                        }
                     }
+
+                    const anchorY = snMatch ? snMatch.y : (descMatch ? descMatch.y : null);
 
                     // Find closest unused image by Y distance
                     let bestIdx = -1;
@@ -298,7 +326,12 @@ export async function extractParallelBOQData(filePath, mimeType, progressCallbac
         return {
             cells: [
                 { value: r.sn || '', images: [], isMerged: false },
-                { value: '', image: r.image, images: [r.image], isMerged: false },
+                { 
+                    value: '', 
+                    image: r.images && r.images.length > 0 ? r.images[0] : r.image, 
+                    images: r.images && r.images.length > 0 ? r.images : [r.image], 
+                    isMerged: false 
+                },
                 { value: r.description || '', images: [], isMerged: false },
                 { value: +(r.qty || 0) || '', images: [], isMerged: false },
                 { value: r.unit || '', images: [], isMerged: false },

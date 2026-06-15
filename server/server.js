@@ -35,6 +35,8 @@ import { TAXONOMY } from './utils/normalizer.js';
 import tenderRouter from './tenderRoutes.js';
 import llmProxyRouter from './llmProxyRoutes.js';
 
+const DOCLING_SERVICE_URL = process.env.DOCLING_SERVICE_URL || 'http://localhost:8000';
+
 // ALL heavy PDF/Vision extractors are LAZY to prevent Vercel boot crash
 // (pdfProductExtractor uses pdfjs, visionBOQExtractor uses Playwright)
 let _pdfProductExtractor = null;
@@ -113,7 +115,7 @@ process.on('unhandledRejection', (reason, promise) => {
   console.error('🔥 UNHANDLED REJECTION:', reason);
 });
 
-async function processTextTablesWithNativeImages(fastapiRes, filePath, uploadId, sessionId) {
+async function processTextTablesWithNativeImages(fastapiRes, filePath, uploadId, sessionId, layoutsPromise = null) {
   const fs = await import('fs');
   const { renderPDFWithLayout } = await getPdfRenderer();
   const { _saveAndPairImage } = await getParallelBOQExtractor();
@@ -122,22 +124,32 @@ async function processTextTablesWithNativeImages(fastapiRes, filePath, uploadId,
   const tempDir = path.join(baseTempDir, uploadId);
   await fs.promises.mkdir(tempDir, { recursive: true });
 
-  console.log(`[processTextTablesWithNativeImages] Running layout rendering for ${path.basename(filePath)}...`);
-  const layouts = await renderPDFWithLayout(filePath).catch(err => {
-    console.error('Layout Extraction Failed:', err.message);
-    return [];
-  });
+  if (!layoutsPromise) {
+    console.log(`[processTextTablesWithNativeImages] Scheduling background layout rendering for ${path.basename(filePath)}...`);
+    layoutsPromise = renderPDFWithLayout(filePath).catch(err => {
+      console.error('Layout Extraction Failed:', err.message);
+      return [];
+    });
+    activeLayoutPromises.set(uploadId, layoutsPromise);
+    layoutsPromise.finally(() => {
+      setTimeout(() => {
+        activeLayoutPromises.delete(uploadId);
+      }, 300000); // 5 minutes cache
+    });
+  }
 
+  let canonicalHeader = null;
+  let imgColIdx = -1;
+  const tableRows = [];
   const allRowsArr = [];
-  let globalRowCounter = 1;
 
   if (fastapiRes && Array.isArray(fastapiRes.tables)) {
-    for (const table of fastapiRes.tables) {
+    for (const [tableIdx, table] of fastapiRes.tables.entries()) {
       const pageNum = table.page || 1;
-      const header = table.header || [];
-      const rows = table.rows || [];
+      const originalHeader = table.header || [];
+      const originalRows = table.rows || [];
 
-      // Determine column indices matching standard keywords
+      // Determine column indices matching standard keywords for this specific table (for image pairing)
       const indices = {
         sn: -1,
         description: -1,
@@ -147,7 +159,7 @@ async function processTextTablesWithNativeImages(fastapiRes, filePath, uploadId,
         amount: -1
       };
 
-      header.forEach((h, idx) => {
+      originalHeader.forEach((h, idx) => {
         const term = String(h || '').toLowerCase().trim();
         if (!term) return;
 
@@ -170,11 +182,11 @@ async function processTextTablesWithNativeImages(fastapiRes, filePath, uploadId,
       if (indices.description === -1) {
         let maxAvgLength = -1;
         let bestIdx = -1;
-        for (let c = 0; c < header.length; c++) {
+        for (let c = 0; c < originalHeader.length; c++) {
           if (c === indices.sn || c === indices.qty || c === indices.rate || c === indices.amount) continue;
           let totalLength = 0;
           let count = 0;
-          rows.forEach(r => {
+          originalRows.forEach(r => {
             if (r.cells && r.cells[c]) {
               totalLength += String(r.cells[c].value || '').length;
               count++;
@@ -191,14 +203,62 @@ async function processTextTablesWithNativeImages(fastapiRes, filePath, uploadId,
         }
       }
 
-      // Format rows
-      for (let rIdx = 0; rIdx < rows.length; rIdx++) {
-        const row = rows[rIdx];
+      // Initialize canonicalHeader using the first table
+      if (canonicalHeader === null) {
+        // Check if header contains an image column
+        imgColIdx = originalHeader.findIndex(h => {
+          const term = String(h || '').toLowerCase().trim();
+          return term.includes('image') || term.includes('photo') || term.includes('picture') || term.includes('img') || term.includes('pic');
+        });
+
+        // Check if any row in the whole dataset actually has images in it
+        let datasetHasImages = false;
+        for (const t of fastapiRes.tables) {
+          if (t.rows && t.rows.some(r => r.cells.some(c => (c.images && c.images.length > 0) || c.image))) {
+            datasetHasImages = true;
+            break;
+          }
+        }
+
+        canonicalHeader = [...originalHeader];
+        if (imgColIdx === -1 && datasetHasImages) {
+          // Add "Image" column at index 1 (or after serial number column if it exists)
+          let insertIdx = 1;
+          if (indices.sn !== -1) insertIdx = indices.sn + 1;
+          canonicalHeader.splice(insertIdx, 0, "Image");
+          imgColIdx = insertIdx;
+          // Adjust indices after insertion
+          if (indices.description >= insertIdx) indices.description++;
+          if (indices.qty >= insertIdx) indices.qty++;
+          if (indices.unit >= insertIdx) indices.unit++;
+          if (indices.rate >= insertIdx) indices.rate++;
+          if (indices.amount >= insertIdx) indices.amount++;
+        }
+      }
+
+      // Map columns of this table to the canonical header
+      const colIndexMap = [];
+      originalHeader.forEach((h, idx) => {
+        const norm = (h || '').toLowerCase().trim();
+        // Find matching column in canonicalHeader
+        let canonicalIdx = canonicalHeader.findIndex(ch => (ch || '').toLowerCase().trim() === norm);
+        // If not found by exact match, try matching by indices adjusted for dynamic Image column insertion
+        if (canonicalIdx === -1) {
+          canonicalIdx = idx;
+          if (imgColIdx !== -1 && idx >= imgColIdx) {
+            canonicalIdx++;
+          }
+        }
+        colIndexMap.push(canonicalIdx);
+      });
+
+      for (let rIdx = 0; rIdx < originalRows.length; rIdx++) {
+        const row = originalRows[rIdx];
         if (!row || !row.cells) continue;
 
         const cells = row.cells;
-        // Pad cells if row length is less than headers
-        while (cells.length < header.length) {
+        // Pad cells to match original header
+        while (cells.length < originalHeader.length) {
           cells.push({ value: '' });
         }
 
@@ -214,9 +274,15 @@ async function processTextTablesWithNativeImages(fastapiRes, filePath, uploadId,
           continue;
         }
 
-        const aiSN = rawSN;
-        const isValidSN = aiSN.length > 0 && !aiSN.includes('undefined');
-        const displaySN = isValidSN ? aiSN : String(globalRowCounter++);
+        // Filter out table headers embedded in the row data
+        const headerKeywords = ["sl.no", "description", "qty", "unit", "rate", "total", "amount", "price"];
+        const descLower = rawDesc.toLowerCase();
+        const matches = headerKeywords.filter(k => descLower.includes(k));
+        if (matches.length >= 2 && rawDesc.length < 80) {
+          continue;
+        }
+
+        const displaySN = rawSN || String(tableRows.length + 1);
 
         // Helper to parse numeric string cleanly
         const cleanNumber = (val) => {
@@ -226,6 +292,48 @@ async function processTextTablesWithNativeImages(fastapiRes, filePath, uploadId,
           return isNaN(parsed) ? '' : parsed;
         };
 
+        // Format cells dynamically for the frontend, aligned to canonicalHeader
+        const formattedCells = Array(canonicalHeader.length).fill(null).map((_, idx) => {
+          if (idx === imgColIdx) {
+            const lazyImageUrl = `/api/lazy-image/${uploadId}/${row.page || pageNum}/${tableRows.length}`;
+            const lazyImage = { url: lazyImageUrl, sn: displaySN };
+            return {
+              value: '',
+              image: lazyImage,
+              images: [lazyImage],
+              isMerged: false
+            };
+          }
+          return { value: '', images: [], isMerged: false };
+        });
+
+        cells.forEach((cell, cIdx) => {
+          const targetIdx = colIndexMap[cIdx];
+          if (targetIdx !== -1 && targetIdx < formattedCells.length) {
+            const incomingImages = cell.images || (cell.image ? [cell.image] : []);
+            
+            // If this is the image column, and the incoming cell has no images, preserve our lazy image fallback
+            if (targetIdx === imgColIdx && incomingImages.length === 0) {
+              formattedCells[targetIdx] = {
+                value: cell.value !== undefined ? cell.value : '',
+                image: formattedCells[targetIdx].image,
+                images: formattedCells[targetIdx].images,
+                isMerged: !!(cell.colSpan > 1 || cell.rowSpan > 1)
+              };
+            } else {
+              formattedCells[targetIdx] = {
+                value: cell.value !== undefined ? cell.value : '',
+                images: incomingImages,
+                isMerged: !!(cell.colSpan > 1 || cell.rowSpan > 1)
+              };
+              if (incomingImages.length > 0) {
+                formattedCells[targetIdx].image = incomingImages[0];
+              }
+            }
+          }
+        });
+
+        // Store metadata row representation for pairing
         const mappedRow = {
           sn: displaySN,
           description: rawDesc,
@@ -234,51 +342,71 @@ async function processTextTablesWithNativeImages(fastapiRes, filePath, uploadId,
           rate: cleanNumber(rawRate),
           amount: cleanNumber(rawAmount),
           pageNum: row.page || pageNum,
-          rowIdx: allRowsArr.length, // use global counter for rowIdx to match layout pairing
+          sectionLabel: row.sectionLabel || '',
+          rowIdx: tableRows.length, // global index in the combined table
           image: {
-            url: `/api/lazy-image/${uploadId}/${row.page || pageNum}/${allRowsArr.length}`,
+            url: `/api/lazy-image/${uploadId}/${row.page || pageNum}/${tableRows.length}`,
             sn: displaySN
-          }
+          },
+          images: []
         };
 
         allRowsArr.push(mappedRow);
+
+        tableRows.push({
+          cells: formattedCells,
+          pageNum: row.page || pageNum,
+          sectionLabel: row.sectionLabel || '',
+          isHeader: false,
+          isSummary: false
+        });
       }
     }
   }
 
-  // Filter out table headers embedded in the row data
-  const headerKeywords = ["sl.no", "description", "qty", "unit", "rate", "total", "amount", "price"];
-  const filteredRows = allRowsArr.filter(r => {
-    const desc = (r.description || '').toLowerCase();
-    const matches = headerKeywords.filter(k => desc.includes(k));
-    if (matches.length >= 2 && desc.length < 80) return false;
-    return true;
-  });
+  if (canonicalHeader === null) {
+    canonicalHeader = ["S.N", "Image", "Description", "Qty", "Unit", "Rate", "Amount"];
+  }
 
-  // Re-index rowIdx after filtering to ensure they are sequential 0 to N-1
-  filteredRows.forEach((r, idx) => {
-    r.rowIdx = idx;
-    r.image.url = `/api/lazy-image/${uploadId}/${r.pageNum}/${idx}`;
-  });
-
-  // SAVE METADATA
+  // SAVE METADATA (Write immediately, pages layout will be filled by background promise)
   const metadata = {
     uploadId,
     pdfPath: path.resolve(filePath),
-    rows: filteredRows,
-    pages: layouts.map(l => ({
-      page: l.page,
-      textItems: l.textItems,
-      nativeImages: l.extractedImages,
-      viewport: l.viewport
-    }))
+    rows: allRowsArr,
+    pages: []
   };
   await fs.promises.writeFile(path.join(tempDir, 'metadata.json'), JSON.stringify(metadata, null, 2));
 
-  // BACKGROUND POSITION MATCHING (Same logic as parallelBOQExtractor.js)
+  // BACKGROUND POSITION MATCHING (Multi-image support)
   console.log(`[processTextTablesWithNativeImages] Scheduling background image matching for ${uploadId}`);
   setTimeout(async () => {
     try {
+      const layouts = await layoutsPromise;
+      if (!layouts || layouts.length === 0) {
+        console.log(`  ⚠️ [Background] Layouts extraction empty or failed for ${uploadId}. Skipping pairing.`);
+        return;
+      }
+
+      // Read latest metadata from disk to avoid race conditions
+      let currentMeta = metadata;
+      if (fs_sync.existsSync(path.join(tempDir, 'metadata.json'))) {
+        try {
+          currentMeta = JSON.parse(await fs.promises.readFile(path.join(tempDir, 'metadata.json'), 'utf8'));
+        } catch (e) {
+          console.error('[Background] Failed to read metadata from disk:', e);
+        }
+      }
+
+      currentMeta.pages = layouts.map(l => ({
+        page: l.page,
+        textItems: l.textItems,
+        nativeImages: l.extractedImages,
+        viewport: l.viewport
+      }));
+
+      // Write layout pages to metadata immediately so lazy-image can access it
+      await fs.promises.writeFile(path.join(tempDir, 'metadata.json'), JSON.stringify(currentMeta, null, 2));
+
       console.log(`  🖼️ [Background] Positional image pairing for ${uploadId}...`);
 
       for (const layout of layouts) {
@@ -292,9 +420,11 @@ async function processTextTablesWithNativeImages(fastapiRes, filePath, uploadId,
           return hasQty || hasRate || hasAmount;
         };
 
-        const pageRows = filteredRows
+        const pageRows = currentMeta.rows
           .filter(r => r.pageNum === pageNum && isActualItem(r))
           .sort((a, b) => a.rowIdx - b.rowIdx);
+
+        if (pageRows.length === 0) continue;
 
         let headerY = -1;
         const yGroups = {};
@@ -321,113 +451,217 @@ async function processTextTablesWithNativeImages(fastapiRes, filePath, uploadId,
 
         const productImages = layout.extractedImages
           .filter(img => {
-            const isSizeOk = img.h >= 30 && img.w >= 30;
+            const isSizeOk = img.h >= 20 && img.w >= 20;
             const isNotHeader = headerY === -1 || img.y >= (headerY - 10);
-            if (isSizeOk && !isNotHeader) {
-              console.log(`    🚫 [Background] P${pageNum}: Skipping header image (y=${Math.round(img.y)} < headerY=${Math.round(headerY)})`);
-            }
+            if (isSizeOk && !isNotHeader) console.log(`    🚫 [Background] P${pageNum}: Skipping header image (y=${Math.round(img.y)} < headerY=${Math.round(headerY)})`);
             return isSizeOk && isNotHeader;
           })
           .sort((a, b) => a.y - b.y || a.x - b.x);
 
         console.log(`    📐 [Background] Page ${pageNum}: ${pageRows.length} rows, ${productImages.length} images (HeaderY: ${Math.round(headerY)})`);
 
-        if (productImages.length === pageRows.length && pageRows.length > 0) {
-          console.log(`    ✅ [Background] P${pageNum}: Perfect 1:1 positional pairing`);
-          for (let i = 0; i < pageRows.length; i++) {
-            await _saveAndPairImage(productImages[i], pageRows[i], pageNum, tempDir, uploadId, (file) => {
-              if (sessionId && cleanupService) cleanupService.trackFile(sessionId, file);
-            });
-          }
-          continue;
-        }
-
-        const usedImageIndices = new Set();
         const textItems = layout.textItems || [];
         const normalize = (s) => String(s || '').replace(/[^a-z0-9]/gi, '').toLowerCase();
 
-        for (const row of pageRows) {
+        // 1. Determine anchor Y for each row
+        const rowAnchors = pageRows.map(row => {
           const targetSN = normalize(row.sn);
-          const descPrefix = normalize((row.description || '').substring(0, 20));
 
-          let anchorY = null;
+          // Find serial number match on the left side of the page (x < 150) and below table header
           const snMatch = textItems.find(it => {
             const norm = normalize(it.str);
-            return norm === targetSN && norm.length > 0;
+            const isXOk = it.x !== undefined && it.x < 150;
+            const isNotHeader = headerY === -1 || it.y >= (headerY - 10);
+            return norm === targetSN && norm.length > 0 && isXOk && isNotHeader;
           });
-          if (snMatch) anchorY = snMatch.y;
 
-          if (anchorY === null && descPrefix.length > 3) {
-            const descMatch = textItems.find(it => normalize(it.str).includes(descPrefix.substring(0, 10)));
-            if (descMatch) anchorY = descMatch.y;
-          }
+          let descMatch = null;
+          // Split description into words and find the first significant word (length > 3)
+          const descWords = (row.description || '')
+            .split(/\s+/)
+            .map(w => normalize(w))
+            .filter(w => w.length > 3);
 
-          let bestIdx = -1;
-          let bestDist = Infinity;
-          for (let i = 0; i < productImages.length; i++) {
-            if (usedImageIndices.has(i)) continue;
-            const img = productImages[i];
-            const imgCenterY = img.y + img.h / 2;
-            const dist = anchorY !== null
-              ? Math.abs(imgCenterY - anchorY)
-              : Math.abs(i - pageRows.indexOf(row)) * 200;
-            if (dist < bestDist) { bestDist = dist; bestIdx = i; }
-          }
+          if (descWords.length > 0) {
+            const firstTargetWord = descWords[0];
+            // Find a match in textItems below the table header
+            descMatch = textItems.find((it, itIdx) => {
+              const normStr = normalize(it.str);
+              if (normStr !== firstTargetWord) return false;
+              
+              const isNotHeader = headerY === -1 || it.y >= (headerY - 10);
+              if (!isNotHeader) return false;
 
-          if (bestIdx !== -1 && bestDist < 300) {
-            usedImageIndices.add(bestIdx);
-            await _saveAndPairImage(productImages[bestIdx], row, pageNum, tempDir, uploadId, (file) => {
-              if (sessionId && cleanupService) cleanupService.trackFile(sessionId, file);
+              // If there's a second word, verify if it matches one of the next few textItems
+              if (descWords.length > 1) {
+                const secondTargetWord = descWords[1];
+                const limit = Math.min(textItems.length, itIdx + 6);
+                for (let nextIdx = itIdx + 1; nextIdx < limit; nextIdx++) {
+                  if (normalize(textItems[nextIdx].str) === secondTargetWord) {
+                    return true;
+                  }
+                }
+                return false;
+              }
+              return true;
             });
-          } else {
-            const fallbackIdx = pageRows.indexOf(row);
-            if (fallbackIdx < productImages.length && !usedImageIndices.has(fallbackIdx)) {
-              usedImageIndices.add(fallbackIdx);
-              await _saveAndPairImage(productImages[fallbackIdx], row, pageNum, tempDir, uploadId, (file) => {
-                if (sessionId && cleanupService) cleanupService.trackFile(sessionId, file);
-              });
-              console.log(`    ⚡ [Background] P${pageNum} Row ${row.sn}: positional fallback → img[${fallbackIdx}]`);
+          }
+
+          let anchorY = null;
+          if (snMatch) {
+            anchorY = snMatch.y;
+          } else if (descMatch) {
+            anchorY = descMatch.y;
+          }
+          return { row, anchorY };
+        });
+
+        // Fill in missing anchorY values using interpolation/extrapolation
+        for (let i = 0; i < rowAnchors.length; i++) {
+          if (rowAnchors[i].anchorY === null) {
+            let prevIdx = -1;
+            for (let j = i - 1; j >= 0; j--) {
+              if (rowAnchors[j].anchorY !== null) { prevIdx = j; break; }
             }
+            let nextIdx = -1;
+            for (let j = i + 1; j < rowAnchors.length; j++) {
+              if (rowAnchors[j].anchorY !== null) { nextIdx = j; break; }
+            }
+
+            if (prevIdx !== -1 && nextIdx !== -1) {
+              const prevY = rowAnchors[prevIdx].anchorY;
+              const nextY = rowAnchors[nextIdx].anchorY;
+              rowAnchors[i].anchorY = prevY + (nextY - prevY) * (i - prevIdx) / (nextIdx - prevIdx);
+            } else if (prevIdx !== -1) {
+              const prevY = rowAnchors[prevIdx].anchorY;
+              rowAnchors[i].anchorY = prevY + (i - prevIdx) * 100;
+            } else if (nextIdx !== -1) {
+              const nextY = rowAnchors[nextIdx].anchorY;
+              rowAnchors[i].anchorY = Math.max(0, nextY - (nextIdx - i) * 100);
+            } else {
+              const startY = headerY !== -1 ? headerY + 50 : 100;
+              rowAnchors[i].anchorY = startY + i * 120;
+            }
+          }
+        }
+
+        // 2. Define Y ranges for each row (Physical boundary matching)
+        const rowRanges = rowAnchors.map((curr, idx) => {
+          const next = rowAnchors[idx + 1];
+          
+          const offset = 45;
+          let yMin = curr.anchorY - offset;
+          if (idx === 0 && headerY !== -1) {
+            yMin = Math.min(headerY, yMin);
+          }
+          
+          let yMax;
+          if (next) {
+            yMax = next.anchorY - offset;
+          } else {
+            yMax = curr.anchorY + 600; // allow large range for last row
+          }
+          
+          // Ensure bounds are valid
+          if (yMax < yMin) {
+            yMax = yMin + 100;
+          }
+
+          return {
+            row: curr.row,
+            anchorY: curr.anchorY,
+            yMin,
+            yMax,
+            matchedImages: []
+          };
+        });
+
+        // 3. Match each image to the row whose Y bounds it falls within
+        for (let i = 0; i < productImages.length; i++) {
+          const img = productImages[i];
+          const imgCenterY = img.y + img.h / 2;
+          
+          let matchedRowRange = rowRanges.find(r => imgCenterY >= r.yMin && imgCenterY < r.yMax);
+          
+          if (!matchedRowRange) {
+            let bestRange = null;
+            let minDistance = Infinity;
+            for (const r of rowRanges) {
+              const dist = Math.abs(r.anchorY - imgCenterY);
+              if (dist < minDistance) {
+                minDistance = dist;
+                bestRange = r;
+              }
+            }
+            matchedRowRange = bestRange;
+          }
+
+          if (matchedRowRange) {
+            matchedRowRange.matchedImages.push(img);
+          }
+        }
+
+        // 4. Save and pair all matched images to their rows (Supporting multi-images per cell)
+        for (const range of rowRanges) {
+          const row = range.row;
+          if (range.matchedImages.length === 0) continue;
+
+          row.images = [];
+
+          for (let i = 0; i < range.matchedImages.length; i++) {
+            const img = range.matchedImages[i];
+            const suffix = range.matchedImages.length > 1 ? `_${i}` : '';
+            const filename = `page_${pageNum}_row_${row.rowIdx}${suffix}.jpg`;
+            const imgLocalPath = path.join(tempDir, filename);
+
+            try {
+              if (img.path) {
+                await fs.promises.copyFile(img.path, imgLocalPath);
+              } else if (img.dataUrl) {
+                const base64Data = img.dataUrl.replace(/^data:image\/\w+;base64,/, '');
+                await fs.promises.writeFile(imgLocalPath, Buffer.from(base64Data, 'base64'));
+              }
+
+              const imgUrl = `/temp/extracted_images/${uploadId}/${filename}`;
+              row.images.push({
+                url: imgUrl,
+                sn: row.sn
+              });
+
+              console.log(`    🔗 [Background] Paired multi-image [${i}] SN=${row.sn} (P${pageNum}/R${row.rowIdx}) → ${filename}`);
+            } catch (err) {
+              console.error(`    ❌ [Background] Failed to save multi-image [${i}] for P${pageNum} R${row.rowIdx}:`, err.message);
+            }
+          }
+
+          if (row.images.length > 0) {
+            row.image = row.images[0];
           }
         }
       }
 
-      await fs.promises.writeFile(path.join(tempDir, 'metadata.json'), JSON.stringify(metadata, null, 2));
+      currentMeta.isReady = true;
+      await fs.promises.writeFile(path.join(tempDir, 'metadata.json'), JSON.stringify(currentMeta, null, 2));
       console.log(`  ✅ [Background] Lazy image matching finished and metadata updated for ${uploadId}.`);
     } catch (e) {
       console.error('  ❌ [Background Error] Image matching failed:', e.message, e.stack);
     }
   }, 100);
 
-  const header = ["S.N", "Image", "Description", "Qty", "Unit", "Rate", "Amount"];
-  const formattedRows = filteredRows.map(r => {
-    return {
-      cells: [
-        { value: r.sn || '', images: [], isMerged: false },
-        { value: '', image: r.image, images: [r.image], isMerged: false },
-        { value: r.description || '', images: [], isMerged: false },
-        { value: r.qty !== '' ? r.qty : '', images: [], isMerged: false },
-        { value: r.unit || '', images: [], isMerged: false },
-        { value: r.rate !== '' ? r.rate : '', images: [], isMerged: false },
-        { value: r.amount !== '' ? r.amount : '', images: [], isMerged: false }
-      ],
-      isHeader: false,
-      isSummary: false
-    };
-  });
-
   return {
     tables: [{
       sheetName: "AI Fast Extraction",
-      header,
-      rows: formattedRows,
-      columnCount: header.length,
+      header: canonicalHeader,
+      rows: tableRows,
+      columnCount: canonicalHeader.length,
       uploadId,
       engineUsed: fastapiRes.engineUsed || 'docling'
     }],
     totalTables: 1
   };
 }
+
+const activeLayoutPromises = new Map();
 
 const app = express();
 const PORT = 3001;
@@ -687,7 +921,20 @@ app.get('/api/lazy-image/:uploadId/:page/:rowId', async (req, res) => {
     const rowInfo = metadata.rows.find(r => r.pageNum === pNum && r.rowIdx === rIdx);
     if (!rowInfo) throw new Error(`Row ${rIdx} on P${pNum} not found in metadata`);
 
-    const pageLayout = metadata.pages.find(p => p.page === pNum);
+    let pageLayout = metadata.pages.find(p => p.page === pNum);
+    if (!pageLayout && activeLayoutPromises.has(uploadId)) {
+      console.log(`⏳ [Lazy Image] Waiting for active layout extraction for uploadId: ${uploadId}...`);
+      await activeLayoutPromises.get(uploadId).catch(() => []);
+      if (fs_sync.existsSync(metadataPath)) {
+        try {
+          const updatedMeta = JSON.parse(await fs.readFile(metadataPath, 'utf8'));
+          metadata.pages = updatedMeta.pages;
+          metadata.rows = updatedMeta.rows;
+        } catch (e) {}
+      }
+      pageLayout = metadata.pages.find(p => p.page === pNum);
+    }
+
     if (!pageLayout) throw new Error(`Page ${pNum} layout data missing`);
 
     // PRIORITY STAGE: Check for Native (Layered) Image Match
@@ -707,7 +954,7 @@ app.get('/api/lazy-image/:uploadId/:page/:rowId', async (req, res) => {
 
       // Sort native images top-to-bottom by Y (same as Python now does, but double-ensure)
       const productImages = pageLayout.nativeImages
-        .filter(img => img.h >= 30 && img.w >= 30)
+        .filter(img => img.h >= 20 && img.w >= 20)
         .sort((a, b) => a.y - b.y || a.x - b.x);
 
       // Find the positional rank of this row among its page peers
@@ -735,11 +982,67 @@ app.get('/api/lazy-image/:uploadId/:page/:rowId', async (req, res) => {
         // Find best unclaimed image for this row
         const normalize = (s) => String(s || '').replace(/[^a-z0-9]/gi, '').toLowerCase();
         const targetSN = normalize(rowInfo.sn);
-        const snMatch = pageLayout.textItems.find(item => {
-          const normStr = normalize(item.str);
-          return normStr === targetSN && normStr.length > 0;
+
+        let computedHeaderY = -1;
+        const yGroups = {};
+        for (const it of pageLayout.textItems || []) {
+          const y = Math.round(it.y / 10) * 10;
+          if (!yGroups[y]) yGroups[y] = [];
+          yGroups[y].push(String(it.str || '').toLowerCase());
+        }
+        const headerKeywordsForMatch = ['s.n', 'sl.no', 'description', 'qty', 'unit', 'rate', 'total'];
+        let maxHits = 0;
+        for (const [yStr, words] of Object.entries(yGroups)) {
+          let hits = 0;
+          const yPos = parseInt(yStr);
+          for (const word of words) {
+            if (headerKeywordsForMatch.some(k => word.includes(k))) hits++;
+          }
+          if (hits >= 2 && hits > maxHits) {
+            maxHits = hits;
+            if (computedHeaderY === -1 || yPos < computedHeaderY) computedHeaderY = yPos;
+          }
+        }
+
+        const snMatch = pageLayout.textItems.find(it => {
+          const norm = normalize(it.str);
+          const isXOk = it.x !== undefined && it.x < 150;
+          const isNotHeader = computedHeaderY === -1 || it.y >= (computedHeaderY - 10);
+          return norm === targetSN && norm.length > 0 && isXOk && isNotHeader;
         });
-        const anchorY = snMatch ? snMatch.y : null;
+
+        let descMatch = null;
+        if (!snMatch) {
+          const descWords = (rowInfo.description || '')
+            .split(/\s+/)
+            .map(w => normalize(w))
+            .filter(w => w.length > 3);
+
+          if (descWords.length > 0) {
+            const firstTargetWord = descWords[0];
+            descMatch = pageLayout.textItems.find((it, itIdx) => {
+              const normStr = normalize(it.str);
+              if (normStr !== firstTargetWord) return false;
+              
+              const isNotHeader = computedHeaderY === -1 || it.y >= (computedHeaderY - 10);
+              if (!isNotHeader) return false;
+
+              if (descWords.length > 1) {
+                const secondTargetWord = descWords[1];
+                const limit = Math.min(pageLayout.textItems.length, itIdx + 6);
+                for (let nextIdx = itIdx + 1; nextIdx < limit; nextIdx++) {
+                  if (normalize(pageLayout.textItems[nextIdx].str) === secondTargetWord) {
+                    return true;
+                  }
+                }
+                return false;
+              }
+              return true;
+            });
+          }
+        }
+
+        const anchorY = snMatch ? snMatch.y : (descMatch ? descMatch.y : null);
 
         let bestIdx = rowPositionOnPage; // Default to positional
         let bestDist = Infinity;
@@ -775,16 +1078,64 @@ app.get('/api/lazy-image/:uploadId/:page/:rowId', async (req, res) => {
     const normalize = (s) => String(s || '').replace(/[^a-z0-9]/gi, '').toLowerCase();
     const targetSN = normalize(rowInfo.sn);
 
-    const snMatch = pageLayout.textItems.find(item => {
-      const normStr = normalize(item.str);
-      const isMatch = normStr === targetSN || (targetSN && normStr.includes(targetSN));
-      return isMatch && (item.x === undefined || item.x < 300);
+    let computedHeaderY = -1;
+    const yGroups = {};
+    for (const it of pageLayout.textItems || []) {
+      const y = Math.round(it.y / 10) * 10;
+      if (!yGroups[y]) yGroups[y] = [];
+      yGroups[y].push(String(it.str || '').toLowerCase());
+    }
+    const headerKeywordsForMatch = ['s.n', 'sl.no', 'description', 'qty', 'unit', 'rate', 'total'];
+    let maxHits = 0;
+    for (const [yStr, words] of Object.entries(yGroups)) {
+      let hits = 0;
+      const yPos = parseInt(yStr);
+      for (const word of words) {
+        if (headerKeywordsForMatch.some(k => word.includes(k))) hits++;
+      }
+      if (hits >= 2 && hits > maxHits) {
+        maxHits = hits;
+        if (computedHeaderY === -1 || yPos < computedHeaderY) computedHeaderY = yPos;
+      }
+    }
+
+    const snMatch = pageLayout.textItems.find(it => {
+      const norm = normalize(it.str);
+      const isXOk = it.x !== undefined && it.x < 150;
+      const isNotHeader = computedHeaderY === -1 || it.y >= (computedHeaderY - 10);
+      return norm === targetSN && norm.length > 0 && isXOk && isNotHeader;
     });
 
-    const descPrefix = normalize(rowInfo.description || '').substring(0, 15);
-    const descMatch = !snMatch && descPrefix.length > 3 ? pageLayout.textItems.find(item => {
-      return normalize(item.str).includes(descPrefix);
-    }) : null;
+    let descMatch = null;
+    if (!snMatch) {
+      const descWords = (rowInfo.description || '')
+        .split(/\s+/)
+        .map(w => normalize(w))
+        .filter(w => w.length > 3);
+
+      if (descWords.length > 0) {
+        const firstTargetWord = descWords[0];
+        descMatch = pageLayout.textItems.find((it, itIdx) => {
+          const normStr = normalize(it.str);
+          if (normStr !== firstTargetWord) return false;
+          
+          const isNotHeader = computedHeaderY === -1 || it.y >= (computedHeaderY - 10);
+          if (!isNotHeader) return false;
+
+          if (descWords.length > 1) {
+            const secondTargetWord = descWords[1];
+            const limit = Math.min(pageLayout.textItems.length, itIdx + 6);
+            for (let nextIdx = itIdx + 1; nextIdx < limit; nextIdx++) {
+              if (normalize(pageLayout.textItems[nextIdx].str) === secondTargetWord) {
+                return true;
+              }
+            }
+            return false;
+          }
+          return true;
+        });
+      }
+    }
 
     let targetY = snMatch ? snMatch.y : (descMatch ? descMatch.y : null);
     if (targetY === null) {
@@ -815,6 +1166,33 @@ app.get('/api/lazy-image/:uploadId/:page/:rowId', async (req, res) => {
 
   } catch (err) {
     console.error(`    ❌ [Lazy Image] Error: ${err.message}`);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/upload/metadata/:uploadId', async (req, res) => {
+  const { uploadId } = req.params;
+  const baseTempDir = isVercel ? '/tmp/extracted_images' : path.join(process.cwd(), 'public', 'temp', 'extracted_images');
+  const tempDir = path.join(baseTempDir, uploadId);
+  const metadataPath = path.join(tempDir, 'metadata.json');
+
+  try {
+    if (!fs_sync.existsSync(metadataPath)) {
+      return res.status(404).json({ error: 'Metadata not found' });
+    }
+
+    const content = await fs.readFile(metadataPath, 'utf8');
+    const metadata = JSON.parse(content);
+
+    // If activeLayoutPromises has the uploadId, background image extraction is still running
+    const isReady = metadata.isReady || !activeLayoutPromises.has(uploadId);
+
+    res.json({
+      ...metadata,
+      isReady
+    });
+  } catch (err) {
+    console.error(`Error reading metadata for ${uploadId}:`, err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -865,7 +1243,7 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
     let extractedData;
     if (isPdf) {
       // ── Shared helper: call FastAPI /extract and extract real error detail ──
-      const fastApiExtract = async ({ usePaddleFallback = true, usePaddleOnly = false } = {}) => {
+      const fastApiExtract = async ({ usePaddleFallback = true, usePaddleOnly = false, pipeline = 'docling' } = {}) => {
         const fs = await import('fs');
         const FormData = (await import('form-data')).default;
         const form = new FormData();
@@ -874,10 +1252,11 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
         form.append('use_paddle_fallback', usePaddleFallback ? '1' : '0');
         form.append('use_paddle_only',     usePaddleOnly     ? '1' : '0');
         form.append('do_ocr',              doclingOcr        ? '1' : '0');
+        form.append('pipeline',            pipeline);
 
         let fastapiRes;
         try {
-          fastapiRes = await axios.post('http://localhost:8000/extract', form, {
+          fastapiRes = await axios.post(`${DOCLING_SERVICE_URL}/extract`, form, {
             headers: form.getHeaders(),
             maxContentLength: Infinity,
             maxBodyLength: Infinity,
@@ -909,7 +1288,7 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
         // ── Legacy: try Docling+Paddle auto-fallback, then JS extractor ─────────
         try {
           console.log(`[Upload] [parallel] Attempting FastAPI Docling+Paddle extraction...`);
-          const fastapiRaw = await fastApiExtract({ usePaddleFallback: true, usePaddleOnly: false });
+          const fastapiRaw = await fastApiExtract({ usePaddleFallback: true, usePaddleOnly: false, pipeline: 'docling' });
           console.log(`[Upload] [parallel] FastAPI OK. engineUsed: ${fastapiRaw.engineUsed}`);
           const uploadId = crypto.randomUUID();
           extractedData = await processTextTablesWithNativeImages(fastapiRaw, filePath, uploadId, sessionId);
@@ -922,29 +1301,34 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
             cleanupService.trackFolder(sessionId, folder);
           });
         }
-      } else if (extractionMode === 'docling') {
-        // ── Docling-only (no Paddle) ─────────────────────────────────────────────
-        console.log(`[Upload] [docling] Docling-only pipeline.`);
+      } else if (extractionMode === 'docling' || extractionMode === 'paddle' || extractionMode === 'opendataloader') {
+        console.log(`[Upload] [${extractionMode}] Starting simultaneous extraction...`);
+        const uploadId = crypto.randomUUID();
+
+        // Start native image rendering in the background immediately!
+        const { renderPDFWithLayout } = await getPdfRenderer();
+        const layoutsPromise = renderPDFWithLayout(filePath).catch(err => {
+          console.error('Layout Extraction Failed:', err.message);
+          return [];
+        });
+        activeLayoutPromises.set(uploadId, layoutsPromise);
+        layoutsPromise.finally(() => {
+          setTimeout(() => {
+            activeLayoutPromises.delete(uploadId);
+          }, 300000); // 5 minutes cache
+        });
+
         try {
-          const fastapiRaw = await fastApiExtract({ usePaddleFallback: false, usePaddleOnly: false });
-          console.log(`[Upload] [docling] OK. engineUsed: ${fastapiRaw.engineUsed}`);
-          const uploadId = crypto.randomUUID();
-          extractedData = await processTextTablesWithNativeImages(fastapiRaw, filePath, uploadId, sessionId);
-        } catch (doclingErr) {
-          console.error(`[Upload] [docling] Failed: ${doclingErr.message}`);
-          throw new Error(`Docling extraction failed: ${doclingErr.message}`);
-        }
-      } else if (extractionMode === 'paddle') {
-        // ── Paddle OCR only (skip Docling) ───────────────────────────────────────
-        console.log(`[Upload] [paddle] Paddle-only pipeline.`);
-        try {
-          const fastapiRaw = await fastApiExtract({ usePaddleFallback: true, usePaddleOnly: true });
-          console.log(`[Upload] [paddle] OK. engineUsed: ${fastapiRaw.engineUsed}`);
-          const uploadId = crypto.randomUUID();
-          extractedData = await processTextTablesWithNativeImages(fastapiRaw, filePath, uploadId, sessionId);
-        } catch (paddleErr) {
-          console.error(`[Upload] [paddle] Failed: ${paddleErr.message}`);
-          throw new Error(`Paddle extraction failed: ${paddleErr.message}`);
+          const fastapiRaw = await fastApiExtract({
+            usePaddleFallback: extractionMode === 'paddle',
+            usePaddleOnly: extractionMode === 'paddle',
+            pipeline: extractionMode
+          });
+          console.log(`[Upload] [${extractionMode}] FastAPI OK. engineUsed: ${fastapiRaw.engineUsed}`);
+          extractedData = await processTextTablesWithNativeImages(fastapiRaw, filePath, uploadId, sessionId, layoutsPromise);
+        } catch (err) {
+          console.error(`[Upload] [${extractionMode}] Failed: ${err.message}`);
+          throw new Error(`${extractionMode} extraction failed: ${err.message}`);
         }
       } else {
         // Legacy vision path
@@ -2708,7 +3092,7 @@ app.post('/api/supabase/sync', async (req, res) => {
 // Proxy endpoint for Docling service assets (images)
 app.get('/docling/assets/:jobId/:filename', async (req, res) => {
   const { jobId, filename } = req.params;
-  const targetUrl = `http://localhost:8000/docling/assets/${jobId}/${filename}`;
+  const targetUrl = `${DOCLING_SERVICE_URL}/docling/assets/${jobId}/${filename}`;
   try {
     const response = await axios.get(targetUrl, { responseType: 'stream' });
     res.set('Content-Type', response.headers['content-type'] || 'image/png');

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import styles from '../styles/TableViewer.module.css';
 import actionStyles from '../styles/ActionBar.module.css';
 import CostingModal from './CostingModal';
@@ -71,6 +71,92 @@ function TableViewer({
             }
         }
     }, [data]);
+
+    // Poll for background native image matching progress
+    useEffect(() => {
+        // Find uploadId from any table
+        const firstTable = tables.find(t => t.uploadId);
+        const uploadId = firstTable?.uploadId;
+        if (!uploadId) return;
+
+        // If the table already has real matched images, don't poll
+        const hasRealImages = tables.some(t =>
+            t.rows.some(r =>
+                r.cells.some(c =>
+                    c.images && c.images.length > 0 && c.images.some(img => img.url && !img.url.includes('/api/lazy-image'))
+                )
+            )
+        );
+        if (hasRealImages) return;
+
+        let intervalId;
+        let isPolling = true;
+
+        const pollMetadata = async () => {
+            try {
+                const response = await fetch(`${API_BASE || ''}/api/upload/metadata/${uploadId}`);
+                if (!response.ok) return;
+                const meta = await response.json();
+                
+                // If the background positional pairing is completed
+                if (meta && meta.isReady && meta.rows) {
+                    console.log('🎉 Background native image matching ready! Updating TableViewer tables.');
+                    
+                    setTables(prevTables => {
+                        return prevTables.map(table => {
+                            if (table.uploadId !== uploadId) return table;
+                            
+                            const updatedRows = table.rows.map((row, rIdx) => {
+                                if (row.isHeader || row.isSummary) return row;
+                                
+                                const matchedMetaRow = meta.rows.find(mr => mr.pageNum === row.pageNum && mr.rowIdx === rIdx);
+                                if (matchedMetaRow) {
+                                    const newCells = [...row.cells];
+                                    const imgIdx = table.header.findIndex(h => /image|photo|picture|img|pic|ref/i.test(h));
+                                    if (imgIdx !== -1 && newCells[imgIdx]) {
+                                        newCells[imgIdx] = {
+                                            ...newCells[imgIdx],
+                                            image: matchedMetaRow.image,
+                                            images: matchedMetaRow.images && matchedMetaRow.images.length > 0 ? matchedMetaRow.images : [matchedMetaRow.image]
+                                        };
+                                    }
+                                    return {
+                                        ...row,
+                                        cells: newCells
+                                    };
+                                }
+                                return row;
+                            });
+
+                            return {
+                                ...table,
+                                rows: updatedRows
+                            };
+                        });
+                    });
+
+                    // Stop polling
+                    isPolling = false;
+                    clearInterval(intervalId);
+                }
+            } catch (err) {
+                console.warn('Error polling upload metadata:', err);
+            }
+        };
+
+        // Poll every 3 seconds
+        intervalId = setInterval(() => {
+            if (isPolling) pollMetadata();
+        }, 3000);
+
+        // Run immediately once
+        pollMetadata();
+
+        return () => {
+            isPolling = false;
+            clearInterval(intervalId);
+        };
+    }, [tables]);
 
     // Compute summary for original extracted tables
     const tablesWithSummary = useMemo(() => {
@@ -3464,85 +3550,113 @@ function TableViewer({
                             )}
                         </thead>
                         <tbody>
-                            {table.rows.map((row, rowIndex) => (
-                                <tr key={rowIndex} className={row.isHeader ? styles.headerRow : ''}>
-                                    {(row.cells || []).map((cell, cellIndex) => {
-                                        const CellTag = row.isHeader ? 'th' : 'td';
-                                        const cellValue = cell && cell.value !== undefined ? cell.value : '';
-                                        return (
-                                            <CellTag key={cellIndex} className={`${styles.cell} ${cell?.images?.length || /brand\s*(img|logo|image)/i.test(table.header?.[cellIndex]) ? styles.imageCell : ''}`}>
-                                                {(() => {
-                                                    const headerName = table.header?.[cellIndex] || '';
-                                                    const isBrandImgCol = /brand\s*(img|logo|image)/i.test(headerName);
-
-                                                    if (isBrandImgCol) {
-                                                        // Find the BRAND column name to fetch the correct logo
-                                                        const brandIdx = table.header.findIndex(h => /brand/i.test(h) && !/img|logo|image/i.test(h));
-                                                        const brandName = brandIdx !== -1 ? row.cells[brandIdx]?.value : null;
-                                                        const logo = getBrandLogo(brandName);
-
-                                                        if (logo) {
-                                                            return (
-                                                                <div className={styles.brandLogoWrapper}>
-                                                                    <img
-                                                                        src={logo}
-                                                                        alt={brandName}
-                                                                        className={styles.brandLogo}
-                                                                        onClick={() => setSelectedImage(logo)}
-                                                                        onError={(e) => { e.target.style.display = 'none'; }}
-                                                                        style={{ cursor: 'pointer' }}
-                                                                    />
-                                                                </div>
-                                                            );
-                                                        }
-                                                    }
-
-                                                    // Standard extraction image fallback
-                                                    if (cell && ((cell.images && cell.images.length > 0) || cell.image)) {
-                                                        return (
-                                                            <div className={(cell.images?.length > 1) ? styles.imageGrid : styles.cellImage}>
-                                                                {(cell.images || [cell.image]).map((imgData, imgIdx) => (
-                                                                    <img
-                                                                        key={imgIdx}
-                                                                        src={getFullUrl(imgData)}
-                                                                        alt="Thumb"
-                                                                        className={styles.image}
-                                                                        onClick={() => imgData && setSelectedImage(getFullUrl(imgData))}
-                                                                        onError={(e) => {
-                                                                            e.target.style.display = 'none';
-                                                                            const ph = document.createElement('div');
-                                                                            ph.className = styles.imgNoData;
-                                                                            ph.textContent = 'No Image';
-                                                                            e.target.parentNode.appendChild(ph);
-                                                                        }}
-                                                                        style={{ cursor: 'pointer' }}
-                                                                    />
-                                                                ))}
-                                                            </div>
-                                                        );
-                                                    }
-                                                    return null;
-                                                })()}
-                                                <div
-                                                    className={styles.editableCell}
-                                                    contentEditable={!isCosted && !row.isHeader}
-                                                    suppressContentEditableWarning
-                                                    onBlur={(e) => !isCosted && handleCellChange(tableIndex, rowIndex, cellIndex, e.target.innerText)}
-                                                >
-                                                    {row.isHeader ? cellValue : formatNumber(cellValue, table.header?.[cellIndex])}
-                                                </div>
-                                            </CellTag>
-                                        );
-                                    })}
-                                    {!row.isHeader && !isCosted && (
-                                        <td className={styles.actionCell}>
-                                            <button className={`${styles.actionBtn} ${styles.addBtn}`} onClick={() => handleAddRow(tableIndex, rowIndex)}>+</button>
-                                            <button className={`${styles.actionBtn} ${styles.removeBtn}`} onClick={() => handleRemoveRow(tableIndex, rowIndex)}>×</button>
-                                        </td>
-                                    )}
-                                    {isCosted && !row.isHeader && <td className={styles.actionCell}>-</td>}
-                                </tr>
-                            ))}
+                            {table.rows.map((row, rowIndex) => {
+                                 const prevRow = rowIndex > 0 ? table.rows[rowIndex - 1] : null;
+                                 const showSectionHeader = row.sectionLabel && (!prevRow || prevRow.sectionLabel !== row.sectionLabel);
+                                 
+                                 return (
+                                     <React.Fragment key={rowIndex}>
+                                         {showSectionHeader && (
+                                             <tr className={styles.sectionHeaderRow}>
+                                                 <td colSpan={(table.header?.length || 0) + 1} className={styles.sectionHeaderCell}>
+                                                     <div className={styles.sectionHeaderContent}>
+                                                         <span className={styles.sectionIcon}>📁</span>
+                                                         <span className={styles.sectionTitleText}>{row.sectionLabel}</span>
+                                                         {row.pageNum && <span className={styles.sectionPageBadge}>Page {row.pageNum}</span>}
+                                                     </div>
+                                                 </td>
+                                             </tr>
+                                         )}
+                                         <tr className={row.isHeader ? styles.headerRow : ''}>
+                                             {(row.cells || []).map((cell, cellIndex) => {
+                                                 const CellTag = row.isHeader ? 'th' : 'td';
+                                                 const cellValue = cell && cell.value !== undefined ? cell.value : '';
+                                                 const isSnCol = /s\.?n|no|#|sr|item|sl/i.test(table.header?.[cellIndex] || '');
+                                                 
+                                                 return (
+                                                     <CellTag key={cellIndex} className={`${styles.cell} ${cell?.images?.length || /brand\s*(img|logo|image)/i.test(table.header?.[cellIndex]) ? styles.imageCell : ''}`}>
+                                                         {(() => {
+                                                             const headerName = table.header?.[cellIndex] || '';
+                                                             const isBrandImgCol = /brand\s*(img|logo|image)/i.test(headerName);
+ 
+                                                             if (isBrandImgCol) {
+                                                                 // Find the BRAND column name to fetch the correct logo
+                                                                 const brandIdx = table.header.findIndex(h => /brand/i.test(h) && !/img|logo|image/i.test(h));
+                                                                 const brandName = brandIdx !== -1 ? row.cells[brandIdx]?.value : null;
+                                                                 const logo = getBrandLogo(brandName);
+ 
+                                                                 if (logo) {
+                                                                     return (
+                                                                         <div className={styles.brandLogoWrapper}>
+                                                                             <img
+                                                                                 src={logo}
+                                                                                 alt={brandName}
+                                                                                 className={styles.brandLogo}
+                                                                                 onClick={() => setSelectedImage(logo)}
+                                                                                 onError={(e) => { e.target.style.display = 'none'; }}
+                                                                                 style={{ cursor: 'pointer' }}
+                                                                             />
+                                                                         </div>
+                                                                     );
+                                                                 }
+                                                             }
+ 
+                                                             // Standard extraction image fallback
+                                                             if (cell && ((cell.images && cell.images.length > 0) || cell.image)) {
+                                                                 return (
+                                                                     <div className={(cell.images?.length > 1) ? styles.imageGrid : styles.cellImage}>
+                                                                         {(cell.images || [cell.image]).map((imgData, imgIdx) => (
+                                                                             <img
+                                                                                 key={imgIdx}
+                                                                                 src={getFullUrl(imgData)}
+                                                                                 alt="Thumb"
+                                                                                 className={styles.image}
+                                                                                 onClick={() => imgData && setSelectedImage(getFullUrl(imgData))}
+                                                                                 onError={(e) => {
+                                                                                     e.target.style.display = 'none';
+                                                                                     const ph = document.createElement('div');
+                                                                                     ph.className = styles.imgNoData;
+                                                                                     ph.textContent = 'No Image';
+                                                                                     e.target.parentNode.appendChild(ph);
+                                                                                 }}
+                                                                                 style={{ cursor: 'pointer' }}
+                                                                             />
+                                                                         ))}
+                                                                     </div>
+                                                                 );
+                                                             }
+                                                             return null;
+                                                         })()}
+                                                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                             {isSnCol && !row.isHeader && row.pageNum && (
+                                                                 <span className={styles.rowPageBadge} title={`Extracted from page ${row.pageNum}`}>
+                                                                     P.{row.pageNum}
+                                                                 </span>
+                                                             )}
+                                                             <div
+                                                                 className={styles.editableCell}
+                                                                 contentEditable={!isCosted && !row.isHeader}
+                                                                 suppressContentEditableWarning
+                                                                 onBlur={(e) => !isCosted && handleCellChange(tableIndex, rowIndex, cellIndex, e.target.innerText)}
+                                                                 style={{ flex: 1 }}
+                                                             >
+                                                                 {row.isHeader ? cellValue : formatNumber(cellValue, table.header?.[cellIndex])}
+                                                             </div>
+                                                         </div>
+                                                     </CellTag>
+                                                 );
+                                             })}
+                                             {!row.isHeader && !isCosted && (
+                                                 <td className={styles.actionCell}>
+                                                     <button className={`${styles.actionBtn} ${styles.addBtn}`} onClick={() => handleAddRow(tableIndex, rowIndex)}>+</button>
+                                                     <button className={`${styles.actionBtn} ${styles.removeBtn}`} onClick={() => handleRemoveRow(tableIndex, rowIndex)}>×</button>
+                                                 </td>
+                                             )}
+                                             {isCosted && !row.isHeader && <td className={styles.actionCell}>-</td>}
+                                         </tr>
+                                     </React.Fragment>
+                                 );
+                             })}
                         </tbody>
                     </table>
                 </div>

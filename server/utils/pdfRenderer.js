@@ -1,10 +1,20 @@
 import { spawn } from 'child_process';
-import { promises as fs } from 'fs';
+import { promises as fs, existsSync } from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PYTHON_SCRIPT = path.join(__dirname, 'pdf_navigator.py');
+
+const getPythonPath = () => {
+    const winVenv = path.resolve(process.cwd(), '.venv', 'Scripts', 'python.exe');
+    const unixVenv = path.resolve(process.cwd(), '.venv', 'bin', 'python');
+    if (existsSync(winVenv)) return winVenv;
+    if (existsSync(unixVenv)) return unixVenv;
+    return 'python';
+};
+
+const PYTHON_BIN = getPythonPath();
 
 /**
  * PRIMARY ENGINE: PyMuPDF for native extraction.
@@ -16,7 +26,7 @@ export async function renderPDFWithLayout(filePath) {
     console.log(`  🚀 [PDF Renderer] Native Layered Engine: ${path.basename(filePath)}`);
     
     return new Promise((resolve, reject) => {
-        const pythonProcess = spawn('python', [PYTHON_SCRIPT, filePath, outputDir]);
+        const pythonProcess = spawn(PYTHON_BIN, [PYTHON_SCRIPT, filePath, outputDir]);
 
         let stdoutData = '';
         let stderrData = '';
@@ -67,7 +77,7 @@ export async function renderPDFWithLayout(filePath) {
 export async function renderSinglePageFull(pdfPath, pageNum, outputPath) {
     console.log(`  🎞️ [PDF Renderer] On-Demand Fallback Scan: Page ${pageNum}`);
     return new Promise((resolve, reject) => {
-        const pythonProcess = spawn('python', [PYTHON_SCRIPT, '--render-page', pdfPath, pageNum.toString(), outputPath]);
+        const pythonProcess = spawn(PYTHON_BIN, [PYTHON_SCRIPT, '--render-page', pdfPath, pageNum.toString(), outputPath]);
         
         let stdoutData = '';
         pythonProcess.stdout.on('data', (data) => { stdoutData += data; });

@@ -24,12 +24,12 @@ const modal = {
 
 const PIPELINES = [
   {
-    id: 'default',
-    label: 'Default',
-    icon: '🧠',
-    color: '#7c3aed',
-    gradient: 'linear-gradient(135deg,#7c3aed,#4f46e5)',
-    desc: 'AI vision-based in-app extraction. Best for standard BOQ Excel converted to PDF.',
+    id: 'opendataloader',
+    label: 'OpenDataLoader',
+    icon: '⚡',
+    color: '#f59e0b',
+    gradient: 'linear-gradient(135deg,#f59e0b,#d97706)',
+    desc: 'OpenDataLoader layout recovery. Extremely fast and accurate for standard schedules.',
   },
   {
     id: 'docling',
@@ -40,8 +40,16 @@ const PIPELINES = [
     desc: 'Neural layout + table structure recovery. Best for complex multi-table PDFs.',
   },
   {
+    id: 'default',
+    label: 'Ai + Native image extraction',
+    icon: '🧠',
+    color: '#7c3aed',
+    gradient: 'linear-gradient(135deg,#7c3aed,#4f46e5)',
+    desc: 'AI vision-based in-app extraction. Best for standard BOQ Excel converted to PDF.',
+  },
+  {
     id: 'paddle',
-    label: 'Paddle OCR',
+    label: 'Paddle',
     icon: '🔍',
     color: '#10b981',
     gradient: 'linear-gradient(135deg,#10b981,#059669)',
@@ -51,7 +59,7 @@ const PIPELINES = [
 
 const PdfModelModal = ({ isOpen, onClose, onExtract, fileName }) => {
   const { aiSettings } = useCompanyProfile();
-  const [selectedPipeline, setSelectedPipeline] = useState('docling');
+  const [selectedPipeline, setSelectedPipeline] = useState('opendataloader');
   const [doclingOcr, setDoclingOcr] = useState(false);
 
   if (!isOpen) return null;

@@ -441,6 +441,7 @@ function AppContent({ onOpenSettings }) {
         const extractionModeHeader =
           pipeline === 'docling' ? 'docling' :
           pipeline === 'paddle'  ? 'paddle'  :
+          pipeline === 'opendataloader' ? 'opendataloader' :
           'parallel'; // default / legacy
 
         const uploadUrl = apiUrl('/api/upload');
