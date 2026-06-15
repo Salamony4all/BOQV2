@@ -447,22 +447,22 @@ async function processTextTablesWithNativeImages(fastapiRes, filePath, uploadId,
         // Format cells dynamically for the frontend, aligned to canonicalHeader
         const formattedCells = Array(canonicalHeader.length).fill(null).map((_, idx) => {
           if (idx === imgColIdx) {
-            const pageNum = row.page || pageNum;
-            const pageIdx = pageNum - 1;
+            const rowPageNum = row.page || pageNum;
+            const pageIdx = rowPageNum - 1;
             
             // Try Spatial SN lock first
             let finalImageUrl = null;
             if (displaySN && mupdfLayout.snImageMap.has(`${pageIdx}_${displaySN}`)) {
               finalImageUrl = mupdfLayout.snImageMap.get(`${pageIdx}_${displaySN}`);
-              console.log(`    🔗 [processTextTablesWithNativeImages] Spatial Lock Match: Page ${pageNum} SN ${displaySN} -> ${finalImageUrl}`);
+              console.log(`    🔗 [processTextTablesWithNativeImages] Spatial Lock Match: Page ${rowPageNum} SN ${displaySN} -> ${finalImageUrl}`);
             } else {
               // Positional fallback
-              const imgs = mupdfLayout.pageImagesMap.get(pageNum) || [];
-              const cursor = pageImageCursorMap.get(pageNum) || 0;
+              const imgs = mupdfLayout.pageImagesMap.get(rowPageNum) || [];
+              const cursor = pageImageCursorMap.get(rowPageNum) || 0;
               if (cursor < imgs.length) {
                 finalImageUrl = imgs[cursor].url;
-                pageImageCursorMap.set(pageNum, cursor + 1);
-                console.log(`    🔗 [processTextTablesWithNativeImages] Positional Match: Page ${pageNum} Row ${displaySN} (rank ${cursor}) -> ${finalImageUrl}`);
+                pageImageCursorMap.set(rowPageNum, cursor + 1);
+                console.log(`    🔗 [processTextTablesWithNativeImages] Positional Match: Page ${rowPageNum} Row ${displaySN} (rank ${cursor}) -> ${finalImageUrl}`);
               }
             }
 

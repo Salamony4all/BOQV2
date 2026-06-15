@@ -72,12 +72,18 @@ function TableViewer({
         }
     }, [data]);
 
+    const firstTable = tables.find(t => t.uploadId);
+    const uploadId = firstTable?.uploadId;
+    const [pollCompleted, setPollCompleted] = useState(false);
+
+    // Reset polling state when uploadId changes
+    useEffect(() => {
+        setPollCompleted(false);
+    }, [uploadId]);
+
     // Poll for background native image matching progress
     useEffect(() => {
-        // Find uploadId from any table
-        const firstTable = tables.find(t => t.uploadId);
-        const uploadId = firstTable?.uploadId;
-        if (!uploadId) return;
+        if (!uploadId || pollCompleted) return;
 
         // If the table already has real matched images, don't poll
         const hasRealImages = tables.some(t =>
@@ -87,7 +93,10 @@ function TableViewer({
                 )
             )
         );
-        if (hasRealImages) return;
+        if (hasRealImages) {
+            setPollCompleted(true);
+            return;
+        }
 
         let intervalId;
         let isPolling = true;
@@ -138,6 +147,7 @@ function TableViewer({
                     // Stop polling
                     isPolling = false;
                     clearInterval(intervalId);
+                    setPollCompleted(true);
                 }
             } catch (err) {
                 console.warn('Error polling upload metadata:', err);
@@ -156,7 +166,7 @@ function TableViewer({
             isPolling = false;
             clearInterval(intervalId);
         };
-    }, [tables]);
+    }, [uploadId, pollCompleted]);
 
     // Compute summary for original extracted tables
     const tablesWithSummary = useMemo(() => {
