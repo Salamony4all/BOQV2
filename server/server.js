@@ -1280,7 +1280,43 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
         return fastapiRes.data;
       };
 
-      if (isVercel) {
+      if (extractionMode === 'docling' || extractionMode === 'paddle' || extractionMode === 'opendataloader') {
+        console.log(`[Upload] [${extractionMode}] Starting simultaneous extraction...`);
+        const uploadId = crypto.randomUUID();
+
+        // Start native image rendering in the background immediately (only if not on Vercel)
+        let layoutsPromise = Promise.resolve([]);
+        if (!isVercel) {
+          try {
+            const { renderPDFWithLayout } = await getPdfRenderer();
+            layoutsPromise = renderPDFWithLayout(filePath).catch(err => {
+              console.error('Layout Extraction Failed:', err.message);
+              return [];
+            });
+            activeLayoutPromises.set(uploadId, layoutsPromise);
+            layoutsPromise.finally(() => {
+              setTimeout(() => {
+                activeLayoutPromises.delete(uploadId);
+              }, 300000); // 5 minutes cache
+            });
+          } catch (e) {
+            console.error('Could not schedule local PDF layout rendering:', e.message);
+          }
+        }
+
+        try {
+          const fastapiRaw = await fastApiExtract({
+            usePaddleFallback: extractionMode === 'paddle',
+            usePaddleOnly: extractionMode === 'paddle',
+            pipeline: extractionMode
+          });
+          console.log(`[Upload] [${extractionMode}] FastAPI OK. engineUsed: ${fastapiRaw.engineUsed}`);
+          extractedData = await processTextTablesWithNativeImages(fastapiRaw, filePath, uploadId, sessionId, layoutsPromise);
+        } catch (err) {
+          console.error(`[Upload] [${extractionMode}] Failed: ${err.message}`);
+          throw new Error(`${extractionMode} extraction failed: ${err.message}`);
+        }
+      } else if (isVercel) {
         console.log(`[Upload] Running in Vercel - Using light extraction (pdfjs)`);
         const { extractProductBoqFromPdf } = await getPdfProductExtractor();
         extractedData = await extractProductBoqFromPdf(filePath, () => { }, modelName);
@@ -1300,35 +1336,6 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
           }, (folder) => {
             cleanupService.trackFolder(sessionId, folder);
           });
-        }
-      } else if (extractionMode === 'docling' || extractionMode === 'paddle' || extractionMode === 'opendataloader') {
-        console.log(`[Upload] [${extractionMode}] Starting simultaneous extraction...`);
-        const uploadId = crypto.randomUUID();
-
-        // Start native image rendering in the background immediately!
-        const { renderPDFWithLayout } = await getPdfRenderer();
-        const layoutsPromise = renderPDFWithLayout(filePath).catch(err => {
-          console.error('Layout Extraction Failed:', err.message);
-          return [];
-        });
-        activeLayoutPromises.set(uploadId, layoutsPromise);
-        layoutsPromise.finally(() => {
-          setTimeout(() => {
-            activeLayoutPromises.delete(uploadId);
-          }, 300000); // 5 minutes cache
-        });
-
-        try {
-          const fastapiRaw = await fastApiExtract({
-            usePaddleFallback: extractionMode === 'paddle',
-            usePaddleOnly: extractionMode === 'paddle',
-            pipeline: extractionMode
-          });
-          console.log(`[Upload] [${extractionMode}] FastAPI OK. engineUsed: ${fastapiRaw.engineUsed}`);
-          extractedData = await processTextTablesWithNativeImages(fastapiRaw, filePath, uploadId, sessionId, layoutsPromise);
-        } catch (err) {
-          console.error(`[Upload] [${extractionMode}] Failed: ${err.message}`);
-          throw new Error(`${extractionMode} extraction failed: ${err.message}`);
         }
       } else {
         // Legacy vision path
