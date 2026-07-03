@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Auto Browser Bridge</title>
+    <style>
+        body {
+            width: 320px;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background: #0f172a;
+            color: #f8fafc;
+            margin: 0;
+            padding: 16px;
+        }
+        h2 {
+            margin: 0 0 4px 0;
+            color: #38bdf8;
+            font-size: 1.1rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .subtitle {
+            font-size: 0.75rem;
+            color: #94a3b8;
+            margin-bottom: 14px;
+        }
+        .status-card {
+            background: #1e293b;
+            border: 1px solid #334155;
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 14px;
+            font-size: 0.8rem;
+        }
+        .status-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 6px;
+        }
+        .status-row:last-child {
+            margin-bottom: 0;
+        }
+        .label {
+            color: #94a3b8;
+        }
+        .value {
+            font-weight: 600;
+            color: #cbd5e1;
+            text-align: right;
+            word-break: break-all;
+        }
+        .value.active {
+            color: #10b981;
+        }
+        .btn {
+            display: block;
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 8px;
+            border: none;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            text-align: center;
+        }
+        .btn-primary {
+            background: #38bdf8;
+            color: #0f172a;
+            box-shadow: 0 4px 12px rgba(56, 189, 248, 0.15);
+        }
+        .btn-primary:hover:not(:disabled) {
+            background: #7dd3fc;
+        }
+        .btn-secondary {
+            background: #10b981;
+            color: #ffffff;
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.15);
+        }
+        .btn-secondary:hover:not(:disabled) {
+            background: #34d399;
+        }
+        .btn:disabled {
+            background: #1e293b;
+            border: 1px solid #334155;
+            color: #475569;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+        .logs-container {
+            background: #0b1329;
+            border: 1px solid #1e293b;
+            border-radius: 6px;
+            padding: 8px;
+            height: 90px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 0.75rem;
+            color: #38bdf8;
+            margin-top: 4px;
+        }
+    </style>
+</head>
+<body>
+    <h2><img src="favicon.png" alt="Logo" style="width: 20px; height: 20px; border-radius: 4px;" /> Auto Browser Bridge</h2>
+    <div class="subtitle">Direct Portal Automation Bridge</div>
+    
+    <div class="status-card">
+        <div class="status-row">
+            <span class="label">Portal Window:</span>
+            <span id="conn_status" class="value">Disconnected</span>
+        </div>
+        <div class="status-row">
+            <span class="label">Target Domain:</span>
+            <span id="target_url" class="value">-</span>
+        </div>
+        <div class="status-row">
+            <span class="label">Active BOQ Chunk:</span>
+            <span id="boq_status" class="value">Awaiting synchronization...</span>
+        </div>
+    </div>
+
+    <button id="btn_fill" class="btn btn-secondary" disabled>⚡ Execute Bulk Fill</button>
+
+    <div class="subtitle" style="margin-top: 12px; margin-bottom: 4px; font-weight: bold;">Activity Log:</div>
+    <div id="logs" class="logs-container">> Ready for actions. Open the React app and connect a session.</div>
+
+    <script src="popup.js"></script>
+</body>
+</html>

@@ -252,7 +252,7 @@ export function safeParseJSON(text) {
 }
 
 /** Generic OpenRouter call expecting JSON object back. */
-async function callOpenRouter(systemPrompt, userPrompt, modelName = null) {
+export async function callOpenRouter(systemPrompt, userPrompt, modelName = null) {
     try {
         const res = await axios.post(
             'https://openrouter.ai/api/v1/chat/completions',
@@ -284,7 +284,7 @@ async function callOpenRouter(systemPrompt, userPrompt, modelName = null) {
 }
 
 /** Generic NVIDIA NIM call expecting JSON object back. */
-async function callNvidia(systemPrompt, userPrompt, modelName = null) {
+export async function callNvidia(systemPrompt, userPrompt, modelName = null) {
     try {
         const res = await axios.post(
             'https://integrate.api.nvidia.com/v1/chat/completions',

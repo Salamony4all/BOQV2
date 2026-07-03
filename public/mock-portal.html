@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mock Tender Board Portal - Sandbox</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #0f172a;
+            color: #f8fafc;
+            padding: 40px;
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+        h1 {
+            color: #38bdf8;
+            border-bottom: 2px solid #334155;
+            padding-bottom: 12px;
+        }
+        .desc {
+            color: #94a3b8;
+            line-height: 1.6;
+        }
+        .global-section {
+            margin: 24px 0;
+            padding: 16px;
+            background: #1e293b;
+            border-radius: 8px;
+            border: 1px solid #334155;
+        }
+        .global-section label {
+            font-weight: 600;
+            margin-right: 12px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            background: #1e293b;
+            border-radius: 8px;
+            overflow: hidden;
+            border: 1px solid #334155;
+        }
+        th, td {
+            padding: 14px;
+            border-bottom: 1px solid #334155;
+            text-align: left;
+        }
+        th {
+            background: #0b1329;
+            color: #38bdf8;
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 0.85rem;
+            letter-spacing: 0.5px;
+        }
+        input[type="text"] {
+            background: #0f172a;
+            border: 1px solid #475569;
+            color: #f8fafc;
+            padding: 8px 12px;
+            border-radius: 6px;
+            width: 140px;
+            outline: none;
+            transition: all 0.15s ease;
+        }
+        input[type="text"]:focus {
+            border-color: #38bdf8;
+            box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.2);
+        }
+        input[readonly] {
+            background: #334155;
+            border-color: #334155;
+            color: #94a3b8;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body>
+    <h1>Oman Tender Board - Mock Sandbox</h1>
+    <p class="desc">This page is a local sandbox designed to test the Chrome Extension's mapping and bulk filling capabilities without requiring a live portal connection.</p>
+    
+    <div class="global-section">
+        <label for="global_manufacturer">Manufacturer Country (Global Field): </label>
+        <input type="text" id="global_manufacturer" placeholder="e.g. Oman" />
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Item Code</th>
+                <th>Description</th>
+                <th>Quantity</th>
+                <th>Unit Price (Rate in Fig)</th>
+                <th>Total Rate</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr class="boq-row">
+                <td>1.01</td>
+                <td>Excavation in soft soil including leveling</td>
+                <td>150</td>
+                <td><input type="text" name="txtUnitRate_0" class="rate-input" placeholder="0.000" /></td>
+                <td><input type="text" readonly placeholder="0.000" /></td>
+            </tr>
+            <tr class="boq-row">
+                <td>1.02</td>
+                <td>Concrete grade C30 for foundations</td>
+                <td>80</td>
+                <td><input type="text" name="txtUnitRate_1" class="rate-input" placeholder="0.000" /></td>
+                <td><input type="text" readonly placeholder="0.000" /></td>
+            </tr>
+            <tr class="boq-row">
+                <td>1.03</td>
+                <td>High tensile steel reinforcement 16mm</td>
+                <td>1,200</td>
+                <td><input type="text" name="txtUnitRate_2" class="rate-input" placeholder="0.000" /></td>
+                <td><input type="text" readonly placeholder="0.000" /></td>
+            </tr>
+            <tr class="boq-row">
+                <td>1.04</td>
+                <td>Backfilling with approved excavated materials</td>
+                <td>250</td>
+                <td><input type="text" name="txtUnitRate_3" class="rate-input" placeholder="0.000" /></td>
+                <td><input type="text" readonly placeholder="0.000" /></td>
+            </tr>
+        </tbody>
+    </table>
+</body>
+</html>

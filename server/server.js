@@ -1,5 +1,5 @@
 console.log('🏁 [Server] Loading dependencies...');
-import 'dotenv/config';
+import './loadEnv.js';
 import './nodePolyfills.js'; // MUST be before pdfjs — patches DOMMatrix etc. on globalThis
 import express from 'express';
 import cors from 'cors';

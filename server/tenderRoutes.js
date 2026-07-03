@@ -1,7 +1,10 @@
 import express from 'express';
 import axios from 'axios';
 import { supabase, getSupabaseBlueprint, saveSupabaseBlueprint } from './utils/supabaseStorage.js';
-import { callGoogle, aiKeyStorage } from './utils/llmUtils.js';
+import { exec } from 'child_process';
+import path from 'path';
+import fs from 'fs';
+import { callGoogle, callOpenRouter, callNvidia, getProviderForModel, GOOGLE_MODEL, aiKeyStorage } from './utils/llmUtils.js';
 
 const router = express.Router();
 
@@ -43,6 +46,23 @@ setInterval(() => {
 router.post('/setup', async (req, res) => {
     try {
         console.log(`🌐 [Tender Router] Provisioning isolated execution container profile instance...`);
+
+        // Check if the auto browser service is reachable
+        let reachable = false;
+        try {
+            await axios.get(`${AUTO_BROWSER_SERVICE_URL}/sessions`, { timeout: 1500, headers: AUTO_BROWSER_HEADERS });
+            reachable = true;
+        } catch (err) {
+            // Not reachable
+        }
+
+        if (!reachable && (AUTO_BROWSER_SERVICE_URL.includes('localhost') || AUTO_BROWSER_SERVICE_URL.includes('127.0.0.1'))) {
+            console.log('❌ [Tender Router] Auto Browser local service is not running. Rejecting session setup.');
+            return res.status(500).json({ 
+                success: false, 
+                error: 'Auto Browser local service is not running. Please double-click run_local_cdp.bat inside your auto-browser folder to start the service manually.' 
+            });
+        }
 
         let session_id;
         let vnc_url;
@@ -153,10 +173,10 @@ router.get('/status/:session_id', async (req, res) => {
  * Route 4: Map Platform Blueprint
  */
 router.post('/map-platform', async (req, res) => {
-    const { session_id, domain_name, force_remap } = req.body;
-    if (!session_id || !domain_name) return res.status(400).json({ error: 'Missing session_id or domain_name' });
+    const { session_id, domain_name, force_remap, dom_outline } = req.body;
+    if ((!session_id && !dom_outline) || !domain_name) return res.status(400).json({ error: 'Missing session_id (or dom_outline) or domain_name' });
 
-    const ctx = sessionTracker.get(session_id);
+    const ctx = session_id ? sessionTracker.get(session_id) : null;
     try {
         if (!force_remap) {
             const existingBlueprint = await getSupabaseBlueprint(domain_name);
@@ -166,16 +186,21 @@ router.post('/map-platform', async (req, res) => {
             }
         }
 
-        if (ctx) appendLog(ctx, `🔍 Extracting site DOM blueprint for ${domain_name}...`);
-
-        const observeRes = await axios.post(
-            `${AUTO_BROWSER_SERVICE_URL}/sessions/${session_id}/observe`,
-            { limit: 100, preset: "normal" },
-            { headers: AUTO_BROWSER_HEADERS }
-        );
-        const rawState = observeRes.data.dom_outline || observeRes.data || '';
-        const domString = typeof rawState === 'string' ? rawState : JSON.stringify(rawState);
-        const safeOutline = domString.substring(0, 15000);
+        let safeOutline = '';
+        if (dom_outline) {
+            if (ctx) appendLog(ctx, `🔍 Using client-provided DOM outline for mapping...`);
+            safeOutline = dom_outline.substring(0, 25000);
+        } else {
+            if (ctx) appendLog(ctx, `🔍 Extracting site DOM blueprint for ${domain_name}...`);
+            const observeRes = await axios.post(
+                `${AUTO_BROWSER_SERVICE_URL}/sessions/${session_id}/observe`,
+                { limit: 100, preset: "normal" },
+                { headers: AUTO_BROWSER_HEADERS }
+            );
+            const rawState = observeRes.data.dom_outline || observeRes.data || '';
+            const domString = typeof rawState === 'string' ? rawState : JSON.stringify(rawState);
+            safeOutline = domString.substring(0, 15000);
+        }
 
         const prompt = `Analyze this web page snapshot and output ONLY a valid JSON schema blueprint for data entry. 
 Target Domain: ${domain_name}
@@ -192,10 +217,21 @@ CRITICAL: Output ONLY pure valid JSON with no markdown formatting.`;
 
         const contextStore = aiKeyStorage.getStore() || {};
         const reqGoogleModel = contextStore.googleModel;
-        const activeModel = reqGoogleModel || "gemma-4-31b-it";
+        const activeModel = reqGoogleModel || GOOGLE_MODEL;
 
-        if (ctx) appendLog(ctx, `🤖 Analyzing layout using ${activeModel}...`);
-        const llmResult = await callGoogle("Output ONLY pure valid JSON.", prompt, false, activeModel);
+        const provider = getProviderForModel(activeModel);
+        if (ctx) appendLog(ctx, `🤖 Analyzing layout using ${activeModel} via ${provider}...`);
+
+        let llmResult;
+        if (provider === 'google') {
+            llmResult = await callGoogle("Output ONLY pure valid JSON.", prompt, false, activeModel);
+        } else if (provider === 'openrouter') {
+            llmResult = await callOpenRouter("Output ONLY pure valid JSON.", prompt, activeModel);
+        } else if (provider === 'nvidia') {
+            llmResult = await callNvidia("Output ONLY pure valid JSON.", prompt, activeModel);
+        } else {
+            llmResult = await callGoogle("Output ONLY pure valid JSON.", prompt, false, activeModel);
+        }
 
         if (!llmResult || !llmResult.row_selector || !llmResult.input_selector) {
             throw new Error("AI failed to extract a valid blueprint.");
@@ -208,7 +244,7 @@ CRITICAL: Output ONLY pure valid JSON with no markdown formatting.`;
     } catch (err) {
         console.error("Map Platform Error:", err);
         if (ctx) appendLog(ctx, `❌ Blueprint mapping failed: ${err.message}`);
-        return res.status(500).json({ error: 'Failed to map platform' });
+        return res.status(500).json({ error: 'Failed to map platform', details: err.message, stack: err.stack });
     }
 });
 
