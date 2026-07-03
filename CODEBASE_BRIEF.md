@@ -40,7 +40,7 @@ BOQFLOW is a specialized enterprise web application for processing **Bill of Qua
 | File | Role |
 |---|---|
 | `App.jsx` | Landing page, file upload coordination, custom toggles, and background data flow sync between modals. |
-| `components/TenderAutofillModal.jsx` | UI interface for the remote browser automation session. Hosts the interactive VNC stream, progress list, and execute triggers. |
+| `components/TenderAutofillModal.jsx` | UI for tender portal autofill. Supports two modes: **Remote** (Railway VNC stream) and **Extension** (direct Chrome Extension bridge). Hosts the live log console, blueprint controls, and execute triggers. |
 | `components/MultiBudgetModal.jsx` | Core AI Autofill UI. 3-tier BOQ comparison view. |
 | `components/ValueEngineeredModal.jsx` | Value Engineered Workflow. Focused on cost-saving alternatives and brand replacements. |
 | `components/AutoFillSelectModal.jsx` | Brand selection modal before AI run. Per-tier brand display. |
@@ -174,6 +174,29 @@ BOQFLOW features a remote browser automation engine to assist estimators in subm
 #### 4. Telemetry Status (`GET /api/tender/status/:session_id`)
 - Polls execution telemetry, progress logs, and error traces.
 - Sweeps inactive sessions through an in-memory session garbage collector (30m TTL).
+
+---
+
+## Chrome Extension Autofill Engine
+
+An alternative to the Railway remote browser — runs entirely inside the user's local Chrome via a Manifest V3 extension.
+
+| File | Role |
+|---|---|
+| `extension/manifest.json` | MV3 manifest. Permissions: `tabs`, `scripting`, `activeTab`, `storage`. Host perms cover Vercel + localhost. |
+| `extension/content.js` | Bridge script injected into matched pages. Relays `postMessage` ↔ `chrome.runtime` messages. |
+| `extension/background.js` | Service worker. Manages portal tab, injects fill scripts, streams logs back. Restores tab IDs from storage on MV3 wake-up. |
+| `extension/popup.html/js` | Extension popover mirroring the React modal controls. |
+| `public/extension.zip` | Pre-packaged ZIP served as a static Vercel asset for one-click install. |
+
+**Key capabilities:**
+- **Unified pipeline** — same AI mapping + bulk fill logic used by both the React modal and the extension popup.
+- **Smart Field Finder** — multi-stage search: CSS selector → `<label>` text → `name`/`id`/`placeholder` attribute matching.
+- **Live Log Console** — color-coded terminal panel inside the modal replaces the VNC iframe.
+- **Persistent State** — `automationTabId` and `reactTabId` saved to `chrome.storage.local`; survives MV3 service-worker sleep cycles.
+- **Download via Vercel** — `vercel.json` serves `/extension.zip` with `Content-Type: application/zip` and `Content-Disposition: attachment` headers (bug fixed Jul 2026).
+
+See [`EXTENSION_AUTOFILL_FEATURE_GUIDE.md`](file:///c:/Users/Mohamad60025/Desktop/App/BOQ%20-%20v2/EXTENSION_AUTOFILL_FEATURE_GUIDE.md) for full details and installation steps.
 
 ---
 
@@ -488,6 +511,13 @@ The System Configuration modal handles a lot. For the Brands section specificall
 ---
 
 ## Session History
+
+### Jul 3, 2026 — Chrome Extension Autofill & Vercel ZIP Fix
+- **Chrome Extension**: Built full MV3 extension (`content.js`, `background.js`, `popup.js`) enabling direct client-side portal filling without a remote Railway browser container.
+- **Vercel Compatibility**: Updated `extension/manifest.json` host permissions to cover `boqv-2.vercel.app`. Extension API calls dynamically resolve to the deployed Vercel backend.
+- **Extension Icon**: Uses `public/favicon.png` as the extension icon (all sizes).
+- **ZIP Download Bug Fix**: `vercel.json` was missing `zip` from the static file extension regex — requests to `/extension.zip` fell through to the SPA `index.html` catch-all. Fixed by adding an explicit `/extension.zip` route with `Content-Disposition: attachment` response headers.
+- **GitHub Auth**: Remote URL updated with PAT for unattended pushes.
 
 ### Jun 5, 2026 — Header Popover & Scraper Integration
 - **Premium Model Selector**: Replaced native HTML select boxes with custom glassmorphic `<AiModelSelector>` components triggered by circular buttons matching theme controls. Optimized popover legibility in light mode (`rgba(255,255,255,0.98)`).
