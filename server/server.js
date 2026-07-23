@@ -43,6 +43,8 @@ let _pdfProductExtractor = null;
 let _parallelBOQExtractor = null;
 let _visionBOQExtractor = null;
 let _pdfRenderer = null;
+let _wordExtractorService = null;
+let _wordExtractorMtimeMs = 0;
 
 async function getPdfProductExtractor() {
   if (!_pdfProductExtractor) {
@@ -67,6 +69,26 @@ async function getPdfRenderer() {
     _pdfRenderer = await import('./utils/pdfRenderer.js');
   }
   return _pdfRenderer;
+}
+
+async function getWordExtractorService() {
+  // V12 diagnostic/cache-bust loader: reloads wordExtractorService.js when file mtime changes.
+  const extractorPath = path.join(__dirname, 'wordExtractorService.js');
+  let mtimeMs = Date.now();
+
+  try {
+    mtimeMs = fs_sync.statSync(extractorPath).mtimeMs;
+  } catch (err) {
+    console.warn(`[WordPdfExtractor] Could not stat extractor file: ${err.message}`);
+  }
+
+  if (!_wordExtractorService || _wordExtractorMtimeMs !== mtimeMs) {
+    _wordExtractorMtimeMs = mtimeMs;
+    _wordExtractorService = await import(`./wordExtractorService.js?v=${mtimeMs}`);
+    console.log(`[WordPdfExtractor] Loaded extractor module mtime=${mtimeMs}`);
+  }
+
+  return _wordExtractorService;
 }
 
 // Scraper imports are LAZY (dynamic) to prevent Vercel serverless boot crash
@@ -118,11 +140,11 @@ process.on('unhandledRejection', (reason, promise) => {
 async function extractAndUploadNativePdfImages(filePath, sessionId) {
   const fs = await import('fs');
   const mupdf = await import('mupdf');
-  
+
   const data = await fs.promises.readFile(filePath);
   const doc = mupdf.Document.openDocument(new Uint8Array(data), 'application/pdf');
   const pageCount = doc.countPages();
-  
+
   const imagesToUpload = []; // { pageIdx, y, imgY, pngBytes, snAnchors }
   const snImageMap = new Map(); // `${pageIdx}_${sn}` -> supabaseUrl
 
@@ -199,7 +221,7 @@ async function extractAndUploadNativePdfImages(filePath, sessionId) {
               pngBytes,
               snAnchors
             });
-          } catch (err) {}
+          } catch (err) { }
         }
       });
     } catch (pageErr) {
@@ -449,7 +471,7 @@ async function processTextTablesWithNativeImages(fastapiRes, filePath, uploadId,
           if (idx === imgColIdx) {
             const rowPageNum = row.page || pageNum;
             const pageIdx = rowPageNum - 1;
-            
+
             // Try Spatial SN lock first
             let finalImageUrl = null;
             if (displaySN && mupdfLayout.snImageMap.has(`${pageIdx}_${displaySN}`)) {
@@ -467,7 +489,7 @@ async function processTextTablesWithNativeImages(fastapiRes, filePath, uploadId,
             }
 
             const imageObj = finalImageUrl ? { url: finalImageUrl, sn: displaySN } : null;
-            
+
             return {
               value: '',
               image: imageObj,
@@ -482,7 +504,7 @@ async function processTextTablesWithNativeImages(fastapiRes, filePath, uploadId,
           const targetIdx = colIndexMap[cIdx];
           if (targetIdx !== -1 && targetIdx < formattedCells.length) {
             const incomingImages = cell.images || (cell.image ? [cell.image] : []);
-            
+
             // If this is the image column, and the incoming cell has no images, preserve our lazy image fallback
             if (targetIdx === imgColIdx && incomingImages.length === 0) {
               formattedCells[targetIdx] = {
@@ -659,7 +681,7 @@ async function processTextTablesWithNativeImages(fastapiRes, filePath, uploadId,
             descMatch = textItems.find((it, itIdx) => {
               const normStr = normalize(it.str);
               if (normStr !== firstTargetWord) return false;
-              
+
               const isNotHeader = headerY === -1 || it.y >= (headerY - 10);
               if (!isNotHeader) return false;
 
@@ -719,20 +741,20 @@ async function processTextTablesWithNativeImages(fastapiRes, filePath, uploadId,
         // 2. Define Y ranges for each row (Physical boundary matching)
         const rowRanges = rowAnchors.map((curr, idx) => {
           const next = rowAnchors[idx + 1];
-          
+
           const offset = 45;
           let yMin = curr.anchorY - offset;
           if (idx === 0 && headerY !== -1) {
             yMin = Math.min(headerY, yMin);
           }
-          
+
           let yMax;
           if (next) {
             yMax = next.anchorY - offset;
           } else {
             yMax = curr.anchorY + 600; // allow large range for last row
           }
-          
+
           // Ensure bounds are valid
           if (yMax < yMin) {
             yMax = yMin + 100;
@@ -751,9 +773,9 @@ async function processTextTablesWithNativeImages(fastapiRes, filePath, uploadId,
         for (let i = 0; i < productImages.length; i++) {
           const img = productImages[i];
           const imgCenterY = img.y + img.h / 2;
-          
+
           let matchedRowRange = rowRanges.find(r => imgCenterY >= r.yMin && imgCenterY < r.yMax);
-          
+
           if (!matchedRowRange) {
             let bestRange = null;
             let minDistance = Infinity;
@@ -1101,7 +1123,7 @@ app.get('/api/lazy-image/:uploadId/:page/:rowId', async (req, res) => {
           const updatedMeta = JSON.parse(await fs.readFile(metadataPath, 'utf8'));
           metadata.pages = updatedMeta.pages;
           metadata.rows = updatedMeta.rows;
-        } catch (e) {}
+        } catch (e) { }
       }
       pageLayout = metadata.pages.find(p => p.page === pNum);
     }
@@ -1194,7 +1216,7 @@ app.get('/api/lazy-image/:uploadId/:page/:rowId', async (req, res) => {
             descMatch = pageLayout.textItems.find((it, itIdx) => {
               const normStr = normalize(it.str);
               if (normStr !== firstTargetWord) return false;
-              
+
               const isNotHeader = computedHeaderY === -1 || it.y >= (computedHeaderY - 10);
               if (!isNotHeader) return false;
 
@@ -1289,7 +1311,7 @@ app.get('/api/lazy-image/:uploadId/:page/:rowId', async (req, res) => {
         descMatch = pageLayout.textItems.find((it, itIdx) => {
           const normStr = normalize(it.str);
           if (normStr !== firstTargetWord) return false;
-          
+
           const isNotHeader = computedHeaderY === -1 || it.y >= (computedHeaderY - 10);
           if (!isNotHeader) return false;
 
@@ -1421,9 +1443,9 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
         form.append('file', fs.createReadStream(filePath), { filename: fileName, contentType: 'application/pdf' });
         // Send 1/0 so FastAPI bool Form parsing works reliably
         form.append('use_paddle_fallback', usePaddleFallback ? '1' : '0');
-        form.append('use_paddle_only',     usePaddleOnly     ? '1' : '0');
-        form.append('do_ocr',              doclingOcr        ? '1' : '0');
-        form.append('pipeline',            pipeline);
+        form.append('use_paddle_only', usePaddleOnly ? '1' : '0');
+        form.append('do_ocr', doclingOcr ? '1' : '0');
+        form.append('pipeline', pipeline);
 
         let fastapiRes;
         try {
@@ -1451,7 +1473,45 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
         return fastapiRes.data;
       };
 
-      if (extractionMode === 'docling' || extractionMode === 'paddle' || extractionMode === 'opendataloader') {
+      if (extractionMode === 'wordcom') {
+        console.log(`[Upload] [wordcom] Starting Word/LibreOffice hybrid extraction...`);
+        try {
+          const uploadId = crypto.randomUUID();
+          const { extractPdfViaWord } = await getWordExtractorService();
+          extractedData = await extractPdfViaWord(filePath, (p) => {
+            console.log(`[Upload] [wordcom] progress: ${p}%`);
+          }, (assets) => {
+            if (Array.isArray(assets)) {
+              assets.forEach(asset => asset?.url && cleanupService.trackBlob(sessionId, asset.url));
+            }
+          });
+          if (extractedData && Array.isArray(extractedData.tables)) {
+            const primaryBeforeMap = extractedData.tables[0];
+            const auditBeforeMap = primaryBeforeMap?.serialAudit || primaryBeforeMap?.extractionAudit;
+
+            console.log(
+              `[Upload] [wordcom] extractorEngine=${extractedData.engineUsed || 'unknown'} ` +
+              `tables=${extractedData.tables.length} ` +
+              `rows=${primaryBeforeMap?.rows?.length || 0} ` +
+              `cols=${primaryBeforeMap?.header?.length || 0}`
+            );
+            console.log(`[Upload] [wordcom] primaryTableEngine=${primaryBeforeMap?.engineUsed || 'unknown'}`);
+            if (auditBeforeMap) {
+              console.log(
+                `[Upload] [wordcom] audit missing=${JSON.stringify(auditBeforeMap.missingSerials || [])} ` +
+                `duplicates=${JSON.stringify(auditBeforeMap.duplicateSerials || [])} ` +
+                `range=${auditBeforeMap.expectedStart || ''}-${auditBeforeMap.expectedEnd || ''}`
+              );
+            }
+
+            extractedData.tables = extractedData.tables.map(t => ({ ...t, uploadId, engineUsed: t.engineUsed || extractedData.engineUsed || 'wordcom-hybrid' }));
+          }
+        } catch (err) {
+          console.error(`[Upload] [wordcom] Failed: ${err.message}`, err.stack);
+          const safeMsg = (err.message || 'Unknown error').replace(/[A-Z]:\\\\[^\s]*/gi, '[path]').replace(/\/[^\s]*\//g, '[path]/');
+          throw new Error(`Word extraction failed: ${safeMsg}`);
+        }
+      } else if (extractionMode === 'docling' || extractionMode === 'paddle' || extractionMode === 'opendataloader') {
         console.log(`[Upload] [${extractionMode}] Starting simultaneous extraction...`);
         const uploadId = crypto.randomUUID();
 
@@ -1526,7 +1586,7 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
       const exists = fs_sync.existsSync(filePath);
       const stats = exists ? fs_sync.statSync(filePath) : null;
       console.log(`[Upload-Diagnostics] Processing Excel file. Path: ${filePath} | Exists: ${exists} | Size: ${stats ? stats.size : 'N/A'} bytes | Vercel: ${isVercel}`);
-      
+
       if (!exists) {
         throw new Error(`Uploaded Excel file not found on disk at: ${filePath}. Multer might have failed to write it, or directory permissions are restrictive.`);
       }
@@ -2524,7 +2584,7 @@ app.post('/api/ve-match', async (req, res) => {
         } else if (requestedTier === 'high' || requestedTier === 'premium') {
           dbName = 'fitout_v2-high.json';
         }
-        
+
         const dbPath = path.join(__dirname, 'data', 'brands', dbName);
         console.log(`  🔍 [VE Fitout] Loading local database: ${dbPath}`);
         const dbRaw = await fs.readFile(dbPath, 'utf-8');
@@ -2534,7 +2594,7 @@ app.post('/api/ve-match', async (req, res) => {
         const matchResult = await matchFitoutItem(enrichedDesc, internalProducts, dbName.replace('fitout_v2-', '').replace('.json', ''), 'google', providerModel);
         if (matchResult && matchResult.status === 'success' && matchResult.product) {
           const p = matchResult.product;
-          
+
           const rawMain = p.mainCategory || p.category || 'Partition Wall';
           const rawSub = p.subCategory || 'full height partition wall';
 
@@ -2543,7 +2603,7 @@ app.post('/api/ve-match', async (req, res) => {
           const subCat = subCats.find(s => s.toLowerCase() === rawSub.toLowerCase()) || (subCats[0] || 'full height partition wall');
 
           console.log(`  ✨ [VE Fitout Success] Found internal match: "${p.model}" (Normalized Category: ${mainCat} / ${subCat})`);
-          
+
           const proxyBase = `${req.protocol}://${req.get('host')}/api/image-proxy?url=`;
           if (p.imageUrl && p.imageUrl.startsWith('https://') && !p.imageUrl.includes('image-proxy')) {
             p.imageUrl = `${proxyBase}${encodeURIComponent(p.imageUrl)}`;
@@ -2882,7 +2942,7 @@ app.post('/api/ve-match-auto', async (req, res) => {
         } else if (requestedTier === 'high' || requestedTier === 'premium') {
           dbName = 'fitout_v2-high.json';
         }
-        
+
         const dbPath = path.join(__dirname, 'data', 'brands', dbName);
         console.log(`  🔍 [VE Auto-Detect Fitout] Loading local database: ${dbPath}`);
         const dbRaw = await fs.readFile(dbPath, 'utf-8');
@@ -2892,7 +2952,7 @@ app.post('/api/ve-match-auto', async (req, res) => {
         const matchResult = await matchFitoutItem(enrichedDesc, internalProducts, dbName.replace('fitout_v2-', '').replace('.json', ''), 'google', providerModel);
         if (matchResult && matchResult.status === 'success' && matchResult.product) {
           const p = matchResult.product;
-          
+
           const rawMain = p.mainCategory || p.category || 'Partition Wall';
           const rawSub = p.subCategory || 'full height partition wall';
 
@@ -2901,7 +2961,7 @@ app.post('/api/ve-match-auto', async (req, res) => {
           const subCat = subCats.find(s => s.toLowerCase() === rawSub.toLowerCase()) || (subCats[0] || 'full height partition wall');
 
           console.log(`  ✨ [VE Auto-Detect Fitout Success] Found internal match: "${p.model}" (Normalized Category: ${mainCat} / ${subCat})`);
-          
+
           const proxyBase = `${req.protocol}://${req.get('host')}/api/image-proxy?url=`;
           if (p.imageUrl && p.imageUrl.startsWith('https://') && !p.imageUrl.includes('image-proxy')) {
             p.imageUrl = `${proxyBase}${encodeURIComponent(p.imageUrl)}`;
@@ -2931,7 +2991,7 @@ app.post('/api/ve-match-auto', async (req, res) => {
     // ── STAGE 2: LOCAL DB CACHE LOOKUP (Zero-Cost) ──────────────────────────
     if (localBrand && localBrand.products && localBrand.products.length > 0) {
       console.log(`  🔍 [VE Auto-Detect Stage 2] Searching for "${identifiedModel}" in local cache (Brand: ${canonicalBrand}, Category Hint: ${identifiedCategory})...`);
-      
+
       // STAGE 2.5: Precise Match using actual models
       const modelList = localBrand.products.map(p => p.model);
       const matchResult = await veMatchSimple(enrichedDesc, canonicalBrand, modelList, providerModel);
@@ -2940,7 +3000,7 @@ app.post('/api/ve-match-auto', async (req, res) => {
       if (matchResult && matchResult.status === 'success' && matchResult.model) {
         best = localBrand.products.find(p => p.model.toLowerCase() === matchResult.model.toLowerCase());
         if (best) {
-            console.log(`  🧠 [VE Auto-Detect Stage 2.5] veMatchSimple accurately selected: "${best.model}"`);
+          console.log(`  🧠 [VE Auto-Detect Stage 2.5] veMatchSimple accurately selected: "${best.model}"`);
         }
       }
 
@@ -3809,13 +3869,15 @@ if (!isVercel) {
   server = app.listen(PORT, '0.0.0.0', () => {
     console.log(`🚀 Salamony4all/BOQV2 server actively listening on: http://localhost:${PORT}`);
 
-    // Initial maintenance tasks...
-    Promise.all([
-      cleanupService.cleanupAll(),
-      cleanTempDir()
-    ])
-      .then(() => console.log('✅ Initial cleanup completed.'))
-      .catch(err => console.error('❌ Cleanup failed:', err));
+    // Initial cleanup disabled on startup to prevent page load delays.
+    // Cloud operations and file scanning can take 30-60s on large sessions.
+    // Use /api/reset endpoint to manually clean up when needed.
+    // Promise.all([
+    //   cleanupService.cleanupAll(),
+    //   cleanTempDir()
+    // ])
+    //   .then(() => console.log('✅ Initial cleanup completed.'))
+    //   .catch(err => console.error('❌ Cleanup failed:', err));
   });
 
   server.on('error', (err) => {

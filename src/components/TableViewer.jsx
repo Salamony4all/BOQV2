@@ -21,13 +21,13 @@ const API_BASE = getApiBase();
 import { getBrandColors, UI_COLORS } from '../utils/themeConfig';
 
 
-function TableViewer({ 
-    data, 
-    allBrands, 
-    onUploadBoq, 
-    onUploadPlan, 
-    planPreviewUrl, 
-    planPreviewType, 
+function TableViewer({
+    data,
+    allBrands,
+    onUploadBoq,
+    onUploadPlan,
+    planPreviewUrl,
+    planPreviewType,
     planPreviewName,
     seededItems = null
 }) {
@@ -106,18 +106,18 @@ function TableViewer({
                 const response = await fetch(`${API_BASE || ''}/api/upload/metadata/${uploadId}`);
                 if (!response.ok) return;
                 const meta = await response.json();
-                
+
                 // If the background positional pairing is completed
                 if (meta && meta.isReady && meta.rows) {
                     console.log('🎉 Background native image matching ready! Updating TableViewer tables.');
-                    
+
                     setTables(prevTables => {
                         return prevTables.map(table => {
                             if (table.uploadId !== uploadId) return table;
-                            
+
                             const updatedRows = table.rows.map((row, rIdx) => {
                                 if (row.isHeader || row.isSummary) return row;
-                                
+
                                 const matchedMetaRow = meta.rows.find(mr => mr.pageNum === row.pageNum && mr.rowIdx === rIdx);
                                 if (matchedMetaRow) {
                                     const newCells = [...row.cells];
@@ -571,13 +571,13 @@ function TableViewer({
                 const y = rowY + idx * rHeight;
                 doc.setFont('helvetica', 'bold'); doc.text(r[0], leftX, y);
                 doc.setFont('helvetica', 'normal'); doc.text(processText(r[1]), leftX + 24, y);
-                
+
                 if (r[2]) {
                     doc.setFont('helvetica', 'bold'); doc.text(r[2], rightX, y);
                     doc.setFont('helvetica', 'normal'); doc.text(processText(r[3]), rightX + 24, y);
                 }
             });
-            
+
             infoY = projY + 48; // Shift infoY down for the decorative line
         }
 
@@ -626,7 +626,7 @@ function TableViewer({
             // Find column indices
             const header = table.header || [];
             let imgColIdx = header.findIndex(h => /image|photo|picture|img|pic|ref/i.test(h));
-            
+
             // Robust check: if no "Image" header, find column that actually has images
             if (imgColIdx === -1) {
                 for (let i = 0; i < header.length; i++) {
@@ -799,7 +799,7 @@ function TableViewer({
 
             // Draw compact Project Info at the top of the sheet (only if project details are filled)
             let startY = 30; // Default start Y for table if no project info
-            
+
             if (project.projectName || project.clientName) {
                 const pY = 28;
                 doc.setFillColor(...colors.lightBg);
@@ -838,7 +838,7 @@ function TableViewer({
                         }
                     } catch (e) { }
                 }
-                
+
                 startY = 50; // Push table start Y down to clear the project info block
             }
 
@@ -963,7 +963,7 @@ function TableViewer({
             row.getCell(startCol).alignment = { vertical: 'middle', horizontal: 'left' };
 
             const labelFont = { bold: true, size: 9, color: { argb: '475569' } };
-            
+
             const applyInputStyle = (cell, isPercent) => {
                 cell.font = { bold: true, size: 10, color: { argb: '0F172A' } };
                 cell.fill = {
@@ -984,7 +984,7 @@ function TableViewer({
             row.getCell(startCol + 1).value = 'Profit:';
             row.getCell(startCol + 1).font = labelFont;
             row.getCell(startCol + 1).alignment = { vertical: 'middle', horizontal: 'right' };
-            
+
             const profitCell = row.getCell(startCol + 2);
             profitCell.value = factors.profit / 100;
             applyInputStyle(profitCell, true);
@@ -992,7 +992,7 @@ function TableViewer({
             row.getCell(startCol + 3).value = 'Freight:';
             row.getCell(startCol + 3).font = labelFont;
             row.getCell(startCol + 3).alignment = { vertical: 'middle', horizontal: 'right' };
-            
+
             const freightCell = row.getCell(startCol + 4);
             freightCell.value = factors.freight / 100;
             applyInputStyle(freightCell, true);
@@ -1000,7 +1000,7 @@ function TableViewer({
             row.getCell(startCol + 5).value = 'Customs:';
             row.getCell(startCol + 5).font = labelFont;
             row.getCell(startCol + 5).alignment = { vertical: 'middle', horizontal: 'right' };
-            
+
             const customsCell = row.getCell(startCol + 6);
             customsCell.value = factors.customs / 100;
             applyInputStyle(customsCell, true);
@@ -1008,7 +1008,7 @@ function TableViewer({
             row.getCell(startCol + 7).value = 'Installation:';
             row.getCell(startCol + 7).font = labelFont;
             row.getCell(startCol + 7).alignment = { vertical: 'middle', horizontal: 'right' };
-            
+
             const installCell = row.getCell(startCol + 8);
             installCell.value = factors.installation / 100;
             applyInputStyle(installCell, true);
@@ -1016,7 +1016,7 @@ function TableViewer({
             row.getCell(startCol + 9).value = 'Exchange Rate:';
             row.getCell(startCol + 9).font = labelFont;
             row.getCell(startCol + 9).alignment = { vertical: 'middle', horizontal: 'right' };
-            
+
             const exrateCell = row.getCell(startCol + 10);
             exrateCell.value = factors.exchangeRate;
             applyInputStyle(exrateCell, false);
@@ -1148,7 +1148,7 @@ function TableViewer({
                     const rowObj = ws.getRow(rNum);
                     rowObj.values = rowVals;
                     rowObj.height = 18;
-                    
+
                     const cellA = rowObj.getCell(1);
                     const cellB = rowObj.getCell(2);
                     const cellD = rowObj.getCell(4);
@@ -1281,7 +1281,7 @@ function TableViewer({
                     cell.font = { color: { argb: '334155' }, size: 10 };
                     cell.alignment = { vertical: 'middle', wrapText: true };
                     cell.border = { bottom: { style: 'thin', color: { argb: 'E2E8F0' } } };
-                    
+
                     if (colIdx === qtyColIdx) {
                         cell.alignment = { horizontal: 'center', vertical: 'middle' };
                         cell.numFmt = '#,##0';
@@ -1351,7 +1351,7 @@ function TableViewer({
                         // Single image - centered with aspect ratio preservation
                         const imgData = images[0];
                         const fit = calcFitSize(imgData.width, imgData.height, baseImgSize, baseImgSize);
-                        
+
                         const colWidthChars = maxImages > 1 ? 18 : 12;
                         const colWidthPx = colWidthChars * 7.5;
                         const colOffset = Math.max(0, (colWidthPx - fit.w) / 2) / colWidthPx;
@@ -1950,11 +1950,11 @@ function TableViewer({
                     const imgAreaW = pageWidth - 16;
                     const imgAreaH = 65;
                     const numImgs = allImages.length;
-                    
+
                     let cols = numImgs === 1 ? 1 : (numImgs <= 4 ? 2 : 3);
                     let rows2 = Math.ceil(numImgs / cols);
                     if (rows2 > 3) rows2 = 3;
-                    
+
                     const pad = 2;
                     const cW = (imgAreaW - (cols - 1) * pad) / cols;
                     const cH = (imgAreaH - (rows2 - 1) * pad) / rows2;
@@ -2253,11 +2253,11 @@ function TableViewer({
                     const imgAreaW = pageWidth - 16;
                     const imgAreaH = 65;
                     const numImgs = allImages.length;
-                    
+
                     let cols = numImgs === 1 ? 1 : (numImgs <= 4 ? 2 : 3);
                     let rows2 = Math.ceil(numImgs / cols);
                     if (rows2 > 3) rows2 = 3;
-                    
+
                     const pad = 2;
                     const cW = (imgAreaW - (cols - 1) * pad) / cols;
                     const cH = (imgAreaH - (rows2 - 1) * pad) / rows2;
@@ -2427,7 +2427,7 @@ function TableViewer({
         const processText = (txt) => (arabicLoaded && hasArabic(txt)) ? fixArabic(txt) : String(txt || '');
         const today = new Date().toLocaleDateString('en-GB');
         const dnRef = project.dnReference || `DN-${Date.now().toString().slice(-6)}`;
-        
+
         // Pre-load logos
         const [whiteLogoInfo, colorLogoInfo] = await Promise.all([
             logoWhite ? getImageData(logoWhite, { format: 'image/png', maxWidth: 400 }).catch(() => null) : Promise.resolve(null),
@@ -2549,7 +2549,7 @@ function TableViewer({
                         doc.addImage(dlCol.dataUrl, 'PNG', 10, 8, fit.w, fit.h);
                     }
                 }
-                
+
                 doc.setFontSize(8);
                 doc.setTextColor(150, 150, 150);
                 doc.text(`Reference: ${dnRef} | Page ${doc.internal.getNumberOfPages()}`, pageWidth / 2, pageHeight - 10, { align: 'center' });
@@ -2560,14 +2560,14 @@ function TableViewer({
         if (lastY > pageHeight - 40) {
             doc.addPage();
             lastY = 30; // Start below logo
-            
+
             // Add Logo to manual page
             const dlCol = colorLogoInfo || whiteLogoInfo;
             if (dlCol) {
                 const fit = calcFitSize(dlCol.width, dlCol.height, 35, 12);
                 doc.addImage(dlCol.dataUrl, 'PNG', 10, 8, fit.w, fit.h);
             }
-            
+
             // Add Footer to manual page
             doc.setFontSize(8);
             doc.setTextColor(150, 150, 150);
@@ -2607,7 +2607,7 @@ function TableViewer({
         pres.subject = 'Bill of Quantities - Product Showcase';
 
         const baseColors = getBrandColors(accentColor, secondaryColor);
-        
+
         let brandColors = { ...baseColors };
         let fontFace = 'Arial';
         let layoutStyle = 'corporate'; // corporate, dark, minimalist, creative, tech
@@ -2696,19 +2696,19 @@ function TableViewer({
         // Pre-load company and client logos for slide header
         let companyLogoData = null;
         let clientLogoData = null;
-        const logoToUse = (layoutStyle === 'minimalist' || layoutStyle === 'creative') 
-            ? (logoOriginal || logoWhite) 
+        const logoToUse = (layoutStyle === 'minimalist' || layoutStyle === 'creative')
+            ? (logoOriginal || logoWhite)
             : (logoWhite || logoOriginal);
 
         if (logoToUse) {
             try {
                 companyLogoData = await getImageData(logoToUse, { format: 'image/png', maxWidth: 400 });
-            } catch (e) {}
+            } catch (e) { }
         }
         if (project.clientLogo) {
             try {
                 clientLogoData = await getImageData(project.clientLogo, { format: 'image/png', maxWidth: 400 });
-            } catch (e) {}
+            } catch (e) { }
         }
 
         // Light theme master slide (logos and shapes drawn inside loop so they are editable/movable)
@@ -2753,7 +2753,7 @@ function TableViewer({
         // Title Slide
         const titleSlide = pres.addSlide({ masterName: 'BOQ_MASTER' });
         drawSlideDecorations(titleSlide);
-        
+
         // Draw Company Logo on header of cover slide if available (small, far right)
         if (companyLogoData) {
             const maxW = 1.5;
@@ -2812,7 +2812,7 @@ function TableViewer({
                 fontSize: 36, bold: true, color: mainTitleColor, fontFace: fontFace, align: 'center'
             });
         }
-        
+
         const subtitle = project.clientName ? `Prepared for: ${project.clientName}` : 'Bill of Quantities - Product Presentation';
         titleSlide.addText(subtitle, {
             x: 0, y: 3.4, w: '100%', h: 0.4,
@@ -2826,7 +2826,7 @@ function TableViewer({
         let detailsPptText = `Date: ${project.issueDate || todayStr}   |   Revision: ${project.revision || 'Rev 0'}`;
         if (project.projectNumber) detailsPptText += `   |   Project No: ${project.projectNumber}`;
         if (project.locationZone) detailsPptText += `   |   Location: ${project.locationZone}`;
-        
+
         let partiesPptText = '';
         if (project.contractor && project.includeContractor !== false) partiesPptText += `Contractor: ${project.contractor}   `;
         if (project.consultant && project.includeConsultant !== false) partiesPptText += `|   Consultant: ${project.consultant}   `;
@@ -3140,7 +3140,7 @@ function TableViewer({
     const handleTemplateModalExport = async (templateId) => {
         setShowPptxModal(false);
         if (!pptxSourceTables) return;
-        
+
         if (pptxAsPdf) {
             await handleGeneratePptPdf(pptxSourceTables, templateId);
         } else {
@@ -3161,10 +3161,10 @@ function TableViewer({
         setIsGeneratingPpt(true);
         try {
             console.log(`🚀 [Frontend] Generating PPTX natively with template ${templateId} to send for PDF conversion...`);
-            
+
             // Generate the PPTX natively in frontend to ensure identical styling
             const pptxBase64 = await handleGeneratePresentation(sourceTables, true, templateId);
-            
+
             const payload = {
                 pptxBase64: pptxBase64
             };
@@ -3191,7 +3191,7 @@ function TableViewer({
             a.click();
             window.URL.revokeObjectURL(url);
             document.body.removeChild(a);
-            
+
             console.log('✅ [Background] Presentation PDF downloaded.');
         } catch (err) {
             console.error('❌ [Background] Presentation PDF error:', err);
@@ -3561,112 +3561,112 @@ function TableViewer({
                         </thead>
                         <tbody>
                             {table.rows.map((row, rowIndex) => {
-                                 const prevRow = rowIndex > 0 ? table.rows[rowIndex - 1] : null;
-                                 const showSectionHeader = row.sectionLabel && (!prevRow || prevRow.sectionLabel !== row.sectionLabel);
-                                 
-                                 return (
-                                     <React.Fragment key={rowIndex}>
-                                         {showSectionHeader && (
-                                             <tr className={styles.sectionHeaderRow}>
-                                                 <td colSpan={(table.header?.length || 0) + 1} className={styles.sectionHeaderCell}>
-                                                     <div className={styles.sectionHeaderContent}>
-                                                         <span className={styles.sectionIcon}>📁</span>
-                                                         <span className={styles.sectionTitleText}>{row.sectionLabel}</span>
-                                                         {row.pageNum && <span className={styles.sectionPageBadge}>Page {row.pageNum}</span>}
-                                                     </div>
-                                                 </td>
-                                             </tr>
-                                         )}
-                                         <tr className={row.isHeader ? styles.headerRow : ''}>
-                                             {(row.cells || []).map((cell, cellIndex) => {
-                                                 const CellTag = row.isHeader ? 'th' : 'td';
-                                                 const cellValue = cell && cell.value !== undefined ? cell.value : '';
-                                                 const isSnCol = /s\.?n|no|#|sr|item|sl/i.test(table.header?.[cellIndex] || '');
-                                                 
-                                                 return (
-                                                     <CellTag key={cellIndex} className={`${styles.cell} ${cell?.images?.length || /brand\s*(img|logo|image)/i.test(table.header?.[cellIndex]) ? styles.imageCell : ''}`}>
-                                                         {(() => {
-                                                             const headerName = table.header?.[cellIndex] || '';
-                                                             const isBrandImgCol = /brand\s*(img|logo|image)/i.test(headerName);
- 
-                                                             if (isBrandImgCol) {
-                                                                 // Find the BRAND column name to fetch the correct logo
-                                                                 const brandIdx = table.header.findIndex(h => /brand/i.test(h) && !/img|logo|image/i.test(h));
-                                                                 const brandName = brandIdx !== -1 ? row.cells[brandIdx]?.value : null;
-                                                                 const logo = getBrandLogo(brandName);
- 
-                                                                 if (logo) {
-                                                                     return (
-                                                                         <div className={styles.brandLogoWrapper}>
-                                                                             <img
-                                                                                 src={logo}
-                                                                                 alt={brandName}
-                                                                                 className={styles.brandLogo}
-                                                                                 onClick={() => setSelectedImage(logo)}
-                                                                                 onError={(e) => { e.target.style.display = 'none'; }}
-                                                                                 style={{ cursor: 'pointer' }}
-                                                                             />
-                                                                         </div>
-                                                                     );
-                                                                 }
-                                                             }
- 
-                                                             // Standard extraction image fallback
-                                                             if (cell && ((cell.images && cell.images.length > 0) || cell.image)) {
-                                                                 return (
-                                                                     <div className={(cell.images?.length > 1) ? styles.imageGrid : styles.cellImage}>
-                                                                         {(cell.images || [cell.image]).map((imgData, imgIdx) => (
-                                                                             <img
-                                                                                 key={imgIdx}
-                                                                                 src={getFullUrl(imgData)}
-                                                                                 alt="Thumb"
-                                                                                 className={styles.image}
-                                                                                 onClick={() => imgData && setSelectedImage(getFullUrl(imgData))}
-                                                                                 onError={(e) => {
-                                                                                     e.target.style.display = 'none';
-                                                                                     const ph = document.createElement('div');
-                                                                                     ph.className = styles.imgNoData;
-                                                                                     ph.textContent = 'No Image';
-                                                                                     e.target.parentNode.appendChild(ph);
-                                                                                 }}
-                                                                                 style={{ cursor: 'pointer' }}
-                                                                             />
-                                                                         ))}
-                                                                     </div>
-                                                                 );
-                                                             }
-                                                             return null;
-                                                         })()}
-                                                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                             {isSnCol && !row.isHeader && row.pageNum && (
-                                                                 <span className={styles.rowPageBadge} title={`Extracted from page ${row.pageNum}`}>
-                                                                     P.{row.pageNum}
-                                                                 </span>
-                                                             )}
-                                                             <div
-                                                                 className={styles.editableCell}
-                                                                 contentEditable={!isCosted && !row.isHeader}
-                                                                 suppressContentEditableWarning
-                                                                 onBlur={(e) => !isCosted && handleCellChange(tableIndex, rowIndex, cellIndex, e.target.innerText)}
-                                                                 style={{ flex: 1 }}
-                                                             >
-                                                                 {row.isHeader ? cellValue : formatNumber(cellValue, table.header?.[cellIndex])}
-                                                             </div>
-                                                         </div>
-                                                     </CellTag>
-                                                 );
-                                             })}
-                                             {!row.isHeader && !isCosted && (
-                                                 <td className={styles.actionCell}>
-                                                     <button className={`${styles.actionBtn} ${styles.addBtn}`} onClick={() => handleAddRow(tableIndex, rowIndex)}>+</button>
-                                                     <button className={`${styles.actionBtn} ${styles.removeBtn}`} onClick={() => handleRemoveRow(tableIndex, rowIndex)}>×</button>
-                                                 </td>
-                                             )}
-                                             {isCosted && !row.isHeader && <td className={styles.actionCell}>-</td>}
-                                         </tr>
-                                     </React.Fragment>
-                                 );
-                             })}
+                                const prevRow = rowIndex > 0 ? table.rows[rowIndex - 1] : null;
+                                const showSectionHeader = row.sectionLabel && (!prevRow || prevRow.sectionLabel !== row.sectionLabel);
+
+                                return (
+                                    <React.Fragment key={rowIndex}>
+                                        {showSectionHeader && (
+                                            <tr className={styles.sectionHeaderRow}>
+                                                <td colSpan={(table.header?.length || 0) + 1} className={styles.sectionHeaderCell}>
+                                                    <div className={styles.sectionHeaderContent}>
+                                                        <span className={styles.sectionIcon}>📁</span>
+                                                        <span className={styles.sectionTitleText}>{row.sectionLabel}</span>
+                                                        {row.pageNum && <span className={styles.sectionPageBadge}>Page {row.pageNum}</span>}
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        )}
+                                        <tr className={row.isHeader ? styles.headerRow : ''}>
+                                            {(row.cells || []).map((cell, cellIndex) => {
+                                                const CellTag = row.isHeader ? 'th' : 'td';
+                                                const cellValue = cell && cell.value !== undefined ? cell.value : '';
+                                                const isSnCol = /s\.?n|no|#|sr|item|sl/i.test(table.header?.[cellIndex] || '');
+
+                                                return (
+                                                    <CellTag key={cellIndex} className={`${styles.cell} ${cell?.images?.length || /brand\s*(img|logo|image)/i.test(table.header?.[cellIndex]) ? styles.imageCell : ''}`}>
+                                                        {(() => {
+                                                            const headerName = table.header?.[cellIndex] || '';
+                                                            const isBrandImgCol = /brand\s*(img|logo|image)/i.test(headerName);
+
+                                                            if (isBrandImgCol) {
+                                                                // Find the BRAND column name to fetch the correct logo
+                                                                const brandIdx = table.header.findIndex(h => /brand/i.test(h) && !/img|logo|image/i.test(h));
+                                                                const brandName = brandIdx !== -1 ? row.cells[brandIdx]?.value : null;
+                                                                const logo = getBrandLogo(brandName);
+
+                                                                if (logo) {
+                                                                    return (
+                                                                        <div className={styles.brandLogoWrapper}>
+                                                                            <img
+                                                                                src={logo}
+                                                                                alt={brandName}
+                                                                                className={styles.brandLogo}
+                                                                                onClick={() => setSelectedImage(logo)}
+                                                                                onError={(e) => { e.target.style.display = 'none'; }}
+                                                                                style={{ cursor: 'pointer' }}
+                                                                            />
+                                                                        </div>
+                                                                    );
+                                                                }
+                                                            }
+
+                                                            // Standard extraction image fallback
+                                                            if (cell && ((cell.images && cell.images.length > 0) || cell.image)) {
+                                                                return (
+                                                                    <div className={(cell.images?.length > 1) ? styles.imageGrid : styles.cellImage}>
+                                                                        {(cell.images || [cell.image]).map((imgData, imgIdx) => (
+                                                                            <img
+                                                                                key={imgIdx}
+                                                                                src={getFullUrl(imgData)}
+                                                                                alt="Thumb"
+                                                                                className={styles.image}
+                                                                                onClick={() => imgData && setSelectedImage(getFullUrl(imgData))}
+                                                                                onError={(e) => {
+                                                                                    e.target.style.display = 'none';
+                                                                                    const ph = document.createElement('div');
+                                                                                    ph.className = styles.imgNoData;
+                                                                                    ph.textContent = 'No Image';
+                                                                                    e.target.parentNode.appendChild(ph);
+                                                                                }}
+                                                                                style={{ cursor: 'pointer' }}
+                                                                            />
+                                                                        ))}
+                                                                    </div>
+                                                                );
+                                                            }
+                                                            return null;
+                                                        })()}
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                            {isSnCol && !row.isHeader && row.pageNum && (
+                                                                <span className={styles.rowPageBadge} title={`Extracted from page ${row.pageNum}`}>
+                                                                    P.{row.pageNum}
+                                                                </span>
+                                                            )}
+                                                            <div
+                                                                className={styles.editableCell}
+                                                                contentEditable={!isCosted && !row.isHeader}
+                                                                suppressContentEditableWarning
+                                                                onBlur={(e) => !isCosted && handleCellChange(tableIndex, rowIndex, cellIndex, e.target.innerText)}
+                                                                style={{ flex: 1 }}
+                                                            >
+                                                                {row.isHeader ? cellValue : formatNumber(cellValue, table.header?.[cellIndex])}
+                                                            </div>
+                                                        </div>
+                                                    </CellTag>
+                                                );
+                                            })}
+                                            {!row.isHeader && !isCosted && (
+                                                <td className={styles.actionCell}>
+                                                    <button className={`${styles.actionBtn} ${styles.addBtn}`} onClick={() => handleAddRow(tableIndex, rowIndex)}>+</button>
+                                                    <button className={`${styles.actionBtn} ${styles.removeBtn}`} onClick={() => handleRemoveRow(tableIndex, rowIndex)}>×</button>
+                                                </td>
+                                            )}
+                                            {isCosted && !row.isHeader && <td className={styles.actionCell}>-</td>}
+                                        </tr>
+                                    </React.Fragment>
+                                );
+                            })}
                         </tbody>
                     </table>
                 </div>
@@ -3769,8 +3769,8 @@ function TableViewer({
                     <button className={actionStyles.actionBtn} onClick={() => handleDownloadPDF(tablesWithSummary, 'Original_Offer')}>📄 Download Offer PDF</button>
                     <button className={actionStyles.actionBtn} onClick={() => handleDownloadExcel(tablesWithSummary, 'Original_Offer')}>📊 Download Offer Excel</button>
                     <button className={actionStyles.actionBtn} onClick={() => triggerPptxExport(tablesWithSummary, false)}>📽️ Generate Presentation</button>
-                    <button 
-                        className={`${actionStyles.actionBtn} ${isGeneratingPpt ? actionStyles.loading : ''}`} 
+                    <button
+                        className={`${actionStyles.actionBtn} ${isGeneratingPpt ? actionStyles.loading : ''}`}
                         onClick={() => triggerPptxExport(tablesWithSummary, true)}
                         disabled={isGeneratingPpt}
                     >
@@ -3795,8 +3795,8 @@ function TableViewer({
                     <button className={actionStyles.btnMultiBudget} onClick={() => setMultiBudgetOpen(true)}>
                         📦 Multi Budget Offer
                     </button>
-                    <button 
-                        className={actionStyles.btnAiValueEngineer} 
+                    <button
+                        className={actionStyles.btnAiValueEngineer}
                         onClick={() => setValueEngineeredOpen(true)}
                     >
                         ✨ AI Value Engineer
@@ -3838,8 +3838,8 @@ function TableViewer({
                             <button className={actionStyles.actionBtn} onClick={() => handleDownloadPDF(costedTables, 'Costed_Offer')}>📄 Download Costed PDF</button>
                             <button className={actionStyles.actionBtn} onClick={() => handleDownloadExcel(costedTables, 'Costed_Offer')}>📊 Download Costed Excel</button>
                             <button className={actionStyles.actionBtn} onClick={() => triggerPptxExport(costedTables, false)}>📽️ Generate Costed Presentation</button>
-                            <button 
-                                className={`${actionStyles.actionBtn} ${isGeneratingPpt ? actionStyles.loading : ''}`} 
+                            <button
+                                className={`${actionStyles.actionBtn} ${isGeneratingPpt ? actionStyles.loading : ''}`}
                                 onClick={() => triggerPptxExport(costedTables, true)}
                                 disabled={isGeneratingPpt}
                             >

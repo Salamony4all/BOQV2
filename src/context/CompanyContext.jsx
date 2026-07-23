@@ -35,7 +35,7 @@ const DEFAULT_PROFILE = {
 // Provider component
 export function CompanyProvider({ children }) {
     const [profile, setProfile] = useState(DEFAULT_PROFILE);
-    const [isLoading, setIsLoading] = useState(true);
+    const [isLoading, setIsLoading] = useState(false);
     const [showSetupModal, setShowSetupModal] = useState(false);
 
     // Apply colors to CSS variables
@@ -345,3 +345,4 @@ export function useCompanyProfile() {
 }
 
 export default CompanyContext;
+

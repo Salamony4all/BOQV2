@@ -66,3 +66,15 @@ logos/
 graphify-out/
 .graphifyignore
 
+# PDF test files
+PDF/
+PDF/**
+PDF_Round2/
+PDF_Round2/**
+
+# Temporary scripts
+scripts/download_test_pdfs.js
+scripts/scan_local_pdfs.js
+scripts/copy_local_pdfs.js
+scripts/test_single.js
+

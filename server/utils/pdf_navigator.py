@@ -57,24 +57,20 @@ def merge_contiguous_rects(raw_items, tolerance=5, x_tolerance=3, y_tolerance=3)
                 break
     return items
 
-def extract_pdf_data(pdf_path, output_dir, mode="native"):
-    """
-    mode: 'native' (default) - extracts selectable assets only
-          'full' - renders specific page full scan (used for fallback)
-    """
+def extract_pdf_data(pdf_path, output_dir, target_pages=None):
     try:
         doc = fitz.open(pdf_path)
         os.makedirs(output_dir, exist_ok=True)
         
         results = []
+        extracted_xrefs = {}
         
-        # If we are in 'full' mode, we might only be rendering ONE page
-        # but the current CLI args don't support it yet. 
-        # I'll keep it simple: 'native' mode extracts assets + text.
-        
-        total_pages = min(len(doc), 40)
-        
-        for p_idx in range(total_pages):
+        if target_pages:
+            pages_list = [int(p) - 1 for p in target_pages if 0 < int(p) <= len(doc)]
+        else:
+            pages_list = list(range(len(doc)))
+            
+        for p_idx in pages_list:
             page = doc[p_idx]
             page_num = p_idx + 1
             
@@ -93,75 +89,50 @@ def extract_pdf_data(pdf_path, output_dir, mode="native"):
             # 2. Extract Native (Selectable) Images
             extracted_images = []
             
-            raw_items = []
-            image_list = page.get_images(full=True)
-            for img_info in image_list:
-                xref = img_info[0]
-                img_rects = page.get_image_rects(xref)
-                if img_rects:
-                    for r in img_rects:
-                        if (r.x1 - r.x0) >= 2 and (r.y1 - r.y0) >= 2:
-                            raw_items.append({
-                                "rect": r,
-                                "xref": xref
-                            })
-                            
-            # Merge contiguous image slices (e.g. split CAD drawing strips)
-            merged_items = merge_contiguous_rects(raw_items)
-            
-            # Filter final bounding boxes to keep only size-appropriate items
-            final_items = [item for item in merged_items if (item["rect"].x1 - item["rect"].x0) >= 20 and (item["rect"].y1 - item["rect"].y0) >= 20]
-            print(f"DEBUG: Found {len(image_list)} raw image refs, merged into {len(final_items)} final rects on page {page_num}", file=sys.stderr)
-            
-            for idx, item in enumerate(final_items):
-                rect = item["rect"]
-                xrefs = item["xrefs"]
-                cw = rect.x1 - rect.x0
-                ch = rect.y1 - rect.y0
+            try:
+                page_dict = page.get_text("dict")
+                blocks = page_dict.get("blocks", [])
+                img_blocks = [b for b in blocks if b.get("type") == 1]
                 
-                extracted_any = False
-                for xref in xrefs:
-                    try:
-                        base_image = doc.extract_image(xref)
-                        if base_image:
-                            image_bytes = base_image["image"]
-                            ext = base_image["ext"]
-                            img_filename = f"page_{page_num}_native_{idx}_{xref}_{round(rect.x0)}.{ext}"
-                            img_path = os.path.join(output_dir, img_filename)
+                for idx, block in enumerate(img_blocks):
+                    bbox = block["bbox"]
+                    x0, y0, x1, y1 = bbox
+                    cw = x1 - x0
+                    ch = y1 - y0
+                    
+                    if cw < 20 or ch < 20:
+                        continue
+                        
+                    image_bytes = block.get("image")
+                    ext = block.get("ext", "png")
+                    
+                    if not image_bytes:
+                        continue
+                        
+                    # Hash first 200 bytes of the image to cache duplicate logos
+                    img_hash = hash(image_bytes[:200])
+                    
+                    if img_hash in extracted_xrefs:
+                        img_filename = extracted_xrefs[img_hash]
+                    else:
+                        img_filename = f"native_{abs(img_hash)}.{ext}"
+                        img_path = os.path.join(output_dir, img_filename)
+                        if not os.path.exists(img_path):
                             with open(img_path, "wb") as fh:
                                 fh.write(image_bytes)
-                            
-                            extracted_images.append({
-                                "x": round(rect.x0 * 2), 
-                                "y": round(rect.y0 * 2),
-                                "w": round(cw * 2),
-                                "h": round(ch * 2),
-                                "path": img_filename,
-                                "is_native": True,
-                                "xref": xref
-                            })
-                            extracted_any = True
-                    except Exception as native_err:
-                        print(f"DEBUG: Native extract failed for xref {xref} on page {page_num}: {native_err}", file=sys.stderr)
-                
-                # Fallback: if native extraction failed or extracted no images, crop from page layout
-                if not extracted_any:
-                    try:
-                        pix = page.get_pixmap(clip=rect, matrix=fitz.Matrix(2, 2))
-                        img_filename = f"page_{page_num}_native_{idx}_{round(rect.x0)}.jpg"
-                        img_path = os.path.join(output_dir, img_filename)
-                        pix.save(img_path)
-                        extracted_images.append({
-                            "x": round(rect.x0 * 2), 
-                            "y": round(rect.y0 * 2),
-                            "w": round(cw * 2),
-                            "h": round(ch * 2),
-                            "path": img_filename,
-                            "is_native": True,
-                            "xref": 99000 + idx
-                        })
-                    except Exception as crop_err:
-                        print(f"DEBUG: Crop failed for merged item {idx} on page {page_num}: {crop_err}", file=sys.stderr)
+                        extracted_xrefs[img_hash] = img_filename
+                        
+                    extracted_images.append({
+                        "x": round(x0 * 2), 
+                        "y": round(y0 * 2),
+                        "w": round(cw * 2),
+                        "h": round(ch * 2),
+                        "path": img_filename,
+                        "is_native": True,
+                        "xref": 99000 + idx
+                    })
+            except Exception as dict_err:
+                print(f"DEBUG: Dict image extraction failed on page {page_num}: {dict_err}", file=sys.stderr)
             
             # CRITICAL: Sort images top-to-bottom by Y coordinate.
             extracted_images.sort(key=lambda img: (img["y"], img["x"]))
@@ -181,7 +152,10 @@ def extract_pdf_data(pdf_path, output_dir, mode="native"):
                 }
             })
             
-        print(json.dumps({"success": True, "data": results}))
+        out_file = os.path.join(output_dir, "layout.json")
+        with open(out_file, "w", encoding="utf-8") as fh:
+            json.dump({"success": True, "data": results}, fh, ensure_ascii=False)
+        print(json.dumps({"success": True, "outputFile": "layout.json"}))
         
     except Exception as e:
         print(json.dumps({"success": False, "error": str(e), "trace": traceback.format_exc()}))
@@ -205,5 +179,13 @@ if __name__ == "__main__":
         # Usage: python pdf_navigator.py --render-page <pdf> <page_num> <output_path>
         render_full_page(sys.argv[2], int(sys.argv[3]), sys.argv[4])
     else:
-        # Usage: python pdf_navigator.py <pdf> <output_dir>
-        extract_pdf_data(sys.argv[1], sys.argv[2])
+        # Usage: python pdf_navigator.py <pdf> <output_dir> [--pages p1,p2,...]
+        target_pages = None
+        if "--pages" in sys.argv:
+            try:
+                p_idx = sys.argv.index("--pages")
+                if p_idx + 1 < len(sys.argv):
+                    target_pages = sys.argv[p_idx + 1].split(",")
+            except Exception:
+                pass
+        extract_pdf_data(sys.argv[1], sys.argv[2], target_pages)

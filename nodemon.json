@@ -1,15 +1,20 @@
 {
-  "verbose": true,
+  "watch": ["server"],
+  "ext": "js,json",
   "ignore": [
+    "node_modules",
+    ".git",
     "server/data/**",
     "public/temp/**",
     "public/cache/**",
     "uploads/**",
     "extracted_assets/**",
-    "*.test.js",
-    "node_modules/**",
-    ".git/**"
+    "dist/**",
+    "**/*.temp/**",
+    "**/*.html",
+    "**/*.htm",
+    "**/*.zip",
+    "*.test.js"
   ],
-  "exec": "node --max-old-space-size=8192 server/server.js",
-  "ext": "js,json"
+  "exec": "node --max-old-space-size=8192 server/server.js"
 }
