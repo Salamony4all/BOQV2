@@ -7,6 +7,7 @@ import crypto from 'node:crypto';
 
 const execFileAsync = promisify(execFile);
 import { renderPDFWithLayout } from './utils/pdfRenderer.js';
+import { uploadToSupabase, supabase } from './utils/supabaseStorage.js';
 export const EXTRACTOR_VERSION = 'wordpdf-universal-v16.0';
 const PAGE_BREAK = '\f';
 
@@ -755,17 +756,38 @@ async function extractAndPairImages(pdfPath, table, sessionId) {
           const img = regionImages[j];
           const filename = `page_${pageNum}_row_${i}_img_${j}_${crypto.randomUUID().slice(0, 8)}.png`;
           const destPath = path.join(publicRoot, filename);
+          let imageUrl = `/temp/extracted_images/${sessionId}/${filename}`;
+
           try {
             await fs.copyFile(img.path, destPath);
+
+            // Cloud Storage Strategy (Supabase - matching fastExtractor.js)
+            if (supabase) {
+              try {
+                const imgData = await fs.readFile(img.path);
+                const supabasePath = `extracted-images/${sessionId}/${filename}`;
+                const uploadResult = await uploadToSupabase('assets', supabasePath, imgData, {
+                  contentType: 'image/png',
+                  cacheControl: '3600'
+                });
+                if (uploadResult?.url) {
+                  imageUrl = uploadResult.url;
+                  console.log(`[WordPdfExtractor] Supabase upload success: ${imageUrl}`);
+                }
+              } catch (supErr) {
+                console.warn(`[WordPdfExtractor] Supabase upload failed for ${filename}: ${supErr.message}`);
+              }
+            }
+
             rowImages.push({
-              url: `/temp/extracted_images/${sessionId}/${filename}`,
+              url: imageUrl,
               extension: 'png',
               source: 'pdf-native',
               pageNum,
               confidence: 0.85
             });
           } catch (e) {
-            console.error(`[WordPdfExtractor] Failed to copy native image: ${e.message}`);
+            console.error(`[WordPdfExtractor] Failed to process native image: ${e.message}`);
           }
         }
 

@@ -3176,8 +3176,19 @@ function TableViewer({
             });
 
             if (!response.ok) {
-                const errData = await response.json();
-                throw new Error(errData.error || 'Server failed to generate presentation');
+                let errorText = 'Server failed to generate presentation';
+                try {
+                    const errData = await response.json();
+                    errorText = errData.error || errData.message || errorText;
+                } catch (jsonErr) {
+                    const rawText = await response.text().catch(() => '');
+                    if (rawText.includes('Request Entity Too Large') || response.status === 413) {
+                        errorText = 'Presentation size exceeds payload limit (413). Please export directly as PPTX.';
+                    } else if (rawText) {
+                        errorText = rawText.slice(0, 150);
+                    }
+                }
+                throw new Error(errorText);
             }
 
             const blob = await response.blob();
