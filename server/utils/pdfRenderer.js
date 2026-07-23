@@ -30,13 +30,24 @@ export async function renderPDFWithLayout(filePath, pages = null) {
         if (pages && pages.length > 0) {
             args.push('--pages', pages.join(','));
         }
-        const pythonProcess = spawn(PYTHON_BIN, args);
+        let pythonProcess;
+        try {
+            pythonProcess = spawn(PYTHON_BIN, args);
+        } catch (spawnErr) {
+            console.warn(`    ⚠️ [PDF Renderer] Failed to spawn python (${PYTHON_BIN}): ${spawnErr.message}`);
+            return reject(new Error(`Python process spawn failed: ${spawnErr.message}`));
+        }
 
         let stdoutData = '';
         let stderrData = '';
 
-        pythonProcess.stdout.on('data', (data) => { stdoutData += data; });
-        pythonProcess.stderr.on('data', (data) => { stderrData += data; });
+        pythonProcess.on('error', (err) => {
+            console.warn(`    ⚠️ [PDF Renderer] Python process error: ${err.message}`);
+            reject(new Error(`Python process error: ${err.message}`));
+        });
+
+        pythonProcess.stdout?.on('data', (data) => { stdoutData += data; });
+        pythonProcess.stderr?.on('data', (data) => { stderrData += data; });
 
         pythonProcess.on('close', async (code) => {
             if (code !== 0) {
@@ -85,10 +96,16 @@ export async function renderPDFWithLayout(filePath, pages = null) {
 export async function renderSinglePageFull(pdfPath, pageNum, outputPath) {
     console.log(`  🎞️ [PDF Renderer] On-Demand Fallback Scan: Page ${pageNum}`);
     return new Promise((resolve, reject) => {
-        const pythonProcess = spawn(PYTHON_BIN, [PYTHON_SCRIPT, '--render-page', pdfPath, pageNum.toString(), outputPath]);
+        let pythonProcess;
+        try {
+            pythonProcess = spawn(PYTHON_BIN, [PYTHON_SCRIPT, '--render-page', pdfPath, pageNum.toString(), outputPath]);
+        } catch (spawnErr) {
+            return reject(new Error(`Python process spawn failed: ${spawnErr.message}`));
+        }
         
         let stdoutData = '';
-        pythonProcess.stdout.on('data', (data) => { stdoutData += data; });
+        pythonProcess.on('error', (err) => reject(new Error(`Python process error: ${err.message}`)));
+        pythonProcess.stdout?.on('data', (data) => { stdoutData += data; });
 
         pythonProcess.on('close', (code) => {
             if (code !== 0) return reject(new Error(`Page render failed with code ${code}`));
