@@ -60,7 +60,7 @@ const PdfModelModal = ({ isOpen, onClose, onExtract, fileName }) => {
   const chosen = PIPELINES.find(p => p.id === selectedPipeline);
 
   const handleExtract = () => {
-    onExtract(currentModel, selectedPipeline, { doclingOcr });
+    onExtract(currentModel, selectedPipeline);
   };
 
   return (
@@ -177,63 +177,23 @@ const PdfModelModal = ({ isOpen, onClose, onExtract, fileName }) => {
               })}
             </div>
 
-            {/* OCR Options */}
-            {selectedPipeline === 'docling' && (
+            {/* Word COM Info */}
+            {selectedPipeline === 'wordcom' && (
               <div style={{
                 marginTop: '16px',
                 padding: '12px 16px',
                 borderRadius: '12px',
-                background: 'rgba(14, 165, 233, 0.08)',
-                border: '1px dashed rgba(14, 165, 233, 0.3)',
+                background: 'rgba(139, 92, 246, 0.08)',
+                border: '1px dashed rgba(139, 92, 246, 0.3)',
                 display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
+                alignItems: 'flex-start',
+                gap: '12px',
                 animation: 'pdmFadeIn 0.2s ease'
               }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                  <span style={{ fontSize: '0.88rem', fontWeight: 600, color: 'var(--text-primary, #f8fafc)' }}>
-                    Enable OCR (Optical Character Recognition)
-                  </span>
-                  <span style={{ fontSize: '0.78rem', color: 'var(--text-muted, #64748b)' }}>
-                    Slow extraction. Necessary only for scanned or image-only PDFs.
-                  </span>
-                </div>
-                <label style={{
-                  position: 'relative',
-                  display: 'inline-block',
-                  width: '42px',
-                  height: '24px',
-                  cursor: 'pointer'
-                }}>
-                  <input
-                    type="checkbox"
-                    checked={doclingOcr}
-                    onChange={(e) => setDoclingOcr(e.target.checked)}
-                    style={{ opacity: 0, width: 0, height: 0 }}
-                  />
-                  <span style={{
-                    position: 'absolute',
-                    cursor: 'pointer',
-                    inset: 0,
-                    backgroundColor: doclingOcr ? '#0ea5e9' : 'rgba(255,255,255,0.15)',
-                    borderRadius: '34px',
-                    transition: '0.3s',
-                    border: '1px solid rgba(255,255,255,0.05)'
-                  }}>
-                    <span style={{
-                      position: 'absolute',
-                      content: '""',
-                      height: '18px',
-                      width: '18px',
-                      left: doclingOcr ? '20px' : '3px',
-                      bottom: '2.5px',
-                      backgroundColor: 'white',
-                      borderRadius: '50%',
-                      transition: '0.3s',
-                      boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
-                    }} />
-                  </span>
-                </label>
+                <span style={{ fontSize: '1.2rem', flexShrink: 0 }}>ℹ️</span>
+                <span style={{ fontSize: '0.78rem', color: 'var(--text-muted, #64748b)', lineHeight: 1.5 }}>
+                  Requires Windows with Microsoft Word installed. Preserves original layout, formatting, images, and embedded objects.
+                </span>
               </div>
             )}
 

@@ -44,10 +44,10 @@ if (KV_URL && KV_TOKEN) {
 async function getLocalBrands() {
     // Try multiple possible paths where Vercel/Node might place the data
     const possiblePaths = [
-        isVercel ? '/tmp/data/brands' : path.join(process.cwd(), 'server/data/brands'),
         path.join(process.cwd(), 'server/data/brands'),
         path.join(__dirname, 'data/brands'),
-        '/var/task/server/data/brands'
+        '/var/task/server/data/brands',
+        '/tmp/data/brands'
     ];
 
     const allBrands = [];

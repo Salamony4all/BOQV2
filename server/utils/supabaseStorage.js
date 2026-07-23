@@ -1,24 +1,52 @@
 import { createClient } from '@supabase/supabase-js';
 import 'dotenv/config';
 
-const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const cleanEnvStr = (str) => {
+    if (!str || typeof str !== 'string') return '';
+    return str.trim().replace(/^["']|["']$/g, '').trim();
+};
+
+const rawSupabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+const rawSupabaseKey = process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+const rawSupabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY;
+
+let supabaseUrl = cleanEnvStr(rawSupabaseUrl);
+let supabaseKey = cleanEnvStr(rawSupabaseKey);
+let supabaseServiceKey = cleanEnvStr(rawSupabaseServiceKey);
+
+if (supabaseUrl && !/^https?:\/\//i.test(supabaseUrl)) {
+    supabaseUrl = `https://${supabaseUrl}`;
+}
 
 if (!supabaseUrl || !supabaseKey) {
-    console.warn('⚠️  [SupabaseStorage] Supabase credentials missing (SUPABASE_URL / SUPABASE_ANON_KEY)');
+    console.warn('⚠️  [SupabaseStorage] Supabase credentials missing or invalid (SUPABASE_URL / SUPABASE_ANON_KEY)');
 }
 
 // Standard client (subject to RLS policies — safe for reads and inserts)
-export const supabase = (supabaseUrl && supabaseKey)
-    ? createClient(supabaseUrl, supabaseKey)
-    : null;
+let supabaseClient = null;
+if (supabaseUrl && supabaseKey) {
+    try {
+        supabaseClient = createClient(supabaseUrl, supabaseKey, {
+            auth: { autoRefreshToken: false, persistSession: false }
+        });
+    } catch (err) {
+        console.error('❌ [SupabaseStorage] Failed to create Supabase client:', err.message);
+    }
+}
+export const supabase = supabaseClient;
 
 // Admin client (bypasses RLS — used ONLY for trusted server-side destructive ops like DELETE)
-// Falls back to anon client if service role key is not configured
-export const supabaseAdmin = (supabaseUrl && supabaseServiceKey)
-    ? createClient(supabaseUrl, supabaseServiceKey, { auth: { autoRefreshToken: false, persistSession: false } })
-    : supabase;
+let supabaseAdminClient = null;
+if (supabaseUrl && supabaseServiceKey) {
+    try {
+        supabaseAdminClient = createClient(supabaseUrl, supabaseServiceKey, {
+            auth: { autoRefreshToken: false, persistSession: false }
+        });
+    } catch (err) {
+        console.error('❌ [SupabaseStorage] Failed to create Supabase admin client:', err.message);
+    }
+}
+export const supabaseAdmin = supabaseAdminClient || supabaseClient;
 
 if (supabaseUrl && !supabaseServiceKey) {
     console.warn('⚠️  [SupabaseStorage] SUPABASE_SERVICE_ROLE_KEY not set — DELETE operations may be blocked by RLS. Add it to your Vercel environment variables.');
@@ -38,15 +66,13 @@ async function ensureBucket(bucketName) {
         // Attempt to list buckets to check existence
         const { data: buckets, error: listError } = await supabase.storage.listBuckets();
 
-        // If we can't list buckets (often due to RLS), we'll just try to upload anyway
-        // instead of failing. Most users don't have 'list' permissions on anon keys.
         if (listError) {
             console.warn(`[SupabaseStorage] Notice: Cannot list buckets (${listError.message}). Proceeding assuming "${bucketName}" exists.`);
             verifiedBuckets.add(bucketName);
             return true;
         }
 
-        const exists = buckets.some(b => b.name === bucketName);
+        const exists = (buckets || []).some(b => b.name === bucketName);
         if (!exists) {
             console.log(`[SupabaseStorage] Creating missing bucket: "${bucketName}"`);
             const { error: createError } = await supabase.storage.createBucket(bucketName, {
@@ -54,7 +80,6 @@ async function ensureBucket(bucketName) {
                 fileSizeLimit: 10485760, // 10MB
             });
             if (createError) {
-                // If creation fails (RLS), it might still exist but be hidden
                 console.warn(`[SupabaseStorage] Warning: Failed to create bucket "${bucketName}" (${createError.message}). It may already exist.`);
             }
         }
@@ -62,10 +87,9 @@ async function ensureBucket(bucketName) {
         verifiedBuckets.add(bucketName);
         return true;
     } catch (err) {
-        // Log once but don't block the upload attempt
-        console.error(`[SupabaseStorage] Error during bucket check for "${bucketName}":`, err.message);
-        verifiedBuckets.add(bucketName); // Mark as "checked" to stop retrying
-        return false;
+        console.warn(`[SupabaseStorage] Notice during bucket check for "${bucketName}": ${err.message}`);
+        verifiedBuckets.add(bucketName); // Mark as checked to prevent loop
+        return true;
     }
 }
 
@@ -82,31 +106,33 @@ export async function uploadToSupabase(bucket, path, fileObject, options = {}) {
         throw new Error('Supabase client not initialized');
     }
 
-    // Ensure bucket exists before upload
-    await ensureBucket(bucket);
+    try {
+        await ensureBucket(bucket);
 
-    const { data, error } = await supabase.storage
-        .from(bucket)
-        .upload(path, fileObject, {
-            upsert: true,
-            ...options
-        });
+        const { data, error } = await supabase.storage
+            .from(bucket)
+            .upload(path, fileObject, {
+                upsert: true,
+                ...options
+            });
 
-    if (error) {
-        console.error(`❌ [SupabaseStorage] Upload failed for path: ${path}`);
-        console.error(`❌ [SupabaseStorage] Error message:`, error.message);
-        console.error(`❌ [SupabaseStorage] Error details:`, error);
-        throw error;
+        if (error) {
+            console.error(`❌ [SupabaseStorage] Upload failed for path: ${path} - ${error.message}`);
+            throw error;
+        }
+
+        const { data: urlData } = supabase.storage
+            .from(bucket)
+            .getPublicUrl(data.path);
+
+        return {
+            path: data.path,
+            url: urlData.publicUrl
+        };
+    } catch (err) {
+        console.error(`❌ [SupabaseStorage] Upload exception for path "${path}": ${err.message}`);
+        throw err;
     }
-
-    const { data: urlData } = supabase.storage
-        .from(bucket)
-        .getPublicUrl(data.path);
-
-    return {
-        path: data.path,
-        url: urlData.publicUrl
-    };
 }
 
 /**
@@ -115,26 +141,31 @@ export async function uploadToSupabase(bucket, path, fileObject, options = {}) {
  * @param {string} folder 
  */
 export async function listSupabaseFiles(bucket, folder = '') {
-    if (!supabase) throw new Error('Supabase client not initialized');
+    if (!supabase) return [];
 
-    const { data, error } = await supabase.storage
-        .from(bucket)
-        .list(folder, {
-            limit: 100,
-            offset: 0,
-            sortBy: { column: 'created_at', order: 'desc' },
-        });
+    try {
+        const { data, error } = await supabase.storage
+            .from(bucket)
+            .list(folder, {
+                limit: 100,
+                offset: 0,
+                sortBy: { column: 'created_at', order: 'desc' },
+            });
 
-    if (error) {
-        console.error(`❌ [SupabaseStorage] List failed:`, error.message);
-        throw error;
+        if (error) {
+            console.error(`❌ [SupabaseStorage] List failed:`, error.message);
+            return [];
+        }
+
+        return (data || []).map(file => ({
+            ...file,
+            url: supabase.storage.from(bucket).getPublicUrl(`${folder ? folder + '/' : ''}${file.name}`).data.publicUrl,
+            pathname: `${folder ? folder + '/' : ''}${file.name}`
+        }));
+    } catch (err) {
+        console.error(`❌ [SupabaseStorage] List exception for folder "${folder}": ${err.message}`);
+        return [];
     }
-
-    return data.map(file => ({
-        ...file,
-        url: supabase.storage.from(bucket).getPublicUrl(`${folder ? folder + '/' : ''}${file.name}`).data.publicUrl,
-        pathname: `${folder ? folder + '/' : ''}${file.name}`
-    }));
 }
 
 /**
@@ -143,18 +174,23 @@ export async function listSupabaseFiles(bucket, folder = '') {
  * @param {string} path 
  */
 export async function deleteFromSupabase(bucket, path) {
-    if (!supabase) throw new Error('Supabase client not initialized');
+    if (!supabase) return null;
 
-    const { data, error } = await supabase.storage
-        .from(bucket)
-        .remove([path]);
+    try {
+        const { data, error } = await supabase.storage
+            .from(bucket)
+            .remove([path]);
 
-    if (error) {
-        console.error(`❌ [SupabaseStorage] Delete failed:`, error.message);
-        throw error;
+        if (error) {
+            console.error(`❌ [SupabaseStorage] Delete failed:`, error.message);
+            return null;
+        }
+
+        return data;
+    } catch (err) {
+        console.error(`❌ [SupabaseStorage] Delete exception for path "${path}": ${err.message}`);
+        return null;
     }
-
-    return data;
 }
 
 /**
@@ -163,20 +199,27 @@ export async function deleteFromSupabase(bucket, path) {
 export async function getSupabaseBrands() {
     if (!supabase) return [];
 
-    const { data, error } = await supabase
-        .from('brands')
-        .select('*');
+    try {
+        const { data, error } = await supabase
+            .from('brands')
+            .select('*');
 
-    if (error) {
-        console.error(`❌ [SupabaseStorage] Fetch brands failed:`, error.message);
+        if (error) {
+            console.error(`❌ [SupabaseStorage] Fetch brands failed: ${error.message}`);
+            return [];
+        }
+
+        if (!data) return [];
+
+        // Map DB columns (snake_case) to app properties (camelCase)
+        return data.map(b => ({
+            ...b,
+            budgetTier: b.budget_tier || b.budgetTier || 'mid',
+        }));
+    } catch (err) {
+        console.error(`❌ [SupabaseStorage] Fetch brands exception: ${err.message}`);
         return [];
     }
-
-    // Map DB columns (snake_case) to app properties (camelCase)
-    return data.map(b => ({
-        ...b,
-        budgetTier: b.budget_tier || b.budgetTier, // Handle both just in case
-    }));
 }
 
 export async function saveSupabaseBrand(brand) {
@@ -191,33 +234,37 @@ export async function saveSupabaseBrand(brand) {
 
     console.log(`📡 [SupabaseStorage] Attempting to upsert brand: "${brandName}" (ID: ${brandId}, Products: ${productCount})`);
 
-    // Use upsert - assumes 'id' is unique
-    const { data, error } = await supabase
-        .from('brands')
-        .upsert({
-            id: brandId,
-            name: brandName,
-            products: brand.products || [],
-            source: brand.origin || brand.source || 'App',
-            budget_tier: brand.budgetTier || brand.budget_tier || 'mid',
-            logo: brand.logo || ''
-        }, {
-            onConflict: 'id'
-        })
-        .select();
+    try {
+        const { data, error } = await supabase
+            .from('brands')
+            .upsert({
+                id: brandId,
+                name: brandName,
+                products: brand.products || [],
+                source: brand.origin || brand.source || 'App',
+                budget_tier: brand.budgetTier || brand.budget_tier || 'mid',
+                logo: brand.logo || ''
+            }, {
+                onConflict: 'id'
+            })
+            .select();
 
-    if (error) {
-        console.error(`❌ [SupabaseStorage] Upsert failed for "${brandName}":`, {
-            message: error.message,
-            code: error.code,
-            details: error.details,
-            hint: error.hint
-        });
+        if (error) {
+            console.error(`❌ [SupabaseStorage] Upsert failed for "${brandName}":`, {
+                message: error.message,
+                code: error.code,
+                details: error.details,
+                hint: error.hint
+            });
+            return false;
+        }
+
+        console.log(`✅ [SupabaseStorage] Successfully upserted brand "${brandName}". (ID: ${brandId})`);
+        return true;
+    } catch (err) {
+        console.error(`❌ [SupabaseStorage] Upsert brand exception for "${brandName}": ${err.message}`);
         return false;
     }
-
-    console.log(`✅ [SupabaseStorage] Successfully upserted brand "${brandName}". (ID: ${brandId})`);
-    return true;
 }
 
 /**
@@ -239,6 +286,7 @@ export async function getSupabaseStats() {
             lastSync: new Date().toISOString()
         };
     } catch (e) {
+        console.warn(`[SupabaseStorage] Stats fetch notice: ${e.message}`);
         return { brands: 0, products: 0, lastSync: null };
     }
 }
@@ -260,7 +308,7 @@ export async function getSupabaseBlueprint(domain_name) {
         if (error || !data) return null;
         return data.blueprint;
     } catch (err) {
-        console.error(`❌ [SupabaseStorage] Fetch blueprint failed:`, err.message);
+        console.error(`❌ [SupabaseStorage] Fetch blueprint failed: ${err.message}`);
         return null;
     }
 }
@@ -277,20 +325,25 @@ export async function saveSupabaseBlueprint(domain_name, blueprint) {
 
     console.log(`📡 [SupabaseStorage] Attempting to upsert blueprint for domain: "${domain_name}"`);
 
-    const { error } = await client
-        .from('portal_blueprints')
-        .upsert({
-            domain_name,
-            blueprint
-        }, {
-            onConflict: 'domain_name'
-        });
+    try {
+        const { error } = await client
+            .from('portal_blueprints')
+            .upsert({
+                domain_name,
+                blueprint
+            }, {
+                onConflict: 'domain_name'
+            });
 
-    if (error) {
-        console.error(`❌ [SupabaseStorage] Upsert blueprint failed for "${domain_name}":`, error.message);
+        if (error) {
+            console.error(`❌ [SupabaseStorage] Upsert blueprint failed for "${domain_name}": ${error.message}`);
+            return false;
+        }
+
+        console.log(`✅ [SupabaseStorage] Successfully upserted blueprint for "${domain_name}".`);
+        return true;
+    } catch (err) {
+        console.error(`❌ [SupabaseStorage] Upsert blueprint exception for "${domain_name}": ${err.message}`);
         return false;
     }
-
-    console.log(`✅ [SupabaseStorage] Successfully upserted blueprint for "${domain_name}".`);
-    return true;
 }
