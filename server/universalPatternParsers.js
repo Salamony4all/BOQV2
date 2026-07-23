@@ -542,23 +542,93 @@ export function selectBestCandidate(candidates) {
     .sort((a, b) => b.score - a.score)[0].c;
 }
 
-// Image extraction & distribution logic (v16 Poppler utility based)
+// WebAssembly MuPDF fallback for pure JS image extraction on Vercel/cloud environments
+async function extractImagesWithMuPDF(pdfPath, sessionId) {
+  try {
+    const mupdf = await import('mupdf');
+    const data = await fs.readFile(pdfPath);
+    const doc = mupdf.Document.openDocument(new Uint8Array(data), 'application/pdf');
+    const pageCount = doc.countPages();
+    const layouts = [];
+
+    for (let pageIdx = 0; pageIdx < pageCount; pageIdx++) {
+      const pageNum = pageIdx + 1;
+      const page = doc.loadPage(pageIdx);
+      const bounds = page.getBounds();
+      const viewport = { width: bounds[2] - bounds[0], height: bounds[3] - bounds[1] };
+      const extractedImages = [];
+
+      try {
+        page.toStructuredText('preserve-images').walk({
+          onImageBlock(bbox, _transform, image) {
+            try {
+              const w = bbox[2] - bbox[0];
+              const h = bbox[3] - bbox[1];
+              const x = bbox[0];
+              const y = bbox[1];
+              const aspectRatio = w / h;
+              if (aspectRatio > 4 || aspectRatio < 0.25) return;
+              if (w < 15 || h < 15) return;
+
+              const pixmap = image.toPixmap(mupdf.Matrix.identity, mupdf.ColorSpace.DeviceRGB, false);
+              const pngBytes = pixmap.asPNG();
+              if (pngBytes.length < 300) return;
+
+              const filename = `mupdf_${pageNum}_${crypto.randomUUID().slice(0, 8)}.png`;
+              const tmpPath = path.join(os.tmpdir(), filename);
+              fs.writeFile(tmpPath, Buffer.from(pngBytes));
+
+              extractedImages.push({
+                x, y, w, h,
+                path: tmpPath,
+                isNative: true
+              });
+            } catch (err) {}
+          }
+        });
+      } catch (e) {
+        console.warn(`[extractImagesWithMuPDF] Page ${pageNum} walk error: ${e.message}`);
+      }
+
+      layouts.push({
+        page: pageNum,
+        extractedImages,
+        viewport
+      });
+    }
+    return layouts;
+  } catch (err) {
+    console.error(`[extractImagesWithMuPDF] Error: ${err.message}`);
+    throw err;
+  }
+}
+
+// Image extraction & distribution logic
 async function extractAndPairImages(pdfPath, table, sessionId) {
   const publicRoot = path.join(process.cwd(), 'public', 'temp', 'extracted_images', sessionId);
   await fs.mkdir(publicRoot, { recursive: true });
 
   let layouts = [];
   try {
-    const infoResult = await execFileAsync('pdfinfo', [pdfPath], { timeout: 30000, maxBuffer: 2 * 1024 * 1024 });
-    const pageCount = Number((infoResult.stdout.match(/^Pages:\s+(\d+)/m) || [])[1] || 0);
-    if (pageCount > 80) {
-      table.extractionAudit = table.extractionAudit || { warnings: [] };
-      table.extractionAudit.warnings.push(warning('IMAGE_PAIRING_DEFERRED', `Image pairing for ${pageCount} pages is deferred to the existing background metadata job.`));
-      return;
+    try {
+      const infoResult = await execFileAsync('pdfinfo', [pdfPath], { timeout: 30000, maxBuffer: 2 * 1024 * 1024 });
+      const pageCount = Number((infoResult.stdout.match(/^Pages:\s+(\d+)/m) || [])[1] || 0);
+      if (pageCount > 80) {
+        table.extractionAudit = table.extractionAudit || { warnings: [] };
+        table.extractionAudit.warnings.push(warning('IMAGE_PAIRING_DEFERRED', `Image pairing for ${pageCount} pages is deferred to the existing background metadata job.`));
+        return;
+      }
+    } catch (infoErr) {
+      console.warn(`[WordPdfExtractor] pdfinfo check skipped: ${infoErr.message}`);
     }
-    
-    // Use the native python extractor to get images and text layout!
-    layouts = await renderPDFWithLayout(pdfPath);
+
+    // Try native python extractor first, fallback to WebAssembly MuPDF if python is missing
+    try {
+      layouts = await renderPDFWithLayout(pdfPath);
+    } catch (pyErr) {
+      console.log(`[WordPdfExtractor] Python renderer unavailable (${pyErr.message}). Using WebAssembly MuPDF fallback...`);
+      layouts = await extractImagesWithMuPDF(pdfPath, sessionId);
+    }
   } catch (error) {
     table.extractionAudit = table.extractionAudit || { warnings: [] };
     table.extractionAudit.warnings.push(warning('IMAGE_EXTRACTION_UNAVAILABLE', error.message));
