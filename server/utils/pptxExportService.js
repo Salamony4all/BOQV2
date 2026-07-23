@@ -100,8 +100,11 @@ export async function generatePresentationPdf(data) {
     // 2. Product Slides
     for (const table of tables) {
         const header = table.header || [];
-        const descIdx = header.findIndex(h => /description|desc|disc|item|product/i.test(h));
-        const brandIdx = header.findIndex(h => /brand|maker|origin/i.test(h));
+        let descIdx = header.findIndex(h => !/image|photo|picture|img/i.test(h) && /description|details|spec|specification/i.test(h));
+        if (descIdx === -1) {
+            descIdx = header.findIndex(h => !/image|photo|picture|img/i.test(h) && /desc|disc|product|item name|particulars/i.test(h));
+        }
+        const brandIdx = header.findIndex(h => !/image|photo/i.test(h) && /brand|maker|origin|country/i.test(h));
         const qtyIdx = header.findIndex(h => /qty|quantity|qt/i.test(h));
         const finishIdx = header.findIndex(h => /finish|color|material/i.test(h));
 
@@ -114,14 +117,29 @@ export async function generatePresentationPdf(data) {
             const imageCell = row.cells.find(c => c.images?.length > 0 || c.image);
             const allImages = imageCell?.images || (imageCell?.image ? [imageCell.image] : []);
             
-            const desc = descIdx > -1 ? String(row.cells[descIdx].value || '') : '';
-            const brand = brandIdx > -1 ? String(row.cells[brandIdx].value || '') : '';
-            const qty = qtyIdx > -1 ? String(row.cells[qtyIdx].value || '') : '';
-            const finish = finishIdx > -1 ? String(row.cells[finishIdx].value || '') : '';
+            let desc = descIdx > -1 ? String(row.cells[descIdx]?.value || '').trim() : '';
+
+            // Fallback: If desc is empty, scan row for all non-image, non-numeric description/spec text
+            if (!desc && row.cells) {
+                const textParts = [];
+                header.forEach((headerName, i) => {
+                    if (!/image|photo|picture|img|qty|quantity|unit|rate|price|amount|total|s\.?no|sl\.?no|item no/i.test(headerName)) {
+                        const val = String(row.cells[i]?.value || '').trim();
+                        if (val && !textParts.includes(val)) {
+                            textParts.push(val);
+                        }
+                    }
+                });
+                desc = textParts.join(' ');
+            }
+
+            const brand = brandIdx > -1 ? String(row.cells[brandIdx]?.value || '') : '';
+            const qty = qtyIdx > -1 ? String(row.cells[qtyIdx]?.value || '') : '';
+            const finish = finishIdx > -1 ? String(row.cells[finishIdx]?.value || '') : '';
 
             // Extract first line/product name
             const firstLine = desc.split(/[\n*•]/)[0].trim();
-            const headerTitle = firstLine.length > 50 ? firstLine.substring(0, 47) + '...' : firstLine;
+            const headerTitle = firstLine ? (firstLine.length > 55 ? firstLine.substring(0, 52) + '...' : firstLine) : String(row.cells?.[0]?.value || '');
 
             slide.addText(`Item ${itemNum}: ${headerTitle}`, {
                 x: 0.2, y: 0.15, w: 8.0, h: 0.4,

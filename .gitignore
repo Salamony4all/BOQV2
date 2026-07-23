@@ -37,6 +37,8 @@ server/data/temp/
 # Temporary extracted images (generated at runtime, never commit)
 public/temp/
 public/temp/**
+extracted_assets/
+extracted_assets/**
 
 # Scraper Logs
 scraper-debug.log
@@ -65,4 +67,16 @@ logos/
 # Graphify output and config
 graphify-out/
 .graphifyignore
+
+# PDF test files
+PDF/
+PDF/**
+PDF_Round2/
+PDF_Round2/**
+
+# Temporary scripts
+scripts/download_test_pdfs.js
+scripts/scan_local_pdfs.js
+scripts/copy_local_pdfs.js
+scripts/test_single.js
 

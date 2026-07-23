@@ -19,14 +19,18 @@ const PYTHON_BIN = getPythonPath();
 /**
  * PRIMARY ENGINE: PyMuPDF for native extraction.
  */
-export async function renderPDFWithLayout(filePath) {
+export async function renderPDFWithLayout(filePath, pages = null) {
     const outputDir = path.join(path.dirname(filePath), 'extracted_assets');
     await fs.mkdir(outputDir, { recursive: true });
 
-    console.log(`  🚀 [PDF Renderer] Native Layered Engine: ${path.basename(filePath)}`);
+    console.log(`  🚀 [PDF Renderer] Native Layered Engine: ${path.basename(filePath)}${pages ? ` (Target Pages: ${pages.join(',')})` : ''}`);
     
     return new Promise((resolve, reject) => {
-        const pythonProcess = spawn(PYTHON_BIN, [PYTHON_SCRIPT, filePath, outputDir]);
+        const args = [PYTHON_SCRIPT, filePath, outputDir];
+        if (pages && pages.length > 0) {
+            args.push('--pages', pages.join(','));
+        }
+        const pythonProcess = spawn(PYTHON_BIN, args);
 
         let stdoutData = '';
         let stderrData = '';
@@ -47,7 +51,11 @@ export async function renderPDFWithLayout(filePath) {
                 const response = JSON.parse(stdoutData.substring(jsonStart));
                 if (!response.success) throw new Error(response.error);
 
-                const results = response.data.map(pageData => ({
+                const layoutFilePath = path.join(outputDir, 'layout.json');
+                const layoutFileContent = await fs.readFile(layoutFilePath, 'utf8');
+                const layoutData = JSON.parse(layoutFileContent);
+
+                const results = layoutData.data.map(pageData => ({
                     page: pageData.page,
                     fullImage: null, // DEFERRED: No more automatic full page scan
                     extractedImages: pageData.nativeImages.map(img => ({

@@ -24,42 +24,34 @@ const modal = {
 
 const PIPELINES = [
   {
-    id: 'opendataloader',
-    label: 'OpenDataLoader',
-    icon: '⚡',
-    color: '#f59e0b',
-    gradient: 'linear-gradient(135deg,#f59e0b,#d97706)',
-    desc: 'OpenDataLoader layout recovery. Extremely fast and accurate for standard schedules.',
+    id: 'wordcom',
+    label: 'PDF WordCom',
+    icon: '📄',
+    color: '#0284c7',
+    gradient: 'linear-gradient(135deg,#0284c7,#0369a1)',
+    desc: 'Our universal WordCom extractor. Best first choice for BOQ/FFE PDFs, preserving layout, images, embedded objects, and complex table structure.',
   },
   {
-    id: 'docling',
-    label: 'Docling',
-    icon: '📄',
-    color: '#0ea5e9',
-    gradient: 'linear-gradient(135deg,#0ea5e9,#2563eb)',
-    desc: 'Neural layout + table structure recovery. Best for complex multi-table PDFs.',
+    id: 'wordcom_vercel',
+    label: 'PDF WordCom (Vercel Safe)',
+    icon: '⚡',
+    color: '#10b981',
+    gradient: 'linear-gradient(135deg,#10b981,#059669)',
+    desc: 'Cloned Vercel-safe WebAssembly MuPDF parser with Supabase cloud image upload.',
   },
   {
     id: 'default',
-    label: 'Ai + Native image extraction',
+    label: 'PDF AI + Native',
     icon: '🧠',
     color: '#7c3aed',
     gradient: 'linear-gradient(135deg,#7c3aed,#4f46e5)',
-    desc: 'AI vision-based in-app extraction. Best for standard BOQ Excel converted to PDF.',
-  },
-  {
-    id: 'paddle',
-    label: 'Paddle',
-    icon: '🔍',
-    color: '#10b981',
-    gradient: 'linear-gradient(135deg,#10b981,#059669)',
-    desc: 'PaddleOCR PP-Structure fallback. Best for scanned or image-heavy PDFs.',
+    desc: 'AI vision-based extraction with native image pairing. Good fallback for standard BOQ PDFs with visual product references.',
   },
 ];
 
 const PdfModelModal = ({ isOpen, onClose, onExtract, fileName }) => {
   const { aiSettings } = useCompanyProfile();
-  const [selectedPipeline, setSelectedPipeline] = useState('opendataloader');
+  const [selectedPipeline, setSelectedPipeline] = useState('wordcom');
   const [doclingOcr, setDoclingOcr] = useState(false);
 
   if (!isOpen) return null;
@@ -242,6 +234,26 @@ const PdfModelModal = ({ isOpen, onClose, onExtract, fileName }) => {
                     }} />
                   </span>
                 </label>
+              </div>
+            )}
+
+            {/* Word COM Info */}
+            {selectedPipeline === 'wordcom' && (
+              <div style={{
+                marginTop: '16px',
+                padding: '12px 16px',
+                borderRadius: '12px',
+                background: 'rgba(139, 92, 246, 0.08)',
+                border: '1px dashed rgba(139, 92, 246, 0.3)',
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: '12px',
+                animation: 'pdmFadeIn 0.2s ease'
+              }}>
+                <span style={{ fontSize: '1.2rem', flexShrink: 0 }}>ℹ️</span>
+                <span style={{ fontSize: '0.78rem', color: 'var(--text-muted, #64748b)', lineHeight: 1.5 }}>
+                  Requires Windows with Microsoft Word installed. Preserves original layout, formatting, images, and embedded objects.
+                </span>
               </div>
             )}
           </div>

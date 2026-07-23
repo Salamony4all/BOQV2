@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from 'react';
 import ActionCard from './components/ActionCard';
 import ProgressModal from './components/ProgressModal';
@@ -107,7 +106,7 @@ const ThemeToggle = () => {
       }}
       title={`Switch to ${theme === 'dark' ? 'Light' : 'Dark'} Mode`}
     >
-      {theme === 'dark' ? '☀' : '☾'}
+      {theme === 'dark' ? '🌙' : '☀️'}
     </button>
   );
 };
@@ -163,7 +162,7 @@ const AiModelSelector = ({ defaultGoogleModels }) => {
         }}
         title={`Select AI Model (Current: ${currentModel})`}
       >
-        🤖
+        ⚙️
       </button>
 
       {isOpen && (
@@ -289,21 +288,21 @@ function AppContent({ onOpenSettings }) {
 
     window.addEventListener('beforeunload', handleUnload);
 
-    // Fetch brands once at the top level
-    fetch(apiUrl('/api/brands'))
-      .then(res => {
-        if (!res.ok) {
-          return res.text().then(text => {
-             throw new Error(`Server returned ${res.status}: ${text.slice(0, 100)}`);
-          });
-        }
-        return res.json();
-      })
-      .then(data => setAllBrands(data))
-      .catch(err => {
-        console.error('Failed to load brands', err);
-        setSystemErrors(prev => [...prev, `Cloud Storage Error: ${err.message}`]);
-      });
+    // Fetch brands once at the top level — DISABLED for local development
+    // fetch(apiUrl('/api/brands'))
+    //   .then(res => {
+    //     if (!res.ok) {
+    //       return res.text().then(text => {
+    //          throw new Error(`Server returned ${res.status}: ${text.slice(0, 100)}`);
+    //       });
+    //     }
+    //     return res.json();
+    //   })
+    //   .then(data => setAllBrands(data))
+    //   .catch(err => {
+    //     console.error('Failed to load brands', err);
+    //     setSystemErrors(prev => [...prev, `Cloud Storage Error: ${err.message}`]);
+    //   });
 
     return () => {
       window.removeEventListener('beforeunload', handleUnload);
@@ -442,6 +441,8 @@ function AppContent({ onOpenSettings }) {
           pipeline === 'docling' ? 'docling' :
           pipeline === 'paddle'  ? 'paddle'  :
           pipeline === 'opendataloader' ? 'opendataloader' :
+          pipeline === 'wordcom_vercel' ? 'wordcom_vercel' :
+          pipeline === 'wordcom' ? 'wordcom' :
           'parallel'; // default / legacy
 
         const uploadUrl = apiUrl('/api/upload');
