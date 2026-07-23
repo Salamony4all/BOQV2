@@ -6,7 +6,7 @@
       "src": "api/index.js",
       "use": "@vercel/node",
       "config": {
-        "includeFiles": ["server/data/brands/**", "brands.json"]
+        "includeFiles": ["server/data/brands/**", "brands.json", "node_modules/mupdf/**"]
       }
     }
   ],

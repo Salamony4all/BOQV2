@@ -445,7 +445,16 @@ async function pairNativeImagesToFallbackRowsVercel(tables, layouts, sessionId, 
         const descIdx = canonicalIndex(table.header, 'description');
         let imgIdx = table.header.findIndex(h => classifyHeader(h) === 'image');
         
-        if (imgIdx === -1) continue;
+        // Dynamically insert Image Reference column if not present in extracted header
+        if (imgIdx === -1) {
+            imgIdx = 1;
+            table.header.splice(imgIdx, 0, 'Image Reference');
+            for (const r of table.rows) {
+                if (r.cells) {
+                    r.cells.splice(imgIdx, 0, { value: '', images: [], image: null, isMerged: false });
+                }
+            }
+        }
         
         for (const layout of layouts) {
             const pageNum = layout.page;
@@ -458,9 +467,9 @@ async function pairNativeImagesToFallbackRowsVercel(tables, layouts, sessionId, 
             const productImages = layout.extractedImages
                 .filter(img => {
                     const ar = img.w / img.h;
-                    const isProportional = ar >= 0.25 && ar <= 2.2;
-                    const isNotMargin = img.y > 100 && img.y < (pageHeight - 100);
-                    return img.w >= 30 && img.h >= 30 && isProportional && isNotMargin;
+                    const isProportional = ar >= 0.2 && ar <= 2.8;
+                    const isNotMargin = img.y > 30 && img.y < (pageHeight - 30);
+                    return img.w >= 25 && img.h >= 25 && isProportional && isNotMargin;
                 })
                 .sort((a, b) => a.y - b.y || a.x - b.x);
                 
@@ -472,7 +481,7 @@ async function pairNativeImagesToFallbackRowsVercel(tables, layouts, sessionId, 
             for (let i = 0; i < pageRows.length; i++) {
                 const row = pageRows[i];
                 const targetSN = normalize(row.cells[snIdx]?.value || '');
-                const snMatch = textItems.find(it => normalize(it.str || it.text) === targetSN && normalize(it.str || it.text).length > 0 && it.x < 150);
+                const snMatch = textItems.find(it => normalize(it.str || it.text) === targetSN && normalize(it.str || it.text).length > 0 && it.x < 200);
                 let descMatch = null;
                 if (!snMatch) {
                     const descWords = (row.cells[descIdx]?.value || '').split(/\s+/).map(w => normalize(w)).filter(w => w.length > 3);
@@ -488,7 +497,7 @@ async function pairNativeImagesToFallbackRowsVercel(tables, layouts, sessionId, 
                     for (let j = 0; j < productImages.length; j++) {
                         if (usedImageIndices.has(j)) continue;
                         const img = productImages[j];
-                        if (Math.abs((img.y + img.h / 2) - anchorY) < 150) matchedImages.push({ img, idx: j });
+                        if (Math.abs((img.y + img.h / 2) - anchorY) < 250) matchedImages.push({ img, idx: j });
                     }
                 }
                 
@@ -514,9 +523,42 @@ async function pairNativeImagesToFallbackRowsVercel(tables, layouts, sessionId, 
                             rowImages.push({ url: imageUrl });
                         } catch (e) {}
                     }
-                    if (rowImages.length > 0) {
+                    if (rowImages.length > 0 && row.cells[imgIdx]) {
                         row.cells[imgIdx].image = rowImages[0];
                         row.cells[imgIdx].images = rowImages;
+                    }
+                }
+            }
+
+            // Sequential fallback pairing for remaining unassigned page images
+            if (usedImageIndices.size < productImages.length) {
+                for (let i = 0; i < pageRows.length; i++) {
+                    const row = pageRows[i];
+                    if (row.cells[imgIdx] && (!row.cells[imgIdx].images || row.cells[imgIdx].images.length === 0)) {
+                        for (let j = 0; j < productImages.length; j++) {
+                            if (!usedImageIndices.has(j)) {
+                                usedImageIndices.add(j);
+                                const item = productImages[j];
+                                const filename = `page_${pageNum}_row_${i}_img_${j}_${crypto.randomUUID().slice(0, 8)}.png`;
+                                const destPath = path.join(targetDir, filename);
+                                let imageUrl = `/temp/extracted_images/${sessionId}/${filename}`;
+                                try {
+                                    if (item.buffer) await fs.writeFile(destPath, item.buffer);
+                                    else if (item.path && fsSync.existsSync(item.path)) await fs.copyFile(item.path, destPath);
+
+                                    if (supabase) {
+                                        try {
+                                            const imgData = item.buffer || await fs.readFile(destPath);
+                                            const uploadRes = await uploadToSupabase('assets', `extracted-images/${sessionId}/${filename}`, imgData, { contentType: 'image/png' });
+                                            if (uploadRes?.url) imageUrl = uploadRes.url;
+                                        } catch (e) {}
+                                    }
+                                    row.cells[imgIdx].image = { url: imageUrl };
+                                    row.cells[imgIdx].images = [{ url: imageUrl }];
+                                } catch (e) {}
+                                break;
+                            }
+                        }
                     }
                 }
             }
