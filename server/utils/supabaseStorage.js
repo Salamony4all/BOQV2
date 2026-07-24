@@ -138,7 +138,11 @@ export async function uploadToSupabase(bucket, path, fileObject, options = {}) {
             url: urlData.publicUrl
         };
     } catch (err) {
-        console.error(`❌ [SupabaseStorage] Upload exception for path "${path}": ${err.message}`);
+        // `fetch failed` from undici hides the real reason in err.cause. Surface it
+        // (ENOTFOUND = bad/paused project URL, ECONNREFUSED, UND_ERR_CONNECT_TIMEOUT, etc.)
+        // so live logs diagnose transport failures instead of a bare "fetch failed".
+        const causeCode = err?.cause?.code || err?.cause?.message;
+        console.error(`❌ [SupabaseStorage] Upload exception for path "${path}": ${err.message}${causeCode ? ` (cause: ${causeCode}; host: ${supabaseUrl})` : ''}`);
         throw err;
     }
 }
