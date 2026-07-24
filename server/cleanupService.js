@@ -11,6 +11,14 @@ const __dirname = path.dirname(__filename);
 // public bucket but cannot delete, which silently left extracted-images behind.
 const admin = () => supabaseAdmin || supabase;
 
+// All ephemeral, session-scoped folders written into the `assets` bucket.
+// These are temp extraction artifacts (never permanent data) and are fully
+// wiped on startup / refresh / reset / deep-sweep. `mupdf-crops` was missing
+// from this list, so it accumulated indefinitely — keep in sync with every
+// `uploadToSupabase('assets', ...)` call site (server.js, visionBOQExtractor.js,
+// wordExtractorServiceVercel.js, universalPatternParsersVercel.js).
+const EPHEMERAL_ROOT_FOLDERS = ['temp-uploads', 'extracted-images', 'manual-upload', 'vision-crops', 'mupdf-crops'];
+
 /**
  * Service to manage file and cloud blob cleanup on session end
  */
@@ -181,14 +189,53 @@ class CleanupService {
     }
 
     /**
+     * Wipes ALL ephemeral `assets` subfolders (temp-uploads, extracted-images,
+     * manual-upload, vision-crops, mupdf-crops) on startup / refresh / reset.
+     * Each is recursively cleared — Supabase .remove() doesn't recurse, so
+     * session subfolders (where Vercel-uploaded images actually live) must be
+     * listed and deleted file-by-file. This is the "whole assets temp content
+     * deleted" behaviour the user expects.
+     */
+    async cleanupEphemeralFolders() {
+        const client = admin();
+        if (!client) return;
+        for (const rootFolder of EPHEMERAL_ROOT_FOLDERS) {
+            try {
+                const { data: items, error } = await client.storage.from('assets').list(rootFolder);
+                if (error) { console.warn(`[Cleanup] Could not list ${rootFolder}:`, error.message); continue; }
+                if (!items || items.length === 0) continue;
+
+                for (const item of items) {
+                    if (!item.id) {
+                        // Subfolder (session folder) — recurse into its files
+                        const { data: subFiles } = await client.storage.from('assets').list(`${rootFolder}/${item.name}`);
+                        if (subFiles && subFiles.length > 0) {
+                            const paths = subFiles.map(f => `${rootFolder}/${item.name}/${f.name}`);
+                            const { error: rmErr } = await client.storage.from('assets').remove(paths);
+                            if (rmErr) console.warn(`[Cleanup] remove failed (${rootFolder}/${item.name}):`, rmErr.message);
+                        }
+                    } else {
+                        // Flat file directly under the root
+                        const { error: rmErr } = await client.storage.from('assets').remove([`${rootFolder}/${item.name}`]);
+                        if (rmErr) console.warn(`[Cleanup] remove failed (${rootFolder}/${item.name}):`, rmErr.message);
+                    }
+                }
+                console.log(`[Cleanup] 🗑️ Wiped ${rootFolder} (${items.length} top-level entries).`);
+            } catch (err) {
+                console.error(`[Cleanup] ${rootFolder} wipe failed:`, err.message);
+            }
+        }
+    }
+
+    /**
      * Recursively wipes the Supabase `assets/extracted-images` folder — the
      * "extracted assets" folder where extraction images are uploaded. Unlike
      * the flat-file orphan sweep, this recurses into session subfolders
      * (extracted-images/{sessionId}/img.png), which is where Vercel-uploaded
-     * images actually live. Used on startup / refresh / reset.
+     * images actually live. Retained for backward-call compatibility; the
+     * general startup/refresh/reset path now uses cleanupEphemeralFolders().
      */
     async cleanupExtractedImages(bucket = 'assets', rootFolder = 'extracted-images') {
-        if (!supabase) return;
         const client = admin();
         if (!client) return;
         try {
@@ -229,7 +276,7 @@ class CleanupService {
 
         try {
             const bucket = 'assets';
-            const rootFolders = ['temp-uploads', 'extracted-images', 'manual-upload', 'vision-crops'];
+            const rootFolders = EPHEMERAL_ROOT_FOLDERS;
 
             for (const rootFolder of rootFolders) {
                 const { data: sessionFolders, error: listError } = await client.storage.from(bucket).list(rootFolder);
@@ -292,7 +339,7 @@ class CleanupService {
             if (client) {
                 console.log('[Cleanup] 🌀 Executing complete target folder evacuation in Supabase assets...');
                 const bucket = 'assets';
-                const rootFolders = ['temp-uploads', 'extracted-images', 'manual-upload', 'vision-crops'];
+                const rootFolders = EPHEMERAL_ROOT_FOLDERS;
 
                 for (const rootFolder of rootFolders) {
                     try {

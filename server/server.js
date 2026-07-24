@@ -3862,10 +3862,8 @@ app.post('/api/cleanup/session', async (req, res) => {
   // Run session cleanup (deletes tracked blobs + cloud folders)
   await cleanupService.cleanupSession(sessionId);
 
-  // Also wipe the extracted-images (extracted assets) folder recursively —
-  // this removes both session subfolders and orphaned flat files, which is
-  // where Vercel-uploaded extraction images actually live.
-  await cleanupService.cleanupExtractedImages();
+  // Wipe ALL ephemeral assets folders on refresh (recursive, covers mupdf-crops too)
+  await cleanupService.cleanupEphemeralFolders();
 
   res.json({ success: true });
 });
@@ -3901,11 +3899,9 @@ if (!isVercel) {
 
 export default app;
 
-// Fire-and-forget Supabase extracted-images wipe on process boot — covers both
-// local startup and Vercel serverless cold starts. Non-blocking and best-effort
-// (errors are logged, never crash boot). The interval sweep in cleanupService
-// handles ongoing age-based cleanup; this clears the extracted assets folder
-// immediately on startup / refresh / reset flows.
-cleanupService.cleanupExtractedImages().catch(err =>
-  console.error('[Cleanup] Startup extracted-images wipe failed:', err.message)
+// Fire-and-forget wipe of ALL ephemeral assets folders on process boot — covers
+// both local startup and Vercel serverless cold starts (incl. mupdf-crops).
+// Non-blocking and best-effort (errors are logged, never crash boot).
+cleanupService.cleanupEphemeralFolders().catch(err =>
+  console.error('[Cleanup] Startup ephemeral-folders wipe failed:', err.message)
 );
