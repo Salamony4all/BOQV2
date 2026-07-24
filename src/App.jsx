@@ -288,21 +288,27 @@ function AppContent({ onOpenSettings }) {
 
     window.addEventListener('beforeunload', handleUnload);
 
-    // Fetch brands once at the top level — DISABLED for local development
-    // fetch(apiUrl('/api/brands'))
-    //   .then(res => {
-    //     if (!res.ok) {
-    //       return res.text().then(text => {
-    //          throw new Error(`Server returned ${res.status}: ${text.slice(0, 100)}`);
-    //       });
-    //     }
-    //     return res.json();
-    //   })
-    //   .then(data => setAllBrands(data))
-    //   .catch(err => {
-    //     console.error('Failed to load brands', err);
-    //     setSystemErrors(prev => [...prev, `Cloud Storage Error: ${err.message}`]);
-    //   });
+    // Fetch brands once at the top level — feeds allBrands prop consumers
+    // (ValueEngineeredModal via App + TableViewer). MultiBudgetModal fetches
+    // its own copy; names are normalized identically here so both agree.
+    fetch(apiUrl('/api/brands'))
+      .then(res => {
+        if (!res.ok) {
+          return res.text().then(text => {
+            throw new Error(`Server returned ${res.status}: ${text.slice(0, 100)}`);
+          });
+        }
+        return res.json();
+      })
+      .then(data => {
+        if (Array.isArray(data)) {
+          setAllBrands(data.map(b => ({ ...b, name: String(b.name || '').replace(/\s+/g, ' ').trim() || 'Unnamed Brand' })));
+        }
+      })
+      .catch(err => {
+        console.error('Failed to load brands', err);
+        setSystemErrors(prev => [...prev, `Cloud Storage Error: ${err.message}`]);
+      });
 
     return () => {
       window.removeEventListener('beforeunload', handleUnload);
