@@ -48,18 +48,61 @@ async function emit(callback, value) {
   try { await callback?.(value); } catch (error) { console.warn(`[${EXTRACTOR_VERSION}] progress callback failed: ${error.message}`); }
 }
 
-async function pdfToTextMupdf(pdfPath) {
+// Reconstructs pdftotext-`-layout`-style text from MuPDF structured text:
+// clusters lines into visual rows by y-center, orders by x, and pads gaps so
+// multi-column BOQ rows land on ONE text line (what all v12/v16/v17 regex
+// parsers were written against). Raw asText() emits one cell per line, which
+// destroys row structure and makes every parser miss.
+export function mupdfLayoutPageText(page) {
+  const lines = [];
+  let cur = null;
+  const flush = () => { if (cur && cur.text.trim()) lines.push(cur); cur = null; };
+  page.toStructuredText().walk({
+    beginLine(bbox) { flush(); cur = { x0: bbox[0], y0: bbox[1], x1: bbox[2], y1: bbox[3], text: '' }; },
+    onChar(c) { if (cur) cur.text += c; },
+    endLine() { flush(); }
+  });
+  flush();
+
+  lines.sort((a, b) => (a.y0 + a.y1) - (b.y0 + b.y1) || a.x0 - b.x0);
+  const rows = [];
+  for (const ln of lines) {
+    const cy = (ln.y0 + ln.y1) / 2;
+    const h = ln.y1 - ln.y0;
+    const row = rows.find(r => Math.abs(r.cy - cy) <= Math.max(h, r.h) * 0.6);
+    if (row) { row.items.push(ln); row.cy = (row.cy + cy) / 2; row.h = Math.max(row.h, h); }
+    else rows.push({ cy, h, items: [ln] });
+  }
+  rows.sort((a, b) => a.cy - b.cy);
+
+  const CH = 5; // ~char width in PDF units
+  return rows.map(r => {
+    r.items.sort((a, b) => a.x0 - b.x0);
+    let out = '', xEnd = 0;
+    for (const it of r.items) {
+      out += ' '.repeat(Math.max(1, Math.round(((out ? it.x0 - xEnd : it.x0)) / CH))) + it.text.trim();
+      xEnd = it.x1;
+    }
+    return out;
+  }).join('\n');
+}
+
+export async function mupdfLayoutPages(pdfPath) {
   const mupdf = await import('mupdf');
   const data = await fs.readFile(pdfPath);
   const doc = mupdf.Document.openDocument(new Uint8Array(data), 'application/pdf');
   const pages = [];
   for (let i = 0; i < doc.countPages(); i++) {
     try {
-      const page = doc.loadPage(i);
-      const text = page.toStructuredText().asText();
-      if (text && text.trim()) pages.push(text.trim());
+      const text = mupdfLayoutPageText(doc.loadPage(i));
+      if (text && text.trim()) pages.push(text);
     } catch (e) {}
   }
+  return pages;
+}
+
+async function pdfToTextMupdf(pdfPath) {
+  const pages = await mupdfLayoutPages(pdfPath);
   return normalizeStructuredText(pages.join(`\n${PAGE_BREAK}\n`));
 }
 

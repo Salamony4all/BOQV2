@@ -11,7 +11,7 @@ import { Buffer } from 'node:buffer';
 import crypto from 'node:crypto';
 
 import { renderPDFWithLayoutMuPDF } from './utils/pdfRendererMupdf.js';
-import { extractPdfViaWordFastPathVercel } from './universalPatternParsersVercel.js';
+import { extractPdfViaWordFastPathVercel, mupdfLayoutPages } from './universalPatternParsersVercel.js';
 import { uploadToSupabase, supabase } from './utils/supabaseStorage.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -118,17 +118,9 @@ export async function extractPdfViaWordVercel(filePath, progressCallback = () =>
 
 async function extractPdfPlainTextMupdf(filePath) {
     try {
-        const mupdf = await import('mupdf');
-        const data = await fs.readFile(filePath);
-        const doc = mupdf.Document.openDocument(new Uint8Array(data), 'application/pdf');
-        const pages = [];
-        for (let i = 0; i < doc.countPages(); i++) {
-            try {
-                const page = doc.loadPage(i);
-                const text = page.toStructuredText().asText();
-                if (text && text.trim()) pages.push(text.trim());
-            } catch (pageErr) { console.warn(`[WordPdfExtractorVercel] mupdf text page ${i + 1} failed: ${pageErr.message}`); }
-        }
+        // Layout-preserving text (rows reconstructed by y/x coordinates) — raw
+        // asText() emits one cell per line and breaks every row-shaped parser.
+        const pages = await mupdfLayoutPages(filePath);
         return pages.join('\n--- PAGE BREAK ---\n');
     } catch (err) { console.warn(`[WordPdfExtractorVercel] mupdf direct text unavailable: ${err.message}`); return ''; }
 }
