@@ -48,25 +48,36 @@ async function emit(callback, value) {
   try { await callback?.(value); } catch (error) { console.warn(`[${EXTRACTOR_VERSION}] progress callback failed: ${error.message}`); }
 }
 
+async function pdfToTextMupdf(pdfPath) {
+  const mupdf = await import('mupdf');
+  const data = await fs.readFile(pdfPath);
+  const doc = mupdf.Document.openDocument(new Uint8Array(data), 'application/pdf');
+  const pages = [];
+  for (let i = 0; i < doc.countPages(); i++) {
+    try {
+      const page = doc.loadPage(i);
+      const text = page.toStructuredText().asText();
+      if (text && text.trim()) pages.push(text.trim());
+    } catch (e) {}
+  }
+  return normalizeStructuredText(pages.join(`\n${PAGE_BREAK}\n`));
+}
+
 async function pdfToTextVercel(pdfPath, workDir) {
+  // On Vercel the native `pdftotext` (Poppler) binary is not present in the
+  // serverless runtime, so the exec always throws. Skip it entirely there and
+  // go straight to the pure-JS WebAssembly MuPDF text path (no wasted spawn,
+  // no error noise, faster cold path).
+  if (process.env.VERCEL === '1') {
+    return pdfToTextMupdf(pdfPath);
+  }
   try {
     const output = path.join(workDir, 'document.txt');
     await execFileAsync('pdftotext', ['-layout', '-enc', 'UTF-8', pdfPath, output], { timeout: 300_000, maxBuffer: 8 * 1024 * 1024 });
     return normalizeStructuredText(await fs.readFile(output, 'utf8'));
   } catch (err) {
     console.log(`[WordPdfExtractorVercel] pdftotext unavailable (${err.message}). Using WebAssembly MuPDF direct text...`);
-    const mupdf = await import('mupdf');
-    const data = await fs.readFile(pdfPath);
-    const doc = mupdf.Document.openDocument(new Uint8Array(data), 'application/pdf');
-    const pages = [];
-    for (let i = 0; i < doc.countPages(); i++) {
-      try {
-        const page = doc.loadPage(i);
-        const text = page.toStructuredText().asText();
-        if (text && text.trim()) pages.push(text.trim());
-      } catch (e) {}
-    }
-    return normalizeStructuredText(pages.join(`\n${PAGE_BREAK}\n`));
+    return pdfToTextMupdf(pdfPath);
   }
 }
 
@@ -780,7 +791,11 @@ async function extractAndPairImagesVercel(pdfPath, table, sessionId) {
           const img = regionImages[j];
           const filename = `page_${pageNum}_row_${i}_img_${j}_${crypto.randomUUID().slice(0, 8)}.png`;
           const destPath = path.join(publicRoot, filename);
-          let imageUrl = `/temp/extracted_images/${sessionId}/${filename}`;
+          // On Vercel only /tmp is writable and NOTHING is served statically, so a
+          // "/temp/..." path is a dead link. Start with no URL there and only keep
+          // the local path off-Vercel (where public/temp IS served).
+          const isVercel = process.env.VERCEL === '1';
+          let imageUrl = isVercel ? null : `/temp/extracted_images/${sessionId}/${filename}`;
 
           try {
             if (img.buffer) {
@@ -804,6 +819,13 @@ async function extractAndPairImagesVercel(pdfPath, table, sessionId) {
               } catch (supErr) {
                 console.warn(`[WordPdfExtractorVercel] Supabase upload notice for ${filename}: ${supErr.message}`);
               }
+            }
+
+            // Skip emitting a broken link: on Vercel a null URL means the Supabase
+            // upload failed and there is no web-servable fallback.
+            if (!imageUrl) {
+              console.warn(`[WordPdfExtractorVercel] Dropping image ${filename}: no servable URL (Supabase upload unavailable on Vercel).`);
+              continue;
             }
 
             rowImages.push({

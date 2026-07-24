@@ -508,7 +508,9 @@ async function pairNativeImagesToFallbackRowsVercel(tables, layouts, sessionId, 
                         usedImageIndices.add(item.idx);
                         const filename = `page_${pageNum}_row_${i}_img_${item.idx}_${crypto.randomUUID().slice(0, 8)}.png`;
                         const destPath = path.join(targetDir, filename);
-                        let imageUrl = `/temp/extracted_images/${sessionId}/${filename}`;
+                        // On Vercel /temp is not web-served, so only keep a local path off-Vercel.
+                        const isVercel = process.env.VERCEL === '1';
+                        let imageUrl = isVercel ? null : `/temp/extracted_images/${sessionId}/${filename}`;
                         try {
                             if (item.img.buffer) await fs.writeFile(destPath, item.img.buffer);
                             else if (item.img.path && fsSync.existsSync(item.img.path)) await fs.copyFile(item.img.path, destPath);
@@ -520,6 +522,7 @@ async function pairNativeImagesToFallbackRowsVercel(tables, layouts, sessionId, 
                                     if (uploadRes?.url) imageUrl = uploadRes.url;
                                 } catch (e) {}
                             }
+                            if (!imageUrl) continue; // drop dead links on Vercel when Supabase upload failed
                             rowImages.push({ url: imageUrl });
                         } catch (e) {}
                     }
@@ -541,7 +544,9 @@ async function pairNativeImagesToFallbackRowsVercel(tables, layouts, sessionId, 
                                 const item = productImages[j];
                                 const filename = `page_${pageNum}_row_${i}_img_${j}_${crypto.randomUUID().slice(0, 8)}.png`;
                                 const destPath = path.join(targetDir, filename);
-                                let imageUrl = `/temp/extracted_images/${sessionId}/${filename}`;
+                                // On Vercel /temp is not web-served, so only keep a local path off-Vercel.
+                                const isVercel = process.env.VERCEL === '1';
+                                let imageUrl = isVercel ? null : `/temp/extracted_images/${sessionId}/${filename}`;
                                 try {
                                     if (item.buffer) await fs.writeFile(destPath, item.buffer);
                                     else if (item.path && fsSync.existsSync(item.path)) await fs.copyFile(item.path, destPath);
@@ -553,6 +558,7 @@ async function pairNativeImagesToFallbackRowsVercel(tables, layouts, sessionId, 
                                             if (uploadRes?.url) imageUrl = uploadRes.url;
                                         } catch (e) {}
                                     }
+                                    if (!imageUrl) break; // drop dead links on Vercel when Supabase upload failed
                                     row.cells[imgIdx].image = { url: imageUrl };
                                     row.cells[imgIdx].images = [{ url: imageUrl }];
                                 } catch (e) {}
