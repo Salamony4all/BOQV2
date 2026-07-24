@@ -540,6 +540,28 @@ function candidateV17(name, rows, engine, confidence = 0.97, audit = {}) {
 }
 
 // Canonicalization & Stitching utilities
+/**
+ * Compute the extracted BOQ summary (grand total) for a table — mirrors the
+ * local wordcom extractor. Sums the Amount/Total column across costed rows,
+ * producing { totalAmount } that TableViewer renders as the grand-total card.
+ * Skips header/summary rows and non-numeric amounts.
+ */
+export function computeExtractedSummary(table) {
+    if (!table || !table.rows || !table.header) return { totalAmount: 0 };
+    const h = table.header.map(x => normalizeInlineText(x).toLowerCase());
+    const amountIdx = h.findIndex(x => /amount|total|tp\/eur|\bsum\b/i.test(x));
+    if (amountIdx === -1) return { totalAmount: 0 };
+    let total = 0, seen = false;
+    for (const row of table.rows) {
+        if (!row || row.isHeader || row.isSummary) continue;
+        const val = row.cells?.[amountIdx]?.value;
+        if (val == null) continue;
+        const n = parseFloat(String(val).replace(/[, ]/g, ''));
+        if (!isNaN(n)) { total += n; seen = true; }
+    }
+    return { totalAmount: seen ? total.toFixed(2) : 0 };
+}
+
 function canonicalizeTable(table) {
   if (!table) return table;
   const h = table.header.map(x => normalizeInlineText(x).toLowerCase());
@@ -933,6 +955,7 @@ export async function extractPdfViaWordFastPathVercel(filePath, progressCallback
       selected.extractionAudit = buildAudit(selected);
       await extractAndPairImagesVercel(absInput, selected, sessionId);
       selected.serialAudit = selected.extractionAudit;
+      selected.extractedSummary = computeExtractedSummary(selected);
       await emit(progressCallback, 100);
       return {
         tables: [selected],

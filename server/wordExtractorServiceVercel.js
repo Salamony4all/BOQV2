@@ -11,7 +11,7 @@ import { Buffer } from 'node:buffer';
 import crypto from 'node:crypto';
 
 import { renderPDFWithLayoutMuPDF } from './utils/pdfRendererMupdf.js';
-import { extractPdfViaWordFastPathVercel, mupdfLayoutPages } from './universalPatternParsersVercel.js';
+import { extractPdfViaWordFastPathVercel, mupdfLayoutPages, computeExtractedSummary } from './universalPatternParsersVercel.js';
 import { uploadToSupabase, supabase } from './utils/supabaseStorage.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -105,7 +105,7 @@ export async function extractPdfViaWordVercel(filePath, progressCallback = () =>
 
             progressCallback(100);
             return {
-                tables,
+                tables: tables.map(t => ({ ...t, extractedSummary: computeExtractedSummary(t) })),
                 totalTables: tables.length,
                 isDirectExtraction: true,
                 engineUsed: `${WORDCOM_VERCEL_EXTRACTOR_VERSION}-direct-text`,
@@ -263,7 +263,8 @@ function parseGenericDynamicHeaderTableV13(rawText) {
         engineUsed: 'wordcom-vercel-v13.2-dynamic-text-table',
         confidence: 0.975,
         extractionAudit: { rowCount: rows.length, dynamicHeader: header },
-        serialAudit: { rowCount: rows.length, dynamicHeader: header }
+        serialAudit: { rowCount: rows.length, dynamicHeader: header },
+        extractedSummary: computeExtractedSummary({ header, rows })
     };
 }
 
@@ -337,7 +338,8 @@ function parsePresentationCatalogPagesV13(rawText) {
         engineUsed: 'wordcom-vercel-v13.3-presentation-extractor',
         confidence: 0.90,
         extractionAudit: { rowCount: rows.length },
-        serialAudit: { rowCount: rows.length }
+        serialAudit: { rowCount: rows.length },
+        extractedSummary: computeExtractedSummary({ header, rows })
     };
 }
 
@@ -396,7 +398,7 @@ function parseUniversalDynamicTableV13(rawText) {
     }
     if (rows.length < 3) return null;
     const finalHeader = header.map((h, idx) => normalizeHeaderName(h, idx));
-    return { sheetName: 'Vendor Quote', header: finalHeader, rows, columnCount: finalHeader.length, engineUsed: 'wordcom-vercel-v13.3-universal-dynamic', confidence: 0.95, extractionAudit: { rowCount: rows.length }, serialAudit: { rowCount: rows.length } };
+    return { sheetName: 'Vendor Quote', header: finalHeader, rows, columnCount: finalHeader.length, engineUsed: 'wordcom-vercel-v13.3-universal-dynamic', confidence: 0.95, extractionAudit: { rowCount: rows.length }, serialAudit: { rowCount: rows.length }, extractedSummary: computeExtractedSummary({ header: finalHeader, rows }) };
 }
 
 function assignRowPageNumbers(tables, directPdfText) {
