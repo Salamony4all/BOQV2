@@ -103,6 +103,22 @@ export const findDescColumn = (header = [], rows = []) => {
 };
 
 /**
+ * Collect ALL image URLs from an extracted table row's image cell.
+ * Cells may carry `images: [{url}|string, ...]` (multi) and/or a single
+ * `image: {url}|string`. Returns deduped URL strings, [] when none.
+ */
+export const cellImageUrls = (row) => {
+    const cell = row?.cells?.find(c => c?.image || (c?.images && c.images.length > 0));
+    if (!cell) return [];
+    const raw = (cell.images?.length ? cell.images : [cell.image]).filter(Boolean);
+    const urls = raw
+        .map(img => (typeof img === 'object' ? img.url : img))
+        .filter(u => u && typeof u === 'string')
+        .map(u => (u.startsWith('http') || u.startsWith('/') ? u : '/' + u));
+    return [...new Set(urls)];
+};
+
+/**
  * Batch processor
  */
 export const batch = async (items, limit, fn) => {

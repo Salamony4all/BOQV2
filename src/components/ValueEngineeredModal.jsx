@@ -10,7 +10,7 @@ import { useCompanyProfile } from '../context/CompanyContext';
 import { useTheme } from '../context/ThemeContext';
 import { getApiBase } from '../utils/apiBase';
 import { getFullUrl } from '../utils/urlUtils';
-import { findDescColumn } from '../utils/boqUtils';
+import { findDescColumn, cellImageUrls } from '../utils/boqUtils';
 
 const API_BASE = getApiBase();
 
@@ -144,13 +144,10 @@ export default function ValueEngineeredModal({
 
         return sourceTable.rows.map((row, i) => {
             if (!row || !row.cells || row.isHeader || row.isSummary) return null;
-            const imageCell = row.cells.find(c => c.image || (c.images && c.images.length > 0));
-            let imgSrc = imageCell ? (imageCell.image || imageCell.images?.[0]) : null;
-            if (imgSrc && typeof imgSrc === 'object' && imgSrc.url) imgSrc = imgSrc.url;
-            if (imgSrc && typeof imgSrc === 'string' && !imgSrc.startsWith('http') && !imgSrc.startsWith('/')) imgSrc = '/' + imgSrc;
+            const imageRefs = cellImageUrls(row);
 
             return {
-                id: Date.now() + i, sn: i + 1, imageRef: imgSrc, brandImage: '', brandDesc: '',
+                id: Date.now() + i, sn: i + 1, imageRef: imageRefs[0] || null, imageRefs, brandImage: '', brandDesc: '',
                 description: getVal(row, idxDesc), qty: getVal(row, idxQty), unit: getVal(row, idxUnit),
                 rate: getVal(row, idxRate), amount: getVal(row, idxTotal),
                 selectedBrand: '', selectedMainCat: '', selectedSubCat: '', selectedFamily: '', selectedModel: '', selectedModelUrl: '',
@@ -256,7 +253,7 @@ export default function ValueEngineeredModal({
                                 {
                                     value: '',
                                     image: row.brandImage || row.imageRef,
-                                    images: row.brandImage ? [{ url: row.brandImage }] : row.imageRef ? [{ url: row.imageRef }] : []
+                                    images: row.brandImage ? [{ url: row.brandImage }] : (row.imageRefs?.length ? row.imageRefs : (row.imageRef ? [row.imageRef] : [])).map(u => ({ url: u }))
                                 },
                                 { value: row.brandDesc || row.description || 'N/A' },
                                 { value: row.selectedBrand || '' },
@@ -481,7 +478,7 @@ export default function ValueEngineeredModal({
         });
 
         const rowStatusClass = row.aiStatus === 'processing' ? mbs.aiPulse : row.aiStatus === 'success' ? mbs.aiGlow : row.aiStatus === 'error' ? mbs.aiErrorBorder : '';
-        const refImgSrc = getFullUrl(row.imageRef);
+        const refImages = row.imageRefs?.length ? row.imageRefs : (row.imageRef ? [row.imageRef] : []);
 
         return (
             <tr key={row.id} className={rowStatusClass}>
@@ -512,26 +509,33 @@ export default function ValueEngineeredModal({
                 </td>
                 <td style={{ verticalAlign: 'middle', minWidth: 72 }}>
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
-                        {row.imageRef ? (
+                        {refImages.length > 0 ? (
                             <div className={mbs.imgPlaceholder} style={{ background: 'none' }}>
-                                <img
-                                    src={refImgSrc}
-                                    alt="ref"
-                                    className={mbs.tableImg}
-                                    onClick={(e) => {
-                                        if (e.target.dataset.broken === 'true') return;
-                                        setPreviewImage(refImgSrc);
-                                        setPreviewLogo(null);
-                                        setPreviewBrand('Original Reference');
-                                        setPreviewModel(row.description);
-                                    }}
-                                    onError={(e) => {
-                                        e.target.dataset.broken = 'true';
-                                        e.target.style.opacity = '0.3';
-                                        e.target.style.filter = 'grayscale(1)';
-                                        e.target.title = 'Image not available (session expired – re-upload to refresh)';
-                                    }}
-                                />
+                                {refImages.map((ref, imgIdx) => {
+                                    const src = getFullUrl(ref);
+                                    return (
+                                        <img
+                                            key={imgIdx}
+                                            src={src}
+                                            alt={`ref ${imgIdx + 1}`}
+                                            className={mbs.tableImg}
+                                            style={imgIdx > 0 ? { marginTop: 4 } : undefined}
+                                            onClick={(e) => {
+                                                if (e.target.dataset.broken === 'true') return;
+                                                setPreviewImage(src);
+                                                setPreviewLogo(null);
+                                                setPreviewBrand('Original Reference');
+                                                setPreviewModel(row.description);
+                                            }}
+                                            onError={(e) => {
+                                                e.target.dataset.broken = 'true';
+                                                e.target.style.opacity = '0.3';
+                                                e.target.style.filter = 'grayscale(1)';
+                                                e.target.title = 'Image not available (session expired – re-upload to refresh)';
+                                            }}
+                                        />
+                                    );
+                                })}
                             </div>
                         ) : (
                             <div className={mbs.imgPlaceholder} style={{ fontSize: '0.65rem' }}>No Img</div>

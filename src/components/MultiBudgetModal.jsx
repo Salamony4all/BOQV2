@@ -11,7 +11,7 @@ import styles from '../styles/MultiBudgetModal.module.css';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import BrandDropdown from './BrandDropdown';
-import { findDescColumn } from '../utils/boqUtils';
+import { findDescColumn, cellImageUrls } from '../utils/boqUtils';
 
 import { useCompanyProfile } from '../context/CompanyContext';
 import { useTheme } from '../context/ThemeContext';
@@ -323,14 +323,12 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                 }
                 return String(v).trim();
             };
-            const imageCell = row.cells.find(c => c.image || (c.images && c.images.length > 0));
-            let imgSrc = imageCell ? (imageCell.image || imageCell.images[0]) : null;
-            if (imgSrc && typeof imgSrc === 'object' && imgSrc.url) imgSrc = imgSrc.url;
-            if (imgSrc && !imgSrc.startsWith('http') && !imgSrc.startsWith('/')) imgSrc = '/' + imgSrc;
+            const imageRefs = cellImageUrls(row);
             return {
                 id: Date.now() + i,
                 sn: i + 1,
-                imageRef: imgSrc,
+                imageRef: imageRefs[0] || null,
+                imageRefs,
                 brandImage: '', brandDesc: '',
                 scope: getVal(idxScope) || 'Furniture',
                 description: getVal(idxDesc) || (idxDesc === -1 ? row.cells[1]?.value : ''),
@@ -1196,7 +1194,7 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                                 {
                                     value: '',
                                     image: row.brandImage || row.imageRef,
-                                    images: row.brandImage ? [{ url: row.brandImage }] : row.imageRef ? [{ url: row.imageRef }] : []
+                                    images: row.brandImage ? [{ url: row.brandImage }] : (row.imageRefs?.length ? row.imageRefs : (row.imageRef ? [row.imageRef] : [])).map(u => ({ url: u }))
                                 },
                                 { value: row.brandDesc || row.description || 'N/A' },
                                 { value: row.qty || '0' },
@@ -2714,8 +2712,6 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
     };
 
     const renderRow = (row, sn, isBoqMode, index) => {
-        const refImgSrc = getFullUrl(row.imageRef);
-
         const activeBrand = brands.find(b => {
             if (b.type === 'fitout' || b.name === 'FitOut V2') {
                 return b.name === row.selectedBrand && (b.budgetTier === activeTier || !b.budgetTier);
@@ -2814,26 +2810,33 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                 {isBoqMode && (
                     <td style={{ verticalAlign: 'middle', minWidth: 72 }}>
                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
-                            {row.imageRef ? (
+                            {(row.imageRefs?.length ? row.imageRefs : (row.imageRef ? [row.imageRef] : [])).length > 0 ? (
                                 <div className={styles.tableImgContainer}>
-                                    <img
-                                        src={refImgSrc}
-                                        alt="ref"
-                                        className={styles.tableImg}
-                                        onClick={(e) => {
-                                            if (e.target.dataset.broken === 'true') return;
-                                            setPreviewImage(refImgSrc);
-                                            setPreviewLogo(null);
-                                            setPreviewBrand('Original Reference');
-                                            setPreviewModel(row.description);
-                                        }}
-                                        onError={(e) => {
-                                            e.target.dataset.broken = 'true';
-                                            e.target.style.opacity = '0.3';
-                                            e.target.style.filter = 'grayscale(1)';
-                                            e.target.title = 'Image not available (session expired – re-upload to refresh)';
-                                        }}
-                                    />
+                                    {(row.imageRefs?.length ? row.imageRefs : [row.imageRef]).map((ref, imgIdx) => {
+                                        const src = getFullUrl(ref);
+                                        return (
+                                            <img
+                                                key={imgIdx}
+                                                src={src}
+                                                alt={`ref ${imgIdx + 1}`}
+                                                className={styles.tableImg}
+                                                style={imgIdx > 0 ? { marginTop: 4 } : undefined}
+                                                onClick={(e) => {
+                                                    if (e.target.dataset.broken === 'true') return;
+                                                    setPreviewImage(src);
+                                                    setPreviewLogo(null);
+                                                    setPreviewBrand('Original Reference');
+                                                    setPreviewModel(row.description);
+                                                }}
+                                                onError={(e) => {
+                                                    e.target.dataset.broken = 'true';
+                                                    e.target.style.opacity = '0.3';
+                                                    e.target.style.filter = 'grayscale(1)';
+                                                    e.target.title = 'Image not available (session expired – re-upload to refresh)';
+                                                }}
+                                            />
+                                        );
+                                    })}
                                     {row.aiStatus === 'processing' && <div className={styles.rowScanner}></div>}
                                 </div>
                             ) : (
