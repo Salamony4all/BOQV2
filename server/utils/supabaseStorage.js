@@ -1,5 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
 import 'dotenv/config';
+import process from 'node:process';
+import { Buffer } from 'node:buffer';
+
 
 const cleanEnvStr = (str) => {
     if (!str || typeof str !== 'string') return '';
@@ -109,9 +112,14 @@ export async function uploadToSupabase(bucket, path, fileObject, options = {}) {
     try {
         await ensureBucket(bucket);
 
+        let dataToUpload = fileObject;
+        if (Buffer.isBuffer(fileObject)) {
+            dataToUpload = fileObject.buffer.slice(fileObject.byteOffset, fileObject.byteOffset + fileObject.byteLength);
+        }
+
         const { data, error } = await supabase.storage
             .from(bucket)
-            .upload(path, fileObject, {
+            .upload(path, dataToUpload, {
                 upsert: true,
                 ...options
             });
@@ -235,7 +243,7 @@ export async function saveSupabaseBrand(brand) {
     console.log(`📡 [SupabaseStorage] Attempting to upsert brand: "${brandName}" (ID: ${brandId}, Products: ${productCount})`);
 
     try {
-        const { data, error } = await supabase
+        const { error } = await supabase
             .from('brands')
             .upsert({
                 id: brandId,

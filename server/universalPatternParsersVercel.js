@@ -5,6 +5,8 @@ import fsSync from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import crypto from 'node:crypto';
+import process from 'node:process';
+
 
 const execFileAsync = promisify(execFile);
 import { renderPDFWithLayoutMuPDF } from './utils/pdfRendererMupdf.js';
