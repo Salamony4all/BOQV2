@@ -11,6 +11,7 @@ import styles from '../styles/MultiBudgetModal.module.css';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import BrandDropdown from './BrandDropdown';
+import { findDescColumn } from '../utils/boqUtils';
 
 import { useCompanyProfile } from '../context/CompanyContext';
 import { useTheme } from '../context/ThemeContext';
@@ -299,8 +300,7 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
         if (!tables || tables.length === 0) return [];
         const sourceTable = tables[0];
         const header = sourceTable.header || [];
-        let idxDesc = findCol(header, /description|desc|disc|product|specification|material|particulars/i);
-        if (idxDesc === -1) idxDesc = 1;
+        let idxDesc = findDescColumn(header, sourceTable.rows);
         let idxQty = findCol(header, /^(?!.*(rate|price|amount)).*(qty|quantity)/i);
         if (idxQty === -1) idxQty = findCol(header, /qty|quantity/i);
         const idxUnit = findCol(header, /unit|uom/i);

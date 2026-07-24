@@ -71,6 +71,38 @@ export const isHeaderRow = (desc, row = {}) => {
 export const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 /**
+ * Canonical description-column resolver for extracted BOQ tables.
+ * Priority-tiered header match (strong "desc"-ish names first) so weak terms
+ * like "product" can never shadow "Item Description" (e.g. the canonical
+ * header ['S.No','Image','Product Code','Item Description',...] where
+ * first-match-wins used to lock onto the empty Product Code column).
+ * Falls back to the wordiest column when no header name matches at all.
+ */
+export const findDescColumn = (header = [], rows = []) => {
+    const H = header.map(h => String(h ?? '').toLowerCase());
+    const tiers = [
+        /desc/,                                                  // description, item description, desc., descrption, material description
+        /detail|spec|particular|material|finish/,                // details, specs, specification(s), finish
+        /\bitem\b(?!.*\b(no|code|ref)\b)|product(?!.*\b(code|ref|no)\b)/ // item/product name-ish, never code/ref columns
+    ];
+    for (const rx of tiers) {
+        const i = H.findIndex(h => h && rx.test(h));
+        if (i !== -1) return i;
+    }
+    // Content fallback: description is the wordiest column by average cell length.
+    let best = -1, bestLen = 0;
+    const width = Math.max(H.length, rows[0]?.cells?.length || 0);
+    for (let c = 0; c < width; c++) {
+        const sample = rows.slice(0, 30);
+        const avg = sample.length
+            ? sample.reduce((a, r) => a + String(r?.cells?.[c]?.value ?? '').length, 0) / sample.length
+            : 0;
+        if (avg > bestLen) { bestLen = avg; best = c; }
+    }
+    return bestLen >= 12 ? best : 1; // real desc columns are wordy; else legacy default idx 1
+};
+
+/**
  * Batch processor
  */
 export const batch = async (items, limit, fn) => {
