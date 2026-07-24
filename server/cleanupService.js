@@ -1,10 +1,15 @@
 import { promises as fs } from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { deleteFromSupabase, supabase } from './utils/supabaseStorage.js';
+import { deleteFromSupabase, supabase, supabaseAdmin } from './utils/supabaseStorage.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+// Destructive storage ops (list+remove) must use the service-role admin client
+// so they aren't blocked by Storage RLS on Vercel. Anon client can read a
+// public bucket but cannot delete, which silently left extracted-images behind.
+const admin = () => supabaseAdmin || supabase;
 
 /**
  * Service to manage file and cloud blob cleanup on session end
@@ -137,13 +142,15 @@ class CleanupService {
         }
 
         // 3. Cleanup cloud folders
+        const client = admin();
         for (const cloudFolder of session.cloudFolders) {
             try {
-                if (supabase) {
-                    const { data: files } = await supabase.storage.from(cloudFolder.bucket).list(cloudFolder.path);
+                if (client) {
+                    const { data: files } = await client.storage.from(cloudFolder.bucket).list(cloudFolder.path);
                     if (files && files.length > 0) {
                         const paths = files.map(f => `${cloudFolder.path}/${f.name}`);
-                        await supabase.storage.from(cloudFolder.bucket).remove(paths);
+                        const { error: rmErr } = await client.storage.from(cloudFolder.bucket).remove(paths);
+                        if (rmErr) console.warn(`[Cleanup] remove failed (${cloudFolder.path}):`, rmErr.message);
                     }
                     console.log(`[Cleanup] Deleted Supabase folder: ${cloudFolder.path}`);
                 }
@@ -182,22 +189,26 @@ class CleanupService {
      */
     async cleanupExtractedImages(bucket = 'assets', rootFolder = 'extracted-images') {
         if (!supabase) return;
+        const client = admin();
+        if (!client) return;
         try {
-            const { data: items, error } = await supabase.storage.from(bucket).list(rootFolder);
+            const { data: items, error } = await client.storage.from(bucket).list(rootFolder);
             if (error) { console.warn(`[Cleanup] Could not list ${rootFolder}:`, error.message); return; }
             if (!items || items.length === 0) return;
 
             for (const item of items) {
                 if (!item.id) {
                     // Subfolder (session folder) — recurse into its files
-                    const { data: subFiles } = await supabase.storage.from(bucket).list(`${rootFolder}/${item.name}`);
+                    const { data: subFiles } = await client.storage.from(bucket).list(`${rootFolder}/${item.name}`);
                     if (subFiles && subFiles.length > 0) {
                         const paths = subFiles.map(f => `${rootFolder}/${item.name}/${f.name}`);
-                        await supabase.storage.from(bucket).remove(paths);
+                        const { error: rmErr } = await client.storage.from(bucket).remove(paths);
+                        if (rmErr) console.warn(`[Cleanup] remove failed (${rootFolder}/${item.name}):`, rmErr.message);
                     }
                 } else {
                     // Flat file directly under the root
-                    await supabase.storage.from(bucket).remove([`${rootFolder}/${item.name}`]);
+                    const { error: rmErr } = await client.storage.from(bucket).remove([`${rootFolder}/${item.name}`]);
+                    if (rmErr) console.warn(`[Cleanup] remove failed (${rootFolder}/${item.name}):`, rmErr.message);
                 }
             }
             console.log(`[Cleanup] 🗑️ Wiped extracted-images folder (${items.length} top-level entries).`);
@@ -211,7 +222,9 @@ class CleanupService {
      * This catches files from previous server runs or crashed sessions.
      */
     async performDeepCloudCleanup() {
-        if (!supabase) return;
+        if (!supabase && !supabaseAdmin) return;
+        const client = admin();
+        if (!client) return;
         console.log('[Cleanup] 🔍 Starting Deep Cloud Cleanup scan...');
 
         try {
@@ -219,7 +232,7 @@ class CleanupService {
             const rootFolders = ['temp-uploads', 'extracted-images', 'manual-upload', 'vision-crops'];
 
             for (const rootFolder of rootFolders) {
-                const { data: sessionFolders, error: listError } = await supabase.storage.from(bucket).list(rootFolder);
+                const { data: sessionFolders, error: listError } = await client.storage.from(bucket).list(rootFolder);
 
                 if (listError) {
                     console.warn(`[Cleanup] Could not list ${rootFolder}:`, listError.message);
@@ -239,11 +252,12 @@ class CleanupService {
                             console.log(`[Cleanup] 🗑️ Deep cleaning abandoned session folder: ${rootFolder}/${item.name}`);
 
                             // List files in folder
-                            const { data: files } = await supabase.storage.from(bucket).list(`${rootFolder}/${item.name}`);
+                            const { data: files } = await client.storage.from(bucket).list(`${rootFolder}/${item.name}`);
                             if (files && files.length > 0) {
                                 const pathsToDelete = files.map(f => `${rootFolder}/${item.name}/${f.name}`);
-                                await supabase.storage.from(bucket).remove(pathsToDelete);
-                                console.log(`[Cleanup] Deleted ${pathsToDelete.length} files from ${rootFolder}/${item.name}`);
+                                const { error: rmErr } = await client.storage.from(bucket).remove(pathsToDelete);
+                                if (rmErr) console.warn(`[Cleanup] remove failed (${rootFolder}/${item.name}):`, rmErr.message);
+                                else console.log(`[Cleanup] Deleted ${pathsToDelete.length} files from ${rootFolder}/${item.name}`);
                             }
                         }
                     }
@@ -252,8 +266,9 @@ class CleanupService {
                     else if (item.id && item.created_at) {
                         const fileAge = Date.now() - new Date(item.created_at).getTime();
                         if (fileAge > 2 * 60 * 60 * 1000) { // 2 hours
-                            await supabase.storage.from(bucket).remove([`${rootFolder}/${item.name}`]);
-                            console.log(`[Cleanup] 🗑️ Removed orphaned flat file: ${rootFolder}/${item.name} (age: ${Math.round(fileAge / 60000)}min)`);
+                            const { error: rmErr } = await client.storage.from(bucket).remove([`${rootFolder}/${item.name}`]);
+                            if (rmErr) console.warn(`[Cleanup] remove failed (${rootFolder}/${item.name}):`, rmErr.message);
+                            else console.log(`[Cleanup] 🗑️ Removed orphaned flat file: ${rootFolder}/${item.name} (age: ${Math.round(fileAge / 60000)}min)`);
                         }
                     }
                 }
@@ -272,30 +287,35 @@ class CleanupService {
         }
 
         // FORCE WIPE ROOT STORAGE DIRECTORIES IN SUPABASE (Handles stateless instances/Vercel boots)
-        if (supabase) {
-            console.log('[Cleanup] 🌀 Executing complete target folder evacuation in Supabase assets...');
-            const bucket = 'assets';
-            const rootFolders = ['temp-uploads', 'extracted-images', 'manual-upload', 'vision-crops'];
+        if (supabase || supabaseAdmin) {
+            const client = admin();
+            if (client) {
+                console.log('[Cleanup] 🌀 Executing complete target folder evacuation in Supabase assets...');
+                const bucket = 'assets';
+                const rootFolders = ['temp-uploads', 'extracted-images', 'manual-upload', 'vision-crops'];
 
-            for (const rootFolder of rootFolders) {
-                try {
-                    const { data: items } = await supabase.storage.from(bucket).list(rootFolder);
-                    if (items && items.length > 0) {
-                        for (const item of items) {
-                            if (!item.id) { // This item is a subfolder directory
-                                const { data: subFiles } = await supabase.storage.from(bucket).list(`${rootFolder}/${item.name}`);
-                                if (subFiles && subFiles.length > 0) {
-                                    const paths = subFiles.map(f => `${rootFolder}/${item.name}/${f.name}`);
-                                    await supabase.storage.from(bucket).remove(paths);
+                for (const rootFolder of rootFolders) {
+                    try {
+                        const { data: items } = await client.storage.from(bucket).list(rootFolder);
+                        if (items && items.length > 0) {
+                            for (const item of items) {
+                                if (!item.id) { // This item is a subfolder directory
+                                    const { data: subFiles } = await client.storage.from(bucket).list(`${rootFolder}/${item.name}`);
+                                    if (subFiles && subFiles.length > 0) {
+                                        const paths = subFiles.map(f => `${rootFolder}/${item.name}/${f.name}`);
+                                        const { error: rmErr } = await client.storage.from(bucket).remove(paths);
+                                        if (rmErr) console.warn(`[Cleanup] remove failed (${rootFolder}/${item.name}):`, rmErr.message);
+                                    }
+                                } else { // This item is a file directly inside root folder
+                                    const { error: rmErr } = await client.storage.from(bucket).remove([`${rootFolder}/${item.name}`]);
+                                    if (rmErr) console.warn(`[Cleanup] remove failed (${rootFolder}/${item.name}):`, rmErr.message);
                                 }
-                            } else { // This item is a file directly inside root folder
-                                await supabase.storage.from(bucket).remove([`${rootFolder}/${item.name}`]);
                             }
+                            console.log(`[Cleanup] Successfully evacuated root bucket directory: ${rootFolder}`);
                         }
-                        console.log(`[Cleanup] Successfully evacuated root bucket directory: ${rootFolder}`);
+                    } catch (err) {
+                        console.error(`[Cleanup] Core folder evacuation bypassed for ${rootFolder}:`, err.message);
                     }
-                } catch (err) {
-                    console.error(`[Cleanup] Core folder evacuation bypassed for ${rootFolder}:`, err.message);
                 }
             }
         }
