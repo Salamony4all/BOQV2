@@ -15,14 +15,15 @@ class CleanupService {
         this.cleanupTimeout = 2 * 60 * 60 * 1000; // 2 hours
         this.timers = new Map(); // sessionId -> timeout
 
-        // Start deep cleanup interval (every 3 hours) - skip on Vercel serverless to avoid timer leaks
-        if (process.env.VERCEL !== '1') {
-            this.deepCleanupInterval = setInterval(() => {
-                this.performDeepCloudCleanup().catch(err =>
-                    console.error('[Cleanup] Deep cleanup error:', err)
-                );
-            }, 3 * 60 * 60 * 1000);
-        }
+        // Start deep cleanup interval (every 3 hours). Runs on all hosts
+        // including Vercel — the sweep targets Supabase `assets` bucket only
+        // (no local/blobs), so the serverless timer concern is moot. Images
+        // are also age-deleted by /api/reset's cleanupAll().
+        this.deepCleanupInterval = setInterval(() => {
+            this.performDeepCloudCleanup().catch(err =>
+                console.error('[Cleanup] Deep cleanup error:', err)
+            );
+        }, 3 * 60 * 60 * 1000);
     }
 
     getOrCreateSession(sessionId) {
