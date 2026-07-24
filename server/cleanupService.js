@@ -174,6 +174,39 @@ class CleanupService {
     }
 
     /**
+     * Recursively wipes the Supabase `assets/extracted-images` folder — the
+     * "extracted assets" folder where extraction images are uploaded. Unlike
+     * the flat-file orphan sweep, this recurses into session subfolders
+     * (extracted-images/{sessionId}/img.png), which is where Vercel-uploaded
+     * images actually live. Used on startup / refresh / reset.
+     */
+    async cleanupExtractedImages(bucket = 'assets', rootFolder = 'extracted-images') {
+        if (!supabase) return;
+        try {
+            const { data: items, error } = await supabase.storage.from(bucket).list(rootFolder);
+            if (error) { console.warn(`[Cleanup] Could not list ${rootFolder}:`, error.message); return; }
+            if (!items || items.length === 0) return;
+
+            for (const item of items) {
+                if (!item.id) {
+                    // Subfolder (session folder) — recurse into its files
+                    const { data: subFiles } = await supabase.storage.from(bucket).list(`${rootFolder}/${item.name}`);
+                    if (subFiles && subFiles.length > 0) {
+                        const paths = subFiles.map(f => `${rootFolder}/${item.name}/${f.name}`);
+                        await supabase.storage.from(bucket).remove(paths);
+                    }
+                } else {
+                    // Flat file directly under the root
+                    await supabase.storage.from(bucket).remove([`${rootFolder}/${item.name}`]);
+                }
+            }
+            console.log(`[Cleanup] 🗑️ Wiped extracted-images folder (${items.length} top-level entries).`);
+        } catch (err) {
+            console.error('[Cleanup] extracted-images wipe failed:', err.message);
+        }
+    }
+
+    /**
      * Scans Supabase storage for abandoned files that aren't in active memory
      * This catches files from previous server runs or crashed sessions.
      */
