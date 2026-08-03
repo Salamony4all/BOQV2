@@ -448,8 +448,15 @@ function AppContent({ onOpenSettings }) {
           pipeline === 'paddle'  ? 'paddle'  :
           pipeline === 'opendataloader' ? 'opendataloader' :
           pipeline === 'wordcom_vercel' ? 'wordcom_vercel' :
+          pipeline === 'wordcom_v22' ? 'wordcom_v22' :
           pipeline === 'wordcom' ? 'wordcom' :
           'parallel'; // default / legacy
+
+        // Forward V22 options (consolidation flags) as a FormData field so the
+        // route can read them if needed. Content-Type is set automatically.
+        if (options && typeof options === 'object') {
+          formData.append('options', JSON.stringify(options));
+        }
 
         const uploadUrl = apiUrl('/api/upload');
         console.log('[Upload] uploading to', uploadUrl, '| pipeline:', pipeline, '| mode:', extractionModeHeader);

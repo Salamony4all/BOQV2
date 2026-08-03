@@ -1494,6 +1494,31 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
           console.error(`[Upload] [wordcom_vercel] Failed: ${err.message}`, err.stack);
           throw new Error(`Word Vercel-safe extraction failed: ${err.message}`);
         }
+      } else if (extractionMode === 'wordcom_v22') {
+        // Dynamic-header WordCom V22 (wordpdf-universal-v22.0-dynamic-header-boq-spec):
+        // uses BOQ as authoritative row set, enriches with dynamically-discovered
+        // specification attributes + multi-image pairing, preserves source headers.
+        // Single-file path reuses extractPdfViaWordFastPathVercel internally.
+        console.log(`[Upload] [wordcom_v22] Starting dynamic-header extraction...`);
+        try {
+          const uploadId = crypto.randomUUID();
+          const { extractMultiplePdfsV21 } = await import('./universalPatternParsersVercel.v22.dynamic-header-boq-spec.js');
+          extractedData = await extractMultiplePdfsV21([filePath], (p) => {
+            console.log(`[Upload] [wordcom_v22] progress: ${p}%`);
+          });
+          if (extractedData && Array.isArray(extractedData.tables)) {
+            extractedData.tables = extractedData.tables.map(t => ({
+              ...t,
+              uploadId,
+              engineUsed: t.engineUsed || 'wordcom-v22-dynamic-header'
+            }));
+          } else {
+            throw new Error('V22 dynamic-header extraction could not extract table candidates.');
+          }
+        } catch (err) {
+          console.error(`[Upload] [wordcom_v22] Failed: ${err.message}`, err.stack);
+          throw new Error(`Word V22 dynamic-header extraction failed: ${err.message}`);
+        }
       } else if (extractionMode === 'wordcom') {
         console.log(`[Upload] [wordcom] Starting Word/LibreOffice hybrid extraction...`);
         try {

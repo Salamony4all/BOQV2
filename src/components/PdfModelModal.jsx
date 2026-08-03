@@ -24,6 +24,15 @@ const modal = {
 
 const PIPELINES = [
   {
+    id: 'wordcom_v22',
+    label: 'PDF WordCom V22',
+    icon: '🧩',
+    color: '#0f766e',
+    gradient: 'linear-gradient(135deg,#0f766e,#0d9488)',
+    badge: 'Recommended',
+    desc: 'Dynamic-header extractor for BOQs, specification sheets, and material presentations across one or multiple PDFs. Preserves source headers and enriches BOQ rows with detected specification fields and product images.',
+  },
+  {
     id: 'wordcom',
     label: 'PDF WordCom',
     icon: '📄',
@@ -51,7 +60,7 @@ const PIPELINES = [
 
 const PdfModelModal = ({ isOpen, onClose, onExtract, fileName }) => {
   const { aiSettings } = useCompanyProfile();
-  const [selectedPipeline, setSelectedPipeline] = useState('wordcom');
+  const [selectedPipeline, setSelectedPipeline] = useState('wordcom_v22');
   const [doclingOcr, setDoclingOcr] = useState(false);
 
   if (!isOpen) return null;
@@ -60,7 +69,16 @@ const PdfModelModal = ({ isOpen, onClose, onExtract, fileName }) => {
   const chosen = PIPELINES.find(p => p.id === selectedPipeline);
 
   const handleExtract = () => {
-    onExtract(currentModel, selectedPipeline);
+    const isV22 = selectedPipeline === 'wordcom_v22';
+    onExtract(currentModel, selectedPipeline, isV22 ? {
+      fileCount: 1,
+      consolidateBoqAndSpecs: true,
+      preserveSourceHeaders: true,
+      dynamicSpecificationAttributes: true,
+      excludeDocumentMetadata: true,
+      excludeLogos: true,
+      preserveMultipleImages: true
+    } : undefined);
   };
 
   return (
@@ -197,25 +215,6 @@ const PdfModelModal = ({ isOpen, onClose, onExtract, fileName }) => {
               </div>
             )}
 
-            {/* Word COM Info */}
-            {selectedPipeline === 'wordcom' && (
-              <div style={{
-                marginTop: '16px',
-                padding: '12px 16px',
-                borderRadius: '12px',
-                background: 'rgba(139, 92, 246, 0.08)',
-                border: '1px dashed rgba(139, 92, 246, 0.3)',
-                display: 'flex',
-                alignItems: 'flex-start',
-                gap: '12px',
-                animation: 'pdmFadeIn 0.2s ease'
-              }}>
-                <span style={{ fontSize: '1.2rem', flexShrink: 0 }}>ℹ️</span>
-                <span style={{ fontSize: '0.78rem', color: 'var(--text-muted, #64748b)', lineHeight: 1.5 }}>
-                  Requires Windows with Microsoft Word installed. Preserves original layout, formatting, images, and embedded objects.
-                </span>
-              </div>
-            )}
           </div>
 
           {/* ── Footer ── */}
@@ -255,7 +254,7 @@ const PdfModelModal = ({ isOpen, onClose, onExtract, fileName }) => {
               }}
             >
               <span style={{ fontSize: '1.1rem' }}>{chosen?.icon}</span>
-              Extract with {chosen?.label}
+              {selectedPipeline === 'wordcom_v22' ? 'Extract and Consolidate' : `Extract with ${chosen?.label}`}
             </button>
           </div>
 
