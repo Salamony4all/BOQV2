@@ -250,7 +250,9 @@ function parseOfmlProductSummary(text) {
     const total = block.match(totalRx)?.[1] || commercial?.[2] || '';
     const rate = commercial?.[1] || '';
     const desc = [familyTitle, technical, articleCode ? `Manufacturer Article: ${articleCode}` : ''].filter(Boolean).join('\n\n');
-    rows.push({ id: `ofml-${productCode}`, pageNum: pageOfIndex(text, m.index), sectionLabel: '', isHeader: false, isSummary: false,
+    const childOffset = child && child.index !== undefined ? child.index : 0;
+    const itemPage = pageOfIndex(text, m.index + childOffset);
+    rows.push({ id: `ofml-${productCode}`, pageNum: itemPage, sectionLabel: '', isHeader: false, isSummary: false,
       cells: [cell(String(rows.length + 1)), cell(''), cell(productCode), cell(desc), cell(''), cell(qty), cell(rate), cell(total)],
       metadata: { serialAnchor: productCode, hierarchy, articleCode, alternative: false, sourceRange: [m.index, end] },
       provenance: { parser: 'ofml-product-summary', anchor: productCode }, warnings: [] });
