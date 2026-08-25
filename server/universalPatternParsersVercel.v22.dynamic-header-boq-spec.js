@@ -778,15 +778,69 @@ async function extractAndPairImagesVercel(pdfPath, table, sessionId, preloadedLa
 
   const normalizeStr = (s) => String(s || '').replace(/[^a-z0-9]/gi, '').toLowerCase();
 
-  const specPageIdx = table.header.findIndex(h => /spec\s*page/i.test(h));
+  // 3a. Upload and finalize any card-extracted images already attached to rows in parallel chunks
+  const uploadTasks = [];
+  for (let i = 0; i < table.rows.length; i++) {
+    const row = table.rows[i];
+    const attachedImages = row.cells[imgIdx]?.images || [];
+    if (!attachedImages.length) continue;
 
+    for (let j = 0; j < attachedImages.length; j++) {
+      const img = attachedImages[j];
+      if (typeof img === 'string' && img.startsWith('http')) continue;
+      const pageNum = row.metadata?.specPage || row.pageNum || 1;
+      const filename = `page_${pageNum}_row_${i}_img_${j}_${crypto.randomUUID().slice(0, 8)}.png`;
+      const destPath = path.join(publicRoot, filename);
+      uploadTasks.push({ row, imgIndex: j, img, filename, destPath });
+    }
+  }
+
+  // Process uploads in parallel batches of 10
+  const BATCH_SIZE = 10;
+  for (let b = 0; b < uploadTasks.length; b += BATCH_SIZE) {
+    const batch = uploadTasks.slice(b, b + BATCH_SIZE);
+    await Promise.all(batch.map(async ({ row, imgIndex, img, filename, destPath }) => {
+      const isVercel = process.env.VERCEL === '1';
+      let imageUrl = isVercel ? null : `/temp/extracted_images/${sessionId}/${filename}`;
+      try {
+        if (img.buffer) {
+          await fs.writeFile(destPath, img.buffer);
+        } else if (img.path && fsSync.existsSync(img.path)) {
+          await fs.copyFile(img.path, destPath);
+        }
+
+        if (supabase) {
+          try {
+            const imgData = img.buffer || (fsSync.existsSync(destPath) ? await fs.readFile(destPath) : null);
+            if (imgData) {
+              const supabasePath = `extracted-images/${sessionId}/${filename}`;
+              const uploadResult = await uploadToSupabase('assets', supabasePath, imgData, {
+                contentType: 'image/png',
+                cacheControl: '3600'
+              });
+              if (uploadResult?.url) imageUrl = uploadResult.url;
+            }
+          } catch (supErr) {
+            console.warn(`[WordPdfExtractorVercel] Supabase upload notice for card image ${filename}: ${supErr.message}`);
+          }
+        }
+      } catch (saveErr) {
+        console.warn(`[WordPdfExtractorVercel] Failed saving card image ${filename}: ${saveErr.message}`);
+      }
+
+      if (imageUrl) {
+        const imgs = row.cells[imgIdx].images || [];
+        imgs[imgIndex] = imageUrl;
+        row.cells[imgIdx].images = imgs;
+        row.cells[imgIdx].image = imgs[0] || imageUrl;
+      }
+    }));
+  }
+
+  // 3b. For rows on tabular pages that DO NOT have attached images, perform spatial layout pairing
   for (const layout of layouts) {
     const pageNum = layout.page;
-    const pageRows = table.rows.filter(r => 
-      r.pageNum === pageNum || 
-      Number(r.metadata?.specPage) === pageNum || 
-      (specPageIdx >= 0 && Number(r.cells?.[specPageIdx]?.value) === pageNum)
-    );
+    const pageRows = table.rows.filter(r => r.pageNum === pageNum && (!r.cells[imgIdx]?.images?.length));
     if (!pageRows.length) continue;
 
     const pageHeight = layout.viewport?.height || 1000;
@@ -1029,44 +1083,154 @@ function v19FieldFromRegion(items, field, nextFields) {
 }
 function parseMaterialLayoutsV19(layouts, rawText = '') {
   if (!Array.isArray(layouts) || !layouts.length) return null;
-  const metadata = {};
-  const found = [];
+  const entities = [];
+
   for (const layout of layouts) {
-    const items = (layout.textItems || []).map(it => ({...it, text:v19TextItem(it)})).filter(it => it.text);
-    const pageText = items.map(it=>it.text).join(' ');
-    const labelKinds = ['TYPE','SIZE','FINISH','SUPPLIER'].filter(n => new RegExp(`\\b${n}\\b`,'i').test(pageText));
-    if (labelKinds.length < 3) continue; // page-level gate; BOQ and plan pages never enter spec parsing
-    const heads = items.filter(it => /^LF\s*[-–]\s*\d{3}/i.test(it.text)).sort((a,b)=>(a.y-b.y)||(a.x-b.x));
-    for (const head of heads) {
-      const codes = v19Codes(head.text); if (!codes.length) continue;
-      const hc = Number(head.x || 0);
-      const sameBand = heads.filter(h => h !== head && Math.abs(Number(h.y||0)-Number(head.y||0)) < 80);
-      let left = 0, right = Number(layout.viewport?.width || 1000);
-      for (const h of sameBand) {
-        const mid = (hc + Number(h.x||0)) / 2;
-        if (Number(h.x||0) < hc) left = Math.max(left,mid); else right = Math.min(right,mid);
+    const width = layout.viewport?.width || 1920;
+    const height = layout.viewport?.height || 1080;
+    const pageNum = layout.page;
+
+    const lineItems = (layout.textItems || []).filter(it => v19Norm(it.text || it.str).length > 0);
+    const allText = lineItems.map(it => it.text || it.str).join(' ');
+    
+    // Check if this is a spec slide
+    const labelKinds = ['TYPE', 'SIZE', 'FINISH', 'SUPPLIER'].filter(n => new RegExp(`\\b${n}\\b`, 'i').test(allText));
+    if (labelKinds.length < 3) continue;
+
+    // Find card headers: e.g. "LF-006 – DISPLAY TABLE" or "LF-001/ 002/ 004/ 005 – MODULAR BENCH"
+    const headerRx = /\bLF\s*[-–]\s*\d{3}/i;
+    const headers = [];
+    for (const it of lineItems) {
+      const t = v19Norm(it.text || it.str);
+      if (headerRx.test(t) && (t.includes('–') || t.includes('-') || t.length > 8)) {
+        if (!headers.some(h => Math.abs(h.x - it.x) < 20 && Math.abs(h.y - it.y) < 20)) {
+          headers.push({ ...it, text: t });
+        }
       }
-      const region = items.filter(it => Number(it.x||0) >= left && Number(it.x||0) < right && Number(it.y||0) > Number(head.y||0));
-      const fields = {
-        type:v19FieldFromRegion(region,'TYPE',['SIZE','FINISH','SUPPLIER']),
-        size:v19FieldFromRegion(region,'SIZE',['FINISH','SUPPLIER','TYPE']),
-        finish:v19FieldFromRegion(region,'FINISH',['SUPPLIER','TYPE','SIZE']),
-        supplier:v19FieldFromRegion(region,'SUPPLIER',['TYPE','SIZE','FINISH'])
+    }
+
+    if (!headers.length) continue;
+    headers.sort((a, b) => a.x - b.x || a.y - b.y);
+
+    // Build bounding boxes for each header card
+    const cards = [];
+    if (headers.length === 1) {
+      cards.push({ header: headers[0], left: 0, right: width, top: 0, bottom: height });
+    } else {
+      for (let i = 0; i < headers.length; i++) {
+        const h = headers[i];
+        const left = i === 0 ? 0 : (headers[i - 1].x + h.x) / 2;
+        const right = i === headers.length - 1 ? width : (h.x + headers[i + 1].x) / 2;
+        cards.push({ header: h, left, right, top: 0, bottom: height });
+      }
+    }
+
+    for (const card of cards) {
+      const hText = card.header.text;
+      const codeMatches = [...hText.matchAll(/LF\s*[-–]\s*(\d{3})|(\d{3})/gi)].map(m => `LF-${(m[1] || m[2]).padStart(3, '0')}`);
+      const codes = [...new Set(codeMatches)];
+      const title = v19Norm(hText.replace(/LF\s*[-–]\s*\d{3}(?:\s*\/\s*(?:LF\s*[-–]\s*)?\d{3})*\s*[-–:]?\s*/i, ''));
+
+      const cardTextItems = lineItems.filter(it => {
+        const x = Number(it.x || 0);
+        const y = Number(it.y || 0);
+        return x >= card.left - 10 && x < card.right + 10 && y >= card.header.y - 10;
+      });
+
+      const getFieldValue = (fieldLabel, nextLabels) => {
+        const labelItem = cardTextItems.find(it => new RegExp(`^${fieldLabel}$`, 'i').test(v19Norm(it.text || it.str)));
+        if (!labelItem) return '';
+        const nextY = cardTextItems
+          .filter(it => nextLabels.some(nl => new RegExp(`^${nl}$`, 'i').test(v19Norm(it.text || it.str))) && it.y > labelItem.y)
+          .map(it => it.y)
+          .sort((a, b) => a - b)[0] ?? height;
+
+        const valLines = cardTextItems.filter(it => {
+          const t = v19Norm(it.text || it.str);
+          if (!t || /^(TYPE|SIZE|FINISH|SUPPLIER|PG\s*\|\s*\d+)$/i.test(t)) return false;
+          if (it.y < labelItem.y - 2 || it.y >= nextY || it.x <= labelItem.x - 20) return false;
+          const isSub = cardTextItems.some(o => o !== it && Math.abs(o.y - it.y) < 5 && v19Norm(o.text || o.str).length > t.length && v19Norm(o.text || o.str).includes(t));
+          return !isSub;
+        }).sort((a, b) => a.y - b.y || a.x - b.x);
+
+        const seen = new Set();
+        const cleanWords = [];
+        for (const vl of valLines) {
+          const t = v19Norm(vl.text || vl.str);
+          if (!seen.has(t)) {
+            seen.add(t);
+            cleanWords.push(t);
+          }
+        }
+        return cleanWords.join(' ').replace(/\s+/g, ' ').trim();
       };
-      const title = v19Norm(head.text.replace(/LF\s*[-–]\s*\d{3}(?:\s*\/\s*(?:LF\s*[-–]\s*)?\d{3})*\s*[-–:]?\s*/i,''));
-      const complete = Object.values(fields).filter(Boolean).length;
-      const contamination = /\bA-\d+\b|Amount\s*\(RO\)|S\.?No\.?/i.test(Object.values(fields).join(' '));
-      const score = complete * 20 + (title ? 8 : 0) - (contamination ? 50 : 0);
-      for (const code of codes) found.push({code,title,...fields,pageNum:layout.page,score});
+
+      const type = getFieldValue('TYPE', ['SIZE', 'FINISH', 'SUPPLIER']);
+      const size = getFieldValue('SIZE', ['FINISH', 'SUPPLIER', 'TYPE']);
+      const finish = getFieldValue('FINISH', ['SUPPLIER', 'TYPE', 'SIZE']);
+      const supplier = getFieldValue('SUPPLIER', ['TYPE', 'SIZE', 'FINISH']);
+
+      const cardImages = (layout.extractedImages || []).filter(img => {
+        const centerX = img.x + img.w / 2;
+        const centerY = img.y + img.h / 2;
+        return centerX >= card.left && centerX < card.right && centerY > 100 && centerY < (height - 100) && img.w > 25 && img.h > 25;
+      });
+
+      for (const code of codes) {
+        entities.push({
+          code,
+          title,
+          type,
+          size,
+          finish,
+          supplier,
+          images: cardImages,
+          pageNum,
+          score: 100 + cardImages.length
+        });
+      }
     }
   }
-  const best = new Map();
-  for (const r of found) if (!best.has(r.code) || r.score > best.get(r.code).score) best.set(r.code,r);
-  const entities = [...best.values()].sort((a,b)=>Number(a.code.slice(3))-Number(b.code.slice(3)));
-  if (!entities.length) return null;
-  const rows = entities.map((e,i)=>({id:`material-${e.code}`,pageNum:e.pageNum,sectionLabel:'specification-card',isHeader:false,isSummary:false,cells:[v19Cell(String(i+1)),v19Cell(''),v19Cell(e.code),v19Cell(e.title),v19Cell(''),v19Cell(''),v19Cell(''),v19Cell(''),v19Cell(e.type),v19Cell(e.size),v19Cell(e.finish),v19Cell(e.supplier)],metadata:{...metadata,serialAnchor:e.code,sourceType:'layout-specification-card',extractionScore:e.score},warnings:[]}));
-  const completeRatio = entities.filter(e=>e.type&&e.size&&e.finish&&e.supplier).length/entities.length;
-  return {sheetName:'Material Schedule',header:['S.No','Image','Product Code','Item Description','Area / Location','Unit','Quantity','Unit Rate','Type','Size','Finish','Supplier / Reference'],rows,columnCount:12,engineUsed:'wordpdf-universal-v19-layout-material',confidence:Math.min(.995,.90+completeRatio*.09),quality:{rowCount:rows.length,arithmeticPass:1,completeness:completeRatio},extractionAudit:{metadata,uniqueEntityCount:rows.length,completeSpecRatio:completeRatio,method:'coordinate-card-segmentation'},supportsMultiImages:true};
+
+  const uniqueEntities = entities;
+  if (!uniqueEntities.length) return null;
+
+  const rows = uniqueEntities.map((e, i) => ({
+    id: `material-${e.code}`,
+    pageNum: e.pageNum,
+    sectionLabel: 'specification-card',
+    isHeader: false,
+    isSummary: false,
+    cells: [
+      v19Cell(String(i + 1)),
+      { value: '', image: e.images[0] || null, images: e.images, source: 'extracted', confidence: 0.98 },
+      v19Cell(e.code),
+      v19Cell(e.title),
+      v19Cell(''),
+      v19Cell(''),
+      v19Cell(''),
+      v19Cell(''),
+      v19Cell(e.type),
+      v19Cell(e.size),
+      v19Cell(e.finish),
+      v19Cell(e.supplier)
+    ],
+    metadata: { serialAnchor: e.code, sourceType: 'layout-specification-card', extractionScore: e.score },
+    warnings: []
+  }));
+
+  const completeRatio = uniqueEntities.filter(e => e.type && e.size && e.finish && e.supplier).length / uniqueEntities.length;
+  return {
+    sheetName: 'Material Schedule',
+    header: ['S.No', 'Image', 'Product Code', 'Item Description', 'Area / Location', 'Unit', 'Quantity', 'Unit Rate', 'Type', 'Size', 'Finish', 'Supplier / Reference'],
+    rows,
+    columnCount: 12,
+    engineUsed: 'wordpdf-universal-v19-layout-material',
+    confidence: Math.min(0.995, 0.90 + completeRatio * 0.09),
+    quality: { rowCount: rows.length, arithmeticPass: 1, completeness: completeRatio },
+    extractionAudit: { uniqueEntityCount: rows.length, completeSpecRatio: completeRatio, method: '2d-coordinate-card-segmentation' },
+    supportsMultiImages: true
+  };
 }
 
 
@@ -1148,76 +1312,207 @@ function semanticAttributeV22(header = '') {
   if (/title|name|spec.*description|description/i.test(h)) return 'specDescription';
   return h.toLowerCase().replace(/[^a-z0-9]+/g,'_') || 'attribute';
 }
+function textSimilarityV22(desc = '', specText = '') {
+  const dWords = String(desc).toLowerCase().replace(/[^a-z0-9]/g, ' ').split(/\s+/).filter(w => w.length > 2);
+  const sWords = String(specText).toLowerCase().replace(/[^a-z0-9]/g, ' ').split(/\s+/).filter(w => w.length > 2);
+  if (!dWords.length || !sWords.length) return 0;
+  const sSet = new Set(sWords);
+  let overlap = 0;
+  for (const w of dWords) {
+    if (sSet.has(w)) overlap++;
+  }
+  return overlap / dWords.length;
+}
+
 function candidateToSpecMapV22(specTable) {
   const map = new Map();
-  if (!specTable) return { map, attributes: [] };
-  const roles=detectColumnRolesV22(specTable), h=(specTable.header||[]).map(normalizeHeaderV22);
-  const excluded=new Set([
+  const allRecords = [];
+  if (!specTable) return { map, allRecords, attributes: [] };
+  const roles = detectColumnRolesV22(specTable), h = (specTable.header || []).map(normalizeHeaderV22);
+  const excluded = new Set([
     roles.serial, roles.image, roles.productCode, roles.quantity, roles.unitRate, roles.total,
     roles.reviewStatus, roles.audit?.specPage, roles.audit?.reviewStatus
-  ].filter(i=>Number.isInteger(i) && i>=0));
-  const candidates=h.map((header,index)=>({header,index,semantic:semanticAttributeV22(header),profile:profileColumnV22(specTable,index)}))
-    .filter(c=>!excluded.has(c.index) && !/^(Spec\s*Page|Review\s*Status)$/i.test(c.header) && c.profile.nonEmpty>0);
-  const grouped=new Map();
-  for(const c of candidates){
-    const prev=grouped.get(c.semantic);
-    if(!prev || c.profile.nonEmpty>prev.profile.nonEmpty) grouped.set(c.semantic,c);
+  ].filter(i => Number.isInteger(i) && i >= 0));
+  const candidates = h.map((header, index) => ({ header, index, semantic: semanticAttributeV22(header), profile: profileColumnV22(specTable, index) }))
+    .filter(c => !excluded.has(c.index) && !/^(Spec\s*Page|Review\s*Status)$/i.test(c.header) && c.profile.nonEmpty > 0);
+  const grouped = new Map();
+  for (const c of candidates) {
+    const prev = grouped.get(c.semantic);
+    if (!prev || c.profile.nonEmpty > prev.profile.nonEmpty) grouped.set(c.semantic, c);
   }
-  const attributes=[...grouped.values()];
+  const attributes = [...grouped.values()];
   for (const row of specTable.rows || []) {
-    const raw=getValueV21(row,roles.productCode);
-    const codeMatches=[...raw.matchAll(/\b[A-Z]{1,8}\s*[-_ ]\s*\d{1,5}[A-Z]?\b/gi)].map(m=>normalizeMaterialCodeV21(m[0]));
-    const codes=codeMatches.length ? codeMatches : (raw ? [normalizeMaterialCodeV21(raw)] : []);
-    const values={};
-    for(const a of attributes){const v=getValueV21(row,a.index);if(v)values[a.semantic]={value:v,sourceHeader:a.header};}
+    const raw = getValueV21(row, roles.productCode);
+    const codeMatches = [...raw.matchAll(/\b[A-Z]{1,8}\s*[-_ ]\s*\d{1,5}[A-Z]?\b/gi)].map(m => normalizeMaterialCodeV21(m[0]));
+    const codes = codeMatches.length ? codeMatches : (raw ? [normalizeMaterialCodeV21(raw)] : []);
+    const values = {};
+    for (const a of attributes) {
+      const v = getValueV21(row, a.index);
+      if (v) values[a.semantic] = { value: v, sourceHeader: a.header };
+    }
     for (const code of codes) {
       if (!code) continue;
-      const record={code,attributes:values,images:getImagesV21(row,roles.image),pageNum:row.pageNum||''};
-      const score=Object.keys(values).length+Math.min(2,record.images.length);
-      if(!map.has(code)||score>map.get(code).score)map.set(code,{...record,score});
+      const title = getValueV21(row, roles.description) || values.specDescription?.value || '';
+      const type = values.type?.value || '';
+      const record = {
+        code,
+        title,
+        attributes: values,
+        images: getImagesV21(row, roles.image),
+        pageNum: row.pageNum || '',
+        searchContext: `${code} ${title} ${type} ${Object.values(values).map(v => v.value).join(' ')}`
+      };
+      allRecords.push(record);
+      if (!map.has(code)) map.set(code, []);
+      map.get(code).push(record);
     }
   }
-  return { map, attributes };
+  return { map, allRecords, attributes };
 }
+
 function mergeBoqAndSpecsV21(boqTable, specTables = []) {
   if (!boqTable) return null;
-  const b={...boqTable,header:[...(boqTable.header||[])],rows:(boqTable.rows||[]).map(r=>({...r,cells:(r.cells||[]).map(c=>({...c,images:[...(c?.images||[]) ]}))}))};
-  const boqRoles=detectColumnRolesV22(b);
-  const specMaps=[];
-  for(const st of specTables.filter(Boolean)) specMaps.push(candidateToSpecMapV22(st));
-  const specs=new Map();
-  for(const provider of specMaps) for(const [code,rec] of provider.map) if(!specs.has(code)||rec.score>specs.get(code).score)specs.set(code,rec);
-  const semanticDefs=new Map();
-  for(const provider of specMaps) for(const a of provider.attributes){
-    const prev=semanticDefs.get(a.semantic);
-    if(!prev||a.profile.nonEmpty>prev.profile.nonEmpty)semanticDefs.set(a.semantic,a);
+  const b = {
+    ...boqTable,
+    header: [...(boqTable.header || [])],
+    rows: (boqTable.rows || []).map(r => ({ ...r, cells: (r.cells || []).map(c => ({ ...c, images: [...(c?.images || [])] })) }))
+  };
+  const boqRoles = detectColumnRolesV22(b);
+  const specMaps = [];
+  for (const st of specTables.filter(Boolean)) specMaps.push(candidateToSpecMapV22(st));
+
+  const specs = new Map();
+  const allSpecRecords = [];
+  for (const provider of specMaps) {
+    allSpecRecords.push(...(provider.allRecords || []));
+    for (const [code, recs] of provider.map) {
+      if (!specs.has(code)) specs.set(code, []);
+      specs.get(code).push(...recs);
+    }
   }
-  const header=[...b.header];
-  const originalHeaders=[...header];
-  const columnMetadata=header.map((h,index)=>({index,originalHeader:h,displayHeader:h,normalizedRole:Object.entries(boqRoles).find(([k,v])=>Number.isInteger(v)&&v===index)?.[0]||null,source:'boq',confidence:.9}));
-  let imageIdx=boqRoles.image;
-  if(imageIdx<0){imageIdx=header.length;header.push(uniqueHeaderV22(header,'Images','Spec'));columnMetadata.push({index:imageIdx,originalHeader:null,displayHeader:header[imageIdx],normalizedRole:'image',source:'specification',confidence:.99});}
-  const attrIndexes={};
-  for(const [semantic,a] of semanticDefs){
-    let idx=-1;
-    // Reuse a BOQ column only when it has the same semantic meaning and is mostly empty.
-    for(let i=0;i<header.length;i++) if(semanticAttributeV22(header[i])===semantic && profileColumnV22(b,i).nonEmpty===0){idx=i;break;}
-    if(idx<0){idx=header.length;const display=uniqueHeaderV22(header,a.header,'Spec');header.push(display);columnMetadata.push({index:idx,originalHeader:a.header,displayHeader:display,normalizedRole:semantic,source:'specification',confidence:.9});}
-    attrIndexes[semantic]=idx;
+
+  const semanticDefs = new Map();
+  for (const provider of specMaps) {
+    for (const a of provider.attributes) {
+      const prev = semanticDefs.get(a.semantic);
+      if (!prev || a.profile.nonEmpty > prev.profile.nonEmpty) semanticDefs.set(a.semantic, a);
+    }
   }
-  const specPageIdx=header.length;header.push(uniqueHeaderV22(header,'Spec Page','Spec'));columnMetadata.push({index:specPageIdx,originalHeader:null,displayHeader:header[specPageIdx],normalizedRole:'specPage',source:'audit',confidence:1});
-  let reviewIdx=boqRoles.reviewStatus;
-  if(reviewIdx<0){reviewIdx=header.length;header.push(uniqueHeaderV22(header,'Review Status','Audit'));columnMetadata.push({index:reviewIdx,originalHeader:null,displayHeader:header[reviewIdx],normalizedRole:'reviewStatus',source:'audit',confidence:1});}
-  const rows=b.rows.map((row,i)=>{
-    const rawCode=getValueV21(row,boqRoles.productCode);const code=normalizeMaterialCodeV21(rawCode);const sp=specs.get(code);
-    const cells=header.map((_,idx)=>idx<(row.cells||[]).length?{...row.cells[idx],images:[...(row.cells[idx]?.images||[])]}:v19Cell(''));
-    const imageCandidates=[...getImagesV21(row,boqRoles.image),...(sp?.images||[])],seen=new Set();
-    const images=imageCandidates.filter(img=>{const key=String(img?.hash||img?.url||img||'');if(!key||seen.has(key))return false;seen.add(key);return true;});
-    cells[imageIdx]={...(cells[imageIdx]||v19Cell('')),image:images[0]||null,images};
-    if(sp) for(const [semantic,obj] of Object.entries(sp.attributes||{})){const idx=attrIndexes[semantic];if(Number.isInteger(idx)&&!v19Norm(cells[idx]?.value))cells[idx]=v19Cell(obj.value);}
-    cells[specPageIdx]=v19Cell(sp?.pageNum||'');
-    const status=sp?'PASS':(specs.size?'SPEC_NOT_MATCHED':'BOQ_ONLY');cells[reviewIdx]=v19Cell(status);
-    return {...row,id:`merged-${code||i+1}`,cells,metadata:{...(row.metadata||{}),serialAnchor:code,matchKey:code,sourceType:'boq-spec-merged',boqPage:row.pageNum||'',specPage:sp?.pageNum||''},warnings:status==='PASS'?[]:[warning(status,status)]};
+
+  const header = [...b.header];
+  const originalHeaders = [...header];
+  const columnMetadata = header.map((h, index) => ({
+    index,
+    originalHeader: h,
+    displayHeader: h,
+    normalizedRole: Object.entries(boqRoles).find(([k, v]) => Number.isInteger(v) && v === index)?.[0] || null,
+    source: 'boq',
+    confidence: 0.9
+  }));
+
+  let imageIdx = boqRoles.image;
+  if (imageIdx < 0) {
+    imageIdx = header.length;
+    header.push(uniqueHeaderV22(header, 'Images', 'Spec'));
+    columnMetadata.push({ index: imageIdx, originalHeader: null, displayHeader: header[imageIdx], normalizedRole: 'image', source: 'specification', confidence: 0.99 });
+  }
+
+  const attrIndexes = {};
+  for (const [semantic, a] of semanticDefs) {
+    let idx = -1;
+    for (let i = 0; i < header.length; i++) {
+      if (semanticAttributeV22(header[i]) === semantic && profileColumnV22(b, i).nonEmpty === 0) {
+        idx = i;
+        break;
+      }
+    }
+    if (idx < 0) {
+      idx = header.length;
+      const display = uniqueHeaderV22(header, a.header, 'Spec');
+      header.push(display);
+      columnMetadata.push({ index: idx, originalHeader: a.header, displayHeader: display, normalizedRole: semantic, source: 'specification', confidence: 0.9 });
+    }
+    attrIndexes[semantic] = idx;
+  }
+
+  const specPageIdx = header.length;
+  header.push(uniqueHeaderV22(header, 'Spec Page', 'Spec'));
+  columnMetadata.push({ index: specPageIdx, originalHeader: null, displayHeader: header[specPageIdx], normalizedRole: 'specPage', source: 'audit', confidence: 1 });
+
+  let reviewIdx = boqRoles.reviewStatus;
+  if (reviewIdx < 0) {
+    reviewIdx = header.length;
+    header.push(uniqueHeaderV22(header, 'Review Status', 'Audit'));
+    columnMetadata.push({ index: reviewIdx, originalHeader: null, displayHeader: header[reviewIdx], normalizedRole: 'reviewStatus', source: 'audit', confidence: 1 });
+  }
+
+  const assignedSpecs = new Set();
+  const rows = b.rows.map((row, i) => {
+    const rawCode = getValueV21(row, boqRoles.productCode);
+    const code = normalizeMaterialCodeV21(rawCode);
+    const boqDesc = getValueV21(row, boqRoles.description);
+
+    let sp = null;
+    const candidatesForCode = specs.get(code) || [];
+    if (candidatesForCode.length === 1) {
+      sp = candidatesForCode[0];
+    } else if (candidatesForCode.length > 1) {
+      let bestSim = -1;
+      for (const cand of candidatesForCode) {
+        const sim = textSimilarityV22(boqDesc, cand.searchContext);
+        if (sim > bestSim) {
+          bestSim = sim;
+          sp = cand;
+        }
+      }
+    } else if (!sp && boqDesc) {
+      let bestSim = 0.25;
+      for (const rec of allSpecRecords) {
+        if (assignedSpecs.has(rec)) continue;
+        const sim = textSimilarityV22(boqDesc, rec.searchContext);
+        if (sim > bestSim) {
+          bestSim = sim;
+          sp = rec;
+        }
+      }
+    }
+
+    if (sp) assignedSpecs.add(sp);
+
+    const cells = header.map((_, idx) => idx < (row.cells || []).length ? { ...row.cells[idx], images: [...(row.cells[idx]?.images || [])] } : v19Cell(''));
+    const imageCandidates = [...getImagesV21(row, boqRoles.image), ...(sp?.images || [])], seen = new Set();
+    const images = imageCandidates.filter(img => {
+      const key = String(img?.hash || img?.url || img?.path || img || '');
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+
+    cells[imageIdx] = { ...(cells[imageIdx] || v19Cell('')), image: images[0] || null, images };
+    if (sp) {
+      for (const [semantic, obj] of Object.entries(sp.attributes || {})) {
+        const idx = attrIndexes[semantic];
+        if (Number.isInteger(idx) && !v19Norm(cells[idx]?.value)) cells[idx] = v19Cell(obj.value);
+      }
+    }
+    cells[specPageIdx] = v19Cell(sp?.pageNum || '');
+    const status = sp ? 'PASS' : (specs.size ? 'SPEC_NOT_MATCHED' : 'BOQ_ONLY');
+    cells[reviewIdx] = v19Cell(status);
+
+    return {
+      ...row,
+      id: `merged-${code || i + 1}`,
+      cells,
+      metadata: {
+        ...(row.metadata || {}),
+        serialAnchor: code,
+        matchKey: code,
+        sourceType: 'boq-spec-merged',
+        boqPage: row.pageNum || '',
+        specPage: sp?.pageNum || ''
+      },
+      warnings: status === 'PASS' ? [] : [warning(status, status)]
+    };
   });
   const matched=rows.filter(r=>r.cells[reviewIdx]?.value==='PASS').length;
   const columnRoles={...boqRoles,image:imageIdx,reviewStatus:reviewIdx,specificationAttributes:attrIndexes,audit:{specPage:specPageIdx,reviewStatus:reviewIdx}};

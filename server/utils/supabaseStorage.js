@@ -56,7 +56,7 @@ if (supabaseUrl && !supabaseServiceKey) {
 }
 
 // Cache for verified buckets to avoid redundant API calls
-const verifiedBuckets = new Set();
+const verifiedBuckets = new Set(['assets', 'extracted-images']);
 
 /**
  * Ensures the specified bucket exists in Supabase storage

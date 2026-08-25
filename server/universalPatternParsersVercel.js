@@ -12,7 +12,7 @@ const execFileAsync = promisify(execFile);
 import { renderPDFWithLayoutMuPDF } from './utils/pdfRendererMupdf.js';
 import { uploadToSupabase, supabase } from './utils/supabaseStorage.js';
 
-export const EXTRACTOR_VERSION = 'wordpdf-universal-v16.0-vercel';
+export const EXTRACTOR_VERSION = 'wordpdf-universal-v22.0-dynamic-header-boq-spec';
 const PAGE_BREAK = '\f';
 
 export function normalizeInlineText(value = '') {
@@ -149,27 +149,32 @@ function parseBillNo(rawText) {
   const starts = [...text.matchAll(/Bill\s+No\.?\s*(\d+\.\d+)\b/gi)];
   const rows = [];
   const uomQtyRx = /\b(LS|job|m3|m2|m²|M\.L\.?|ML|No\.?|Nos|PCS|Set|Lot|Each|Item|m)\s+([\d,.]+)\b/i;
+  const codeRx = /\b(?:Item\s+Code\s+)?([A-Z]{1,6}[-_]\d{1,4}[A-Z]?)\b/gi;
   for (let i = 0; i < starts.length; i++) {
     const m = starts[i];
     const end = i + 1 < starts.length ? starts[i + 1].index : text.length;
     const segment = normalizeInlineText(text.slice(m.index + m[0].length, end));
-    const uq = segment.match(uomQtyRx);
-    if (!uq) continue;
+    const uqMatches = [...segment.matchAll(new RegExp(uomQtyRx.source, 'gi'))];
+    const uq = uqMatches.at(-1); if (!uq) continue;
+    const before = normalizeInlineText(segment.slice(0, uq.index));
     const after = segment.slice((uq.index || 0) + uq[0].length);
+    // Financial values are always parsed from the numeric tail after UOM/quantity.
+    // Product-code digits such as LA-102 are before UOM and can never become rates.
     const nums = [...after.matchAll(/\b[\d,]+(?:\.\d+)?\b/g)].map(x => x[0]);
     if (nums.length < 2) continue;
     const rateText = nums[0], amountText = nums[1];
-    const before = normalizeInlineText(segment.slice(0, uq.index));
-    const info = before.match(/\b(Item\s+Code|As per specifications|To the approval of the Engineer|Brushed brass finish)\s+([A-Z0-9-]+)?\s*$/i);
+    const codes = [...before.matchAll(codeRx)].map(x=>x[1].toUpperCase());
+    const productCode = [...new Set(codes)].join(' / ');
+    const infoRx = /\b(?:Item\s+Code\s+[A-Z0-9_/-]+(?:\s+and\s+[A-Z0-9_/-]+)?|As per specifications|To the approval of the Engineer|Brushed brass finish)\s*$/i;
+    const info = before.match(infoRx);
     const additional = info ? normalizeInlineText(info[0]) : '';
     const details = info ? normalizeInlineText(before.slice(0, info.index)) : before;
-    const qty = safeNumber(uq[2]); const rate = safeNumber(rateText); const amount = safeNumber(amountText);
-    if (!details || qty === null || rate === null || amount === null) continue;
-    rows.push({ id: `bill-${m[1]}`, pageNum: pageOfIndex(text, m.index), sectionLabel: '', cells: [cell(`Bill No. ${m[1]}`), cell(''), cell(details), cell(additional), cell(uq[1]), cell(uq[2]), cell(rateText), cell(amountText)], provenance: { parser: 'bill-no', sourceRange: [m.index, end] }, warnings: Math.abs(qty * rate - amount) > Math.max(0.01, amount * 0.001) ? [warning('ARITHMETIC_MISMATCH', `${qty} x ${rate} != ${amount}`)] : [] });
+    const qty=safeNumber(uq[2]), rate=safeNumber(rateText), amount=safeNumber(amountText);
+    if (!details || qty===null || rate===null || amount===null) continue;
+    rows.push({id:`bill-${m[1]}`,pageNum:pageOfIndex(text,m.index),sectionLabel:'',cells:[cell(`Bill No. ${m[1]}`),cell(productCode),cell(details),cell(additional),cell(uq[1]),cell(uq[2]),cell(rateText),cell(amountText)],provenance:{parser:'bill-no',sourceRange:[m.index,end]},warnings:Math.abs(qty*rate-amount)>Math.max(.01,amount*.001)?[warning('ARITHMETIC_MISMATCH',`${qty} x ${rate} != ${amount}`)]:[]});
   }
-  return candidate('Bill No BOQ', ['Item Code','Item Name','Item Details','Additional Information','UOM','Quantity','Rate','Amount'], rows, 'bill-no', 0.99);
+  return candidate('Bill No BOQ',['Item No','Product Code','Item Description','Additional Information','UOM','Quantity','Rate','Amount'],rows,'bill-no',.99);
 }
-
 function parseSerialFinancial(text) {
   if (!/Sl\.?No\s+(Image Reference|Img\s*\.?\s*Ref|Image\s+Referenc)\s+(Item Description|Discription|Description)\s+(QTY|Qty)/i.test(text)) return null;
   const rows = [];
@@ -477,6 +482,8 @@ function parseAlshayaStyleSchedule(text) {
       }
     }
     
+    specCode = normalizeMaterialCodeV21(specCode);
+    
     const qtyText = m[4] || m[7];
     const unit = m[5] || m[6];
     const rateText = m[8] || '';
@@ -648,24 +655,68 @@ function candidate(name, header, rows, parser, baseConfidence, extraAudit = {}) 
   return { sheetName: name, header, rows, columnCount: header.length, engineUsed: `${EXTRACTOR_VERSION}-${parser}`, confidence, quality: { rowCount: rows.length, arithmeticPass, completeness }, ...extraAudit };
 }
 
+function repairArithmeticFromSource(table, text) {
+  if (/boq-spec-merge|specification|material/i.test(table?.engineUsed || '') && !(table.header || []).some(h => /rate|price|amount|total/i.test(String(h)))) return table;
+  const qi=table.header.findIndex(h=>/qty|quantity/i.test(h)),ri=table.header.findIndex(h=>/rate|price|sp\/eur/i.test(h)),ai=table.header.findIndex(h=>/amount|total|tp\/eur/i.test(h));
+  if(qi<0||ri<0||ai<0)return table;
+  for(const row of table.rows||[]){
+    const q=safeNumber(row.cells[qi]?.value),rate=safeNumber(row.cells[ri]?.value),amount=safeNumber(row.cells[ai]?.value);
+    if(q===null||rate===null||amount===null||Math.abs(q*rate-amount)<=Math.max(.02,amount*.001))continue;
+    const range=row.provenance?.sourceRange; if(!range)continue;
+    const seg=normalizeInlineText(String(text).slice(range[0],range[1]));
+    const vals=[...seg.matchAll(/\b[\d,]+(?:\.\d+)?\b/g)].map(m=>({raw:m[0],n:safeNumber(m[0]),i:m.index})).filter(x=>x.n!==null);
+    let best=null;
+    for(let i=0;i<vals.length;i++)for(let j=i+1;j<vals.length;j++){
+      const r=vals[i],a=vals[j]; const err=Math.abs(q*r.n-a.n);
+      if(err<=Math.max(.02,a.n*.001)){const score=j*100+i; if(!best||score>best.score)best={r,a,score};}
+    }
+    if(best){row.cells[ri]={...row.cells[ri],value:best.r.raw,source:'arithmetic-repair',confidence:.98};row.cells[ai]={...row.cells[ai],value:best.a.raw,source:'arithmetic-repair',confidence:.98};row.warnings=(row.warnings||[]).filter(w=>w.code!=='ARITHMETIC_MISMATCH');row.warnings.push(warning('ARITHMETIC_REPAIRED',`${q} x ${best.r.n} = ${best.a.n}`));}
+  }
+  const pass=(table.rows||[]).filter(r=>!(r.warnings||[]).some(w=>w.code==='ARITHMETIC_MISMATCH')).length/Math.max(1,table.rows.length);
+  table.quality={...(table.quality||{}),arithmeticPass:pass}; return table;
+}
+
+function sourceDeclaredTotal(text, table) {
+  const patterns = table?.engineUsed?.includes('ofml-product-summary')
+    ? [/\bNet Total\s+EUR\s+([\d,]+\.\d{2})/i,/\bTotal Price\s+EUR\s+([\d,]+\.\d{2})/i]
+    : [/(?:^|\n)\s*Total\s+([\d,]+(?:\.\d+)?)/im,/([\d,]+(?:\.\d+)?)\s+[\d,]+(?:\.\d+)?\s+[\d,]+(?:\.\d+)?\s+Total\s+VAT\s+G\.Total/i,/TOTAL VALUE IN OMR\s+([\d,]+(?:\.\d+)?)/i,/\bSub\s*Total\s+([\d,]+(?:\.\d+)?)/i];
+  for (const rx of patterns) { const matches=[...String(text).matchAll(new RegExp(rx.source,rx.flags.includes('g')?rx.flags:rx.flags+'g'))]; const m=matches.at(-1); if(m?.[1]) return {label:'Source line total',value:m[1]}; }
+  return null;
+}
+function reconcileSelectedTable(table, text) {
+  const totalIdx=table.header.findIndex(h=>/amount|total|tp\/eur/i.test(h));
+  const extracted=(table.rows||[]).reduce((a,r)=>a+(safeNumber(r.cells[totalIdx]?.value)||0),0);
+  const declared=sourceDeclaredTotal(text,table);
+  const out={...table};
+  out.reconciliation={extractedLineTotal:extracted.toFixed(2),sourceDeclaredTotal:declared?.value||'',difference:'',status:'NOT_AVAILABLE'};
+  if(declared){const d=safeNumber(declared.value),diff=d-extracted;out.reconciliation.difference=diff.toFixed(2);out.reconciliation.status=Math.abs(diff)<=Math.max(.02,Math.abs(d)*.0001)?'PASS':'REVIEW';
+    if(out.reconciliation.status==='REVIEW'){out.confidence=Math.min(out.confidence,.89);out.quality={...(out.quality||{}),reconciled:false};}
+  }
+  return out;
+}
+
 export function selectBestCandidate(candidates) {
   const valid = candidates.filter(Boolean);
   if (!valid.length) return null;
   const maxRows = Math.max(...valid.map(c => c.rows.length));
-  return valid.map(c => ({ c, score: c.confidence * 0.55 + c.quality.arithmeticPass * 0.2 + c.quality.completeness * 0.15 + Math.min(1, c.rows.length / maxRows) * 0.1 }))
-    .sort((a, b) => b.score - a.score)[0].c;
+  return valid.map(c => {
+    const arithmeticPass = c.quality?.arithmeticPass ?? 1;
+    const completeness = c.quality?.completeness ?? 0;
+    const confidence = Number.isFinite(c.confidence) ? c.confidence : 0.5;
+    return { c, score: confidence * 0.55 + arithmeticPass * 0.2 + completeness * 0.15 + Math.min(1, c.rows.length / maxRows) * 0.1 };
+  }).sort((a, b) => b.score - a.score)[0].c;
 }
 
-async function extractAndPairImagesVercel(pdfPath, table, sessionId) {
+async function extractAndPairImagesVercel(pdfPath, table, sessionId, preloadedLayouts = []) {
   const publicRoot = process.env.VERCEL === '1'
     ? path.join(os.tmpdir(), 'extracted_images', sessionId)
     : path.join(process.cwd(), 'public', 'temp', 'extracted_images', sessionId);
     
   await fs.mkdir(publicRoot, { recursive: true });
 
-  let layouts = [];
+  let layouts = preloadedLayouts;
   try {
-    layouts = await renderPDFWithLayoutMuPDF(pdfPath);
+    if (!layouts.length) layouts = await renderPDFWithLayoutMuPDF(pdfPath);
   } catch (error) {
     console.warn(`[WordPdfExtractorVercel] Wasm image extraction failed: ${error.message}`);
     return;
@@ -695,7 +746,9 @@ async function extractAndPairImagesVercel(pdfPath, table, sessionId) {
 
   // 2. Identify logos/headers (image hashes present on 2+ unique pages THAT ARE in margins or have logo aspect ratios)
   const logoHashes = new Set();
+  const templateRepeatThreshold = Math.max(8, Math.ceil(layouts.length * 0.20));
   for (const [hash, pagesSet] of hashToPages.entries()) {
+    const isDocumentTemplate = pagesSet.size >= templateRepeatThreshold;
     if (pagesSet.size >= 2) {
       const firstImg = allImages.find(x => x.hash === hash);
       if (firstImg) {
@@ -705,7 +758,7 @@ async function extractAndPairImagesVercel(pdfPath, table, sessionId) {
         const isMargin = firstImg.y < 100 || firstImg.y > (pageHeight - 100);
         const isLogoAr = ar > 3.2 || ar < 0.2;
         
-        if (isLogoAr || isMargin) {
+        if (isDocumentTemplate || isLogoAr || isMargin) {
           logoHashes.add(hash);
           console.log(`[WordPdfExtractorVercel] Filtering logo/template image (hash: ${hash}, pages: ${pagesSet.size}, ar: ${ar.toFixed(2)}, y: ${firstImg.y})`);
         }
@@ -725,9 +778,69 @@ async function extractAndPairImagesVercel(pdfPath, table, sessionId) {
 
   const normalizeStr = (s) => String(s || '').replace(/[^a-z0-9]/gi, '').toLowerCase();
 
+  // 3a. Upload and finalize any card-extracted images already attached to rows in parallel chunks
+  const uploadTasks = [];
+  for (let i = 0; i < table.rows.length; i++) {
+    const row = table.rows[i];
+    const attachedImages = row.cells[imgIdx]?.images || [];
+    if (!attachedImages.length) continue;
+
+    for (let j = 0; j < attachedImages.length; j++) {
+      const img = attachedImages[j];
+      if (typeof img === 'string' && img.startsWith('http')) continue;
+      const pageNum = row.metadata?.specPage || row.pageNum || 1;
+      const filename = `page_${pageNum}_row_${i}_img_${j}_${crypto.randomUUID().slice(0, 8)}.png`;
+      const destPath = path.join(publicRoot, filename);
+      uploadTasks.push({ row, imgIndex: j, img, filename, destPath });
+    }
+  }
+
+  // Process uploads in parallel batches of 10
+  const BATCH_SIZE = 10;
+  for (let b = 0; b < uploadTasks.length; b += BATCH_SIZE) {
+    const batch = uploadTasks.slice(b, b + BATCH_SIZE);
+    await Promise.all(batch.map(async ({ row, imgIndex, img, filename, destPath }) => {
+      const isVercel = process.env.VERCEL === '1';
+      let imageUrl = isVercel ? null : `/temp/extracted_images/${sessionId}/${filename}`;
+      try {
+        if (img.buffer) {
+          await fs.writeFile(destPath, img.buffer);
+        } else if (img.path && fsSync.existsSync(img.path)) {
+          await fs.copyFile(img.path, destPath);
+        }
+
+        if (supabase) {
+          try {
+            const imgData = img.buffer || (fsSync.existsSync(destPath) ? await fs.readFile(destPath) : null);
+            if (imgData) {
+              const supabasePath = `extracted-images/${sessionId}/${filename}`;
+              const uploadResult = await uploadToSupabase('assets', supabasePath, imgData, {
+                contentType: 'image/png',
+                cacheControl: '3600'
+              });
+              if (uploadResult?.url) imageUrl = uploadResult.url;
+            }
+          } catch (supErr) {
+            console.warn(`[WordPdfExtractorVercel] Supabase upload notice for card image ${filename}: ${supErr.message}`);
+          }
+        }
+      } catch (saveErr) {
+        console.warn(`[WordPdfExtractorVercel] Failed saving card image ${filename}: ${saveErr.message}`);
+      }
+
+      if (imageUrl) {
+        const imgs = row.cells[imgIdx].images || [];
+        imgs[imgIndex] = imageUrl;
+        row.cells[imgIdx].images = imgs;
+        row.cells[imgIdx].image = imgs[0] || imageUrl;
+      }
+    }));
+  }
+
+  // 3b. For rows on tabular pages that DO NOT have attached images, perform spatial layout pairing
   for (const layout of layouts) {
     const pageNum = layout.page;
-    const pageRows = table.rows.filter(r => r.pageNum === pageNum);
+    const pageRows = table.rows.filter(r => r.pageNum === pageNum && (!r.cells[imgIdx]?.images?.length));
     if (!pageRows.length) continue;
 
     const pageHeight = layout.viewport?.height || 1000;
@@ -918,6 +1031,514 @@ async function extractAndPairImagesVercel(pdfPath, table, sessionId) {
   }
 }
 
+// V18 layout-card parser for specification sheets and presentation-style PDFs.
+function extractDocumentMetadataV18(text = '') {
+  const t = String(text).replace(/\u00a0/g, ' ');
+  const month = '(?:JANUARY|FEBRUARY|MARCH|APRIL|MAY|JUNE|JULY|AUGUST|SEPTEMBER|OCTOBER|NOVEMBER|DECEMBER)';
+  return {
+    documentNo: (t.match(/Document\s*No\.?\s*[:\-]?\s*([A-Z0-9][A-Z0-9 .\/-]{5,})/i) || [,''])[1].trim(),
+    issue: (t.match(/\b(ISSUE\s+FOR\s+(?:TENDER|CONSTRUCTION|APPROVAL|INFORMATION))\b/i) || [,''])[1].trim(),
+    date: (t.match(new RegExp(`\\b(${month}\\s+\\d{4})\\b`, 'i')) || t.match(/\b(\d{1,2}[\/.\-]\d{1,2}[\/.\-]\d{2,4})\b/) || [,''])[1].trim()
+  };
+}
+const clean = v => String(v || '').replace(/\s+/g, ' ').trim();
+function parseSpecificationSheetsV18(rawText, pages = []) {
+  const text = String(rawText || '');
+  if (!/(SPECIFICATION\s+SHEETS|\bTYPE\b[\s\S]{0,300}\bSIZE\b[\s\S]{0,300}\bFINISH\b)/i.test(text)) return null;
+  const pageTexts = text.split(/\f|--- PAGE BREAK ---/);
+  const rows = [];
+  pageTexts.forEach((pageText, pageIndex) => {
+    const heads = [...pageText.matchAll(/\bLF\s*[-–]\s*(\d{3})((?:\s*\/\s*\d{3})*)\s*[-–:]?\s*([^\n\r]+)/gi)];
+    heads.forEach((h, i) => {
+      const end = heads[i + 1]?.index ?? pageText.length;
+      const block = pageText.slice(h.index, end);
+      const codes = [h[1], ...[...h[2].matchAll(/\d{3}/g)].map(x => x[0])];
+      const get = (name, next) => clean((block.match(new RegExp(`\\b${name}\\b\\s*([\\s\\S]*?)(?=\\b(?:${next.join('|')})\\b|$)`, 'i')) || [,''])[1]);
+      const values = { title: clean(h[3]), type: get('TYPE',['SIZE','FINISH','SUPPLIER']), size: get('SIZE',['FINISH','SUPPLIER','TYPE']), finish: get('FINISH',['SUPPLIER','TYPE','SIZE']), supplier: get('SUPPLIER',['TYPE','SIZE','FINISH']) };
+      codes.forEach(code => rows.push({ id:`spec-LF-${code}`, pageNum:pageIndex+1, cells:[
+        {value:`LF-${code}`,images:[]}, {value:values.title,images:[]}, {value:values.type,images:[]}, {value:values.size,images:[]}, {value:values.finish,images:[]}, {value:values.supplier,images:[]}, {value:'',images:pages[pageIndex]?.images || []}
+      ], metadata:{sourceType:'specification-card'} }));
+    });
+  });
+  if (!rows.length) return null;
+  return { sheetName:'Specification Schedule', header:['Item Code','Item','Type','Size','Finish','Supplier / Reference','Images'], rows, columnCount:7, engineUsed:'wordpdf-universal-v18-spec-sheet', confidence:0.985, supportsMultiImages:true };
+}
+
+
+function v19Norm(v = '') { return String(v || '').replace(/\u00a0/g, ' ').replace(/\s+/g, ' ').trim(); }
+function v19Cell(value = '') { return { value: v19Norm(value), image: null, images: [], source: 'extracted', confidence: 0.96 }; }
+function v19Codes(text = '') {
+  const m = String(text).match(/LF\s*[-–]\s*(\d{3})((?:\s*\/\s*(?:LF\s*[-–]\s*)?\d{3})*)/i);
+  return m ? [m[1], ...[...m[2].matchAll(/\d{3}/g)].map(x => x[0])].map(n => `LF-${String(Number(n)).padStart(3,'0')}`) : [];
+}
+function v19TextItem(it) { return v19Norm(it.text || it.str || ''); }
+function v19JoinItems(items) {
+  return items.sort((a,b) => (a.y-b.y) || (a.x-b.x)).map(v19TextItem).filter(Boolean).join(' ').replace(/\s+/g,' ').trim();
+}
+function v19FieldFromRegion(items, field, nextFields) {
+  const label = items.filter(it => new RegExp(`^${field}$`,'i').test(v19TextItem(it))).sort((a,b)=>a.y-b.y)[0];
+  if (!label) return '';
+  const nextY = items.filter(it => nextFields.some(n => new RegExp(`^${n}$`,'i').test(v19TextItem(it))) && it.y > label.y).map(it=>it.y).sort((a,b)=>a-b)[0] ?? Infinity;
+  return v19JoinItems(items.filter(it => it.y >= label.y - 2 && it.y < nextY && !new RegExp(`^${field}$`,'i').test(v19TextItem(it))));
+}
+function parseMaterialLayoutsV19(layouts, rawText = '') {
+  if (!Array.isArray(layouts) || !layouts.length) return null;
+  const entities = [];
+
+  for (const layout of layouts) {
+    const width = layout.viewport?.width || 1920;
+    const height = layout.viewport?.height || 1080;
+    const pageNum = layout.page;
+
+    const lineItems = (layout.textItems || []).filter(it => v19Norm(it.text || it.str).length > 0);
+    const allText = lineItems.map(it => it.text || it.str).join(' ');
+    
+    // Check if this is a spec slide
+    const labelKinds = ['TYPE', 'SIZE', 'FINISH', 'SUPPLIER'].filter(n => new RegExp(`\\b${n}\\b`, 'i').test(allText));
+    if (labelKinds.length < 3) continue;
+
+    // Find card headers: e.g. "LF-006 – DISPLAY TABLE" or "LF-001/ 002/ 004/ 005 – MODULAR BENCH"
+    const headerRx = /\bLF\s*[-–]\s*\d{3}/i;
+    const headers = [];
+    for (const it of lineItems) {
+      const t = v19Norm(it.text || it.str);
+      if (headerRx.test(t) && (t.includes('–') || t.includes('-') || t.length > 8)) {
+        if (!headers.some(h => Math.abs(h.x - it.x) < 20 && Math.abs(h.y - it.y) < 20)) {
+          headers.push({ ...it, text: t });
+        }
+      }
+    }
+
+    if (!headers.length) continue;
+    headers.sort((a, b) => a.x - b.x || a.y - b.y);
+
+    // Build bounding boxes for each header card
+    const cards = [];
+    if (headers.length === 1) {
+      cards.push({ header: headers[0], left: 0, right: width, top: 0, bottom: height });
+    } else {
+      for (let i = 0; i < headers.length; i++) {
+        const h = headers[i];
+        const left = i === 0 ? 0 : (headers[i - 1].x + h.x) / 2;
+        const right = i === headers.length - 1 ? width : (h.x + headers[i + 1].x) / 2;
+        cards.push({ header: h, left, right, top: 0, bottom: height });
+      }
+    }
+
+    for (const card of cards) {
+      const hText = card.header.text;
+      const codeMatches = [...hText.matchAll(/LF\s*[-–]\s*(\d{3})|(\d{3})/gi)].map(m => `LF-${(m[1] || m[2]).padStart(3, '0')}`);
+      const codes = [...new Set(codeMatches)];
+      const title = v19Norm(hText.replace(/LF\s*[-–]\s*\d{3}(?:\s*\/\s*(?:LF\s*[-–]\s*)?\d{3})*\s*[-–:]?\s*/i, ''));
+
+      const cardTextItems = lineItems.filter(it => {
+        const x = Number(it.x || 0);
+        const y = Number(it.y || 0);
+        return x >= card.left - 10 && x < card.right + 10 && y >= card.header.y - 10;
+      });
+
+      const getFieldValue = (fieldLabel, nextLabels) => {
+        const labelItem = cardTextItems.find(it => new RegExp(`^${fieldLabel}$`, 'i').test(v19Norm(it.text || it.str)));
+        if (!labelItem) return '';
+        const nextY = cardTextItems
+          .filter(it => nextLabels.some(nl => new RegExp(`^${nl}$`, 'i').test(v19Norm(it.text || it.str))) && it.y > labelItem.y)
+          .map(it => it.y)
+          .sort((a, b) => a - b)[0] ?? height;
+
+        const valLines = cardTextItems.filter(it => {
+          const t = v19Norm(it.text || it.str);
+          if (!t || /^(TYPE|SIZE|FINISH|SUPPLIER|PG\s*\|\s*\d+)$/i.test(t)) return false;
+          if (it.y < labelItem.y - 2 || it.y >= nextY || it.x <= labelItem.x - 20) return false;
+          const isSub = cardTextItems.some(o => o !== it && Math.abs(o.y - it.y) < 5 && v19Norm(o.text || o.str).length > t.length && v19Norm(o.text || o.str).includes(t));
+          return !isSub;
+        }).sort((a, b) => a.y - b.y || a.x - b.x);
+
+        const seen = new Set();
+        const cleanWords = [];
+        for (const vl of valLines) {
+          const t = v19Norm(vl.text || vl.str);
+          if (!seen.has(t)) {
+            seen.add(t);
+            cleanWords.push(t);
+          }
+        }
+        return cleanWords.join(' ').replace(/\s+/g, ' ').trim();
+      };
+
+      const type = getFieldValue('TYPE', ['SIZE', 'FINISH', 'SUPPLIER']);
+      const size = getFieldValue('SIZE', ['FINISH', 'SUPPLIER', 'TYPE']);
+      const finish = getFieldValue('FINISH', ['SUPPLIER', 'TYPE', 'SIZE']);
+      const supplier = getFieldValue('SUPPLIER', ['TYPE', 'SIZE', 'FINISH']);
+
+      const cardImages = (layout.extractedImages || []).filter(img => {
+        const centerX = img.x + img.w / 2;
+        const centerY = img.y + img.h / 2;
+        return centerX >= card.left && centerX < card.right && centerY > 100 && centerY < (height - 100) && img.w > 25 && img.h > 25;
+      });
+
+      for (const code of codes) {
+        entities.push({
+          code,
+          title,
+          type,
+          size,
+          finish,
+          supplier,
+          images: cardImages,
+          pageNum,
+          score: 100 + cardImages.length
+        });
+      }
+    }
+  }
+
+  const uniqueEntities = entities;
+  if (!uniqueEntities.length) return null;
+
+  const rows = uniqueEntities.map((e, i) => ({
+    id: `material-${e.code}`,
+    pageNum: e.pageNum,
+    sectionLabel: 'specification-card',
+    isHeader: false,
+    isSummary: false,
+    cells: [
+      v19Cell(String(i + 1)),
+      { value: '', image: e.images[0] || null, images: e.images, source: 'extracted', confidence: 0.98 },
+      v19Cell(e.code),
+      v19Cell(e.title),
+      v19Cell(''),
+      v19Cell(''),
+      v19Cell(''),
+      v19Cell(''),
+      v19Cell(e.type),
+      v19Cell(e.size),
+      v19Cell(e.finish),
+      v19Cell(e.supplier)
+    ],
+    metadata: { serialAnchor: e.code, sourceType: 'layout-specification-card', extractionScore: e.score },
+    warnings: []
+  }));
+
+  const completeRatio = uniqueEntities.filter(e => e.type && e.size && e.finish && e.supplier).length / uniqueEntities.length;
+  return {
+    sheetName: 'Material Schedule',
+    header: ['S.No', 'Image', 'Product Code', 'Item Description', 'Area / Location', 'Unit', 'Quantity', 'Unit Rate', 'Type', 'Size', 'Finish', 'Supplier / Reference'],
+    rows,
+    columnCount: 12,
+    engineUsed: 'wordpdf-universal-v19-layout-material',
+    confidence: Math.min(0.995, 0.90 + completeRatio * 0.09),
+    quality: { rowCount: rows.length, arithmeticPass: 1, completeness: completeRatio },
+    extractionAudit: { uniqueEntityCount: rows.length, completeSpecRatio: completeRatio, method: '2d-coordinate-card-segmentation' },
+    supportsMultiImages: true
+  };
+}
+
+
+
+function isSpecCandidateV21(c) {
+  if (/CONSOLIDATED_BOQ_SPEC/.test(c?.tableKind || '') || /boq-spec-merge/i.test(c?.engineUsed || '')) return false;
+  return !!c && (/specification|layout-material/i.test(c.engineUsed || '') || /Specification|Material Schedule/i.test(c.sheetName || ''));
+}
+function normalizeMaterialCodeV21(v = '') {
+  const s = String(v).toUpperCase().replace(/[–—]/g, '-').replace(/\s+/g, ' ').trim();
+  const m = s.match(/\b([A-Z]{1,8})\s*[-_ ]\s*(\d{1,4}[A-Z]?)\b/);
+  return m ? `${m[1]}-${m[2].padStart(/^\d+$/.test(m[2]) ? 3 : m[2].length, '0')}` : s.replace(/[^A-Z0-9]/g, '');
+}
+function findHeaderV21(header, rx) { return (header || []).findIndex(h => rx.test(String(h))); }
+function getValueV21(row, idx) { return idx >= 0 ? v19Norm(row?.cells?.[idx]?.value || '') : ''; }
+function getImagesV21(row, idx) {
+  if (idx < 0) return [];
+  const c = row?.cells?.[idx] || {};
+  return Array.isArray(c.images) && c.images.length ? c.images : (c.image ? [c.image] : []);
+}
+function normalizeHeaderV22(value = '') {
+  return String(value || '').replace(/\s+/g, ' ').trim();
+}
+function uniqueHeaderV22(existing, desired, prefix = 'Spec') {
+  const used = new Set(existing.map(h => normalizeHeaderV22(h).toLowerCase()));
+  let candidate = normalizeHeaderV22(desired) || `${prefix} Attribute`;
+  if (!used.has(candidate.toLowerCase())) return candidate;
+  candidate = `${prefix} ${candidate}`;
+  let n = 2;
+  while (used.has(candidate.toLowerCase())) candidate = `${prefix} ${normalizeHeaderV22(desired)} ${n++}`;
+  return candidate;
+}
+function profileColumnV22(table, index) {
+  const values = (table?.rows || []).map(r => getValueV21(r, index)).filter(Boolean);
+  const nonEmpty = values.length;
+  const numeric = values.filter(v => /^-?[\d,.]+(?:\.\d+)?$/.test(v.replace(/\s/g, ''))).length;
+  const codes = values.filter(v => /\b[A-Z]{1,8}\s*[-_]\s*\d{1,5}[A-Z]?\b/i.test(v)).length;
+  const units = values.filter(v => /^(no\.?|nos\.?|pcs?|set|lot|ls|m|m2|m²|m3|ml|l|kg|job|each)$/i.test(v)).length;
+  const images = (table?.rows || []).filter(r => getImagesV21(r, index).length).length;
+  const avgLength = nonEmpty ? values.reduce((a,v)=>a+v.length,0)/nonEmpty : 0;
+  return { values, nonEmpty, numericRatio: nonEmpty ? numeric/nonEmpty : 0, codeRatio: nonEmpty ? codes/nonEmpty : 0, unitRatio: nonEmpty ? units/nonEmpty : 0, imageRatio: (table?.rows?.length || 0) ? images/table.rows.length : 0, avgLength };
+}
+function detectColumnRolesV22(table) {
+  const header = (table?.header || []).map(normalizeHeaderV22);
+  const profiles = header.map((_,i)=>profileColumnV22(table,i));
+  const exact = patterns => header.findIndex(h => patterns.some(rx => rx.test(h)));
+  const roles = {
+    serial: exact([/^s\.?\s*no\.?$/i,/^sl\.?\s*no\.?$/i,/^sr\.?\s*no\.?$/i,/^item\s*no\.?$/i,/^bill\s*no\.?$/i,/^position$/i,/^#$/]),
+    image: exact([/^images?$/i,/^photos?$/i,/^pictures?$/i,/^image\s*reference$/i]),
+    productCode: exact([/^product\s*code$/i,/^item\s*code$/i,/^article\s*code$/i,/^material\s*code$/i,/^model(?:\s*no\.?)?$/i,/^reference$/i,/^ref\.?$/i]),
+    description: exact([/^boq\s*description$/i,/^item\s*description$/i,/^product\s*description$/i,/^description$/i,/^item\s*details$/i,/^particulars$/i,/^scope$/i]),
+    area: exact([/^area$/i,/^location$/i,/^area\s*\/\s*location$/i,/^zone$/i,/^room$/i,/^floor$/i]),
+    unit: exact([/^unit$/i,/^uom$/i,/^unit\s*of\s*measure$/i]),
+    quantity: exact([/^qty\.?$/i,/^quantity$/i,/^revised\s*qty/i,/^actual\s*qty/i]),
+    unitRate: exact([/^rate$/i,/^unit\s*rate$/i,/^unit\s*price$/i,/^price$/i,/^sp\s*\/\s*[a-z]{3}$/i]),
+    total: exact([/^amount$/i,/^total$/i,/^line\s*total$/i,/^total\s*price$/i,/^tp\s*\/\s*[a-z]{3}$/i]),
+    reviewStatus: exact([/^review\s*status$/i,/^match\s*status$/i])
+  };
+  // Value-profile fallbacks only when header evidence is absent.
+  if (roles.image < 0) roles.image = profiles.findIndex(p => p.imageRatio > 0.05);
+  if (roles.productCode < 0) roles.productCode = profiles.findIndex(p => p.codeRatio >= 0.5);
+  if (roles.unit < 0) roles.unit = profiles.findIndex(p => p.unitRatio >= 0.5);
+  if (roles.description < 0) {
+    let best=-1, score=-1;
+    profiles.forEach((p,i)=>{ if(i!==roles.productCode && i!==roles.image && p.nonEmpty && p.avgLength>score){score=p.avgLength;best=i;} });
+    roles.description=best;
+  }
+  roles.specificationAttributes = {};
+  return roles;
+}
+function semanticAttributeV22(header = '') {
+  const h=normalizeHeaderV22(header);
+  if (/^(type|category|classification)$/i.test(h)) return 'type';
+  if (/^(size|dimension|dimensions|measurements?)$/i.test(h)) return 'dimension';
+  if (/material|finish|colour|color|fabric|upholstery/i.test(h)) return 'finish';
+  if (/supplier|manufacturer|maker|brand|origin/i.test(h)) return 'supplier';
+  if (/model|article|product\s*reference|supplier\s*reference|catalog/i.test(h)) return 'productReference';
+  if (/technical|compliance|rating|warranty|certificate|standard/i.test(h)) return h.toLowerCase().replace(/[^a-z0-9]+/g,'_');
+  if (/title|name|spec.*description|description/i.test(h)) return 'specDescription';
+  return h.toLowerCase().replace(/[^a-z0-9]+/g,'_') || 'attribute';
+}
+function textSimilarityV22(desc = '', specText = '') {
+  const dWords = String(desc).toLowerCase().replace(/[^a-z0-9]/g, ' ').split(/\s+/).filter(w => w.length > 2);
+  const sWords = String(specText).toLowerCase().replace(/[^a-z0-9]/g, ' ').split(/\s+/).filter(w => w.length > 2);
+  if (!dWords.length || !sWords.length) return 0;
+  const sSet = new Set(sWords);
+  let overlap = 0;
+  for (const w of dWords) {
+    if (sSet.has(w)) overlap++;
+  }
+  return overlap / dWords.length;
+}
+
+function candidateToSpecMapV22(specTable) {
+  const map = new Map();
+  const allRecords = [];
+  if (!specTable) return { map, allRecords, attributes: [] };
+  const roles = detectColumnRolesV22(specTable), h = (specTable.header || []).map(normalizeHeaderV22);
+  const excluded = new Set([
+    roles.serial, roles.image, roles.productCode, roles.quantity, roles.unitRate, roles.total,
+    roles.reviewStatus, roles.audit?.specPage, roles.audit?.reviewStatus
+  ].filter(i => Number.isInteger(i) && i >= 0));
+  const candidates = h.map((header, index) => ({ header, index, semantic: semanticAttributeV22(header), profile: profileColumnV22(specTable, index) }))
+    .filter(c => !excluded.has(c.index) && !/^(Spec\s*Page|Review\s*Status)$/i.test(c.header) && c.profile.nonEmpty > 0);
+  const grouped = new Map();
+  for (const c of candidates) {
+    const prev = grouped.get(c.semantic);
+    if (!prev || c.profile.nonEmpty > prev.profile.nonEmpty) grouped.set(c.semantic, c);
+  }
+  const attributes = [...grouped.values()];
+  for (const row of specTable.rows || []) {
+    const raw = getValueV21(row, roles.productCode);
+    const codeMatches = [...raw.matchAll(/\b[A-Z]{1,8}\s*[-_ ]\s*\d{1,5}[A-Z]?\b/gi)].map(m => normalizeMaterialCodeV21(m[0]));
+    const codes = codeMatches.length ? codeMatches : (raw ? [normalizeMaterialCodeV21(raw)] : []);
+    const values = {};
+    for (const a of attributes) {
+      const v = getValueV21(row, a.index);
+      if (v) values[a.semantic] = { value: v, sourceHeader: a.header };
+    }
+    for (const code of codes) {
+      if (!code) continue;
+      const title = getValueV21(row, roles.description) || values.specDescription?.value || '';
+      const type = values.type?.value || '';
+      const record = {
+        code,
+        title,
+        attributes: values,
+        images: getImagesV21(row, roles.image),
+        pageNum: row.pageNum || '',
+        searchContext: `${code} ${title} ${type} ${Object.values(values).map(v => v.value).join(' ')}`
+      };
+      allRecords.push(record);
+      if (!map.has(code)) map.set(code, []);
+      map.get(code).push(record);
+    }
+  }
+  return { map, allRecords, attributes };
+}
+
+function mergeBoqAndSpecsV21(boqTable, specTables = []) {
+  if (!boqTable) return null;
+  const b = {
+    ...boqTable,
+    header: [...(boqTable.header || [])],
+    rows: (boqTable.rows || []).map(r => ({ ...r, cells: (r.cells || []).map(c => ({ ...c, images: [...(c?.images || [])] })) }))
+  };
+  const boqRoles = detectColumnRolesV22(b);
+  const specMaps = [];
+  for (const st of specTables.filter(Boolean)) specMaps.push(candidateToSpecMapV22(st));
+
+  const specs = new Map();
+  const allSpecRecords = [];
+  for (const provider of specMaps) {
+    allSpecRecords.push(...(provider.allRecords || []));
+    for (const [code, recs] of provider.map) {
+      if (!specs.has(code)) specs.set(code, []);
+      specs.get(code).push(...recs);
+    }
+  }
+
+  const semanticDefs = new Map();
+  for (const provider of specMaps) {
+    for (const a of provider.attributes) {
+      const prev = semanticDefs.get(a.semantic);
+      if (!prev || a.profile.nonEmpty > prev.profile.nonEmpty) semanticDefs.set(a.semantic, a);
+    }
+  }
+
+  const header = [...b.header];
+  const originalHeaders = [...header];
+  const columnMetadata = header.map((h, index) => ({
+    index,
+    originalHeader: h,
+    displayHeader: h,
+    normalizedRole: Object.entries(boqRoles).find(([k, v]) => Number.isInteger(v) && v === index)?.[0] || null,
+    source: 'boq',
+    confidence: 0.9
+  }));
+
+  let imageIdx = boqRoles.image;
+  if (imageIdx < 0) {
+    imageIdx = header.length;
+    header.push(uniqueHeaderV22(header, 'Images', 'Spec'));
+    columnMetadata.push({ index: imageIdx, originalHeader: null, displayHeader: header[imageIdx], normalizedRole: 'image', source: 'specification', confidence: 0.99 });
+  }
+
+  const attrIndexes = {};
+  for (const [semantic, a] of semanticDefs) {
+    let idx = -1;
+    for (let i = 0; i < header.length; i++) {
+      if (semanticAttributeV22(header[i]) === semantic && profileColumnV22(b, i).nonEmpty === 0) {
+        idx = i;
+        break;
+      }
+    }
+    if (idx < 0) {
+      idx = header.length;
+      const display = uniqueHeaderV22(header, a.header, 'Spec');
+      header.push(display);
+      columnMetadata.push({ index: idx, originalHeader: a.header, displayHeader: display, normalizedRole: semantic, source: 'specification', confidence: 0.9 });
+    }
+    attrIndexes[semantic] = idx;
+  }
+
+  const specPageIdx = header.length;
+  header.push(uniqueHeaderV22(header, 'Spec Page', 'Spec'));
+  columnMetadata.push({ index: specPageIdx, originalHeader: null, displayHeader: header[specPageIdx], normalizedRole: 'specPage', source: 'audit', confidence: 1 });
+
+  let reviewIdx = boqRoles.reviewStatus;
+  if (reviewIdx < 0) {
+    reviewIdx = header.length;
+    header.push(uniqueHeaderV22(header, 'Review Status', 'Audit'));
+    columnMetadata.push({ index: reviewIdx, originalHeader: null, displayHeader: header[reviewIdx], normalizedRole: 'reviewStatus', source: 'audit', confidence: 1 });
+  }
+
+  const assignedSpecs = new Set();
+  const rows = b.rows.map((row, i) => {
+    const rawCode = getValueV21(row, boqRoles.productCode);
+    const code = normalizeMaterialCodeV21(rawCode);
+    const boqDesc = getValueV21(row, boqRoles.description);
+
+    let sp = null;
+    const candidatesForCode = specs.get(code) || [];
+    if (candidatesForCode.length === 1) {
+      sp = candidatesForCode[0];
+    } else if (candidatesForCode.length > 1) {
+      let bestSim = -1;
+      for (const cand of candidatesForCode) {
+        const sim = textSimilarityV22(boqDesc, cand.searchContext);
+        if (sim > bestSim) {
+          bestSim = sim;
+          sp = cand;
+        }
+      }
+    } else if (!sp && boqDesc) {
+      let bestSim = 0.25;
+      for (const rec of allSpecRecords) {
+        if (assignedSpecs.has(rec)) continue;
+        const sim = textSimilarityV22(boqDesc, rec.searchContext);
+        if (sim > bestSim) {
+          bestSim = sim;
+          sp = rec;
+        }
+      }
+    }
+
+    if (sp) assignedSpecs.add(sp);
+
+    const cells = header.map((_, idx) => idx < (row.cells || []).length ? { ...row.cells[idx], images: [...(row.cells[idx]?.images || [])] } : v19Cell(''));
+    const imageCandidates = [...getImagesV21(row, boqRoles.image), ...(sp?.images || [])], seen = new Set();
+    const images = imageCandidates.filter(img => {
+      const key = String(img?.hash || img?.url || img?.path || img || '');
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+
+    cells[imageIdx] = { ...(cells[imageIdx] || v19Cell('')), image: images[0] || null, images };
+    if (sp) {
+      for (const [semantic, obj] of Object.entries(sp.attributes || {})) {
+        const idx = attrIndexes[semantic];
+        if (Number.isInteger(idx) && !v19Norm(cells[idx]?.value)) cells[idx] = v19Cell(obj.value);
+      }
+    }
+    cells[specPageIdx] = v19Cell(sp?.pageNum || '');
+    const status = sp ? 'PASS' : (specs.size ? 'SPEC_NOT_MATCHED' : 'BOQ_ONLY');
+    cells[reviewIdx] = v19Cell(status);
+
+    return {
+      ...row,
+      id: `merged-${code || i + 1}`,
+      cells,
+      metadata: {
+        ...(row.metadata || {}),
+        serialAnchor: code,
+        matchKey: code,
+        sourceType: 'boq-spec-merged',
+        boqPage: row.pageNum || '',
+        specPage: sp?.pageNum || ''
+      },
+      warnings: status === 'PASS' ? [] : [warning(status, status)]
+    };
+  });
+  const matched=rows.filter(r=>r.cells[reviewIdx]?.value==='PASS').length;
+  const columnRoles={...boqRoles,image:imageIdx,reviewStatus:reviewIdx,specificationAttributes:attrIndexes,audit:{specPage:specPageIdx,reviewStatus:reviewIdx}};
+  return {sheetName:'Consolidated BOQ + Specifications',header,originalHeaders,addedColumns:columnMetadata.filter(c=>c.source!=='boq').map(c=>c.displayHeader),columnMetadata,columnRoles,columnCount:header.length,rows,engineUsed:`${EXTRACTOR_VERSION}-boq-spec-merge`,confidence:rows.length?Math.min(.995,.90+.095*(matched/rows.length)):.5,quality:{rowCount:rows.length,arithmeticPass:b.quality?.arithmeticPass??1,completeness:rows.length?matched/rows.length:0},supportsMultiImages:true,tableKind:'DYNAMIC_CONSOLIDATED_BOQ_SPEC',mergeAudit:{boqRows:rows.length,specProviderRecords:specs.size,matchedRows:matched,unmatchedRows:rows.length-matched}};
+}
+export { detectColumnRolesV22 };
+
+export async function extractMultiplePdfsV21(filePaths, progressCallback = () => {}) {
+  const files=(Array.isArray(filePaths)?filePaths:[filePaths]).filter(Boolean);
+  if (!files.length) return null;
+  const extracted=[];
+  for (let i=0;i<files.length;i++) {
+    const result=await extractPdfViaWordFastPathVercel(files[i], p=>progressCallback(Math.round((i*100+p)/files.length)));
+    if (result?.tables?.[0]) extracted.push({file:files[i],table:result.tables[0]});
+  }
+  const specs=extracted.filter(x=>isSpecCandidateV21(x.table)).map(x=>x.table);
+  const boqs=extracted.filter(x=>!isSpecCandidateV21(x.table)).map(x=>x.table);
+  if (!boqs.length) return extracted.length===1?{tables:[extracted[0].table],totalTables:1,isDirectExtraction:true,engineUsed:EXTRACTOR_VERSION}:null;
+  const merged=mergeBoqAndSpecsV21(boqs[0],specs);
+  merged.extractionAudit=buildAudit(merged);
+  // Attach the grand-total summary (mirrors extractPdfViaWordFastPathVercel) so
+  // TableViewer renders the Total/VAT/Grand Total card for V22 output.
+  merged.extractedSummary=computeExtractedSummary(merged);
+  return {tables:[merged],totalTables:1,isDirectExtraction:true,engineUsed:`${EXTRACTOR_VERSION}-multi-pdf`,sourceFiles:files};
+}
+
 export async function extractPdfViaWordFastPathVercel(filePath, progressCallback = () => {}) {
   const absInput = path.resolve(filePath);
   const workDir = await fs.mkdtemp(path.join(os.tmpdir(), 'boqflow-safe-'));
@@ -929,8 +1550,21 @@ export async function extractPdfViaWordFastPathVercel(filePath, progressCallback
     const text = await pdfToTextVercel(absInput, workDir);
     await emit(progressCallback, 45);
     
-    // Evaluate all 12 v16 and v17 regex patterns on layout text
+    // For specification sheets and presentation-style material schedules, use 2D layout.
+    // Plain text is insufficient because two product cards on the same slide interleave.
+    let preloadedLayouts = [];
+    let layoutMaterialCandidate = null;
+    if (/(SPECIFICATION\s+SHEETS|\bTYPE\b[\s\S]{0,400}\bSIZE\b[\s\S]{0,400}\bFINISH\b)/i.test(text)) {
+      try {
+        preloadedLayouts = await renderPDFWithLayoutMuPDF(absInput);
+        layoutMaterialCandidate = parseMaterialLayoutsV19(preloadedLayouts, text);
+      } catch (layoutErr) {
+        console.warn(`[WordPdfExtractorVercel] V19 layout-material parser unavailable: ${layoutErr.message}`);
+      }
+    }
     const candidates = [
+      layoutMaterialCandidate,
+      parseSpecificationSheetsV18(text),
       parseOfmlProductSummary(text),
       parseBillNo(text),
       parseSerialFinancial(text),
@@ -945,26 +1579,35 @@ export async function extractPdfViaWordFastPathVercel(filePath, progressCallback
       parseAlshayaStyleSchedule(text)
     ].filter(Boolean);
     
-    let selected = selectBestCandidate(candidates);
+    const specCandidates = candidates.filter(isSpecCandidateV21);
+    const boqCandidates = candidates.filter(c => !isSpecCandidateV21(c));
+    const bestBoq = selectBestCandidate(boqCandidates);
+    const bestSpec = selectBestCandidate(specCandidates);
+    let selected = bestBoq && bestSpec ? mergeBoqAndSpecsV21(bestBoq, [bestSpec]) : selectBestCandidate(candidates);
     if (selected) {
       console.log(`[WordPdfExtractorVercel] Candidate found: ${selected.sheetName} (${selected.rows.length} rows, confidence: ${(selected.confidence * 100).toFixed(1)}%)`);
     } else {
       console.log(`[WordPdfExtractorVercel] No candidates found for file.`);
     }
 
-    if (selected && selected.confidence >= 0.94) {
-      selected = canonicalizeTable(selected);
+    const acceptanceThreshold = /boq-spec-merge/i.test(selected?.engineUsed || '') ? 0.85 : 0.94;
+    if (selected && selected.confidence >= acceptanceThreshold) {
+      const isMergedBoqSpec = /boq-spec-merge/i.test(selected.engineUsed || '') || /CONSOLIDATED_BOQ_SPEC/.test(selected.tableKind || '');
+      if (!isMergedBoqSpec) selected = canonicalizeTable(selected);
+      selected = repairArithmeticFromSource(selected, text);
+      selected = reconcileSelectedTable(selected, text);
       selected.rows = dedupeRows(selected.rows);
-      selected.extractionAudit = buildAudit(selected);
-      await extractAndPairImagesVercel(absInput, selected, sessionId);
+      selected.extractionAudit = { ...buildAudit(selected), ...(selected.mergeAudit ? { mergeAudit: selected.mergeAudit } : {}) };
+      await extractAndPairImagesVercel(absInput, selected, sessionId, preloadedLayouts);
       selected.serialAudit = selected.extractionAudit;
       selected.extractedSummary = computeExtractedSummary(selected);
+      if (selected.reconciliation?.sourceDeclaredTotal) selected.extractedSummary.sourceDeclaredTotal = selected.reconciliation.sourceDeclaredTotal;
       await emit(progressCallback, 100);
       return {
         tables: [selected],
         totalTables: 1,
         isDirectExtraction: true,
-        engineUsed: `wordpdf-universal-v16.0-vercel (${selected.engineUsed})`,
+        engineUsed: `${EXTRACTOR_VERSION} (${selected.engineUsed})`,
         previewUrl: null,
         sessionId
       };
