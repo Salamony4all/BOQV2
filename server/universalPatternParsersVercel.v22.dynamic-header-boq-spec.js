@@ -429,13 +429,14 @@ function parseAlshayaStyleSchedule(text) {
   const rows = [];
   const lines = text.split('\n');
   
-  const lineRx = /^[ \t]*([A-Za-z0-9_#.-]+)[ \t]+(?:([A-Z0-9_#-]{3,15})[ \t]+)?(.*?)[ \t]*(?:(?:([\d,.]+)[ \t]+(Nos\.?|No\.?|PCS|Set|Lot|Each|M2|SQM|LM|Sqm\.?|m2|m²|Sq\.?Ft\.?|SqFt|NOS|EA|U|Cum|job|sum|Nos)|(Nos\.?|No\.?|PCS|Set|Lot|Each|M2|SQM|LM|Sqm\.?|m2|m²|Sq\.?Ft\.?|SqFt|NOS|EA|U|Cum|job|sum|Nos)[ \t]+([\d,.]+)))[ \t]*(?:([\d,.]+)[ \t]+([\d,.]+))?[ \t]*$/i;
+  const lineRx = /^[ \t]*([A-Za-z0-9_#.-]+)[ \t]+(?:(LF\s*[-_]?\s*\d{1,4}[A-Za-z]?|[A-Z0-9_#-]{2,15})[ \t]+)?(.*?)[ \t]*(?:(?:([\d,.]+)[ \t]+(Nos\.?|No\.?s?|No\.s|PCS|Set|Lot|Each|M2|SQM|LM|Sqm\.?|m2|m²|Sq\.?Ft\.?|SqFt|NOS|EA|U|Cum|job|sum|Nos)|(Nos\.?|No\.?s?|No\.s|PCS|Set|Lot|Each|M2|SQM|LM|Sqm\.?|m2|m²|Sq\.?Ft\.?|SqFt|NOS|EA|U|Cum|job|sum|Nos)[ \t]+([\d,.]+)))[ \t]*(?:([\d,.]+)[ \t]+([\d,.]+))?[ \t]*$/i;
   
   let pendingItemNo = null;
   let pendingLineIdx = -1;
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
+    if (/^BILL\s+NO|^PROJECT\s*:/i.test(line.trim())) continue;
 
     const standaloneMatch = line.match(/^[ \t]*([A-Za-z0-9.-]{1,6})[ \t]*$/);
     if (standaloneMatch) {
@@ -450,7 +451,7 @@ function parseAlshayaStyleSchedule(text) {
     if (!m) continue;
     
     let itemNo = m[1];
-    if (itemNo.length > 6) continue;
+    if (/^(BILL|PROJECT|TOTAL|SUBTOTAL|GRAND|PAGE)$/i.test(itemNo) || itemNo.length > 8) continue;
 
     let specCode = m[2] || '';
     let desc = m[3].trim();
@@ -471,15 +472,17 @@ function parseAlshayaStyleSchedule(text) {
     }
 
     if (!specCode) {
-      const codeMatch = desc.match(/^([A-Za-z0-9_#-]{2,15})[ \t]{2,}(.*)/);
+      const codeMatch = desc.match(/^(LF\s*[-_]?\s*\d{1,4}[A-Za-z]?)\b/i) || desc.match(/^([A-Za-z0-9_#-]{2,15})[ \t]{2,}(.*)/);
       if (codeMatch) {
         specCode = codeMatch[1];
-        desc = codeMatch[2].trim();
+        desc = desc.slice(codeMatch[0].length).trim();
       } else if (desc.match(/^[A-Za-z0-9_#-]{2,15}$/)) {
         specCode = desc;
         desc = '';
       }
     }
+    
+    specCode = normalizeMaterialCodeV21(specCode);
     
     const qtyText = m[4] || m[7];
     const unit = m[5] || m[6];
@@ -775,9 +778,15 @@ async function extractAndPairImagesVercel(pdfPath, table, sessionId, preloadedLa
 
   const normalizeStr = (s) => String(s || '').replace(/[^a-z0-9]/gi, '').toLowerCase();
 
+  const specPageIdx = table.header.findIndex(h => /spec\s*page/i.test(h));
+
   for (const layout of layouts) {
     const pageNum = layout.page;
-    const pageRows = table.rows.filter(r => r.pageNum === pageNum);
+    const pageRows = table.rows.filter(r => 
+      r.pageNum === pageNum || 
+      Number(r.metadata?.specPage) === pageNum || 
+      (specPageIdx >= 0 && Number(r.cells?.[specPageIdx]?.value) === pageNum)
+    );
     if (!pageRows.length) continue;
 
     const pageHeight = layout.viewport?.height || 1000;
@@ -1068,7 +1077,7 @@ function isSpecCandidateV21(c) {
 }
 function normalizeMaterialCodeV21(v = '') {
   const s = String(v).toUpperCase().replace(/[–—]/g, '-').replace(/\s+/g, ' ').trim();
-  const m = s.match(/\b([A-Z]{1,8})\s*[-_]\s*(\d{1,4}[A-Z]?)\b/);
+  const m = s.match(/\b([A-Z]{1,8})\s*[-_ ]\s*(\d{1,4}[A-Z]?)\b/);
   return m ? `${m[1]}-${m[2].padStart(/^\d+$/.test(m[2]) ? 3 : m[2].length, '0')}` : s.replace(/[^A-Z0-9]/g, '');
 }
 function findHeaderV21(header, rx) { return (header || []).findIndex(h => rx.test(String(h))); }
@@ -1143,9 +1152,12 @@ function candidateToSpecMapV22(specTable) {
   const map = new Map();
   if (!specTable) return { map, attributes: [] };
   const roles=detectColumnRolesV22(specTable), h=(specTable.header||[]).map(normalizeHeaderV22);
-  const excluded=new Set([roles.serial,roles.image,roles.productCode,roles.quantity,roles.unitRate,roles.total].filter(i=>i>=0));
+  const excluded=new Set([
+    roles.serial, roles.image, roles.productCode, roles.quantity, roles.unitRate, roles.total,
+    roles.reviewStatus, roles.audit?.specPage, roles.audit?.reviewStatus
+  ].filter(i=>Number.isInteger(i) && i>=0));
   const candidates=h.map((header,index)=>({header,index,semantic:semanticAttributeV22(header),profile:profileColumnV22(specTable,index)}))
-    .filter(c=>!excluded.has(c.index) && c.profile.nonEmpty>0);
+    .filter(c=>!excluded.has(c.index) && !/^(Spec\s*Page|Review\s*Status)$/i.test(c.header) && c.profile.nonEmpty>0);
   const grouped=new Map();
   for(const c of candidates){
     const prev=grouped.get(c.semantic);
@@ -1154,11 +1166,12 @@ function candidateToSpecMapV22(specTable) {
   const attributes=[...grouped.values()];
   for (const row of specTable.rows || []) {
     const raw=getValueV21(row,roles.productCode);
-    const codeMatches=[...raw.matchAll(/\b[A-Z]{1,8}\s*[-_]\s*\d{1,5}[A-Z]?\b/gi)].map(m=>normalizeMaterialCodeV21(m[0]));
-    const codes=codeMatches.length ? codeMatches : [];
+    const codeMatches=[...raw.matchAll(/\b[A-Z]{1,8}\s*[-_ ]\s*\d{1,5}[A-Z]?\b/gi)].map(m=>normalizeMaterialCodeV21(m[0]));
+    const codes=codeMatches.length ? codeMatches : (raw ? [normalizeMaterialCodeV21(raw)] : []);
     const values={};
     for(const a of attributes){const v=getValueV21(row,a.index);if(v)values[a.semantic]={value:v,sourceHeader:a.header};}
     for (const code of codes) {
+      if (!code) continue;
       const record={code,attributes:values,images:getImagesV21(row,roles.image),pageNum:row.pageNum||''};
       const score=Object.keys(values).length+Math.min(2,record.images.length);
       if(!map.has(code)||score>map.get(code).score)map.set(code,{...record,score});

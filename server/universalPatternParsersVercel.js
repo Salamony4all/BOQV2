@@ -424,13 +424,14 @@ function parseAlshayaStyleSchedule(text) {
   const rows = [];
   const lines = text.split('\n');
   
-  const lineRx = /^[ \t]*([A-Za-z0-9_#.-]+)[ \t]+(?:([A-Z0-9_#-]{3,15})[ \t]+)?(.*?)[ \t]*(?:(?:([\d,.]+)[ \t]+(Nos\.?|No\.?|PCS|Set|Lot|Each|M2|SQM|LM|Sqm\.?|m2|m²|Sq\.?Ft\.?|SqFt|NOS|EA|U|Cum|job|sum|Nos)|(Nos\.?|No\.?|PCS|Set|Lot|Each|M2|SQM|LM|Sqm\.?|m2|m²|Sq\.?Ft\.?|SqFt|NOS|EA|U|Cum|job|sum|Nos)[ \t]+([\d,.]+)))[ \t]*(?:([\d,.]+)[ \t]+([\d,.]+))?[ \t]*$/i;
+  const lineRx = /^[ \t]*([A-Za-z0-9_#.-]+)[ \t]+(?:(LF\s*[-_]?\s*\d{1,4}[A-Za-z]?|[A-Z0-9_#-]{2,15})[ \t]+)?(.*?)[ \t]*(?:(?:([\d,.]+)[ \t]+(Nos\.?|No\.?s?|No\.s|PCS|Set|Lot|Each|M2|SQM|LM|Sqm\.?|m2|m²|Sq\.?Ft\.?|SqFt|NOS|EA|U|Cum|job|sum|Nos)|(Nos\.?|No\.?s?|No\.s|PCS|Set|Lot|Each|M2|SQM|LM|Sqm\.?|m2|m²|Sq\.?Ft\.?|SqFt|NOS|EA|U|Cum|job|sum|Nos)[ \t]+([\d,.]+)))[ \t]*(?:([\d,.]+)[ \t]+([\d,.]+))?[ \t]*$/i;
   
   let pendingItemNo = null;
   let pendingLineIdx = -1;
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
+    if (/^BILL\s+NO|^PROJECT\s*:/i.test(line.trim())) continue;
 
     const standaloneMatch = line.match(/^[ \t]*([A-Za-z0-9.-]{1,6})[ \t]*$/);
     if (standaloneMatch) {
@@ -445,7 +446,7 @@ function parseAlshayaStyleSchedule(text) {
     if (!m) continue;
     
     let itemNo = m[1];
-    if (itemNo.length > 6) continue;
+    if (/^(BILL|PROJECT|TOTAL|SUBTOTAL|GRAND|PAGE)$/i.test(itemNo) || itemNo.length > 8) continue;
 
     let specCode = m[2] || '';
     let desc = m[3].trim();
@@ -466,10 +467,10 @@ function parseAlshayaStyleSchedule(text) {
     }
 
     if (!specCode) {
-      const codeMatch = desc.match(/^([A-Za-z0-9_#-]{2,15})[ \t]{2,}(.*)/);
+      const codeMatch = desc.match(/^(LF\s*[-_]?\s*\d{1,4}[A-Za-z]?)\b/i) || desc.match(/^([A-Za-z0-9_#-]{2,15})[ \t]{2,}(.*)/);
       if (codeMatch) {
         specCode = codeMatch[1];
-        desc = codeMatch[2].trim();
+        desc = desc.slice(codeMatch[0].length).trim();
       } else if (desc.match(/^[A-Za-z0-9_#-]{2,15}$/)) {
         specCode = desc;
         desc = '';
