@@ -392,11 +392,56 @@ function AppContent({ onOpenSettings }) {
         });
 
         setStage('Processing...');
-        // Now ask the server to process the remote URL
+        const extractionModeHeader =
+          pipeline === 'docling' ? 'docling' :
+          pipeline === 'paddle'  ? 'paddle'  :
+          pipeline === 'opendataloader' ? 'opendataloader' :
+          pipeline === 'wordcom_vercel' ? 'wordcom_vercel' :
+          pipeline === 'wordcom_v22' ? 'wordcom_v22' :
+          pipeline === 'wordcom' ? 'wordcom' :
+          'parallel'; // default / legacy
+
+        const blobHeaders = {
+          'Content-Type': 'application/json',
+          'x-session-id': sessionId,
+          'x-extraction-mode': extractionModeHeader
+        };
+        if (options?.doclingOcr) {
+          blobHeaders['x-docling-ocr'] = '1';
+        }
+        if (modelName) {
+          blobHeaders['x-model-name'] = modelName;
+        }
+
+        const storedProfile = localStorage.getItem('boqflow_company_profile');
+        if (storedProfile) {
+          try {
+            const parsed = JSON.parse(storedProfile);
+            const aiSettings = parsed?.aiSettings;
+            if (aiSettings) {
+              blobHeaders['x-google-api-key'] = aiSettings.googleApiKey || '';
+              blobHeaders['x-google-free-key'] = aiSettings.googleFreeKey || '';
+              blobHeaders['x-google-active-tier'] = aiSettings.activeTier || 'free';
+              blobHeaders['x-google-model'] = aiSettings.model || '';
+            }
+          } catch (e) {
+            console.error('[Blob Process Headers] Error reading settings:', e);
+          }
+        }
+
+        // Now ask the server to process the remote URL with full extraction metadata
         const res = await fetch(apiUrl('/api/process-blob'), {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ url: fileUrl, sessionId })
+          headers: blobHeaders,
+          body: JSON.stringify({
+            url: fileUrl,
+            sessionId,
+            fileName: file.name,
+            fileType: file.type,
+            pipeline: extractionModeHeader,
+            options,
+            modelName
+          })
         });
 
         if (!res.ok) {
@@ -406,7 +451,7 @@ function AppContent({ onOpenSettings }) {
         const response = await res.json();
         setExtractedData(response.data);
         setProgress(100);
-        setStage('Complete');
+        setStage(response.isDirectExtraction ? 'Direct Extraction Complete' : 'Extraction Complete');
         setTimeout(() => setUploading(false), 500);
 
       } else {

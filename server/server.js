@@ -1412,6 +1412,264 @@ app.get('/api/ai/env-keys', (req, res) => {
     googleFreeKey: process.env.GOOGLE_FREE_KEY || process.env.GEMINI_FREE_KEY || process.env.GEMINI_API_KEY_FREE || ''
   });
 });
+async function executeExtractionPipeline({
+  filePath,
+  fileName,
+  fileMimeType = '',
+  sessionId = 'default',
+  extractionMode = 'parallel',
+  modelName = null,
+  doclingOcr = false,
+  options = null
+}) {
+  const isPdf = fileName.toLowerCase().endsWith('.pdf') || fileMimeType === 'application/pdf';
+  const isImage = fileMimeType.startsWith('image/') || fileName.toLowerCase().match(/\.(png|jpg|jpeg)$/);
+
+  console.log(`[ExtractionPipeline] Processing: ${fileName} | isPdf: ${isPdf} | Mode: ${extractionMode} | OCR: ${doclingOcr}${modelName ? ` | Model: ${modelName}` : ''}`);
+
+  // Track file for cleanup
+  cleanupService.trackFile(sessionId, filePath);
+
+  let extractedData;
+  if (isPdf) {
+    // ── Shared helper: call FastAPI /extract and extract real error detail ──
+    const fastApiExtract = async ({ usePaddleFallback = true, usePaddleOnly = false, pipeline = 'docling' } = {}) => {
+      const fs = await import('fs');
+      const FormData = (await import('form-data')).default;
+      const form = new FormData();
+      form.append('file', fs.createReadStream(filePath), { filename: fileName, contentType: 'application/pdf' });
+      // Send 1/0 so FastAPI bool Form parsing works reliably
+      form.append('use_paddle_fallback', usePaddleFallback ? '1' : '0');
+      form.append('use_paddle_only', usePaddleOnly ? '1' : '0');
+      form.append('do_ocr', doclingOcr ? '1' : '0');
+      form.append('pipeline', pipeline);
+
+      let fastapiRes;
+      try {
+        fastapiRes = await axios.post(`${DOCLING_SERVICE_URL}/extract`, form, {
+          headers: form.getHeaders(),
+          maxContentLength: Infinity,
+          maxBodyLength: Infinity,
+          timeout: 300000
+        });
+      } catch (axiosErr) {
+        // Prefer the FastAPI response detail over the generic axios message
+        const detail =
+          axiosErr.response?.data?.detail ||
+          axiosErr.response?.data?.error ||
+          (typeof axiosErr.response?.data === 'string' ? axiosErr.response.data : null) ||
+          axiosErr.message ||
+          'FastAPI service unavailable';
+        console.error('[FastAPI] Request failed:', detail);
+        throw new Error(detail);
+      }
+
+      if (!fastapiRes.data?.success) {
+        throw new Error(fastapiRes.data?.detail || fastapiRes.data?.error || 'FastAPI returned unsuccessful status');
+      }
+      return fastapiRes.data;
+    };
+
+    if (extractionMode === 'wordcom_vercel') {
+      console.log(`[Upload] [wordcom_vercel] Starting Vercel-safe MuPDF hybrid extraction...`);
+      try {
+        const uploadId = crypto.randomUUID();
+        const { extractPdfViaWordVercel } = await import('./wordExtractorServiceVercel.js');
+        extractedData = await extractPdfViaWordVercel(filePath, (p) => {
+          console.log(`[Upload] [wordcom_vercel] progress: ${p}%`);
+        });
+        if (extractedData && Array.isArray(extractedData.tables)) {
+          extractedData.tables = extractedData.tables.map(t => ({
+            ...t,
+            uploadId,
+            engineUsed: t.engineUsed || 'wordcom-vercel-safe'
+          }));
+        } else {
+          throw new Error('Vercel-safe extraction could not extract table candidates.');
+        }
+      } catch (err) {
+        console.error(`[Upload] [wordcom_vercel] Failed: ${err.message}`, err.stack);
+        throw new Error(`Word Vercel-safe extraction failed: ${err.message}`);
+      }
+    } else if (extractionMode === 'wordcom_v22') {
+      console.log(`[Upload] [wordcom_v22] Starting dynamic-header extraction...`);
+      try {
+        const uploadId = crypto.randomUUID();
+        const { extractMultiplePdfsV21 } = await import('./universalPatternParsersVercel.v22.dynamic-header-boq-spec.js');
+        extractedData = await extractMultiplePdfsV21([filePath], (p) => {
+          console.log(`[Upload] [wordcom_v22] progress: ${p}%`);
+        });
+        if (extractedData && Array.isArray(extractedData.tables)) {
+          extractedData.tables = extractedData.tables.map(t => ({
+            ...t,
+            uploadId,
+            engineUsed: t.engineUsed || 'wordcom-v22-dynamic-header'
+          }));
+        } else {
+          throw new Error('V22 dynamic-header extraction could not extract table candidates.');
+        }
+      } catch (err) {
+        console.error(`[Upload] [wordcom_v22] Failed: ${err.message}`, err.stack);
+        throw new Error(`Word V22 dynamic-header extraction failed: ${err.message}`);
+      }
+    } else if (extractionMode === 'wordcom') {
+      console.log(`[Upload] [wordcom] Starting Word/LibreOffice hybrid extraction...`);
+      try {
+        const uploadId = crypto.randomUUID();
+        const { extractPdfViaWord } = await getWordExtractorService();
+        extractedData = await extractPdfViaWord(filePath, (p) => {
+          console.log(`[Upload] [wordcom] progress: ${p}%`);
+        }, (assets) => {
+          if (Array.isArray(assets)) {
+            assets.forEach(asset => asset?.url && cleanupService.trackBlob(sessionId, asset.url));
+          }
+        });
+        if (extractedData && Array.isArray(extractedData.tables)) {
+          const primaryBeforeMap = extractedData.tables[0];
+          const auditBeforeMap = primaryBeforeMap?.serialAudit || primaryBeforeMap?.extractionAudit;
+
+          console.log(
+            `[Upload] [wordcom] extractorEngine=${extractedData.engineUsed || 'unknown'} ` +
+            `tables=${extractedData.tables.length} ` +
+            `rows=${primaryBeforeMap?.rows?.length || 0} ` +
+            `cols=${primaryBeforeMap?.header?.length || 0}`
+          );
+          console.log(`[Upload] [wordcom] primaryTableEngine=${primaryBeforeMap?.engineUsed || 'unknown'}`);
+          if (auditBeforeMap) {
+            console.log(
+              `[Upload] [wordcom] audit missing=${JSON.stringify(auditBeforeMap.missingSerials || [])} ` +
+              `duplicates=${JSON.stringify(auditBeforeMap.duplicateSerials || [])} ` +
+              `range=${auditBeforeMap.expectedStart || ''}-${auditBeforeMap.expectedEnd || ''}`
+            );
+          }
+
+          extractedData.tables = extractedData.tables.map(t => ({ ...t, uploadId, engineUsed: t.engineUsed || extractedData.engineUsed || 'wordcom-hybrid' }));
+        }
+      } catch (err) {
+        console.error(`[Upload] [wordcom] Failed: ${err.message}`, err.stack);
+        if (isVercel || !process.platform.startsWith('win')) {
+          console.warn(`[Upload] Falling back to Vercel-safe MuPDF extractor...`);
+          const uploadId = crypto.randomUUID();
+          const { extractPdfViaWordVercel } = await import('./wordExtractorServiceVercel.js');
+          extractedData = await extractPdfViaWordVercel(filePath, () => {});
+          if (extractedData && Array.isArray(extractedData.tables)) {
+            extractedData.tables = extractedData.tables.map(t => ({ ...t, uploadId, engineUsed: 'wordcom-vercel-fallback' }));
+            return extractedData;
+          }
+        }
+        const safeMsg = (err.message || 'Unknown error').replace(/[A-Z]:\\\\[^\s]*/gi, '[path]').replace(/\/[^\s]*\//g, '[path]/');
+        throw new Error(`Word extraction failed: ${safeMsg}`);
+      }
+    } else if (extractionMode === 'docling' || extractionMode === 'paddle' || extractionMode === 'opendataloader') {
+      console.log(`[Upload] [${extractionMode}] Starting simultaneous extraction...`);
+      const uploadId = crypto.randomUUID();
+
+      // Start native image rendering in the background immediately (only if not on Vercel)
+      let layoutsPromise = Promise.resolve([]);
+      if (!isVercel) {
+        try {
+          const { renderPDFWithLayout } = await getPdfRenderer();
+          layoutsPromise = renderPDFWithLayout(filePath).catch(err => {
+            console.error('Layout Extraction Failed:', err.message);
+            return [];
+          });
+          activeLayoutPromises.set(uploadId, layoutsPromise);
+          layoutsPromise.finally(() => {
+            setTimeout(() => {
+              activeLayoutPromises.delete(uploadId);
+            }, 300000); // 5 minutes cache
+          });
+        } catch (e) {
+          console.error('Could not schedule local PDF layout rendering:', e.message);
+        }
+      }
+
+      try {
+        const fastapiRaw = await fastApiExtract({
+          usePaddleFallback: extractionMode === 'paddle',
+          usePaddleOnly: extractionMode === 'paddle',
+          pipeline: extractionMode
+        });
+        console.log(`[Upload] [${extractionMode}] FastAPI OK. engineUsed: ${fastapiRaw.engineUsed}`);
+        extractedData = await processTextTablesWithNativeImages(fastapiRaw, filePath, uploadId, sessionId, layoutsPromise);
+      } catch (err) {
+        console.error(`[Upload] [${extractionMode}] Failed: ${err.message}`);
+        if (isVercel) {
+          console.warn(`[Upload] FastAPI failed on Vercel, attempting Vercel-safe fallback...`);
+          const uploadId = crypto.randomUUID();
+          const { extractPdfViaWordVercel } = await import('./wordExtractorServiceVercel.js');
+          const fallbackData = await extractPdfViaWordVercel(filePath, () => {});
+          if (fallbackData && Array.isArray(fallbackData.tables)) {
+            fallbackData.tables = fallbackData.tables.map(t => ({ ...t, uploadId, engineUsed: 'vercel-fastapi-fallback' }));
+            return fallbackData;
+          }
+        }
+        throw new Error(`${extractionMode} extraction failed: ${err.message}`);
+      }
+    } else if (isVercel) {
+      console.log(`[Upload] Running in Vercel - Using Vercel-safe MuPDF hybrid extraction`);
+      try {
+        const uploadId = crypto.randomUUID();
+        const { extractPdfViaWordVercel } = await import('./wordExtractorServiceVercel.js');
+        extractedData = await extractPdfViaWordVercel(filePath, () => {});
+        if (extractedData && Array.isArray(extractedData.tables) && extractedData.tables.length > 0) {
+          extractedData.tables = extractedData.tables.map(t => ({ ...t, uploadId, engineUsed: 'wordcom-vercel-safe' }));
+          return extractedData;
+        }
+      } catch (e) {
+        console.warn('[Upload] wordExtractorServiceVercel failed, falling back to pdfjs:', e.message);
+      }
+      const { extractProductBoqFromPdf } = await getPdfProductExtractor();
+      extractedData = await extractProductBoqFromPdf(filePath, () => { }, modelName);
+    } else if (extractionMode === 'parallel') {
+      // ── Legacy: try Docling+Paddle auto-fallback, then JS extractor ─────────
+      try {
+        console.log(`[Upload] [parallel] Attempting FastAPI Docling+Paddle extraction...`);
+        const fastapiRaw = await fastApiExtract({ usePaddleFallback: true, usePaddleOnly: false, pipeline: 'docling' });
+        console.log(`[Upload] [parallel] FastAPI OK. engineUsed: ${fastapiRaw.engineUsed}`);
+        const uploadId = crypto.randomUUID();
+        extractedData = await processTextTablesWithNativeImages(fastapiRaw, filePath, uploadId, sessionId);
+      } catch (fastapiErr) {
+        console.warn(`[Upload] [parallel] FastAPI failed (${fastapiErr.message}). Falling back to JS Parallel Extractor.`);
+        const { extractParallelBOQData } = await getParallelBOQExtractor();
+        extractedData = await extractParallelBOQData(filePath, 'application/pdf', () => { }, modelName, (file) => {
+          cleanupService.trackFile(sessionId, file);
+        }, (folder) => {
+          cleanupService.trackFolder(sessionId, folder);
+        });
+      }
+    } else {
+      // Legacy vision path
+      const { extractVisionBOQData } = await getVisionBOQExtractor();
+      extractedData = await extractVisionBOQData(filePath, 'application/pdf', () => { }, modelName, (blob) => {
+        cleanupService.trackBlob(sessionId, blob);
+      });
+    }
+  } else if (isImage) {
+    // Handle images directly uploaded to BOQ flow
+    const { extractVisionBOQData } = await getVisionBOQExtractor();
+    extractedData = await extractVisionBOQData(filePath, fileMimeType || 'image/png', () => { }, modelName, (blob) => {
+      cleanupService.trackBlob(sessionId, blob);
+    });
+  } else {
+    // Diagnostic check for file presence on disk
+    const exists = fs_sync.existsSync(filePath);
+    const stats = exists ? fs_sync.statSync(filePath) : null;
+    console.log(`[Upload-Diagnostics] Processing Excel file. Path: ${filePath} | Exists: ${exists} | Size: ${stats ? stats.size : 'N/A'} bytes | Vercel: ${isVercel}`);
+
+    if (!exists) {
+      throw new Error(`Uploaded Excel file not found on disk at: ${filePath}. Multer might have failed to write it, or directory permissions are restrictive.`);
+    }
+
+    // Extract data from Excel
+    extractedData = await extractExcelData(filePath, () => { }, (blob) => {
+      cleanupService.trackBlob(sessionId, blob);
+    });
+  }
+
+  return extractedData;
+}
+
 app.post('/api/upload', upload.single('file'), async (req, res) => {
   try {
     if (!req.file) {
@@ -1420,228 +1678,28 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
 
     const filePath = req.file.path;
     const fileName = req.file.originalname;
-    const isPdf = fileName.toLowerCase().endsWith('.pdf') || req.file.mimetype === 'application/pdf';
-    const isImage = req.file.mimetype.startsWith('image/') || fileName.toLowerCase().match(/\.(png|jpg|jpeg)$/);
     const sessionId = req.headers['x-session-id'] || 'default';
-
     const extractionMode = req.headers['x-extraction-mode'] || 'parallel';
     const modelName = req.headers['x-model-name'];
     const doclingOcr = req.headers['x-docling-ocr'] === '1';
 
-    console.log(`[Upload] Processing: ${fileName} | Mode: ${extractionMode} | OCR: ${doclingOcr}${modelName ? ` | Model: ${modelName}` : ''}`);
-
-    // Track file for cleanup
-    cleanupService.trackFile(sessionId, filePath);
-
-    let extractedData;
-    if (isPdf) {
-      // ── Shared helper: call FastAPI /extract and extract real error detail ──
-      const fastApiExtract = async ({ usePaddleFallback = true, usePaddleOnly = false, pipeline = 'docling' } = {}) => {
-        const fs = await import('fs');
-        const FormData = (await import('form-data')).default;
-        const form = new FormData();
-        form.append('file', fs.createReadStream(filePath), { filename: fileName, contentType: 'application/pdf' });
-        // Send 1/0 so FastAPI bool Form parsing works reliably
-        form.append('use_paddle_fallback', usePaddleFallback ? '1' : '0');
-        form.append('use_paddle_only', usePaddleOnly ? '1' : '0');
-        form.append('do_ocr', doclingOcr ? '1' : '0');
-        form.append('pipeline', pipeline);
-
-        let fastapiRes;
-        try {
-          fastapiRes = await axios.post(`${DOCLING_SERVICE_URL}/extract`, form, {
-            headers: form.getHeaders(),
-            maxContentLength: Infinity,
-            maxBodyLength: Infinity,
-            timeout: 300000
-          });
-        } catch (axiosErr) {
-          // Prefer the FastAPI response detail over the generic axios message
-          const detail =
-            axiosErr.response?.data?.detail ||
-            axiosErr.response?.data?.error ||
-            (typeof axiosErr.response?.data === 'string' ? axiosErr.response.data : null) ||
-            axiosErr.message ||
-            'FastAPI service unavailable';
-          console.error('[FastAPI] Request failed:', detail);
-          throw new Error(detail);
-        }
-
-        if (!fastapiRes.data?.success) {
-          throw new Error(fastapiRes.data?.detail || fastapiRes.data?.error || 'FastAPI returned unsuccessful status');
-        }
-        return fastapiRes.data;
-      };
-
-      if (extractionMode === 'wordcom_vercel') {
-        console.log(`[Upload] [wordcom_vercel] Starting Vercel-safe MuPDF hybrid extraction...`);
-        try {
-          const uploadId = crypto.randomUUID();
-          const { extractPdfViaWordVercel } = await import('./wordExtractorServiceVercel.js');
-          extractedData = await extractPdfViaWordVercel(filePath, (p) => {
-            console.log(`[Upload] [wordcom_vercel] progress: ${p}%`);
-          });
-          if (extractedData && Array.isArray(extractedData.tables)) {
-            extractedData.tables = extractedData.tables.map(t => ({
-              ...t,
-              uploadId,
-              engineUsed: t.engineUsed || 'wordcom-vercel-safe'
-            }));
-          } else {
-            throw new Error('Vercel-safe extraction could not extract table candidates.');
-          }
-        } catch (err) {
-          console.error(`[Upload] [wordcom_vercel] Failed: ${err.message}`, err.stack);
-          throw new Error(`Word Vercel-safe extraction failed: ${err.message}`);
-        }
-      } else if (extractionMode === 'wordcom_v22') {
-        // Dynamic-header WordCom V22 (wordpdf-universal-v22.0-dynamic-header-boq-spec):
-        // uses BOQ as authoritative row set, enriches with dynamically-discovered
-        // specification attributes + multi-image pairing, preserves source headers.
-        // Single-file path reuses extractPdfViaWordFastPathVercel internally.
-        console.log(`[Upload] [wordcom_v22] Starting dynamic-header extraction...`);
-        try {
-          const uploadId = crypto.randomUUID();
-          const { extractMultiplePdfsV21 } = await import('./universalPatternParsersVercel.v22.dynamic-header-boq-spec.js');
-          extractedData = await extractMultiplePdfsV21([filePath], (p) => {
-            console.log(`[Upload] [wordcom_v22] progress: ${p}%`);
-          });
-          if (extractedData && Array.isArray(extractedData.tables)) {
-            extractedData.tables = extractedData.tables.map(t => ({
-              ...t,
-              uploadId,
-              engineUsed: t.engineUsed || 'wordcom-v22-dynamic-header'
-            }));
-          } else {
-            throw new Error('V22 dynamic-header extraction could not extract table candidates.');
-          }
-        } catch (err) {
-          console.error(`[Upload] [wordcom_v22] Failed: ${err.message}`, err.stack);
-          throw new Error(`Word V22 dynamic-header extraction failed: ${err.message}`);
-        }
-      } else if (extractionMode === 'wordcom') {
-        console.log(`[Upload] [wordcom] Starting Word/LibreOffice hybrid extraction...`);
-        try {
-          const uploadId = crypto.randomUUID();
-          const { extractPdfViaWord } = await getWordExtractorService();
-          extractedData = await extractPdfViaWord(filePath, (p) => {
-            console.log(`[Upload] [wordcom] progress: ${p}%`);
-          }, (assets) => {
-            if (Array.isArray(assets)) {
-              assets.forEach(asset => asset?.url && cleanupService.trackBlob(sessionId, asset.url));
-            }
-          });
-          if (extractedData && Array.isArray(extractedData.tables)) {
-            const primaryBeforeMap = extractedData.tables[0];
-            const auditBeforeMap = primaryBeforeMap?.serialAudit || primaryBeforeMap?.extractionAudit;
-
-            console.log(
-              `[Upload] [wordcom] extractorEngine=${extractedData.engineUsed || 'unknown'} ` +
-              `tables=${extractedData.tables.length} ` +
-              `rows=${primaryBeforeMap?.rows?.length || 0} ` +
-              `cols=${primaryBeforeMap?.header?.length || 0}`
-            );
-            console.log(`[Upload] [wordcom] primaryTableEngine=${primaryBeforeMap?.engineUsed || 'unknown'}`);
-            if (auditBeforeMap) {
-              console.log(
-                `[Upload] [wordcom] audit missing=${JSON.stringify(auditBeforeMap.missingSerials || [])} ` +
-                `duplicates=${JSON.stringify(auditBeforeMap.duplicateSerials || [])} ` +
-                `range=${auditBeforeMap.expectedStart || ''}-${auditBeforeMap.expectedEnd || ''}`
-              );
-            }
-
-            extractedData.tables = extractedData.tables.map(t => ({ ...t, uploadId, engineUsed: t.engineUsed || extractedData.engineUsed || 'wordcom-hybrid' }));
-          }
-        } catch (err) {
-          console.error(`[Upload] [wordcom] Failed: ${err.message}`, err.stack);
-          const safeMsg = (err.message || 'Unknown error').replace(/[A-Z]:\\\\[^\s]*/gi, '[path]').replace(/\/[^\s]*\//g, '[path]/');
-          throw new Error(`Word extraction failed: ${safeMsg}`);
-        }
-      } else if (extractionMode === 'docling' || extractionMode === 'paddle' || extractionMode === 'opendataloader') {
-        console.log(`[Upload] [${extractionMode}] Starting simultaneous extraction...`);
-        const uploadId = crypto.randomUUID();
-
-        // Start native image rendering in the background immediately (only if not on Vercel)
-        let layoutsPromise = Promise.resolve([]);
-        if (!isVercel) {
-          try {
-            const { renderPDFWithLayout } = await getPdfRenderer();
-            layoutsPromise = renderPDFWithLayout(filePath).catch(err => {
-              console.error('Layout Extraction Failed:', err.message);
-              return [];
-            });
-            activeLayoutPromises.set(uploadId, layoutsPromise);
-            layoutsPromise.finally(() => {
-              setTimeout(() => {
-                activeLayoutPromises.delete(uploadId);
-              }, 300000); // 5 minutes cache
-            });
-          } catch (e) {
-            console.error('Could not schedule local PDF layout rendering:', e.message);
-          }
-        }
-
-        try {
-          const fastapiRaw = await fastApiExtract({
-            usePaddleFallback: extractionMode === 'paddle',
-            usePaddleOnly: extractionMode === 'paddle',
-            pipeline: extractionMode
-          });
-          console.log(`[Upload] [${extractionMode}] FastAPI OK. engineUsed: ${fastapiRaw.engineUsed}`);
-          extractedData = await processTextTablesWithNativeImages(fastapiRaw, filePath, uploadId, sessionId, layoutsPromise);
-        } catch (err) {
-          console.error(`[Upload] [${extractionMode}] Failed: ${err.message}`);
-          throw new Error(`${extractionMode} extraction failed: ${err.message}`);
-        }
-      } else if (isVercel) {
-        console.log(`[Upload] Running in Vercel - Using light extraction (pdfjs)`);
-        const { extractProductBoqFromPdf } = await getPdfProductExtractor();
-        extractedData = await extractProductBoqFromPdf(filePath, () => { }, modelName);
-      } else if (extractionMode === 'parallel') {
-        // ── Legacy: try Docling+Paddle auto-fallback, then JS extractor ─────────
-        try {
-          console.log(`[Upload] [parallel] Attempting FastAPI Docling+Paddle extraction...`);
-          const fastapiRaw = await fastApiExtract({ usePaddleFallback: true, usePaddleOnly: false, pipeline: 'docling' });
-          console.log(`[Upload] [parallel] FastAPI OK. engineUsed: ${fastapiRaw.engineUsed}`);
-          const uploadId = crypto.randomUUID();
-          extractedData = await processTextTablesWithNativeImages(fastapiRaw, filePath, uploadId, sessionId);
-        } catch (fastapiErr) {
-          console.warn(`[Upload] [parallel] FastAPI failed (${fastapiErr.message}). Falling back to JS Parallel Extractor.`);
-          const { extractParallelBOQData } = await getParallelBOQExtractor();
-          extractedData = await extractParallelBOQData(filePath, 'application/pdf', () => { }, modelName, (file) => {
-            cleanupService.trackFile(sessionId, file);
-          }, (folder) => {
-            cleanupService.trackFolder(sessionId, folder);
-          });
-        }
-      } else {
-        // Legacy vision path
-        const { extractVisionBOQData } = await getVisionBOQExtractor();
-        extractedData = await extractVisionBOQData(filePath, 'application/pdf', () => { }, modelName, (blob) => {
-          cleanupService.trackBlob(sessionId, blob);
-        });
-      }
-    } else if (isImage) {
-      // Handle images directly uploaded to BOQ flow
-      const { extractVisionBOQData } = await getVisionBOQExtractor();
-      extractedData = await extractVisionBOQData(filePath, req.file.mimetype, () => { }, modelName, (blob) => {
-        cleanupService.trackBlob(sessionId, blob);
-      });
-    } else {
-      // Diagnostic check for file presence on disk
-      const exists = fs_sync.existsSync(filePath);
-      const stats = exists ? fs_sync.statSync(filePath) : null;
-      console.log(`[Upload-Diagnostics] Processing Excel file. Path: ${filePath} | Exists: ${exists} | Size: ${stats ? stats.size : 'N/A'} bytes | Vercel: ${isVercel}`);
-
-      if (!exists) {
-        throw new Error(`Uploaded Excel file not found on disk at: ${filePath}. Multer might have failed to write it, or directory permissions are restrictive.`);
-      }
-
-      // Extract data from Excel
-      extractedData = await extractExcelData(filePath, () => { }, (blob) => {
-        cleanupService.trackBlob(sessionId, blob);
-      });
+    let options = null;
+    if (req.body?.options) {
+      try {
+        options = typeof req.body.options === 'string' ? JSON.parse(req.body.options) : req.body.options;
+      } catch (e) { }
     }
+
+    const extractedData = await executeExtractionPipeline({
+      filePath,
+      fileName,
+      fileMimeType: req.file.mimetype,
+      sessionId,
+      extractionMode,
+      modelName,
+      doclingOcr,
+      options
+    });
 
     res.json({
       success: true,
@@ -1794,9 +1852,9 @@ app.get('/api/storage/config', (req, res) => {
   });
 });
 
-// Process a file that was already uploaded to Vercel Blob (Big File Processing)
+// Process a file that was already uploaded to Supabase / Vercel Blob (Big File Processing)
 app.post('/api/process-blob', async (req, res) => {
-  const { url, sessionId = 'default' } = req.body;
+  const { url, sessionId = 'default', fileName: clientFileName, fileType, pipeline, modelName: bodyModelName, options } = req.body;
   if (!url) return res.status(400).json({ error: 'URL is required' });
 
   try {
@@ -1804,31 +1862,73 @@ app.post('/api/process-blob', async (req, res) => {
 
     // Download the file from Blob to /tmp for processing
     const response = await axios.get(url, { responseType: 'arraybuffer' });
+    const buffer = Buffer.from(response.data);
     const tempDir = isVercel ? '/tmp/uploads' : path.join(__dirname, '../uploads');
     await fs.mkdir(tempDir, { recursive: true });
 
-    const fileName = `large_${Date.now()}.xlsx`;
-    const filePath = path.join(tempDir, fileName);
-    await fs.writeFile(filePath, Buffer.from(response.data));
-
-    // Track for cleanup
-    cleanupService.trackFile(sessionId, filePath);
-
-    // Extract (pass callback to track blobs)
-    const extractedData = await extractExcelData(filePath, () => { }, (blobUrl) => {
-      cleanupService.trackBlob(sessionId, blobUrl);
-    });
-
-    // (Optional) Delete the source if it was a transient upload
-    if (url.includes('supabase') && url.includes('temp')) {
-      // logic to delete if needed
+    // Derive file name & extension accurately:
+    let rawName = clientFileName || '';
+    if (!rawName && url) {
+      try {
+        const parsed = new URL(url);
+        rawName = decodeURIComponent(path.basename(parsed.pathname));
+      } catch (e) {}
     }
+
+    let ext = path.extname(rawName).toLowerCase();
+    // Magic byte detection fallback
+    if (!ext || ext === '.bin' || ext === '.tmp') {
+      if (buffer.length >= 4 && buffer[0] === 0x25 && buffer[1] === 0x50 && buffer[2] === 0x44 && buffer[3] === 0x46) {
+        ext = '.pdf';
+      } else if (buffer.length >= 4 && buffer[0] === 0x50 && buffer[1] === 0x4B && buffer[2] === 0x03 && buffer[3] === 0x04) {
+        ext = '.xlsx';
+      } else if (buffer.length >= 4 && buffer[0] === 0xD0 && buffer[1] === 0xCF && buffer[2] === 0x11 && buffer[3] === 0xE0) {
+        ext = '.xls';
+      } else if (buffer.length >= 4 && buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4E && buffer[3] === 0x47) {
+        ext = '.png';
+      } else if (buffer.length >= 3 && buffer[0] === 0xFF && buffer[1] === 0xD8 && buffer[2] === 0xFF) {
+        ext = '.jpg';
+      } else {
+        ext = rawName.toLowerCase().endsWith('.pdf') ? '.pdf' : '.xlsx';
+      }
+    }
+
+    // Force PDF extension if buffer signature is %PDF (hex 0x25 0x50 0x44 0x46)
+    if (buffer.length >= 4 && buffer[0] === 0x25 && buffer[1] === 0x50 && buffer[2] === 0x44 && buffer[3] === 0x46) {
+      ext = '.pdf';
+    }
+
+    const safeBaseName = (rawName ? path.basename(rawName, path.extname(rawName)) : `large_${Date.now()}`).replace(/[^a-zA-Z0-9_-]/g, '_');
+    const finalFileName = `${safeBaseName}_${Date.now()}${ext}`;
+    const filePath = path.join(tempDir, finalFileName);
+    await fs.writeFile(filePath, buffer);
+
+    const extractionMode = req.headers['x-extraction-mode'] || pipeline || 'parallel';
+    const modelName = req.headers['x-model-name'] || bodyModelName || null;
+    const doclingOcr = req.headers['x-docling-ocr'] === '1' || !!options?.doclingOcr;
+
+    let parsedOptions = options;
+    if (typeof parsedOptions === 'string') {
+      try { parsedOptions = JSON.parse(parsedOptions); } catch (e) {}
+    }
+
+    const extractedData = await executeExtractionPipeline({
+      filePath,
+      fileName: rawName || finalFileName,
+      fileMimeType: fileType || (ext === '.pdf' ? 'application/pdf' : (ext === '.xlsx' ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' : '')),
+      sessionId,
+      extractionMode,
+      modelName,
+      doclingOcr,
+      options: parsedOptions
+    });
 
     res.json({
       success: true,
       data: extractedData,
+      isDirectExtraction: true,
       progress: 100,
-      stage: 'Complete'
+      stage: 'Direct Extraction Complete'
     });
   } catch (error) {
     console.error('Blob processing error:', error);
