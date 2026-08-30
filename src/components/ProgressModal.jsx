@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import styles from '../styles/ProgressModal.module.css';
 
-function ProgressModal({ isOpen, progress, stage, planPreviewUrl, planPreviewType, planPreviewName }) {
+function ProgressModal({ isOpen, progress, stage, stageDetail, planPreviewUrl, planPreviewType, planPreviewName }) {
     const [visible, setVisible] = useState(false);
 
     useEffect(() => {
@@ -17,6 +17,8 @@ function ProgressModal({ isOpen, progress, stage, planPreviewUrl, planPreviewTyp
 
     const normalizedType = planPreviewType ? planPreviewType.toLowerCase() : '';
     const hasPreview = Boolean(planPreviewUrl);
+    const numericProgress = Math.min(100, Math.max(0, Math.round(progress || 0)));
+    const isUploadPhase = numericProgress < 50;
 
     return (
         <div className={`${styles.modalOverlay} ${isOpen ? styles.visible : styles.hidden}`}>
@@ -41,21 +43,32 @@ function ProgressModal({ isOpen, progress, stage, planPreviewUrl, planPreviewTyp
                         </div>
                     </div>
                 )}
+                
                 <div className={styles.throbber}>
                     <div className={styles.spinner}></div>
                 </div>
 
-                <h2 className={styles.stage}>{stage}</h2>
+                <div className={styles.phaseBadge}>
+                    <span className={styles.phaseDot}></span>
+                    {numericProgress >= 100 
+                        ? 'Completed' 
+                        : isUploadPhase 
+                            ? 'Phase 1: Cloud Upload' 
+                            : 'Phase 2: AI & Layout Extraction'}
+                </div>
+
+                <h2 className={styles.stage}>{stage || 'Processing...'}</h2>
+                {stageDetail && <p className={styles.stageDetail}>{stageDetail}</p>}
 
                 <div className={styles.progressBar}>
                     <div
                         className={styles.progressFill}
-                        style={{ width: `${progress}%` }}
+                        style={{ width: `${numericProgress}%` }}
                     ></div>
                 </div>
 
                 <div className={styles.percentage}>
-                    {Math.round(progress)}%
+                    {numericProgress}%
                 </div>
             </div>
         </div>

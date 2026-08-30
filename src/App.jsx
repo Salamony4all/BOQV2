@@ -234,6 +234,7 @@ function AppContent({ onOpenSettings }) {
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [stage, setStage] = useState('');
+  const [stageDetail, setStageDetail] = useState('');
   const [extractedData, setExtractedData] = useState(null);
   const [error, setError] = useState(null);
   const [isMultiBudgetOpen, setMultiBudgetOpen] = useState(false);
@@ -337,6 +338,48 @@ function AppContent({ onOpenSettings }) {
     };
   }, [uploadedPlanFile]);
 
+// Helper for XHR-based upload to Supabase Storage with real-time byte-level progress
+function uploadToSupabaseWithProgress({ sbUrl, anonKey, bucket, filePath, file, onProgress }) {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    const cleanSbUrl = sbUrl.replace(/\/$/, '');
+    const uploadEndpoint = `${cleanSbUrl}/storage/v1/object/${bucket}/${filePath}`;
+
+    xhr.open('POST', uploadEndpoint);
+    xhr.setRequestHeader('Authorization', `Bearer ${anonKey}`);
+    xhr.setRequestHeader('apikey', anonKey);
+    xhr.setRequestHeader('x-upsert', 'true');
+    if (file.type) {
+      xhr.setRequestHeader('Content-Type', file.type);
+    }
+
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable) {
+        onProgress(e.loaded, e.total);
+      }
+    };
+
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        const publicUrl = `${cleanSbUrl}/storage/v1/object/public/${bucket}/${filePath}`;
+        resolve(publicUrl);
+      } else {
+        let errMessage = 'Storage upload failed';
+        try {
+          const res = JSON.parse(xhr.responseText);
+          errMessage = res.message || res.error || errMessage;
+        } catch (e) {}
+        reject(new Error(errMessage));
+      }
+    };
+
+    xhr.onerror = () => reject(new Error('Network error during cloud upload'));
+    xhr.ontimeout = () => reject(new Error('Cloud upload timed out'));
+
+    xhr.send(file);
+  });
+}
+
   const handleFileUpload = async (file, modelName = null, pipeline = null, options = null) => {
     // If it's a PDF and no pipeline is selected yet, show the model+pipeline selection modal
     if (file && file.name.toLowerCase().endsWith('.pdf') && !pipeline) {
@@ -348,42 +391,73 @@ function AppContent({ onOpenSettings }) {
     setShowLanding(false);
     setUploading(true);
     setProgress(0);
-    setStage('Starting...');
+    setStage('Preparing Upload...');
+    setStageDetail(`Selected: ${file.name} (${(file.size / (1024 * 1024)).toFixed(1)} MB)`);
     setError(null);
     setExtractedData(null);
 
     const isLarge = file.size > 4.4 * 1024 * 1024;
     const useBlob = isLarge && window.location.hostname !== 'localhost';
 
+    let progressInterval = null;
+    const startProcessingTicker = () => {
+      if (progressInterval) clearInterval(progressInterval);
+      let current = 50;
+      setProgress(50);
+      setStage('Analyzing Document Layout...');
+      setStageDetail('Parsing PDF streams & layout geometry');
+
+      const stages = [
+        { threshold: 60, stage: 'Analyzing Page Geometry...', detail: 'Detecting tabular grids & page structure' },
+        { threshold: 72, stage: 'Extracting BOQ Specifications...', detail: 'Reading line items, model codes & quantities' },
+        { threshold: 84, stage: 'Processing Visual Imagery...', detail: 'Cropping product photos & generating high-res assets' },
+        { threshold: 94, stage: 'Structuring BOQ Matrix...', detail: 'Compiling financial formulas & unit rates' },
+        { threshold: 98, stage: 'Finalizing Dataset...', detail: 'Verifying data consistency & table parity' }
+      ];
+
+      progressInterval = setInterval(() => {
+        current += Math.random() * 2.2 + 0.6;
+        if (current > 98) current = 98;
+        setProgress(Math.round(current));
+
+        for (const s of stages) {
+          if (current >= s.threshold) {
+            setStage(s.stage);
+            setStageDetail(s.detail);
+          }
+        }
+      }, 400);
+    };
+
     try {
       if (useBlob) {
-        setStage('Uploading...');
+        setStage('Uploading to Cloud Storage');
+        setStageDetail(`0 MB of ${(file.size / (1024 * 1024)).toFixed(1)} MB (0%)`);
 
         const fileUrl = await new Promise(async (resolve, reject) => {
           try {
             // Get credentials from server
             const configRes = await fetch(apiUrl('/api/storage/config'));
             const { url: sbUrl, anonKey, bucket } = await configRes.json();
-            
-            const supabase = createClient(sbUrl, anonKey);
-            const filePath = `temp-uploads/${sessionId}/${Date.now()}-${file.name}`;
-            
-            const { data, error } = await supabase.storage
-              .from(bucket)
-              .upload(filePath, file, {
-                upsert: true,
-                onUploadProgress: (e) => {
-                   const percent = (e.loaded / e.total) * 100;
-                   setStage(`Clould Uploading: ${Math.round(percent)}%`);
-                   setProgress(10 + (percent * 0.15)); // Allocate small segment for progress
-                }
-              });
+            const filePath = `temp-uploads/${sessionId}/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
 
-            if (error) throw error;
-
-            const { data: { publicUrl } } = supabase.storage
-              .from(bucket)
-              .getPublicUrl(data.path);
+            const publicUrl = await uploadToSupabaseWithProgress({
+              sbUrl,
+              anonKey,
+              bucket,
+              filePath,
+              file,
+              onProgress: (loaded, total) => {
+                const pct = (loaded / total) * 100;
+                // Upload phase takes 0% to 50%
+                const scaled = (pct / 100) * 50;
+                setProgress(Math.round(scaled));
+                const loadedMb = (loaded / (1024 * 1024)).toFixed(1);
+                const totalMb = (total / (1024 * 1024)).toFixed(1);
+                setStage('Uploading to Cloud Storage');
+                setStageDetail(`${loadedMb} MB of ${totalMb} MB (${Math.round(pct)}%)`);
+              }
+            });
 
             resolve(publicUrl);
           } catch (err) {
@@ -391,7 +465,9 @@ function AppContent({ onOpenSettings }) {
           }
         });
 
-        setStage('Processing...');
+        // Upload to Cloud complete! Launch Phase 2 extraction ticker
+        startProcessingTicker();
+
         const extractionModeHeader =
           pipeline === 'docling' ? 'docling' :
           pipeline === 'paddle'  ? 'paddle'  :
@@ -444,6 +520,8 @@ function AppContent({ onOpenSettings }) {
           })
         });
 
+        if (progressInterval) clearInterval(progressInterval);
+
         if (!res.ok) {
           const errorData = await res.json().catch(() => ({}));
           throw new Error(errorData.details || errorData.error || 'Cloud processing failed');
@@ -452,11 +530,13 @@ function AppContent({ onOpenSettings }) {
         setExtractedData(response.data);
         setProgress(100);
         setStage(response.isDirectExtraction ? 'Direct Extraction Complete' : 'Extraction Complete');
+        setStageDetail('Dataset generated successfully!');
         setTimeout(() => setUploading(false), 500);
 
       } else {
         // Standard XHR Upload for small files
-        setStage('Uploading');
+        setStage('Uploading File');
+        setStageDetail(`0 MB of ${(file.size / (1024 * 1024)).toFixed(1)} MB (0%)`);
         const formData = new FormData();
         formData.append('file', file);
 
@@ -464,25 +544,41 @@ function AppContent({ onOpenSettings }) {
 
         xhr.upload.addEventListener('progress', (e) => {
           if (e.lengthComputable) {
-            const percentComplete = (e.loaded / e.total) * 25;
-            setProgress(percentComplete);
+            const pct = (e.loaded / e.total) * 100;
+            const scaled = (pct / 100) * 50;
+            setProgress(Math.round(scaled));
+            const loadedMb = (e.loaded / (1024 * 1024)).toFixed(1);
+            const totalMb = (e.total / (1024 * 1024)).toFixed(1);
+            setStage('Uploading File');
+            setStageDetail(`${loadedMb} MB of ${totalMb} MB (${Math.round(pct)}%)`);
+            if (pct >= 99) {
+              startProcessingTicker();
+            }
           }
         });
 
         xhr.addEventListener('load', () => {
+          if (progressInterval) clearInterval(progressInterval);
           if (xhr.status === 200) {
             const response = JSON.parse(xhr.responseText);
             setExtractedData(response.data);
             setProgress(100);
             setStage(response.isDirectExtraction ? 'Direct Extraction Complete' : 'Extraction Complete');
+            setStageDetail('Dataset generated successfully!');
             setTimeout(() => setUploading(false), 500);
           } else {
             console.error('Upload error details:', xhr.responseText);
-            throw new Error('Upload failed');
+            let errMsg = 'Upload failed';
+            try {
+              const res = JSON.parse(xhr.responseText);
+              errMsg = res.details || res.error || errMsg;
+            } catch (e) {}
+            throw new Error(errMsg);
           }
         });
 
         xhr.addEventListener('error', () => {
+          if (progressInterval) clearInterval(progressInterval);
           setError('Network error occurred');
           setUploading(false);
         });
@@ -530,30 +626,13 @@ function AppContent({ onOpenSettings }) {
           }
         }
 
-        const progressInterval = setInterval(() => {
-          setProgress(prev => {
-            if (prev < 25) return prev;
-            if (prev < 90) return prev + 5;
-            return prev;
-          });
-
-          if (progress > 25 && progress < 50) setStage('Processing');
-          else if (progress >= 50 && progress < 90) setStage('Extracting Tables');
-          else if (progress >= 90) setStage('Finalizing');
-        }, 300);
-
-        xhr.addEventListener('loadend', () => {
-          clearInterval(progressInterval);
-        });
-
         xhr.send(formData);
       }
 
     } catch (err) {
+      if (progressInterval) clearInterval(progressInterval);
       console.error('Upload/Process error:', err);
       let errMsg = err.message || 'Failed to process file';
-
-
       setError(errMsg);
       setUploading(false);
     }
@@ -856,6 +935,7 @@ function AppContent({ onOpenSettings }) {
           isOpen={uploading}
           progress={progress}
           stage={stage}
+          stageDetail={stageDetail}
           planPreviewUrl={planPreviewUrl}
           planPreviewType={planPreviewType}
           planPreviewName={planPreviewName}
@@ -1122,6 +1202,7 @@ function AppContent({ onOpenSettings }) {
         isOpen={uploading}
         progress={progress}
         stage={stage}
+        stageDetail={stageDetail}
         planPreviewUrl={planPreviewUrl}
         planPreviewType={planPreviewType}
         planPreviewName={planPreviewName}
