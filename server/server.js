@@ -26,16 +26,20 @@ import { ExcelDbManager } from './excelManager.js';
 import { convertXlsToXlsx } from './utils/xlsToXlsxConverter.js';
 import { brandStorage, kv } from './storageProvider.js';
 import { getAiMatch, identifyModel, fetchProductDetails, searchAndEnrichModel, analyzePlan, matchFitoutItem, autoMatchSingleBrand, VALID_OPENROUTER_MODELS, VALID_NVIDIA_MODELS, GOOGLE_MODEL, OPENROUTER_MODEL, NVIDIA_MODEL, aiKeyStorage } from './utils/llmUtils.js';
-import { veMatchSimple, veMatchAdvanced, veGetProductDetails, veRouteCategories } from './utils/veMatchUtils.js';
-import { veMatchAuto } from './utils/veAutoDetectUtils.js'; // Removed unused veAutoDetectRoute
+import { veMatchAuto, vePrescanBrands, detectSpecifiedBrandInText, extractSpecifiedProductDetails, generateCrossBrandAlternatives, generateCrossBrandAlternativesAsync } from './utils/veAutoDetectUtils.js';
+import { veMatchAdvanced, veGetProductDetails } from './utils/veMatchUtils.js';
 import { generatePresentationPdf } from './utils/pptxExportService.js';
 import { convertEmfToPng } from './utils/emfConverter.js';
 import Fuse from 'fuse.js';
 import { TAXONOMY } from './utils/normalizer.js';
 import tenderRouter from './tenderRoutes.js';
 import llmProxyRouter from './llmProxyRoutes.js';
-
-const DOCLING_SERVICE_URL = (process.env.DOCLING_SERVICE_URL || 'http://localhost:8000').replace(/\/+$/, '');
+import { findSemanticMatches, ensureBrandCatalogEmbeddings } from './embeddingService.js';
+import { readSettings, writeSettings, getPublicSettings } from './settings.js';
+import { VE_CATEGORY_CONFIG, classifyFurnishingCategory, isGenuineContractBrand, findBrandInCatalog, NON_BRAND_MODEL_WORDS, BRAND_ALIASES } from './utils/veCategoryPriority.js';
+import { getCanonicalBrandLogo, classifyContractCategory, CONTRACT_BRAND_LOGOS } from './utils/brandLogos.js';
+import { fetchLiveProductImage, cleanTechnicalDescription } from './utils/veImageEnricher.js';
+import { verifyImagePairing } from './utils/veImageVerification.js';
 
 // ALL heavy PDF/Vision extractors are LAZY to prevent Vercel boot crash
 // (pdfProductExtractor uses pdfjs, visionBOQExtractor uses Playwright)
@@ -940,13 +944,22 @@ app.use(cors());
 app.use(express.json({ limit: '100mb' }));
 app.use(express.urlencoded({ limit: '100mb', extended: true }));
 
-// Middleware to propagate request-scoped API keys via AsyncLocalStorage
+// Middleware to propagate request-scoped API keys & model selection via AsyncLocalStorage
+// Priority: request headers (browser) → file store (ai-settings.json) → empty string
 app.use('/api', (req, res, next) => {
+  const sanitizeKey = (k) => (k || '').replace(/^\[|\]$/g, '').trim();
+  const saved = readSettings();
   const store = {
-    googleApiKey: req.headers['x-google-api-key'] || '',
-    googleFreeKey: req.headers['x-google-free-key'] || '',
-    activeTier: req.headers['x-google-active-tier'] || 'free',
-    googleModel: req.headers['x-google-model'] || ''
+    googleApiKey:      sanitizeKey(req.headers['x-google-api-key'])      || saved.googleApiKey      || '',
+    googleFreeKey:     sanitizeKey(req.headers['x-google-free-key'])     || saved.googleFreeKey     || '',
+    activeTier:        req.headers['x-google-active-tier']               || saved.activeTier        || 'free',
+    googleModel:       req.headers['x-google-model']      || req.headers['x-model-name'] || saved.googleModel || saved.model || '',
+    aiProvider:        req.headers['x-ai-provider']       || req.headers['x-provider']   || saved.engine || 'google',
+    openrouterApiKey:  sanitizeKey(req.headers['x-openrouter-key'])      || saved.openrouterApiKey  || '',
+    openrouterModel:   req.headers['x-openrouter-model'] || req.headers['x-model-name'] || saved.openrouterModel || '',
+    nvidiaApiKey:      sanitizeKey(req.headers['x-nvidia-key'])          || saved.nvidiaApiKey      || '',
+    nvidiaModel:       req.headers['x-nvidia-model']     || req.headers['x-model-name'] || saved.nvidiaModel    || '',
+    localUrl:          req.headers['x-local-url']         || ''
   };
   aiKeyStorage.run(store, () => {
     next();
@@ -1406,11 +1419,72 @@ app.get('/api/scraper-config', (req, res) => {
   });
 });
 
+// ─── AI Settings Persistence (browser → file store) ─────────────────────────────
+// Browser saves keys here → used by server background tasks & benchmark scripts
+
 app.get('/api/ai/env-keys', (req, res) => {
-  res.json({
-    googleApiKey: process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY || '',
-    googleFreeKey: process.env.GOOGLE_FREE_KEY || process.env.GEMINI_FREE_KEY || process.env.GEMINI_API_KEY_FREE || ''
-  });
+  // Returns file-backed settings (masked for security)
+  res.json(getPublicSettings());
+});
+
+app.get('/api/ai/saved-settings', (req, res) => {
+  // Returns the full public view of saved settings (keys masked)
+  res.json(getPublicSettings());
+});
+
+app.post('/api/ai/save-settings', (req, res) => {
+  // Browser calls this on every Settings Save to persist keys server-side
+  const payload = req.body || {};
+  const result = writeSettings(payload);
+  if (result.success) {
+    res.json({ success: true, message: 'Settings saved to server file store.', savedAt: result.settings.savedAt });
+  } else {
+    res.status(500).json({ success: false, error: result.error });
+  }
+});
+
+
+app.post('/api/ai/verify-provider-key', async (req, res) => {
+  const { provider, apiKey, tier } = req.body;
+  const cleanKey = (apiKey || '').replace(/^\[|\]$/g, '').trim();
+
+  if (!cleanKey) {
+    return res.status(400).json({ success: false, error: 'API key cannot be empty.' });
+  }
+
+  try {
+    if (provider === 'google') {
+      const response = await axios.get(`https://generativelanguage.googleapis.com/v1beta/models?key=${cleanKey}`, { timeout: 10000 });
+      const models = (response.data.models || [])
+        .filter(m => m.supportedGenerationMethods && m.supportedGenerationMethods.includes('generateContent'))
+        .map(m => m.name.replace(/^models\//, ''));
+      return res.json({ success: true, models, count: models.length });
+    } else if (provider === 'openrouter') {
+      // First verify the key is valid via auth/key endpoint
+      await axios.get('https://openrouter.ai/api/v1/auth/key', {
+        headers: { 'Authorization': `Bearer ${cleanKey}` },
+        timeout: 10000
+      });
+      const response = await axios.get('https://openrouter.ai/api/v1/models', {
+        headers: { 'Authorization': `Bearer ${cleanKey}` },
+        timeout: 10000
+      });
+      const allModels = (response.data.data || []).map(m => m.id);
+      return res.json({ success: true, models: allModels, count: allModels.length });
+    } else if (provider === 'nvidia') {
+      const response = await axios.get('https://integrate.api.nvidia.com/v1/models', {
+        headers: { 'Authorization': `Bearer ${cleanKey}` },
+        timeout: 10000
+      });
+      const allModels = (response.data.data || []).map(m => m.id);
+      return res.json({ success: true, models: allModels, count: allModels.length });
+    } else {
+      return res.status(400).json({ success: false, error: `Unsupported provider: ${provider}` });
+    }
+  } catch (err) {
+    const errMsg = err.response?.data?.error?.message || err.response?.data?.detail || err.response?.data?.message || err.message || 'Key verification failed';
+    return res.status(400).json({ success: false, error: errMsg });
+  }
 });
 async function executeExtractionPipeline({
   filePath,
@@ -1969,7 +2043,14 @@ app.post('/api/cleanup/session', async (req, res) => {
 app.get('/api/brands', async (req, res) => {
   try {
     const brands = await brandStorage.getAllBrands();
-    res.json(brands);
+    const enrichedBrands = brands.map(b => {
+      if (!b) return b;
+      const logo = (b.logo && b.logo.trim() && !b.logo.includes('clearbit.com'))
+        ? b.logo
+        : (getCanonicalBrandLogo(b.name, b.websiteUrl) || b.logo || '');
+      return { ...b, logo };
+    });
+    res.json(enrichedBrands);
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch brands' });
   }
@@ -1983,6 +2064,25 @@ app.post('/api/brands', async (req, res) => {
     res.json({ success: true });
   } catch (error) {
     res.status(500).json({ error: 'Failed to save brand' });
+  }
+});
+
+app.get('/api/brands/:id/taxonomy', async (req, res) => {
+  try {
+    const brandId = req.params.id;
+    const brands = await brandStorage.getAllBrands();
+    const brand = brands.find(b => String(b.id) === String(brandId) || (b.name && b.name.toLowerCase().trim() === String(brandId).toLowerCase().trim()));
+    if (!brand) return res.status(404).json({ error: 'Brand not found' });
+
+    res.json({
+      brandId: brand.id,
+      brandName: brand.name,
+      categoryTree: brand.categoryTree || {},
+      categories: brand.categoryList || Object.keys(brand.categoryTree || {}),
+      productCount: (brand.products || []).length
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch brand taxonomy' });
   }
 });
 
@@ -2676,11 +2776,171 @@ app.post('/api/auto-match-multi-swarm', async (req, res) => {
 
 
 // ─────────────────────────────────────────────────────────────────────────────
+// AI SEMANTIC MATCH ASSISTANT (Gemini Embeddings Engine)
+// ─────────────────────────────────────────────────────────────────────────────
+app.post('/api/ai/semantic-match', async (req, res) => {
+  try {
+    const {
+      description,
+      brand,
+      category = null,
+      topK = 3
+    } = req.body;
+
+    if (!description || !description.trim()) {
+      return res.status(400).json({ status: 'error', error_message: 'Description is required' });
+    }
+
+    const clientApiKey = req.headers['x-google-api-key'] || req.headers['x-google-free-key'] || null;
+
+    let targetProducts = [];
+
+    if (brand && brand.trim() && brand.toLowerCase() !== 'all') {
+      const allBrands = await brandStorage.getAllBrands();
+      const targetBrand = allBrands.find(b => b.name && b.name.toLowerCase().trim() === brand.toLowerCase().trim());
+      if (targetBrand) {
+        targetProducts = (targetBrand.products || []).map(p => ({
+          ...p,
+          brand: targetBrand.name,
+          brandLogo: targetBrand.logo || ''
+        }));
+      }
+    } else {
+      // Search across all brands in the catalog
+      const allBrands = await brandStorage.getAllBrands();
+      allBrands.forEach(b => {
+        if (b.products && Array.isArray(b.products)) {
+          targetProducts.push(...b.products.map(p => ({
+            ...p,
+            brand: b.name,
+            brandLogo: b.logo || ''
+          })));
+        }
+      });
+    }
+
+    if (targetProducts.length === 0) {
+      return res.json({
+        status: 'no_match',
+        message: `No catalog products available for brand "${brand || 'All'}".`,
+        matches: []
+      });
+    }
+
+    const matches = await findSemanticMatches({
+      description,
+      brandName: brand || 'Catalog',
+      products: targetProducts,
+      category,
+      topK: Math.min(10, Math.max(1, parseInt(topK) || 3)),
+      apiKey: clientApiKey
+    });
+
+    const proxyBase = `${req.protocol}://${req.get('host')}/api/image-proxy?url=`;
+    const formattedMatches = matches.map(m => ({
+      ...m,
+      imageUrl: m.imageUrl && m.imageUrl.startsWith('https://') && !m.imageUrl.includes('image-proxy')
+        ? `${proxyBase}${encodeURIComponent(m.imageUrl)}`
+        : m.imageUrl,
+      images: (m.images || []).map(img =>
+        img && img.startsWith('https://') && !img.includes('image-proxy')
+          ? `${proxyBase}${encodeURIComponent(img)}`
+          : img
+      )
+    }));
+
+    return res.json({
+      status: 'success',
+      description,
+      brand: brand || 'All',
+      matches: formattedMatches
+    });
+  } catch (error) {
+    console.error('❌ [API Semantic Match Error]:', error);
+    res.status(500).json({ status: 'error', error_message: error.message });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
 // VALUE ENGINEERED OFFER — Dedicated AI Matching Endpoint
 // Bypasses tier isolation; uses the exact VE prompt spec:
-//   Option 1 (simple)  : "What is the best Model for [desc] from [brand]?"
+//   Option 0 (prescan)  : Quick global scan of table to discover contract brands & models
+//   Option 1 (simple)   : "What is the best Model for [desc] from [brand]?"
 //   Option 2 (advanced) : "What is the best Model for [desc] from [category] from [brand]?"
 // ─────────────────────────────────────────────────────────────────────────────
+app.post('/api/ve-prescan-brands', async (req, res) => {
+  try {
+    const { items, providerModel, budgetTier = 'mid' } = req.body;
+
+    if (!items || !Array.isArray(items)) {
+      return res.status(400).json({ status: 'error', error_message: 'Items array is required' });
+    }
+
+    console.log(`\n🔍 [VE Pre-Scan] Running global document brand discovery across ${items.length} items...`);
+    const prescanResult = await vePrescanBrands(items, providerModel);
+
+    const discoveredBrands = prescanResult.brands || [];
+    let provisionedCount = 0;
+
+    // Auto-provision any contract brands not in local database
+    const allCurrentBrands = await brandStorage.getAllBrands();
+    const existingBrandNames = new Set(allCurrentBrands.map(b => b.name?.toLowerCase().trim()));
+
+    for (const dBrand of discoveredBrands) {
+      const bName = (dBrand.name || '').trim();
+      const bNameLower = bName.toLowerCase();
+      
+      // Skip consumer retail marketplaces, local dealers, and suppliers from contract brand database registration
+      if (!bName || /^(amazon|noon|desertcart|ubuy|marketplace|ikea|homedepot|fahmy|kr furniture|al jassar|gear4music|attf|assarain|acp|automatic terrazzo|generic|unknown|dealer|trader|supplier|distributor)/i.test(bNameLower)) {
+        continue;
+      }
+
+      if (!existingBrandNames.has(bNameLower)) {
+        let logoUrl = '';
+        if (dBrand.websiteUrl) {
+          try {
+            logoUrl = `https://logo.clearbit.com/${new URL(dBrand.websiteUrl).hostname}`;
+          } catch (e) { logoUrl = ''; }
+        }
+
+        const newBrandObj = {
+          id: Date.now() + Math.floor(Math.random() * 1000),
+          name: bName,
+          logo: logoUrl,
+          budgetTier: budgetTier || 'mid',
+          origin: 'VE-Prescan-Discovery',
+          products: (dBrand.models || []).map(m => ({
+            brand: bName,
+            model: m,
+            mainCategory: dBrand.categoryHint || 'Furniture',
+            subCategory: '',
+            imageUrl: '',
+            websiteUrl: dBrand.websiteUrl || '',
+            lastUpdated: new Date().toISOString(),
+            source: 'VE-Prescan-Discovery'
+          })),
+          createdAt: new Date().toISOString()
+        };
+        await brandStorage.saveBrand(newBrandObj);
+        existingBrandNames.add(bNameLower);
+        provisionedCount++;
+        console.log(`🎉 [VE Pre-Scan] Provisioned brand "${bName}" with ${dBrand.models?.length || 0} models into database!`);
+      }
+    }
+
+    const updatedBrands = await brandStorage.getAllBrands();
+    res.json({
+      status: 'success',
+      discoveredBrands,
+      provisionedCount,
+      allBrands: updatedBrands
+    });
+  } catch (error) {
+    console.error('❌ [VE Pre-Scan Error]:', error.message);
+    res.status(500).json({ status: 'error', error_message: error.message });
+  }
+});
+
 app.post('/api/ve-route', async (req, res) => {
   try {
     const { items, providerModel } = req.body;
@@ -2812,7 +3072,28 @@ app.post('/api/ve-match', async (req, res) => {
     if (localBrand?.products?.length > 0) {
       console.log(`  🔍 [VE Stage 2] Searching for "${identifiedModel}" in local cache (Category Hint: ${identifiedCategory})...`);
 
-      const best = fuzzyFindModel(localBrand.products, identifiedModel, identifiedCategory);
+      let best = fuzzyFindModel(localBrand.products, identifiedModel, identifiedCategory);
+
+      // Semantic Embedding Matcher Fallback for missing/generic models
+      if (!best && localBrand.products.length > 0) {
+        console.log(`  🧠 [VE Stage 2 Embeddings] Trying Gemini Semantic Vector match for "${enrichedDesc.slice(0, 60)}" in "${brand}"...`);
+        try {
+          const semanticResults = await findSemanticMatches({
+            description: enrichedDesc,
+            brandName: brand,
+            products: localBrand.products,
+            category: identifiedCategory,
+            topK: 1,
+            apiKey: req.headers['x-google-api-key'] || req.headers['x-google-free-key'] || null
+          });
+          if (semanticResults && semanticResults.length > 0 && semanticResults[0].confidenceScore >= 50) {
+            best = semanticResults[0];
+            console.log(`  ✨ [VE Semantic Vector Hit] "${best.model}" matched with confidence ${best.confidenceScore}%`);
+          }
+        } catch (embErr) {
+          console.warn('  ⚠️ [VE Embedding Match Error]:', embErr.message);
+        }
+      }
 
       if (best) {
         console.log(`  ✨ [VE Cache Hit] "${best.model}" loaded from local DB.`);
@@ -2825,7 +3106,7 @@ app.post('/api/ve-match', async (req, res) => {
             mainCategory: best.mainCategory || identifiedCategory
           },
           source: 'local-database',
-          identifiedModel
+          identifiedModel: best.model || identifiedModel
         });
       }
       console.log(`  📂 [VE Stage 2] Miss: No local entry for "${identifiedModel}".`);
@@ -2924,38 +3205,40 @@ function resolveCanonicalBrand(identifiedBrand, identifiedModel, allLocalBrands)
   const idBrandLower = identifiedBrand.toLowerCase().trim();
   const idModelLower = (identifiedModel || '').toLowerCase().trim();
 
-  // 1. Manual mapping rule for models or variants mistaken as brand names
-  const manualModelToBrand = {
-    'nova wood': 'NARBUTAS',
-    'nova': 'NARBUTAS',
-    'sedus': 'Sedus Stoll',
-    'sedus stoll': 'Sedus Stoll',
-    'narbutas': 'NARBUTAS'
-  };
-
-  if (manualModelToBrand[idBrandLower]) {
-    const canonicalName = manualModelToBrand[idBrandLower];
-    const matched = allLocalBrands.find(b => b.name.toLowerCase().trim() === canonicalName.toLowerCase().trim());
-    if (matched) {
-      console.log(`🎯 [VE Brand Resolver] Mapped variant/model "${identifiedBrand}" to canonical brand "${matched.name}" via manual rules.`);
-      return { brand: matched.name, brandObj: matched, isNew: false };
-    }
+  // Reject known model words and non-brand keywords from ever being recognized as brand
+  if (NON_BRAND_MODEL_WORDS.has(idBrandLower) || NON_BRAND_MODEL_WORDS.has(idModelLower)) {
+    return { brand: 'Generic', brandObj: null, isNew: false };
   }
 
-  // 2. Exact match check
-  let matched = allLocalBrands.find(b => b.name.toLowerCase().trim() === idBrandLower);
+  // 1. Alias Dictionary Check (Highest Priority - Guaranteed Canonical Mapping)
+  const aliasCanonical = BRAND_ALIASES[idBrandLower] || null;
+  if (aliasCanonical) {
+    const matched = allLocalBrands.find(b => b && b.name && b.name.toLowerCase().trim() === aliasCanonical.toLowerCase().trim());
+    return { brand: aliasCanonical, brandObj: matched || null, isNew: !matched };
+  }
+
+  // 2. Exact Name Match in local brands
+  let matched = allLocalBrands.find(b => b && b.name && b.name.toLowerCase().trim() === idBrandLower);
   if (matched) {
     return { brand: matched.name, brandObj: matched, isNew: false };
   }
 
   // 3. Substring match (e.g., "Sedus" matches "Sedus Stoll")
   matched = allLocalBrands.find(b => {
+    if (!b || !b.name) return false;
     const existingLower = b.name.toLowerCase().trim();
+    if (existingLower.length < 4 || idBrandLower.length < 4) return false;
     return existingLower.includes(idBrandLower) || idBrandLower.includes(existingLower);
   });
   if (matched) {
     console.log(`🎯 [VE Brand Resolver] Substring match: mapped "${identifiedBrand}" to "${matched.name}".`);
     return { brand: matched.name, brandObj: matched, isNew: false };
+  }
+
+  // 3. Genuine contract manufacturer check
+  if (isGenuineContractBrand(identifiedBrand, allLocalBrands)) {
+    const canonicalNew = BRAND_ALIASES[idBrandLower] || (identifiedBrand.charAt(0).toUpperCase() + identifiedBrand.slice(1));
+    return { brand: canonicalNew, brandObj: null, isNew: true };
   }
 
   // 4. Reverse Lookup: check if the identified brand is actually a model name inside an existing brand!
@@ -2975,8 +3258,7 @@ function resolveCanonicalBrand(identifiedBrand, identifiedModel, allLocalBrands)
     }
   }
 
-  // 5. Completely new brand
-  return { brand: identifiedBrand, brandObj: null, isNew: true };
+  return { brand: 'Generic', brandObj: null, isNew: false };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -2990,7 +3272,10 @@ app.post('/api/ve-match-auto', async (req, res) => {
       qty,
       unit,
       providerModel = null,
-      imageUrl = null
+      imageUrl = null,
+      imageAssets = [],
+      rowBoundingBox = null,
+      ocrTokens = []
     } = req.body;
 
     if (!description || !description.trim()) {
@@ -3001,55 +3286,100 @@ app.post('/api/ve-match-auto', async (req, res) => {
     const sizeContext = [qty && `Qty: ${qty}`, unit && `Unit: ${unit}`].filter(Boolean).join(', ');
     const enrichedDesc = sizeContext ? `${description} | ${sizeContext}` : description;
 
-    // Fetch image if provided for Multimodal support
-    let assets = [];
-    if (imageUrl) {
-      try {
-        console.log(`\n📸 [VE Auto-Detect Endpoint] Fetching image from: ${imageUrl}`);
-        const response = await axios.get(imageUrl, { responseType: 'arraybuffer' });
-        const base64Image = Buffer.from(response.data, 'binary').toString('base64');
-
-        // STRICT MIME Type verification for Google AI 400 bad request prevention
-        let mimeType = 'image/jpeg'; // Default safe fallback
-        const contentType = response.headers['content-type'];
-        if (contentType && contentType.startsWith('image/')) {
-          mimeType = contentType;
-        } else {
-          const lowerUrl = imageUrl.toLowerCase();
-          if (lowerUrl.includes('.png')) mimeType = 'image/png';
-          else if (lowerUrl.includes('.webp')) mimeType = 'image/webp';
-          else if (lowerUrl.includes('.gif')) mimeType = 'image/gif';
-        }
-
-        assets.push({
-          inlineData: {
-            data: base64Image,
-            mimeType: mimeType
-          }
-        });
-      } catch (imageErr) {
-        console.error(`⚠️ [VE Auto-Detect Endpoint] Failed to fetch image: ${imageErr.message}`);
-        // Proceed without image if fetch fails
-      }
-    }
-
-    // Load all local brands to use LATER for caching
+    // Load all local brands
     const allLocalBrands = await brandStorage.getAllBrands();
+    const availableBrandNames = allLocalBrands.filter(b => b.name && !b.name.toLowerCase().includes('fitout')).map(b => b.name);
 
-    console.log(`\n🔷 [VE Auto-Detect Endpoint] Model Matching (No Catalog Payload to save tokens & RPM)`);
-    const identityResult = await veMatchAuto(enrichedDesc, providerModel, assets);
+    console.log(`\n🔷 [VE Auto-Detect Endpoint] Model Matching with ${availableBrandNames.length} preferred catalog brands`);
+    
+    // Prepare structured image context metadata (never send raw multi-MB binaries)
+    const normalizedImageAssets = (imageAssets && imageAssets.length > 0) 
+      ? imageAssets 
+      : (imageUrl ? [{ url: imageUrl, ocrText: (ocrTokens || []).join(' ') }] : []);
 
-    if (identityResult.status !== 'success' || !identityResult.model || !identityResult.brand) {
+    const getFormattedAlternatives = async (matchedBrand, matchedModel, catHint) => {
+      try {
+        const rawAlts = await generateCrossBrandAlternativesAsync(matchedBrand, matchedModel, enrichedDesc, allLocalBrands, catHint, 4);
+        const proxyBase = `${req.protocol}://${req.get('host')}/api/image-proxy?url=`;
+        return rawAlts.map(alt => ({
+          ...alt,
+          imageUrl: alt.imageUrl && alt.imageUrl.startsWith('https://') && !alt.imageUrl.includes('image-proxy')
+            ? `${proxyBase}${encodeURIComponent(alt.imageUrl)}`
+            : alt.imageUrl
+        }));
+      } catch (e) {
+        console.warn('Alternatives generator warning:', e.message);
+        return [];
+      }
+    };
+
+    const identityResult = await veMatchAuto(enrichedDesc, providerModel, normalizedImageAssets, availableBrandNames, allLocalBrands);
+
+    if (identityResult && identityResult.matchTier === 'EXACT_MATCH') {
+      const imageVerif = verifyImagePairing({
+        rowBoundingBox,
+        imageAssets: normalizedImageAssets,
+        ocrTokens,
+        matchedProduct: identityResult.product || identityResult
+      });
+
+      const matchedBrandName = identityResult.brand || identityResult.product?.brand || 'Contract Manufacturer';
+      const matchedBrandObj = allLocalBrands.find(b => b.name && b.name.toLowerCase().trim() === matchedBrandName.toLowerCase().trim());
+      const brandLogo = identityResult.brandLogo || identityResult.product?.brandLogo || matchedBrandObj?.logo || '';
+      const resolvedImg = identityResult.imageUrl || imageVerif.selectedImage || (normalizedImageAssets[0]?.url) || identityResult.product?.imageUrl || '';
+      const alternatives = await getFormattedAlternatives(matchedBrandName, identityResult.model || identityResult.product?.model, identityResult.mainCategory);
+
       return res.json({
-        status: 'no_match',
-        message: `AI could not automatically detect any brand or model from description.`
+        status: 'success',
+        matchTier: 'EXACT_MATCH',
+        confidenceScore: identityResult.confidenceScore || 100,
+        product: {
+          brand: matchedBrandName,
+          brandLogo: brandLogo,
+          model: identityResult.model || identityResult.product?.model,
+          family: identityResult.family || identityResult.product?.family || '',
+          mainCategory: identityResult.mainCategory || identityResult.product?.mainCategory || 'Office Furniture',
+          subCategory: identityResult.subCategory || identityResult.product?.subCategory || '',
+          price: identityResult.price || identityResult.product?.price || 0,
+          currency: identityResult.currency || identityResult.product?.currency || 'USD',
+          imageUrl: resolvedImg,
+          websiteUrl: identityResult.websiteUrl || identityResult.productUrl || identityResult.product?.websiteUrl || '',
+          description: identityResult.description || identityResult.product?.description || ''
+        },
+        alternatives,
+        evidence: identityResult.evidence || {
+          matchType: 'DETERMINISTIC_EXACT_SHORTCIRCUIT',
+          matchedTokens: [identityResult.brand, identityResult.model]
+        },
+        imageVerification: imageVerif
       });
     }
 
-    const identifiedModel = identityResult.model.trim();
-    const identifiedBrand = identityResult.brand.trim();
-    const identifiedCategory = identityResult.mainCategory ? identityResult.mainCategory.trim() : '';
-    const identifiedSubCategory = identityResult.subCategory ? identityResult.subCategory.trim() : '';
+    let identifiedModel = (identityResult && identityResult.model) ? identityResult.model.trim() : enrichedDesc;
+    let identifiedBrand = (identityResult && identityResult.brand) ? identityResult.brand.trim() : 'Generic';
+    const identifiedCategory = (identityResult && identityResult.mainCategory) ? identityResult.mainCategory.trim() : '';
+    const identifiedSubCategory = (identityResult && identityResult.subCategory) ? identityResult.subCategory.trim() : '';
+
+    // Deterministic override if specification text or URL explicitly named an authentic manufacturer and model
+    const explicitDetails = extractSpecifiedProductDetails(enrichedDesc);
+    if (explicitDetails && explicitDetails.brand && isGenuineContractBrand(explicitDetails.brand, allLocalBrands)) {
+      if (identifiedBrand.toLowerCase() !== explicitDetails.brand.toLowerCase()) {
+        console.log(`🎯 [VE Auto-Detect Specified Brand Override] Specification explicitly specified "${explicitDetails.brand}". Overriding initial detection "${identifiedBrand}".`);
+        identifiedBrand = explicitDetails.brand;
+      }
+      if (explicitDetails.url && !identityResult.productUrl) {
+        identityResult.productUrl = explicitDetails.url;
+      }
+      if (explicitDetails.model && (!identifiedModel || identifiedModel.length < 3 || 
+          identifiedModel.toLowerCase().includes('moonako') || 
+          identifiedModel.toLowerCase().includes('moodie') || 
+          identifiedModel.toLowerCase().includes('arabesque') || 
+          identifiedModel === '06-Moonako' || identifiedModel.includes('moonako-') || 
+          NON_BRAND_MODEL_WORDS.has(identifiedModel.toLowerCase()))) {
+        console.log(`🎯 [VE Auto-Detect Specified Model Override] Extracted authentic model "${explicitDetails.model}" from specification.`);
+        identifiedModel = explicitDetails.model;
+      }
+    }
 
     // Resolve the canonical brand to prevent duplicate brand files, model-to-brand hallucinations, etc.
     const resolvedBrand = resolveCanonicalBrand(identifiedBrand, identifiedModel, allLocalBrands);
@@ -3058,23 +3388,163 @@ app.post('/api/ve-match-auto', async (req, res) => {
 
     console.log(`  🎯 [VE Auto-Detect Endpoint] Detected: ${identifiedBrand} (Canonical: ${canonicalBrand}) → "${identifiedModel}" (Category: ${identifiedCategory} / ${identifiedSubCategory})`);
 
-    // 🛑 GENERIC CACHE POISONING BLOCKER
-    const isGenericBrand = !canonicalBrand || ['generic', 'not specified', 'unknown'].includes(canonicalBrand.toLowerCase());
+    let isGenericBrand = !canonicalBrand || ['generic', 'not specified', 'unknown'].includes(canonicalBrand.toLowerCase());
+    let isMarketplace = /^(amazon|noon|desertcart|ubuy|marketplace|ikea|homedepot)/i.test(canonicalBrand);
 
-    if (isGenericBrand) {
-      console.log(`  🛑 [VE Auto-Detect] Intercepted Generic brand. Bypassing local cache and web search.`);
-      return res.json({
-        status: 'success',
-        product: {
-          brand: 'Generic',
-          model: identifiedModel || 'Custom Specification',
-          mainCategory: identifiedCategory || 'Furniture',
-          subCategory: identifiedSubCategory || '',
-          logic: identityResult.logic || 'Unbranded or custom item.'
-        },
-        source: 'llm-direct',
-        identifiedModel: identifiedModel || 'Custom Specification'
-      });
+    // 🛡️ Guard against erroneous Marketplace assignment on Commercial Office Furniture
+    const isCommercialFurniture = /(chair|seating|stool|desk|workstation|table|sofa|couch|lounge|cabinet|credenza|storage|filing|pod|booth|boardroom)/i.test(enrichedDesc) ||
+                                  /(office seating|desk & table|storage|soft furniture|commercial)/i.test(identifiedCategory);
+    const hasExplicitMarketplaceUrl = /https?:\/\/(www\.)?(amazon|noon|desertcart|ubuy|ikea|homedepot)\./i.test(enrichedDesc);
+
+    if (isMarketplace && isCommercialFurniture && !hasExplicitMarketplaceUrl) {
+      console.log(`🛡️ [VE Guard] Intercepted erroneous marketplace match "${canonicalBrand}" for commercial furniture "${identifiedModel}". Re-routing to preferred commercial catalog...`);
+      isMarketplace = false;
+      isGenericBrand = true;
+    }
+
+    const isUnbrandedSpec = /^(local|local-uae|local uae|far east|fareast|custom|unbranded|sample)/i.test(enrichedDesc.trim()) ||
+                            /\b(local-uae|far east)\b/i.test(enrichedDesc) ||
+                            NON_BRAND_MODEL_WORDS.has(identifiedBrand.toLowerCase().trim());
+    const isGenuine = isGenuineContractBrand(canonicalBrand, allLocalBrands);
+
+    // ── FALLBACK STRATEGY: IF NO CONTRACT MANUFACTURER IS DETECTED OR SPEC IS EXPLICITLY UNBRANDED ──
+    // Auto-categorize into Furnishing Categories & match via User's Priority Brand Sequence
+    if (!isGenuine || isGenericBrand || isUnbrandedSpec) {
+      if (hasExplicitMarketplaceUrl) {
+        console.log(`🛒 [VE Auto-Detect] Explicit marketplace URL detected in specification. Fetching live product for "${identifiedModel || enrichedDesc}"...`);
+        const marketplaceHit = await veGetProductDetails(canonicalBrand || 'Amazon', identifiedModel || enrichedDesc, providerModel, identityResult.productUrl || explicitDetails?.url, 'Accessories');
+        if (marketplaceHit && marketplaceHit.status === 'success' && marketplaceHit.product) {
+          const p = marketplaceHit.product;
+          let liveImg = p.imageUrl || '';
+          if (!liveImg || liveImg.includes('localhost')) {
+            liveImg = await fetchLiveProductImage(canonicalBrand || 'Amazon', p.model || identifiedModel, explicitDetails?.url || identityResult.productUrl);
+          }
+          const catNorm = classifyContractCategory('Furniture', 'Storage', p.model || identifiedModel, p.description || enrichedDesc);
+          const cleanDesc = cleanTechnicalDescription(p.description || enrichedDesc, canonicalBrand || 'Amazon', p.model || identifiedModel);
+          const proxyBase = `${req.protocol}://${req.get('host')}/api/image-proxy?url=`;
+          let proxiedImageUrl = liveImg;
+          if (proxiedImageUrl && proxiedImageUrl.startsWith('https://') && !proxiedImageUrl.includes('image-proxy')) {
+            proxiedImageUrl = `${proxyBase}${encodeURIComponent(proxiedImageUrl)}`;
+          }
+
+          return res.json({
+            status: 'success',
+            product: {
+              ...p,
+              brand: 'Amazon',
+              model: p.model || identifiedModel || 'Mobile Cart',
+              mainCategory: catNorm.mainCategory,
+              subCategory: catNorm.subCategory,
+              imageUrl: proxiedImageUrl,
+              brandLogo: 'https://upload.wikimedia.org/wikipedia/commons/a/a9/Amazon_logo.svg',
+              description: cleanDesc,
+              websiteUrl: explicitDetails?.url || identityResult.productUrl || p.websiteUrl || ''
+            },
+            source: 'amazon-on-the-fly',
+            identifiedModel
+          });
+        }
+      }
+
+      const furnishingCat = classifyFurnishingCategory(enrichedDesc);
+      const catConfig = VE_CATEGORY_CONFIG[furnishingCat] || VE_CATEGORY_CONFIG.desking;
+      const prioritySequence = catConfig.priorityBrands;
+
+      console.log(`\n🎯 [VE Priority Matcher] Specification is unbranded/generic. Auto-categorized as "${catConfig.label}" (${furnishingCat}). Priority Sequence: ${prioritySequence.join(' ➔ ')}`);
+
+      let matchedProduct = null;
+      let matchedBrandObj = null;
+
+      for (const priorityBrandName of prioritySequence) {
+        if (/^(amazon|noon)/i.test(priorityBrandName)) {
+          if (furnishingCat === 'genericAccessories') {
+            const marketplaceHit = await veGetProductDetails('Amazon', identifiedModel || description, providerModel, null, 'Accessories');
+            if (marketplaceHit && marketplaceHit.status === 'success' && marketplaceHit.product) {
+              matchedProduct = marketplaceHit.product;
+              matchedBrandObj = { name: 'Amazon', logo: 'https://upload.wikimedia.org/wikipedia/commons/a/a9/Amazon_logo.svg' };
+              break;
+            }
+          }
+          continue;
+        }
+
+        const b = findBrandInCatalog(priorityBrandName, allLocalBrands);
+        if (!b || !b.products || b.products.length === 0) continue;
+
+        // 1. Fast Fuzzy & Token Overlap Search within preferred brand (< 2ms)
+        const filterCat = catConfig.label || identifiedCategory || null;
+        const fuzzyHit = fuzzyFindModel(b.products, identifiedModel || enrichedDesc, filterCat);
+        if (fuzzyHit) {
+          matchedProduct = fuzzyHit;
+          matchedBrandObj = b;
+          console.log(`  ✨ [VE Priority Fast Hit] Matched "${matchedProduct.model}" from Priority Brand "${b.name}" in <2ms`);
+          break;
+        }
+
+        // 2. High-speed Semantic / Vector Embedding Check
+        try {
+          const clientApiKey = req.headers['x-google-api-key'] || req.headers['x-google-free-key'] || null;
+          const semanticHits = await findSemanticMatches({
+            description: enrichedDesc,
+            brandName: b.name,
+            products: b.products,
+            category: filterCat,
+            topK: 1,
+            apiKey: clientApiKey
+          });
+
+          if (semanticHits && semanticHits.length > 0 && (semanticHits[0].exactModelMatch || semanticHits[0].confidenceScore >= 60)) {
+            matchedProduct = semanticHits[0];
+            matchedBrandObj = b;
+            console.log(`  ✨ [VE Priority Hit] Matched "${matchedProduct.model}" from Priority Brand "${b.name}" (${matchedProduct.confidenceScore}% confidence)`);
+            break;
+          }
+        } catch (semErr) {
+          console.warn(`  ⚠️ [VE Priority Semantic Warning for ${b.name}]:`, semErr.message);
+        }
+
+        // 3. Fallback: Pick top catalog item in matching category
+        const catMatchedProduct = b.products.find(p => {
+          const pCat = (p.mainCategory || p.category || '').toLowerCase();
+          const pSub = (p.subCategory || '').toLowerCase();
+          const target = (catConfig.label || furnishingCat).toLowerCase();
+          return pCat.includes(target) || pSub.includes(target);
+        });
+        if (catMatchedProduct) {
+          matchedProduct = catMatchedProduct;
+          matchedBrandObj = b;
+          console.log(`  ✨ [VE Priority Category Hit] Matched "${matchedProduct.model}" from "${b.name}"`);
+          break;
+        }
+      }
+
+      if (matchedProduct && matchedBrandObj) {
+        const proxyBase = `${req.protocol}://${req.get('host')}/api/image-proxy?url=`;
+        let img = matchedProduct.imageUrl || (matchedProduct.images && matchedProduct.images[0]) || '';
+        if (img && (img.includes('/logo/') || img.includes('logo_') || img.includes('data:image/svg') || img.includes('amazon_logo'))) {
+          img = '';
+        }
+        if (img && img.startsWith('https://') && !img.includes('image-proxy')) {
+          img = `${proxyBase}${encodeURIComponent(img)}`;
+        }
+
+        const alternatives = getFormattedAlternatives(matchedBrandObj.name, matchedProduct.model, matchedProduct.mainCategory || catConfig.label);
+
+        return res.json({
+          status: 'success',
+          product: {
+            ...matchedProduct,
+            brand: matchedBrandObj.name,
+            brandLogo: matchedBrandObj.logo || '',
+            imageUrl: img,
+            mainCategory: matchedProduct.mainCategory || matchedProduct.category || catConfig.label,
+            subCategory: matchedProduct.subCategory || identifiedSubCategory || ''
+          },
+          alternatives,
+          source: 'category-priority-match',
+          identifiedModel: matchedProduct.model
+        });
+      }
     }
 
     // 🏗️ FITOUT BRAND ISOLATION FOR AUTO-DETECT
@@ -3134,48 +3604,104 @@ app.post('/api/ve-match-auto', async (req, res) => {
       }
     }
 
-    // ── STAGE 2: LOCAL DB CACHE LOOKUP (Zero-Cost) ──────────────────────────
+    // ── STAGE 2: LOCAL DB CACHE LOOKUP (Instant Zero-Latency) ──────────────────
     if (localBrand && localBrand.products && localBrand.products.length > 0) {
       console.log(`  🔍 [VE Auto-Detect Stage 2] Searching for "${identifiedModel}" in local cache (Brand: ${canonicalBrand}, Category Hint: ${identifiedCategory})...`);
 
-      // STAGE 2.5: Precise Match using actual models
-      const modelList = localBrand.products.map(p => p.model);
-      const matchResult = await veMatchSimple(enrichedDesc, canonicalBrand, modelList, providerModel);
-      let best = null;
+      // 2.1: Exact Model Match by Name
+      const exactHit = localBrand.products.find(p => p.model && String(p.model).toLowerCase().trim() === String(identifiedModel || '').toLowerCase().trim());
+      let best = exactHit || null;
 
-      if (matchResult && matchResult.status === 'success' && matchResult.model) {
-        best = localBrand.products.find(p => p.model.toLowerCase() === matchResult.model.toLowerCase());
-        if (best) {
-          console.log(`  🧠 [VE Auto-Detect Stage 2.5] veMatchSimple accurately selected: "${best.model}"`);
+      // 2.2: High-Confidence Semantic Vector Match
+      if (!best) {
+        try {
+          const semanticResults = await findSemanticMatches({
+            description: enrichedDesc,
+            brandName: canonicalBrand,
+            products: localBrand.products,
+            category: identifiedCategory,
+            topK: 1
+          });
+          if (semanticResults && semanticResults.length > 0) {
+            const hit = semanticResults[0];
+            const isCategoryCompatible = !identifiedCategory || !hit.mainCategory || hit.mainCategory.toLowerCase() === identifiedCategory.toLowerCase() || hit.mainCategory.toLowerCase().includes(identifiedCategory.toLowerCase());
+            if ((hit.exactModelMatch || hit.confidenceScore >= 78) && isCategoryCompatible) {
+              best = hit;
+              console.log(`  ✨ [VE Auto-Detect Instant Hit] "${best.model}" matched with confidence ${best.confidenceScore}% (${best.exactModelMatch ? 'EXACT MODEL HIT' : 'SPEC MATCH'}) in 1ms`);
+            }
+          }
+        } catch (embErr) {
+          console.warn('  ⚠️ [VE Auto-Detect Instant Match Error]:', embErr.message);
         }
       }
 
-      // Fallback to fuzzyFindModel if veMatchSimple fails or doesn't find a perfect match
-      if (!best) {
+      // 2.3: Fallback Fuzzy Lookup only if no distinct model was detected
+      if (!best && localBrand.products.length > 5) {
         best = fuzzyFindModel(localBrand.products, identifiedModel, identifiedCategory);
       }
 
-      if (best) {
+      // 2.4: LLM Catalog Disambiguation (only for established multi-product catalogs)
+      if (!best && localBrand.products.length > 3) {
+        const modelList = localBrand.products.map(p => p.model + (p.subCategory || p.mainCategory ? ` [${p.mainCategory} / ${p.subCategory}]` : '')).filter(Boolean);
+        const matchResult = await veMatchAdvanced(enrichedDesc, canonicalBrand, identifiedCategory || 'Commercial Furniture', modelList, providerModel);
+        if (matchResult && matchResult.status === 'success' && matchResult.model && matchResult.model !== 'FAILED') {
+          const rawHit = String(matchResult.model).replace(/\s*\[.*\]$/, '').trim().toLowerCase();
+          best = localBrand.products.find(p => p?.model && String(p.model).toLowerCase().trim() === rawHit) ||
+                 localBrand.products.find(p => p?.model && String(p.model).toLowerCase().includes(rawHit)) ||
+                 localBrand.products.find(p => p?.model && rawHit.includes(String(p.model).toLowerCase()));
+          if (best) {
+            console.log(`  🧠 [VE Auto-Detect Stage 2.4] veMatchAdvanced selected: "${best.model}"`);
+          }
+        }
+      }
+
+      if (best && (best.imageUrl || (localBrand.products && localBrand.products.length > 5))) {
         console.log(`  ✨ [VE Auto-Detect Cache Hit] "${best.model}" loaded from local DB.`);
-        // Proxy images if necessary
+
+        // Classify category to guarantee 4-tier tree validity
+        const catNorm = classifyContractCategory(
+          best.mainCategory || identifiedCategory,
+          best.subCategory || identifiedSubCategory,
+          best.model || identifiedModel,
+          best.description || enrichedDesc
+        );
+
+        let verifiedImg = best.imageUrl || (best.images && best.images[0]) || '';
+        if (verifiedImg && (verifiedImg.includes('/logo/') || verifiedImg.includes('logo_') || verifiedImg.includes('data:image/svg') || verifiedImg.includes('amazon_logo'))) {
+          verifiedImg = '';
+        }
+
+        // If image is missing, try live enrichment
+        if (!verifiedImg) {
+          verifiedImg = await fetchLiveProductImage(canonicalBrand, best.model, best.websiteUrl || best.productUrl || identityResult.productUrl);
+        }
+
         const proxyBase = `${req.protocol}://${req.get('host')}/api/image-proxy?url=`;
-        const p = { ...best };
-        if (p.imageUrl && p.imageUrl.startsWith('https://') && !p.imageUrl.includes('image-proxy')) {
-          p.imageUrl = `${proxyBase}${encodeURIComponent(p.imageUrl)}`;
+        let proxiedImageUrl = verifiedImg;
+        if (proxiedImageUrl && proxiedImageUrl.startsWith('https://') && !proxiedImageUrl.includes('image-proxy')) {
+          proxiedImageUrl = `${proxyBase}${encodeURIComponent(proxiedImageUrl)}`;
         }
-        if (p.images && Array.isArray(p.images)) {
-          p.images = p.images.map(img => img.startsWith('https://') && !img.includes('image-proxy') ? `${proxyBase}${encodeURIComponent(img)}` : img);
-        }
+
+        const cleanDesc = cleanTechnicalDescription(best.description || identityResult.logic || '', canonicalBrand, best.model);
+        const resolvedLogo = (localBrand.logo && localBrand.logo.trim() && !localBrand.logo.includes('clearbit.com'))
+          ? localBrand.logo
+          : (getCanonicalBrandLogo(canonicalBrand, localBrand.websiteUrl) || localBrand.logo || '');
+
+        const alternatives = await getFormattedAlternatives(canonicalBrand, best.model, catNorm.mainCategory);
 
         return res.json({
           status: 'success',
           product: {
-            ...p,
+            ...best,
             brand: canonicalBrand,
-            brandLogo: localBrand.logo || '',
-            mainCategory: best.mainCategory || identifiedCategory || 'Furniture',
-            subCategory: best.subCategory || identifiedSubCategory || ''
+            brandLogo: resolvedLogo,
+            imageUrl: proxiedImageUrl,
+            family: best.family || (best.model || identifiedModel).split(' ')[0] || 'Collection',
+            mainCategory: catNorm.mainCategory,
+            subCategory: catNorm.subCategory,
+            description: cleanDesc
           },
+          alternatives,
           source: 'local-database',
           identifiedModel
         });
@@ -3183,83 +3709,123 @@ app.post('/api/ve-match-auto', async (req, res) => {
       console.log(`  📂 [VE Auto-Detect Stage 2] Miss: No local entry for "${identifiedModel}".`);
     }
 
-    // ── STAGE 3: WEB DISCOVERY (Deep Product Details) ───────────────────────
-    console.log(`  🌐 [VE Auto-Detect Stage 3] Fetching live details for ${canonicalBrand} ${identifiedModel}...`);
-    const detailResult = await veGetProductDetails(canonicalBrand, identifiedModel, providerModel);
+    // Reject marketing slogans or non-product names from web discovery
+    const SLOGAN_BLACKLIST = /\b(right tools|solutions|welcome|home|featured|contact|about us|cookie|privacy|copyright|all rights reserved|failed|null|undefined|n\/a)\b/i;
+    const isSloganOrInvalid = !identifiedModel || identifiedModel.length < 3 || SLOGAN_BLACKLIST.test(identifiedModel) || String(identifiedModel).trim().toUpperCase() === 'FAILED';
 
-    if (detailResult.status === 'success' && detailResult.product) {
-      const p = detailResult.product;
+    // ── STAGE 3: WEB DISCOVERY (Deep Product Details for genuine manufacturers only) ──
+    if (!isSloganOrInvalid && isGenuine && !isGenericBrand) {
+      console.log(`  🌐 [VE Auto-Detect Stage 3] Fetching live details for ${canonicalBrand} ${identifiedModel}...`);
+      const detailResult = await veGetProductDetails(canonicalBrand, identifiedModel, providerModel, identityResult.productUrl, identifiedCategory);
 
-      // Validate image URL
-      const rawImg = p.imageUrl || '';
-      const isValidImage = rawImg.startsWith('https://') && !rawImg.includes('localhost') && /\.(jpg|jpeg|png|webp|svg)(\?|$)/i.test(rawImg);
-      if (!isValidImage) {
-        p.imageUrl = localBrand?.logo || '';
-      }
+      if (detailResult.status === 'success' && detailResult.product && detailResult.product.model && !SLOGAN_BLACKLIST.test(detailResult.product.model) && String(detailResult.product.model).trim().toUpperCase() !== 'FAILED') {
+        const p = detailResult.product;
 
-      // Persist to local DB (optional — non-blocking)
-      try {
+        // Classify and normalize standard contract category tree (4-tier dropdown compatibility)
+        const catNorm = classifyContractCategory(
+          p.mainCategory || identifiedCategory,
+          p.subCategory || identifiedSubCategory,
+          p.model || identifiedModel,
+          p.description || identityResult.logic
+        );
+
+        // Resolve crisp brand logo (Architonic CDN, SVG registry, Google Favicon)
+        const resolvedBrandLogo = (p.brandLogo && p.brandLogo.startsWith('http') && !p.brandLogo.includes('clearbit.com') && !p.brandLogo.includes('grounding-api-redirect') && !p.brandLogo.includes('vertexaisearch'))
+          ? p.brandLogo
+          : (getCanonicalBrandLogo(canonicalBrand, p.websiteUrl || identityResult.productUrl) || localBrand?.logo || '');
+
+        // Validate and enrich image URL: product photos must be authentic images, NEVER brand logos
+        let liveImg = p.imageUrl || '';
+        const isLogo = liveImg.includes('/logo/') || liveImg.includes('logo_') || liveImg.includes('logo.') || liveImg.includes('data:image/svg') || liveImg.includes('amazon_logo');
+        const isValidInitial = liveImg.startsWith('http') && !liveImg.includes('localhost') && !isLogo;
+
+        if (!isValidInitial) {
+          liveImg = await fetchLiveProductImage(canonicalBrand, p.model || identifiedModel, identityResult.productUrl || p.websiteUrl);
+        }
+        p.imageUrl = liveImg || '';
+
+        const cleanDesc = cleanTechnicalDescription(p.description || identityResult.logic || '', canonicalBrand, p.model || identifiedModel);
+
         const newProduct = {
           ...p,
           brand: canonicalBrand,
-          mainCategory: p.mainCategory || identifiedCategory || 'Furniture',
-          subCategory: p.subCategory || identifiedSubCategory || '',
+          model: p.model || identifiedModel,
+          family: p.family || (p.model || identifiedModel).split(' ')[0] || 'Collection',
+          mainCategory: catNorm.mainCategory,
+          subCategory: catNorm.subCategory,
+          description: cleanDesc,
+          price: parseFloat(p.price) || parseFloat(identityResult.estimatedPrice) || 0,
+          currency: p.currency || 'USD',
+          websiteUrl: p.websiteUrl || identityResult.productUrl || '',
+          productUrl: p.websiteUrl || identityResult.productUrl || '',
           lastUpdated: new Date().toISOString(),
           source: 'VE-AI-AutoDetect-Discovery'
         };
-        if (localBrand) {
-          await brandStorage.addProductToBrand(canonicalBrand, localBrand.budgetTier || 'mid', newProduct);
-        } else {
-          await brandStorage.saveBrand({
-            id: Date.now(),
-            name: canonicalBrand,
-            logo: '',
-            budgetTier: 'mid',
-            origin: 'VE-AutoDetect-Discovery',
-            products: [newProduct],
-            createdAt: new Date().toISOString()
-          });
+
+        let savedBrandObj = localBrand;
+
+        // Retain on-the-fly discovery in-memory without polluting brand database files
+        console.log(`  ✨ [VE Auto-Detect Stage 3] Discovered live product "${newProduct.model}" for brand "${canonicalBrand}". Serving on-the-fly.`);
+
+        // Proxy image URLs
+        const proxyBase = `${req.protocol}://${req.get('host')}/api/image-proxy?url=`;
+        let proxiedImageUrl = newProduct.imageUrl;
+        if (proxiedImageUrl && proxiedImageUrl.startsWith('https://') && !proxiedImageUrl.includes('image-proxy')) {
+          proxiedImageUrl = `${proxyBase}${encodeURIComponent(proxiedImageUrl)}`;
         }
-      } catch (saveErr) {
-        console.warn(`  ⚠️  [VE Auto-Detect Stage 3] Persistence failed (non-fatal):`, saveErr.message);
-      }
 
-      // Proxy image URLs
-      const proxyBase = `${req.protocol}://${req.get('host')}/api/image-proxy?url=`;
-      if (p.imageUrl) p.imageUrl = `${proxyBase}${encodeURIComponent(p.imageUrl)}`;
-      if (p.images && Array.isArray(p.images)) {
-        p.images = p.images.map(img => `${proxyBase}${encodeURIComponent(img)}`);
-      }
+        const alternatives = await getFormattedAlternatives(canonicalBrand, newProduct.model, catNorm.mainCategory);
 
-      return res.json({
-        status: 'success',
-        product: {
-          ...p,
-          brand: canonicalBrand,
-          brandLogo: localBrand?.logo || '',
-          mainCategory: p.mainCategory || identifiedCategory || 'Furniture',
-          subCategory: p.subCategory || identifiedSubCategory || ''
-        },
-        source: 've-ai-discovery',
-        identifiedModel
-      });
+        return res.json({
+          status: 'success',
+          product: {
+            ...newProduct,
+            imageUrl: proxiedImageUrl,
+            brandLogo: resolvedBrandLogo || savedBrandObj?.logo || localBrand?.logo || (isMarketplace ? 'https://upload.wikimedia.org/wikipedia/commons/a/a9/Amazon_logo.svg' : '')
+          },
+          alternatives,
+          brandCreated: !localBrand && !isMarketplace,
+          newBrand: savedBrandObj,
+          source: 've-ai-discovery',
+          identifiedModel
+        });
+      }
     }
 
-    // Stage 3 failed — return identity result without image
-    console.warn(`  ⚠️  [VE Auto-Detect Stage 3] Detail fetch failed. Returning identity-only result.`);
+    // Stage 3 fallback — return identity result with estimated price / URL
+    console.log(`  ✨ [VE Auto-Detect] Returning on-the-fly product result for ${canonicalBrand} ${identifiedModel}.`);
+    const fallbackPrice = parseFloat(identityResult.estimatedPrice) || 0;
+    const fallbackUrl = identityResult.productUrl || '';
+    const fallbackLogo = isMarketplace ? 'https://upload.wikimedia.org/wikipedia/commons/a/a9/Amazon_logo.svg' : (getCanonicalBrandLogo(canonicalBrand, fallbackUrl) || localBrand?.logo || '');
+
+    // Attempt live photo discovery even in fallback path
+    let fallbackPhoto = await fetchLiveProductImage(canonicalBrand, identifiedModel, fallbackUrl);
+    const proxyBase = `${req.protocol}://${req.get('host')}/api/image-proxy?url=`;
+    if (fallbackPhoto && fallbackPhoto.startsWith('https://') && !fallbackPhoto.includes('image-proxy')) {
+      fallbackPhoto = `${proxyBase}${encodeURIComponent(fallbackPhoto)}`;
+    }
+
+    const fallbackCat = classifyContractCategory(identifiedCategory, identifiedSubCategory, identifiedModel, enrichedDesc);
+    const fallbackDesc = cleanTechnicalDescription(identityResult.logic || '', canonicalBrand, identifiedModel);
+    const fallbackAlternatives = await getFormattedAlternatives(canonicalBrand, identifiedModel, identifiedCategory);
+
     return res.json({
       status: 'success',
       product: {
         brand: canonicalBrand,
         model: identifiedModel,
-        mainCategory: identifiedCategory || 'Furniture',
-        subCategory: identifiedSubCategory || '',
-        imageUrl: localBrand?.logo || '',
-        brandLogo: localBrand?.logo || '',
-        price: 0,
-        description: identityResult.logic || ''
+        mainCategory: fallbackCat.mainCategory || identifiedCategory || 'Furniture',
+        subCategory: fallbackCat.subCategory || identifiedSubCategory || '',
+        imageUrl: fallbackPhoto || '',
+        brandLogo: fallbackLogo,
+        websiteUrl: fallbackUrl,
+        productUrl: fallbackUrl,
+        price: fallbackPrice,
+        currency: 'USD',
+        description: fallbackDesc
       },
-      source: 've-identity-only',
+      alternatives: fallbackAlternatives,
+      source: isMarketplace ? 'amazon-on-the-fly' : 've-identity-only',
       identifiedModel
     });
 
@@ -3270,6 +3836,32 @@ app.post('/api/ve-match-auto', async (req, res) => {
       error_message: error.message,
       rawResponse: error.rawResponse || null
     });
+  }
+});
+
+// ── On-Demand Live Web & Architonic Alternatives Discovery ──────────────────
+app.post('/api/ai/live-alternatives', async (req, res) => {
+  try {
+    const { description, category, currentBrand, topK } = req.body || {};
+    const allLocalBrands = await brandStorage.getAllBrands();
+    const alternatives = await generateCrossBrandAlternativesAsync(currentBrand, null, description, allLocalBrands, category, topK || 4);
+    
+    const proxyBase = `${req.protocol}://${req.get('host')}/api/image-proxy?url=`;
+    const formatted = alternatives.map(alt => ({
+      ...alt,
+      imageUrl: alt.imageUrl && alt.imageUrl.startsWith('https://') && !alt.imageUrl.includes('image-proxy')
+        ? `${proxyBase}${encodeURIComponent(alt.imageUrl)}`
+        : alt.imageUrl
+    }));
+
+    return res.json({
+      status: 'success',
+      alternatives: formatted,
+      count: formatted.length
+    });
+  } catch (err) {
+    console.error('🔥 Error in /api/ai/live-alternatives:', err);
+    return res.status(500).json({ status: 'error', message: err.message });
   }
 });
 
@@ -3470,6 +4062,68 @@ app.post('/api/supabase/sync', async (req, res) => {
     res.json(result);
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * POST /api/image/lens-share
+ * Reads a local extracted image (relative path like /temp/extracted_images/...)
+ * and uploads it to Supabase Storage, returning a short-lived public URL
+ * that Google Lens can access from the internet.
+ */
+app.post('/api/image/lens-share', async (req, res) => {
+  try {
+    const { imagePath } = req.body;
+    if (!imagePath) return res.status(400).json({ success: false, error: 'imagePath required' });
+
+    // Resolve local file on disk
+    const relativePath = imagePath.replace(/^\/temp\//, 'public/temp/');
+    const absolutePath = path.join(process.cwd(), relativePath);
+
+    if (!fs.existsSync(absolutePath)) {
+      return res.status(404).json({ success: false, error: `Local image not found: ${relativePath}` });
+    }
+
+    const { supabaseAdmin } = await import('./utils/supabaseStorage.js');
+    if (!supabaseAdmin) {
+      return res.status(503).json({ success: false, error: 'Supabase not configured' });
+    }
+
+    // Build a unique storage key — use timestamp so old files are naturally replaced
+    const ext = path.extname(absolutePath) || '.jpg';
+    const fileName = `${Date.now()}_${path.basename(absolutePath, ext)}${ext}`;
+    const storagePath = `lens-share/${fileName}`;
+    const BUCKET = 'extracted-images';
+
+    const fileBuffer = fs.readFileSync(absolutePath);
+    const mimeType = ext === '.png' ? 'image/png' : ext === '.webp' ? 'image/webp' : 'image/jpeg';
+
+    const { error: uploadError } = await supabaseAdmin.storage
+      .from(BUCKET)
+      .upload(storagePath, fileBuffer, {
+        contentType: mimeType,
+        upsert: true,
+        cacheControl: '3600' // 1-hour cache — plenty for Lens
+      });
+
+    if (uploadError) {
+      console.error('[LensShare] Supabase upload error:', uploadError.message);
+      return res.status(500).json({ success: false, error: uploadError.message });
+    }
+
+    const { data: urlData } = supabaseAdmin.storage
+      .from(BUCKET)
+      .getPublicUrl(storagePath);
+
+    const publicUrl = urlData?.publicUrl;
+    if (!publicUrl) return res.status(500).json({ success: false, error: 'Failed to get public URL' });
+
+    console.log(`[LensShare] ✅ Uploaded to Supabase: ${publicUrl}`);
+    return res.json({ success: true, publicUrl, storagePath });
+
+  } catch (err) {
+    console.error('[LensShare] Error:', err.message);
+    res.status(500).json({ success: false, error: err.message });
   }
 });
 

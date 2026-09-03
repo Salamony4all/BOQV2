@@ -32,7 +32,7 @@ import { getApiBase } from './utils/apiBase';
 const API_BASE = getApiBase();
 console.debug('[API] Using API_BASE:', API_BASE);
 
-// Intercept all fetch requests to automatically inject user-defined Gemini API keys
+// Intercept all fetch requests to automatically inject user-defined Gemini / AI API keys and models
 const originalFetch = window.fetch;
 window.fetch = async function (url, options = {}) {
   const urlStr = typeof url === 'string' ? url : (url instanceof URL ? url.toString() : '');
@@ -43,18 +43,31 @@ window.fetch = async function (url, options = {}) {
         const parsed = JSON.parse(stored);
         const aiSettings = parsed.aiSettings;
         if (aiSettings) {
+          const headersToAdd = {
+            'x-google-api-key': aiSettings.googleApiKey || '',
+            'x-google-free-key': aiSettings.googleFreeKey || '',
+            'x-google-active-tier': aiSettings.activeTier || 'free',
+            'x-google-model': aiSettings.model || '',
+            'x-model-name': aiSettings.model || '',
+            'x-ai-provider': aiSettings.engine || 'google',
+            'x-provider': aiSettings.engine || 'google',
+            'x-openrouter-key': aiSettings.openrouterApiKey || '',
+            'x-openrouter-model': aiSettings.model || '',
+            'x-nvidia-key': aiSettings.nvidiaApiKey || '',
+            'x-nvidia-model': aiSettings.model || '',
+            'x-local-url': aiSettings.localLlmUrl || ''
+          };
+
           if (options.headers instanceof Headers) {
-            options.headers.set('x-google-api-key', aiSettings.googleApiKey || '');
-            options.headers.set('x-google-free-key', aiSettings.googleFreeKey || '');
-            options.headers.set('x-google-active-tier', aiSettings.activeTier || 'free');
-            options.headers.set('x-google-model', aiSettings.model || '');
+            Object.entries(headersToAdd).forEach(([k, v]) => {
+              if (v && !options.headers.has(k)) {
+                options.headers.set(k, v);
+              }
+            });
           } else {
             options.headers = {
-              ...options.headers,
-              'x-google-api-key': aiSettings.googleApiKey || '',
-              'x-google-free-key': aiSettings.googleFreeKey || '',
-              'x-google-active-tier': aiSettings.activeTier || 'free',
-              'x-google-model': aiSettings.model || ''
+              ...headersToAdd,
+              ...options.headers
             };
           }
         }
@@ -106,7 +119,7 @@ const ThemeToggle = () => {
       }}
       title={`Switch to ${theme === 'dark' ? 'Light' : 'Dark'} Mode`}
     >
-      {theme === 'dark' ? '🌙' : '☀️'}
+      {theme === 'dark' ? '☀️' : '🌙'}
     </button>
   );
 };
@@ -130,11 +143,14 @@ const AiModelSelector = ({ defaultGoogleModels }) => {
     };
   }, []);
 
-  if (aiSettings?.engine !== 'google') return null;
-
-  const models = aiSettings?.verifiedModels && aiSettings.verifiedModels.length > 0
-    ? aiSettings.verifiedModels
-    : defaultGoogleModels;
+  const currentEngine = aiSettings?.engine || 'google';
+  const models = currentEngine === 'google'
+    ? (aiSettings?.verifiedModels && aiSettings.verifiedModels.length > 0 ? aiSettings.verifiedModels : defaultGoogleModels)
+    : currentEngine === 'openrouter' && aiSettings?.verifiedOpenRouterModels && aiSettings.verifiedOpenRouterModels.length > 0
+    ? aiSettings.verifiedOpenRouterModels
+    : currentEngine === 'nvidia' && aiSettings?.verifiedNvidiaModels && aiSettings.verifiedNvidiaModels.length > 0
+    ? aiSettings.verifiedNvidiaModels
+    : (MODEL_OPTIONS[currentEngine] || []);
 
   const currentModel = aiSettings?.model || '';
 
@@ -160,17 +176,17 @@ const AiModelSelector = ({ defaultGoogleModels }) => {
           boxShadow: theme === 'dark' ? 'none' : '0 2px 5px rgba(0,0,0,0.05)',
           padding: 0
         }}
-        title={`Select AI Model (Current: ${currentModel})`}
+        title={`Select AI Model (${currentEngine}: ${currentModel})`}
       >
         ⚙️
       </button>
 
       {isOpen && (
         <div className={styles.aiSelectorDropdown}>
-          <div className={styles.aiSelectorHeader}>Select AI Model</div>
+          <div className={styles.aiSelectorHeader}>Select AI Model ({currentEngine.toUpperCase()})</div>
           <div className={styles.aiSelectorDivider} />
           {models.length === 0 ? (
-            <div className={styles.aiSelectorEmpty}>No models. Set API Key in Settings.</div>
+            <div className={styles.aiSelectorEmpty}>No models available for {currentEngine}.</div>
           ) : (
             models.map(m => (
               <button
@@ -250,6 +266,8 @@ function AppContent({ onOpenSettings }) {
   const [planPreviewName, setPlanPreviewName] = useState(null);
   const [isPdfModalOpen, setIsPdfModalOpen] = useState(false);
   const [pendingPdfFile, setPendingPdfFile] = useState(null);
+  const [pendingPdfFiles, setPendingPdfFiles] = useState(null);
+  const [isGlobalDragging, setIsGlobalDragging] = useState(false);
   const [isValueEngineeredOpen, setValueEngineeredOpen] = useState(false);
   const [isCostingOpen, setIsCostingOpen] = useState(false);
   const [pendingVeData, setPendingVeData] = useState(null);
@@ -380,10 +398,68 @@ function uploadToSupabaseWithProgress({ sbUrl, anonKey, bucket, filePath, file, 
   });
 }
 
-  const handleFileUpload = async (file, modelName = null, pipeline = null, options = null) => {
-    // If it's a PDF and no pipeline is selected yet, show the model+pipeline selection modal
-    if (file && file.name.toLowerCase().endsWith('.pdf') && !pipeline) {
-      setPendingPdfFile(file);
+  // Global drag-and-drop support for multi-file PDF / Excel BOQ ingestion
+  useEffect(() => {
+    let dragCounter = 0;
+
+    const handleDragEnter = (e) => {
+      e.preventDefault();
+      dragCounter++;
+      if (e.dataTransfer?.types && Array.from(e.dataTransfer.types).includes('Files')) {
+        setIsGlobalDragging(true);
+      }
+    };
+
+    const handleDragOver = (e) => {
+      e.preventDefault();
+    };
+
+    const handleDragLeave = (e) => {
+      e.preventDefault();
+      dragCounter--;
+      if (dragCounter <= 0) {
+        dragCounter = 0;
+        setIsGlobalDragging(false);
+      }
+    };
+
+    const handleDrop = (e) => {
+      e.preventDefault();
+      dragCounter = 0;
+      setIsGlobalDragging(false);
+      const dropped = Array.from(e.dataTransfer?.files || []).filter(Boolean);
+      if (dropped.length > 0) {
+        handleFileUpload(dropped);
+      }
+    };
+
+    window.addEventListener('dragenter', handleDragEnter);
+    window.addEventListener('dragover', handleDragOver);
+    window.addEventListener('dragleave', handleDragLeave);
+    window.addEventListener('drop', handleDrop);
+
+    return () => {
+      window.removeEventListener('dragenter', handleDragEnter);
+      window.removeEventListener('dragover', handleDragOver);
+      window.removeEventListener('dragleave', handleDragLeave);
+      window.removeEventListener('drop', handleDrop);
+    };
+  }, []);
+
+  const handleFileUpload = async (fileOrFiles, modelName = null, pipeline = null, options = null) => {
+    // Normalize input to array of files
+    const rawFiles = Array.isArray(fileOrFiles)
+      ? fileOrFiles
+      : (fileOrFiles instanceof FileList ? Array.from(fileOrFiles) : (fileOrFiles ? [fileOrFiles] : []));
+    const files = rawFiles.filter(Boolean);
+
+    if (files.length === 0) return;
+
+    // Check if any file is PDF and pipeline not yet chosen
+    const hasPdf = files.some(f => f.name.toLowerCase().endsWith('.pdf'));
+    if (hasPdf && !pipeline) {
+      setPendingPdfFiles(files);
+      setPendingPdfFile(files[0]);
       setIsPdfModalOpen(true);
       return;
     }
@@ -391,249 +467,229 @@ function uploadToSupabaseWithProgress({ sbUrl, anonKey, bucket, filePath, file, 
     setShowLanding(false);
     setUploading(true);
     setProgress(0);
-    setStage('Preparing Upload...');
-    setStageDetail(`Selected: ${file.name} (${(file.size / (1024 * 1024)).toFixed(1)} MB)`);
     setError(null);
     setExtractedData(null);
 
-    const isLarge = file.size > 4.4 * 1024 * 1024;
-    const useBlob = isLarge && window.location.hostname !== 'localhost';
-
-    let progressInterval = null;
-    const startProcessingTicker = () => {
-      if (progressInterval) clearInterval(progressInterval);
-      let current = 50;
-      setProgress(50);
-      setStage('Analyzing Document Layout...');
-      setStageDetail('Parsing PDF streams & layout geometry');
-
-      const stages = [
-        { threshold: 60, stage: 'Analyzing Page Geometry...', detail: 'Detecting tabular grids & page structure' },
-        { threshold: 72, stage: 'Extracting BOQ Specifications...', detail: 'Reading line items, model codes & quantities' },
-        { threshold: 84, stage: 'Processing Visual Imagery...', detail: 'Cropping product photos & generating high-res assets' },
-        { threshold: 94, stage: 'Structuring BOQ Matrix...', detail: 'Compiling financial formulas & unit rates' },
-        { threshold: 98, stage: 'Finalizing Dataset...', detail: 'Verifying data consistency & table parity' }
-      ];
-
-      progressInterval = setInterval(() => {
-        current += Math.random() * 2.2 + 0.6;
-        if (current > 98) current = 98;
-        setProgress(Math.round(current));
-
-        for (const s of stages) {
-          if (current >= s.threshold) {
-            setStage(s.stage);
-            setStageDetail(s.detail);
-          }
-        }
-      }, 400);
-    };
+    const totalFiles = files.length;
+    const allExtractedTables = [];
 
     try {
-      if (useBlob) {
-        setStage('Uploading to Cloud Storage');
-        setStageDetail(`0 MB of ${(file.size / (1024 * 1024)).toFixed(1)} MB (0%)`);
+      for (let i = 0; i < totalFiles; i++) {
+        const file = files[i];
+        const fileIdxStr = totalFiles > 1 ? `[File ${i + 1}/${totalFiles}] ` : '';
+        const baseProgress = (i / totalFiles) * 100;
+        const progressSlice = (1 / totalFiles) * 100;
 
-        const fileUrl = await new Promise(async (resolve, reject) => {
-          try {
-            // Get credentials from server
-            const configRes = await fetch(apiUrl('/api/storage/config'));
-            const { url: sbUrl, anonKey, bucket } = await configRes.json();
-            const filePath = `temp-uploads/${sessionId}/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+        setStage(`${fileIdxStr}Uploading ${file.name}`);
+        setStageDetail(`0 MB of ${(file.size / (1024 * 1024)).toFixed(1)} MB`);
 
-            const publicUrl = await uploadToSupabaseWithProgress({
-              sbUrl,
-              anonKey,
-              bucket,
-              filePath,
-              file,
-              onProgress: (loaded, total) => {
-                const pct = (loaded / total) * 100;
-                // Upload phase takes 0% to 50%
-                const scaled = (pct / 100) * 50;
-                setProgress(Math.round(scaled));
-                const loadedMb = (loaded / (1024 * 1024)).toFixed(1);
-                const totalMb = (total / (1024 * 1024)).toFixed(1);
-                setStage('Uploading to Cloud Storage');
-                setStageDetail(`${loadedMb} MB of ${totalMb} MB (${Math.round(pct)}%)`);
+        const isLarge = file.size > 4.4 * 1024 * 1024;
+        const useBlob = isLarge && window.location.hostname !== 'localhost';
+
+        let singleFileData = null;
+
+        if (useBlob) {
+          // Upload to Supabase Storage with XHR
+          const fileUrl = await new Promise(async (resolve, reject) => {
+            try {
+              const configRes = await fetch(apiUrl('/api/storage/config'));
+              const { url: sbUrl, anonKey, bucket } = await configRes.json();
+              const filePath = `temp-uploads/${sessionId}/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+
+              const publicUrl = await uploadToSupabaseWithProgress({
+                sbUrl,
+                anonKey,
+                bucket,
+                filePath,
+                file,
+                onProgress: (loaded, total) => {
+                  const pct = (loaded / total) * 100;
+                  const currentFileProgress = baseProgress + (pct / 100) * (progressSlice * 0.5);
+                  setProgress(Math.round(currentFileProgress));
+                  const loadedMb = (loaded / (1024 * 1024)).toFixed(1);
+                  const totalMb = (total / (1024 * 1024)).toFixed(1);
+                  setStage(`${fileIdxStr}Uploading to Cloud`);
+                  setStageDetail(`${loadedMb} MB / ${totalMb} MB (${Math.round(pct)}%)`);
+                }
+              });
+              resolve(publicUrl);
+            } catch (err) {
+              reject(err);
+            }
+          });
+
+          // Phase 2 extraction for this file
+          setStage(`${fileIdxStr}Extracting Data & Images`);
+          setStageDetail('Parsing page layout & table boundaries...');
+          setProgress(Math.round(baseProgress + progressSlice * 0.55));
+
+          const extractionModeHeader =
+            pipeline === 'docling' ? 'docling' :
+            pipeline === 'paddle'  ? 'paddle'  :
+            pipeline === 'opendataloader' ? 'opendataloader' :
+            pipeline === 'wordcom_vercel' ? 'wordcom_vercel' :
+            pipeline === 'wordcom_v22' ? 'wordcom_v22' :
+            pipeline === 'wordcom' ? 'wordcom' :
+            'parallel';
+
+          const blobHeaders = {
+            'Content-Type': 'application/json',
+            'x-session-id': sessionId,
+            'x-extraction-mode': extractionModeHeader
+          };
+          if (options?.doclingOcr) blobHeaders['x-docling-ocr'] = '1';
+          if (modelName) blobHeaders['x-model-name'] = modelName;
+
+          const storedProfile = localStorage.getItem('boqflow_company_profile');
+          if (storedProfile) {
+            try {
+              const parsed = JSON.parse(storedProfile);
+              const aiSettings = parsed?.aiSettings;
+              if (aiSettings) {
+                blobHeaders['x-google-api-key'] = aiSettings.googleApiKey || '';
+                blobHeaders['x-google-free-key'] = aiSettings.googleFreeKey || '';
+                blobHeaders['x-google-active-tier'] = aiSettings.activeTier || 'free';
+                blobHeaders['x-google-model'] = aiSettings.model || '';
+                blobHeaders['x-ai-provider'] = aiSettings.engine || 'google';
+                blobHeaders['x-provider'] = aiSettings.engine || 'google';
+                blobHeaders['x-openrouter-key'] = aiSettings.openrouterApiKey || '';
+                blobHeaders['x-openrouter-model'] = aiSettings.model || '';
+                blobHeaders['x-nvidia-key'] = aiSettings.nvidiaApiKey || '';
+                blobHeaders['x-nvidia-model'] = aiSettings.model || '';
+              }
+            } catch (e) {}
+          }
+
+          const res = await fetch(apiUrl('/api/process-blob'), {
+            method: 'POST',
+            headers: blobHeaders,
+            body: JSON.stringify({
+              url: fileUrl,
+              sessionId,
+              fileName: file.name,
+              fileType: file.type,
+              pipeline: extractionModeHeader,
+              options,
+              modelName
+            })
+          });
+
+          if (!res.ok) {
+            const errorData = await res.json().catch(() => ({}));
+            throw new Error(errorData.details || errorData.error || `Processing failed for ${file.name}`);
+          }
+          const response = await res.json();
+          singleFileData = response.data;
+        } else {
+          // Standard upload for small file
+          singleFileData = await new Promise((resolve, reject) => {
+            const formData = new FormData();
+            formData.append('file', file);
+            if (options && typeof options === 'object') {
+              formData.append('options', JSON.stringify(options));
+            }
+
+            const xhr = new XMLHttpRequest();
+            xhr.upload.addEventListener('progress', (e) => {
+              if (e.lengthComputable) {
+                const pct = (e.loaded / e.total) * 100;
+                const currentFileProgress = baseProgress + (pct / 100) * (progressSlice * 0.5);
+                setProgress(Math.round(currentFileProgress));
+                const loadedMb = (e.loaded / (1024 * 1024)).toFixed(1);
+                const totalMb = (e.total / (1024 * 1024)).toFixed(1);
+                setStage(`${fileIdxStr}Uploading File`);
+                setStageDetail(`${loadedMb} MB / ${totalMb} MB (${Math.round(pct)}%)`);
               }
             });
 
-            resolve(publicUrl);
-          } catch (err) {
-            reject(err);
-          }
-        });
+            xhr.addEventListener('load', () => {
+              if (xhr.status === 200) {
+                try {
+                  const response = JSON.parse(xhr.responseText);
+                  resolve(response.data);
+                } catch (e) {
+                  reject(new Error(`Failed to parse response for ${file.name}`));
+                }
+              } else {
+                reject(new Error(`Upload failed for ${file.name}`));
+              }
+            });
+            xhr.addEventListener('error', () => reject(new Error(`Network error on ${file.name}`)));
 
-        // Upload to Cloud complete! Launch Phase 2 extraction ticker
-        startProcessingTicker();
+            const extractionModeHeader =
+              pipeline === 'docling' ? 'docling' :
+              pipeline === 'paddle'  ? 'paddle'  :
+              pipeline === 'opendataloader' ? 'opendataloader' :
+              pipeline === 'wordcom_vercel' ? 'wordcom_vercel' :
+              pipeline === 'wordcom_v22' ? 'wordcom_v22' :
+              pipeline === 'wordcom' ? 'wordcom' :
+              'wordcom_v22';
 
-        const extractionModeHeader =
-          pipeline === 'docling' ? 'docling' :
-          pipeline === 'paddle'  ? 'paddle'  :
-          pipeline === 'opendataloader' ? 'opendataloader' :
-          pipeline === 'wordcom_vercel' ? 'wordcom_vercel' :
-          pipeline === 'wordcom_v22' ? 'wordcom_v22' :
-          pipeline === 'wordcom' ? 'wordcom' :
-          'parallel'; // default / legacy
+            xhr.open('POST', apiUrl('/api/upload'));
+            xhr.setRequestHeader('x-session-id', sessionId);
+            xhr.setRequestHeader('x-extraction-mode', extractionModeHeader);
+            if (options?.doclingOcr) xhr.setRequestHeader('x-docling-ocr', '1');
+            if (modelName) xhr.setRequestHeader('x-model-name', modelName);
 
-        const blobHeaders = {
-          'Content-Type': 'application/json',
-          'x-session-id': sessionId,
-          'x-extraction-mode': extractionModeHeader
-        };
-        if (options?.doclingOcr) {
-          blobHeaders['x-docling-ocr'] = '1';
-        }
-        if (modelName) {
-          blobHeaders['x-model-name'] = modelName;
-        }
-
-        const storedProfile = localStorage.getItem('boqflow_company_profile');
-        if (storedProfile) {
-          try {
-            const parsed = JSON.parse(storedProfile);
-            const aiSettings = parsed?.aiSettings;
-            if (aiSettings) {
-              blobHeaders['x-google-api-key'] = aiSettings.googleApiKey || '';
-              blobHeaders['x-google-free-key'] = aiSettings.googleFreeKey || '';
-              blobHeaders['x-google-active-tier'] = aiSettings.activeTier || 'free';
-              blobHeaders['x-google-model'] = aiSettings.model || '';
+            const stored = localStorage.getItem('boqflow_company_profile');
+            if (stored) {
+              try {
+                const parsed = JSON.parse(stored);
+                const aiSettings = parsed.aiSettings;
+                if (aiSettings) {
+                  xhr.setRequestHeader('x-google-api-key', aiSettings.googleApiKey || '');
+                  xhr.setRequestHeader('x-google-free-key', aiSettings.googleFreeKey || '');
+                  xhr.setRequestHeader('x-google-active-tier', aiSettings.activeTier || 'free');
+                  if (!modelName && aiSettings.model) {
+                    xhr.setRequestHeader('x-model-name', aiSettings.model);
+                  }
+                  xhr.setRequestHeader('x-google-model', aiSettings.model || '');
+                  xhr.setRequestHeader('x-ai-provider', aiSettings.engine || 'google');
+                  xhr.setRequestHeader('x-provider', aiSettings.engine || 'google');
+                  xhr.setRequestHeader('x-openrouter-key', aiSettings.openrouterApiKey || '');
+                  xhr.setRequestHeader('x-openrouter-model', aiSettings.model || '');
+                  xhr.setRequestHeader('x-nvidia-key', aiSettings.nvidiaApiKey || '');
+                  xhr.setRequestHeader('x-nvidia-model', aiSettings.model || '');
+                }
+              } catch (e) {}
             }
-          } catch (e) {
-            console.error('[Blob Process Headers] Error reading settings:', e);
-          }
+
+            xhr.send(formData);
+          });
         }
 
-        // Now ask the server to process the remote URL with full extraction metadata
-        const res = await fetch(apiUrl('/api/process-blob'), {
-          method: 'POST',
-          headers: blobHeaders,
-          body: JSON.stringify({
-            url: fileUrl,
-            sessionId,
-            fileName: file.name,
-            fileType: file.type,
-            pipeline: extractionModeHeader,
-            options,
-            modelName
-          })
-        });
-
-        if (progressInterval) clearInterval(progressInterval);
-
-        if (!res.ok) {
-          const errorData = await res.json().catch(() => ({}));
-          throw new Error(errorData.details || errorData.error || 'Cloud processing failed');
-        }
-        const response = await res.json();
-        setExtractedData(response.data);
-        setProgress(100);
-        setStage(response.isDirectExtraction ? 'Direct Extraction Complete' : 'Extraction Complete');
-        setStageDetail('Dataset generated successfully!');
-        setTimeout(() => setUploading(false), 500);
-
-      } else {
-        // Standard XHR Upload for small files
-        setStage('Uploading File');
-        setStageDetail(`0 MB of ${(file.size / (1024 * 1024)).toFixed(1)} MB (0%)`);
-        const formData = new FormData();
-        formData.append('file', file);
-
-        const xhr = new XMLHttpRequest();
-
-        xhr.upload.addEventListener('progress', (e) => {
-          if (e.lengthComputable) {
-            const pct = (e.loaded / e.total) * 100;
-            const scaled = (pct / 100) * 50;
-            setProgress(Math.round(scaled));
-            const loadedMb = (e.loaded / (1024 * 1024)).toFixed(1);
-            const totalMb = (e.total / (1024 * 1024)).toFixed(1);
-            setStage('Uploading File');
-            setStageDetail(`${loadedMb} MB of ${totalMb} MB (${Math.round(pct)}%)`);
-            if (pct >= 99) {
-              startProcessingTicker();
-            }
-          }
-        });
-
-        xhr.addEventListener('load', () => {
-          if (progressInterval) clearInterval(progressInterval);
-          if (xhr.status === 200) {
-            const response = JSON.parse(xhr.responseText);
-            setExtractedData(response.data);
-            setProgress(100);
-            setStage(response.isDirectExtraction ? 'Direct Extraction Complete' : 'Extraction Complete');
-            setStageDetail('Dataset generated successfully!');
-            setTimeout(() => setUploading(false), 500);
-          } else {
-            console.error('Upload error details:', xhr.responseText);
-            let errMsg = 'Upload failed';
-            try {
-              const res = JSON.parse(xhr.responseText);
-              errMsg = res.details || res.error || errMsg;
-            } catch (e) {}
-            throw new Error(errMsg);
-          }
-        });
-
-        xhr.addEventListener('error', () => {
-          if (progressInterval) clearInterval(progressInterval);
-          setError('Network error occurred');
-          setUploading(false);
-        });
-
-        // Map pipeline selection to extraction mode header
-        const extractionModeHeader =
-          pipeline === 'docling' ? 'docling' :
-          pipeline === 'paddle'  ? 'paddle'  :
-          pipeline === 'opendataloader' ? 'opendataloader' :
-          pipeline === 'wordcom_vercel' ? 'wordcom_vercel' :
-          pipeline === 'wordcom_v22' ? 'wordcom_v22' :
-          pipeline === 'wordcom' ? 'wordcom' :
-          'parallel'; // default / legacy
-
-        // Forward V22 options (consolidation flags) as a FormData field so the
-        // route can read them if needed. Content-Type is set automatically.
-        if (options && typeof options === 'object') {
-          formData.append('options', JSON.stringify(options));
+        // Process and concatenate tables from this file
+        if (singleFileData?.tables && Array.isArray(singleFileData.tables)) {
+          singleFileData.tables.forEach((t, tIdx) => {
+            const cleanFileName = file.name.replace(/\.[^/.]+$/, '');
+            const sheetLabel = t.sheetName 
+              ? (totalFiles > 1 ? `[${cleanFileName}] ${t.sheetName}` : t.sheetName)
+              : (totalFiles > 1 ? `[${cleanFileName}] Section ${tIdx + 1}` : `Section ${tIdx + 1}`);
+            
+            allExtractedTables.push({
+              ...t,
+              sourceFileName: file.name,
+              sheetName: sheetLabel
+            });
+          });
         }
 
-        const uploadUrl = apiUrl('/api/upload');
-        console.log('[Upload] uploading to', uploadUrl, '| pipeline:', pipeline, '| mode:', extractionModeHeader);
-        xhr.open('POST', uploadUrl);
-        xhr.setRequestHeader('x-session-id', sessionId);
-        xhr.setRequestHeader('x-extraction-mode', extractionModeHeader);
-        if (options?.doclingOcr) {
-          xhr.setRequestHeader('x-docling-ocr', '1');
-        }
-        if (modelName) {
-          xhr.setRequestHeader('x-model-name', modelName);
-        }
-
-        const stored = localStorage.getItem('boqflow_company_profile');
-        if (stored) {
-          try {
-            const parsed = JSON.parse(stored);
-            const aiSettings = parsed.aiSettings;
-            if (aiSettings) {
-              xhr.setRequestHeader('x-google-api-key', aiSettings.googleApiKey || '');
-              xhr.setRequestHeader('x-google-free-key', aiSettings.googleFreeKey || '');
-              xhr.setRequestHeader('x-google-active-tier', aiSettings.activeTier || 'free');
-            }
-          } catch (e) {
-            console.error('[XHR Headers] Error reading settings:', e);
-          }
-        }
-
-        xhr.send(formData);
+        setProgress(Math.round(baseProgress + progressSlice));
       }
 
+      if (allExtractedTables.length === 0) {
+        throw new Error('No tabular data could be extracted from the uploaded document(s).');
+      }
+
+      setProgress(100);
+      setStage(totalFiles > 1 ? 'Batch BOQ Consolidated!' : 'Direct Extraction Complete');
+      setStageDetail(`Successfully extracted ${allExtractedTables.length} table(s) across ${totalFiles} file(s)`);
+      setExtractedData({ tables: allExtractedTables, isDirectExtraction: true });
+      setTimeout(() => setUploading(false), 600);
+
     } catch (err) {
-      if (progressInterval) clearInterval(progressInterval);
-      console.error('Upload/Process error:', err);
-      let errMsg = err.message || 'Failed to process file';
-      setError(errMsg);
+      console.error('Batch Upload/Process error:', err);
+      setError(err.message || 'Failed to process batch files');
       setUploading(false);
     }
   };
@@ -784,6 +840,19 @@ function uploadToSupabaseWithProgress({ sbUrl, anonKey, bucket, filePath, file, 
             </div>
             <div style={{ marginLeft: 'auto', marginRight: '1rem', display: 'flex', alignItems: 'center', gap: '10px' }}>
               <AiModelSelector defaultGoogleModels={defaultGoogleModels} />
+              <a
+                href="/extension.zip"
+                download="AutoBrowserBridge-Extension.zip"
+                className={styles.extensionDownloadBtn}
+                title="Download the Auto Browser Extension to enable silent Google Lens matching, Tender Board autofill, and portal automation"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                  <polyline points="7 10 12 15 17 10"/>
+                  <line x1="12" y1="15" x2="12" y2="3"/>
+                </svg>
+                <span>Extension</span>
+              </a>
               <ThemeToggle />
             </div>
           </header>
@@ -883,16 +952,22 @@ function uploadToSupabaseWithProgress({ sbUrl, anonKey, bucket, filePath, file, 
           
           <PdfModelModal
             isOpen={isPdfModalOpen}
-            fileName={pendingPdfFile?.name}
+            fileName={
+              pendingPdfFiles && pendingPdfFiles.length > 1
+                ? `${pendingPdfFiles.length} PDF Documents (Batch)`
+                : pendingPdfFile?.name
+            }
             onClose={() => {
               setIsPdfModalOpen(false);
               setPendingPdfFile(null);
+              setPendingPdfFiles(null);
             }}
             onExtract={(modelName, pipeline, options) => {
-              const file = pendingPdfFile;
+              const filesToProcess = pendingPdfFiles || (pendingPdfFile ? [pendingPdfFile] : []);
               setIsPdfModalOpen(false);
               setPendingPdfFile(null);
-              handleFileUpload(file, modelName, pipeline, options);
+              setPendingPdfFiles(null);
+              handleFileUpload(filesToProcess, modelName, pipeline, options);
             }}
           />
         </div>
@@ -957,6 +1032,19 @@ function uploadToSupabaseWithProgress({ sbUrl, anonKey, bucket, filePath, file, 
       {/* Theme Toggle & Model Select - Fixed Top Right */}
       <div style={{ position: 'fixed', top: '20px', right: '20px', zIndex: 10000, display: 'flex', alignItems: 'center', gap: '10px' }}>
         <AiModelSelector defaultGoogleModels={defaultGoogleModels} />
+        <a
+          href="/extension.zip"
+          download="AutoBrowserBridge-Extension.zip"
+          className={styles.extensionDownloadBtn}
+          title="Download the Auto Browser Extension to enable silent Google Lens matching, Tender Board autofill, and portal automation"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="7 10 12 15 17 10"/>
+            <line x1="12" y1="15" x2="12" y2="3"/>
+          </svg>
+          <span>Extension</span>
+        </a>
         <ThemeToggle />
       </div>
 
@@ -1016,7 +1104,14 @@ function uploadToSupabaseWithProgress({ sbUrl, anonKey, bucket, filePath, file, 
               type="file"
               accept=".xlsx,.xls,.pdf,.png,.jpg,.jpeg"
               style={{ display: 'none' }}
-              onChange={(e) => e.target.files[0] && handleFileUpload(e.target.files[0])}
+              multiple
+              onChange={(e) => {
+                const files = Array.from(e.target.files || []).filter(Boolean);
+                if (files.length > 0) {
+                  handleFileUpload(files);
+                }
+                e.target.value = '';
+              }}
             />
             Upload BOQ
           </label>
@@ -1159,8 +1254,9 @@ function uploadToSupabaseWithProgress({ sbUrl, anonKey, bucket, filePath, file, 
         }}
         onExtract={(model, pipeline, options) => {
           setIsPdfModalOpen(false);
-          handleFileUpload(pendingPdfFile, model, pipeline, options);
+          handleFileUpload(pendingPdfFiles || pendingPdfFile, model, pipeline, options);
           setPendingPdfFile(null);
+          setPendingPdfFiles(null);
         }}
       />
 
@@ -1207,6 +1303,16 @@ function uploadToSupabaseWithProgress({ sbUrl, anonKey, bucket, filePath, file, 
         planPreviewType={planPreviewType}
         planPreviewName={planPreviewName}
       />
+
+      {isGlobalDragging && (
+        <div className={styles.dragDropOverlay}>
+          <div className={styles.dragDropIcon}>📥</div>
+          <h2 className={styles.dragDropTitle}>Drop BOQ Files Here</h2>
+          <p className={styles.dragDropSub}>
+            Drop one or multiple PDF / Excel BOQ documents to process and consolidate
+          </p>
+        </div>
+      )}
     </div>
   );
 }

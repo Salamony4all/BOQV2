@@ -648,6 +648,43 @@
   border-bottom: 1px solid var(--border-color);
 }
 
+/* ─── Extension Download Pill ─────────────────────────────── */
+.extensionDownloadBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-decoration: none;
+  color: var(--text-secondary, #94a3b8);
+  border: 1px solid var(--border-color, rgba(148,163,184,0.2));
+  background: transparent;
+  transition: all 0.2s ease;
+  cursor: pointer;
+  white-space: nowrap;
+  opacity: 0.75;
+}
+
+.extensionDownloadBtn:hover {
+  opacity: 1;
+  color: #7c3aed;
+  border-color: rgba(124, 58, 237, 0.4);
+  background: rgba(124, 58, 237, 0.08);
+  box-shadow: 0 0 10px rgba(124, 58, 237, 0.15);
+  text-decoration: none;
+}
+
+.extensionDownloadBtn svg {
+  transition: transform 0.2s ease;
+}
+
+.extensionDownloadBtn:hover svg {
+  transform: translateY(1px);
+}
+
 .logoSmall {
   cursor: pointer;
   transition: opacity 0.2s ease;
@@ -1207,4 +1244,45 @@
 .aiSelectorCheck {
   font-size: 0.9rem;
   font-weight: bold;
+}
+
+/* Fullscreen Batch Drag & Drop Overlay */
+.dragDropOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.88);
+  backdrop-filter: blur(16px);
+  z-index: 99999;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border: 3px dashed #667eea;
+  margin: 20px;
+  border-radius: 28px;
+  pointer-events: none;
+  animation: fadeIn 0.2s ease-out;
+  box-shadow: 0 0 50px rgba(102, 126, 234, 0.3);
+}
+
+.dragDropIcon {
+  font-size: 4.5rem;
+  margin-bottom: 1.2rem;
+  filter: drop-shadow(0 4px 12px rgba(102, 126, 234, 0.4));
+}
+
+.dragDropTitle {
+  font-size: 2.2rem;
+  font-weight: 800;
+  color: #f8fafc;
+  margin-bottom: 0.6rem;
+  letter-spacing: -0.5px;
+}
+
+.dragDropSub {
+  font-size: 1.15rem;
+  color: #94a3b8;
+  max-width: 500px;
+  text-align: center;
+  line-height: 1.5;
 }

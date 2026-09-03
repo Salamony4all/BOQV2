@@ -24,8 +24,12 @@ const DEFAULT_PROFILE = {
         model: DEFAULT_AI_SETTINGS.model,
         googleApiKey: '',
         googleFreeKey: '',
+        openrouterApiKey: '',
+        nvidiaApiKey: '',
         activeTier: 'free',
-        verifiedModels: []
+        verifiedModels: [],
+        verifiedOpenRouterModels: [],
+        verifiedNvidiaModels: []
     },
     accentColor: '#0f3e67', // Default dark blue
     secondaryColor: '#f59e0b', // Default gold
@@ -119,7 +123,7 @@ export function CompanyProvider({ children }) {
         }
     }, []);
 
-    // Save profile to localStorage
+    // Save profile to localStorage and sync AI settings to server file store
     const saveProfile = useCallback((newProfile, shouldCloseModal = true) => {
         try {
             const profileToSave = { ...newProfile, setupComplete: true };
@@ -129,6 +133,36 @@ export function CompanyProvider({ children }) {
             if (shouldCloseModal) {
                 setShowSetupModal(false);
             }
+
+            // Persist AI settings to server file store (bridges localStorage → Node.js scripts)
+            if (profileToSave.aiSettings) {
+                const ai = profileToSave.aiSettings;
+                const serverPort = window.location.port || '3001';
+                const baseUrl = `${window.location.protocol}//${window.location.hostname}:${serverPort}`;
+                fetch(`${baseUrl}/api/ai/save-settings`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        engine: ai.engine || 'google',
+                        model: ai.model || '',
+                        googleApiKey: ai.googleApiKey || '',
+                        googleFreeKey: ai.googleFreeKey || '',
+                        googleModel: ai.model || '',
+                        activeTier: ai.activeTier || 'free',
+                        openrouterApiKey: ai.openrouterApiKey || '',
+                        openrouterModel: (ai.engine === 'openrouter' ? ai.model : '') || '',
+                        verifiedOpenRouterModels: ai.verifiedOpenRouterModels || [],
+                        nvidiaApiKey: ai.nvidiaApiKey || '',
+                        nvidiaModel: (ai.engine === 'nvidia' ? ai.model : '') || '',
+                        verifiedNvidiaModels: ai.verifiedNvidiaModels || [],
+                        verifiedModels: ai.verifiedModels || [],
+                        savedBy: 'browser',
+                    }),
+                }).catch((err) => {
+                    console.warn('[CompanyContext] Could not sync AI settings to server:', err.message);
+                });
+            }
+
             return { success: true };
         } catch (error) {
             console.error('Failed to save company profile:', error);
@@ -138,6 +172,7 @@ export function CompanyProvider({ children }) {
             return { success: false, error: 'Failed to save profile.' };
         }
     }, [applyThemeColors]);
+
 
     // Update company name
     const updateCompanyName = useCallback((name) => {

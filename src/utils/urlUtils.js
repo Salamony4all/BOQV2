@@ -9,11 +9,20 @@ const API_BASE = getApiBase();
 export const getFullUrl = (input) => {
     if (!input) return '';
     let url = typeof input === 'object' ? input.url : input;
-    if (!url) return '';
+    if (!url || typeof url !== 'string') return '';
     
-    let normalizedUrl = url;
-    if (url.startsWith('//')) {
-        normalizedUrl = 'https:' + url;
+    let normalizedUrl = url.trim();
+    if (normalizedUrl.startsWith('//')) {
+        normalizedUrl = 'https:' + normalizedUrl;
+    }
+
+    // If already routed through image-proxy or is data URL, return immediately
+    if (normalizedUrl.includes('/api/image-proxy')) {
+        if (normalizedUrl.startsWith('http')) return normalizedUrl;
+        return `${API_BASE}${normalizedUrl.startsWith('/') ? '' : '/'}${normalizedUrl}`;
+    }
+    if (normalizedUrl.startsWith('data:image/')) {
+        return normalizedUrl;
     }
     
     // List of external domains that need proxying (CORS/Hotlinking)
@@ -52,8 +61,9 @@ export const getFullUrl = (input) => {
         'localhost'
     ];
 
+    const hostname = (typeof window !== 'undefined' && window.location) ? window.location.hostname : 'localhost';
     const isDirect = directDomains.some(d => normalizedUrl.includes(d)) ||
-                     normalizedUrl.includes(window.location.hostname);
+                     (hostname && normalizedUrl.includes(hostname));
 
     if (isDirect) {
         return normalizedUrl;
@@ -74,52 +84,96 @@ export const getFullUrl = (input) => {
 };
 
 /**
+ * Static high-definition logo registry for established contract manufacturers & marketplaces.
+ */
+export const STATIC_BRAND_LOGOS = {
+    'narbutas': 'https://media.architonic.com/m-on/10001981/logo/narbutas_logo_1b5b.jpg',
+    'b&t design': 'https://media.architonic.com/m-on/3103498/logo/b-t-design_logo_f158.jpg',
+    'bt design': 'https://media.architonic.com/m-on/3103498/logo/b-t-design_logo_f158.jpg',
+    'ottimo': 'https://ottimouae.com/wp-content/uploads/2022/08/ottimo-logo.png',
+    'ottimo furniture': 'https://ottimouae.com/wp-content/uploads/2022/08/ottimo-logo.png',
+    'nurus': 'https://media.architonic.com/m-on/3100100/logo/nurus_logo_773d.jpg',
+    'sedus': 'https://media.architonic.com/m-on/3100165/logo/sedus-stoll_logo_8141.jpg',
+    'sedus stoll': 'https://media.architonic.com/m-on/3100165/logo/sedus-stoll_logo_8141.jpg',
+    'sokoa': 'https://media.architonic.com/m-on/3103368/logo/sokoa_logo_03bb.jpg',
+    'las': 'https://www.las.it/wp-content/themes/las/assets/images/logo-las-white.svg',
+    'ofifran': 'https://media.architonic.com/m-on/3104433/logo/ofifran_logo_2977.jpg',
+    'rim': 'https://media.architonic.com/m-on/3105033/logo/rim_logo_98da.jpg',
+    'pedrali': 'https://media.architonic.com/m-on/3100115/logo/pedrali_logo_f3da.jpg',
+    'arper': 'https://media.architonic.com/m-on/3100610/logo/arper_logo_2bf8.jpg',
+    'frezza': 'https://media.architonic.com/m-on/3101675/logo/frezza_logo_dc96.jpg',
+    'm&w': 'https://www.mwworkstation.com/Public/www/images/logo.png',
+    'mw structure test': 'https://www.mwworkstation.com/Public/www/images/logo.png',
+    'dauphin': 'https://media.architonic.com/m-on/3102096/logo/dauphin_logo_84d7.jpg',
+    'dauphin products, collections and more': 'https://media.architonic.com/m-on/3102096/logo/dauphin_logo_84d7.jpg',
+    'teknion': 'https://www.teknion.com/docs/default-source/sitetemplatefiles/logo.svg',
+    'teknion me': 'https://www.teknion.com/docs/default-source/sitetemplatefiles/logo.svg',
+    'freifrau': 'https://media.architonic.com/m-on/3104694/logo/freifrau_logo_5cf3.jpg',
+    'dedon': 'https://media.architonic.com/m-on/3100020/logo/dedon_logo_691e.jpg',
+    'emu': 'https://media.architonic.com/m-on/3100062/logo/emu_logo_01dc.jpg',
+    'figueras': 'https://media.architonic.com/m-on/3100234/logo/figueras_logo_fba6.jpg',
+    'ton': 'https://media.architonic.com/m-on/3100171/logo/ton_logo_1a8e.jpg',
+    'moonako': 'https://moodie.ae/wp-content/uploads/2023/08/moonako-logo.svg',
+    'moodie': 'https://moodie.ae/wp-content/uploads/2023/08/moodie-logo.svg',
+    'andreu world': 'https://media.architonic.com/m-on/3100015/logo/andreu-world_logo_3979.jpg',
+    'magis': 'https://media.architonic.com/m-on/3100013/logo/magis_logo_f158.jpg',
+    'wiesner hager': 'https://media.architonic.com/m-on/3100185/logo/wiesner-hager_logo_e11d.jpg',
+    'wiesner-hager': 'https://media.architonic.com/m-on/3100185/logo/wiesner-hager_logo_e11d.jpg',
+    'interstuhl': 'https://media.architonic.com/m-on/3100016/logo/interstuhl_logo_70da.jpg',
+    'wilkhahn': 'https://media.architonic.com/m-on/3100017/logo/wilkhahn_logo_8a43.jpg',
+    'boss design': 'https://media.architonic.com/m-on/3101569/logo/boss-design_logo_f158.jpg',
+    'bene': 'https://media.architonic.com/m-on/3100024/logo/bene_logo_5cf3.jpg',
+    'walter knoll': 'https://media.architonic.com/m-on/3100012/logo/walter-knoll_logo_4da1.jpg',
+    'cassina': 'https://media.architonic.com/m-on/3100003/logo/cassina_logo_8141.jpg',
+    'poltrona frau': 'https://media.architonic.com/m-on/3100004/logo/poltrona-frau_logo_773d.jpg',
+    'viccarbe': 'https://media.architonic.com/m-on/3100877/logo/viccarbe_logo_3979.jpg',
+    'moroso': 'https://media.architonic.com/m-on/3100005/logo/moroso_logo_2bf8.jpg',
+    'hay': 'https://media.architonic.com/m-on/3101594/logo/hay_logo_1b5b.jpg',
+    'muuto': 'https://media.architonic.com/m-on/3102434/logo/muuto_logo_01dc.jpg',
+    'kinnarps': 'https://media.architonic.com/m-on/3100021/logo/kinnarps_logo_691e.jpg',
+    'flokk': 'https://media.architonic.com/m-on/3104690/logo/flokk_logo_03bb.jpg',
+    'amazon': 'https://upload.wikimedia.org/wikipedia/commons/a/a9/Amazon_logo.svg',
+    'noon': 'https://z.nooncdn.com/s/app/com/noon/images/logos/noon-black-en.svg',
+    'vitra': 'https://media.architonic.com/m-on/3100007/logo/vitra_logo_b412.jpg',
+    'herman miller': 'https://media.architonic.com/m-on/3100010/logo/herman-miller_logo_53b0.jpg',
+    'steelcase': 'https://media.architonic.com/m-on/3100008/logo/steelcase_logo_b8d6.jpg',
+    'haworth': 'https://media.architonic.com/m-on/3100018/logo/haworth_logo_9bfb.jpg',
+    'knoll': 'https://media.architonic.com/m-on/3100011/logo/knoll_logo_5c50.jpg'
+};
+
+/**
  * Gets the proxy-wrapped brand logo URL.
- * If no logo is found on the brand object, generates a domain-based fallback using Clearbit Logo API.
+ * Checks brand object, static CDN registry, or generates a clean SVG monogram badge.
  */
 export const getBrandLogo = (brand) => {
     if (!brand) return '';
     
-    // If brand has a valid logo, proxy/normalize it
-    if (brand.logo) {
+    // 1. If brand has a valid explicit logo URL, proxy and return
+    if (brand.logo && typeof brand.logo === 'string' && brand.logo.trim() && !brand.logo.includes('clearbit.com')) {
         return getFullUrl(brand.logo);
     }
     
-    // Otherwise, generate a Clearbit Logo API fallback based on brand name
-    const name = brand.name || '';
-    const cleanName = name.toLowerCase().trim().replace(/[^a-z0-9]/g, '');
-    if (!cleanName) return '';
+    // 2. Check Static High-Definition Brand Logo Map
+    const name = (typeof brand === 'string' ? brand : (brand.name || '')).toLowerCase().trim();
+    if (STATIC_BRAND_LOGOS[name]) {
+        return getFullUrl(STATIC_BRAND_LOGOS[name]);
+    }
+
+    // 3. Check partial matches in static registry
+    for (const [key, logoUrl] of Object.entries(STATIC_BRAND_LOGOS)) {
+        if (name.includes(key) || key.includes(name)) {
+            return getFullUrl(logoUrl);
+        }
+    }
     
-    // Map common brands to their actual domains
-    const brandDomains = {
-        'homedesign': 'homedesign.it',
-        'narbutas': 'narbutas.com',
-        'pedrali': 'pedrali.it',
-        'poliform': 'poliform.it',
-        'amara': 'amara.com',
-        'b&t design': 'bt.design',
-        'bt design': 'bt.design',
-        'arper': 'arper.com',
-        'true design': 'truedesign.it',
-        'divani': 'divani.it',
-        'ottimo': 'ottimo.design',
-        'infiniti': 'infinitidesign.it',
-        'vitra': 'vitra.com',
-        'herman miller': 'hermanmiller.com',
-        'steelcase': 'steelcase.com',
-        'sedus': 'sedus.com',
-        'haworth': 'haworth.com',
-        'knoll': 'knoll.com',
-        'boss design': 'bossdesign.com'
-    };
-    
-    const domain = brandDomains[name.toLowerCase().trim()] || `${cleanName}.com`;
-    return `https://logo.clearbit.com/${domain}`;
+    // 4. Return instant SVG monogram fallback with crisp branding colors
+    return getBrandLogoFallback(brand);
 };
+
 export const getBrandLogoFallback = (brand) => {
     if (!brand) return '';
-    const name = brand.name || 'B';
-    const initial = name[0].toUpperCase();
+    const name = (typeof brand === 'string' ? brand : (brand.name || 'B')).trim();
+    const initial = (name[0] || 'B').toUpperCase();
     
     // Select stable premium HSL/Hex color palette based on name hash
     const colors = [

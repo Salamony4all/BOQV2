@@ -6,12 +6,12 @@
     <title>Auto Browser Bridge</title>
     <style>
         body {
-            width: 320px;
+            width: 340px;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             background: #0f172a;
             color: #f8fafc;
             margin: 0;
-            padding: 16px;
+            padding: 14px;
         }
         h2 {
             margin: 0 0 4px 0;
@@ -24,14 +24,39 @@
         .subtitle {
             font-size: 0.75rem;
             color: #94a3b8;
-            margin-bottom: 14px;
+            margin-bottom: 12px;
         }
+        .tabs {
+            display: flex;
+            gap: 4px;
+            margin-bottom: 14px;
+            border-bottom: 1px solid #334155;
+        }
+        .tab-btn {
+            padding: 6px 12px;
+            border: none;
+            border-radius: 6px 6px 0 0;
+            background: #1e293b;
+            color: #94a3b8;
+            font-size: 0.78rem;
+            font-weight: 600;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            transition: all 0.15s ease;
+        }
+        .tab-btn.active {
+            background: #1e3a5f;
+            color: #38bdf8;
+            border-bottom: 2px solid #38bdf8;
+        }
+        .tab-panel { display: none; }
+        .tab-panel.active { display: block; }
         .status-card {
             background: #1e293b;
             border: 1px solid #334155;
             border-radius: 8px;
             padding: 12px;
-            margin-bottom: 14px;
+            margin-bottom: 12px;
             font-size: 0.8rem;
         }
         .status-row {
@@ -39,21 +64,10 @@
             justify-content: space-between;
             margin-bottom: 6px;
         }
-        .status-row:last-child {
-            margin-bottom: 0;
-        }
-        .label {
-            color: #94a3b8;
-        }
-        .value {
-            font-weight: 600;
-            color: #cbd5e1;
-            text-align: right;
-            word-break: break-all;
-        }
-        .value.active {
-            color: #10b981;
-        }
+        .status-row:last-child { margin-bottom: 0; }
+        .label { color: #94a3b8; }
+        .value { font-weight: 600; color: #cbd5e1; text-align: right; word-break: break-all; }
+        .value.active { color: #10b981; }
         .btn {
             display: block;
             width: 100%;
@@ -66,67 +80,105 @@
             cursor: pointer;
             transition: all 0.15s ease;
             text-align: center;
+            box-sizing: border-box;
         }
-        .btn-primary {
-            background: #38bdf8;
-            color: #0f172a;
-            box-shadow: 0 4px 12px rgba(56, 189, 248, 0.15);
-        }
-        .btn-primary:hover:not(:disabled) {
-            background: #7dd3fc;
-        }
-        .btn-secondary {
-            background: #10b981;
-            color: #ffffff;
-            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.15);
-        }
-        .btn-secondary:hover:not(:disabled) {
-            background: #34d399;
-        }
-        .btn:disabled {
-            background: #1e293b;
-            border: 1px solid #334155;
-            color: #475569;
-            cursor: not-allowed;
-            box-shadow: none;
-        }
+        .btn-secondary { background: #10b981; color: #fff; box-shadow: 0 4px 12px rgba(16,185,129,0.15); }
+        .btn-secondary:hover:not(:disabled) { background: #34d399; }
+        .btn-lens { background: linear-gradient(135deg, #7c3aed, #a855f7); color: #fff; box-shadow: 0 4px 12px rgba(124,58,237,0.3); }
+        .btn-lens:hover:not(:disabled) { background: linear-gradient(135deg, #8b5cf6, #c084fc); }
+        .btn:disabled { background: #1e293b; border: 1px solid #334155; color: #475569; cursor: not-allowed; box-shadow: none; }
         .logs-container {
             background: #0b1329;
             border: 1px solid #1e293b;
             border-radius: 6px;
             padding: 8px;
-            height: 90px;
+            height: 80px;
             overflow-y: auto;
             font-family: monospace;
             font-size: 0.75rem;
             color: #38bdf8;
             margin-top: 4px;
         }
+        .lens-input {
+            width: 100%;
+            box-sizing: border-box;
+            background: #1e293b;
+            border: 1px solid #334155;
+            border-radius: 6px;
+            padding: 8px 10px;
+            color: #f8fafc;
+            font-size: 0.82rem;
+            margin-bottom: 8px;
+            outline: none;
+        }
+        .lens-input:focus { border-color: #7c3aed; }
+        .lens-result-card {
+            background: #1e293b;
+            border: 1px solid #334155;
+            border-radius: 6px;
+            padding: 10px;
+            margin-bottom: 6px;
+            font-size: 0.78rem;
+        }
+        .lens-result-title { color: #c4b5fd; font-weight: 600; margin-bottom: 3px; }
+        .lens-result-source { color: #94a3b8; font-size: 0.72rem; }
+        .lens-result-link { color: #38bdf8; text-decoration: none; font-size: 0.73rem; }
+        .lens-result-link:hover { text-decoration: underline; }
+        #lens_results { max-height: 180px; overflow-y: auto; }
+        .badge { display: inline-block; padding: 2px 7px; border-radius: 20px; font-size: 0.7rem; font-weight: 700; }
+        .badge-lens { background: rgba(124,58,237,0.25); color: #c4b5fd; border: 1px solid rgba(124,58,237,0.4); }
+        .badge-ai { background: rgba(56,189,248,0.15); color: #38bdf8; border: 1px solid rgba(56,189,248,0.3); }
     </style>
 </head>
 <body>
     <h2><img src="favicon.png" alt="Logo" style="width: 20px; height: 20px; border-radius: 4px;" /> Auto Browser Bridge</h2>
-    <div class="subtitle">Direct Portal Automation Bridge</div>
-    
-    <div class="status-card">
-        <div class="status-row">
-            <span class="label">Portal Window:</span>
-            <span id="conn_status" class="value">Disconnected</span>
-        </div>
-        <div class="status-row">
-            <span class="label">Target Domain:</span>
-            <span id="target_url" class="value">-</span>
-        </div>
-        <div class="status-row">
-            <span class="label">Active BOQ Chunk:</span>
-            <span id="boq_status" class="value">Awaiting synchronization...</span>
-        </div>
+    <div class="subtitle">Automation &amp; Product Matching Engine</div>
+
+    <div class="tabs">
+        <button class="tab-btn active" id="tab1_btn">⚡ Tender Board</button>
+        <button class="tab-btn" id="tab2_btn">🔍 Lens Matcher</button>
     </div>
 
-    <button id="btn_fill" class="btn btn-secondary" disabled>⚡ Execute Bulk Fill</button>
+    <!-- TAB 1: Tender Board Autofill -->
+    <div id="tab1" class="tab-panel active">
+        <div class="status-card">
+            <div class="status-row">
+                <span class="label">Portal Window:</span>
+                <span id="conn_status" class="value">Disconnected</span>
+            </div>
+            <div class="status-row">
+                <span class="label">Target Domain:</span>
+                <span id="target_url" class="value">-</span>
+            </div>
+            <div class="status-row">
+                <span class="label">Active BOQ Chunk:</span>
+                <span id="boq_status" class="value">Awaiting synchronization...</span>
+            </div>
+        </div>
 
-    <div class="subtitle" style="margin-top: 12px; margin-bottom: 4px; font-weight: bold;">Activity Log:</div>
-    <div id="logs" class="logs-container">> Ready for actions. Open the React app and connect a session.</div>
+        <button id="btn_fill" class="btn btn-secondary" disabled>⚡ Execute Bulk Fill</button>
+
+        <div class="subtitle" style="margin-top: 12px; margin-bottom: 4px; font-weight: bold;">Activity Log:</div>
+        <div id="logs" class="logs-container">> Ready for actions. Open the React app and connect a session.</div>
+    </div>
+
+    <!-- TAB 2: Google Lens Visual Matcher -->
+    <div id="tab2" class="tab-panel">
+        <div class="status-card" style="padding: 10px;">
+            <div style="font-size: 0.78rem; color: #94a3b8; margin-bottom: 8px;">
+                🎯 Paste any product image URL to run a <strong>silent Google Lens</strong> visual match — zero AI tokens, 100% visual accuracy.
+            </div>
+            <span class="badge badge-lens">🔍 Google Lens</span>
+            &nbsp;
+            <span class="badge badge-ai">🤖 Auto-triggered from BOQ app</span>
+        </div>
+
+        <input id="lens_img_url" class="lens-input" type="text" placeholder="Paste product image URL here..." />
+        <button id="btn_lens_search" class="btn btn-lens">🔍 Run Lens Visual Match</button>
+
+        <div id="lens_status" class="subtitle" style="margin-top: 4px; min-height: 18px;"></div>
+        <div id="lens_results"></div>
+    </div>
 
     <script src="popup.js"></script>
 </body>

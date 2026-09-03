@@ -7,6 +7,9 @@ import ValueEngineeredModal from './ValueEngineeredModal';
 import ProjectSettingsPanel from './ProjectSettingsPanel';
 import TenderAutofillModal from './TenderAutofillModal';
 import PptxTemplateModal from './PptxTemplateModal';
+import AISemanticMatchModal from './AISemanticMatchModal';
+import MultiImageCell from './MultiImageCell';
+import ImageGalleryModal from './ImageGalleryModal';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
@@ -49,6 +52,19 @@ function TableViewer({
     const [pptxSourceTables, setPptxSourceTables] = useState(null);
     const [pptxAsPdf, setPptxAsPdf] = useState(false);
     const [pptxIsCosted, setPptxIsCosted] = useState(false);
+    const [semanticMatchTarget, setSemanticMatchTarget] = useState(null);
+    const [isSemanticModalOpen, setSemanticModalOpen] = useState(false);
+    const [matchingRowKey, setMatchingRowKey] = useState(null);
+    const [galleryModal, setGalleryModal] = useState({
+        isOpen: false,
+        images: [],
+        initialIndex: 0,
+        title: '',
+        subtitle: '',
+        tableIndex: null,
+        rowIndex: null,
+        cellIndex: null
+    });
 
 
     // Close on Escape
@@ -122,7 +138,7 @@ function TableViewer({
                                 const matchedMetaRow = meta.rows.find(mr => mr.pageNum === row.pageNum && mr.rowIdx === rIdx);
                                 if (matchedMetaRow) {
                                     const newCells = [...row.cells];
-                                    const imgIdx = table.header.findIndex(h => /image|photo|picture|img|pic|ref/i.test(h));
+                                    const imgIdx = table.header.findIndex(h => /\b(image|photo|picture|img|pic|illustration|drawing|sketch)\b/i.test(h) || /\b(image\s*ref|photo\s*ref|pic\s*ref)\b/i.test(h));
                                     if (imgIdx !== -1 && newCells[imgIdx]) {
                                         newCells[imgIdx] = {
                                             ...newCells[imgIdx],
@@ -180,7 +196,7 @@ function TableViewer({
             const qtyIdx = header.findIndex(h => /qty|quantity|qt/i.test(h));
             const unitIdx = header.findIndex(h => /unit|uom/i.test(h));
             const descIdx = header.findIndex(h => /description|desc|disc|item|product/i.test(h));
-            const imgIdx = header.findIndex(h => /image|photo|picture|img|pic|ref/i.test(h));
+            const imgIdx = header.findIndex(h => /\b(image|photo|picture|img|pic|illustration|drawing|sketch)\b/i.test(h) || /\b(image\s*ref|photo\s*ref|pic\s*ref)\b/i.test(h));
 
             // Calculate totals
             let totalRate = 0;
@@ -315,6 +331,283 @@ function TableViewer({
         const newTables = [...tables];
         newTables[tableIndex].rows[rowIndex].cells[cellIndex].value = newValue;
         setTables(newTables);
+    };
+
+    const handleUpdateCellImages = (tableIndex, rowIndex, cellIndex, newImages) => {
+        setTables(prevTables => {
+            const next = [...prevTables];
+            const targetTable = { ...next[tableIndex] };
+            const rows = [...targetTable.rows];
+            const targetRow = { ...rows[rowIndex] };
+            const newCells = [...targetRow.cells];
+            const cell = { ...newCells[cellIndex] };
+
+            const normalized = (newImages || []).map(u => (typeof u === 'string' ? { url: u } : u));
+            cell.images = normalized;
+            cell.image = normalized[0] ? (typeof normalized[0] === 'string' ? normalized[0] : normalized[0].url) : null;
+
+            newCells[cellIndex] = cell;
+            targetRow.cells = newCells;
+            rows[rowIndex] = targetRow;
+            targetTable.rows = rows;
+            next[tableIndex] = targetTable;
+            return next;
+        });
+    };
+
+    const handleOpenSemanticMatch = (tableIndex, rowIndex, row, header) => {
+        const descIdx = header.findIndex(h => /description|desc|disc|item|spec/i.test(h));
+        const modelIdx = header.findIndex(h => /model|code|item_code|product/i.test(h));
+        const qtyIdx = header.findIndex(h => /qty|quantity|qt/i.test(h));
+        const unitIdx = header.findIndex(h => /unit|uom/i.test(h));
+        const brandIdx = header.findIndex(h => /brand|maker|manufacturer/i.test(h));
+        const snIdx = header.findIndex(h => /sn|s\.n|item\s*no|pos|#/i.test(h));
+        const imgIdx = header.findIndex(h => /\b(image|photo|picture|img|pic|illustration|drawing|sketch)\b/i.test(h) || /\b(image\s*ref|photo\s*ref|pic\s*ref)\b/i.test(h));
+
+        const cellImages = (imgIdx !== -1 && row.cells[imgIdx])
+            ? (row.cells[imgIdx].images || (row.cells[imgIdx].image ? [row.cells[imgIdx].image] : []))
+            : [];
+        const firstImg = cellImages.length > 0
+            ? (typeof cellImages[0] === 'string' ? cellImages[0] : (cellImages[0].url || cellImages[0].src || ''))
+            : (imgIdx !== -1 ? row.cells[imgIdx]?.image : null);
+
+        const currentTable = tables[tableIndex];
+        const categoryHint = row.sectionLabel || currentTable?.sheetName || '';
+
+        // Consolidate full row text from all relevant columns (Item name, description, size, finishes, reference links/URLs)
+        const descParts = [];
+        const excludedRegex = /^(s\.?n\.?|item\s*no|pos|#|qty|quantity|qt|unit\s*rate|unit\s*price|rate|price|amount|total|image|photo|picture|img|pic)$/i;
+
+        header.forEach((h, cIdx) => {
+            if (excludedRegex.test(h.trim())) return;
+            const cellVal = (row.cells[cIdx]?.value || '').trim();
+            if (cellVal && cellVal !== '-' && cellVal !== 'NO REF' && cellVal !== 'BOQ_ONLY' && !descParts.includes(cellVal)) {
+                descParts.push(cellVal);
+            }
+        });
+
+        // Scan all row cells for embedded manufacturer/dealer URLs (e.g. bt.design, workspace.ae)
+        row.cells.forEach(cell => {
+            const val = (cell?.value || '').trim();
+            const urlMatches = val.match(/https?:\/\/[^\s\)\],]+/gi);
+            if (urlMatches) {
+                urlMatches.forEach(u => {
+                    if (!descParts.some(p => p.includes(u))) {
+                        descParts.push(u);
+                    }
+                });
+            }
+        });
+
+        const fullDescription = descParts.length > 0 ? descParts.join(' | ') : (descIdx !== -1 ? row.cells[descIdx]?.value : (row.cells[1]?.value || ''));
+
+        const itemObj = {
+            tableIndex,
+            rowIndex,
+            code: snIdx !== -1 ? row.cells[snIdx]?.value : `${rowIndex + 1}`,
+            description: fullDescription,
+            model: modelIdx !== -1 ? row.cells[modelIdx]?.value : '',
+            brand: brandIdx !== -1 ? row.cells[brandIdx]?.value : '',
+            quantity: qtyIdx !== -1 ? parseFloat(row.cells[qtyIdx]?.value) || 1 : 1,
+            unit: unitIdx !== -1 ? row.cells[unitIdx]?.value : 'pcs',
+            imageUrl: firstImg || null,
+            images: cellImages,
+            category: categoryHint
+        };
+
+        setSemanticMatchTarget(itemObj);
+        setSemanticModalOpen(true);
+    };
+
+    const handleSelectSemanticProduct = (product) => {
+        if (!semanticMatchTarget || !product) return;
+        const { tableIndex, rowIndex } = semanticMatchTarget;
+
+        setTables(prevTables => {
+            const nextTables = [...prevTables];
+            const targetTable = { ...nextTables[tableIndex] };
+            const header = targetTable.header || [];
+            const rows = [...targetTable.rows];
+            const targetRow = { ...rows[rowIndex] };
+            const newCells = [...targetRow.cells];
+
+            const modelIdx = header.findIndex(h => /model|code|item_code|product/i.test(h));
+            const brandIdx = header.findIndex(h => /brand|maker|manufacturer/i.test(h));
+            const rateIdx = header.findIndex(h => /unit\s*rate|unit\s*price|rate|price/i.test(h));
+            const amountIdx = header.findIndex(h => /amount|total(?!.*(qty|quantity))/i.test(h));
+            const qtyIdx = header.findIndex(h => /qty|quantity|qt/i.test(h));
+            const imgIdx = header.findIndex(h => /\b(image|photo|picture|img|pic|illustration|drawing|sketch)\b/i.test(h) || /\b(image\s*ref|photo\s*ref|pic\s*ref)\b/i.test(h));
+
+            if (modelIdx !== -1 && newCells[modelIdx]) {
+                newCells[modelIdx] = { ...newCells[modelIdx], value: product.model || newCells[modelIdx].value };
+            }
+            if (brandIdx !== -1 && newCells[brandIdx]) {
+                newCells[brandIdx] = { ...newCells[brandIdx], value: product.brand || newCells[brandIdx].value };
+            }
+            if (rateIdx !== -1 && newCells[rateIdx] && product.price > 0) {
+                const numericPrice = parseFloat(product.price) || 0;
+                newCells[rateIdx] = { ...newCells[rateIdx], value: numericPrice.toFixed(2) };
+                if (qtyIdx !== -1 && amountIdx !== -1 && newCells[amountIdx]) {
+                    const qty = parseFloat(newCells[qtyIdx]?.value) || 1;
+                    newCells[amountIdx] = { ...newCells[amountIdx], value: (numericPrice * qty).toFixed(2) };
+                }
+            }
+            if (imgIdx !== -1 && newCells[imgIdx] && product.imageUrl) {
+                const rawImgs = product.images && Array.isArray(product.images) && product.images.length > 0
+                    ? product.images
+                    : [product.imageUrl];
+                newCells[imgIdx] = {
+                    ...newCells[imgIdx],
+                    image: product.imageUrl,
+                    images: rawImgs
+                };
+            }
+
+            targetRow.cells = newCells;
+            targetRow.aiStatus = 'success';
+            targetRow.matchedProduct = product;
+            rows[rowIndex] = targetRow;
+            targetTable.rows = rows;
+            nextTables[tableIndex] = targetTable;
+            return nextTables;
+        });
+    };
+
+    const handleQuickAutoMatchRow = async (tableIndex, rowIndex, row, header) => {
+        const rowKey = `${tableIndex}_${rowIndex}`;
+        setMatchingRowKey(rowKey);
+
+        const descIdx = header.findIndex(h => /description|desc|disc|item|spec/i.test(h));
+        const modelIdx = header.findIndex(h => /model|code|item_code|product/i.test(h));
+        const qtyIdx = header.findIndex(h => /qty|quantity|qt/i.test(h));
+        const unitIdx = header.findIndex(h => /unit|uom/i.test(h));
+        const brandIdx = header.findIndex(h => /brand|maker|manufacturer/i.test(h));
+        const snIdx = header.findIndex(h => /sn|s\.n|item\s*no|pos|#/i.test(h));
+        const imgIdx = header.findIndex(h => /image|photo|picture|img|pic|ref/i.test(h));
+
+        const cellImages = (imgIdx !== -1 && row.cells[imgIdx])
+            ? (row.cells[imgIdx].images || (row.cells[imgIdx].image ? [row.cells[imgIdx].image] : []))
+            : [];
+        const firstImg = cellImages.length > 0
+            ? (typeof cellImages[0] === 'string' ? cellImages[0] : (cellImages[0].url || cellImages[0].src || ''))
+            : (imgIdx !== -1 ? row.cells[imgIdx]?.image : null);
+
+        const currentTable = tables[tableIndex];
+        const categoryHint = row.sectionLabel || currentTable?.sheetName || '';
+        const descToMatch = descIdx !== -1 ? row.cells[descIdx]?.value : (row.cells[1]?.value || '');
+        const qtyVal = qtyIdx !== -1 ? parseFloat(row.cells[qtyIdx]?.value) || 1 : 1;
+        const unitVal = unitIdx !== -1 ? row.cells[unitIdx]?.value : 'pcs';
+
+        try {
+            const apiBase = getApiBase();
+            const brandNames = (allBrands && allBrands.length > 0)
+                ? allBrands.map(b => b.name)
+                : ['B&T Design', 'NARBUTAS', 'Nurus', 'FREZZA', 'LAS', 'Sedus Stoll', 'Ofifran', 'Arper', 'Teknion ME', 'AMARA', 'Ottimo Furniture', 'Sokoa', 'Rim'];
+
+            // Run primary VE Auto-Detect pipeline with specification grounding
+            let matchedProduct = null;
+            let matchedAlternatives = [];
+
+            const veRes = await fetch(`${apiBase}/api/ve-match-auto`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    description: descToMatch,
+                    qty: qtyVal,
+                    unit: unitVal,
+                    imageUrl: firstImg,
+                    imageAssets: cellImages.map(img => typeof img === 'string' ? { url: img } : img),
+                    category: categoryHint,
+                    tier: 'mid'
+                })
+            }).then(r => r.json()).catch(() => null);
+
+            if (veRes && veRes.status === 'success' && veRes.product) {
+                matchedProduct = veRes.product;
+                matchedAlternatives = veRes.alternatives || [];
+            }
+
+            if (!matchedProduct) {
+                // Secondary check via Auto-Match AI
+                const res = await fetch(`${apiBase}/api/auto-match-ai`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        description: descToMatch,
+                        qty: qtyVal,
+                        unit: unitVal,
+                        tier: 'mid',
+                        availableBrands: brandNames,
+                        provider: 'google',
+                        scope: 'Furniture'
+                    })
+                });
+                const data = await res.json();
+                if (data.status === 'success' && data.product) {
+                    matchedProduct = data.product;
+                    matchedAlternatives = data.alternatives || [];
+                }
+            }
+
+            if (matchedProduct) {
+                setTables(prevTables => {
+                    const nextTables = [...prevTables];
+                    const targetTable = { ...nextTables[tableIndex] };
+                    const tHeader = targetTable.header || [];
+                    const tRows = [...targetTable.rows];
+                    const targetRow = { ...tRows[rowIndex] };
+                    const newCells = [...targetRow.cells];
+
+                    const mIdx = tHeader.findIndex(h => /model|code|item_code|product/i.test(h));
+                    const bIdx = tHeader.findIndex(h => /brand|maker|manufacturer/i.test(h));
+                    const rIdx = tHeader.findIndex(h => /unit\s*rate|unit\s*price|rate|price/i.test(h));
+                    const aIdx = tHeader.findIndex(h => /amount|total(?!.*(qty|quantity))/i.test(h));
+                    const qIdx = tHeader.findIndex(h => /qty|quantity|qt/i.test(h));
+                    const iIdx = tHeader.findIndex(h => /image|photo|picture|img|pic|ref/i.test(h));
+
+                    if (mIdx !== -1 && newCells[mIdx]) {
+                        newCells[mIdx] = { ...newCells[mIdx], value: matchedProduct.model || newCells[mIdx].value };
+                    }
+                    if (bIdx !== -1 && newCells[bIdx]) {
+                        newCells[bIdx] = { ...newCells[bIdx], value: matchedProduct.brand || newCells[bIdx].value };
+                    }
+                    if (rIdx !== -1 && newCells[rIdx] && matchedProduct.price > 0) {
+                        const numericPrice = parseFloat(matchedProduct.price) || 0;
+                        newCells[rIdx] = { ...newCells[rIdx], value: numericPrice.toFixed(2) };
+                        if (qIdx !== -1 && aIdx !== -1 && newCells[aIdx]) {
+                            const qty = parseFloat(newCells[qIdx]?.value) || 1;
+                            newCells[aIdx] = { ...newCells[aIdx], value: (numericPrice * qty).toFixed(2) };
+                        }
+                    }
+                    if (iIdx !== -1 && newCells[iIdx] && matchedProduct.imageUrl) {
+                        const rawImgs = matchedProduct.images && Array.isArray(matchedProduct.images) && matchedProduct.images.length > 0
+                            ? matchedProduct.images
+                            : [matchedProduct.imageUrl];
+                        newCells[iIdx] = {
+                            ...newCells[iIdx],
+                            image: matchedProduct.imageUrl,
+                            images: rawImgs
+                        };
+                    }
+
+                    targetRow.cells = newCells;
+                    targetRow.aiStatus = 'success';
+                    targetRow.matchedProduct = matchedProduct;
+                    targetRow.alternatives = matchedAlternatives;
+                    tRows[rowIndex] = targetRow;
+                    targetTable.rows = tRows;
+                    nextTables[tableIndex] = targetTable;
+                    return nextTables;
+                });
+            } else {
+                handleOpenSemanticMatch(tableIndex, rowIndex, row, header);
+            }
+        } catch (e) {
+            console.error('Quick auto-match error:', e);
+            handleOpenSemanticMatch(tableIndex, rowIndex, row, header);
+        } finally {
+            setMatchingRowKey(null);
+        }
     };
 
     const handleAddRow = (tableIndex, rowIndex) => {
@@ -638,7 +931,7 @@ function TableViewer({
 
             // Find column indices
             const header = table.header || [];
-            let imgColIdx = header.findIndex(h => /image|photo|picture|img|pic|ref/i.test(h));
+            let imgColIdx = header.findIndex(h => /\b(image|photo|picture|img|pic|illustration|drawing|sketch)\b/i.test(h) || /\b(image\s*ref|photo\s*ref|pic\s*ref)\b/i.test(h));
 
             // Robust check: if no "Image" header, find column that actually has images
             if (imgColIdx === -1) {
@@ -1084,7 +1377,7 @@ function TableViewer({
             const hasCosting = true;
 
             const header = table.header || [];
-            let imgColIdx = header.findIndex(h => /image|photo|picture|img|pic|ref/i.test(h));
+            let imgColIdx = header.findIndex(h => /\b(image|photo|picture|img|pic|illustration|drawing|sketch)\b/i.test(h) || /\b(image\s*ref|photo\s*ref|pic\s*ref)\b/i.test(h));
 
             // Robust check: if no "Image" header, find column that actually has images
             if (imgColIdx === -1) {
@@ -3616,7 +3909,7 @@ function TableViewer({
                                             {(row.cells || []).map((cell, cellIndex) => {
                                                 const CellTag = row.isHeader ? 'th' : 'td';
                                                 const cellValue = cell && cell.value !== undefined ? cell.value : '';
-                                                const isSnCol = /s\.?n|no|#|sr|item|sl/i.test(table.header?.[cellIndex] || '');
+                                                const isSnCol = cellIndex === 0 || /^(s\.?n\.?|sl\.?no\.?|sr\.?no\.?|item\s*#?|item\s*no\.?|#|no\.?)$/i.test(String(table.header?.[cellIndex] || '').trim());
 
                                                 return (
                                                     <CellTag key={cellIndex} className={`${styles.cell} ${cell?.images?.length || /brand\s*(img|logo|image)/i.test(table.header?.[cellIndex]) ? styles.imageCell : ''}`}>
@@ -3646,27 +3939,39 @@ function TableViewer({
                                                                 }
                                                             }
 
-                                                            // Standard extraction image fallback
-                                                            if (cell && ((cell.images && cell.images.length > 0) || cell.image)) {
+                                                            // Standard extraction image fallback or image column (strictly verified)
+                                                            const isImageCol = /\b(image|photo|picture|img|pic|illustration|drawing|sketch)\b/i.test(headerName) || /\b(image\s*ref|photo\s*ref|pic\s*ref)\b/i.test(headerName);
+                                                            if (cell && isImageCol) {
+                                                                const rawImages = cell.images && cell.images.length > 0 ? cell.images : (cell.image ? [cell.image] : []);
+                                                                const cellId = `tbl_${tableIndex}_row_${rowIndex}_col_${cellIndex}`;
+                                                                const descIdx = table.header?.findIndex(h => /description|desc|item/i.test(h));
+                                                                const rowTitle = descIdx !== -1 ? row.cells[descIdx]?.value : `Row #${rowIndex + 1}`;
+
                                                                 return (
-                                                                    <div className={(cell.images?.length > 1) ? styles.imageGrid : styles.cellImage}>
-                                                                        {(cell.images || [cell.image]).map((imgData, imgIdx) => (
-                                                                            <img
-                                                                                key={imgIdx}
-                                                                                src={getFullUrl(imgData)}
-                                                                                alt="Thumb"
-                                                                                className={styles.image}
-                                                                                onClick={() => imgData && setSelectedImage(getFullUrl(imgData))}
-                                                                                onError={(e) => {
-                                                                                    e.target.style.display = 'none';
-                                                                                    const ph = document.createElement('div');
-                                                                                    ph.className = styles.imgNoData;
-                                                                                    ph.textContent = 'No Image';
-                                                                                    e.target.parentNode.appendChild(ph);
-                                                                                }}
-                                                                                style={{ cursor: 'pointer' }}
-                                                                            />
-                                                                        ))}
+                                                                    <div style={{ padding: '2px 0' }}>
+                                                                        <MultiImageCell
+                                                                            images={rawImages}
+                                                                            cellId={cellId}
+                                                                            size={86}
+                                                                            altPrefix="Ref"
+                                                                            itemTitle={rowTitle}
+                                                                            allowDrop={!isCosted && !row.isHeader}
+                                                                            allowRemove={!isCosted && !row.isHeader}
+                                                                            allowDrag={!isCosted && !row.isHeader}
+                                                                            onImagesChange={(newImgs) => handleUpdateCellImages(tableIndex, rowIndex, cellIndex, newImgs)}
+                                                                            onPreview={(imgs, targetIdx) => {
+                                                                                setGalleryModal({
+                                                                                    isOpen: true,
+                                                                                    images: imgs,
+                                                                                    initialIndex: targetIdx,
+                                                                                    title: `Item Image (${targetIdx + 1}/${imgs.length})`,
+                                                                                    subtitle: rowTitle,
+                                                                                    tableIndex,
+                                                                                    rowIndex,
+                                                                                    cellIndex
+                                                                                });
+                                                                            }}
+                                                                        />
                                                                     </div>
                                                                 );
                                                             }
@@ -3693,6 +3998,23 @@ function TableViewer({
                                             })}
                                             {!row.isHeader && !isCosted && (
                                                 <td className={styles.actionCell}>
+                                                    <button 
+                                                        className={styles.actionBtn} 
+                                                        style={{ 
+                                                            background: 'linear-gradient(135deg, #6366f1, #a855f7)', 
+                                                            color: '#fff', 
+                                                            fontSize: '0.75rem', 
+                                                            padding: '2px 7px', 
+                                                            width: 'auto', 
+                                                            borderRadius: '6px',
+                                                            fontWeight: 600,
+                                                            boxShadow: '0 2px 6px rgba(99, 102, 241, 0.3)'
+                                                        }}
+                                                        title="✨ AI Auto-Match & Inspector (Opens live multimodal matcher with real-time throbber & alternatives)"
+                                                        onClick={() => handleOpenSemanticMatch(tableIndex, rowIndex, row, table.header)}
+                                                    >
+                                                        ✨
+                                                    </button>
                                                     <button className={`${styles.actionBtn} ${styles.addBtn}`} onClick={() => handleAddRow(tableIndex, rowIndex)}>+</button>
                                                     <button className={`${styles.actionBtn} ${styles.removeBtn}`} onClick={() => handleRemoveRow(tableIndex, rowIndex)}>×</button>
                                                 </td>
@@ -3842,6 +4164,22 @@ function TableViewer({
                     >
                         ✨ AI Value Engineer
                     </button>
+                    <label className={actionStyles.btnMultiBudget} style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', background: '#0f766e', borderColor: '#0d9488' }}>
+                        <input
+                            type="file"
+                            accept=".xlsx,.xls,.pdf,.png,.jpg,.jpeg"
+                            style={{ display: 'none' }}
+                            multiple
+                            onChange={(e) => {
+                                const files = Array.from(e.target.files || []).filter(Boolean);
+                                if (files.length > 0 && onUploadBoq) {
+                                    onUploadBoq(files);
+                                }
+                                e.target.value = '';
+                            }}
+                        />
+                        ➕ Append / Batch BOQs
+                    </label>
                 </div>
                 {costingFactors && (
                     <div style={{ marginTop: '1rem', fontSize: '0.9rem', color: UI_COLORS.muted }}>
@@ -3963,6 +4301,35 @@ function TableViewer({
                 onExport={handleTemplateModalExport}
                 isGenerating={!!generatingType}
             />
+
+            <AISemanticMatchModal
+                isOpen={isSemanticModalOpen}
+                onClose={() => {
+                    setSemanticModalOpen(false);
+                    setSemanticMatchTarget(null);
+                }}
+                item={semanticMatchTarget}
+                allBrands={allBrands}
+                onSelectProduct={handleSelectSemanticProduct}
+            />
+
+            {galleryModal.isOpen && (
+                <ImageGalleryModal
+                    images={galleryModal.images}
+                    initialIndex={galleryModal.initialIndex}
+                    title={galleryModal.title}
+                    subtitle={galleryModal.subtitle}
+                    onRemoveImage={galleryModal.tableIndex !== null && galleryModal.tableIndex !== undefined ? (removedIdx) => {
+                        const currentImgs = (Array.isArray(galleryModal.images) ? galleryModal.images : [galleryModal.images])
+                            .map(img => (typeof img === 'string' ? img : (img?.url || img?.data || img?.src || '')))
+                            .filter(Boolean);
+                        const updated = currentImgs.filter((_, idx) => idx !== removedIdx);
+                        handleUpdateCellImages(galleryModal.tableIndex, galleryModal.rowIndex, galleryModal.cellIndex, updated);
+                        setGalleryModal(prev => ({ ...prev, images: updated }));
+                    } : null}
+                    onClose={() => setGalleryModal(prev => ({ ...prev, isOpen: false }))}
+                />
+            )}
 
             {selectedImage && (
                 <div className={styles.modalOverlay} onClick={() => setSelectedImage(null)}>

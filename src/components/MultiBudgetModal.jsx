@@ -11,6 +11,8 @@ import styles from '../styles/MultiBudgetModal.module.css';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import BrandDropdown from './BrandDropdown';
+import MultiImageCell from './MultiImageCell';
+import ImageGalleryModal from './ImageGalleryModal';
 import { findDescColumn, cellImageUrls } from '../utils/boqUtils';
 
 import { useCompanyProfile } from '../context/CompanyContext';
@@ -92,6 +94,15 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
     const [previewLogo, setPreviewLogo] = useState(null);
     const [previewBrand, setPreviewBrand] = useState(null);
     const [previewModel, setPreviewModel] = useState(null);
+    const [galleryModal, setGalleryModal] = useState({
+        isOpen: false,
+        images: [],
+        initialIndex: 0,
+        title: '',
+        subtitle: '',
+        brandLogo: null,
+        brandName: null
+    });
     const [planPreviewOpen, setPlanPreviewOpen] = useState(false);
     const [isFurnitureAutoFilling, setIsFurnitureAutoFilling] = useState(false);
     const [isFitoutAutoFilling, setIsFitoutAutoFilling] = useState(false);
@@ -377,14 +388,14 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
     };
 
     const getUniqueValues = (items, keyPath) => {
-        if (!items || items.length === 0) return null;
+        if (!items || items.length === 0) return [];
         const results = [...new Set(items.map(i => {
             const parts = keyPath.split('.');
             let val = i;
             for (const part of parts) { val = val?.[part]; }
             return val;
         }).filter(Boolean))];
-        return results.length > 0 ? results : null;
+        return results;
     };
 
     const handleAutoFillAI = () => {
@@ -2718,7 +2729,24 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
             }
             return b.name === row.selectedBrand;
         }) || brands.find(b => b.name === row.selectedBrand);
-        const brandProducts = activeBrand?.products || [];
+        let brandProducts = activeBrand?.products ? [...activeBrand.products] : [];
+
+        // 🌟 Ensure that whatever the row was matched with (model, categories, url) is always present in brandProducts:
+        if (row.selectedModel) {
+            const hasModel = brandProducts.some(p => p && p.model && p.model.toLowerCase().trim() === String(row.selectedModel).toLowerCase().trim());
+            if (!hasModel) {
+                brandProducts.unshift({
+                    model: row.selectedModel,
+                    mainCategory: row.selectedMainCat || 'Furniture',
+                    subCategory: row.selectedSubCat || 'General',
+                    family: row.selectedFamily || 'Standard',
+                    productUrl: row.selectedModelUrl || row.brandImage || '',
+                    imageUrl: row.brandImage || '',
+                    description: row.brandDesc || row.selectedModel,
+                    price: row.rate || 0
+                });
+            }
+        }
 
         const mergeUnique = (plist, key1, key2) => {
             const set = new Set();
@@ -2731,24 +2759,51 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
             return Array.from(set).sort();
         };
 
-        const mainCats = mergeUnique(brandProducts, 'normalization.category', 'mainCategory');
-        const matchingByMain = brandProducts.filter(p => (p.normalization?.category || p.mainCategory) === row.selectedMainCat);
-        const subCats = mergeUnique(matchingByMain, 'normalization.subCategory', 'subCategory');
-        const families = getUniqueValues(brandProducts.filter(p =>
-            (p.normalization?.category || p.mainCategory) === row.selectedMainCat &&
-            (p.normalization?.subCategory || p.subCategory) === row.selectedSubCat
-        ), 'family');
+        const mainCats = mergeUnique(brandProducts, 'mainCategory', 'category');
+        if (row.selectedMainCat && !mainCats.some(c => c.toLowerCase().trim() === String(row.selectedMainCat).toLowerCase().trim())) {
+            mainCats.push(row.selectedMainCat);
+        }
 
-        const allRawModels = brandProducts.filter(p =>
-            (p.normalization?.category || p.mainCategory) === row.selectedMainCat &&
-            (p.normalization?.subCategory || p.subCategory) === row.selectedSubCat &&
-            (p.family || '') === (row.selectedFamily || '')
-        );
+        const matchingByMain = brandProducts.filter(p => {
+            if (!row.selectedMainCat) return true;
+            const pCat = String(p.mainCategory || p.category || p.normalization?.category || '').toLowerCase().trim();
+            const rowCat = String(row.selectedMainCat).toLowerCase().trim();
+            return pCat === rowCat || pCat.includes(rowCat) || rowCat.includes(pCat);
+        });
+
+        const subCats = mergeUnique(matchingByMain, 'subCategory', 'normalization.subCategory');
+        if (row.selectedSubCat && !subCats.some(s => s.toLowerCase().trim() === String(row.selectedSubCat).toLowerCase().trim())) {
+            subCats.push(row.selectedSubCat);
+        }
+
+        const families = Array.from(new Set(brandProducts.filter(p => {
+            const pCat = String(p.mainCategory || p.category || '').toLowerCase().trim();
+            const rowCat = String(row.selectedMainCat || '').toLowerCase().trim();
+            const pSub = String(p.subCategory || '').toLowerCase().trim();
+            const rowSub = String(row.selectedSubCat || '').toLowerCase().trim();
+            const catMatch = !rowCat || pCat === rowCat || pCat.includes(rowCat) || rowCat.includes(pCat);
+            const subMatch = !rowSub || pSub === rowSub || pSub.includes(rowSub) || rowSub.includes(pSub);
+            return catMatch && subMatch;
+        }).map(p => p.family).filter(Boolean))).sort();
+
+        let allRawModels = brandProducts.filter(p => {
+            const pCat = String(p.mainCategory || p.category || '').toLowerCase().trim();
+            const rowCat = String(row.selectedMainCat || '').toLowerCase().trim();
+            const pSub = String(p.subCategory || '').toLowerCase().trim();
+            const rowSub = String(row.selectedSubCat || '').toLowerCase().trim();
+            const catMatch = !rowCat || pCat === rowCat || pCat.includes(rowCat) || rowCat.includes(pCat);
+            const subMatch = !rowSub || pSub === rowSub || pSub.includes(rowSub) || rowSub.includes(pSub);
+            return catMatch && subMatch;
+        });
+
+        if (allRawModels.length === 0 && brandProducts.length > 0) {
+            allRawModels = brandProducts;
+        }
 
         const rawModels = [];
         const seenUids = new Set();
         allRawModels.forEach(p => {
-            const uid = p.productUrl || p.imageUrl || `id_${p.id || Math.random()}`;
+            const uid = p.productUrl || p.imageUrl || `id_${p.id || p.model || Math.random()}`;
             if (!seenUids.has(uid)) {
                 seenUids.add(uid);
                 rawModels.push(p);
@@ -2757,8 +2812,9 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
 
         const modelGroups = {};
         rawModels.forEach(p => {
-            if (!modelGroups[p.model]) modelGroups[p.model] = [];
-            modelGroups[p.model].push(p);
+            const mKey = p.model || 'Standard';
+            if (!modelGroups[mKey]) modelGroups[mKey] = [];
+            modelGroups[mKey].push(p);
         });
 
         const modelOptions = [];
@@ -2774,6 +2830,11 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                 });
             });
         });
+
+        if (row.selectedModel && !modelOptions.some(o => o.rawModel && o.rawModel.toLowerCase().trim() === String(row.selectedModel).toLowerCase().trim())) {
+            const uid = row.selectedModelUrl || row.brandImage || `model_${row.selectedModel}`;
+            modelOptions.unshift({ value: uid, label: row.selectedModel, rawModel: row.selectedModel });
+        }
 
         const rowStatusClass = row.aiStatus === 'processing' ? styles.aiPulse :
             row.aiStatus === 'success' ? styles.aiGlow :
@@ -2808,44 +2869,43 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                 </td>
 
                 {isBoqMode && (
-                    <td style={{ verticalAlign: 'middle', minWidth: 72 }}>
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
-                            {(row.imageRefs?.length ? row.imageRefs : (row.imageRef ? [row.imageRef] : [])).length > 0 ? (
-                                <div className={styles.tableImgContainer}>
-                                    {(row.imageRefs?.length ? row.imageRefs : [row.imageRef]).map((ref, imgIdx) => {
-                                        const src = getFullUrl(ref);
-                                        return (
-                                            <img
-                                                key={imgIdx}
-                                                src={src}
-                                                alt={`ref ${imgIdx + 1}`}
-                                                className={styles.tableImg}
-                                                style={imgIdx > 0 ? { marginTop: 4 } : undefined}
-                                                onClick={(e) => {
-                                                    if (e.target.dataset.broken === 'true') return;
-                                                    setPreviewImage(src);
-                                                    setPreviewLogo(null);
-                                                    setPreviewBrand('Original Reference');
-                                                    setPreviewModel(row.description);
-                                                }}
-                                                onError={(e) => {
-                                                    e.target.dataset.broken = 'true';
-                                                    e.target.style.opacity = '0.3';
-                                                    e.target.style.filter = 'grayscale(1)';
-                                                    e.target.title = 'Image not available (session expired – re-upload to refresh)';
-                                                }}
-                                            />
-                                        );
-                                    })}
-                                    {row.aiStatus === 'processing' && <div className={styles.rowScanner}></div>}
-                                </div>
-                            ) : (
-                                <div className={styles.tableImgContainer} style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>
-                                    No Img
-                                    {row.aiStatus === 'processing' && <div className={styles.rowScanner}></div>}
-                                </div>
-                            )}
-                        </div>
+                    <td style={{ verticalAlign: 'middle', minWidth: 80, textAlign: 'center' }}>
+                        <MultiImageCell
+                            images={row.imageRefs?.length ? row.imageRefs : (row.imageRef ? [row.imageRef] : [])}
+                            cellId={`mb_${activeTier}_ref_${row.id || index}`}
+                            altPrefix="Ref"
+                            itemTitle={row.description || `Item #${row.sn}`}
+                            size={68}
+                            onImagesChange={(newImgs) => {
+                                setTierData(prev => {
+                                    const newState = { ...prev };
+                                    const tier = newState[activeTier];
+                                    if (!tier || !tier.rows) return prev;
+                                    const newRows = [...tier.rows];
+                                    newRows[index] = {
+                                        ...newRows[index],
+                                        imageRefs: newImgs,
+                                        imageRef: newImgs[0] || null
+                                    };
+                                    newState[activeTier] = { ...tier, rows: newRows };
+                                    return newState;
+                                });
+                            }}
+                            onPreview={(imgs, targetIdx) => {
+                                setGalleryModal({
+                                    isOpen: true,
+                                    images: imgs,
+                                    initialIndex: targetIdx,
+                                    title: `Reference Images (${targetIdx + 1}/${imgs.length})`,
+                                    subtitle: row.description || `Item #${row.sn}`,
+                                    tierName: activeTier,
+                                    rowIndex: index,
+                                    targetField: 'ref',
+                                    brandLogo: null,
+                                    brandName: 'Original Specification'
+                                });
+                            }}
+                        />
                     </td>
                 )}
 
@@ -2866,46 +2926,44 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                     </span>
                 </td>
 
-                <td style={{ verticalAlign: 'middle', minWidth: 80 }}>
-                    <div className={styles.brandImageCell}>
-                        {row.brandLogo && (
-                            <div className={styles.brandLogoBadge}>
-                                <img
-                                    src={getFullUrl(row.brandLogo)}
-                                    alt=""
-                                    className={styles.badgeLogo}
-                                    onError={(e) => { e.target.style.display = 'none'; }}
-                                />
-                            </div>
-                        )}
-                        {row.brandImage ? (
-                            <div className={styles.tableImgContainer}>
-                                <img
-                                    src={getFullUrl(row.brandImage)}
-                                    alt="brand"
-                                    className={styles.tableImg}
-                                    onClick={(e) => {
-                                        if (e.target.dataset.broken === 'true') return;
-                                        setPreviewImage(getFullUrl(row.brandImage));
-                                        setPreviewLogo(getFullUrl(row.brandLogo));
-                                        setPreviewBrand(row.selectedBrand);
-                                        setPreviewModel(row.selectedModel);
-                                    }}
-                                    onError={(e) => {
-                                        e.target.dataset.broken = 'true';
-                                        e.target.style.opacity = '0.3';
-                                        e.target.style.filter = 'grayscale(1)';
-                                    }}
-                                />
-                                {row.aiStatus === 'processing' && <div className={styles.rowScanner}></div>}
-                            </div>
-                        ) : (
-                            <div className={styles.tableImgContainer} style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>
-                                {row.aiStatus === 'processing' ? 'Searching...' : 'Select'}
-                                {row.aiStatus === 'processing' && <div className={styles.rowScanner}></div>}
-                            </div>
-                        )}
-                    </div>
+                <td style={{ verticalAlign: 'middle', minWidth: 80, textAlign: 'center' }}>
+                    <MultiImageCell
+                        images={row.brandImage ? [row.brandImage] : []}
+                        singleMode={true}
+                        cellId={`mb_${activeTier}_brand_${row.id || index}`}
+                        brandLogo={row.brandLogo}
+                        altPrefix={row.selectedModel || "Product"}
+                        itemTitle={`${row.selectedBrand || 'Brand'} ${row.selectedModel || ''}`}
+                        size={68}
+                        onImagesChange={(newImgs) => {
+                            setTierData(prev => {
+                                const newState = { ...prev };
+                                const tier = newState[activeTier];
+                                if (!tier || !tier.rows) return prev;
+                                const newRows = [...tier.rows];
+                                newRows[index] = {
+                                    ...newRows[index],
+                                    brandImage: newImgs[0] || ''
+                                };
+                                newState[activeTier] = { ...tier, rows: newRows };
+                                return newState;
+                            });
+                        }}
+                        onPreview={(imgs, targetIdx) => {
+                            setGalleryModal({
+                                isOpen: true,
+                                images: imgs,
+                                initialIndex: targetIdx,
+                                title: row.selectedModel || 'Matched Product',
+                                subtitle: row.brandDesc || row.description,
+                                tierName: activeTier,
+                                rowIndex: index,
+                                targetField: 'brand',
+                                brandLogo: row.brandLogo,
+                                brandName: row.selectedBrand
+                            });
+                        }}
+                    />
                 </td>
 
                 <td style={{ verticalAlign: 'middle', minWidth: 160 }}>
@@ -2962,27 +3020,27 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                             )}
                         </div>
                         {row.selectedBrand && (
-                            <select className={styles.productSelect} value={row.selectedMainCat} onChange={(e) => handleCellChange(index, 'selectedMainCat', e.target.value)}>
+                            <select className={styles.productSelect} value={row.selectedMainCat || ''} onChange={(e) => handleCellChange(index, 'selectedMainCat', e.target.value)}>
                                 <option value="">Category...</option>
                                 {(mainCats || []).map(c => <option key={c} value={c}>{c}</option>)}
                             </select>
                         )}
-                        {row.selectedMainCat && (
-                            <select className={styles.productSelect} value={row.selectedSubCat} onChange={(e) => handleCellChange(index, 'selectedSubCat', e.target.value)}>
+                        {(row.selectedMainCat || (subCats || []).length > 0) && (
+                            <select className={styles.productSelect} value={row.selectedSubCat || ''} onChange={(e) => handleCellChange(index, 'selectedSubCat', e.target.value)}>
                                 <option value="">Sub-Category...</option>
                                 {(subCats || []).map(c => <option key={c} value={c}>{c}</option>)}
                             </select>
                         )}
-                        {row.selectedSubCat && (
-                            <select className={styles.productSelect} value={row.selectedFamily} onChange={(e) => handleCellChange(index, 'selectedFamily', e.target.value)}>
+                        {(families || []).length > 0 && (
+                            <select className={styles.productSelect} value={row.selectedFamily || ''} onChange={(e) => handleCellChange(index, 'selectedFamily', e.target.value)}>
                                 <option value="">Family...</option>
                                 {(families || []).map(c => <option key={c} value={c}>{c}</option>)}
                             </select>
                         )}
-                        {row.selectedFamily && (
+                        {(row.selectedSubCat || (modelOptions || []).length > 0) && (
                             <select
                                 className={styles.productSelect}
-                                value={row.selectedModelUrl || ''}
+                                value={row.selectedModelUrl || (modelOptions.find(o => o.rawModel === row.selectedModel)?.value || '')}
                                 onChange={(e) => {
                                     const opt = modelOptions.find(o => o.value === e.target.value);
                                     handleCellChange(index, 'selectedModel', {
@@ -3364,6 +3422,48 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                         </div>
                     </div>
                 </div>
+            )}
+            {galleryModal.isOpen && (
+                <ImageGalleryModal
+                    images={galleryModal.images}
+                    initialIndex={galleryModal.initialIndex}
+                    title={galleryModal.title}
+                    subtitle={galleryModal.subtitle}
+                    brandLogo={galleryModal.brandLogo}
+                    brandName={galleryModal.brandName}
+                    onRemoveImage={galleryModal.rowIndex !== undefined && galleryModal.rowIndex !== null ? (removedIdx) => {
+                        const tier = galleryModal.tierName || activeTier;
+                        const rowIdx = galleryModal.rowIndex;
+                        const isRef = galleryModal.targetField === 'ref';
+                        const currentImgs = (Array.isArray(galleryModal.images) ? galleryModal.images : [galleryModal.images])
+                            .map(img => (typeof img === 'string' ? img : (img?.url || img?.data || img?.src || '')))
+                            .filter(Boolean);
+                        const updated = currentImgs.filter((_, idx) => idx !== removedIdx);
+
+                        setTierData(prev => {
+                            const newState = { ...prev };
+                            const targetTier = newState[tier];
+                            if (!targetTier || !targetTier.rows) return prev;
+                            const newRows = [...targetTier.rows];
+                            if (isRef) {
+                                newRows[rowIdx] = {
+                                    ...newRows[rowIdx],
+                                    imageRefs: updated,
+                                    imageRef: updated[0] || null
+                                };
+                            } else {
+                                newRows[rowIdx] = {
+                                    ...newRows[rowIdx],
+                                    brandImage: updated[0] || ''
+                                };
+                            }
+                            newState[tier] = { ...targetTier, rows: newRows };
+                            return newState;
+                        });
+                        setGalleryModal(prev => ({ ...prev, images: updated }));
+                    } : null}
+                    onClose={() => setGalleryModal(prev => ({ ...prev, isOpen: false }))}
+                />
             )}
             <AddBrandModal
                 isOpen={isAddBrandOpen}

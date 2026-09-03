@@ -1343,54 +1343,14 @@
       "mainCategory": "Furniture"
     },
     {
-      "model": "se:lab island",
-      "price": 0,
+      "model": "se:spot stackable chair",
+      "price": 175,
       "family": "Sedus Stoll",
-      "imageUrl": "https://placehold.co/240x240/ffffff/000000?text=Image%20not%20found",
-      "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:lab-island-20799325/",
-      "description": "Contract tables. Multifunctional meeting island for agile working // Working, meeting, socialising – se:lab island is the ideal place for agile working with an outdoor",
-      "subCategory": "Conference Furniture",
-      "mainCategory": "Furniture"
-    },
-    {
-      "model": "se:lab island",
-      "price": 0,
-      "family": "Sedus Stoll",
-      "imageUrl": "https://placehold.co/240x240/ffffff/000000?text=Image%20not%20found",
-      "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:lab-island-20799326/",
-      "description": "Contract tables. Multifunctional meeting island for agile working // Working, meeting, socialising – se:lab island is the ideal place for agile working with an outdoor",
-      "subCategory": "Conference Furniture",
-      "mainCategory": "Furniture"
-    },
-    {
-      "model": "se:lab island",
-      "price": 0,
-      "family": "Sedus Stoll",
-      "imageUrl": "https://placehold.co/240x240/ffffff/000000?text=Image%20not%20found",
-      "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:lab-island-20799327/",
-      "description": "Contract tables. Multifunctional meeting island for agile working // Working, meeting, socialising – se:lab island is the ideal place for agile working with an outdoor",
-      "subCategory": "Conference Furniture",
-      "mainCategory": "Furniture"
-    },
-    {
-      "model": "se:lab island",
-      "price": 0,
-      "family": "Sedus Stoll",
-      "imageUrl": "https://placehold.co/240x240/ffffff/000000?text=Image%20not%20found",
-      "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:lab-island-20799328/",
-      "description": "Contract tables. Multifunctional meeting island for agile working // Working, meeting, socialising – se:lab island is the ideal place for agile working with an outdoor",
-      "subCategory": "Conference Furniture",
-      "mainCategory": "Furniture"
-    },
-    {
-      "model": "se:lab island",
-      "price": 0,
-      "family": "Sedus Stoll",
-      "imageUrl": "https://placehold.co/240x240/ffffff/000000?text=Image%20not%20found",
-      "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:lab-island-20799330/",
-      "description": "Contract tables. Multifunctional meeting island for agile working // Working, meeting, socialising – se:lab island is the ideal place for agile working with an outdoor",
-      "subCategory": "Conference Furniture",
-      "mainCategory": "Furniture"
+      "imageUrl": "https://media.architonic.com/m-on/3100165/product/1574507/sedus-stoll_se-spot_199be28f.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:spot-1574507/",
+      "description": "Multi-purpose stackable conference, classroom and seminar chair with 4-leg metal frame and polypropylene shell.",
+      "subCategory": "Conference Chairs",
+      "mainCategory": "Office Seating"
     },
     {
       "model": "invitation",
@@ -1403,34 +1363,24 @@
       "mainCategory": "Furniture"
     },
     {
-      "model": "temptation four",
-      "price": 0,
+      "model": "meet chair mt-222",
+      "price": 160,
       "family": "Sedus Stoll",
-      "imageUrl": "https://media.architonic.com/m-on/3100165/product/1067172/sedus-stoll_temptation-four_398052c1.jpeg?format=webp&quality=75",
-      "productUrl": "https://www.architonic.com/en/p/sedus-stoll-temptation-four-1067172/",
-      "description": "Contract tables. Sedus temptation four is a basic table range which combines innovative design with intelligent technology and solid value for money. The latest",
-      "subCategory": "Conference Furniture",
-      "mainCategory": "Furniture"
+      "imageUrl": "https://media.architonic.com/m-on/3100165/product/1049819/sedus-stoll_invitation_d52ff3ed.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/sedus-stoll-meet-chair-mt-222-1067172/",
+      "description": "Multi-purpose 4-leg stackable student and conference chair with polypropylene shell and floor glides.",
+      "subCategory": "Conference Chairs",
+      "mainCategory": "Office Seating"
     },
     {
-      "model": "mastermind",
-      "price": 0,
+      "model": "se:mood multi-purpose chair",
+      "price": 185,
       "family": "Sedus Stoll",
-      "imageUrl": "https://media.architonic.com/m-on/3100165/product/1312128/sedus-stoll_mastermind_a8cea1e1.jpeg?format=webp&quality=75",
-      "productUrl": "https://www.architonic.com/en/p/sedus-stoll-mastermind-1312128/",
-      "description": "Contract tables. Relaunch of the “mastermind” conference table system – communication culture with unlimited possibilities.\n\nThe solutions offered by Sedus with the",
-      "subCategory": "Conference Furniture",
-      "mainCategory": "Furniture"
-    },
-    {
-      "model": "temptation four",
-      "price": 0,
-      "family": "Sedus Stoll",
-      "imageUrl": "https://media.architonic.com/m-on/3100165/product/1067173/sedus-stoll_temptation-four_cd7487e6.jpeg?format=webp&quality=75",
-      "productUrl": "https://www.architonic.com/en/p/sedus-stoll-temptation-four-1067173/",
-      "description": "Contract tables. Sedus temptation four is a basic table range which combines innovative design with intelligent technology and solid value for money. The latest",
-      "subCategory": "Conference Furniture",
-      "mainCategory": "Furniture"
+      "imageUrl": "https://media.architonic.com/m-on/3100165/product/1574507/sedus-stoll_se-spot_199be28f.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se-mood-1312128/",
+      "description": "Ergonomic stackable seminar and training chair with polypropylene shell and 4-leg metal frame.",
+      "subCategory": "Conference Chairs",
+      "mainCategory": "Office Seating"
     },
     {
       "model": "se:lab highdesk",

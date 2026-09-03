@@ -163,7 +163,7 @@ function looksLikeHeader(texts) {
 function classifyHeader(text) {
     const t = normText(text).toLowerCase();
     if (/^(s\.?n\.?|sl\.?no\.?|sr\.?no\.?|no\.?|#|item\s*no|serial|code|tag)$/.test(t) || /item\s*code|product\s*code|art\.?-\s*no/i.test(t)) return 'sn';
-    if (/image|photo|picture|img|pic|ref/i.test(t) && !/code|tag/i.test(t)) return 'image';
+    if (/\b(image|photo|picture|img|pic|illustration|drawing|sketch)\b/i.test(t) || /\b(image\s*ref|photo\s*ref|pic\s*ref)\b/i.test(t)) return 'image';
     if (/qty|quantity|qnty|qt|vol/i.test(t)) return 'qty';
     if (/description|desc|disc|product|specification|material|particulars|details|item/i.test(t)) return 'description';
     if (/amount|total|value|sum|subtotal|\btp\b|\btp\//i.test(t) || /ext\.?\s*net|ext\.?\s*price|ext\.?\s*cost|extended/i.test(t)) return 'amount';

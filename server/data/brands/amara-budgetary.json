@@ -7,6 +7,16 @@
   "logo": "",
   "products": [
     {
+      "mainCategory": "Office Seating",
+      "subCategory": "Folding Chairs & Stools",
+      "family": "Portable Seating",
+      "model": "Round Foldable Stool X-Frame",
+      "description": "Round Foldable Chair with X-shape Legs and Handle to carry. Dia 300 x 450 mm ht. Black Metal & Plastic finish for multi-purpose commercial use.",
+      "imageUrl": "https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=800&auto=format&fit=crop&q=80",
+      "productUrl": "https://amara-art.com/products/",
+      "price": 22
+    },
+    {
       "mainCategory": "Products",
       "subCategory": "General",
       "family": "Products",

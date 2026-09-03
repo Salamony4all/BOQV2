@@ -576,18 +576,21 @@ function canonicalizeTable(table) {
   if (!table) return table;
   const h = table.header.map(x => normalizeInlineText(x).toLowerCase());
   const idx = (rx) => h.findIndex(x => rx.test(x));
-  const serialIdx = idx(/^(s\.?no|sl\.?no|item no|hierarchy|item code)$/);
-  const imageIdx = idx(/image|photo|picture|img|ref|drawing|sketch/);
-  const codeIdx = idx(/product code|article code|item code/);
+  const serialIdx = idx(/(s\.?no|sl\.?no|item no|hierarchy|item code|serial|mark|pos|ref|item|#|tag|bay|division|section|artikelnr|artikelnummer|position|الرقم|الرمز|البند)/i);
+  const imageIdx = idx(/(image|photo|picture|img|thumbnail|drawing|sketch|صورة)/i);
+  const codeIdx = idx(/(product code|article code|item code|ref code|code|mark|tag|offer code|spec code|artikelnummer|artikelnr|nrm2 ref|csi section|رمز)/i);
   
-  let descIdx = h.findIndex(x => /^description$|item description|item details/i.test(x));
-  if (descIdx === -1) descIdx = h.findIndex(x => /description|details/i.test(x));
-  if (descIdx === -1) descIdx = h.findIndex(x => /item name|product/i.test(x));
+  let descIdx = h.findIndex(x => /^description$|item description|item details|scope|specification|particulars|scope of supply|detailed product scope|leistungsbeschreibung|spezifikation|bezeichnung|work description|مواصفات|تفاصيل/i.test(x));
+  if (descIdx === -1) descIdx = h.findIndex(x => /description|details|specification|particulars|scope|leistungsbeschreibung|spezifikation|bezeichnung|مواصفات|تفاصيل/i.test(x));
+  if (descIdx === -1) descIdx = h.findIndex(x => /item name|product|material/i.test(x));
 
-  const unitIdx = idx(/^unit$|uom/);
-  const qtyIdx = idx(/qty|quantity/);
-  const rateIdx = idx(/unit rate|unit price|rate|sp\/eur|unit cost/);
-  const totalIdx = idx(/amount|total|tp\/eur/);
+  const unitIdx = idx(/(unit|uom|measurement|meas|einheit|stk|stck|menge|الوحدة|unite)/i);
+  const qtyIdx = idx(/(qty|quantity|estimated quantity|tender qty|req\.?\s*qty|qty dispatched|menge|anzahl|الكمية|required qty)/i);
+  const rateIdx = idx(/(unit rate|unit price|rate|sp\/eur|unit cost|agreed tariff|price|einheitspreis|preis|tariff|السعر)/i);
+  const totalIdx = idx(/(amount|total|tp\/eur|extended amount|net cost|total value|net amount|extended value|gesamtbetrag|gesamt|betrag|lump sum|الإجمالي|cost)/i);
+
+
+
 
   const hasImage = imageIdx >= 0;
   const targetHeader = hasImage
@@ -769,7 +772,20 @@ async function extractAndPairImagesVercel(pdfPath, table, sessionId, preloadedLa
   // 3. Pair remaining product images using spatial proximity
   const snIdx = table.header.findIndex(h => /s\.?no|sl\.?no|sn|item\s*no|serial/i.test(h));
   const descIdx = table.header.findIndex(h => /desc/i.test(h));
-  let imgIdx = table.header.findIndex(h => /image|photo|picture|img|ref|drawing|sketch/i.test(h));
+  let imgIdx = table.header.findIndex(h => /\b(image|photo|picture|img|pic|illustration|drawing|sketch)\b/i.test(h) || /\b(image\s*ref|photo\s*ref|pic\s*ref)\b/i.test(h));
+
+  if (imgIdx === -1) {
+    imgIdx = table.header.findIndex(h => /^(image|photo|picture|img|pic)$/i.test(h.trim()));
+  }
+
+  if (imgIdx === -1 && allImages.length > 0) {
+    // Insert an Image column if not already present
+    imgIdx = 1;
+    table.header.splice(imgIdx, 0, 'Image');
+    for (const r of table.rows) {
+      r.cells.splice(imgIdx, 0, { value: '', image: null, images: [], source: 'extracted', confidence: 0.98 });
+    }
+  }
 
   if (imgIdx === -1) {
     console.log('[WordPdfExtractorVercel] Table has no image column. Skipping image pairing.');
@@ -780,18 +796,31 @@ async function extractAndPairImagesVercel(pdfPath, table, sessionId, preloadedLa
 
   // 3a. Upload and finalize any card-extracted images already attached to rows in parallel chunks
   const uploadTasks = [];
+  const imageColumnIndices = [];
+  table.header.forEach((h, idx) => {
+    if (/\b(image|images|photo|photos|picture|img|pic|illustration|drawing|sketch)\b/i.test(h)) {
+      imageColumnIndices.push(idx);
+    }
+  });
+  if (!imageColumnIndices.includes(imgIdx) && imgIdx !== -1) imageColumnIndices.push(imgIdx);
+
   for (let i = 0; i < table.rows.length; i++) {
     const row = table.rows[i];
-    const attachedImages = row.cells[imgIdx]?.images || [];
-    if (!attachedImages.length) continue;
+    for (let c = 0; c < (row.cells || []).length; c++) {
+      const cell = row.cells[c];
+      const attachedImages = cell?.images || (cell?.image ? [cell.image] : []);
+      if (!attachedImages.length) continue;
 
-    for (let j = 0; j < attachedImages.length; j++) {
-      const img = attachedImages[j];
-      if (typeof img === 'string' && img.startsWith('http')) continue;
-      const pageNum = row.metadata?.specPage || row.pageNum || 1;
-      const filename = `page_${pageNum}_row_${i}_img_${j}_${crypto.randomUUID().slice(0, 8)}.png`;
-      const destPath = path.join(publicRoot, filename);
-      uploadTasks.push({ row, imgIndex: j, img, filename, destPath });
+      for (let j = 0; j < attachedImages.length; j++) {
+        const img = attachedImages[j];
+        if (typeof img === 'string' && img.startsWith('http')) continue;
+        if (img?.url && typeof img.url === 'string' && (img.url.startsWith('http') || img.url.startsWith('/temp/'))) continue;
+
+        const pageNum = row.metadata?.specPage || row.pageNum || 1;
+        const filename = `page_${pageNum}_row_${i}_col_${c}_img_${j}_${crypto.randomUUID().slice(0, 8)}.png`;
+        const destPath = path.join(publicRoot, filename);
+        uploadTasks.push({ row, cellColIdx: c, imgIndex: j, img, filename, destPath, pageNum });
+      }
     }
   }
 
@@ -799,27 +828,37 @@ async function extractAndPairImagesVercel(pdfPath, table, sessionId, preloadedLa
   const BATCH_SIZE = 10;
   for (let b = 0; b < uploadTasks.length; b += BATCH_SIZE) {
     const batch = uploadTasks.slice(b, b + BATCH_SIZE);
-    await Promise.all(batch.map(async ({ row, imgIndex, img, filename, destPath }) => {
+    await Promise.all(batch.map(async ({ row, cellColIdx, imgIndex, img, filename, destPath, pageNum }) => {
       const isVercel = process.env.VERCEL === '1';
       let imageUrl = isVercel ? null : `/temp/extracted_images/${sessionId}/${filename}`;
+      let imgBuffer = null;
       try {
-        if (img.buffer) {
-          await fs.writeFile(destPath, img.buffer);
-        } else if (img.path && fsSync.existsSync(img.path)) {
+        if (Buffer.isBuffer(img)) {
+          imgBuffer = img;
+        } else if (img?.buffer) {
+          imgBuffer = Buffer.isBuffer(img.buffer) ? img.buffer : Buffer.from(img.buffer);
+        } else if (img?.data) {
+          imgBuffer = Buffer.isBuffer(img.data) ? img.data : Buffer.from(img.data);
+        } else if (img?.path && fsSync.existsSync(img.path)) {
+          imgBuffer = await fs.readFile(img.path);
+        }
+
+        if (imgBuffer) {
+          await fs.writeFile(destPath, imgBuffer);
+        } else if (img?.path && fsSync.existsSync(img.path)) {
           await fs.copyFile(img.path, destPath);
         }
 
-        if (supabase) {
+        const isVercelEnv = !!(process.env.VERCEL === '1' || process.env.AWS_LAMBDA_FUNCTION_NAME);
+        if (supabase && isVercelEnv && (imgBuffer || fsSync.existsSync(destPath))) {
           try {
-            const imgData = img.buffer || (fsSync.existsSync(destPath) ? await fs.readFile(destPath) : null);
-            if (imgData) {
-              const supabasePath = `extracted-images/${sessionId}/${filename}`;
-              const uploadResult = await uploadToSupabase('assets', supabasePath, imgData, {
-                contentType: 'image/png',
-                cacheControl: '3600'
-              });
-              if (uploadResult?.url) imageUrl = uploadResult.url;
-            }
+            const dataToUpload = imgBuffer || await fs.readFile(destPath);
+            const supabasePath = `extracted-images/${sessionId}/${filename}`;
+            const uploadResult = await uploadToSupabase('assets', supabasePath, dataToUpload, {
+              contentType: 'image/png',
+              cacheControl: '3600'
+            });
+            if (uploadResult?.url) imageUrl = uploadResult.url;
           } catch (supErr) {
             console.warn(`[WordPdfExtractorVercel] Supabase upload notice for card image ${filename}: ${supErr.message}`);
           }
@@ -829,10 +868,27 @@ async function extractAndPairImagesVercel(pdfPath, table, sessionId, preloadedLa
       }
 
       if (imageUrl) {
-        const imgs = row.cells[imgIdx].images || [];
-        imgs[imgIndex] = imageUrl;
-        row.cells[imgIdx].images = imgs;
-        row.cells[imgIdx].image = imgs[0] || imageUrl;
+        const cleanObj = {
+          url: imageUrl,
+          extension: 'png',
+          source: 'pdf-wasm-mupdf',
+          pageNum,
+          confidence: 0.95
+        };
+        const imgs = [...(row.cells[cellColIdx].images || [])];
+        imgs[imgIndex] = cleanObj;
+        row.cells[cellColIdx].images = imgs;
+        row.cells[cellColIdx].image = imgs[0] || cleanObj;
+
+        // Mirror to primary image column if this cell is not the primary image column
+        if (imgIdx !== -1 && imgIdx !== cellColIdx) {
+          const primaryImgs = [...(row.cells[imgIdx]?.images || [])];
+          if (!primaryImgs.some(p => p.url === imageUrl)) {
+            primaryImgs.push(cleanObj);
+            row.cells[imgIdx].images = primaryImgs;
+            row.cells[imgIdx].image = primaryImgs[0] || cleanObj;
+          }
+        }
       }
     }));
   }
@@ -840,7 +896,7 @@ async function extractAndPairImagesVercel(pdfPath, table, sessionId, preloadedLa
   // 3b. For rows on tabular pages that DO NOT have attached images, perform spatial layout pairing
   for (const layout of layouts) {
     const pageNum = layout.page;
-    const pageRows = table.rows.filter(r => r.pageNum === pageNum && (!r.cells[imgIdx]?.images?.length));
+    const pageRows = table.rows.filter(r => (r.pageNum === pageNum || r.metadata?.pageNum === pageNum) && (!r.cells[imgIdx]?.images?.length));
     if (!pageRows.length) continue;
 
     const pageHeight = layout.viewport?.height || 1000;
@@ -851,10 +907,11 @@ async function extractAndPairImagesVercel(pdfPath, table, sessionId, preloadedLa
         
         const ar = img.w / img.h;
         const isProportional = ar >= 0.2 && ar <= 3.2;
-        const isNotMargin = img.y > 100 && img.y < (pageHeight - 100);
-        return img.w >= 25 && img.h >= 25 && isProportional && isNotMargin;
+        const isNotMargin = img.y > 35 && img.y < (pageHeight - 35);
+        return img.w >= 20 && img.h >= 20 && isProportional && isNotMargin;
       })
       .sort((a, b) => a.y - b.y || a.x - b.x);
+
 
     if (!productImages.length) continue;
 
@@ -937,7 +994,7 @@ async function extractAndPairImagesVercel(pdfPath, table, sessionId, preloadedLa
       }
     }
 
-    // Step 3c: Define regions and assign images
+    // Step 3c: Define regions and assign images using maximum bounding box overlap
     const rowRegions = [];
     for (let i = 0; i < pageRows.length; i++) {
       const startY = i === 0 ? 100 : (anchorYList[i - 1] + anchorYList[i]) / 2;
@@ -946,20 +1003,39 @@ async function extractAndPairImagesVercel(pdfPath, table, sessionId, preloadedLa
     }
 
     for (const img of productImages) {
-      const centerY = img.y + img.h / 2;
-      let matchedIdx = -1;
+      const imgTop = img.y;
+      const imgBottom = img.y + img.h;
+      let bestRowIdx = -1;
+      let maxOverlap = 0;
+
       for (let r = 0; r < rowRegions.length; r++) {
-        if (centerY >= rowRegions[r].startY && centerY < rowRegions[r].endY) {
-          matchedIdx = r;
-          break;
+        const overlapStart = Math.max(imgTop, rowRegions[r].startY);
+        const overlapEnd = Math.min(imgBottom, rowRegions[r].endY);
+        const overlap = Math.max(0, overlapEnd - overlapStart);
+
+        if (overlap > maxOverlap) {
+          maxOverlap = overlap;
+          bestRowIdx = r;
         }
       }
-      if (matchedIdx !== -1) {
-        rowRegions[matchedIdx].images.push(img);
+
+      if (bestRowIdx === -1 || maxOverlap === 0) {
+        const centerY = img.y + img.h / 2;
+        for (let r = 0; r < rowRegions.length; r++) {
+          if (centerY >= rowRegions[r].startY && centerY < rowRegions[r].endY) {
+            bestRowIdx = r;
+            break;
+          }
+        }
+      }
+
+      if (bestRowIdx !== -1) {
+        rowRegions[bestRowIdx].images.push(img);
       }
     }
 
-    // Step 3d: Save and pair matched images to each row
+    // Step 3d: Prepare parallel upload tasks for all matched images on this page
+    const pageUploadTasks = [];
     for (let i = 0; i < pageRows.length; i++) {
       const row = pageRows[i];
       const regionImages = rowRegions[i].images;
@@ -967,27 +1043,37 @@ async function extractAndPairImagesVercel(pdfPath, table, sessionId, preloadedLa
       if (regionImages.length > 0) {
         regionImages.sort((a, b) => a.x - b.x);
 
-        const rowImages = [];
         for (let j = 0; j < regionImages.length; j++) {
           const img = regionImages[j];
           const filename = `page_${pageNum}_row_${i}_img_${j}_${crypto.randomUUID().slice(0, 8)}.png`;
           const destPath = path.join(publicRoot, filename);
-          // On Vercel only /tmp is writable and NOTHING is served statically, so a
-          // "/temp/..." path is a dead link. Start with no URL there and only keep
-          // the local path off-Vercel (where public/temp IS served).
-          const isVercel = process.env.VERCEL === '1';
-          let imageUrl = isVercel ? null : `/temp/extracted_images/${sessionId}/${filename}`;
+          pageUploadTasks.push({ row, rowIdx: i, imgIdxInRow: j, img, filename, destPath, pageNum });
+        }
+      }
+    }
 
-          try {
-            if (img.buffer) {
-              await fs.writeFile(destPath, img.buffer);
-            } else if (img.path && fsSync.existsSync(img.path)) {
-              await fs.copyFile(img.path, destPath);
-            }
+    // Process page image uploads in parallel batches of 8
+    const PAGE_BATCH_SIZE = 8;
+    const rowImagesMap = new Map(); // row -> array of uploaded images
 
-            if (supabase) {
-              try {
-                const imgData = img.buffer || await fs.readFile(destPath);
+    for (let b = 0; b < pageUploadTasks.length; b += PAGE_BATCH_SIZE) {
+      const batch = pageUploadTasks.slice(b, b + PAGE_BATCH_SIZE);
+      await Promise.all(batch.map(async ({ row, rowIdx, imgIdxInRow, img, filename, destPath, pageNum }) => {
+        const isVercel = process.env.VERCEL === '1';
+        let imageUrl = isVercel ? null : `/temp/extracted_images/${sessionId}/${filename}`;
+
+        try {
+          if (img.buffer) {
+            await fs.writeFile(destPath, img.buffer);
+          } else if (img.path && fsSync.existsSync(img.path)) {
+            await fs.copyFile(img.path, destPath);
+          }
+
+          const isVercelEnv = !!(process.env.VERCEL === '1' || process.env.AWS_LAMBDA_FUNCTION_NAME);
+          if (supabase && isVercelEnv) {
+            try {
+              const imgData = img.buffer || (fsSync.existsSync(destPath) ? await fs.readFile(destPath) : null);
+              if (imgData) {
                 const supabasePath = `extracted-images/${sessionId}/${filename}`;
                 const uploadResult = await uploadToSupabase('assets', supabasePath, imgData, {
                   contentType: 'image/png',
@@ -995,37 +1081,40 @@ async function extractAndPairImagesVercel(pdfPath, table, sessionId, preloadedLa
                 });
                 if (uploadResult?.url) {
                   imageUrl = uploadResult.url;
-                  console.log(`[WordPdfExtractorVercel] Supabase upload success: ${imageUrl}`);
                 }
-              } catch (supErr) {
-                console.warn(`[WordPdfExtractorVercel] Supabase upload notice for ${filename}: ${supErr.message}`);
               }
+            } catch (supErr) {
+              console.warn(`[WordPdfExtractorVercel] Supabase upload notice for ${filename}: ${supErr.message}`);
             }
-
-            // Skip emitting a broken link: on Vercel a null URL means the Supabase
-            // upload failed and there is no web-servable fallback.
-            if (!imageUrl) {
-              console.warn(`[WordPdfExtractorVercel] Dropping image ${filename}: no servable URL (Supabase upload unavailable on Vercel).`);
-              continue;
-            }
-
-            rowImages.push({
-              url: imageUrl,
-              extension: 'png',
-              source: 'pdf-wasm-mupdf',
-              pageNum,
-              confidence: 0.85
-            });
-          } catch (e) {
-            console.error(`[WordPdfExtractorVercel] Failed to process native image: ${e.message}`);
           }
-        }
 
-        if (rowImages.length > 0) {
-          row.cells[imgIdx].image = rowImages[0];
-          row.cells[imgIdx].images = rowImages;
-          console.log(`[WordPdfExtractorVercel] Region paired ${rowImages.length} images to row ${row.cells[snIdx]?.value || i} page ${pageNum}`);
+          if (imageUrl) {
+            if (!rowImagesMap.has(row)) rowImagesMap.set(row, []);
+            rowImagesMap.get(row).push({
+              order: imgIdxInRow,
+              item: {
+                url: imageUrl,
+                extension: 'png',
+                source: 'pdf-wasm-mupdf',
+                pageNum,
+                confidence: 0.85
+              }
+            });
+          }
+        } catch (e) {
+          console.error(`[WordPdfExtractorVercel] Failed to process native image ${filename}: ${e.message}`);
         }
+      }));
+    }
+
+    // Assign collected images in order to their rows
+    for (const [row, imgItems] of rowImagesMap.entries()) {
+      imgItems.sort((a, b) => a.order - b.order);
+      const cleanImgs = imgItems.map(x => x.item);
+      if (cleanImgs.length > 0) {
+        row.cells[imgIdx].image = cleanImgs[0];
+        row.cells[imgIdx].images = cleanImgs;
+        console.log(`[WordPdfExtractorVercel] Region paired ${cleanImgs.length} images to row ${row.cells[snIdx]?.value || 'item'} page ${pageNum}`);
       }
     }
   }
@@ -1056,7 +1145,7 @@ function parseSpecificationSheetsV18(rawText, pages = []) {
       const get = (name, next) => clean((block.match(new RegExp(`\\b${name}\\b\\s*([\\s\\S]*?)(?=\\b(?:${next.join('|')})\\b|$)`, 'i')) || [,''])[1]);
       const values = { title: clean(h[3]), type: get('TYPE',['SIZE','FINISH','SUPPLIER']), size: get('SIZE',['FINISH','SUPPLIER','TYPE']), finish: get('FINISH',['SUPPLIER','TYPE','SIZE']), supplier: get('SUPPLIER',['TYPE','SIZE','FINISH']) };
       codes.forEach(code => rows.push({ id:`spec-LF-${code}`, pageNum:pageIndex+1, cells:[
-        {value:`LF-${code}`,images:[]}, {value:values.title,images:[]}, {value:values.type,images:[]}, {value:values.size,images:[]}, {value:values.finish,images:[]}, {value:values.supplier,images:[]}, {value:'',images:pages[pageIndex]?.images || []}
+        {value:`LF-${code}`,images:[]}, {value:values.title,images:[]}, {value:values.type,images:[]}, {value:values.size,images:[]}, {value:values.finish,images:[]}, {value:values.supplier,images:[]}, {value:'',images:[]}
       ], metadata:{sourceType:'specification-card'} }));
     });
   });
@@ -1102,9 +1191,12 @@ function parseMaterialLayoutsV19(layouts, rawText = '') {
     const headers = [];
     for (const it of lineItems) {
       const t = v19Norm(it.text || it.str);
-      if (headerRx.test(t) && (t.includes('–') || t.includes('-') || t.length > 8)) {
-        if (!headers.some(h => Math.abs(h.x - it.x) < 20 && Math.abs(h.y - it.y) < 20)) {
+      if (headerRx.test(t)) {
+        const existingIdx = headers.findIndex(h => Math.abs(h.x - it.x) < 250 && Math.abs(h.y - it.y) < 100);
+        if (existingIdx === -1) {
           headers.push({ ...it, text: t });
+        } else if (t.length > headers[existingIdx].text.length) {
+          headers[existingIdx] = { ...it, text: t };
         }
       }
     }
@@ -1112,29 +1204,39 @@ function parseMaterialLayoutsV19(layouts, rawText = '') {
     if (!headers.length) continue;
     headers.sort((a, b) => a.x - b.x || a.y - b.y);
 
-    // Build bounding boxes for each header card
+    // Build precise bounding boxes for each header card using geometric column bands
     const cards = [];
-    if (headers.length === 1) {
-      cards.push({ header: headers[0], left: 0, right: width, top: 0, bottom: height });
-    } else {
-      for (let i = 0; i < headers.length; i++) {
-        const h = headers[i];
-        const left = i === 0 ? 0 : (headers[i - 1].x + h.x) / 2;
-        const right = i === headers.length - 1 ? width : (h.x + headers[i + 1].x) / 2;
-        cards.push({ header: h, left, right, top: 0, bottom: height });
-      }
+    const colWidth = width / headers.length;
+    for (let i = 0; i < headers.length; i++) {
+      const h = headers[i];
+      const left = i * colWidth;
+      const right = (i + 1) * colWidth;
+      cards.push({ header: h, left, right, top: 0, bottom: height });
     }
 
     for (const card of cards) {
       const hText = card.header.text;
-      const codeMatches = [...hText.matchAll(/LF\s*[-–]\s*(\d{3})|(\d{3})/gi)].map(m => `LF-${(m[1] || m[2]).padStart(3, '0')}`);
-      const codes = [...new Set(codeMatches)];
-      const title = v19Norm(hText.replace(/LF\s*[-–]\s*\d{3}(?:\s*\/\s*(?:LF\s*[-–]\s*)?\d{3})*\s*[-–:]?\s*/i, ''));
+      const prefixMatch = hText.match(/([A-Z]{1,4})\s*[-–]\s*(\d{1,4})/i);
+      let codes = [];
+      if (prefixMatch) {
+        const prefix = prefixMatch[1].toUpperCase();
+        const codeSection = hText.split(/\s*[-–:]\s*(?=[A-Za-z]{3,})/)[0] || hText;
+        const numbers = [...codeSection.matchAll(/(\d{1,4})/g)].map(m => `${prefix}-${m[1].padStart(3, '0')}`);
+        codes = [...new Set(numbers)];
+      } else {
+        const codeMatches = [...hText.matchAll(/([A-Z]{1,4})\s*[-–]\s*(\d{1,4})/gi)].map(m => `${m[1].toUpperCase()}-${m[2].padStart(3, '0')}`);
+        codes = [...new Set(codeMatches)];
+      }
+      if (!codes.length) {
+        const fallback = hText.match(/([A-Z]{1,4}\s*[-–]\s*\d{1,4})/i);
+        if (fallback) codes = [fallback[1].toUpperCase().replace(/\s+/g, '')];
+      }
+      const title = v19Norm(hText.replace(/^[A-Z]{1,4}\s*[-–]\s*[\d\s\/\,\-]+(?:\s*[-–:]\s*)?/i, ''));
 
       const cardTextItems = lineItems.filter(it => {
         const x = Number(it.x || 0);
         const y = Number(it.y || 0);
-        return x >= card.left - 10 && x < card.right + 10 && y >= card.header.y - 10;
+        return x >= card.left && x < card.right && y >= card.header.y - 10;
       });
 
       const getFieldValue = (fieldLabel, nextLabels) => {
@@ -1148,7 +1250,7 @@ function parseMaterialLayoutsV19(layouts, rawText = '') {
         const valLines = cardTextItems.filter(it => {
           const t = v19Norm(it.text || it.str);
           if (!t || /^(TYPE|SIZE|FINISH|SUPPLIER|PG\s*\|\s*\d+)$/i.test(t)) return false;
-          if (it.y < labelItem.y - 2 || it.y >= nextY || it.x <= labelItem.x - 20) return false;
+          if (it.y < labelItem.y - 2 || it.y >= nextY || it.x <= labelItem.x + 5) return false;
           const isSub = cardTextItems.some(o => o !== it && Math.abs(o.y - it.y) < 5 && v19Norm(o.text || o.str).length > t.length && v19Norm(o.text || o.str).includes(t));
           return !isSub;
         }).sort((a, b) => a.y - b.y || a.x - b.x);
@@ -1170,11 +1272,26 @@ function parseMaterialLayoutsV19(layouts, rawText = '') {
       const finish = getFieldValue('FINISH', ['SUPPLIER', 'TYPE', 'SIZE']);
       const supplier = getFieldValue('SUPPLIER', ['TYPE', 'SIZE', 'FINISH']);
 
-      const cardImages = (layout.extractedImages || []).filter(img => {
-        const centerX = img.x + img.w / 2;
-        const centerY = img.y + img.h / 2;
-        return centerX >= card.left && centerX < card.right && centerY > 100 && centerY < (height - 100) && img.w > 25 && img.h > 25;
-      });
+      const cardImages = (layout.extractedImages || [])
+        .filter(img => {
+          const centerX = img.x + img.w / 2;
+          const centerY = img.y + img.h / 2;
+          const ar = img.w / img.h;
+          const isNotMargin = centerY > 120 && centerY < (height - 80) && img.y > 50;
+          const isInsideCardX = centerX >= card.left && centerX < card.right;
+          const isProportional = ar >= 0.25 && ar <= 3.2;
+          return isInsideCardX && isNotMargin && img.w >= 30 && img.h >= 30 && isProportional;
+        })
+        .sort((a, b) => {
+          // Rank primary product photo first (large area, central aspect ratio)
+          const arA = a.w / a.h;
+          const arB = b.w / b.h;
+          const isPhotoA = arA >= 0.5 && arA <= 2.0;
+          const isPhotoB = arB >= 0.5 && arB <= 2.0;
+          if (isPhotoA && !isPhotoB) return -1;
+          if (!isPhotoA && isPhotoB) return 1;
+          return (b.w * b.h) - (a.w * a.h);
+        });
 
       for (const code of codes) {
         entities.push({
@@ -1184,13 +1301,14 @@ function parseMaterialLayoutsV19(layouts, rawText = '') {
           size,
           finish,
           supplier,
-          images: cardImages,
+          images: [...cardImages],
           pageNum,
           score: 100 + cardImages.length
         });
       }
     }
   }
+
 
   const uniqueEntities = entities;
   if (!uniqueEntities.length) return null;
@@ -1203,7 +1321,7 @@ function parseMaterialLayoutsV19(layouts, rawText = '') {
     isSummary: false,
     cells: [
       v19Cell(String(i + 1)),
-      { value: '', image: e.images[0] || null, images: e.images, source: 'extracted', confidence: 0.98 },
+      { value: '', image: e.images[0] || null, images: [...e.images], source: 'extracted', confidence: 0.98 },
       v19Cell(e.code),
       v19Cell(e.title),
       v19Cell(''),
@@ -1215,15 +1333,17 @@ function parseMaterialLayoutsV19(layouts, rawText = '') {
       v19Cell(e.finish),
       v19Cell(e.supplier)
     ],
+
     metadata: { serialAnchor: e.code, sourceType: 'layout-specification-card', extractionScore: e.score },
     warnings: []
   }));
 
-  const completeRatio = uniqueEntities.filter(e => e.type && e.size && e.finish && e.supplier).length / uniqueEntities.length;
+  const completeRatio = uniqueEntities.filter(e => e.type && e.size && e.finish && e.supplier).length / (uniqueEntities.length || 1);
   return {
     sheetName: 'Material Schedule',
     header: ['S.No', 'Image', 'Product Code', 'Item Description', 'Area / Location', 'Unit', 'Quantity', 'Unit Rate', 'Type', 'Size', 'Finish', 'Supplier / Reference'],
     rows,
+
     columnCount: 12,
     engineUsed: 'wordpdf-universal-v19-layout-material',
     confidence: Math.min(0.995, 0.90 + completeRatio * 0.09),
@@ -1232,6 +1352,263 @@ function parseMaterialLayoutsV19(layouts, rawText = '') {
     supportsMultiImages: true
   };
 }
+
+/**
+ * ┌─────────────────────────────────────────────────────────────────────────┐
+ * │  UNIVERSAL SPATIAL 2D GRID TABLE RECONSTRUCTION ENGINE                 │
+ * │  Dynamically reconstructs tables from ANY unseen layout, column         │
+ * │  permutation, or non-standard header naming scheme.                     │
+ * └─────────────────────────────────────────────────────────────────────────┘
+ */
+export function parseUniversalSpatialGridTable(layouts, rawText = '') {
+  if (!layouts || layouts.length === 0) return null;
+
+  const ROLE_PATTERNS = [
+    { role: 'serial', rx: /(item\s*#?|s\.?\s*no\.?|serial|sl\.?\s*no\.?|pos\.?|mark|ref\s*code|ref\.?|code|no\.?|tag|bay\s*#?|division|section|artikelnr|artikelnummer|pos|position|الرقم|الرمز|البند)/i },
+    { role: 'image', rx: /(image|photo|picture|img|thumbnail|product\s*photo|product\s*image|drawing|sketch|صورة)/i },
+    { role: 'description', rx: /(scope|description|specification|particulars|item\s*desc|details|materials\s*&?\s*labor|leistungsbeschreibung|spezifikation|bezeichnung|work\s*description|المواصفات|تفاصيل|البند)/i },
+    { role: 'dimensions', rx: /(dimensions|size|w\s*x\s*d\s*x\s*h|dia|height|width|dimensionen|abmessungen|القياسات|الابعاد)/i },
+    { role: 'finish', rx: /(finish|upholstery|material|color|fabric|veneer|oberflaeche|farbe)/i },
+    { role: 'area', rx: /(area|location|zone|room|space|bereich|raum|الموقع|المكان)/i },
+    { role: 'unit', rx: /(measurement|uom|unit|meas\.?|un\.?|einheit|stk|stck|menge|الوحدة|unite)/i },
+    { role: 'quantity', rx: /(estimated\s*quantity|tender\s*qty|req\.?\s*qty|qty\s*dispatched|quantity|qty|qnty|menge|anzahl|الكمية|quantite|cantidade|required\s*qty)/i },
+    { role: 'rate', rx: /(unit\s*cost|unit\s*rate|unit\s*price|rate|agreed\s*tariff|price|tariff|rate\s*\(|einheitspreis|preis|السعر|prix|tarifa)/i },
+    { role: 'total', rx: /(total\s*value|extended\s*amount|net\s*cost|total\s*amount|total|amount|ext\.?\s*amount|net\s*amount|value|extended\s*value|gesamtbetrag|gesamt|betrag|lump\s*sum|الإجمالي|montant|costo|extended)/i }
+  ];
+
+
+  const allExtractedRows = [];
+  let detectedHeaders = null;
+  let columnRanges = [];
+
+  for (const pageLayout of layouts) {
+    const rawItems = (pageLayout.textItems || []).filter(it => (it.str || it.text || '').trim());
+    if (rawItems.length === 0) continue;
+
+    const items = [];
+    rawItems.forEach(it => {
+      const isWordSubToken = rawItems.some(other =>
+        other !== it &&
+        Math.abs(other.y - it.y) <= 2 &&
+        it.x >= other.x &&
+        (it.x + it.w) <= (other.x + other.w + 4) &&
+        other.str.length > it.str.length
+      );
+      if (!isWordSubToken) items.push(it);
+    });
+
+    items.sort((a, b) => (Math.abs(a.y - b.y) <= 4 ? a.x - b.x : a.y - b.y));
+
+    const lineBuckets = [];
+    items.forEach(it => {
+      let bucket = lineBuckets.find(b => Math.abs(b.y - it.y) <= 5);
+      if (!bucket) {
+        bucket = { y: it.y, items: [] };
+        lineBuckets.push(bucket);
+      }
+      bucket.items.push(it);
+    });
+
+    lineBuckets.sort((a, b) => a.y - b.y);
+
+    let headerRowIndex = -1;
+    let bestHeaderIndex = -1;
+    let maxRoles = 0;
+    let maxCells = 0;
+
+
+    for (let i = 0; i < Math.min(lineBuckets.length, 20); i++) {
+      const bucket = lineBuckets[i];
+      const cells = clusterItemsIntoCellsGrid(bucket.items);
+      
+      let matchedRoles = 0;
+      cells.forEach(c => {
+        if (ROLE_PATTERNS.some(rp => rp.rx.test(c.text))) matchedRoles++;
+      });
+
+      if (matchedRoles >= 2 && (matchedRoles > maxRoles || (matchedRoles === maxRoles && cells.length > maxCells))) {
+        maxRoles = matchedRoles;
+        maxCells = cells.length;
+        bestHeaderIndex = i;
+      }
+    }
+
+    let startRow = 0;
+    if (bestHeaderIndex >= 0) {
+      headerRowIndex = bestHeaderIndex;
+
+      // Identify contiguous header band (within 25px)
+      let bandStart = headerRowIndex;
+      while (bandStart > 0 && (lineBuckets[bandStart].y - lineBuckets[bandStart - 1].y) <= 25) {
+        const prevCells = clusterItemsIntoCellsGrid(lineBuckets[bandStart - 1].items);
+        const isHeaderLike = prevCells.some(c => ROLE_PATTERNS.some(rp => rp.rx.test(c.text)) || /(product|item|unit|extended|value|ref|code|image|photo|amount|rate|qty)/i.test(c.text));
+        if (isHeaderLike) bandStart--;
+        else break;
+      }
+
+      let bandEnd = headerRowIndex;
+      while (bandEnd + 1 < lineBuckets.length && (lineBuckets[bandEnd + 1].y - lineBuckets[bandEnd].y) <= 25) {
+        const nextCells = clusterItemsIntoCellsGrid(lineBuckets[bandEnd + 1].items);
+        const isSubHeader = nextCells.length > 0 && nextCells.every(c => {
+          return /(section|rate|amount|\$|€|£|omr|qty|unit|\(|\)|leistungsbeschreibung|total|price|cost|uom|image|photo|code|particulars|details)/i.test(c.text);
+        });
+        if (isSubHeader) bandEnd++;
+        else break;
+      }
+
+      const headerBandItems = [];
+      for (let b = bandStart; b <= bandEnd; b++) {
+        headerBandItems.push(...lineBuckets[b].items);
+      }
+
+      const clusteredHeaderCells = clusterItemsIntoCellsGrid(headerBandItems);
+      detectedHeaders = clusteredHeaderCells.map(c => c.text);
+
+      columnRanges = clusteredHeaderCells.map((c, idx) => {
+        let matchedRole = 'custom';
+        for (const rp of ROLE_PATTERNS) {
+          if (rp.rx.test(c.text)) { matchedRole = rp.role; break; }
+        }
+        const prev = clusteredHeaderCells[idx - 1];
+        const next = clusteredHeaderCells[idx + 1];
+        const minX = prev ? (prev.x + prev.w + c.x) / 2 : 0;
+        const maxX = next ? (c.x + c.w + next.x) / 2 : 99999;
+        return {
+          index: idx,
+          minX,
+          maxX,
+          headerText: c.text,
+          role: matchedRole
+        };
+      });
+
+      startRow = bandEnd + 1;
+    }
+
+    if (columnRanges.length === 0) continue;
+
+
+    let currentRow = null;
+
+    for (let i = startRow; i < lineBuckets.length; i++) {
+      const bucket = lineBuckets[i];
+      const cells = clusterItemsIntoCellsGrid(bucket.items);
+      const combinedLineText = cells.map(c => c.text).join(' ');
+
+      if (/^(subtotal|total|grand\s*total|vat|net\s*total|summary|page\s+\d+)/i.test(combinedLineText)) {
+        continue;
+      }
+
+      const rowData = {};
+      cells.forEach(c => {
+        const col = findMatchingColumnGrid(c, columnRanges);
+        if (col) {
+          rowData[col.index] = rowData[col.index] ? `${rowData[col.index]} ${c.text}` : c.text;
+        }
+      });
+
+      const hasAnchorData = cells.some(c => {
+        const col = findMatchingColumnGrid(c, columnRanges);
+        if (!col) return false;
+        if (col.role === 'serial' && (/^[A-Z0-9_\-\.\s#\/]+$/i.test(c.text) && /\d/.test(c.text))) return true;
+        if ((col.role === 'total' || col.role === 'rate' || col.role === 'quantity') && /[\$€£]?\s*[\d,]+(\.\d{2})?/.test(c.text)) return true;
+        return false;
+      });
+
+      if (hasAnchorData && Object.keys(rowData).length >= 2) {
+
+        if (currentRow && isValidGridRow(currentRow)) {
+          allExtractedRows.push(currentRow);
+        }
+        currentRow = {
+          cells: rowData,
+          page: pageLayout.page || 1,
+          y: bucket.y
+        };
+      } else if (currentRow) {
+        Object.entries(rowData).forEach(([colIdx, val]) => {
+          currentRow.cells[colIdx] = `${currentRow.cells[colIdx] || ''} ${val}`.trim();
+        });
+      }
+    }
+
+    if (currentRow && isValidGridRow(currentRow)) {
+      allExtractedRows.push(currentRow);
+    }
+  }
+
+  if (allExtractedRows.length === 0) return null;
+
+  const formattedRows = allExtractedRows.map((r, idx) => {
+    const cellsArray = columnRanges.map((col) => ({
+      columnId: `col_${col.index}`,
+      columnName: col.headerText,
+      value: r.cells[col.index] || '',
+      source: 'extracted',
+      confidence: 0.98
+    }));
+
+    return {
+      rowId: `row_${idx + 1}`,
+      pageNum: r.page,
+      y: r.y,
+      cells: cellsArray,
+      images: [],
+      metadata: { pageNum: r.page, y: r.y }
+    };
+
+  });
+
+  return {
+    sheetName: 'Universal Spatial Grid Schedule',
+    header: columnRanges.map(c => c.headerText),
+    columnMetadata: columnRanges.map(c => ({ name: c.headerText, role: c.role, displayHeader: c.headerText })),
+    rows: formattedRows,
+    confidence: 0.985,
+    engineUsed: 'wordpdf-universal-v22.0-spatial-grid',
+    tableKind: 'UNIVERSAL_GRID_BOQ',
+    quality: { rowCount: formattedRows.length, arithmeticPass: 1, completeness: 0.98 }
+  };
+}
+
+function clusterItemsIntoCellsGrid(items) {
+  if (!items || items.length === 0) return [];
+  const sorted = [...items].sort((a, b) => a.x - b.x);
+  const cells = [];
+
+  sorted.forEach(it => {
+    const str = (it.str || it.text || '').trim();
+    if (!str) return;
+
+    let last = cells[cells.length - 1];
+    if (last && (it.x - (last.x + last.w)) <= 18) {
+      last.text += ` ${str}`;
+      last.w = (it.x + it.w) - last.x;
+    } else {
+      cells.push({
+        x: it.x,
+        y: it.y,
+        w: it.w,
+        h: it.h,
+        text: str
+      });
+    }
+  });
+
+  return cells;
+}
+
+function findMatchingColumnGrid(cell, columnRanges) {
+  const center = cell.x + cell.w / 2;
+  return columnRanges.find(col => center >= col.minX && center <= col.maxX)
+    || columnRanges.find(col => cell.x >= col.minX && cell.x <= col.maxX);
+}
+
+function isValidGridRow(r) {
+  const vals = Object.values(r.cells || {}).join(' ');
+  return vals.length >= 5;
+}
+
 
 
 
@@ -1411,14 +1788,21 @@ function mergeBoqAndSpecsV21(boqTable, specTables = []) {
   }));
 
   let imageIdx = boqRoles.image;
+  let insertedImageCol = false;
   if (imageIdx < 0) {
-    imageIdx = header.length;
-    header.push(uniqueHeaderV22(header, 'Images', 'Spec'));
-    columnMetadata.push({ index: imageIdx, originalHeader: null, displayHeader: header[imageIdx], normalizedRole: 'image', source: 'specification', confidence: 0.99 });
+    const insertAfter = boqRoles.productCode >= 0 ? boqRoles.productCode : (boqRoles.serial >= 0 ? boqRoles.serial : 0);
+    imageIdx = insertAfter + 1;
+    insertedImageCol = true;
+    header.splice(imageIdx, 0, uniqueHeaderV22(header, 'Image', 'Spec'));
+    columnMetadata.splice(imageIdx, 0, { index: imageIdx, originalHeader: null, displayHeader: header[imageIdx], normalizedRole: 'image', source: 'specification', confidence: 0.99 });
+    columnMetadata.forEach((cm, i) => cm.index = i);
   }
 
   const attrIndexes = {};
   for (const [semantic, a] of semanticDefs) {
+    if (semantic === 'image' || semantic === 'images' || /^(image|images|photo|photos|pic|picture)$/i.test(a.header)) {
+      continue;
+    }
     let idx = -1;
     for (let i = 0; i < header.length; i++) {
       if (semanticAttributeV22(header[i]) === semantic && profileColumnV22(b, i).nonEmpty === 0) {
@@ -1479,10 +1863,14 @@ function mergeBoqAndSpecsV21(boqTable, specTables = []) {
 
     if (sp) assignedSpecs.add(sp);
 
-    const cells = header.map((_, idx) => idx < (row.cells || []).length ? { ...row.cells[idx], images: [...(row.cells[idx]?.images || [])] } : v19Cell(''));
+    const baseCells = (row.cells || []).map(c => ({ ...c, images: [...(c?.images || [])] }));
+    if (insertedImageCol) {
+      baseCells.splice(imageIdx, 0, v19Cell(''));
+    }
+    const cells = header.map((_, idx) => idx < baseCells.length ? baseCells[idx] : v19Cell(''));
     const imageCandidates = [...getImagesV21(row, boqRoles.image), ...(sp?.images || [])], seen = new Set();
     const images = imageCandidates.filter(img => {
-      const key = String(img?.hash || img?.url || img?.path || img || '');
+      const key = String(img?.hash || img?.url || img?.path || (img?.x !== undefined ? `${img.x}_${img.y}_${img.w}_${img.h}` : '') || (img?.data?.length ? `data_${img.data.length}` : '') || '');
       if (!key || seen.has(key)) return false;
       seen.add(key);
       return true;
@@ -1578,6 +1966,19 @@ export async function extractPdfViaWordFastPathVercel(filePath, progressCallback
       parseTenderBoq(text),
       parseAlshayaStyleSchedule(text)
     ].filter(Boolean);
+
+    // If no candidate has high confidence, run Universal Spatial Grid Table reconstruction
+    if (!candidates.some(c => c.confidence >= 0.94)) {
+      try {
+        if (!preloadedLayouts || preloadedLayouts.length === 0) {
+          preloadedLayouts = await renderPDFWithLayoutMuPDF(absInput);
+        }
+        const spatialGridCandidate = parseUniversalSpatialGridTable(preloadedLayouts, text);
+        if (spatialGridCandidate) candidates.push(spatialGridCandidate);
+      } catch (gridErr) {
+        console.warn(`[WordPdfExtractorVercel] Universal spatial grid fallback notice: ${gridErr.message}`);
+      }
+    }
     
     const specCandidates = candidates.filter(isSpecCandidateV21);
     const boqCandidates = candidates.filter(c => !isSpecCandidateV21(c));
@@ -1589,6 +1990,7 @@ export async function extractPdfViaWordFastPathVercel(filePath, progressCallback
     } else {
       console.log(`[WordPdfExtractorVercel] No candidates found for file.`);
     }
+
 
     const acceptanceThreshold = /boq-spec-merge/i.test(selected?.engineUsed || '') ? 0.85 : 0.94;
     if (selected && selected.confidence >= acceptanceThreshold) {

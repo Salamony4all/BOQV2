@@ -1,0 +1,44 @@
+{
+  "name": "Ares Line",
+  "budgetTier": "mid",
+  "websiteUrl": "https://www.aresline.com",
+  "logo": "https://media.architonic.com/m-on/3100612/logo/ares_line_logo.jpg",
+  "products": [
+    {
+      "model": "TEMPO Auditorium Chair",
+      "family": "Tempo",
+      "mainCategory": "Specialist Seating",
+      "subCategory": "Auditorium & Theater Seating",
+      "category": "Office Seating",
+      "price": 280,
+      "currency": "USD",
+      "description": "Theatre seats with tip-up seat by gravity. Wooden armrests, under-seat wooden panel, backrest wooden acoustic panel, row and seat numbering.",
+      "imageUrl": "https://images.unsplash.com/photo-1517604931442-7e0c8ed2963c?w=800&auto=format&fit=crop&q=80",
+      "websiteUrl": "https://www.aresline.com/en/products/tempo-auditorium-seating/"
+    },
+    {
+      "model": "CHRONOS Theater Chair",
+      "family": "Chronos",
+      "mainCategory": "Specialist Seating",
+      "subCategory": "Auditorium & Theater Seating",
+      "category": "Office Seating",
+      "price": 310,
+      "currency": "USD",
+      "description": "Gravity tip-up auditorium and cinema chair with solid wood side panels, upholstered seat and back, acoustic perforation.",
+      "imageUrl": "https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=800&auto=format&fit=crop&q=80",
+      "websiteUrl": "https://www.aresline.com/en/products/chronos-seating/"
+    },
+    {
+      "model": "VEKTOR Spectator Seating",
+      "family": "Vektor",
+      "mainCategory": "Specialist Seating",
+      "subCategory": "Auditorium & Theater Seating",
+      "category": "Office Seating",
+      "price": 260,
+      "currency": "USD",
+      "description": "Modular theater and lecture hall seating with silent automatic tip-up mechanism, wooden armrests, row numbering.",
+      "imageUrl": "https://images.unsplash.com/photo-1585647347384-2593bc35786b?w=800&auto=format&fit=crop&q=80",
+      "websiteUrl": "https://www.aresline.com/en/products/vektor-auditorium/"
+    }
+  ]
+}

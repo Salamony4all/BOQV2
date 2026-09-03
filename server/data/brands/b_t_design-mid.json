@@ -1893,19 +1893,36 @@
       "mainCategory": "Furniture"
     },
     {
-      "model": "FAILED",
       "brand": "B&T Design",
+      "model": "FAILED",
       "price": 0,
-      "mainCategory": "Furniture",
-      "lastUpdated": "2026-05-03T17:57:38.100Z",
       "source": "AI-Specialist-Discovery",
-      "imageUrl": "https://media.architonic.com/m-on/3103498/logo/b-t-design_logo_b083bc1d.png?width=320&height=120&fit=inside&crop=true&format=webp&quality=90"
+      "imageUrl": "https://media.architonic.com/m-on/3103498/logo/b-t-design_logo_b083bc1d.png?width=320&height=120&fit=inside&crop=true&format=webp&quality=90",
+      "lastUpdated": "2026-05-03T17:57:38.100Z",
+      "mainCategory": "Furniture"
+    },
+    {
+      "brand": "B&T Design",
+      "brandLogo": "https://brandslogos.com/wp-content/uploads/2021/09/bt-ag-logo.svg",
+      "model": "Aluminum Group Chair",
+      "family": "Aluminum Group",
+      "mainCategory": "Office Seating",
+      "subCategory": "Lounge Chairs",
+      "imageUrl": "https://www.architonic.com/img/p/20276966.jpg",
+      "websiteUrl": "https://www.bt.design/",
+      "price": 0,
+      "currency": "USD",
+      "origin": "Turkey",
+      "description": "The B&T Design Aluminum Group Chair is a lounge chair designed for comfort and style. It features a durable aluminum frame and a taut fabric sling for seating. The chair is suitable for both indoor and outdoor use, with options for upholstery in various fabrics and leathers. Its timeless design, inspired by the Eames Aluminum Group, makes it a versatile choice for a range of environments, including offices, lobbies, and executive suites. The chair's dimensions are approximately H: 79-86 cm, W: 58 cm, D: 58 cm, with an adjustable seat height of 43-51 cm and armrests at 62-69 cm. The frame is constructed from aluminum, and the upholstery can be customized to meet specific aesthetic and functional requirements.",
+      "productUrl": "https://www.bt.design/",
+      "lastUpdated": "2026-08-31T08:59:17.345Z",
+      "source": "AI-Specialist-Discovery"
     }
   ],
   "source": "TURKEY",
   "budget_tier": "mid",
   "logo": "https://media.architonic.com/m-on/3103498/logo/b-t-design_logo_b083bc1d.png?width=320&height=120&fit=inside&crop=true&format=webp&quality=90",
-  "updated_at": "2026-05-01T08:11:05.65+00:00",
+  "updated_at": "2026-05-03T17:57:38.103+00:00",
   "budgetTier": "mid",
   "origin": "TURKEY"
 }

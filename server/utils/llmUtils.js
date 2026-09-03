@@ -3,35 +3,51 @@ import { AsyncLocalStorage } from 'async_hooks';
 import axios from 'axios';
 import 'dotenv/config';
 import { TAXONOMY } from './normalizer.js';
+import { readSettings } from '../settings.js';
 
 export const aiKeyStorage = new AsyncLocalStorage();
 
 // ──────────────────────────────────────────────────────────────────────────────
-// CONFIGURATION
+// CONFIGURATION — keys come from browser (request context) or file store.
+// Nothing is hardcoded. Use the Settings panel in the browser to configure.
 // ──────────────────────────────────────────────────────────────────────────────
-const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY;
-const GOOGLE_FREE_KEY = process.env.GOOGLE_FREE_KEY || process.env.GEMINI_FREE_KEY || process.env.GEMINI_API_KEY_FREE;
-const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
-const NVIDIA_API_KEY = process.env.NVIDIA_API_KEY;
-const FORCE_FREE_GOOGLE = process.env.FORCE_FREE_GOOGLE_KEY === 'true';
 
-// Global Model Defaults (from .env)
-export const GOOGLE_MODEL = process.env.GOOGLE_MODEL || 'gemma-4-31b-it';
-export const GROUNDING_MODEL = process.env.GOOGLE_MODEL || 'gemma-4-31b-it';
-export const VISION_MODEL = process.env.GOOGLE_VISION_MODEL || 'gemini-2.0-flash';
-export const OPENROUTER_MODEL = process.env.OPENROUTER_MODEL || 'google/gemma-4-31b-it:free';
-export const NVIDIA_MODEL = process.env.NVIDIA_MODEL || 'nvidia/llama-3.1-8b-instruct';
+/**
+ * Resolve an AI setting value.
+ * Priority: request context (browser headers) → file store → undefined
+ */
+function resolveKey(contextKey, fileKey) {
+    const ctx = aiKeyStorage.getStore() || {};
+    const val = ctx[contextKey];
+    if (val) return val;
+    const saved = readSettings();
+    return saved[fileKey || contextKey] || '';
+}
 
+// Re-exported for legacy callers — now always dynamic
 export const MODEL_MAPPING = {
-    // We map generic names to their most stable verified versions
     'gemini-pro': 'gemini-pro-latest',
-    'gemini-flash': 'gemini-2.0-flash',
+    'gemini-flash': 'gemini-flash-lite-latest',
     'gemini-2-pro': 'gemini-2.5-pro',
-    'gemini-2-flash': 'gemini-2.0-flash',
+    'gemini-2-flash': 'gemini-flash-lite-latest',
 };
 
-// Dynamic Google model lists are fetched in real-time from the Google API.
-// No hardcoded model name arrays are maintained here.
+// Dynamic accessors — evaluated at call time, never at module load
+export const getGoogleModel = () => resolveKey('googleModel', 'googleModel') || resolveKey('model', 'model') || 'gemini-flash-lite-latest';
+export const getOpenRouterModel = () => resolveKey('openrouterModel', 'openrouterModel');
+export const getNvidiaModel = () => resolveKey('nvidiaModel', 'nvidiaModel');
+
+// Legacy constant aliases — now dynamic (kept for backward compat)
+export const GOOGLE_MODEL = 'gemini-flash-lite-latest';
+export const GROUNDING_MODEL = 'gemini-flash-lite-latest';
+export const VISION_MODEL = 'gemini-2.5-flash';
+export const OPENROUTER_MODEL = '';
+export const NVIDIA_MODEL = '';
+
+// No static model allow-lists — models are discovered live from the provider APIs
+export const VALID_OPENROUTER_MODELS = [];
+export const VALID_NVIDIA_MODELS = [];
+export const VALID_LOCAL_MODELS = ['local/yolov8-llama3.2'];
 
 const maskKey = (key) => {
     if (!key) return 'MISSING';
@@ -53,77 +69,52 @@ export function getGoogleAI(modelName) {
         normalizedModel = normalizedModel.replace(':billed', '').trim();
     }
 
-    // Retrieve request-scoped keys from AsyncLocalStorage
+    // Retrieve request-scoped keys: headers (browser) → file store
     const contextStore = aiKeyStorage.getStore() || {};
-    const reqGoogleApiKey = contextStore.googleApiKey;
-    const reqGoogleFreeKey = contextStore.googleFreeKey;
-    const reqActiveTier = contextStore.activeTier;
+    const saved = readSettings();
 
-    const finalApiKey = reqGoogleApiKey || GOOGLE_API_KEY;
-    const finalFreeApiKey = reqGoogleFreeKey || GOOGLE_FREE_KEY;
+    const reqGoogleApiKey = contextStore.googleApiKey || saved.googleApiKey;
+    const reqGoogleFreeKey = contextStore.googleFreeKey || saved.googleFreeKey;
+    const reqActiveTier = contextStore.activeTier || saved.activeTier || 'free';
 
-    // 1. Force Free Key if environment override is active
-    if (FORCE_FREE_GOOGLE) {
-        console.log(`  ⚠️ [LLM Utils] OVERRIDE: Forcing FREE Key for "${normalizedModel}" via FORCE_FREE_GOOGLE_KEY=true.`);
-        return new GoogleGenerativeAI(finalFreeApiKey || finalApiKey);
-    }
+    const finalApiKey = reqGoogleApiKey;
+    const finalFreeApiKey = reqGoogleFreeKey;
 
-    // Determine whether to use Billed Key or Free Key based on active tier of the request
-    let useBilledKey = false;
-    if (reqActiveTier) {
-        useBilledKey = (reqActiveTier === 'billed');
-    } else {
-        // Fallback for requests without header/context context
-        useBilledKey = forceBilled || !finalFreeApiKey;
-    }
+    // Determine whether to use Billed Key or Free Key based on active tier
+    let useBilledKey = (reqActiveTier === 'billed') || forceBilled;
 
-    if (useBilledKey) {
-        if (!finalApiKey) {
-            if (finalFreeApiKey) {
-                console.log(`  💎 [LLM Utils] Billed key missing, falling back to Free Key (${maskKey(finalFreeApiKey)}) for "${normalizedModel}".`);
-                return new GoogleGenerativeAI(finalFreeApiKey);
-            }
-            throw new Error(`Model "${normalizedModel}" requires a Google Billed Key which is missing.`);
+    // If an AIzaSy key is provided in googleApiKey, prefer it as it's the official Gemini API Key
+    const isStandardStudioKey = finalApiKey && finalApiKey.startsWith('AIza');
+
+    if (useBilledKey || isStandardStudioKey || !finalFreeApiKey) {
+        if (finalApiKey) {
+            console.log(`  🔑 [LLM Utils] Using Google API Key (${maskKey(finalApiKey)}) for "${normalizedModel}".`);
+            return new GoogleGenerativeAI(finalApiKey);
         }
-        console.log(`  💰 [LLM Utils] Using Billed Key (${maskKey(finalApiKey)}) for "${normalizedModel}".`);
-        return new GoogleGenerativeAI(finalApiKey);
-    } else {
-        if (!finalFreeApiKey) {
-            if (finalApiKey) {
-                console.log(`  💰 [LLM Utils] Free key missing, falling back to Billed Key (${maskKey(finalApiKey)}) for "${normalizedModel}".`);
-                return new GoogleGenerativeAI(finalApiKey);
-            }
-            throw new Error(`Model "${normalizedModel}" is selected in Free Tier but Free API key is missing.`);
+        if (finalFreeApiKey) {
+            console.log(`  💎 [LLM Utils] Falling back to Free Key (${maskKey(finalFreeApiKey)}) for "${normalizedModel}".`);
+            return new GoogleGenerativeAI(finalFreeApiKey);
         }
+        throw new Error(`Google API key is not configured. Open Settings → AI Configuration to add your key.`);
+    } else {
         console.log(`  💎 [LLM Utils] Using FREE Key (${maskKey(finalFreeApiKey)}) for "${normalizedModel}".`);
         return new GoogleGenerativeAI(finalFreeApiKey);
     }
 }
 
-// Model ids
-// Default to gemma-4-31b-it if .env is missing or has a typo
-export const VALID_OPENROUTER_MODELS = [
-    'google/gemini-4-31b-it:free',
-    'google/gemma-4-26b-a4b-it:free',
-    'google/gemini-2.5-flash-lite-001',
-    'anthropic/claude-sonnet-4-20250514',
-    'openai/gpt-4o'
-];
-export const VALID_NVIDIA_MODELS = [
-    'nvidia/llama-3.1-405b-instruct',
-    'nvidia/llama-3.1-70b-instruct',
-    'nvidia/llama-3.1-8b-instruct',
-    'nvidia/nemotron-70b-instruct'
-];
-export const VALID_LOCAL_MODELS = [
-    'local/yolov8-llama3.2'
-];
-
 export const LOCAL_MODEL = 'local/yolov8-llama3.2';
 export const PYTHON_SERVICE_URL = process.env.PYTHON_SERVICE_URL || 'http://localhost:8001';
 
-// Deprecated: use getGoogleAI(modelName) instead
-const genAI = new GoogleGenerativeAI(GOOGLE_API_KEY);
+// Deprecated: kept for any stale callers — resolves dynamically at runtime
+const genAI = (() => {
+    try {
+        const saved = readSettings();
+        const key = saved.googleApiKey || saved.googleFreeKey;
+        if (key) return new GoogleGenerativeAI(key);
+    } catch (_) {}
+    // Return a dummy instance — will throw on actual use if no key is configured
+    return null;
+})();
 
 export const getProviderForModel = (modelName) => {
     if (!modelName) return 'google';
@@ -151,7 +142,11 @@ const isValidProviderModel = (provider, model) => {
 export function safeParseJSON(text) {
     if (!text) throw new Error('Empty AI response');
 
-    const cleanText = text
+    // 0. Extract from markdown code fence if present anywhere in text
+    const codeBlockMatch = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+    const primaryText = codeBlockMatch ? codeBlockMatch[1].trim() : text;
+
+    const cleanText = primaryText
         .replace(/^```(?:json)?\s*/im, '')
         .replace(/\s*```$/im, '')
         .trim();
@@ -253,11 +248,16 @@ export function safeParseJSON(text) {
 
 /** Generic OpenRouter call expecting JSON object back. */
 export async function callOpenRouter(systemPrompt, userPrompt, modelName = null) {
+    const contextStore = aiKeyStorage.getStore() || {};
+    const saved = readSettings();
+    const effectiveApiKey = contextStore.openrouterApiKey || saved.openrouterApiKey;
+    const effectiveModel = modelName || contextStore.openrouterModel || saved.openrouterModel || contextStore.googleModel || saved.googleModel;
+
     try {
         const res = await axios.post(
             'https://openrouter.ai/api/v1/chat/completions',
             {
-                model: modelName || OPENROUTER_MODEL,
+                model: effectiveModel,
                 messages: [
                     { role: 'system', content: systemPrompt },
                     { role: 'user', content: userPrompt }
@@ -267,7 +267,7 @@ export async function callOpenRouter(systemPrompt, userPrompt, modelName = null)
             },
             {
                 headers: {
-                    'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+                    'Authorization': `Bearer ${effectiveApiKey}`,
                     'Content-Type': 'application/json',
                     'HTTP-Referer': 'https://boqv2.vercel.app',
                     'X-Title': 'Boqify'
@@ -285,11 +285,16 @@ export async function callOpenRouter(systemPrompt, userPrompt, modelName = null)
 
 /** Generic NVIDIA NIM call expecting JSON object back. */
 export async function callNvidia(systemPrompt, userPrompt, modelName = null) {
+    const contextStore = aiKeyStorage.getStore() || {};
+    const saved = readSettings();
+    const effectiveApiKey = contextStore.nvidiaApiKey || saved.nvidiaApiKey;
+    const effectiveModel = modelName || contextStore.nvidiaModel || saved.nvidiaModel || contextStore.googleModel || saved.googleModel;
+
     try {
         const res = await axios.post(
             'https://integrate.api.nvidia.com/v1/chat/completions',
             {
-                model: modelName || NVIDIA_MODEL,
+                model: effectiveModel,
                 messages: [
                     { role: 'system', content: systemPrompt },
                     { role: 'user', content: userPrompt }
@@ -300,7 +305,7 @@ export async function callNvidia(systemPrompt, userPrompt, modelName = null) {
             },
             {
                 headers: {
-                    'Authorization': `Bearer ${NVIDIA_API_KEY}`,
+                    'Authorization': `Bearer ${effectiveApiKey}`,
                     'Content-Type': 'application/json'
                 },
                 timeout: 60000
@@ -309,7 +314,7 @@ export async function callNvidia(systemPrompt, userPrompt, modelName = null) {
         const raw = res.data.choices[0].message.content;
         return typeof raw === 'string' ? safeParseJSON(raw) : raw;
     } catch (err) {
-        console.error(`  ❌ [NVIDIA] Status: ${err.response?.status}, Model: ${modelName || NVIDIA_MODEL}, Message: ${err.response?.data?.detail || err.response?.data?.error?.message || err.message}`);
+        console.error(`  ❌ [NVIDIA] Status: ${err.response?.status}, Model: ${effectiveModel}, Message: ${err.response?.data?.detail || err.response?.data?.error?.message || err.message}`);
         throw err;
     }
 }
@@ -334,7 +339,7 @@ export async function callGoogle(systemPrompt, userPrompt, useSearch = false, mo
         tools: tools,
         generationConfig: {
             temperature: 0.1,
-            responseMimeType: "application/json"
+            ...(tools.length > 0 ? {} : { responseMimeType: "application/json" })
         }
     });
     const result = await model.generateContent(userPrompt);
@@ -1157,13 +1162,20 @@ async function callLocalLLM(systemPrompt, userPrompt, model = 'llama3.2') {
 export async function callUniversalMultimodalAI(systemPrompt, userPrompt, assets = [], modelName = null, jsonMode = false) {
     const contextStore = aiKeyStorage.getStore() || {};
     const reqGoogleModel = contextStore.googleModel;
+    const reqOpenRouterModel = contextStore.openrouterModel;
+    const reqNvidiaModel = contextStore.nvidiaModel;
+    const reqProvider = contextStore.aiProvider || 'google';
 
-    const provider = getProviderForModel(modelName);
+    const provider = getProviderForModel(modelName || reqGoogleModel || reqOpenRouterModel || reqNvidiaModel) || reqProvider;
     let finalModel = modelName;
-    if (provider === 'google' && reqGoogleModel) {
-        finalModel = reqGoogleModel;
-    } else if (!finalModel) {
-        finalModel = provider === 'google' ? (reqGoogleModel || GOOGLE_MODEL) : provider === 'openrouter' ? OPENROUTER_MODEL : NVIDIA_MODEL;
+    if (provider === 'google') {
+        finalModel = modelName || reqGoogleModel || GOOGLE_MODEL;
+    } else if (provider === 'openrouter') {
+        finalModel = modelName || reqOpenRouterModel || reqGoogleModel || OPENROUTER_MODEL;
+    } else if (provider === 'nvidia') {
+        finalModel = modelName || reqNvidiaModel || reqGoogleModel || NVIDIA_MODEL;
+    } else {
+        finalModel = modelName || reqGoogleModel || GOOGLE_MODEL;
     }
 
     // FIX: Auto-expand short names for NVIDIA known models
@@ -1208,9 +1220,11 @@ export async function callUniversalMultimodalAI(systemPrompt, userPrompt, assets
     } else {
         // Nvidia or OpenRouter (OpenAI-style Vision)
         const endpoint = provider === 'nvidia' ? 'https://integrate.api.nvidia.com/v1/chat/completions' : 'https://openrouter.ai/api/v1/chat/completions';
-        const apiKey = provider === 'nvidia' ? NVIDIA_API_KEY : OPENROUTER_API_KEY;
+        const apiKey = provider === 'nvidia' 
+            ? (contextStore.nvidiaApiKey || NVIDIA_API_KEY)
+            : (contextStore.openrouterApiKey || OPENROUTER_API_KEY);
 
-        if (!apiKey) throw new Error(`API Key for ${provider} is missing in .env`);
+        if (!apiKey) throw new Error(`API Key for ${provider} is missing in .env or Settings`);
 
         // OpenAI Vision format
         const messages = [
@@ -1397,15 +1411,81 @@ export async function analyzePlan(filesData, options = {}) {
     }
 }
 
-/** Generic retry wrapper for async operations */
-export async function withRetry(fn, retries = 3, delay = 1000) {
+/** Generic retry wrapper for async operations with intelligent 429 quota backoff */
+export async function withRetry(fn, retries = 4, delay = 1500) {
     for (let i = 0; i < retries; i++) {
         try {
             return await fn();
         } catch (err) {
             if (i === retries - 1) throw err;
-            console.warn(`  ⚠️  Retrying after error: ${err.message}. Attempt ${i + 1}/${retries}`);
-            await new Promise(resolve => setTimeout(resolve, delay * (i + 1)));
+            const errMsg = err.message || '';
+            let waitTime = delay * (i + 1);
+            
+            // Check if error is a 429 rate limit / quota error
+            const isRateLimit = errMsg.includes('429') || errMsg.includes('Quota exceeded') || errMsg.includes('rate-limits') || errMsg.includes('RESOURCE_EXHAUSTED');
+            if (isRateLimit) {
+                // Try to extract suggested retry delay (e.g. "Please retry in 3.35s" or "retryDelay":"3s")
+                const matchSeconds = errMsg.match(/retry in ([\d\.]+)s/i) || errMsg.match(/retryDelay["']?\s*:\s*["']?(\d+)/i);
+                if (matchSeconds && matchSeconds[1]) {
+                    const parsedSec = parseFloat(matchSeconds[1]);
+                    waitTime = Math.max(waitTime, (parsedSec * 1000) + 750);
+                } else {
+                    waitTime = Math.max(waitTime, 3500 * (i + 1));
+                }
+                console.warn(`  ⏳ [LLM Utils Rate Limit] 429 Quota limit encountered. Backing off for ${(waitTime / 1000).toFixed(1)}s before retry ${i + 1}/${retries}...`);
+            } else {
+                console.warn(`  ⚠️  Retrying after error: ${errMsg}. Attempt ${i + 1}/${retries} (delay: ${waitTime}ms)`);
+            }
+            
+            await new Promise(resolve => setTimeout(resolve, waitTime));
         }
     }
 }
+
+/**
+ * Call LLM expecting structured JSON matching a strict schema, with automatic retry on validation failure.
+ * @param {string} systemPrompt - System prompt instructions
+ * @param {string} userPrompt - User query text
+ * @param {object} schema - JSON schema specification with required properties
+ * @param {number} maxRetries - Maximum retry count (default: 2)
+ * @param {string} providerModel - Optional model override
+ * @returns {Promise<object>} Validated JSON response
+ */
+export async function callWithSchemaRetry(systemPrompt, userPrompt, schema = null, maxRetries = 2, providerModel = null) {
+    let attempt = 0;
+    let lastError = null;
+    let currentSystemPrompt = systemPrompt;
+    let currentUserPrompt = userPrompt;
+
+    while (attempt <= maxRetries) {
+        try {
+            const parsed = await callGoogle(currentSystemPrompt, currentUserPrompt, false, providerModel);
+            if (!parsed || typeof parsed !== 'object') {
+                throw new Error('AI returned non-object response');
+            }
+
+            // Validate required schema properties
+            if (schema && Array.isArray(schema.required)) {
+                for (const reqKey of schema.required) {
+                    if (parsed[reqKey] === undefined || parsed[reqKey] === null) {
+                        throw new Error(`Missing required schema property: "${reqKey}"`);
+                    }
+                }
+            }
+
+            return parsed;
+        } catch (err) {
+            lastError = err;
+            attempt++;
+            console.warn(`  ⚠️ [LLM Schema Validation Retry ${attempt}/${maxRetries}] Error: ${err.message}`);
+            
+            if (attempt <= maxRetries) {
+                const schemaGuide = schema ? `\nREQUIRED SCHEMA: ${JSON.stringify(schema)}` : '';
+                currentUserPrompt = `${userPrompt}\n\n[CRITICAL ERROR IN PREVIOUS ATTEMPT: ${err.message}. You MUST fix this error and output strictly valid JSON conforming to the schema.]${schemaGuide}`;
+                await new Promise(r => setTimeout(r, 1000 * attempt));
+            }
+        }
+    }
+
+    throw new Error(`Strict JSON Schema validation failed after ${maxRetries} retries: ${lastError.message}`);
+}

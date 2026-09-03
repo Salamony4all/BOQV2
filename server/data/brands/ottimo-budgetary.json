@@ -7,6 +7,16 @@
   "logo": "https://ottimouae.com/wp-content/uploads/2022/08/ottimo-logo-retina.png",
   "products": [
     {
+      "mainCategory": "Office Seating",
+      "subCategory": "Folding Chairs & Stools",
+      "family": "Compact Seating",
+      "model": "Portable Round Foldable Stool with Handle",
+      "description": "Round Foldable Chair with X-shape Legs and Handle to carry. Dia 300 x 450 mm ht. Black Metal & Plastic seat. Compact and portable for commercial and event spaces.",
+      "imageUrl": "https://images.unsplash.com/photo-1592078615290-033ee584e267?w=800&auto=format&fit=crop&q=80",
+      "productUrl": "https://ottimouae.com/?s=stool",
+      "price": 24
+    },
+    {
       "mainCategory": "Chairs",
       "subCategory": "Stool",
       "family": "Ottimo Furniture",

@@ -72,6 +72,7 @@ const PlanAnalyzerModal = ({ isOpen, onClose, onApply }) => {
                 formData.append('file', file);
                 formData.append('includeFitout', includeFitout);
                 formData.append('provider', aiSettings?.engine || 'google');
+                formData.append('providerModel', aiSettings?.model || '');
 
                 const response = await fetch('/api/analyze-plan', {
                     method: 'POST',

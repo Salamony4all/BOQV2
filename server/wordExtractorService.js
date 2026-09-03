@@ -359,8 +359,8 @@ function classifyHeader(text) {
         /item\s*code|product\s*code|art\.?-\s*no/i.test(t)) {
         return 'sn';
     }
-    // 2. image (ensure we don't match "item code | reference" as image because of "ref")
-    if (/image|photo|picture|img|pic|ref/i.test(t) && !/code|tag/i.test(t)) {
+    // 2. image (strictly match image headers, never generic 'ref' or 'reference')
+    if (/\b(image|photo|picture|img|pic|illustration|drawing|sketch)\b/i.test(t) || /\b(image\s*ref|photo\s*ref|pic\s*ref)\b/i.test(t)) {
         return 'image';
     }
     // 3. qty

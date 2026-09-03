@@ -7,6 +7,7 @@ import {
     listSupabaseFiles,
     deleteFromSupabase
 } from './utils/supabaseStorage.js';
+import { classifyContractCategory, getCanonicalBrandLogo } from './utils/brandLogos.js';
 import { createClient as createKvClient } from '@vercel/kv';
 import axios from 'axios';
 import path from 'path';
@@ -21,6 +22,24 @@ const isVercel = process.env.VERCEL === '1';
 // In-memory tombstone set — tracks IDs deleted during this server lifetime
 // Prevents deleted brands from reappearing via stale local filesystem JSON files
 const deletedBrandIds = new Set();
+
+// Non-persistent marketplace brands (evaluated on-the-fly without saving DB files)
+export const NO_PERSIST_BRANDS = new Set([
+    'amazon', 'amazon uae', 'amazon us', 'amazon.com', 'amazon basics',
+    'noon', 'desertcart', 'ubuy', 'marketplace', 'homedepot', 'home depot', 'ikea', 'retail'
+]);
+
+export const VIRTUAL_MARKETPLACE_BRANDS = [
+    {
+        id: 'virtual-amazon',
+        name: 'Amazon',
+        logo: 'https://upload.wikimedia.org/wikipedia/commons/a/a9/Amazon_logo.svg',
+        budgetTier: 'budget',
+        origin: 'Global Marketplace (On-the-fly)',
+        isVirtual: true,
+        products: []
+    }
+];
 
 
 // Support multiple Vercel environment naming conventions
@@ -65,8 +84,10 @@ async function getLocalBrands() {
                     try {
                         const content = await fs.readFile(fullPath, 'utf8');
                         const parsed = JSON.parse(content);
-                        if (!parsed.id) {
-                            console.warn(`⚠️ [Storage] Missing brand.id in ${file}`);
+                        if (!parsed.id && parsed.name) {
+                            parsed.id = parsed.name.toLowerCase().replace(/[^a-z0-9]/g, '_');
+                        } else if (!parsed.id) {
+                            parsed.id = file.replace('.json', '');
                         }
                         return parsed;
                     } catch (e) {
@@ -76,8 +97,8 @@ async function getLocalBrands() {
                 }));
 
                 for (const brand of brands) {
-                    if (brand && brand.id) {
-                        const brandIdStr = String(brand.id);
+                    if (brand && (brand.id || brand.name)) {
+                        const brandIdStr = String(brand.id || brand.name);
                         if (!seenIds.has(brandIdStr)) {
                             seenIds.add(brandIdStr);
                             allBrands.push(brand);
@@ -93,18 +114,33 @@ async function getLocalBrands() {
     return allBrands;
 }
 
+let cachedBrands = null;
+let lastBrandCacheTime = 0;
+const BRAND_CACHE_TTL_MS = 180000; // 3 minutes in-memory cache
+
 export const brandStorage = {
-    async getAllBrands() {
+    invalidateCache() {
+        cachedBrands = null;
+        lastBrandCacheTime = 0;
+    },
+
+    async getAllBrands(forceRefresh = false) {
+        if (cachedBrands && !forceRefresh && (Date.now() - lastBrandCacheTime < BRAND_CACHE_TTL_MS)) {
+            return cachedBrands;
+        }
+
         // Master list
         const brandMap = new Map();
 
-        // 1. Supabase - Top Priority "Source of Truth"
+        // 1. Supabase - Top Priority "Source of Truth" with 3s timeout protection
         if (supabase) {
             try {
-                const supabaseBrands = await getSupabaseBrands();
+                const supabasePromise = getSupabaseBrands();
+                const timeoutPromise = new Promise(resolve => setTimeout(() => resolve([]), 3000));
+                const supabaseBrands = await Promise.race([supabasePromise, timeoutPromise]);
+
                 supabaseBrands.forEach(b => {
                     if (b && (b.id || b.name)) {
-                        // Ensure products is parsed if it's stored as JSON string (though Supabase usually handles JSON columns)
                         const brandObj = {
                             ...b,
                             id: b.id || Date.now(),
@@ -128,8 +164,39 @@ export const brandStorage = {
             const id = String(b.id);
             if (!brandMap.has(id)) {
                 brandMap.set(id, b);
+            } else {
+                // Merge local products with remote products for highest fidelity
+                const existing = brandMap.get(id);
+                const existingProducts = existing.products || [];
+                const localProds = b.products || [];
+                const mergedProducts = [...localProds];
+                const seenModels = new Set(localProds.map(p => (p.model || '').toLowerCase().trim()));
+                for (const ep of existingProducts) {
+                    const mNorm = (ep.model || '').toLowerCase().trim();
+                    if (!seenModels.has(mNorm)) {
+                        seenModels.add(mNorm);
+                        mergedProducts.push(ep);
+                    }
+                }
+                existing.products = mergedProducts;
             }
         });
+
+        // 2b. Build dynamic, read-only category trees for each brand (zero Supabase writes)
+        for (const [id, brand] of brandMap) {
+            const categoryTree = {};
+            const products = Array.isArray(brand.products) ? brand.products : [];
+            products.forEach(p => {
+                const main = (p.mainCategory || p.category || 'General').trim() || 'General';
+                const sub = (p.subCategory || p.type || '').trim();
+                if (!categoryTree[main]) categoryTree[main] = [];
+                if (sub && !categoryTree[main].includes(sub)) {
+                    categoryTree[main].push(sub);
+                }
+            });
+            brand.categoryTree = categoryTree;
+            brand.categoryList = Object.keys(categoryTree);
+        }
 
 
         // 3. Filter out any brands that were deleted during this server lifetime
@@ -139,7 +206,20 @@ export const brandStorage = {
             }
         }
 
-        return Array.from(brandMap.values());
+        // 4. Inject Virtual Marketplace Brands (Amazon, etc.) if not already present
+        for (const vBrand of VIRTUAL_MARKETPLACE_BRANDS) {
+            const hasBrand = Array.from(brandMap.values()).some(
+                b => b.name && b.name.toLowerCase().trim() === vBrand.name.toLowerCase().trim()
+            );
+            if (!hasBrand && !deletedBrandIds.has(String(vBrand.id))) {
+                brandMap.set(String(vBrand.id), { ...vBrand });
+            }
+        }
+
+        const finalBrands = Array.from(brandMap.values());
+        cachedBrands = finalBrands;
+        lastBrandCacheTime = Date.now();
+        return finalBrands;
     },
 
     async getBrandById(brandId) {
@@ -163,19 +243,30 @@ export const brandStorage = {
             return false;
         }
 
-        // 1. Supabase Save (Success here is primary completion)
+        // ⚡ Zero-Database Persistence Guard for Amazon & Marketplaces
+        const brandNameLower = String(brand.name).toLowerCase().trim();
+        if (brand.isVirtual || NO_PERSIST_BRANDS.has(brandNameLower) || /^(amazon|noon|desertcart|ubuy|marketplace|ikea|homedepot)/i.test(brandNameLower)) {
+            console.log(`⚡ [Storage] Skipping DB & File persistence for virtual marketplace brand "${brand.name}".`);
+            return true;
+        }
+
+        // 🏷️ Auto-Resolve Brand Logo if missing or placeholder
+        if (!brand.logo || brand.logo.includes('clearbit.com') || brand.logo.includes('via.placeholder')) {
+            const canonicalLogo = getCanonicalBrandLogo(brand.name, brand.websiteUrl);
+            if (canonicalLogo) brand.logo = canonicalLogo;
+        }
+
+        // 1. Supabase Save (Attempt if configured)
         if (supabase) {
             try {
                 const ok = await saveSupabaseBrand(brand);
                 if (ok) {
                     console.log(`✅ [Storage] Saved brand "${brand.name}" to Supabase.`);
                 } else {
-                    console.error(`❌ [Storage] Supabase save returned false for "${brand.name}".`);
-                    return false; // Stop if primary storage fails
+                    console.warn(`⚠️ [Storage] Supabase save returned false for "${brand.name}". Falling back to local storage.`);
                 }
             } catch (err) {
-                console.error(`❌ [Storage] Supabase save exception:`, err.message);
-                return false;
+                console.warn(`⚠️ [Storage] Supabase save exception for "${brand.name}":`, err.message);
             }
         }
 
@@ -218,6 +309,7 @@ export const brandStorage = {
             await fs.writeFile(filePath, JSON.stringify(brand, null, 2));
             console.log(`💾 [Storage] Successfully saved brand ${brand.name} to ${filePath}`);
 
+            this.invalidateCache();
             return true;
         } catch (error) {
             console.error('[Storage] Filesystem save failed:', error);
@@ -226,10 +318,18 @@ export const brandStorage = {
     },
 
     async addProductToBrand(brandName, budgetTier, product) {
+        const brandNameLower = String(brandName || '').toLowerCase().trim();
+
+        // ⚡ Zero-Database Persistence Guard for Amazon & Marketplaces
+        if (NO_PERSIST_BRANDS.has(brandNameLower) || /^(amazon|noon|desertcart|ubuy|marketplace|ikea|homedepot)/i.test(brandNameLower)) {
+            console.log(`⚡ [Storage] Skipping product DB hardening for marketplace brand "${brandName}". Evaluated dynamically on-the-fly.`);
+            return true;
+        }
+
         const brands = await this.getAllBrands();
         // Case-insensitive match for name and tier
         const targetBrand = brands.find(b =>
-            b.name.toLowerCase().trim() === brandName.toLowerCase().trim() &&
+            b.name.toLowerCase().trim() === brandNameLower &&
             (b.budgetTier || 'mid').toLowerCase() === budgetTier.toLowerCase()
         );
 
@@ -251,15 +351,23 @@ export const brandStorage = {
             return true;
         }
 
-        // Append new product with metadata, cleaning up AI internal fields
+        // Append new product with normalized contract taxonomy metadata, cleaning up AI internal fields
         const { status, logic, error_message, ...cleanProduct } = product;
+        const norm = classifyContractCategory(
+            cleanProduct.mainCategory,
+            cleanProduct.subCategory,
+            cleanProduct.model,
+            cleanProduct.description
+        );
         targetBrand.products.push({
             ...cleanProduct,
+            mainCategory: cleanProduct.mainCategory || norm.mainCategory,
+            subCategory: cleanProduct.subCategory || norm.subCategory,
             lastUpdated: new Date().toISOString(),
             source: 'AI-Specialist-Discovery'
         });
 
-        console.log(`💎 [Storage] Hardening ${brandName}: Added "${product.model}"`);
+        console.log(`💎 [Storage] Hardening ${brandName}: Added "${product.model}" (Category: ${cleanProduct.mainCategory || norm.mainCategory} ➔ ${cleanProduct.subCategory || norm.subCategory})`);
         return await this.saveBrand(targetBrand);
     },
 
@@ -322,8 +430,10 @@ export const brandStorage = {
                     }
                 } catch (e) { /* Segment path inaccessible, skipped safely */ }
             }
+            this.invalidateCache();
             return actualCloudDeletionSuccess;
         } catch (error) {
+            this.invalidateCache();
             return actualCloudDeletionSuccess;
         }
     }

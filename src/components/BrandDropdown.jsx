@@ -54,12 +54,25 @@ const BrandDropdown = ({
 
     const isSelected = (brandName) => {
         if (multiple) return selectedBrands.includes(brandName);
-        return selectedBrands === brandName;
+        if (!selectedBrands || !brandName) return false;
+        return selectedBrands === brandName || String(selectedBrands).toLowerCase().trim() === String(brandName).toLowerCase().trim();
     };
 
     const getSelectedBrandObj = () => {
-        if (multiple) return null;
-        return brands.find(b => b.name === selectedBrands);
+        if (!selectedBrands) return null;
+        if (multiple) {
+            return brands.filter(b => selectedBrands.includes(b.name));
+        }
+        const val = String(selectedBrands).toLowerCase().trim();
+        const found = brands.find(b => b.name === selectedBrands)
+            || brands.find(b => b.name && b.name.toLowerCase().trim() === val)
+            || brands.find(b => b.name && (b.name.toLowerCase().includes(val) || val.includes(b.name.toLowerCase())));
+        if (found) return found;
+        // Fallback for newly detected or custom brands not yet in brands array
+        if (typeof selectedBrands === 'string' && selectedBrands.trim()) {
+            return { name: selectedBrands.trim(), logo: '' };
+        }
+        return null;
     };
 
     const selectedBrand = getSelectedBrandObj();

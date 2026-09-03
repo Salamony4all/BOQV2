@@ -3,6 +3,8 @@ import AIPresentationModal from './AIPresentationModal';
 import SpecialistModal from './SpecialistModal';
 import CostingModal from './CostingModal';
 import BrandDropdown from './BrandDropdown';
+import MultiImageCell from './MultiImageCell';
+import ImageGalleryModal from './ImageGalleryModal';
 import styles from '../styles/ValueEngineeredModal.module.css';
 import mbs from '../styles/MultiBudgetModal.module.css';
 import afStyles from '../styles/AutoFillSelectModal.module.css';
@@ -60,11 +62,27 @@ export default function ValueEngineeredModal({
     useEffect(() => { rowsRef.current = rows; }, [rows]);
     const lastLoadedTablesRef = useRef(null);
 
+    const [localBrands, setLocalBrands] = useState(allBrands || []);
+    useEffect(() => {
+        if (allBrands && allBrands.length > 0) {
+            setLocalBrands(allBrands);
+        }
+    }, [allBrands]);
+
     const [openBrandDropdown, setOpenBrandDropdown] = useState(null);
     const [previewImage, setPreviewImage] = useState(null);
     const [previewLogo, setPreviewLogo] = useState(null);
     const [previewBrand, setPreviewBrand] = useState('');
     const [previewModel, setPreviewModel] = useState('');
+    const [galleryModal, setGalleryModal] = useState({
+        isOpen: false,
+        images: [],
+        initialIndex: 0,
+        title: '',
+        subtitle: '',
+        brandLogo: null,
+        brandName: null
+    });
     const [planPreviewOpen, setPlanPreviewOpen] = useState(false);
     const [specialistData, setSpecialistData] = useState(null);
     const [enrichingRowId, setEnrichingRowId] = useState(null);
@@ -90,11 +108,11 @@ export default function ValueEngineeredModal({
     const [pendingSeed, setPendingSeed] = useState(false);
 
     useEffect(() => {
-        console.log(`[VE Modal] Rendered with ${allBrands?.length || 0} brands`);
-        if (allBrands?.length > 0) {
-            console.log('[VE Modal] Brand names sample:', allBrands.map(b => b.name).filter(Boolean).slice(0, 5), '...');
+        console.log(`[VE Modal] Rendered with ${localBrands?.length || 0} brands`);
+        if (localBrands?.length > 0) {
+            console.log('[VE Modal] Brand names sample:', localBrands.map(b => b.name).filter(Boolean).slice(0, 5), '...');
         }
-    }, [allBrands, isOpen]);
+    }, [localBrands, isOpen]);
 
     useEffect(() => {
         if (pendingSeed) {
@@ -146,9 +164,33 @@ export default function ValueEngineeredModal({
             if (!row || !row.cells || row.isHeader || row.isSummary) return null;
             const imageRefs = cellImageUrls(row);
 
+            let rawDesc = getVal(row, idxDesc);
+            const extraParts = [];
+
+            // If table has added specification columns (e.g. Type, Finish, Supplier, Size), append them
+            if (row.cells && row.cells.length > 0) {
+                row.cells.forEach((cell, cIdx) => {
+                    if (cIdx !== idxDesc && cIdx !== idxQty && cIdx !== idxUnit && cIdx !== idxRate && cIdx !== idxTotal) {
+                        const h = header[cIdx] || '';
+                        const val = getVal(row, cIdx);
+                        if (val && !['BOQ_ONLY', 'PASS', 'SPEC_NOT_MATCHED'].includes(val) && !rawDesc.toLowerCase().includes(val.toLowerCase())) {
+                            if (h && !/^(sl|sn|no|image|ref)/i.test(h)) {
+                                extraParts.push(`${h}: ${val}`);
+                            } else if (val.startsWith('http') || val.length > 5) {
+                                extraParts.push(val);
+                            }
+                        }
+                    }
+                });
+            }
+
+            if (extraParts.length > 0) {
+                rawDesc = [rawDesc, ...extraParts].filter(Boolean).join(' | ');
+            }
+
             return {
                 id: Date.now() + i, sn: i + 1, imageRef: imageRefs[0] || null, imageRefs, brandImage: '', brandDesc: '',
-                description: getVal(row, idxDesc), qty: getVal(row, idxQty), unit: getVal(row, idxUnit),
+                description: rawDesc, qty: getVal(row, idxQty), unit: getVal(row, idxUnit),
                 rate: getVal(row, idxRate), amount: getVal(row, idxTotal),
                 selectedBrand: '', selectedMainCat: '', selectedSubCat: '', selectedFamily: '', selectedModel: '', selectedModelUrl: '',
                 basePrice: 0,
@@ -300,7 +342,7 @@ export default function ValueEngineeredModal({
             if (field === 'selectedBrand') {
                 row.selectedBrand = value;
                 row.selectedMainCat = ''; row.selectedSubCat = ''; row.selectedFamily = ''; row.selectedModel = ''; row.selectedModelUrl = ''; row.brandImage = ''; row.brandDesc = ''; row.basePrice = 0;
-                const brand = allBrands.find(b => b.name === value);
+                const brand = localBrands.find(b => b.name === value);
                 row.brandLogo = brand?.logo || '';
             } else if (field === 'selectedMainCat') {
                 row.selectedMainCat = value; row.selectedSubCat = ''; row.selectedFamily = ''; row.selectedModel = ''; row.selectedModelUrl = '';
@@ -312,7 +354,7 @@ export default function ValueEngineeredModal({
                 const { model, url } = value;
                 row.selectedModel = model;
                 row.selectedModelUrl = url;
-                const brand = allBrands.find(b => b.name === row.selectedBrand);
+                const brand = localBrands.find(b => b.name === row.selectedBrand);
                 if (brand?.products) {
                     let product = brand.products.find(p => (p.productUrl && p.productUrl === url) || (p.imageUrl && p.imageUrl === url));
                     if (!product) {
@@ -358,7 +400,7 @@ export default function ValueEngineeredModal({
             }
 
             const autoSelectNextLevel = (currentRow) => {
-                const activeBrand = allBrands.find(b => b.name === currentRow.selectedBrand);
+                const activeBrand = localBrands.find(b => b.name === currentRow.selectedBrand);
                 if (!activeBrand || !activeBrand.products) return;
                 const brandProducts = activeBrand.products;
 
@@ -438,8 +480,26 @@ export default function ValueEngineeredModal({
     const handleVeRemoveRow = (index) => setRows(prev => prev.filter((_, i) => i !== index).map((r, i) => ({ ...r, sn: i + 1 })));
 
     const renderVeRow = (row, index) => {
-        const activeBrand = allBrands.find(b => b.name === row.selectedBrand);
-        const brandProducts = activeBrand?.products || [];
+        const activeBrand = localBrands.find(b => b.name && row.selectedBrand && b.name.toLowerCase().trim() === row.selectedBrand.toLowerCase().trim())
+            || localBrands.find(b => b.name && row.selectedBrand && (b.name.toLowerCase().includes(row.selectedBrand.toLowerCase()) || row.selectedBrand.toLowerCase().includes(b.name.toLowerCase())));
+        let brandProducts = activeBrand?.products ? [...activeBrand.products] : [];
+
+        // 🌟 Ensure that whatever the row was matched with (model, categories, url) is always present in brandProducts:
+        if (row.selectedModel) {
+            const hasModel = brandProducts.some(p => p && p.model && p.model.toLowerCase().trim() === String(row.selectedModel).toLowerCase().trim());
+            if (!hasModel) {
+                brandProducts.unshift({
+                    model: row.selectedModel,
+                    mainCategory: row.selectedMainCat || 'Furniture',
+                    subCategory: row.selectedSubCat || 'General',
+                    family: row.selectedFamily || 'Standard',
+                    productUrl: row.selectedModelUrl || row.brandImage || '',
+                    imageUrl: row.brandImage || '',
+                    description: row.brandDesc || row.selectedModel,
+                    price: row.rate || row.basePrice || 0
+                });
+            }
+        }
 
         const mergeUnique = (plist, key1, key2) => {
             const set = new Set();
@@ -452,21 +512,62 @@ export default function ValueEngineeredModal({
             return Array.from(set).sort();
         };
 
-        const mainCats = mergeUnique(brandProducts, 'normalization.category', 'mainCategory');
-        const matchingByMain = brandProducts.filter(p => (p.normalization?.category || p.mainCategory) === row.selectedMainCat);
-        const subCats = mergeUnique(matchingByMain, 'normalization.subCategory', 'subCategory');
-        const families = Array.from(new Set(brandProducts.filter(p => (p.normalization?.category || p.mainCategory) === row.selectedMainCat && (p.normalization?.subCategory || p.subCategory) === row.selectedSubCat).map(p => p.family).filter(Boolean))).sort();
+        const mainCats = mergeUnique(brandProducts, 'mainCategory', 'category');
+        if (row.selectedMainCat && !mainCats.some(c => c.toLowerCase().trim() === String(row.selectedMainCat).toLowerCase().trim())) {
+            mainCats.push(row.selectedMainCat);
+        }
 
-        const allRawModels = brandProducts.filter(p => (p.normalization?.category || p.mainCategory) === row.selectedMainCat && (p.normalization?.subCategory || p.subCategory) === row.selectedSubCat);
+        const matchingByMain = brandProducts.filter(p => {
+            if (!row.selectedMainCat) return true;
+            const pCat = String(p.mainCategory || p.category || p.normalization?.category || '').toLowerCase().trim();
+            const rowCat = String(row.selectedMainCat).toLowerCase().trim();
+            return pCat === rowCat || pCat.includes(rowCat) || rowCat.includes(pCat);
+        });
+
+        const subCats = mergeUnique(matchingByMain, 'subCategory', 'normalization.subCategory');
+        if (row.selectedSubCat && !subCats.some(s => s.toLowerCase().trim() === String(row.selectedSubCat).toLowerCase().trim())) {
+            subCats.push(row.selectedSubCat);
+        }
+
+        const families = Array.from(new Set(brandProducts.filter(p => {
+            const pCat = String(p.mainCategory || p.category || '').toLowerCase().trim();
+            const rowCat = String(row.selectedMainCat || '').toLowerCase().trim();
+            const pSub = String(p.subCategory || '').toLowerCase().trim();
+            const rowSub = String(row.selectedSubCat || '').toLowerCase().trim();
+            const catMatch = !rowCat || pCat === rowCat || pCat.includes(rowCat) || rowCat.includes(pCat);
+            const subMatch = !rowSub || pSub === rowSub || pSub.includes(rowSub) || rowSub.includes(pSub);
+            return catMatch && subMatch;
+        }).map(p => p.family).filter(Boolean))).sort();
+
+        let allRawModels = brandProducts.filter(p => {
+            const pCat = String(p.mainCategory || p.category || '').toLowerCase().trim();
+            const rowCat = String(row.selectedMainCat || '').toLowerCase().trim();
+            const pSub = String(p.subCategory || '').toLowerCase().trim();
+            const rowSub = String(row.selectedSubCat || '').toLowerCase().trim();
+            const catMatch = !rowCat || pCat === rowCat || pCat.includes(rowCat) || rowCat.includes(pCat);
+            const subMatch = !rowSub || pSub === rowSub || pSub.includes(rowSub) || rowSub.includes(pSub);
+            return catMatch && subMatch;
+        });
+
+        // If category filters are too restrictive and return 0 models, fallback to all models in brand
+        if (allRawModels.length === 0 && brandProducts.length > 0) {
+            allRawModels = brandProducts;
+        }
+
         const rawModels = [];
         const seenUids = new Set();
         allRawModels.forEach(p => {
-            const uid = p.productUrl || p.imageUrl || `id_${p.id || Math.random()}`;
+            const uid = p.productUrl || p.imageUrl || `id_${p.id || p.model || Math.random()}`;
             if (!seenUids.has(uid)) { seenUids.add(uid); rawModels.push(p); }
         });
 
         const modelGroups = {};
-        rawModels.forEach(p => { if (!modelGroups[p.model]) modelGroups[p.model] = []; modelGroups[p.model].push(p); });
+        rawModels.forEach(p => {
+            const mKey = p.model || 'Standard';
+            if (!modelGroups[mKey]) modelGroups[mKey] = [];
+            modelGroups[mKey].push(p);
+        });
+
         const modelOptions = [];
         Object.entries(modelGroups).forEach(([modelName, items]) => {
             items.forEach((item, i) => {
@@ -476,6 +577,24 @@ export default function ValueEngineeredModal({
                 modelOptions.push({ value: uid, label: items.length > 1 ? `[${cat}] ${modelName} (${snippet})` : `[${cat}] ${modelName}`, rawModel: modelName });
             });
         });
+
+        if (row.selectedModel && !modelOptions.some(o => o.rawModel && o.rawModel.toLowerCase().trim() === String(row.selectedModel).toLowerCase().trim())) {
+            const uid = row.selectedModelUrl || row.brandImage || `model_${row.selectedModel}`;
+            modelOptions.unshift({ value: uid, label: row.selectedModel, rawModel: row.selectedModel });
+        }
+
+        const matchedMainCat = mainCats.find(c => c.toLowerCase().trim() === String(row.selectedMainCat || '').toLowerCase().trim())
+            || mainCats.find(c => row.selectedMainCat && (c.toLowerCase().includes(String(row.selectedMainCat).toLowerCase()) || String(row.selectedMainCat).toLowerCase().includes(c.toLowerCase())))
+            || (row.selectedMainCat || (mainCats.length === 1 ? mainCats[0] : ''));
+
+        const matchedSubCat = subCats.find(s => s.toLowerCase().trim() === String(row.selectedSubCat || '').toLowerCase().trim())
+            || subCats.find(s => row.selectedSubCat && (s.toLowerCase().includes(String(row.selectedSubCat).toLowerCase()) || String(row.selectedSubCat).toLowerCase().includes(s.toLowerCase())))
+            || (row.selectedSubCat || (subCats.length === 1 ? subCats[0] : ''));
+
+        const matchedModelOpt = modelOptions.find(o => o.value === row.selectedModelUrl)
+            || modelOptions.find(o => o.rawModel && row.selectedModel && o.rawModel.toLowerCase().trim() === String(row.selectedModel).toLowerCase().trim())
+            || modelOptions.find(o => o.rawModel && row.selectedModel && (o.rawModel.toLowerCase().includes(String(row.selectedModel).toLowerCase()) || String(row.selectedModel).toLowerCase().includes(o.rawModel.toLowerCase())));
+        const currentModelSelectValue = matchedModelOpt ? matchedModelOpt.value : (row.selectedModelUrl || (modelOptions[0]?.value || ''));
 
         const rowStatusClass = row.aiStatus === 'processing' ? mbs.aiPulse : row.aiStatus === 'success' ? mbs.aiGlow : row.aiStatus === 'error' ? mbs.aiErrorBorder : '';
         const refImages = row.imageRefs?.length ? row.imageRefs : (row.imageRef ? [row.imageRef] : []);
@@ -507,80 +626,75 @@ export default function ValueEngineeredModal({
                         )}
                     </div>
                 </td>
-                <td style={{ verticalAlign: 'middle', minWidth: 72 }}>
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
-                        {refImages.length > 0 ? (
-                            <div className={mbs.imgPlaceholder} style={{ background: 'none' }}>
-                                {refImages.map((ref, imgIdx) => {
-                                    const src = getFullUrl(ref);
-                                    return (
-                                        <img
-                                            key={imgIdx}
-                                            src={src}
-                                            alt={`ref ${imgIdx + 1}`}
-                                            className={mbs.tableImg}
-                                            style={imgIdx > 0 ? { marginTop: 4 } : undefined}
-                                            onClick={(e) => {
-                                                if (e.target.dataset.broken === 'true') return;
-                                                setPreviewImage(src);
-                                                setPreviewLogo(null);
-                                                setPreviewBrand('Original Reference');
-                                                setPreviewModel(row.description);
-                                            }}
-                                            onError={(e) => {
-                                                e.target.dataset.broken = 'true';
-                                                e.target.style.opacity = '0.3';
-                                                e.target.style.filter = 'grayscale(1)';
-                                                e.target.title = 'Image not available (session expired – re-upload to refresh)';
-                                            }}
-                                        />
-                                    );
-                                })}
-                            </div>
-                        ) : (
-                            <div className={mbs.imgPlaceholder} style={{ fontSize: '0.65rem' }}>No Img</div>
-                        )}
-                    </div>
+                <td style={{ verticalAlign: 'middle', minWidth: 80, textAlign: 'center' }}>
+                    <MultiImageCell
+                        images={refImages}
+                        cellId={`ve_ref_${row.id || index}`}
+                        altPrefix="Ref"
+                        itemTitle={row.description || `Item #${row.sn}`}
+                        size={68}
+                        onImagesChange={(newImgs) => {
+                            setRows(prevRows => {
+                                const next = [...prevRows];
+                                next[index] = {
+                                    ...next[index],
+                                    imageRefs: newImgs,
+                                    imageRef: newImgs[0] || null
+                                };
+                                return next;
+                            });
+                        }}
+                        onPreview={(imgs, targetIdx) => {
+                            setGalleryModal({
+                                isOpen: true,
+                                images: imgs,
+                                initialIndex: targetIdx,
+                                title: `Reference Images (${targetIdx + 1}/${imgs.length})`,
+                                subtitle: row.description || `Item #${row.sn}`,
+                                rowIndex: index,
+                                targetField: 'ref',
+                                brandLogo: null,
+                                brandName: 'Original Specification'
+                            });
+                        }}
+                    />
                 </td>
                 <td style={{ verticalAlign: 'middle', minWidth: 220 }}>
                     <textarea className={mbs.cellInput} value={row.description} onChange={e => handleVeCellChange(index, 'description', e.target.value)} style={{ minHeight: 72, resize: 'vertical', width: '100%' }} />
                 </td>
-                <td style={{ verticalAlign: 'middle', minWidth: 80 }}>
-                    <div className={mbs.brandImageCell}>
-                        {row.brandLogo && (
-                            <div className={mbs.brandLogoBadge}>
-                                <img
-                                    src={getFullUrl(row.brandLogo)}
-                                    alt=""
-                                    className={mbs.badgeLogo}
-                                    onError={(e) => { e.target.style.display = 'none'; }}
-                                />
-                            </div>
-                        )}
-                        {row.brandImage ? (
-                            <div className={mbs.tableImgContainer}>
-                                <img
-                                    src={getFullUrl(row.brandImage)}
-                                    alt="brand"
-                                    className={mbs.tableImg}
-                                    onClick={(e) => {
-                                        if (e.target.dataset.broken === 'true') return;
-                                        setPreviewImage(getFullUrl(row.brandImage));
-                                        setPreviewLogo(row.brandLogo);
-                                        setPreviewBrand(row.selectedBrand);
-                                        setPreviewModel(row.selectedModel);
-                                    }}
-                                    onError={(e) => {
-                                        e.target.dataset.broken = 'true';
-                                        e.target.style.opacity = '0.3';
-                                        e.target.style.filter = 'grayscale(1)';
-                                    }}
-                                />
-                            </div>
-                        ) : (
-                            <div className={mbs.imgPlaceholder} style={{ fontSize: '0.65rem' }}>Select</div>
-                        )}
-                    </div>
+                <td style={{ verticalAlign: 'middle', minWidth: 80, textAlign: 'center' }}>
+                    <MultiImageCell
+                        images={row.brandImage ? [row.brandImage] : []}
+                        singleMode={true}
+                        cellId={`ve_brand_${row.id || index}`}
+                        brandLogo={row.brandLogo}
+                        altPrefix={row.selectedModel || "Product"}
+                        itemTitle={`${row.selectedBrand || 'Brand'} ${row.selectedModel || ''}`}
+                        size={68}
+                        onImagesChange={(newImgs) => {
+                            setRows(prevRows => {
+                                const next = [...prevRows];
+                                next[index] = {
+                                    ...next[index],
+                                    brandImage: newImgs[0] || ''
+                                };
+                                return next;
+                            });
+                        }}
+                        onPreview={(imgs, targetIdx) => {
+                            setGalleryModal({
+                                isOpen: true,
+                                images: imgs,
+                                initialIndex: targetIdx,
+                                title: row.selectedModel || 'Matched Product',
+                                subtitle: row.brandDesc || row.description,
+                                rowIndex: index,
+                                targetField: 'brand',
+                                brandLogo: row.brandLogo,
+                                brandName: row.selectedBrand
+                            });
+                        }}
+                    />
                 </td>
                 <td style={{ verticalAlign: 'middle', minWidth: 160 }}>
                     <textarea className={mbs.cellInput} value={row.brandDesc} onChange={e => handleVeCellChange(index, 'brandDesc', e.target.value)} style={{ minHeight: 72, resize: 'vertical', width: '100%' }} placeholder="Product details..." />
@@ -598,7 +712,7 @@ export default function ValueEngineeredModal({
                                 <div className={mbs.aiLoadingCell}><div className={mbs.tinySpinner} /><span style={{ fontSize: '0.72rem' }}>AI Matching…</span></div>
                             ) : (
                                 <BrandDropdown
-                                    brands={allBrands.filter(b => b && b.name && !b.name.toLowerCase().includes('fitout'))}
+                                    brands={localBrands.filter(b => b && b.name && !b.name.toLowerCase().includes('fitout'))}
                                     selectedBrands={row.selectedBrand}
                                     onSelect={(b) => handleVeCellChange(index, 'selectedBrand', b.name)}
                                     placeholder="Select Brand…"
@@ -607,19 +721,19 @@ export default function ValueEngineeredModal({
                         </div>
 
                         {row.selectedBrand && (
-                            <select className={mbs.productSelect} value={row.selectedMainCat} onChange={e => handleVeCellChange(index, 'selectedMainCat', e.target.value)}>
+                            <select className={mbs.productSelect} value={matchedMainCat} onChange={e => handleVeCellChange(index, 'selectedMainCat', e.target.value)}>
                                 <option value="">Category…</option>
                                 {(mainCats || []).map(c => <option key={c} value={c}>{c}</option>)}
                             </select>
                         )}
-                        {row.selectedMainCat && (
-                            <select className={mbs.productSelect} value={row.selectedSubCat} onChange={e => handleVeCellChange(index, 'selectedSubCat', e.target.value)}>
+                        {(matchedMainCat || subCats.length > 0) && (
+                            <select className={mbs.productSelect} value={matchedSubCat} onChange={e => handleVeCellChange(index, 'selectedSubCat', e.target.value)}>
                                 <option value="">Sub-Category…</option>
                                 {(subCats || []).map(c => <option key={c} value={c}>{c}</option>)}
                             </select>
                         )}
-                        {row.selectedSubCat && (
-                            <select className={mbs.productSelect} value={row.selectedModelUrl || ''} onChange={e => {
+                        {(matchedSubCat || modelOptions.length > 0) && (
+                            <select className={mbs.productSelect} value={currentModelSelectValue} onChange={e => {
                                 const opt = modelOptions.find(o => o.value === e.target.value);
                                 handleVeCellChange(index, 'selectedModel', { model: opt?.rawModel || '', url: e.target.value });
                             }}>
@@ -639,7 +753,7 @@ export default function ValueEngineeredModal({
         );
     };
 
-    const furnitureBrands = allBrands.filter(b => !b.name?.toLowerCase().includes('fitout'));
+    const furnitureBrands = localBrands.filter(b => !b.name?.toLowerCase().includes('fitout'));
 
     // ─────────────────────────────────────────────────────────────
     // MAIN EXECUTION LOGIC (Router + Swarm Parallelization)
@@ -665,7 +779,7 @@ export default function ValueEngineeredModal({
         for (const catKey of categoryKeys) {
             const label = catKey === 'specifications' ? 'Specification Matcher' : VE_UI_CONFIG.labels[catKey];
             const targetBrand = brandMode === 'simple' ? globalBrand : (brandMode === 'auto_detect' ? 'Auto Detected' : categoryBrands[catKey]);
-            const localBrand = allBrands.find(b => b.name === targetBrand);
+            const localBrand = localBrands.find(b => b.name === targetBrand);
             initialLanes[catKey] = {
                 id: catKey,
                 label: label,
@@ -729,7 +843,28 @@ export default function ValueEngineeredModal({
                 return;
             }
         } else if (brandMode === 'auto_detect') {
-            console.log('🚀 [VE AI] Auto Detect mode active, bypassing Category AI Router...');
+            console.log('🚀 [VE AI] Auto Detect mode active: running Global Brand & Model Pre-Scan...');
+            setAiStatus(prev => ({ ...prev, active: true, status: 'routing', currentItem: { description: 'Scanning project schedule for specified contract brands & models...' } }));
+            
+            try {
+                const prescanPayload = workableRows.map(r => ({ id: String(r.id), description: r.description }));
+                const prescanRes = await fetch(`${API_BASE}/api/ve-prescan-brands`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        items: prescanPayload,
+                        providerModel: aiSettings?.model
+                    })
+                });
+                const prescanData = await prescanRes.json();
+                if (prescanData.status === 'success' && prescanData.allBrands) {
+                    setLocalBrands(prescanData.allBrands);
+                    console.log('✅ [VE Pre-Scan] Successfully synced', prescanData.discoveredBrands?.length || 0, 'discovered brands to catalog.');
+                }
+            } catch (prescanErr) {
+                console.warn('⚠️ [VE Pre-Scan Warning]:', prescanErr.message);
+            }
+
             categoryMap = { specifications: workableRows.map(r => String(r.id)), status: 'success' };
             setSwarm(prev => ({
                 ...prev,
@@ -741,7 +876,7 @@ export default function ValueEngineeredModal({
                     }
                 }
             }));
-            await sleep(800); // UI visual delay
+            await sleep(400);
 
         } else {
             // Simple mode: lanes start as active or idle
@@ -817,7 +952,10 @@ export default function ValueEngineeredModal({
 
                 if (result.status === 'success' && result.product) {
                     const match = result.product;
-                    const matchedBrand = match.brand || targetBrand;
+                    const localBrand = localBrands.find(b => b.name && b.name.toLowerCase().trim() === String(match.brand || targetBrand).toLowerCase().trim())
+                      || localBrands.find(b => b.name && (b.name.toLowerCase().includes(String(match.brand || targetBrand).toLowerCase()) || String(match.brand || targetBrand).toLowerCase().includes(b.name.toLowerCase())));
+                    
+                    const matchedBrand = localBrand ? localBrand.name : (match.brand || targetBrand);
                     let finalModel = match.model || '';
                     let finalImageUrl = match.imageUrl || '';
                     let finalBrandDesc = match.description || finalModel;
@@ -829,7 +967,26 @@ export default function ValueEngineeredModal({
                     let resolvedFamily = match.family || '';
                     let resolvedModelUrl = match.websiteUrl || match.productUrl || match.imageUrl || '';
 
-                    const localBrand = allBrands.find(b => b.name?.toLowerCase().trim() === matchedBrand.toLowerCase().trim());
+                    // If local brand catalog exists, look up the exact product to sync category/variant UID
+                    if (localBrand && localBrand.products && localBrand.products.length > 0) {
+                        const localProd = localBrand.products.find(p => p.model && p.model.toLowerCase().trim() === finalModel.toLowerCase().trim())
+                          || localBrand.products.find(p => p.model && (p.model.toLowerCase().includes(finalModel.toLowerCase()) || finalModel.toLowerCase().includes(p.model.toLowerCase())));
+                        
+                        if (localProd) {
+                            finalModel = localProd.model || finalModel;
+                            resolvedMainCat = localProd.mainCategory || localProd.category || localProd.normalization?.category || resolvedMainCat;
+                            resolvedSubCat = localProd.subCategory || localProd.normalization?.subCategory || resolvedSubCat;
+                            resolvedFamily = localProd.family || resolvedFamily;
+                            resolvedModelUrl = localProd.productUrl || localProd.imageUrl || resolvedModelUrl;
+                            finalImageUrl = localProd.imageUrl || (localProd.images && localProd.images[0]) || finalImageUrl;
+                            if (localProd.description) finalBrandDesc = localProd.description;
+                            if (parseFloat(finalRate) <= 0 && localProd.price > 0) {
+                                finalRate = localProd.price.toFixed(2);
+                                finalBasePrice = localProd.price;
+                            }
+                        }
+                    }
+
                     const resolvedLaneId = effectiveLaneId;
 
                     setSwarm(prev => {
@@ -851,6 +1008,52 @@ export default function ValueEngineeredModal({
                         };
                     });
 
+                    // Dynamically inject new contract brand or marketplace into localBrands if not already present
+                    if (matchedBrand) {
+                        setLocalBrands(prev => {
+                            const bLower = matchedBrand.toLowerCase().trim();
+                            const exists = prev.some(b => b && b.name && b.name.toLowerCase().trim() === bLower);
+                            if (exists) {
+                                return prev.map(b => {
+                                    if (!b || !b.name || b.name.toLowerCase().trim() !== bLower) return b;
+                                    const existingProds = b.products || [];
+                                    const modelExists = existingProds.some(p => p && p.model && p.model.toLowerCase().trim() === finalModel.toLowerCase().trim());
+                                    const updatedProducts = modelExists ? existingProds : [...existingProds, {
+                                        model: finalModel,
+                                        family: resolvedFamily || 'Collection',
+                                        mainCategory: resolvedMainCat,
+                                        subCategory: resolvedSubCat,
+                                        imageUrl: finalImageUrl,
+                                        productUrl: resolvedModelUrl,
+                                        price: finalBasePrice,
+                                        description: finalBrandDesc
+                                    }];
+                                    return {
+                                        ...b,
+                                        logo: b.logo || result.newBrand?.logo || match.brandLogo || '',
+                                        products: updatedProducts
+                                    };
+                                });
+                            }
+                            return [...prev, {
+                                id: result.newBrand?.id || Date.now(),
+                                name: matchedBrand,
+                                logo: result.newBrand?.logo || match.brandLogo || '',
+                                budgetTier: 'mid',
+                                products: [{
+                                    model: finalModel,
+                                    family: resolvedFamily || 'Collection',
+                                    mainCategory: resolvedMainCat,
+                                    subCategory: resolvedSubCat,
+                                    imageUrl: finalImageUrl,
+                                    productUrl: resolvedModelUrl,
+                                    price: finalBasePrice,
+                                    description: finalBrandDesc
+                                }]
+                            }];
+                        });
+                    }
+
                     setAiStatus(prev => ({ ...prev, status: 'success', brand: matchedBrand, model: finalModel, image: finalImageUrl }));
                     setRows(prev => prev.map((r, i) => i === rowIndex ? {
                         ...r,
@@ -861,15 +1064,20 @@ export default function ValueEngineeredModal({
                         selectedModel: finalModel,
                         selectedModelUrl: resolvedModelUrl,
                         brandImage: finalImageUrl,
-                        brandLogo: localBrand?.logo || '',
-                        brandDesc: isAuto ? '' : finalBrandDesc,
+                        brandLogo: localBrand?.logo || result.newBrand?.logo || match.brandLogo || '',
+                        brandDesc: finalBrandDesc || match.description || finalModel || '',
                         rate: finalRate,
                         basePrice: finalBasePrice,
                         amount: (parseFloat(finalRate) * (parseFloat(r.qty) || 0)).toFixed(2),
                         aiStatus: 'success',
+                        matchTier: result.matchTier || (result.confidenceScore >= 95 ? 'EXACT_MATCH' : (result.confidenceScore >= 80 ? 'HIGH_CONFIDENCE' : 'SUGGESTED')),
+                        confidenceScore: result.confidenceScore || 95,
+                        evidence: result.evidence || match.evidence || null,
+                        imageVerification: result.imageVerification || null,
                         aiResult: { ...result, boqDescription: r.description, brand: matchedBrand }
                     } : r));
                     successCount++;
+
                 } else {
                     const resolvedLaneId = effectiveLaneId;
                     setSwarm(prev => {
@@ -913,7 +1121,7 @@ export default function ValueEngineeredModal({
                 errorCount++;
             }
             setProgress(prev => ({ ...prev, current: prev.current + 1 }));
-            await sleep(800);
+            await sleep(15);
         };
 
         // --- PHASE 2: SWARM EXECUTION ---
@@ -935,7 +1143,7 @@ export default function ValueEngineeredModal({
 
                 if (catWorkableIndices.length > 0) {
                     const processCategoryBatch = async () => {
-                        await batch(catWorkableIndices, 5, async (rowIndex) => {
+                        await batch(catWorkableIndices, 8, async (rowIndex) => {
                             await processSingleRow(rowIndex, targetBrand, VE_UI_CONFIG.labels[catKey], catKey);
                         });
                     };
@@ -956,7 +1164,7 @@ export default function ValueEngineeredModal({
             if (targetBrand) {
                 const workableIndices = workableRows.map(r => rowsRef.current.findIndex(row => row.id === r.id)).filter(idx => idx !== -1);
                 try {
-                    await batch(workableIndices, 5, async (rowIndex) => {
+                    await batch(workableIndices, 8, async (rowIndex) => {
                         await processSingleRow(rowIndex, targetBrand, null);
                     });
                 } catch (err) {
@@ -1110,20 +1318,9 @@ export default function ValueEngineeredModal({
                 <div className={mbs.previewOverlay} onClick={(e) => { e.stopPropagation(); setPreviewImage(null); setPreviewLogo(null); setPreviewBrand(null); setPreviewModel(null); }}>
                     <div className={mbs.previewContent} onClick={e => e.stopPropagation()}>
                         <div className={mbs.previewMain}>
-                            {previewLogo && (
-                                <div className={mbs.previewLogoBadge}>
-                                    <img
-                                        src={getFullUrl(previewLogo)}
-                                        alt="brand logo"
-                                        className={mbs.previewBadgeLogo}
-                                        style={{ objectFit: 'contain', background: 'white', padding: '4px', borderRadius: '4px', boxShadow: '0 2px 8px rgba(0,0,0,0.2)' }}
-                                        onError={(e) => { e.target.parentNode.style.display = 'none'; }}
-                                    />
-                                </div>
-                            )}
                             <img
                                 src={previewImage}
-                                alt="Full view"
+                                alt={previewModel || "Product Full View"}
                                 className={mbs.previewImage}
                                 onError={(e) => {
                                     e.target.src = 'https://placehold.co/600x400?text=Image+Not+Available';
@@ -1132,9 +1329,19 @@ export default function ValueEngineeredModal({
                         </div>
 
                         <div className={mbs.previewFooter}>
-                            <div className={mbs.previewDetails}>
-                                <div className={mbs.previewTitle}>{previewBrand || 'Product View'}</div>
-                                <div className={mbs.previewSubtitle}>{previewModel || ''}</div>
+                            <div className={mbs.previewDetails} style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                {previewLogo && (
+                                    <img
+                                        src={getFullUrl(previewLogo)}
+                                        alt=""
+                                        style={{ height: '24px', maxWidth: '80px', objectFit: 'contain', background: 'rgba(255,255,255,0.95)', padding: '2px 6px', borderRadius: '4px' }}
+                                        onError={(e) => { e.target.style.display = 'none'; }}
+                                    />
+                                )}
+                                <div>
+                                    <div className={mbs.previewTitle}>{previewBrand || 'Product View'}</div>
+                                    <div className={mbs.previewSubtitle}>{previewModel || ''}</div>
+                                </div>
                             </div>
                             <button
                                 className={mbs.previewCloseBtn}
@@ -1377,6 +1584,44 @@ export default function ValueEngineeredModal({
                     );
                 });
             })()}
+
+            {galleryModal.isOpen && (
+                <ImageGalleryModal
+                    images={galleryModal.images}
+                    initialIndex={galleryModal.initialIndex}
+                    title={galleryModal.title}
+                    subtitle={galleryModal.subtitle}
+                    brandLogo={galleryModal.brandLogo}
+                    brandName={galleryModal.brandName}
+                    onRemoveImage={galleryModal.rowIndex !== undefined && galleryModal.rowIndex !== null ? (removedIdx) => {
+                        const rowIdx = galleryModal.rowIndex;
+                        const isRef = galleryModal.targetField === 'ref';
+                        const currentImgs = (Array.isArray(galleryModal.images) ? galleryModal.images : [galleryModal.images])
+                            .map(img => (typeof img === 'string' ? img : (img?.url || img?.data || img?.src || '')))
+                            .filter(Boolean);
+                        const updated = currentImgs.filter((_, idx) => idx !== removedIdx);
+
+                        setRows(prevRows => {
+                            const next = [...prevRows];
+                            if (isRef) {
+                                next[rowIdx] = {
+                                    ...next[rowIdx],
+                                    imageRefs: updated,
+                                    imageRef: updated[0] || null
+                                };
+                            } else {
+                                next[rowIdx] = {
+                                    ...next[rowIdx],
+                                    brandImage: updated[0] || ''
+                                };
+                            }
+                            return next;
+                        });
+                        setGalleryModal(prev => ({ ...prev, images: updated }));
+                    } : null}
+                    onClose={() => setGalleryModal(prev => ({ ...prev, isOpen: false }))}
+                />
+            )}
         </>
     );
 }

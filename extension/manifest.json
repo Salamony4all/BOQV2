@@ -53,6 +53,8 @@
     "https://*.tenderboard.gov.om/*",
     "https://*.vercel.app/*",
     "https://boqv2.vercel.app/*",
-    "https://boq-v2.vercel.app/*"
+    "https://boq-v2.vercel.app/*",
+    "https://lens.google.com/*",
+    "https://*.google.com/*"
   ]
 }

@@ -104,9 +104,117 @@ async function handleAction(action, args, sender) {
         chrome.tabs.sendMessage(reactTabId, { event: "progress", data: args }).catch(() => {});
       }
       return { success: true };
+
+    case "lensVisualMatch":
+      return await handleLensVisualMatch(args);
       
     default:
       return { success: false, error: `Unknown action: ${action}` };
+  }
+}
+
+async function handleLensVisualMatch(args) {
+  const { imageUrl, itemId, description } = args || {};
+  if (!imageUrl) return { success: false, error: "Missing image URL for Google Lens search" };
+
+  const targetUrl = `https://lens.google.com/uploadbyurl?url=${encodeURIComponent(imageUrl)}`;
+  console.log(`[Auto Browser Extension] Launching Google Lens visual match for: ${imageUrl}`);
+
+  let winId = null;
+  let tabId = null;
+  try {
+    // Open in a minimized popup window — never flashes in the user's face
+    const win = await chrome.windows.create({
+      url: targetUrl,
+      type: 'popup',
+      state: 'minimized',
+      width: 1,
+      height: 1,
+      left: -2000,  // off-screen extra safety
+      top: -2000
+    });
+    winId = win.id;
+    tabId = win.tabs?.[0]?.id;
+
+    if (!tabId) throw new Error("Failed to get tab ID from minimized window");
+
+    // Wait for page to fully load
+    await new Promise((resolve) => {
+      const timeout = setTimeout(resolve, 9000);
+      const listener = (updatedTabId, info) => {
+        if (updatedTabId === tabId && info.status === 'complete') {
+          chrome.tabs.onUpdated.removeListener(listener);
+          clearTimeout(timeout);
+          setTimeout(resolve, 2500); // Allow Lens visual cards to render
+        }
+      };
+      chrome.tabs.onUpdated.addListener(listener);
+    });
+
+    // Extract visual matches from the Google Lens DOM
+    const results = await chrome.scripting.executeScript({
+      target: { tabId },
+      func: () => {
+        try {
+          const cards = [];
+          const seen = new Set();
+
+          // Collect search result links
+          const links = Array.from(document.querySelectorAll('a[href^="http"]'));
+          for (const a of links) {
+            const href = a.href;
+            if (!href || href.includes('google.com') || href.includes('gstatic.com') || seen.has(href)) continue;
+
+            const text = (a.innerText || a.textContent || '').trim();
+            if (text.length < 4 || /^(privacy|terms|feedback|about|sign in|google)/i.test(text)) continue;
+
+            const img = a.querySelector('img') || a.closest('div')?.querySelector('img');
+            const imgSrc = img?.src || '';
+
+            seen.add(href);
+            const firstLine = text.split('\n')[0].trim();
+            cards.push({
+              title: firstLine,
+              url: href,
+              imageUrl: imgSrc,
+              source: new URL(href).hostname.replace(/^www\./i, '')
+            });
+
+            if (cards.length >= 6) break;
+          }
+
+          return { success: true, cards };
+        } catch (e) {
+          return { success: false, error: e.message, cards: [] };
+        }
+      }
+    });
+
+    // Close the minimized window silently
+    if (winId) {
+      await chrome.windows.remove(winId).catch(() => {});
+    }
+
+    const scriptResult = results[0]?.result;
+    const cards = scriptResult?.cards || [];
+
+    console.log(`[Auto Browser Extension] Google Lens extracted ${cards.length} visual matches.`);
+
+    return {
+      success: true,
+      result: {
+        itemId,
+        visualMatches: cards,
+        source: 'Google Lens (1:1 Exact Visual Match)',
+        topMatch: cards[0] || null
+      }
+    };
+  } catch (err) {
+    if (winId) {
+      await chrome.windows.remove(winId).catch(() => {});
+    }
+    console.error('[Auto Browser Extension] Google Lens automation error:', err.message);
+    return { success: false, error: err.message };
   }
 }
 
