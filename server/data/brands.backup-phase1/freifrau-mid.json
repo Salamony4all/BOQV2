@@ -1,0 +1,35 @@
+{
+  "id": "1788264231037",
+  "name": "Freifrau",
+  "products": [
+    {
+      "brand": "Freifrau",
+      "model": "Stella",
+      "source": "VE-Prescan-Discovery",
+      "imageUrl": "",
+      "websiteUrl": "https://www.freifrau.com",
+      "lastUpdated": "2026-09-01T12:03:50.832Z",
+      "subCategory": "",
+      "mainCategory": "Furniture"
+    },
+    {
+      "brand": "Freifrau",
+      "model": "Nana",
+      "imageUrl": "https://media.architonic.com/m-on/3104694/logo/freifrau_logo_5cf3.jpg",
+      "websiteUrl": "https://www.architonic.com/en/product/freifrau/nana/1028901",
+      "mainCategory": "Furniture",
+      "subCategory": "Seating",
+      "family": "Nana",
+      "price": 0,
+      "description": "Upholstered chair with a slender frame of powder-coated tubular steel. Available with or without armrests.",
+      "lastUpdated": "2026-09-01T15:19:17.844Z",
+      "source": "AI-Specialist-Discovery"
+    }
+  ],
+  "source": "VE-Prescan-Discovery",
+  "budget_tier": "mid",
+  "logo": "https://media.architonic.com/m-on/3104694/logo/freifrau_logo_5cf3.jpg",
+  "updated_at": "2026-09-01T12:03:52.329216+00:00",
+  "budgetTier": "mid",
+  "origin": "VE-Prescan-Discovery"
+}

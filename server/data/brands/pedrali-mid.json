@@ -53,5 +53,7 @@
       "imageUrl": "https://images.unsplash.com/photo-1503602642458-232111445657?w=800&auto=format&fit=crop&q=80",
       "websiteUrl": "https://www.pedrali.com/en-us/products/chairs/passport"
     }
-  ]
+  ],
+  "url": "https://www.pedrali.com",
+  "budget_tier": "mid"
 }

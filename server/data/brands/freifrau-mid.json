@@ -10,7 +10,10 @@
       "websiteUrl": "https://www.freifrau.com",
       "lastUpdated": "2026-09-01T12:03:50.832Z",
       "subCategory": "",
-      "mainCategory": "Furniture"
+      "mainCategory": "Furniture",
+      "verified": false,
+      "discoveredAt": "2026-09-04T16:41:27.318Z",
+      "ttlDays": 30
     },
     {
       "brand": "Freifrau",
@@ -23,7 +26,10 @@
       "price": 0,
       "description": "Upholstered chair with a slender frame of powder-coated tubular steel. Available with or without armrests.",
       "lastUpdated": "2026-09-01T15:19:17.844Z",
-      "source": "AI-Specialist-Discovery"
+      "source": "AI-Specialist-Discovery",
+      "verified": false,
+      "discoveredAt": "2026-09-04T16:41:27.318Z",
+      "ttlDays": 30
     }
   ],
   "source": "VE-Prescan-Discovery",
@@ -31,5 +37,18 @@
   "logo": "https://media.architonic.com/m-on/3104694/logo/freifrau_logo_5cf3.jpg",
   "updated_at": "2026-09-01T12:03:52.329216+00:00",
   "budgetTier": "mid",
-  "origin": "VE-Prescan-Discovery"
+  "origin": "VE-Prescan-Discovery",
+  "gatewayVersion": 1,
+  "registry": {
+    "name": "Freifrau",
+    "officialDomain": "",
+    "budgetTier": "mid",
+    "origin": "VE-Prescan-Discovery"
+  },
+  "discovery": {
+    "discoveredAt": "2026-09-04T16:41:27.318Z",
+    "ttlDays": 30,
+    "verified": false,
+    "quarantine": true
+  }
 }

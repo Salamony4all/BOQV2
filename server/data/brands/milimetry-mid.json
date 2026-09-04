@@ -13,7 +13,10 @@
       "imageUrl": "",
       "websiteUrl": "https://milimetry.com",
       "lastUpdated": "2026-09-04T09:43:04.356Z",
-      "source": "VE-Prescan-Discovery"
+      "source": "VE-Prescan-Discovery",
+      "verified": false,
+      "discoveredAt": "2026-09-04T09:43:04.356Z",
+      "ttlDays": 30
     },
     {
       "brand": "Milimetry",
@@ -23,7 +26,10 @@
       "imageUrl": "",
       "websiteUrl": "https://milimetry.com",
       "lastUpdated": "2026-09-04T09:43:04.356Z",
-      "source": "VE-Prescan-Discovery"
+      "source": "VE-Prescan-Discovery",
+      "verified": false,
+      "discoveredAt": "2026-09-04T09:43:04.356Z",
+      "ttlDays": 30
     },
     {
       "brand": "Milimetry",
@@ -33,8 +39,25 @@
       "imageUrl": "",
       "websiteUrl": "https://milimetry.com",
       "lastUpdated": "2026-09-04T09:43:04.356Z",
-      "source": "VE-Prescan-Discovery"
+      "source": "VE-Prescan-Discovery",
+      "verified": false,
+      "discoveredAt": "2026-09-04T09:43:04.356Z",
+      "ttlDays": 30
     }
   ],
-  "createdAt": "2026-09-04T09:43:04.356Z"
+  "createdAt": "2026-09-04T09:43:04.356Z",
+  "budget_tier": "mid",
+  "gatewayVersion": 1,
+  "registry": {
+    "name": "Milimetry",
+    "officialDomain": "",
+    "budgetTier": "mid",
+    "origin": "VE-Prescan-Discovery"
+  },
+  "discovery": {
+    "discoveredAt": "2026-09-04T09:43:04.356Z",
+    "ttlDays": 30,
+    "verified": false,
+    "quarantine": true
+  }
 }

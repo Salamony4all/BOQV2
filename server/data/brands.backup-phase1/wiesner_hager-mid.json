@@ -1,0 +1,20 @@
+{
+  "id": 1788514988257,
+  "name": "Wiesner Hager",
+  "logo": "https://media.architonic.com/m-on/3100185/logo/wiesner-hager_logo_e11d.jpg",
+  "budgetTier": "mid",
+  "origin": "VE-Prescan-Discovery",
+  "products": [
+    {
+      "brand": "Wiesner Hager",
+      "model": "Skill Tables",
+      "mainCategory": "Furniture",
+      "subCategory": "",
+      "imageUrl": "",
+      "websiteUrl": "https://www.wiesner-hager.com",
+      "lastUpdated": "2026-09-04T09:43:07.388Z",
+      "source": "VE-Prescan-Discovery"
+    }
+  ],
+  "createdAt": "2026-09-04T09:43:07.389Z"
+}

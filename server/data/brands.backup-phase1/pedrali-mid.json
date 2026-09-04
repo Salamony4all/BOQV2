@@ -1,0 +1,57 @@
+{
+  "id": "pedrali_mid",
+  "name": "Pedrali",
+  "budgetTier": "mid",
+  "websiteUrl": "https://www.pedrali.com",
+  "logo": "https://media.architonic.com/m-on/3100412/logo/pedrali_logo.jpg",
+  "products": [
+    {
+      "model": "Volt 670 Stackable Chair",
+      "family": "Volt",
+      "mainCategory": "Office Seating",
+      "subCategory": "Conference Chairs",
+      "category": "Office Seating",
+      "price": 140,
+      "currency": "USD",
+      "description": "Multi-purpose stackable student and training chair. Polypropylene shell, lightweight, polished chrome metal 4-leg frame, floor glides.",
+      "imageUrl": "https://images.unsplash.com/photo-1503602642458-232111445657?w=800&auto=format&fit=crop&q=80",
+      "websiteUrl": "https://www.pedrali.com/en-us/products/chairs/volt-670"
+    },
+    {
+      "model": "Snow 300 Polypropylene Chair",
+      "family": "Snow",
+      "mainCategory": "Office Seating",
+      "subCategory": "Training Chairs",
+      "category": "Office Seating",
+      "price": 125,
+      "currency": "USD",
+      "description": "Stackable polypropylene multi-purpose classroom chair with floor glides, high durability for education and contract spaces.",
+      "imageUrl": "https://images.unsplash.com/photo-1503602642458-232111445657?w=800&auto=format&fit=crop&q=80",
+      "websiteUrl": "https://www.pedrali.com/en-us/products/chairs/snow-300"
+    },
+    {
+      "model": "Babila 2700 Chair",
+      "family": "Babila",
+      "mainCategory": "Office Seating",
+      "subCategory": "Visitor Chairs",
+      "category": "Office Seating",
+      "price": 165,
+      "currency": "USD",
+      "description": "Multi-purpose chair with polypropylene shell and steel rod 4-leg frame, stackable and lightweight.",
+      "imageUrl": "https://images.unsplash.com/photo-1567538096630-e0c55bd6374c?w=800&auto=format&fit=crop&q=80",
+      "websiteUrl": "https://www.pedrali.com/en-us/products/chairs/babila-2700"
+    },
+    {
+      "model": "Passport Folding Chair",
+      "family": "Passport",
+      "mainCategory": "Office Seating",
+      "subCategory": "Folding Chairs & Stools",
+      "category": "Office Seating",
+      "price": 95,
+      "currency": "USD",
+      "description": "Multi-purpose portable folding chair with steel tubular frame and lightweight polypropylene seat.",
+      "imageUrl": "https://images.unsplash.com/photo-1503602642458-232111445657?w=800&auto=format&fit=crop&q=80",
+      "websiteUrl": "https://www.pedrali.com/en-us/products/chairs/passport"
+    }
+  ]
+}

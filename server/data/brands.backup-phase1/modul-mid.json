@@ -1,0 +1,20 @@
+{
+  "id": 1788514995856,
+  "name": "Modul",
+  "logo": "https://www.google.com/s2/favicons?domain=modul.com&sz=128",
+  "budgetTier": "mid",
+  "origin": "VE-Prescan-Discovery",
+  "products": [
+    {
+      "brand": "Modul",
+      "model": "Reclining Studio Chair",
+      "mainCategory": "Office Seating",
+      "subCategory": "",
+      "imageUrl": "",
+      "websiteUrl": "https://www.gear4music.com",
+      "lastUpdated": "2026-09-04T09:43:15.434Z",
+      "source": "VE-Prescan-Discovery"
+    }
+  ],
+  "createdAt": "2026-09-04T09:43:15.434Z"
+}

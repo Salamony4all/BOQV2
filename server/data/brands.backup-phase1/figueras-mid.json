@@ -1,0 +1,20 @@
+{
+  "id": 1788514987690,
+  "name": "Figueras",
+  "logo": "https://media.architonic.com/m-on/3100234/logo/figueras_logo_fba6.jpg",
+  "budgetTier": "mid",
+  "origin": "VE-Prescan-Discovery",
+  "products": [
+    {
+      "brand": "Figueras",
+      "model": "Scala",
+      "mainCategory": "Seating",
+      "subCategory": "",
+      "imageUrl": "",
+      "websiteUrl": "https://figueras.com",
+      "lastUpdated": "2026-09-04T09:43:06.774Z",
+      "source": "VE-Prescan-Discovery"
+    }
+  ],
+  "createdAt": "2026-09-04T09:43:06.774Z"
+}

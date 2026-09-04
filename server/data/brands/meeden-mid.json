@@ -13,8 +13,25 @@
       "imageUrl": "",
       "websiteUrl": "https://meedenart.com",
       "lastUpdated": "2026-09-04T09:43:09.416Z",
-      "source": "VE-Prescan-Discovery"
+      "source": "VE-Prescan-Discovery",
+      "verified": false,
+      "discoveredAt": "2026-09-04T09:43:09.416Z",
+      "ttlDays": 30
     }
   ],
-  "createdAt": "2026-09-04T09:43:09.416Z"
+  "createdAt": "2026-09-04T09:43:09.416Z",
+  "budget_tier": "mid",
+  "gatewayVersion": 1,
+  "registry": {
+    "name": "Meeden",
+    "officialDomain": "",
+    "budgetTier": "mid",
+    "origin": "VE-Prescan-Discovery"
+  },
+  "discovery": {
+    "discoveredAt": "2026-09-04T09:43:09.416Z",
+    "ttlDays": 30,
+    "verified": false,
+    "quarantine": true
+  }
 }

@@ -1,0 +1,32 @@
+{
+  "name": "Ferco Seating",
+  "budgetTier": "mid",
+  "websiteUrl": "https://www.fercoseating.com",
+  "logo": "https://www.fercoseating.com/wp-content/themes/ferco/images/logo.png",
+  "products": [
+    {
+      "model": "Paragon 755 Theater Chair",
+      "family": "Paragon",
+      "mainCategory": "Specialist Seating",
+      "subCategory": "Auditorium & Theater Seating",
+      "category": "Office Seating",
+      "price": 290,
+      "currency": "USD",
+      "description": "Premium auditorium and cinema chair with silent gravity counterweight tip-up mechanism, wooden armrest, acoustic paneling.",
+      "imageUrl": "https://images.unsplash.com/photo-1585647347384-2593bc35786b?w=800&auto=format&fit=crop&q=80",
+      "websiteUrl": "https://www.fercoseating.com/products/auditorium/paragon-755/"
+    },
+    {
+      "model": "Beaufort Auditorium Chair",
+      "family": "Beaufort",
+      "mainCategory": "Specialist Seating",
+      "subCategory": "Auditorium & Theater Seating",
+      "category": "Office Seating",
+      "price": 320,
+      "currency": "USD",
+      "description": "Compact folding theatre and concert hall seat with wooden outer shell, acoustic absorption, gravity tip-up mechanism.",
+      "imageUrl": "https://images.unsplash.com/photo-1517604931442-7e0c8ed2963c?w=800&auto=format&fit=crop&q=80",
+      "websiteUrl": "https://www.fercoseating.com/products/auditorium/beaufort/"
+    }
+  ]
+}

@@ -1,0 +1,32 @@
+{
+  "name": "Andreu World",
+  "budgetTier": "high",
+  "websiteUrl": "https://www.andreuworld.com",
+  "logo": "https://media.architonic.com/m-on/3100512/logo/andreu_world_logo.jpg",
+  "products": [
+    {
+      "model": "Nuez Chair Stackable",
+      "family": "Nuez",
+      "mainCategory": "Office Seating",
+      "subCategory": "Conference Chairs",
+      "category": "Office Seating",
+      "price": 285,
+      "currency": "USD",
+      "description": "Stackable multi-purpose chair with thermoplastic polypropylene shell, polished chrome 4-leg metal frame, floor glides.",
+      "imageUrl": "https://media.architonic.com/m-on/3100512/product/1579851/andreu_world_nuez.jpg",
+      "websiteUrl": "https://www.andreuworld.com/en/products/chairs/nuez-chair"
+    },
+    {
+      "model": "Sail Stackable Chair",
+      "family": "Sail",
+      "mainCategory": "Office Seating",
+      "subCategory": "Training Chairs",
+      "category": "Office Seating",
+      "price": 220,
+      "currency": "USD",
+      "description": "Lightweight thermo-polymer stackable chair for classrooms, training rooms, and multipurpose educational facilities.",
+      "imageUrl": "https://media.architonic.com/m-on/3100512/product/1183850/andreu_world_sail.jpg",
+      "websiteUrl": "https://www.andreuworld.com/en/products/chairs/sail-chair"
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "id": 1788514986523,
+  "name": "Infabbrica",
+  "logo": "https://www.google.com/s2/favicons?domain=infabbrica.com&sz=128",
+  "budgetTier": "mid",
+  "origin": "VE-Prescan-Discovery",
+  "products": [
+    {
+      "brand": "Infabbrica",
+      "model": "Piper Foldable Chair",
+      "mainCategory": "Furniture",
+      "subCategory": "",
+      "imageUrl": "",
+      "websiteUrl": "https://www.infabbrica.com",
+      "lastUpdated": "2026-09-04T09:43:06.158Z",
+      "source": "VE-Prescan-Discovery"
+    }
+  ],
+  "createdAt": "2026-09-04T09:43:06.158Z"
+}

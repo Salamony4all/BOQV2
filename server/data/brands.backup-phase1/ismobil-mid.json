@@ -1,0 +1,1692 @@
+{
+  "id": 1766046108382,
+  "name": "ISMOBIL",
+  "url": "https://www.ismobel.com/en/",
+  "origin": "SPAIN",
+  "budgetTier": "mid",
+  "logo": "",
+  "products": [
+    {
+      "mainCategory": "Operative",
+      "subCategory": "Operative",
+      "family": "ISMOBIL",
+      "model": "Furniture",
+      "description": "Furniture",
+      "imageUrl": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAwIAAAB6AQAAAAAkXtkkAAAAAnRSTlMAAHaTzTgAAAAiSURBVGje7cExAQAAAMKg9U9tCj+gAAAAAAAAAAAAAADgYy60AAGvC8rFAAAAAElFTkSuQmCC",
+      "productUrl": "https://www.ismobel.com/en/productos/mobiliario/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Operative",
+      "subCategory": "Operative",
+      "family": "ISMOBIL",
+      "model": "<img width=\"770\" height=\"122\" src=\"https://www.ismobel.com/wp-content/uploads/2022/11/Ismobel-logo.svg\" class=\"attachment-full size-full wp-image-7151\" alt=\"\" data-eio=\"l\" />",
+      "description": "<img width=\"770\" height=\"122\" src=\"https://www.ismobel.com/wp-content/uploads/2022/11/Ismobel-logo.svg\" class=\"attachment-full size-full wp-image-7151\" alt=\"\" data-eio=\"l\" />",
+      "imageUrl": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAwIAAAB6AQAAAAAkXtkkAAAAAnRSTlMAAHaTzTgAAAAiSURBVGje7cExAQAAAMKg9U9tCj+gAAAAAAAAAAAAAADgYy60AAGvC8rFAAAAAElFTkSuQmCC",
+      "productUrl": "https://www.ismobel.com/en",
+      "price": 0
+    },
+    {
+      "mainCategory": "Operative",
+      "subCategory": "Operative",
+      "family": "ISMOBIL",
+      "model": "Facebook",
+      "description": "Facebook",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2022/11/Ismobel-certificado.png",
+      "productUrl": "https://es-es.facebook.com/grupoismobel/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Philosophy",
+      "subCategory": "Philosophy",
+      "family": "ISMOBIL",
+      "model": "ISMOBEL has the following values as principles.",
+      "description": "ISMOBEL has the following values as principles.",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2021/08/Zen-foto-1-direccion-detalle-faldon-1024x573.jpg",
+      "productUrl": "https://www.ismobel.com/en/empresa/filosofia/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Philosophy",
+      "subCategory": "Philosophy",
+      "family": "ISMOBIL",
+      "model": "Presentation of the ISMOBEL GROUP",
+      "description": "Presentation of the ISMOBEL GROUP",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2024/11/Captura-de-pantalla-2024-11-14-a-las-18.14.45.jpg",
+      "productUrl": "https://www.ismobel.com/en/empresa/filosofia/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Quality and environment",
+      "subCategory": "Quality and environment",
+      "family": "ISMOBIL",
+      "model": "CERTIFICATES",
+      "description": "CERTIFICATES",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2023/03/Zerapio_a_forest_in_the_golden_hour_canon_r3_70mm_cinematic_UHD_7937da36-478c-41a7-b8c3-04a766dc4f71.jpg",
+      "productUrl": "https://www.ismobel.com/en/empresa/calidad-y-medio-ambiente/",
+      "price": 0
+    },
+    {
+      "mainCategory": "ecodesign",
+      "subCategory": "ecodesign",
+      "family": "ISMOBIL",
+      "model": "Sustainability at all times",
+      "description": "Sustainability at all times",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2021/08/Fsky-foto5-bench-4-puestos-1024x725.jpg",
+      "productUrl": "https://www.ismobel.com/en/empresa/ecodiseno/",
+      "price": 0
+    },
+    {
+      "mainCategory": "pCon Planner",
+      "subCategory": "pCon Planner",
+      "family": "ISMOBIL",
+      "model": "Introduction",
+      "description": "Introduction",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2023/03/sedus_teaser-solutions-apps-pcon-planner-300x158.jpg",
+      "productUrl": "https://easterngraphics.webinarninja.com/live-webinars/296873/register?in_tok=633e47c1-b8aa-42ed-829e-f181b3267aae",
+      "price": 0
+    },
+    {
+      "mainCategory": "pCon Planner",
+      "subCategory": "pCon Planner",
+      "family": "ISMOBIL",
+      "model": "Power to the sales team: pCon.facts",
+      "description": "Power to the sales team: pCon.facts",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2023/03/sedus_teaser-solutions-apps-pcon-planner-300x158.jpg",
+      "productUrl": "https://easterngraphics.webinarninja.com/live-webinars/10024726/register",
+      "price": 0
+    },
+    {
+      "mainCategory": "Operative",
+      "subCategory": "Home",
+      "family": "ISMOBIL",
+      "model": "Mobiliario",
+      "description": "Mobiliario",
+      "imageUrl": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAwIAAAB6AQAAAAAkXtkkAAAAAnRSTlMAAHaTzTgAAAAiSURBVGje7cExAQAAAMKg9U9tCj+gAAAAAAAAAAAAAADgYy60AAGvC8rFAAAAAElFTkSuQmCC",
+      "productUrl": "https://www.ismobel.com/productos/mobiliario/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Operative",
+      "subCategory": "Home",
+      "family": "ISMOBIL",
+      "model": "<img width=\"770\" height=\"122\" src=\"https://www.ismobel.com/wp-content/uploads/2022/11/Ismobel-logo.svg\" class=\"attachment-full size-full wp-image-7151\" alt=\"\" data-eio=\"l\" />",
+      "description": "<img width=\"770\" height=\"122\" src=\"https://www.ismobel.com/wp-content/uploads/2022/11/Ismobel-logo.svg\" class=\"attachment-full size-full wp-image-7151\" alt=\"\" data-eio=\"l\" />",
+      "imageUrl": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAwIAAAB6AQAAAAAkXtkkAAAAAnRSTlMAAHaTzTgAAAAiSURBVGje7cExAQAAAMKg9U9tCj+gAAAAAAAAAAAAAADgYy60AAGvC8rFAAAAAElFTkSuQmCC",
+      "productUrl": "https://www.ismobel.com/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Receptions",
+      "subCategory": "Products",
+      "family": "ISMOBIL",
+      "model": "Productos",
+      "description": "Productos",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2022/11/nereo3-ambiente-3-1024x727.jpg",
+      "productUrl": "https://www.ismobel.com/productos/mobiliario/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Receptions",
+      "subCategory": "Public",
+      "family": "ISMOBIL",
+      "model": "Public",
+      "description": "Public",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2015/09/Public-2018.jpg",
+      "productUrl": "https://www.ismobel.com/en/productos/mobiliario/recepciones/public/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Receptions",
+      "subCategory": "Public",
+      "family": "ISMOBIL",
+      "model": "Design:",
+      "description": "Design:",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2022/11/ismobel-158.jpg",
+      "productUrl": "https://www.ismobel.com/en/disenadores/sigfrido-bilbao/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Operative",
+      "subCategory": "Argos",
+      "family": "ISMOBIL",
+      "model": "Argos",
+      "description": "Argos",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2021/08/Argos_02-714x1024.jpg",
+      "productUrl": "https://www.ismobel.com/en/productos/mobiliario/operativo/argos/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Operative",
+      "subCategory": "Delfos",
+      "family": "ISMOBIL",
+      "model": "Delfos",
+      "description": "Delfos",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2021/08/delfos-2019-portada.jpg",
+      "productUrl": "https://www.ismobel.com/en/productos/mobiliario/operativo/delfos/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Operative",
+      "subCategory": "Delfos",
+      "family": "ISMOBIL",
+      "model": "Design:",
+      "description": "Design:",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2022/11/JDM-design.jpg",
+      "productUrl": "https://www.ismobel.com/en/disenadores/dpto-diseno-grupo-ismobel/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Receptions",
+      "subCategory": "Maya",
+      "family": "ISMOBIL",
+      "model": "Maya",
+      "description": "Maya",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2021/08/f03-cenit-853x1024.jpg",
+      "productUrl": "https://www.ismobel.com/en/productos/mobiliario/recepciones/maya-2/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Operative",
+      "subCategory": "Maya",
+      "family": "ISMOBIL",
+      "model": "Maya",
+      "description": "Maya",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2021/08/f09-1024x717.jpg",
+      "productUrl": "https://www.ismobel.com/en/productos/mobiliario/operativo/maya/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Operative",
+      "subCategory": "Teseo",
+      "family": "ISMOBIL",
+      "model": "Teseo",
+      "description": "Teseo",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2021/08/Teseo-portada-878x1024.jpg",
+      "productUrl": "https://www.ismobel.com/en/productos/mobiliario/operativo/teseo/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Operative",
+      "subCategory": "Idra",
+      "family": "ISMOBIL",
+      "model": "Idra",
+      "description": "Idra",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2023/11/Idra-reg-ambiente-1024x727.jpg",
+      "productUrl": "https://www.ismobel.com/en/productos/mobiliario/operativo/idra/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Operative",
+      "subCategory": "Eco",
+      "family": "ISMOBIL",
+      "model": "Eco",
+      "description": "Eco",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2015/09/Eco-ambiente-bench-2025-baja-1024x727.jpg",
+      "productUrl": "https://www.ismobel.com/en/productos/mobiliario/operativo/eco/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Operative",
+      "subCategory": "Sky",
+      "family": "ISMOBIL",
+      "model": "Sky",
+      "description": "Sky",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2021/08/Fsky-foto1-mesa-ciclorama-722x1024.jpg",
+      "productUrl": "https://www.ismobel.com/en/productos/mobiliario/operativo/sky/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Operative",
+      "subCategory": "Fedra",
+      "family": "ISMOBIL",
+      "model": "Fedra",
+      "description": "Fedra",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2021/08/1fedra-mesa-abatible-ciclorama-1024x722.jpg",
+      "productUrl": "https://www.ismobel.com/en/productos/mobiliario/operativo/fedra/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Operative",
+      "subCategory": "Ceres",
+      "family": "ISMOBIL",
+      "model": "Ceres",
+      "description": "Ceres",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2021/08/2Ceres-Portada.jpg",
+      "productUrl": "https://www.ismobel.com/en/productos/mobiliario/operativo/ceres/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Direction",
+      "subCategory": "Zen",
+      "family": "ISMOBIL",
+      "model": "Zen",
+      "description": "Zen",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2021/08/Zen-foto-1-direccion-detalle-ala-y-casillero-1024x937.jpg",
+      "productUrl": "https://www.ismobel.com/en/productos/mobiliario/direccion/zen/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Direction",
+      "subCategory": "Nereo 2",
+      "family": "ISMOBIL",
+      "model": "Nereo 2",
+      "description": "Nereo 2",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2021/08/Nereo-Direccion-portada-705x1024.jpg",
+      "productUrl": "https://www.ismobel.com/en/productos/mobiliario/direccion/nereo-2/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Direction",
+      "subCategory": "Nereo 3",
+      "family": "ISMOBIL",
+      "model": "Nereo 3",
+      "description": "Nereo 3",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2022/04/nereo3-portada-674x1024.jpg",
+      "productUrl": "https://www.ismobel.com/en/productos/mobiliario/direccion/nereo-3/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Common elements",
+      "subCategory": "Loki",
+      "family": "ISMOBIL",
+      "model": "Loki",
+      "description": "Loki",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2024/02/Taquillas-foto3-1024x727.jpg",
+      "productUrl": "https://www.ismobel.com/en/productos/mobiliario/elementos-comunes/loki/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Common elements",
+      "subCategory": "Storage",
+      "family": "ISMOBIL",
+      "model": "Storage",
+      "description": "Storage",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2021/08/Argos_26-1.jpg",
+      "productUrl": "https://www.ismobel.com/en/productos/mobiliario/elementos-comunes/almcenaje/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Common elements",
+      "subCategory": "Electrical Accessories",
+      "family": "ISMOBIL",
+      "model": "Electrical Accessories",
+      "description": "Electrical Accessories",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2021/08/IMG_0012-1024x683.jpg",
+      "productUrl": "https://www.ismobel.com/en/productos/mobiliario/elementos-comunes/accesorios-electricos/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Library and dividers",
+      "subCategory": "Biblos",
+      "family": "ISMOBIL",
+      "model": "Biblos",
+      "description": "Biblos",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2021/08/ABiblos_maya16.jpg",
+      "productUrl": "https://www.ismobel.com/en/productos/mobiliario/biblioteca-y-divisorias/biblos/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Common elements",
+      "subCategory": "Meeting Tables",
+      "family": "ISMOBIL",
+      "model": "Meeting Tables",
+      "description": "Meeting Tables",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2021/08/Ceres-reunion-b-baja.jpg",
+      "productUrl": "https://www.ismobel.com/en/productos/mobiliario/elementos-comunes/mesas-de-juntas/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Library and dividers",
+      "subCategory": "Kabitalk",
+      "family": "ISMOBIL",
+      "model": "Kabitalk",
+      "description": "Kabitalk",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2024/04/LOKI-PASILLO-1024x973.jpg",
+      "productUrl": "https://www.ismobel.com/en/productos/mobiliario/biblioteca-y-divisorias/kabitalk/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Library and dividers",
+      "subCategory": "Panel",
+      "family": "ISMOBIL",
+      "model": "Panel",
+      "description": "Panel",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2021/08/Paneles-3.jpg",
+      "productUrl": "https://www.ismobel.com/en/productos/mobiliario/biblioteca-y-divisorias/panel/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Library and dividers",
+      "subCategory": "Horus",
+      "family": "ISMOBIL",
+      "model": "Horus",
+      "description": "Horus",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2023/03/Horus-07-detalle-alturas-1024x1024.jpg",
+      "productUrl": "https://www.ismobel.com/en/productos/mobiliario/biblioteca-y-divisorias/b-biblos/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Direction",
+      "subCategory": "Bonn",
+      "family": "ISMOBIL",
+      "model": "Bonn",
+      "description": "Bonn",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2023/01/Bonn_1-727x1024.jpg",
+      "productUrl": "https://www.ismobel.com/en/productos/sillas/direccion-sillas/bonn/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Direction",
+      "subCategory": "Belice",
+      "family": "ISMOBIL",
+      "model": "Belice",
+      "description": "Belice",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2023/01/Belice_1-727x1024.jpg",
+      "productUrl": "https://www.ismobel.com/en/productos/sillas/direccion-sillas/belice/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Direction",
+      "subCategory": "Trento",
+      "family": "ISMOBIL",
+      "model": "Trento",
+      "description": "Trento",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2023/01/Trento-portada-2022.jpg",
+      "productUrl": "https://www.ismobel.com/en/productos/sillas/direccion-sillas/trento/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Direction",
+      "subCategory": "Zurich",
+      "family": "ISMOBIL",
+      "model": "Zurich",
+      "description": "Zurich",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2023/01/Zurich_1-727x1024.jpg",
+      "productUrl": "https://www.ismobel.com/en/productos/sillas/direccion-sillas/zurich/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Direction",
+      "subCategory": "Zurich",
+      "family": "ISMOBIL",
+      "model": "Design:",
+      "description": "Design:",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2022/11/stefano-sardona.jpg",
+      "productUrl": "https://www.ismobel.com/en/disenadores/stefano-sandona/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Direction",
+      "subCategory": "Bremen",
+      "family": "ISMOBIL",
+      "model": "Bremen",
+      "description": "Bremen",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2023/01/Bremen_1-2022.jpg",
+      "productUrl": "https://www.ismobel.com/en/productos/sillas/direccion-sillas/bremen/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Direction",
+      "subCategory": "Bari",
+      "family": "ISMOBIL",
+      "model": "Bari",
+      "description": "Bari",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2023/01/Bari-portada-727x1024.jpg",
+      "productUrl": "https://www.ismobel.com/en/productos/sillas/direccion-sillas/bari/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Operative",
+      "subCategory": "Rhodes",
+      "family": "ISMOBIL",
+      "model": "Rhodes",
+      "description": "Rhodes",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2025/02/Rodos_1-2025-727x1024.jpg",
+      "productUrl": "https://www.ismobel.com/en/productos/sillas/operativo-sillas/rodos/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Operative",
+      "subCategory": "Córcega",
+      "family": "ISMOBIL",
+      "model": "Córcega",
+      "description": "Córcega",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2023/01/Corcega_1-727x1024.jpg",
+      "productUrl": "https://www.ismobel.com/en/productos/sillas/operativo-sillas/corcega/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Operative",
+      "subCategory": "Azores",
+      "family": "ISMOBIL",
+      "model": "Azores",
+      "description": "Azores",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2023/01/Azores_1-727x1024.jpg",
+      "productUrl": "https://www.ismobel.com/en/productos/sillas/operativo-sillas/azores/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Operative",
+      "subCategory": "Nicea",
+      "family": "ISMOBIL",
+      "model": "Nicea",
+      "description": "Nicea",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2023/01/Nicea_1-2022-727x1024.jpg",
+      "productUrl": "https://www.ismobel.com/en/productos/sillas/operativo-sillas/nicea/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Operative",
+      "subCategory": "Palma",
+      "family": "ISMOBIL",
+      "model": "Palma",
+      "description": "Palma",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2023/01/Palma_1-2022.jpg",
+      "productUrl": "https://www.ismobel.com/en/productos/sillas/operativo-sillas/palma/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Operative",
+      "subCategory": "Odesa",
+      "family": "ISMOBIL",
+      "model": "Odesa",
+      "description": "Odesa",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2023/01/Odesa_1-727x1024.jpg",
+      "productUrl": "https://www.ismobel.com/en/productos/sillas/operativo-sillas/odesa/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Operative",
+      "subCategory": "Berna",
+      "family": "ISMOBIL",
+      "model": "Berna",
+      "description": "Berna",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2023/01/Berna_1-cambio-sop-lumbar-2022-727x1024.jpg",
+      "productUrl": "https://www.ismobel.com/en/productos/sillas/operativo-sillas/berna/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Benches",
+      "subCategory": "YALTA P",
+      "family": "ISMOBIL",
+      "model": "YALTA P",
+      "description": "YALTA P",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2025/02/Captura-de-pantalla-2025-03-05-a-las-10.51.00-1024x1020.jpg",
+      "productUrl": "https://www.ismobel.com/en/productos/sillas/bancadas/yalta-p-bancada/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Operative",
+      "subCategory": "Odessa M",
+      "family": "ISMOBIL",
+      "model": "Odessa M",
+      "description": "Odessa M",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2024/06/Odesa-M_1-2024-727x1024.jpg",
+      "productUrl": "https://www.ismobel.com/en/productos/sillas/operativo-sillas/odesa-m/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Operative",
+      "subCategory": "Atenas",
+      "family": "ISMOBIL",
+      "model": "Atenas",
+      "description": "Atenas",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2015/09/Atenas_1-contact-perm-727x1024.jpg",
+      "productUrl": "https://www.ismobel.com/en/productos/sillas/operativo-sillas/atenas/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Benches",
+      "subCategory": "Yalta",
+      "family": "ISMOBIL",
+      "model": "Yalta",
+      "description": "Yalta",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2023/01/Yalta-bancada-1-1024x870.jpg",
+      "productUrl": "https://www.ismobel.com/en/productos/sillas/bancadas/yalta-tapizada/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Benches",
+      "subCategory": "Fresno",
+      "family": "ISMOBIL",
+      "model": "Fresno",
+      "description": "Fresno",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2023/01/0Fresno-bancada_1.jpg",
+      "productUrl": "https://www.ismobel.com/en/productos/sillas/bancadas/fresno-2/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Benches",
+      "subCategory": "Iowa",
+      "family": "ISMOBIL",
+      "model": "Iowa",
+      "description": "Iowa",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2023/01/Iowa-bancada_1-brazos-laterlaes-2022.jpg",
+      "productUrl": "https://www.ismobel.com/en/productos/sillas/bancadas/iowa-2/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Benches",
+      "subCategory": "Jamaica",
+      "family": "ISMOBIL",
+      "model": "Jamaica",
+      "description": "Jamaica",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2023/01/0Verona-bancada_1.jpg",
+      "productUrl": "https://www.ismobel.com/en/productos/sillas/bancadas/jamaica/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Benches",
+      "subCategory": "Viena",
+      "family": "ISMOBIL",
+      "model": "Viena",
+      "description": "Viena",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2023/01/Viena-bancada_2.jpg",
+      "productUrl": "https://www.ismobel.com/en/productos/sillas/bancadas/viena/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Benches",
+      "subCategory": "Viena",
+      "family": "ISMOBIL",
+      "model": "Design:",
+      "description": "Design:",
+      "imageUrl": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAxoAAAKsAQAAAABD3/YjAAAAAnRSTlMAAHaTzTgAAABZSURBVHja7cEBDQAAAMKg909tDwcUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA8GAN6wABdOClDAAAAABJRU5ErkJggg==",
+      "productUrl": "https://www.ismobel.com/en/disenadores/alegre-design-studio/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Benches",
+      "subCategory": "Lorca",
+      "family": "ISMOBIL",
+      "model": "Lorca",
+      "description": "Lorca",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2023/01/lorca-bancada_2.jpg",
+      "productUrl": "https://www.ismobel.com/en/productos/sillas/bancadas/lorca/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Contract",
+      "subCategory": "Basel",
+      "family": "ISMOBIL",
+      "model": "Basel",
+      "description": "Basel",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2023/01/Basel-portada-727x1024.jpg",
+      "productUrl": "https://www.ismobel.com/en/productos/sillas/contract/basel/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Contract",
+      "subCategory": "Glasgow",
+      "family": "ISMOBIL",
+      "model": "Glasgow",
+      "description": "Glasgow",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2023/01/Glasgow-portada-b.jpg",
+      "productUrl": "https://www.ismobel.com/en/productos/sillas/contract/glasgow/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Contract",
+      "subCategory": "Trípoli",
+      "family": "ISMOBIL",
+      "model": "Trípoli",
+      "description": "Trípoli",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2023/01/ATripoli_1-727x1024.jpg",
+      "productUrl": "https://www.ismobel.com/en/productos/sillas/contract/tripoli/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Contract",
+      "subCategory": "Alberta",
+      "family": "ISMOBIL",
+      "model": "Alberta",
+      "description": "Alberta",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2023/01/Alberta_1-727x1024.jpg",
+      "productUrl": "https://www.ismobel.com/en/productos/sillas/contract/alberta/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Contract",
+      "subCategory": "Venecia",
+      "family": "ISMOBIL",
+      "model": "Venecia",
+      "description": "Venecia",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2023/01/AVenecia_1-727x1024.jpg",
+      "productUrl": "https://www.ismobel.com/en/productos/sillas/contract/venecia/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Contract",
+      "subCategory": "Malta",
+      "family": "ISMOBIL",
+      "model": "Malta",
+      "description": "Malta",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2023/01/Malta-portada-727x1024.jpg",
+      "productUrl": "https://www.ismobel.com/en/productos/sillas/contract/malta/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Contract",
+      "subCategory": "Memphis",
+      "family": "ISMOBIL",
+      "model": "Memphis",
+      "description": "Memphis",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2023/01/aMemphis-portada-727x1024.jpg",
+      "productUrl": "https://www.ismobel.com/en/productos/sillas/contract/memphis/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Contract",
+      "subCategory": "Niza",
+      "family": "ISMOBIL",
+      "model": "Niza",
+      "description": "Niza",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2023/01/Niza-1-727x1024.jpg",
+      "productUrl": "https://www.ismobel.com/en/productos/sillas/contract/niza/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Contract",
+      "subCategory": "Vancouver",
+      "family": "ISMOBIL",
+      "model": "Vancouver",
+      "description": "Vancouver",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2023/01/Poufs_2-727x1024.jpg",
+      "productUrl": "https://www.ismobel.com/en/productos/sillas/contract/vancouver/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Community Chairs",
+      "subCategory": "YALTA P",
+      "family": "ISMOBIL",
+      "model": "YALTA P",
+      "description": "YALTA P",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2025/02/0Yalta-pl-sin-brazos-sola-ciclorama-1024x922.jpg",
+      "productUrl": "https://www.ismobel.com/en/productos/sillas/colectividades/yalta-p/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Certificates and resources",
+      "subCategory": "Company",
+      "family": "ISMOBIL",
+      "model": "We carefully work in all areas of our production",
+      "description": "We carefully work in all areas of our production",
+      "imageUrl": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAwAAAAIhAQAAAADRfeAEAAAAAnRSTlMAAHaTzTgAAABJSURBVHja7cEBAQAAAIIg/69uSEABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACcGM6BAAFSoZQ3AAAAAElFTkSuQmCC",
+      "productUrl": "https://www.ismobel.com/en/instalaciones/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Certificates and resources",
+      "subCategory": "Company",
+      "family": "ISMOBIL",
+      "model": "Test certificates",
+      "description": "Test certificates",
+      "imageUrl": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAaoAAAJYAQAAAAAbRp/UAAAAAnRSTlMAAHaTzTgAAAA2SURBVHja7cEBAQAAAIIg/69uSEABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAC8GgOgAAXznMF0AAAAASUVORK5CYII=",
+      "productUrl": "https://www.ismobel.com/wp-content/uploads/2022/11/Anexo_tecnico_marca_calidad_tecnalia-1.pdf",
+      "price": 0
+    },
+    {
+      "mainCategory": "Certificates and resources",
+      "subCategory": "Company",
+      "family": "ISMOBIL",
+      "model": "Quality",
+      "description": "Quality",
+      "imageUrl": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAA+gAAAWAAQAAAADir1FEAAAAAnRSTlMAAHaTzTgAAADDSURBVHja7cExAQAAAMKg9U9tDQ+gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgHcDtR4AAe78g00AAAAASUVORK5CYII=",
+      "productUrl": "https://www.ismobel.com/wp-content/uploads/2022/11/9001_GRUPO_ESPANOL.pdf",
+      "price": 0
+    },
+    {
+      "mainCategory": "Community Chairs",
+      "subCategory": "Sevilla",
+      "family": "ISMOBIL",
+      "model": "Sevilla",
+      "description": "Sevilla",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2023/01/asevilla_1-1-727x1024.jpg",
+      "productUrl": "https://www.ismobel.com/en/productos/sillas/colectividades/sevilla/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Community Chairs",
+      "subCategory": "AND TALL",
+      "family": "ISMOBIL",
+      "model": "AND TALL",
+      "description": "AND TALL",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2023/01/Yalta-foto-1-ciclorama-727x1024.jpg",
+      "productUrl": "https://www.ismobel.com/en/productos/sillas/colectividades/yalta/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Community Chairs",
+      "subCategory": "Creta",
+      "family": "ISMOBIL",
+      "model": "Creta",
+      "description": "Creta",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2023/01/Creta_1-727x1024.jpg",
+      "productUrl": "https://www.ismobel.com/en/productos/sillas/colectividades/creta/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Community Chairs",
+      "subCategory": "Creta",
+      "family": "ISMOBIL",
+      "model": "Design:",
+      "description": "Design:",
+      "imageUrl": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAvgAAAL4AQAAAAAmWb5OAAAAAnRSTlMAAHaTzTgAAABdSURBVHja7cEBDQAAAMKg909tDwcUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAPwYHQ8AAboyh58AAAAASUVORK5CYII=",
+      "productUrl": "https://www.ismobel.com/en/disenadores/grey-design-studio/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Community Chairs",
+      "subCategory": "Viena",
+      "family": "ISMOBIL",
+      "model": "Viena",
+      "description": "Viena",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2023/01/viena_1.jpg",
+      "productUrl": "https://www.ismobel.com/en/productos/sillas/colectividades/viena-colec/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Community Chairs",
+      "subCategory": "Fresno",
+      "family": "ISMOBIL",
+      "model": "Fresno",
+      "description": "Fresno",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2023/01/afresno_1-727x1024.jpg",
+      "productUrl": "https://www.ismobel.com/en/productos/sillas/colectividades/fresno/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Community Chairs",
+      "subCategory": "Iowa",
+      "family": "ISMOBIL",
+      "model": "Iowa",
+      "description": "Iowa",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2023/01/aIowa_1-727x1024.jpg",
+      "productUrl": "https://www.ismobel.com/en/productos/sillas/colectividades/iowa/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Community Chairs",
+      "subCategory": "Florida",
+      "family": "ISMOBIL",
+      "model": "Florida",
+      "description": "Florida",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2023/01/aFlorida_1-727x1024.jpg",
+      "productUrl": "https://www.ismobel.com/en/productos/sillas/colectividades/florida/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Community Chairs",
+      "subCategory": "Florida",
+      "family": "ISMOBIL",
+      "model": "Design:",
+      "description": "Design:",
+      "imageUrl": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAZAAAAGQAQAAAACoxAthAAAAAnRSTlMAAHaTzTgAAAAqSURBVHja7cExAQAAAMKg9U/tbwagAAAAAAAAAAAAAAAAAAAAAAAAAIA3T7AAAZRBGFwAAAAASUVORK5CYII=",
+      "productUrl": "https://www.ismobel.com/en/disenadores/paolo-scagnellato/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Community Chairs",
+      "subCategory": "Verona",
+      "family": "ISMOBIL",
+      "model": "Verona",
+      "description": "Verona",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2023/01/averona_1-727x1024.jpg",
+      "productUrl": "https://www.ismobel.com/en/productos/sillas/colectividades/verona/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Operative",
+      "subCategory": "Filosofia",
+      "family": "ISMOBIL",
+      "model": "ISMOBEL tiene como principios los siguientes valores.",
+      "description": "ISMOBEL tiene como principios los siguientes valores.",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2021/08/Zen-foto-1-direccion-detalle-faldon-1024x573.jpg",
+      "productUrl": "https://www.ismobel.com/empresa/filosofia/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Operative",
+      "subCategory": "Filosofia",
+      "family": "ISMOBIL",
+      "model": "Presentación GRUPO ISMOBEL",
+      "description": "Presentación GRUPO ISMOBEL",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2024/11/Captura-de-pantalla-2024-11-14-a-las-18.14.45.jpg",
+      "productUrl": "https://www.ismobel.com/empresa/filosofia/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Operative",
+      "subCategory": "Calidad y medio ambiente",
+      "family": "ISMOBIL",
+      "model": "CERTIFICADOS",
+      "description": "CERTIFICADOS",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2023/03/Zerapio_a_forest_in_the_golden_hour_canon_r3_70mm_cinematic_UHD_7937da36-478c-41a7-b8c3-04a766dc4f71.jpg",
+      "productUrl": "https://www.ismobel.com/empresa/calidad-y-medio-ambiente/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Operative",
+      "subCategory": "pCon Planner",
+      "family": "ISMOBIL",
+      "model": "Introducción",
+      "description": "Introducción",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2023/03/sedus_teaser-solutions-apps-pcon-planner-300x158.jpg",
+      "productUrl": "https://easterngraphics.webinarninja.com/live-webinars/296873/register?in_tok=633e47c1-b8aa-42ed-829e-f181b3267aae",
+      "price": 0
+    },
+    {
+      "mainCategory": "Operative",
+      "subCategory": "pCon Planner",
+      "family": "ISMOBIL",
+      "model": "Poder al equipo de ventas: pCon.facts",
+      "description": "Poder al equipo de ventas: pCon.facts",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2023/03/sedus_teaser-solutions-apps-pcon-planner-300x158.jpg",
+      "productUrl": "https://easterngraphics.webinarninja.com/live-webinars/10024726/register",
+      "price": 0
+    },
+    {
+      "mainCategory": "Operative",
+      "subCategory": "Ecodiseño",
+      "family": "ISMOBIL",
+      "model": "Sostenibilidad en todo momento",
+      "description": "Sostenibilidad en todo momento",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2021/08/Fsky-foto5-bench-4-puestos-1024x725.jpg",
+      "productUrl": "https://www.ismobel.com/empresa/ecodiseno/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Operative",
+      "subCategory": "DISEÑADORES",
+      "family": "ISMOBIL",
+      "model": "Nuestros diseñadores",
+      "description": "Nuestros diseñadores",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2023/03/Captura-de-pantalla-2023-03-20-a-las-16.52.42.jpg",
+      "productUrl": "https://www.ismobel.com/disenadores/alegre-design-studio/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Operative",
+      "subCategory": "DISEÑADORES",
+      "family": "ISMOBIL",
+      "model": "Alegre Design Studio",
+      "description": "Alegre Design Studio",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2023/03/Captura-de-pantalla-2023-03-20-a-las-16.52.42.jpg",
+      "productUrl": "https://www.ismobel.com/disenadores/alegre-design-studio/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Operative",
+      "subCategory": "DISEÑADORES",
+      "family": "ISMOBIL",
+      "model": "Andreas Ostwald",
+      "description": "Andreas Ostwald",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2023/03/356864701b78a0b277d2121f3a94c011.jpeg",
+      "productUrl": "https://www.ismobel.com/disenadores/andreas-oswald/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Operative",
+      "subCategory": "DISEÑADORES",
+      "family": "ISMOBIL",
+      "model": "Claudio Bellini",
+      "description": "Claudio Bellini",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2023/03/440px-Claudio_Francesco_Bellini.jpg",
+      "productUrl": "https://www.ismobel.com/disenadores/claudio-bellini/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Operative",
+      "subCategory": "DISEÑADORES",
+      "family": "ISMOBIL",
+      "model": "Dpto. Diseño Grupo Ismobel",
+      "description": "Dpto. Diseño Grupo Ismobel",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2022/11/JDM-design.jpg",
+      "productUrl": "https://www.ismobel.com/disenadores/dpto-diseno-grupo-ismobel/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Operative",
+      "subCategory": "DISEÑADORES",
+      "family": "ISMOBIL",
+      "model": "Grey Design Studio",
+      "description": "Grey Design Studio",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2022/11/grey-1.jpg",
+      "productUrl": "https://www.ismobel.com/disenadores/grey-design-studio/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Operative",
+      "subCategory": "DISEÑADORES",
+      "family": "ISMOBIL",
+      "model": "Jeremiah Ferrarese",
+      "description": "Jeremiah Ferrarese",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2022/11/jeremiah.jpg",
+      "productUrl": "https://www.ismobel.com/disenadores/jeremiah-ferrarese/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Receptions",
+      "subCategory": "Products",
+      "family": "ISMOBIL",
+      "model": "Products",
+      "description": "Products",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2022/11/nereo3-ambiente-3-1024x727.jpg",
+      "productUrl": "https://www.ismobel.com/en/productos/mobiliario/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Operative",
+      "subCategory": "Public",
+      "family": "ISMOBIL",
+      "model": "Public",
+      "description": "Public",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2015/09/Public-2018.jpg",
+      "productUrl": "https://www.ismobel.com/productos/mobiliario/recepciones/public/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Operative",
+      "subCategory": "Public",
+      "family": "ISMOBIL",
+      "model": "Diseño:",
+      "description": "Diseño:",
+      "imageUrl": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAB4AAAAUCAQAAAADDPtORAAAAAnRSTlMAAHaTzTgAAAFCSURBVHja7cExAQAAAMKg9U9tDQ+gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD4MLceAAE1rTxGAAAAAElFTkSuQmCC",
+      "productUrl": "https://www.ismobel.com/disenadores/sigfrido-bilbao/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Operative",
+      "subCategory": "Maya",
+      "family": "ISMOBIL",
+      "model": "Maya",
+      "description": "Maya",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2021/08/f03-cenit-853x1024.jpg",
+      "productUrl": "https://www.ismobel.com/productos/mobiliario/recepciones/maya-2/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Operative",
+      "subCategory": "Maya",
+      "family": "ISMOBIL",
+      "model": "Maya",
+      "description": "Maya",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2021/08/f09-1024x717.jpg",
+      "productUrl": "https://www.ismobel.com/productos/mobiliario/operativo/maya/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Operative",
+      "subCategory": "Argos",
+      "family": "ISMOBIL",
+      "model": "Argos",
+      "description": "Argos",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2021/08/Argos_02-714x1024.jpg",
+      "productUrl": "https://www.ismobel.com/productos/mobiliario/operativo/argos/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Operative",
+      "subCategory": "Delfos",
+      "family": "ISMOBIL",
+      "model": "Delfos",
+      "description": "Delfos",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2021/08/delfos-2019-portada.jpg",
+      "productUrl": "https://www.ismobel.com/productos/mobiliario/operativo/delfos/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Operative",
+      "subCategory": "Delfos",
+      "family": "ISMOBIL",
+      "model": "Diseño:",
+      "description": "Diseño:",
+      "imageUrl": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAvgAAAL4AQAAAAAmWb5OAAAAAnRSTlMAAHaTzTgAAABdSURBVHja7cEBDQAAAMKg909tDwcUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAPwYHQ8AAboyh58AAAAASUVORK5CYII=",
+      "productUrl": "https://www.ismobel.com/disenadores/dpto-diseno-grupo-ismobel/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Operative",
+      "subCategory": "Idra",
+      "family": "ISMOBIL",
+      "model": "Idra",
+      "description": "Idra",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2023/11/Idra-reg-ambiente-1024x727.jpg",
+      "productUrl": "https://www.ismobel.com/productos/mobiliario/operativo/idra/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Operative",
+      "subCategory": "Eco",
+      "family": "ISMOBIL",
+      "model": "Eco",
+      "description": "Eco",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2015/09/Eco-ambiente-bench-2025-baja-1024x727.jpg",
+      "productUrl": "https://www.ismobel.com/productos/mobiliario/operativo/eco/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Operative",
+      "subCategory": "Teseo",
+      "family": "ISMOBIL",
+      "model": "Teseo",
+      "description": "Teseo",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2021/08/Teseo-portada-878x1024.jpg",
+      "productUrl": "https://www.ismobel.com/productos/mobiliario/operativo/teseo/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Operative",
+      "subCategory": "Ceres",
+      "family": "ISMOBIL",
+      "model": "Ceres",
+      "description": "Ceres",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2021/08/2Ceres-Portada.jpg",
+      "productUrl": "https://www.ismobel.com/productos/mobiliario/operativo/ceres/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Operative",
+      "subCategory": "Zen",
+      "family": "ISMOBIL",
+      "model": "Zen",
+      "description": "Zen",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2021/08/Zen-foto-1-direccion-detalle-ala-y-casillero-1024x937.jpg",
+      "productUrl": "https://www.ismobel.com/productos/mobiliario/direccion/zen/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Operative",
+      "subCategory": "Sky",
+      "family": "ISMOBIL",
+      "model": "Sky",
+      "description": "Sky",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2021/08/Fsky-foto1-mesa-ciclorama-722x1024.jpg",
+      "productUrl": "https://www.ismobel.com/productos/mobiliario/operativo/sky/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Operative",
+      "subCategory": "Fedra",
+      "family": "ISMOBIL",
+      "model": "Fedra",
+      "description": "Fedra",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2021/08/1fedra-mesa-abatible-ciclorama-1024x722.jpg",
+      "productUrl": "https://www.ismobel.com/productos/mobiliario/operativo/fedra/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Operative",
+      "subCategory": "Nereo 2",
+      "family": "ISMOBIL",
+      "model": "Nereo 2",
+      "description": "Nereo 2",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2021/08/Nereo-Direccion-portada-705x1024.jpg",
+      "productUrl": "https://www.ismobel.com/productos/mobiliario/direccion/nereo-2/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Operative",
+      "subCategory": "Nereo 3",
+      "family": "ISMOBIL",
+      "model": "Nereo 3",
+      "description": "Nereo 3",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2022/04/nereo3-portada-674x1024.jpg",
+      "productUrl": "https://www.ismobel.com/productos/mobiliario/direccion/nereo-3/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Operative",
+      "subCategory": "Biblos",
+      "family": "ISMOBIL",
+      "model": "Biblos",
+      "description": "Biblos",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2021/08/ABiblos_maya16.jpg",
+      "productUrl": "https://www.ismobel.com/productos/mobiliario/biblioteca-y-divisorias/biblos/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Operative",
+      "subCategory": "Kabitalk",
+      "family": "ISMOBIL",
+      "model": "Kabitalk",
+      "description": "Kabitalk",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2024/04/LOKI-PASILLO-1024x973.jpg",
+      "productUrl": "https://www.ismobel.com/productos/mobiliario/biblioteca-y-divisorias/kabitalk/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Operative",
+      "subCategory": "Panel",
+      "family": "ISMOBIL",
+      "model": "Panel",
+      "description": "Panel",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2021/08/Paneles-3.jpg",
+      "productUrl": "https://www.ismobel.com/productos/mobiliario/biblioteca-y-divisorias/panel/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Operative",
+      "subCategory": "Loki",
+      "family": "ISMOBIL",
+      "model": "Loki",
+      "description": "Loki",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2024/02/Taquillas-foto3-1024x727.jpg",
+      "productUrl": "https://www.ismobel.com/productos/mobiliario/elementos-comunes/loki/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Operative",
+      "subCategory": "Horus",
+      "family": "ISMOBIL",
+      "model": "Horus",
+      "description": "Horus",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2023/03/Horus-07-detalle-alturas-1024x1024.jpg",
+      "productUrl": "https://www.ismobel.com/productos/mobiliario/biblioteca-y-divisorias/b-biblos/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Operative",
+      "subCategory": "Bonn",
+      "family": "ISMOBIL",
+      "model": "Bonn",
+      "description": "Bonn",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2023/01/Bonn_1-727x1024.jpg",
+      "productUrl": "https://www.ismobel.com/productos/sillas/direccion-sillas/bonn/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Operative",
+      "subCategory": "Almacenaje",
+      "family": "ISMOBIL",
+      "model": "Almacenaje",
+      "description": "Almacenaje",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2021/08/Argos_26-1.jpg",
+      "productUrl": "https://www.ismobel.com/productos/mobiliario/elementos-comunes/almcenaje/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Operative",
+      "subCategory": "Mesas de Juntas",
+      "family": "ISMOBIL",
+      "model": "Mesas de Juntas",
+      "description": "Mesas de Juntas",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2021/08/Ceres-reunion-b-baja.jpg",
+      "productUrl": "https://www.ismobel.com/productos/mobiliario/elementos-comunes/mesas-de-juntas/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Operative",
+      "subCategory": "Accesorios eléctricos",
+      "family": "ISMOBIL",
+      "model": "Accesorios eléctricos",
+      "description": "Accesorios eléctricos",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2021/08/IMG_0012-1024x683.jpg",
+      "productUrl": "https://www.ismobel.com/productos/mobiliario/elementos-comunes/accesorios-electricos/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Operative",
+      "subCategory": "Belice",
+      "family": "ISMOBIL",
+      "model": "Belice",
+      "description": "Belice",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2023/01/Belice_1-727x1024.jpg",
+      "productUrl": "https://www.ismobel.com/productos/sillas/direccion-sillas/belice/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Operative",
+      "subCategory": "Trento",
+      "family": "ISMOBIL",
+      "model": "Trento",
+      "description": "Trento",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2023/01/Trento-portada-2022.jpg",
+      "productUrl": "https://www.ismobel.com/productos/sillas/direccion-sillas/trento/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Operative",
+      "subCategory": "Zurich",
+      "family": "ISMOBIL",
+      "model": "Zurich",
+      "description": "Zurich",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2023/01/Zurich_1-727x1024.jpg",
+      "productUrl": "https://www.ismobel.com/productos/sillas/direccion-sillas/zurich/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Operative",
+      "subCategory": "Zurich",
+      "family": "ISMOBIL",
+      "model": "Diseño:",
+      "description": "Diseño:",
+      "imageUrl": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAvgAAAL4AQAAAAAmWb5OAAAAAnRSTlMAAHaTzTgAAABdSURBVHja7cEBDQAAAMKg909tDwcUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAPwYHQ8AAboyh58AAAAASUVORK5CYII=",
+      "productUrl": "https://www.ismobel.com/disenadores/stefano-sandona/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Operative",
+      "subCategory": "Bremen",
+      "family": "ISMOBIL",
+      "model": "Bremen",
+      "description": "Bremen",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2023/01/Bremen_1-2022.jpg",
+      "productUrl": "https://www.ismobel.com/productos/sillas/direccion-sillas/bremen/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Operative",
+      "subCategory": "Rodos",
+      "family": "ISMOBIL",
+      "model": "Rodos",
+      "description": "Rodos",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2025/02/Rodos_1-2025-727x1024.jpg",
+      "productUrl": "https://www.ismobel.com/productos/sillas/operativo-sillas/rodos/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Operative",
+      "subCategory": "Bari",
+      "family": "ISMOBIL",
+      "model": "Bari",
+      "description": "Bari",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2023/01/Bari-portada-727x1024.jpg",
+      "productUrl": "https://www.ismobel.com/productos/sillas/direccion-sillas/bari/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Operative",
+      "subCategory": "Córcega",
+      "family": "ISMOBIL",
+      "model": "Córcega",
+      "description": "Córcega",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2023/01/Corcega_1-727x1024.jpg",
+      "productUrl": "https://www.ismobel.com/productos/sillas/operativo-sillas/corcega/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Operative",
+      "subCategory": "Nicea",
+      "family": "ISMOBIL",
+      "model": "Nicea",
+      "description": "Nicea",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2023/01/Nicea_1-2022-727x1024.jpg",
+      "productUrl": "https://www.ismobel.com/productos/sillas/operativo-sillas/nicea/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Operative",
+      "subCategory": "Berna",
+      "family": "ISMOBIL",
+      "model": "Berna",
+      "description": "Berna",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2023/01/Berna_1-cambio-sop-lumbar-2022-727x1024.jpg",
+      "productUrl": "https://www.ismobel.com/productos/sillas/operativo-sillas/berna/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Operative",
+      "subCategory": "Palma",
+      "family": "ISMOBIL",
+      "model": "Palma",
+      "description": "Palma",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2023/01/Palma_1-2022.jpg",
+      "productUrl": "https://www.ismobel.com/productos/sillas/operativo-sillas/palma/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Operative",
+      "subCategory": "Azores",
+      "family": "ISMOBIL",
+      "model": "Azores",
+      "description": "Azores",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2023/01/Azores_1-727x1024.jpg",
+      "productUrl": "https://www.ismobel.com/productos/sillas/operativo-sillas/azores/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Operative",
+      "subCategory": "Odesa",
+      "family": "ISMOBIL",
+      "model": "Odesa",
+      "description": "Odesa",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2023/01/Odesa_1-727x1024.jpg",
+      "productUrl": "https://www.ismobel.com/productos/sillas/operativo-sillas/odesa/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Operative",
+      "subCategory": "Odesa M",
+      "family": "ISMOBIL",
+      "model": "Odesa M",
+      "description": "Odesa M",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2024/06/Odesa-M_1-2024-727x1024.jpg",
+      "productUrl": "https://www.ismobel.com/productos/sillas/operativo-sillas/odesa-m/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Operative",
+      "subCategory": "Atenas",
+      "family": "ISMOBIL",
+      "model": "Atenas",
+      "description": "Atenas",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2015/09/Atenas_1-contact-perm-727x1024.jpg",
+      "productUrl": "https://www.ismobel.com/productos/sillas/operativo-sillas/atenas/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Operative",
+      "subCategory": "YALTA P",
+      "family": "ISMOBIL",
+      "model": "YALTA P",
+      "description": "YALTA P",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2025/02/0Yalta-pl-sin-brazos-sola-ciclorama-1024x922.jpg",
+      "productUrl": "https://www.ismobel.com/productos/sillas/colectividades/yalta-p/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Operative",
+      "subCategory": "Sevilla",
+      "family": "ISMOBIL",
+      "model": "Sevilla",
+      "description": "Sevilla",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2023/01/asevilla_1-1-727x1024.jpg",
+      "productUrl": "https://www.ismobel.com/productos/sillas/colectividades/sevilla/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Operative",
+      "subCategory": "YALTA",
+      "family": "ISMOBIL",
+      "model": "YALTA",
+      "description": "YALTA",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2023/01/Yalta-foto-1-ciclorama-727x1024.jpg",
+      "productUrl": "https://www.ismobel.com/productos/sillas/colectividades/yalta/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Operative",
+      "subCategory": "Creta",
+      "family": "ISMOBIL",
+      "model": "Creta",
+      "description": "Creta",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2023/01/Creta_1-727x1024.jpg",
+      "productUrl": "https://www.ismobel.com/productos/sillas/colectividades/creta/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Operative",
+      "subCategory": "Creta",
+      "family": "ISMOBIL",
+      "model": "Diseño:",
+      "description": "Diseño:",
+      "imageUrl": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAvgAAAL4AQAAAAAmWb5OAAAAAnRSTlMAAHaTzTgAAABdSURBVHja7cEBDQAAAMKg909tDwcUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAPwYHQ8AAboyh58AAAAASUVORK5CYII=",
+      "productUrl": "https://www.ismobel.com/disenadores/grey-design-studio/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Operative",
+      "subCategory": "Viena",
+      "family": "ISMOBIL",
+      "model": "Viena",
+      "description": "Viena",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2023/01/viena_1.jpg",
+      "productUrl": "https://www.ismobel.com/productos/sillas/colectividades/viena-colec/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Operative",
+      "subCategory": "Viena",
+      "family": "ISMOBIL",
+      "model": "Diseño:",
+      "description": "Diseño:",
+      "imageUrl": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAxoAAAKsAQAAAABD3/YjAAAAAnRSTlMAAHaTzTgAAABZSURBVHja7cEBDQAAAMKg909tDwcUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA8GAN6wABdOClDAAAAABJRU5ErkJggg==",
+      "productUrl": "https://www.ismobel.com/disenadores/alegre-design-studio/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Operative",
+      "subCategory": "Florida",
+      "family": "ISMOBIL",
+      "model": "Florida",
+      "description": "Florida",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2023/01/aFlorida_1-727x1024.jpg",
+      "productUrl": "https://www.ismobel.com/productos/sillas/colectividades/florida/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Operative",
+      "subCategory": "Florida",
+      "family": "ISMOBIL",
+      "model": "Diseño:",
+      "description": "Diseño:",
+      "imageUrl": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAZAAAAGQAQAAAACoxAthAAAAAnRSTlMAAHaTzTgAAAAqSURBVHja7cExAQAAAMKg9U/tbwagAAAAAAAAAAAAAAAAAAAAAAAAAIA3T7AAAZRBGFwAAAAASUVORK5CYII=",
+      "productUrl": "https://www.ismobel.com/disenadores/paolo-scagnellato/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Operative",
+      "subCategory": "Fresno",
+      "family": "ISMOBIL",
+      "model": "Fresno",
+      "description": "Fresno",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2023/01/afresno_1-727x1024.jpg",
+      "productUrl": "https://www.ismobel.com/productos/sillas/colectividades/fresno/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Operative",
+      "subCategory": "Iowa",
+      "family": "ISMOBIL",
+      "model": "Iowa",
+      "description": "Iowa",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2023/01/aIowa_1-727x1024.jpg",
+      "productUrl": "https://www.ismobel.com/productos/sillas/colectividades/iowa/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Operative",
+      "subCategory": "Verona",
+      "family": "ISMOBIL",
+      "model": "Verona",
+      "description": "Verona",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2023/01/averona_1-727x1024.jpg",
+      "productUrl": "https://www.ismobel.com/productos/sillas/colectividades/verona/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Operative",
+      "subCategory": "Empresa",
+      "family": "ISMOBIL",
+      "model": "Realizamos un cuidadoso trabajo en todos los ámbitos de nuestra producción",
+      "description": "Realizamos un cuidadoso trabajo en todos los ámbitos de nuestra producción",
+      "imageUrl": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAwAAAAIhAQAAAADRfeAEAAAAAnRSTlMAAHaTzTgAAABJSURBVHja7cEBAQAAAIIg/69uSEABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACcGM6BAAFSoZQ3AAAAAElFTkSuQmCC",
+      "productUrl": "https://www.ismobel.com/instalaciones/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Operative",
+      "subCategory": "Empresa",
+      "family": "ISMOBIL",
+      "model": "Certificados de ensayos",
+      "description": "Certificados de ensayos",
+      "imageUrl": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAaoAAAJYAQAAAAAbRp/UAAAAAnRSTlMAAHaTzTgAAAA2SURBVHja7cEBAQAAAIIg/69uSEABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAC8GgOgAAXznMF0AAAAASUVORK5CYII=",
+      "productUrl": "https://www.ismobel.com/wp-content/uploads/2022/11/Anexo_tecnico_marca_calidad_tecnalia-1.pdf",
+      "price": 0
+    },
+    {
+      "mainCategory": "Operative",
+      "subCategory": "Empresa",
+      "family": "ISMOBIL",
+      "model": "Calidad",
+      "description": "Calidad",
+      "imageUrl": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAA+gAAAWAAQAAAADir1FEAAAAAnRSTlMAAHaTzTgAAADDSURBVHja7cExAQAAAMKg9U9tDQ+gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgHcDtR4AAe78g00AAAAASUVORK5CYII=",
+      "productUrl": "https://www.ismobel.com/wp-content/uploads/2022/11/9001_GRUPO_ESPANOL.pdf",
+      "price": 0
+    },
+    {
+      "mainCategory": "Operative",
+      "subCategory": "Glasgow",
+      "family": "ISMOBIL",
+      "model": "Glasgow",
+      "description": "Glasgow",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2023/01/Glasgow-portada-b.jpg",
+      "productUrl": "https://www.ismobel.com/productos/sillas/contract/glasgow/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Operative",
+      "subCategory": "Trípoli",
+      "family": "ISMOBIL",
+      "model": "Trípoli",
+      "description": "Trípoli",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2023/01/ATripoli_1-727x1024.jpg",
+      "productUrl": "https://www.ismobel.com/productos/sillas/contract/tripoli/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Operative",
+      "subCategory": "Basel",
+      "family": "ISMOBIL",
+      "model": "Basel",
+      "description": "Basel",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2023/01/Basel-portada-727x1024.jpg",
+      "productUrl": "https://www.ismobel.com/productos/sillas/contract/basel/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Operative",
+      "subCategory": "Venecia",
+      "family": "ISMOBIL",
+      "model": "Venecia",
+      "description": "Venecia",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2023/01/AVenecia_1-727x1024.jpg",
+      "productUrl": "https://www.ismobel.com/productos/sillas/contract/venecia/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Operative",
+      "subCategory": "Alberta",
+      "family": "ISMOBIL",
+      "model": "Alberta",
+      "description": "Alberta",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2023/01/Alberta_1-727x1024.jpg",
+      "productUrl": "https://www.ismobel.com/productos/sillas/contract/alberta/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Operative",
+      "subCategory": "Malta",
+      "family": "ISMOBIL",
+      "model": "Malta",
+      "description": "Malta",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2023/01/Malta-portada-727x1024.jpg",
+      "productUrl": "https://www.ismobel.com/productos/sillas/contract/malta/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Operative",
+      "subCategory": "Menphis",
+      "family": "ISMOBIL",
+      "model": "Menphis",
+      "description": "Menphis",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2023/01/aMemphis-portada-727x1024.jpg",
+      "productUrl": "https://www.ismobel.com/productos/sillas/contract/memphis/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Operative",
+      "subCategory": "Niza",
+      "family": "ISMOBIL",
+      "model": "Niza",
+      "description": "Niza",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2023/01/Niza-1-727x1024.jpg",
+      "productUrl": "https://www.ismobel.com/productos/sillas/contract/niza/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Operative",
+      "subCategory": "Vancouver",
+      "family": "ISMOBIL",
+      "model": "Vancouver",
+      "description": "Vancouver",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2023/01/Poufs_2-727x1024.jpg",
+      "productUrl": "https://www.ismobel.com/productos/sillas/contract/vancouver/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Operative",
+      "subCategory": "YALTA P",
+      "family": "ISMOBIL",
+      "model": "YALTA P",
+      "description": "YALTA P",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2025/02/Captura-de-pantalla-2025-03-05-a-las-10.51.00-1024x1020.jpg",
+      "productUrl": "https://www.ismobel.com/productos/sillas/bancadas/yalta-p-bancada/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Operative",
+      "subCategory": "Fresno",
+      "family": "ISMOBIL",
+      "model": "Fresno",
+      "description": "Fresno",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2023/01/0Fresno-bancada_1.jpg",
+      "productUrl": "https://www.ismobel.com/productos/sillas/bancadas/fresno-2/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Operative",
+      "subCategory": "Iowa",
+      "family": "ISMOBIL",
+      "model": "Iowa",
+      "description": "Iowa",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2023/01/Iowa-bancada_1-brazos-laterlaes-2022.jpg",
+      "productUrl": "https://www.ismobel.com/productos/sillas/bancadas/iowa-2/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Operative",
+      "subCategory": "Yalta",
+      "family": "ISMOBIL",
+      "model": "Yalta",
+      "description": "Yalta",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2023/01/Yalta-bancada-1-1024x870.jpg",
+      "productUrl": "https://www.ismobel.com/productos/sillas/bancadas/yalta-tapizada/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Operative",
+      "subCategory": "Viena",
+      "family": "ISMOBIL",
+      "model": "Viena",
+      "description": "Viena",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2023/01/Viena-bancada_2.jpg",
+      "productUrl": "https://www.ismobel.com/productos/sillas/bancadas/viena/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Operative",
+      "subCategory": "Jamaica",
+      "family": "ISMOBIL",
+      "model": "Jamaica",
+      "description": "Jamaica",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2023/01/0Verona-bancada_1.jpg",
+      "productUrl": "https://www.ismobel.com/productos/sillas/bancadas/jamaica/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Operative",
+      "subCategory": "Lorca",
+      "family": "ISMOBIL",
+      "model": "Lorca",
+      "description": "Lorca",
+      "imageUrl": "https://www.ismobel.com/wp-content/uploads/2023/01/lorca-bancada_2.jpg",
+      "productUrl": "https://www.ismobel.com/productos/sillas/bancadas/lorca/",
+      "price": 0
+    }
+  ],
+  "createdAt": "2025-12-18T08:21:48.382Z",
+  "scrapedWith": "Structure-Harvest"
+}

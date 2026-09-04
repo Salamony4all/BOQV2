@@ -2911,6 +2911,14 @@ app.post('/api/ve-prescan-brands', async (req, res) => {
           logo: logoUrl,
           budgetTier: budgetTier || 'mid',
           origin: 'VE-Prescan-Discovery',
+          gatewayVersion: 1,
+          registry: {
+            name: bName,
+            officialDomain: (() => { try { return new URL(dBrand.websiteUrl || '').hostname; } catch { return ''; } })(),
+            budgetTier: budgetTier || 'mid',
+            origin: 'VE-Prescan-Discovery'
+          },
+          discovery: { discoveredAt: new Date().toISOString(), ttlDays: 30, verified: false, quarantine: true },
           products: (dBrand.models || []).map(m => ({
             brand: bName,
             model: m,
@@ -2919,7 +2927,10 @@ app.post('/api/ve-prescan-brands', async (req, res) => {
             imageUrl: '',
             websiteUrl: dBrand.websiteUrl || '',
             lastUpdated: new Date().toISOString(),
-            source: 'VE-Prescan-Discovery'
+            source: 'VE-Prescan-Discovery',
+            verified: false,
+            discoveredAt: new Date().toISOString(),
+            ttlDays: 30
           })),
           createdAt: new Date().toISOString()
         };

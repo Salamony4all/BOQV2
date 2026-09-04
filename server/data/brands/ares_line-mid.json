@@ -40,5 +40,7 @@
       "imageUrl": "https://images.unsplash.com/photo-1585647347384-2593bc35786b?w=800&auto=format&fit=crop&q=80",
       "websiteUrl": "https://www.aresline.com/en/products/vektor-auditorium/"
     }
-  ]
+  ],
+  "url": "https://www.aresline.com",
+  "budget_tier": "mid"
 }

@@ -1,0 +1,20 @@
+{
+  "id": 1788514991542,
+  "name": "TON",
+  "logo": "https://media.architonic.com/m-on/3100171/logo/ton_logo_1a8e.jpg",
+  "budgetTier": "mid",
+  "origin": "VE-Prescan-Discovery",
+  "products": [
+    {
+      "brand": "TON",
+      "model": "P.O.V. Stool",
+      "mainCategory": "Furniture",
+      "subCategory": "",
+      "imageUrl": "",
+      "websiteUrl": "https://www.ton.eu",
+      "lastUpdated": "2026-09-04T09:43:10.600Z",
+      "source": "VE-Prescan-Discovery"
+    }
+  ],
+  "createdAt": "2026-09-04T09:43:10.600Z"
+}

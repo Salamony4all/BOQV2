@@ -13,8 +13,25 @@
       "imageUrl": "",
       "websiteUrl": "https://www.breesnewworld.nl/",
       "lastUpdated": "2026-09-04T10:51:19.707Z",
-      "source": "VE-Prescan-Discovery"
+      "source": "VE-Prescan-Discovery",
+      "verified": false,
+      "discoveredAt": "2026-09-04T10:51:19.707Z",
+      "ttlDays": 30
     }
   ],
-  "createdAt": "2026-09-04T10:51:19.707Z"
+  "createdAt": "2026-09-04T10:51:19.707Z",
+  "budget_tier": "mid",
+  "gatewayVersion": 1,
+  "registry": {
+    "name": "Brees New World",
+    "officialDomain": "",
+    "budgetTier": "mid",
+    "origin": "VE-Prescan-Discovery"
+  },
+  "discovery": {
+    "discoveredAt": "2026-09-04T10:51:19.707Z",
+    "ttlDays": 30,
+    "verified": false,
+    "quarantine": true
+  }
 }

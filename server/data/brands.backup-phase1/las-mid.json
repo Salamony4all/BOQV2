@@ -1,0 +1,1682 @@
+{
+  "id": 1766044962937,
+  "name": "LAS",
+  "url": "https://www.las.it/en/",
+  "origin": "ITALY",
+  "budgetTier": "mid",
+  "logo": "https://www.las.it/wp-content/themes/las/assets/images/logo-menu.svg",
+  "products": [
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "PRODUCTS",
+      "family": "LAS",
+      "model": "Products",
+      "description": "Products",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/09/home_arredi-900x600.jpg",
+      "productUrl": "https://www.las.it/en/typologies/furniture/",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "PRODUCTS",
+      "family": "LAS",
+      "model": "Furniture",
+      "description": "Furniture",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/09/home_arredi-900x600.jpg",
+      "productUrl": "https://www.las.it/en/typologies/furniture/",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "PRODUCTS",
+      "family": "LAS",
+      "model": "Seating",
+      "description": "Seating",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/10/home_sedute-900x900.jpg",
+      "productUrl": "https://www.las.it/en/typologies/seating/",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "PRODUCTS",
+      "family": "LAS",
+      "model": "Walls",
+      "description": "Walls",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/09/home_pareti-900x600.jpg",
+      "productUrl": "https://www.las.it/en/typologies/walls/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Find out more",
+      "subCategory": "Find out more",
+      "family": "LAS",
+      "model": "967 Arch",
+      "description": "967 Arch",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/08/Studio-967-700x700.jpg",
+      "productUrl": "https://www.las.it/en/designer/967-arch/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Find out more",
+      "subCategory": "Find out more",
+      "family": "LAS",
+      "model": "COLOUR CHART",
+      "description": "COLOUR CHART",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/09/03_ROVERE_O-350x200.jpg",
+      "productUrl": "javascript:void(0);",
+      "price": 0
+    },
+    {
+      "mainCategory": "Find out more",
+      "subCategory": "Find out more",
+      "family": "LAS",
+      "model": "Previous",
+      "description": "Previous",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/09/BI02_METALLO_BIANCO-350x200.jpg",
+      "productUrl": "https://www.las.it/en/products/fil-rouge/#",
+      "price": 0
+    },
+    {
+      "mainCategory": "Find out more",
+      "subCategory": "Find out more",
+      "family": "LAS",
+      "model": "Previous",
+      "description": "Previous",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/09/10_VETRO_NERO-350x200.jpg",
+      "productUrl": "https://www.las.it/en/products/elite/#",
+      "price": 0
+    },
+    {
+      "mainCategory": "Find out more",
+      "subCategory": "Find out more",
+      "family": "LAS",
+      "model": "Executive Systems",
+      "description": "Executive Systems",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/08/Orlandini-700x700.jpg",
+      "productUrl": "https://www.las.it/en/typologies/furniture/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Find out more",
+      "subCategory": "Find out more",
+      "family": "LAS",
+      "model": "Monolith",
+      "description": "Monolith",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/08/Orlandini-700x700.jpg",
+      "productUrl": "https://www.las.it/en/designer/orlandini-design/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Find out more",
+      "subCategory": "Find out more",
+      "family": "LAS",
+      "model": "Orlandini Design",
+      "description": "Orlandini Design",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/08/Orlandini-700x700.jpg",
+      "productUrl": "https://www.las.it/en/designer/orlandini-design/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Find out more",
+      "subCategory": "Find out more",
+      "family": "LAS",
+      "model": "Previous",
+      "description": "Previous",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2024/10/40_bianco-calacatta-350x200.jpg",
+      "productUrl": "https://www.las.it/en/products/monolith/#",
+      "price": 0
+    },
+    {
+      "mainCategory": "Find out more",
+      "subCategory": "Find out more",
+      "family": "LAS",
+      "model": "Operative Systems",
+      "description": "Operative Systems",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/08/Studio-SI-700x700.jpg",
+      "productUrl": "https://www.las.it/en/typologies/furniture/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Find out more",
+      "subCategory": "Find out more",
+      "family": "LAS",
+      "model": "Sigma",
+      "description": "Sigma",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/08/Studio-SI-700x700.jpg",
+      "productUrl": "https://www.las.it/en/designer/studio-si/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Find out more",
+      "subCategory": "Find out more",
+      "family": "LAS",
+      "model": "Studio Si",
+      "description": "Studio Si",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/08/Studio-SI-700x700.jpg",
+      "productUrl": "https://www.las.it/en/designer/studio-si/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Find out more",
+      "subCategory": "Find out more",
+      "family": "LAS",
+      "model": "Enosi",
+      "description": "Enosi",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/07/Nikolas-Chachamis-700x700.jpg",
+      "productUrl": "https://www.las.it/en/designer/nikolas-chachamis/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Find out more",
+      "subCategory": "Find out more",
+      "family": "LAS",
+      "model": "Nikolas Chachamis",
+      "description": "Nikolas Chachamis",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/07/Nikolas-Chachamis-700x700.jpg",
+      "productUrl": "https://www.las.it/en/designer/nikolas-chachamis/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Find out more",
+      "subCategory": "Find out more",
+      "family": "LAS",
+      "model": "COLOUR CHART",
+      "description": "COLOUR CHART",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/09/37_NOCE_PACIFIC_A-350x200.jpg",
+      "productUrl": "https://www.las.it/en/products/enosi/#",
+      "price": 0
+    },
+    {
+      "mainCategory": "Find out more",
+      "subCategory": "Find out more",
+      "family": "LAS",
+      "model": "Previous",
+      "description": "Previous",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/09/37_NOCE_PACIFIC_A-350x200.jpg",
+      "productUrl": "https://www.las.it/en/products/enosi/#",
+      "price": 0
+    },
+    {
+      "mainCategory": "Find out more",
+      "subCategory": "Find out more",
+      "family": "LAS",
+      "model": "Paolo Pampanoni",
+      "description": "Paolo Pampanoni",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/08/Paolo-Pampanoni-700x700.jpg",
+      "productUrl": "https://www.las.it/en/designer/paolo-pampanoni/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Find out more",
+      "subCategory": "Find out more",
+      "family": "LAS",
+      "model": "Previous",
+      "description": "Previous",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/09/99_VETRO_SATINATO-350x200.jpg",
+      "productUrl": "https://www.las.it/en/products/contenitori-universali/#",
+      "price": 0
+    },
+    {
+      "mainCategory": "Find out more",
+      "subCategory": "Find out more",
+      "family": "LAS",
+      "model": "Mood M1",
+      "description": "Mood M1",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/08/Paolo-Pampanoni-700x700.jpg",
+      "productUrl": "https://www.las.it/en/typologies/walls/",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "Furniture",
+      "family": "LAS",
+      "model": "FILTER",
+      "description": "FILTER",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/08/jera-thumb-01-scaled.jpg",
+      "productUrl": "https://www.las.it/en/typologies/furniture/#",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "Furniture",
+      "family": "LAS",
+      "model": "JERA",
+      "description": "JERA",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/08/jera-thumb-01-scaled.jpg",
+      "productUrl": "https://www.las.it/en/products/jera/",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "Furniture",
+      "family": "LAS",
+      "model": "MONOLITH",
+      "description": "MONOLITH",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2024/10/sistemi-direzionali-monolith-las-08.jpg",
+      "productUrl": "https://www.las.it/en/products/monolith/",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "Furniture",
+      "family": "LAS",
+      "model": "ENOSI",
+      "description": "ENOSI",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/08/enosi-thumb-01-scaled.jpg",
+      "productUrl": "https://www.las.it/en/products/enosi/",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "Furniture",
+      "family": "LAS",
+      "model": "E.O.S.",
+      "description": "E.O.S.",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/08/eos-thumb-01-scaled.jpg",
+      "productUrl": "https://www.las.it/en/products/eos/",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "Furniture",
+      "family": "LAS",
+      "model": "IULIO",
+      "description": "IULIO",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/08/iulio-thumb-01-scaled.jpg",
+      "productUrl": "https://www.las.it/en/products/iulio/",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "Furniture",
+      "family": "LAS",
+      "model": "ELITE",
+      "description": "ELITE",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/08/elite-thumb-01-scaled.jpg",
+      "productUrl": "https://www.las.it/en/products/elite/",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "Furniture",
+      "family": "LAS",
+      "model": "DELTA",
+      "description": "DELTA",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/08/delta-thumb-01-scaled.jpg",
+      "productUrl": "https://www.las.it/en/products/delta/",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "Furniture",
+      "family": "LAS",
+      "model": "SIGMA",
+      "description": "SIGMA",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2025/07/sitemi-operativo-sigma-thumb.jpg",
+      "productUrl": "https://www.las.it/en/products/20457/",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "Furniture",
+      "family": "LAS",
+      "model": "FIL ROUGE",
+      "description": "FIL ROUGE",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/08/filrouge-thumb-01-scaled.jpg",
+      "productUrl": "https://www.las.it/en/products/fil-rouge/",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "Furniture",
+      "family": "LAS",
+      "model": "5TH ELEMENT",
+      "description": "5TH ELEMENT",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/08/5thelement-thumb-01-scaled.jpg",
+      "productUrl": "https://www.las.it/en/products/5th-element/",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "Furniture",
+      "family": "LAS",
+      "model": "OXI",
+      "description": "OXI",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/08/oxi-thumb-01-scaled.jpg",
+      "productUrl": "https://www.las.it/en/products/oxi/",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "Furniture",
+      "family": "LAS",
+      "model": "SCHERMI UNIVERSALI",
+      "description": "SCHERMI UNIVERSALI",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/08/schermi-thumb-02.jpg",
+      "productUrl": "https://www.las.it/en/products/schermi-universali/",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "Furniture",
+      "family": "LAS",
+      "model": "SHARE",
+      "description": "SHARE",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2023/06/share-thumb-02.jpg",
+      "productUrl": "https://www.las.it/en/products/share/",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "Furniture",
+      "family": "LAS",
+      "model": "CUBO",
+      "description": "CUBO",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2023/11/sistemi-collaborativi-cubo-1.jpg",
+      "productUrl": "https://www.las.it/en/products/cubo/",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "Furniture",
+      "family": "LAS",
+      "model": "PIEGO",
+      "description": "PIEGO",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/08/piego-thumb-02-1.jpg",
+      "productUrl": "https://www.las.it/en/products/piego/",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "Furniture",
+      "family": "LAS",
+      "model": "CHIUDO",
+      "description": "CHIUDO",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/08/chiudo-thumb-01-scaled.jpg",
+      "productUrl": "https://www.las.it/en/products/chiudo/",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "Furniture",
+      "family": "LAS",
+      "model": "SEGUO",
+      "description": "SEGUO",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/08/seguo-thumb-01-scaled.jpg",
+      "productUrl": "https://www.las.it/en/products/seguo/",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "Furniture",
+      "family": "LAS",
+      "model": "PRONTO",
+      "description": "PRONTO",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2023/06/sistemi-collaborativi-pronto.jpg",
+      "productUrl": "https://www.las.it/en/products/pronto/",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "Furniture",
+      "family": "LAS",
+      "model": "CONTENITORI UNIVERSALI",
+      "description": "CONTENITORI UNIVERSALI",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/08/contenitori-thumb-01-scaled.jpg",
+      "productUrl": "https://www.las.it/en/products/contenitori-universali/",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "Furniture",
+      "family": "LAS",
+      "model": "I-MEET",
+      "description": "I-MEET",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/08/imeet-thumb-01-scaled.jpg",
+      "productUrl": "https://www.las.it/en/products/i-meet/",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "Furniture",
+      "family": "LAS",
+      "model": "NICE",
+      "description": "NICE",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/08/nice-thumb-01-scaled.jpg",
+      "productUrl": "https://www.las.it/en/products/nice/",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "Furniture",
+      "family": "LAS",
+      "model": "POINT",
+      "description": "POINT",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/08/point-thumb-01-scaled.jpg",
+      "productUrl": "https://www.las.it/en/products/point/",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "Furniture",
+      "family": "LAS",
+      "model": "JAVA",
+      "description": "JAVA",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2024/06/mobili_0050-java-scaled.jpg",
+      "productUrl": "https://www.las.it/en/products/java/",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "Furniture",
+      "family": "LAS",
+      "model": "PAUSA",
+      "description": "PAUSA",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/08/pausa-thumb-01-scaled.jpg",
+      "productUrl": "https://www.las.it/en/products/pausa-2/",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "Furniture",
+      "family": "LAS",
+      "model": "CONVIVIO",
+      "description": "CONVIVIO",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/08/convivio-thumb-01-scaled.jpg",
+      "productUrl": "https://www.las.it/en/products/convivio/",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "Furniture",
+      "family": "LAS",
+      "model": "FUNGO",
+      "description": "FUNGO",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/08/fungo-thumb-01-scaled.jpg",
+      "productUrl": "https://www.las.it/en/products/fungo/",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "Furniture",
+      "family": "LAS",
+      "model": "SEGUO COFFEE",
+      "description": "SEGUO COFFEE",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/09/seguo-thumb-05-scaled.jpg",
+      "productUrl": "https://www.las.it/en/products/seguo-coffee/",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "Furniture",
+      "family": "LAS",
+      "model": "FUNGO COFFEE",
+      "description": "FUNGO COFFEE",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/09/fungo-thumb-02-scaled.jpg",
+      "productUrl": "https://www.las.it/en/products/fungo-coffee/",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "Furniture",
+      "family": "LAS",
+      "model": "SEGNO",
+      "description": "SEGNO",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/08/tavoli-break-segno.jpg",
+      "productUrl": "https://www.las.it/en/products/segno/",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "Furniture",
+      "family": "LAS",
+      "model": "ICARO",
+      "description": "ICARO",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/08/icaro-1.jpg",
+      "productUrl": "https://www.las.it/en/products/icaro/",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "Furniture",
+      "family": "LAS",
+      "model": "REGOLO",
+      "description": "REGOLO",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2022/11/REGOLO.jpg",
+      "productUrl": "https://www.las.it/en/products/regolo/",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "Furniture",
+      "family": "LAS",
+      "model": "KYOTO",
+      "description": "KYOTO",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2022/11/KYOTO.jpg",
+      "productUrl": "https://www.las.it/en/products/kyoto/",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "Furniture",
+      "family": "LAS",
+      "model": "PODIO",
+      "description": "PODIO",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2022/11/PODIO.jpg",
+      "productUrl": "https://www.las.it/en/products/podio/",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "Seating",
+      "family": "LAS",
+      "model": "LEAD",
+      "description": "LEAD",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/08/lead.jpg",
+      "productUrl": "https://www.las.it/en/products/lead/",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "Seating",
+      "family": "LAS",
+      "model": "JERA CHAIR",
+      "description": "JERA CHAIR",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/08/jera-chair.jpg",
+      "productUrl": "https://www.las.it/en/products/jera-chair/",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "Seating",
+      "family": "LAS",
+      "model": "SCENA",
+      "description": "SCENA",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/08/scena.jpg",
+      "productUrl": "https://www.las.it/en/products/scena/",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "Seating",
+      "family": "LAS",
+      "model": "NEO CHAIR",
+      "description": "NEO CHAIR",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/08/neo.jpg",
+      "productUrl": "https://www.las.it/en/products/neo-chair/",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "Seating",
+      "family": "LAS",
+      "model": "TRAMA",
+      "description": "TRAMA",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2022/11/TRAMA.jpg",
+      "productUrl": "https://www.las.it/en/products/trama/",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "Seating",
+      "family": "LAS",
+      "model": "ATHENA",
+      "description": "ATHENA",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/08/athena-1.jpg",
+      "productUrl": "https://www.las.it/en/products/athena/",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "Seating",
+      "family": "LAS",
+      "model": "FORMEN",
+      "description": "FORMEN",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/08/formen.jpg",
+      "productUrl": "https://www.las.it/en/products/formen/",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "Seating",
+      "family": "LAS",
+      "model": "GALASSIA",
+      "description": "GALASSIA",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/08/sedute-direzionali-galassia-las.jpg",
+      "productUrl": "https://www.las.it/en/products/galassia/",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "Seating",
+      "family": "LAS",
+      "model": "COMFORT",
+      "description": "COMFORT",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2025/07/comfort-seduta-operativa-las-arredi-thumb02.jpg",
+      "productUrl": "https://www.las.it/en/products/comfort/",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "Seating",
+      "family": "LAS",
+      "model": "DOLLY",
+      "description": "DOLLY",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2024/06/dolly-ok.jpg",
+      "productUrl": "https://www.las.it/en/products/dolly/",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "Seating",
+      "family": "LAS",
+      "model": "STAR",
+      "description": "STAR",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2022/11/STAR.jpg",
+      "productUrl": "https://www.las.it/en/products/star/",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "Seating",
+      "family": "LAS",
+      "model": "SISTEMA",
+      "description": "SISTEMA",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/08/sistema.jpg",
+      "productUrl": "https://www.las.it/en/products/sistema/",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "Seating",
+      "family": "LAS",
+      "model": "CAST",
+      "description": "CAST",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/08/cast.jpg",
+      "productUrl": "https://www.las.it/en/products/cast/",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "Seating",
+      "family": "LAS",
+      "model": "CIAK",
+      "description": "CIAK",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/08/ciak.jpg",
+      "productUrl": "https://www.las.it/en/products/ciak/",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "Seating",
+      "family": "LAS",
+      "model": "PRIMA",
+      "description": "PRIMA",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/08/prima.jpg",
+      "productUrl": "https://www.las.it/en/products/prima/",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "Seating",
+      "family": "LAS",
+      "model": "RASSEGNA",
+      "description": "RASSEGNA",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2022/11/RASSEGNA.jpg",
+      "productUrl": "https://www.las.it/en/products/rassegna/",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "Seating",
+      "family": "LAS",
+      "model": "ESSAI",
+      "description": "ESSAI",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2022/11/ESSAI.jpg",
+      "productUrl": "https://www.las.it/en/products/essai/",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "Seating",
+      "family": "LAS",
+      "model": "HELLÒ",
+      "description": "HELLÒ",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/08/hello.jpg",
+      "productUrl": "https://www.las.it/en/products/hello/",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "Seating",
+      "family": "LAS",
+      "model": "OSCAR",
+      "description": "OSCAR",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/08/oscar.jpg",
+      "productUrl": "https://www.las.it/en/products/oscar-2/",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "Seating",
+      "family": "LAS",
+      "model": "BROADWAY",
+      "description": "BROADWAY",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2024/06/broadway-ok.jpg",
+      "productUrl": "https://www.las.it/en/products/broadway/",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "Seating",
+      "family": "LAS",
+      "model": "F01",
+      "description": "F01",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/08/f01.jpg",
+      "productUrl": "https://www.las.it/en/products/f01/",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "Seating",
+      "family": "LAS",
+      "model": "F02",
+      "description": "F02",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/08/f02.jpg",
+      "productUrl": "https://www.las.it/en/products/f02/",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "Seating",
+      "family": "LAS",
+      "model": "F03",
+      "description": "F03",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/08/f03.jpg",
+      "productUrl": "https://www.las.it/en/products/f03/",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "Seating",
+      "family": "LAS",
+      "model": "F04",
+      "description": "F04",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/08/f04.jpg",
+      "productUrl": "https://www.las.it/en/products/f04-2/",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "Seating",
+      "family": "LAS",
+      "model": "F05",
+      "description": "F05",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2024/06/f05-ok.jpg",
+      "productUrl": "https://www.las.it/en/products/f05/",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "Seating",
+      "family": "LAS",
+      "model": "F06",
+      "description": "F06",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2025/07/F06-seduta-operativa-las-thumb.jpg",
+      "productUrl": "https://www.las.it/en/products/f06/",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "Seating",
+      "family": "LAS",
+      "model": "REGIA",
+      "description": "REGIA",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/08/regia.jpg",
+      "productUrl": "https://www.las.it/en/products/regia/",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "Seating",
+      "family": "LAS",
+      "model": "VEDETTE",
+      "description": "VEDETTE",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/08/vedette.jpg",
+      "productUrl": "https://www.las.it/en/products/vedette/",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "Seating",
+      "family": "LAS",
+      "model": "FICTION",
+      "description": "FICTION",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2022/11/FICTION.jpg",
+      "productUrl": "https://www.las.it/en/products/fiction/",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "Seating",
+      "family": "LAS",
+      "model": "TROUPE",
+      "description": "TROUPE",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2022/11/TROUPE.jpg",
+      "productUrl": "https://www.las.it/en/products/troupe/",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "Seating",
+      "family": "LAS",
+      "model": "ZOOM",
+      "description": "ZOOM",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2022/11/ZOOM.jpg",
+      "productUrl": "https://www.las.it/en/products/zoom/",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "Seating",
+      "family": "LAS",
+      "model": "SUPEROTTO",
+      "description": "SUPEROTTO",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/08/superotto.jpg",
+      "productUrl": "https://www.las.it/en/products/superotto/",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "Seating",
+      "family": "LAS",
+      "model": "PROVINO",
+      "description": "PROVINO",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/08/provino.jpg",
+      "productUrl": "https://www.las.it/en/products/provino-2/",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "Seating",
+      "family": "LAS",
+      "model": "SIPARIO",
+      "description": "SIPARIO",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2025/07/sipario-thumb-02.jpg",
+      "productUrl": "https://www.las.it/en/products/sipario/",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "Seating",
+      "family": "LAS",
+      "model": "SELLO",
+      "description": "SELLO",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2024/06/sello.jpg",
+      "productUrl": "https://www.las.it/en/products/sello/",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "Seating",
+      "family": "LAS",
+      "model": "F01 BENCH",
+      "description": "F01 BENCH",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/08/f01-bench.jpg",
+      "productUrl": "https://www.las.it/en/products/f01-bench/",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "Seating",
+      "family": "LAS",
+      "model": "F03 BENCH",
+      "description": "F03 BENCH",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/08/f03-bench.jpg",
+      "productUrl": "https://www.las.it/en/products/f03-bench/",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "Seating",
+      "family": "LAS",
+      "model": "F06 BENCH",
+      "description": "F06 BENCH",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2025/07/f06-bunch-seduta-operativa-las-arredi-thumb.jpg",
+      "productUrl": "https://www.las.it/en/products/f06-bench/",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "Seating",
+      "family": "LAS",
+      "model": "MOVIE",
+      "description": "MOVIE",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/08/movie.jpg",
+      "productUrl": "https://www.las.it/en/products/movie/",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "Seating",
+      "family": "LAS",
+      "model": "TRUKA",
+      "description": "TRUKA",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2023/06/truka-ok.jpg",
+      "productUrl": "https://www.las.it/en/products/truka-2/",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "Seating",
+      "family": "LAS",
+      "model": "JERA24",
+      "description": "JERA24",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2024/06/jera-24-1.jpg",
+      "productUrl": "https://www.las.it/en/products/jera24/",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "Seating",
+      "family": "LAS",
+      "model": "FESTIVAL",
+      "description": "FESTIVAL",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2022/11/FESTIVAL.jpg",
+      "productUrl": "https://www.las.it/en/products/festival/",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "Seating",
+      "family": "LAS",
+      "model": "JETSET",
+      "description": "JETSET",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2022/11/JETSET.jpg",
+      "productUrl": "https://www.las.it/en/products/jetset/",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "Seating",
+      "family": "LAS",
+      "model": "JERA 22",
+      "description": "JERA 22",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2022/11/JERA-22a.jpg",
+      "productUrl": "https://www.las.it/en/products/jera22/",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "Seating",
+      "family": "LAS",
+      "model": "TREND",
+      "description": "TREND",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/08/trend.jpg",
+      "productUrl": "https://www.las.it/en/products/trend/",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "Seating",
+      "family": "LAS",
+      "model": "SET 22",
+      "description": "SET 22",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2022/11/set-22a.jpg",
+      "productUrl": "https://www.las.it/en/products/set22/",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "Seating",
+      "family": "LAS",
+      "model": "DOMUS",
+      "description": "DOMUS",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/08/domus.jpg",
+      "productUrl": "https://www.las.it/en/products/domus/",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "Seating",
+      "family": "LAS",
+      "model": "DRIVE IN",
+      "description": "DRIVE IN",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2022/11/DRIVE_IN.jpg",
+      "productUrl": "https://www.las.it/en/products/drive-in/",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "Seating",
+      "family": "LAS",
+      "model": "DIVO",
+      "description": "DIVO",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/08/divo-1.jpg",
+      "productUrl": "https://www.las.it/en/products/divo/",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "Seating",
+      "family": "LAS",
+      "model": "FLAGS",
+      "description": "FLAGS",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/08/flags.jpg",
+      "productUrl": "https://www.las.it/en/products/flags/",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "Seating",
+      "family": "LAS",
+      "model": "TRAILER",
+      "description": "TRAILER",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2023/06/trailer-thumb-02.jpg",
+      "productUrl": "https://www.las.it/en/products/trailer-2/",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "Seating",
+      "family": "LAS",
+      "model": "WORKLAND",
+      "description": "WORKLAND",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2023/06/WORKLAND.jpg",
+      "productUrl": "https://www.las.it/en/products/workland/",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "Whistleblowing",
+      "family": "LAS",
+      "model": "Jera",
+      "description": "Jera",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/08/Orlandini-700x700.jpg",
+      "productUrl": "https://www.las.it/en/designer/orlandini-design/",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "Whistleblowing",
+      "family": "LAS",
+      "model": "Previous",
+      "description": "Previous",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/11/504_ecopelle_grigio-350x200.jpg",
+      "productUrl": "https://www.las.it/en/products/jera/#",
+      "price": 0
+    },
+    {
+      "mainCategory": "Find out more",
+      "subCategory": "Find out more",
+      "family": "LAS",
+      "model": "We make space for your projects",
+      "description": "We make space for your projects",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/09/home_arredi-900x900.jpg",
+      "productUrl": "https://www.las.it/en/typologies/furniture/",
+      "price": 0
+    },
+    {
+      "mainCategory": "Find out more",
+      "subCategory": "Find out more",
+      "family": "LAS",
+      "model": "Environment",
+      "description": "Environment",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/08/las_mobili_-2-900x600.jpg",
+      "productUrl": "https://www.las.it/en/history/environment/",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "IULIO",
+      "family": "LAS",
+      "model": "Iulio",
+      "description": "Iulio",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/08/Studio-SI-700x700.jpg",
+      "productUrl": "https://www.las.it/en/designer/studio-si/",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "IULIO",
+      "family": "LAS",
+      "model": "COLOUR CHART",
+      "description": "COLOUR CHART",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/09/12_OLMO_GREY_A-350x200.jpg",
+      "productUrl": "https://www.las.it/en/products/iulio/#",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "IULIO",
+      "family": "LAS",
+      "model": "Previous",
+      "description": "Previous",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/09/12_OLMO_GREY_A-350x200.jpg",
+      "productUrl": "https://www.las.it/en/products/iulio/#",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "E.O.S.",
+      "family": "LAS",
+      "model": "E.O.S.",
+      "description": "E.O.S.",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/08/Giacobone-Roj-700x700.jpg",
+      "productUrl": "https://www.las.it/en/designer/progetto-cmr/",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "E.O.S.",
+      "family": "LAS",
+      "model": "Progetto CMR",
+      "description": "Progetto CMR",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/08/Giacobone-Roj-700x700.jpg",
+      "productUrl": "https://www.las.it/en/designer/progetto-cmr/",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "E.O.S.",
+      "family": "LAS",
+      "model": "COLOUR CHART",
+      "description": "COLOUR CHART",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/09/09_ROVERE_NATURALE_O-350x200.jpg",
+      "productUrl": "https://www.las.it/en/products/eos/#",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "E.O.S.",
+      "family": "LAS",
+      "model": "Previous",
+      "description": "Previous",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/09/09_ROVERE_NATURALE_O-350x200.jpg",
+      "productUrl": "https://www.las.it/en/products/eos/#",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "DELTA",
+      "family": "LAS",
+      "model": "Previous",
+      "description": "Previous",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/09/99_VETRO_SATINATO-350x200.jpg",
+      "productUrl": "https://www.las.it/en/products/delta/#",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "5TH ELEMENT",
+      "family": "LAS",
+      "model": "Previous",
+      "description": "Previous",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/09/10_VETRO_NERO-350x200.jpg",
+      "productUrl": "https://www.las.it/en/products/5th-element/#",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "SHARE",
+      "family": "LAS",
+      "model": "Collaborative System",
+      "description": "Collaborative System",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2023/06/Antonio-Lanzillo-Partners-700x700.jpg",
+      "productUrl": "https://www.las.it/en/typologies/furniture/",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "SHARE",
+      "family": "LAS",
+      "model": "Share",
+      "description": "Share",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2023/06/Antonio-Lanzillo-Partners-700x700.jpg",
+      "productUrl": "https://www.las.it/en/designer/antonio-lanzillo-partners/",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "SHARE",
+      "family": "LAS",
+      "model": "Antonio Lanzillo & Partners",
+      "description": "Antonio Lanzillo & Partners",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2023/06/Antonio-Lanzillo-Partners-700x700.jpg",
+      "productUrl": "https://www.las.it/en/designer/antonio-lanzillo-partners/",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "CHIUDO",
+      "family": "LAS",
+      "model": "Previous",
+      "description": "Previous",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/09/BI02_METALLO_BIANCO-350x200.jpg",
+      "productUrl": "https://www.las.it/en/products/chiudo/#",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "PIEGO",
+      "family": "LAS",
+      "model": "Previous",
+      "description": "Previous",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/09/BI02_METALLO_BIANCO-350x200.jpg",
+      "productUrl": "https://www.las.it/en/products/piego/#",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "JERA CHAIR",
+      "family": "LAS",
+      "model": "Executive Chair",
+      "description": "Executive Chair",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/08/Orlandini-700x700.jpg",
+      "productUrl": "https://www.las.it/en/typologies/seating/",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "JERA CHAIR",
+      "family": "LAS",
+      "model": "Jera Chair",
+      "description": "Jera Chair",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/08/Orlandini-700x700.jpg",
+      "productUrl": "https://www.las.it/en/designer/orlandini-design/",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "LEAD",
+      "family": "LAS",
+      "model": "Lead",
+      "description": "Lead",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/08/Giacobone-Roj-700x700.jpg",
+      "productUrl": "https://www.las.it/en/designer/progetto-cmr/",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "SEGUO",
+      "family": "LAS",
+      "model": "Previous",
+      "description": "Previous",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/09/BI02_METALLO_BIANCO-350x200.jpg",
+      "productUrl": "https://www.las.it/en/products/seguo/#",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "PRONTO",
+      "family": "LAS",
+      "model": "Previous",
+      "description": "Previous",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/09/NR03_METALLO_NERO_MATT-350x200.jpg",
+      "productUrl": "https://www.las.it/en/products/pronto/#",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "NEO CHAIR",
+      "family": "LAS",
+      "model": "Neo Chair",
+      "description": "Neo Chair",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/08/Giacobone-Roj-700x700.jpg",
+      "productUrl": "https://www.las.it/en/designer/progetto-cmr/",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "I-MEET",
+      "family": "LAS",
+      "model": "Meeting Tables",
+      "description": "Meeting Tables",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/07/Nikolas-Chachamis-700x700.jpg",
+      "productUrl": "https://www.las.it/en/typologies/furniture/",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "I-MEET",
+      "family": "LAS",
+      "model": "I-Meet",
+      "description": "I-Meet",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/07/Nikolas-Chachamis-700x700.jpg",
+      "productUrl": "https://www.las.it/en/designer/nikolas-chachamis/",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "I-MEET",
+      "family": "LAS",
+      "model": "Previous",
+      "description": "Previous",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/09/10_VETRO_NERO-350x200.jpg",
+      "productUrl": "https://www.las.it/en/products/i-meet/#",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "NICE",
+      "family": "LAS",
+      "model": "Reception",
+      "description": "Reception",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/08/Studio-SI-700x700.jpg",
+      "productUrl": "https://www.las.it/en/typologies/furniture/",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "NICE",
+      "family": "LAS",
+      "model": "Nice",
+      "description": "Nice",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/08/Studio-SI-700x700.jpg",
+      "productUrl": "https://www.las.it/en/designer/studio-si/",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "NICE",
+      "family": "LAS",
+      "model": "Previous",
+      "description": "Previous",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/09/10_VETRO_NERO-350x200.jpg",
+      "productUrl": "https://www.las.it/en/products/nice/#",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "JAVA",
+      "family": "LAS",
+      "model": "Break & Coffee Tables",
+      "description": "Break & Coffee Tables",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2023/06/Antonio-Lanzillo-Partners-700x700.jpg",
+      "productUrl": "https://www.las.it/en/typologies/furniture/",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "JAVA",
+      "family": "LAS",
+      "model": "Java",
+      "description": "Java",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2023/06/Antonio-Lanzillo-Partners-700x700.jpg",
+      "productUrl": "https://www.las.it/en/designer/antonio-lanzillo-partners/",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "JAVA",
+      "family": "LAS",
+      "model": "COLOUR CHART",
+      "description": "COLOUR CHART",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2025/07/M2_cappuccino-350x200.jpg",
+      "productUrl": "https://www.las.it/en/products/java/#",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "JAVA",
+      "family": "LAS",
+      "model": "Previous",
+      "description": "Previous",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2025/07/M2_cappuccino-350x200.jpg",
+      "productUrl": "https://www.las.it/en/products/java/#",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "PAUSA",
+      "family": "LAS",
+      "model": "Previous",
+      "description": "Previous",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/09/10_VETRO_NERO-350x200.jpg",
+      "productUrl": "https://www.las.it/en/products/pausa-2/#",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "CONVIVIO",
+      "family": "LAS",
+      "model": "Previous",
+      "description": "Previous",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/09/10_VETRO_NERO-350x200.jpg",
+      "productUrl": "https://www.las.it/en/products/convivio/#",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "FUNGO",
+      "family": "LAS",
+      "model": "Previous",
+      "description": "Previous",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/09/10_VETRO_NERO-350x200.jpg",
+      "productUrl": "https://www.las.it/en/products/fungo/#",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "SEGUO COFFEE",
+      "family": "LAS",
+      "model": "Previous",
+      "description": "Previous",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/09/10_VETRO_NERO-350x200.jpg",
+      "productUrl": "https://www.las.it/en/products/seguo-coffee/#",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "FUNGO COFFEE",
+      "family": "LAS",
+      "model": "Previous",
+      "description": "Previous",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/09/10_VETRO_NERO-350x200.jpg",
+      "productUrl": "https://www.las.it/en/products/fungo-coffee/#",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "SEGNO",
+      "family": "LAS",
+      "model": "Previous",
+      "description": "Previous",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/09/10_VETRO_NERO-350x200.jpg",
+      "productUrl": "https://www.las.it/en/products/segno/#",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "ICARO",
+      "family": "LAS",
+      "model": "Previous",
+      "description": "Previous",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/09/10_VETRO_NERO-350x200.jpg",
+      "productUrl": "https://www.las.it/en/products/icaro/#",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "REGOLO",
+      "family": "LAS",
+      "model": "Previous",
+      "description": "Previous",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/09/10_VETRO_NERO-350x200.jpg",
+      "productUrl": "https://www.las.it/en/products/regolo/#",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "KYOTO",
+      "family": "LAS",
+      "model": "Previous",
+      "description": "Previous",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/09/10_VETRO_NERO-350x200.jpg",
+      "productUrl": "https://www.las.it/en/products/kyoto/#",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "PODIO",
+      "family": "LAS",
+      "model": "Previous",
+      "description": "Previous",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/09/10_VETRO_NERO-350x200.jpg",
+      "productUrl": "https://www.las.it/en/products/podio/#",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "SELLO",
+      "family": "LAS",
+      "model": "Chairs and Stools",
+      "description": "Chairs and Stools",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2023/06/Antonio-Lanzillo-Partners-700x700.jpg",
+      "productUrl": "https://www.las.it/en/typologies/seating/",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "SELLO",
+      "family": "LAS",
+      "model": "Sello",
+      "description": "Sello",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2023/06/Antonio-Lanzillo-Partners-700x700.jpg",
+      "productUrl": "https://www.las.it/en/designer/antonio-lanzillo-partners/",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "FESTIVAL",
+      "family": "LAS",
+      "model": "Armchairs and Sofas",
+      "description": "Armchairs and Sofas",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/08/Orlandini-700x700.jpg",
+      "productUrl": "https://www.las.it/en/typologies/seating/",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "FESTIVAL",
+      "family": "LAS",
+      "model": "Festival",
+      "description": "Festival",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/08/Orlandini-700x700.jpg",
+      "productUrl": "https://www.las.it/en/designer/orlandini-design/",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "FESTIVAL",
+      "family": "LAS",
+      "model": "CSR Las Mobili",
+      "description": "CSR Las Mobili",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/08/Orlandini-700x700.jpg",
+      "productUrl": "https://www.las.it/en/designer/orlandini-design/",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "JETSET",
+      "family": "LAS",
+      "model": "Jetset",
+      "description": "Jetset",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/08/Orlandini-700x700.jpg",
+      "productUrl": "https://www.las.it/en/designer/orlandini-design/",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "JERA24",
+      "family": "LAS",
+      "model": "JERA24",
+      "description": "JERA24",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/08/Orlandini-700x700.jpg",
+      "productUrl": "https://www.las.it/en/designer/orlandini-design/",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "JERA 22",
+      "family": "LAS",
+      "model": "Jera 22",
+      "description": "Jera 22",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/08/Orlandini-700x700.jpg",
+      "productUrl": "https://www.las.it/en/designer/orlandini-design/",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "SET 22",
+      "family": "LAS",
+      "model": "Set 22",
+      "description": "Set 22",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/08/Orlandini-700x700.jpg",
+      "productUrl": "https://www.las.it/en/designer/orlandini-design/",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "DRIVE IN",
+      "family": "LAS",
+      "model": "Drive In",
+      "description": "Drive In",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/08/Orlandini-700x700.jpg",
+      "productUrl": "https://www.las.it/en/designer/orlandini-design/",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "DIVO",
+      "family": "LAS",
+      "model": "Collaborative Seating",
+      "description": "Collaborative Seating",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/08/Orlandini-700x700.jpg",
+      "productUrl": "https://www.las.it/en/typologies/seating/",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "DIVO",
+      "family": "LAS",
+      "model": "Divo",
+      "description": "Divo",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/08/Orlandini-700x700.jpg",
+      "productUrl": "https://www.las.it/en/designer/orlandini-design/",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "FLAGS",
+      "family": "LAS",
+      "model": "Flags",
+      "description": "Flags",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/08/Orlandini-700x700.jpg",
+      "productUrl": "https://www.las.it/en/designer/orlandini-design/",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "TRAILER",
+      "family": "LAS",
+      "model": "Trailer",
+      "description": "Trailer",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/08/Studio-SI-700x700.jpg",
+      "productUrl": "https://www.las.it/en/designer/studio-si/",
+      "price": 0
+    },
+    {
+      "mainCategory": "PRODUCTS",
+      "subCategory": "WORKLAND",
+      "family": "LAS",
+      "model": "Workland",
+      "description": "Workland",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2023/06/Antonio-Lanzillo-Partners-700x700.jpg",
+      "productUrl": "https://www.las.it/en/designer/antonio-lanzillo-partners/",
+      "price": 0
+    }
+  ],
+  "createdAt": "2025-12-18T08:02:42.937Z",
+  "scrapedWith": "Structure-Harvest"
+}
