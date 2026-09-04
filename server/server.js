@@ -26,7 +26,7 @@ import { ExcelDbManager } from './excelManager.js';
 import { convertXlsToXlsx } from './utils/xlsToXlsxConverter.js';
 import { brandStorage, kv } from './storageProvider.js';
 import { getAiMatch, identifyModel, fetchProductDetails, searchAndEnrichModel, analyzePlan, matchFitoutItem, autoMatchSingleBrand, VALID_OPENROUTER_MODELS, VALID_NVIDIA_MODELS, GOOGLE_MODEL, OPENROUTER_MODEL, NVIDIA_MODEL, aiKeyStorage } from './utils/llmUtils.js';
-import { veMatchAuto, vePrescanBrands, detectSpecifiedBrandInText, extractSpecifiedProductDetails, generateCrossBrandAlternatives, generateCrossBrandAlternativesAsync } from './utils/veAutoDetectUtils.js';
+import { veMatchAuto, vePrescanBrands, detectSpecifiedBrandInText, extractSpecifiedProductDetails, isMarketplaceUrl, generateCrossBrandAlternatives, generateCrossBrandAlternativesAsync } from './utils/veAutoDetectUtils.js';
 import { veMatchAdvanced, veGetProductDetails } from './utils/veMatchUtils.js';
 import { generatePresentationPdf } from './utils/pptxExportService.js';
 import { convertEmfToPng } from './utils/emfConverter.js';
@@ -36,6 +36,8 @@ import tenderRouter from './tenderRoutes.js';
 import llmProxyRouter from './llmProxyRoutes.js';
 import { findSemanticMatches, ensureBrandCatalogEmbeddings } from './embeddingService.js';
 import { readSettings, writeSettings, getPublicSettings } from './settings.js';
+import { isLensHeadlessAvailable, scrapeLensVisualMatches, isLensWalled } from './utils/lensHeadless.js';
+import { searchViaJar, fetchImageBytes, jarStatus } from './utils/lensJar.js';
 import { VE_CATEGORY_CONFIG, classifyFurnishingCategory, isGenuineContractBrand, findBrandInCatalog, NON_BRAND_MODEL_WORDS, BRAND_ALIASES } from './utils/veCategoryPriority.js';
 import { getCanonicalBrandLogo, classifyContractCategory, CONTRACT_BRAND_LOGOS } from './utils/brandLogos.js';
 import { fetchLiveProductImage, cleanTechnicalDescription } from './utils/veImageEnricher.js';
@@ -3344,6 +3346,7 @@ app.post('/api/ve-match-auto', async (req, res) => {
           currency: identityResult.currency || identityResult.product?.currency || 'USD',
           imageUrl: resolvedImg,
           websiteUrl: identityResult.websiteUrl || identityResult.productUrl || identityResult.product?.websiteUrl || '',
+          supplierReferences: identityResult.supplierReferences || identityResult.product?.supplierReferences || [],
           description: identityResult.description || identityResult.product?.description || ''
         },
         alternatives,
@@ -3756,8 +3759,10 @@ app.post('/api/ve-match-auto', async (req, res) => {
           description: cleanDesc,
           price: parseFloat(p.price) || parseFloat(identityResult.estimatedPrice) || 0,
           currency: p.currency || 'USD',
-          websiteUrl: p.websiteUrl || identityResult.productUrl || '',
-          productUrl: p.websiteUrl || identityResult.productUrl || '',
+          // Canonical manufacturer URL wins as the official link (never a dealer/marketplace URL)
+          websiteUrl: (explicitDetails?.url && !isMarketplaceUrl(explicitDetails.url)) ? explicitDetails.url : (p.websiteUrl || identityResult.productUrl || ''),
+          productUrl: (explicitDetails?.url && !isMarketplaceUrl(explicitDetails.url)) ? explicitDetails.url : (p.websiteUrl || identityResult.productUrl || ''),
+          supplierReferences: explicitDetails?.supplierUrls || identityResult.supplierReferences || [],
           lastUpdated: new Date().toISOString(),
           source: 'VE-AI-AutoDetect-Discovery'
         };
@@ -3795,7 +3800,7 @@ app.post('/api/ve-match-auto', async (req, res) => {
     // Stage 3 fallback — return identity result with estimated price / URL
     console.log(`  ✨ [VE Auto-Detect] Returning on-the-fly product result for ${canonicalBrand} ${identifiedModel}.`);
     const fallbackPrice = parseFloat(identityResult.estimatedPrice) || 0;
-    const fallbackUrl = identityResult.productUrl || '';
+    const fallbackUrl = identityResult.productUrl || explicitDetails?.url || '';
     const fallbackLogo = isMarketplace ? 'https://upload.wikimedia.org/wikipedia/commons/a/a9/Amazon_logo.svg' : (getCanonicalBrandLogo(canonicalBrand, fallbackUrl) || localBrand?.logo || '');
 
     // Attempt live photo discovery even in fallback path
@@ -3820,6 +3825,7 @@ app.post('/api/ve-match-auto', async (req, res) => {
         brandLogo: fallbackLogo,
         websiteUrl: fallbackUrl,
         productUrl: fallbackUrl,
+        supplierReferences: identityResult.supplierReferences || explicitDetails?.supplierUrls || [],
         price: fallbackPrice,
         currency: 'USD',
         description: fallbackDesc
@@ -4076,46 +4082,55 @@ app.post('/api/image/lens-share', async (req, res) => {
     const { imagePath } = req.body;
     if (!imagePath) return res.status(400).json({ success: false, error: 'imagePath required' });
 
-    // Resolve local file on disk
-    const relativePath = imagePath.replace(/^\/temp\//, 'public/temp/');
+    // Guard: already-public URL (Supabase/CDN) — do NOT re-upload, return as-is.
+    // Also unwrap our own /api/image-proxy?url=<inner> so Lens gets the real URL.
+    let candidate = typeof imagePath === 'string' ? imagePath : imagePath?.url;
+    if (typeof candidate === 'string' && candidate.includes('/api/image-proxy')) {
+      try {
+        const m = candidate.match(/[?&]url=([^&]+)/);
+        if (m) candidate = decodeURIComponent(m[1]);
+      } catch { /* keep original */ }
+    }
+    if (
+      typeof candidate === 'string' &&
+      candidate.startsWith('http') &&
+      !candidate.includes('localhost') &&
+      !candidate.includes('127.0.0.1')
+    ) {
+      return res.json({ success: true, publicUrl: candidate, reused: true });
+    }
+
+    // Resolve local file on disk (use unwrapped candidate; fall back to original)
+    const localSource = typeof candidate === 'string' ? candidate : imagePath;
+    const relativePath = String(localSource).replace(/^\/temp\//, 'public/temp/').replace(/^https?:\/\/[^/]+\/temp\//, 'public/temp/');
     const absolutePath = path.join(process.cwd(), relativePath);
 
-    if (!fs.existsSync(absolutePath)) {
+    if (!fs_sync.existsSync(absolutePath)) {
       return res.status(404).json({ success: false, error: `Local image not found: ${relativePath}` });
     }
 
-    const { supabaseAdmin } = await import('./utils/supabaseStorage.js');
-    if (!supabaseAdmin) {
-      return res.status(503).json({ success: false, error: 'Supabase not configured' });
-    }
-
+    // Anon upload path needs no admin client (service-role key may be unset;
+    // uploadToSupabase uses the proven anon client + 'assets' bucket like extraction).
     // Build a unique storage key — use timestamp so old files are naturally replaced
     const ext = path.extname(absolutePath) || '.jpg';
     const fileName = `${Date.now()}_${path.basename(absolutePath, ext)}${ext}`;
     const storagePath = `lens-share/${fileName}`;
-    const BUCKET = 'extracted-images';
+    const BUCKET = 'assets';
 
-    const fileBuffer = fs.readFileSync(absolutePath);
+    const fileBuffer = fs_sync.readFileSync(absolutePath);
     const mimeType = ext === '.png' ? 'image/png' : ext === '.webp' ? 'image/webp' : 'image/jpeg';
 
-    const { error: uploadError } = await supabaseAdmin.storage
-      .from(BUCKET)
-      .upload(storagePath, fileBuffer, {
+    let publicUrl;
+    try {
+      const uploadResult = await uploadToSupabase(BUCKET, storagePath, fileBuffer, {
         contentType: mimeType,
-        upsert: true,
         cacheControl: '3600' // 1-hour cache — plenty for Lens
       });
-
-    if (uploadError) {
+      publicUrl = uploadResult?.url;
+    } catch (uploadError) {
       console.error('[LensShare] Supabase upload error:', uploadError.message);
       return res.status(500).json({ success: false, error: uploadError.message });
     }
-
-    const { data: urlData } = supabaseAdmin.storage
-      .from(BUCKET)
-      .getPublicUrl(storagePath);
-
-    const publicUrl = urlData?.publicUrl;
     if (!publicUrl) return res.status(500).json({ success: false, error: 'Failed to get public URL' });
 
     console.log(`[LensShare] ✅ Uploaded to Supabase: ${publicUrl}`);
@@ -4124,6 +4139,78 @@ app.post('/api/image/lens-share', async (req, res) => {
   } catch (err) {
     console.error('[LensShare] Error:', err.message);
     res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+/**
+ * GET /api/lens/capabilities — Vercel-safe feature flag.
+ * { supported:true } only where a Chrome binary exists (local dev).
+ * Serverless answers { supported:false } so clients fall back to the manual link.
+ */
+app.get('/api/lens/capabilities', async (req, res) => {
+  try {
+    const caps = await isLensHeadlessAvailable();
+    return res.json({ success: true, ...caps, walled: isLensWalled(), jar: jarStatus() });
+  } catch (e) {
+    return res.json({ success: true, supported: false, reason: 'probe-failed', walled: isLensWalled(), jar: jarStatus() });
+  }
+});
+
+/**
+ * POST /api/lens/scrape { imageUrl, brand?, model? } — server-side Lens.
+ * Attempt 1: jar fast path (plain HTTP, works on Vercel — no Chrome needed).
+ * Attempt 2: headless browser (local only). 501 where neither is available.
+ */
+app.post('/api/lens/scrape', async (req, res) => {
+  try {
+    const { imageUrl, brand, model } = req.body || {};
+    if (!imageUrl) return res.status(400).json({ success: false, error: 'imageUrl required' });
+    // ── Attempt 1: cookie-jar fast path (serverless-safe) ──
+    try {
+      const bytes = await fetchImageBytes(imageUrl);
+      const fast = await searchViaJar({ imageBytes: bytes });
+      if (fast.ok) {
+        const visualMatches = (fast.result.matches || []).map((m) => ({
+          title: m.title, url: m.url, imageUrl: null, source: m.domain
+        }));
+        // Brand/model anchoring: rank specified-brand mentions first
+        const bt = `${brand || ''} ${model || ''}`.toLowerCase().trim();
+        if (bt.length > 2) {
+          const toks = bt.split(/[\s&/]+/).filter((t) => t.length > 2);
+          visualMatches.sort((a, b) => {
+            const sa = toks.reduce((s, t) => s + (((a.title || '').toLowerCase().includes(t)) ? 1 : 0), 0);
+            const sb = toks.reduce((s, t) => s + (((b.title || '').toLowerCase().includes(t)) ? 1 : 0), 0);
+            return sb - sa;
+          });
+        }
+        console.log(`[LensJar] fast path: ${visualMatches.length} matches, top="${fast.result.top_title || '-'}".`);
+        return res.json({
+          success: true, supported: true, fastPath: true,
+          visualMatches, topMatch: visualMatches[0] || null,
+          textQuery: fast.result.top_title || null, textAnchored: false,
+          source: 'Google Lens (fast path)'
+        });
+      }
+      console.log(`[LensJar] fast path missed (${fast.reason}); falling back to browser.`);
+    } catch (e) {
+      console.log(`[LensJar] fast path error (${e.message}); falling back to browser.`);
+    }
+    // ── Attempt 2: headless browser (local only) ──
+    const caps = await isLensHeadlessAvailable();
+    if (!caps.supported) {
+      return res.status(501).json({ success: false, supported: false, reason: caps.reason });
+    }
+    const data = await scrapeLensVisualMatches({ imageUrl, brand, model });
+    return res.json({ success: true, supported: true, ...data });
+  } catch (err) {
+    if (err.code === 'WALLED' || String(err.message).includes('lens-headless-walled')) {
+      return res.status(429).json({ success: false, walled: true, error: 'Google is rate-limiting automated checks from this network. Use the manual Lens link.' });
+    }
+    if (err.code === 'UNSUPPORTED' || String(err.message).startsWith('lens-headless-unsupported')) {
+      return res.status(501).json({ success: false, supported: false, reason: String(err.message).split(':')[1] || 'unsupported' });
+    }
+    console.error('[LensHeadless] scrape failed:', err.message);
+    return res.status(500).json({ success: false, error: err.message });
   }
 });
 

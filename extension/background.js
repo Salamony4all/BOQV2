@@ -1,5 +1,6 @@
 // background.js - Automation Bridge Background Service Worker
-console.log("[Auto Browser Extension] Background service worker started.");
+const EXT_VERSION = '1.1.0'; // must match manifest.json — bump together
+console.log(`[Auto Browser Extension] Background service worker started (v${EXT_VERSION}).`);
 
 let automationTabId = null;
 
@@ -114,24 +115,29 @@ async function handleAction(action, args, sender) {
 }
 
 async function handleLensVisualMatch(args) {
-  const { imageUrl, itemId, description } = args || {};
+  const { imageUrl, itemId, description, brand, model } = args || {};
   if (!imageUrl) return { success: false, error: "Missing image URL for Google Lens search" };
 
+  // Text anchor: exact specified brand + model focuses Lens beyond pure pixels
+  const textQuery = [brand, model].filter((s) => s && String(s).trim().length > 1).join(' ').trim();
+
   const targetUrl = `https://lens.google.com/uploadbyurl?url=${encodeURIComponent(imageUrl)}`;
-  console.log(`[Auto Browser Extension] Launching Google Lens visual match for: ${imageUrl}`);
+  console.log(`[Auto Browser Extension] Launching Google Lens visual match for: ${imageUrl}${textQuery ? ` (anchor: "${textQuery}")` : ''}`);
 
   let winId = null;
   let tabId = null;
   try {
-    // Open in a minimized popup window — never flashes in the user's face
+    // Open in an off-screen, unfocused popup — never flashes in the user's face.
+    // NOTE: do NOT combine state:'minimized' with bounds (Chrome rejects it with
+    // "Invalid value for state"). Off-screen + unfocused achieves the same silence.
     const win = await chrome.windows.create({
       url: targetUrl,
       type: 'popup',
-      state: 'minimized',
-      width: 1,
-      height: 1,
-      left: -2000,  // off-screen extra safety
-      top: -2000
+      width: 1280,
+      height: 900,
+      left: -3000,  // off-screen extra safety
+      top: 0,
+      focused: false
     });
     winId = win.id;
     tabId = win.tabs?.[0]?.id;
@@ -150,6 +156,45 @@ async function handleLensVisualMatch(args) {
       };
       chrome.tabs.onUpdated.addListener(listener);
     });
+
+    // ── Text-anchor: type exact brand + model into Lens's search box so results
+    // are image-anchored AND text-anchored. Best-effort: any failure falls back
+    // to the pure-visual scrape below.
+    let textAnchored = false;
+    if (textQuery) {
+      try {
+        const anchorResults = await chrome.scripting.executeScript({
+          target: { tabId },
+          func: (query) => {
+            try {
+              const selectors = ['textarea[name="q"]', 'input[name="q"]', 'textarea[aria-label*="earch"]', 'input[aria-label*="earch"]'];
+              let box = null;
+              for (const sel of selectors) {
+                const el = document.querySelector(sel);
+                if (el && el.offsetParent !== null) { box = el; break; }
+              }
+              if (!box) return { anchored: false, reason: 'no-search-box' };
+              box.focus();
+              try { document.execCommand('selectAll', false, null); } catch (e) {}
+              try { document.execCommand('insertText', false, query); } catch (e) { box.value = query; }
+              box.dispatchEvent(new Event('input', { bubbles: true }));
+              box.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true }));
+              return { anchored: true };
+            } catch (e) {
+              return { anchored: false, reason: e.message };
+            }
+          },
+          args: [textQuery]
+        });
+        textAnchored = anchorResults[0]?.result?.anchored === true;
+        console.log(`[Auto Browser Extension] Lens text anchor "${textQuery}": ${textAnchored ? 'applied' : 'unavailable (' + (anchorResults[0]?.result?.reason || 'unknown') + '), visual-only'}`);
+        if (textAnchored) {
+          await new Promise((r) => setTimeout(r, 4000)); // let text-refined results render
+        }
+      } catch (anchorErr) {
+        console.warn('[Auto Browser Extension] Lens text anchor failed, continuing visual-only:', anchorErr.message);
+      }
+    }
 
     // Extract visual matches from the Google Lens DOM
     const results = await chrome.scripting.executeScript({
@@ -206,7 +251,10 @@ async function handleLensVisualMatch(args) {
         itemId,
         visualMatches: cards,
         source: 'Google Lens (1:1 Exact Visual Match)',
-        topMatch: cards[0] || null
+        topMatch: cards[0] || null,
+        textQuery: textQuery || null,
+        textAnchored,
+        extVersion: EXT_VERSION
       }
     };
   } catch (err) {

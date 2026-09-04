@@ -107,6 +107,17 @@ async function pdfToTextMupdf(pdfPath) {
 }
 
 async function pdfToTextVercel(pdfPath, workDir) {
+  // MuPDF-WASM is the proven text path: it recovers full row sets on both branded
+  // (68 rows, LF-xxx codes) and non-branded (36 rows) schedules, matching Vercel output.
+  // Native `pdftotext -layout` under-recovers locally (56 / 14 rows) and is kept only
+  // as opt-in fallback via PDF_TEXT_ENGINE=pdftotext.
+  if (process.env.PDF_TEXT_ENGINE !== 'pdftotext') {
+    try {
+      return await pdfToTextMupdf(pdfPath);
+    } catch (err) {
+      console.log(`[WordPdfExtractorVercel] MuPDF text failed (${err.message}), falling back to pdftotext...`);
+    }
+  }
   // On Vercel the native `pdftotext` (Poppler) binary is not present in the
   // serverless runtime, so the exec always throws. Skip it entirely there and
   // go straight to the pure-JS WebAssembly MuPDF text path (no wasted spawn,
@@ -850,7 +861,8 @@ async function extractAndPairImagesVercel(pdfPath, table, sessionId, preloadedLa
         }
 
         const isVercelEnv = !!(process.env.VERCEL === '1' || process.env.AWS_LAMBDA_FUNCTION_NAME);
-        if (supabase && isVercelEnv && (imgBuffer || fsSync.existsSync(destPath))) {
+        // Upload to Supabase whenever configured (local + Vercel) so items carry public URLs, not localhost
+        if (supabase && (imgBuffer || fsSync.existsSync(destPath))) {
           try {
             const dataToUpload = imgBuffer || await fs.readFile(destPath);
             const supabasePath = `extracted-images/${sessionId}/${filename}`;
@@ -1070,7 +1082,8 @@ async function extractAndPairImagesVercel(pdfPath, table, sessionId, preloadedLa
           }
 
           const isVercelEnv = !!(process.env.VERCEL === '1' || process.env.AWS_LAMBDA_FUNCTION_NAME);
-          if (supabase && isVercelEnv) {
+          // Upload to Supabase whenever configured (local + Vercel) so items carry public URLs, not localhost
+          if (supabase) {
             try {
               const imgData = img.buffer || (fsSync.existsSync(destPath) ? await fs.readFile(destPath) : null);
               if (imgData) {

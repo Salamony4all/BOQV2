@@ -1,0 +1,20 @@
+{
+  "id": 1788514997266,
+  "name": "Kirkhouse",
+  "logo": "https://www.google.com/s2/favicons?domain=kirkhouse.com&sz=128",
+  "budgetTier": "mid",
+  "origin": "VE-Prescan-Discovery",
+  "products": [
+    {
+      "brand": "Kirkhouse",
+      "model": "Cobra Stacking Armchair",
+      "mainCategory": "Furniture",
+      "subCategory": "",
+      "imageUrl": "",
+      "websiteUrl": "https://www.kirkhouse.co.uk",
+      "lastUpdated": "2026-09-04T09:43:16.607Z",
+      "source": "VE-Prescan-Discovery"
+    }
+  ],
+  "createdAt": "2026-09-04T09:43:16.607Z"
+}

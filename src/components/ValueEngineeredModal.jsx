@@ -484,7 +484,7 @@ export default function ValueEngineeredModal({
             || localBrands.find(b => b.name && row.selectedBrand && (b.name.toLowerCase().includes(row.selectedBrand.toLowerCase()) || row.selectedBrand.toLowerCase().includes(b.name.toLowerCase())));
         let brandProducts = activeBrand?.products ? [...activeBrand.products] : [];
 
-        // 🌟 Ensure that whatever the row was matched with (model, categories, url) is always present in brandProducts:
+        //  Ensure that whatever the row was matched with (model, categories, url) is always present in brandProducts:
         if (row.selectedModel) {
             const hasModel = brandProducts.some(p => p && p.model && p.model.toLowerCase().trim() === String(row.selectedModel).toLowerCase().trim());
             if (!hasModel) {
@@ -798,7 +798,7 @@ export default function ValueEngineeredModal({
 
         // --- PHASE 1: ROUTING ---
         if (brandMode === 'advanced') {
-            console.log('🚀 [VE AI] Routing items via AI Router...');
+            console.log(' [VE AI] Routing items via AI Router...');
             const routingPayload = workableRows.map(r => ({ id: String(r.id), desc: r.description }));
 
             try {
@@ -815,7 +815,7 @@ export default function ValueEngineeredModal({
 
                 if (routeData.status === 'success') {
                     categoryMap = routeData.categoryMap;
-                    console.log('✅ [VE AI] Category Map received:', categoryMap);
+                    console.log(' [VE AI] Category Map received:', categoryMap);
 
                     if (categoryMap && categoryMap.status === 'error') {
                         alert("AI Routing failed: " + categoryMap.error_message);
@@ -836,14 +836,14 @@ export default function ValueEngineeredModal({
                     });
                 }
             } catch (err) {
-                console.error('❌ [VE AI] Routing failed:', err);
+                console.error(' [VE AI] Routing failed:', err);
                 alert("Network error during AI Routing.");
                 setIsRunning(false);
                 setAiStatus(prev => ({ ...prev, active: false }));
                 return;
             }
         } else if (brandMode === 'auto_detect') {
-            console.log('🚀 [VE AI] Auto Detect mode active: running Global Brand & Model Pre-Scan...');
+            console.log(' [VE AI] Auto Detect mode active: running Global Brand & Model Pre-Scan...');
             setAiStatus(prev => ({ ...prev, active: true, status: 'routing', currentItem: { description: 'Scanning project schedule for specified contract brands & models...' } }));
             
             try {
@@ -859,10 +859,10 @@ export default function ValueEngineeredModal({
                 const prescanData = await prescanRes.json();
                 if (prescanData.status === 'success' && prescanData.allBrands) {
                     setLocalBrands(prescanData.allBrands);
-                    console.log('✅ [VE Pre-Scan] Successfully synced', prescanData.discoveredBrands?.length || 0, 'discovered brands to catalog.');
+                    console.log(' [VE Pre-Scan] Successfully synced', prescanData.discoveredBrands?.length || 0, 'discovered brands to catalog.');
                 }
             } catch (prescanErr) {
-                console.warn('⚠️ [VE Pre-Scan Warning]:', prescanErr.message);
+                console.warn(' [VE Pre-Scan Warning]:', prescanErr.message);
             }
 
             categoryMap = { specifications: workableRows.map(r => String(r.id)), status: 'success' };
@@ -1188,7 +1188,7 @@ export default function ValueEngineeredModal({
 
                     <div className={mbs.header}>
                         <div className={mbs.title}>
-                            ✨ Value Engineered Offer
+                             Value Engineered Offer
                         </div>
                         <button className={mbs.closeBtn} onClick={onClose}>×</button>
                     </div>
@@ -1198,19 +1198,19 @@ export default function ValueEngineeredModal({
                         <div className={mbs.topSection}>
                             <div className={mbs.mainActions}>
                                 <button className={`${mbs.actionCard} ${mbs.uploadBoqBtn}`} onClick={handleUploadBoqTrigger}>
-                                    <span style={{ fontSize: '1.4rem' }}>📤</span>
+                                    <span style={{ fontSize: '1.4rem' }}></span>
                                     <span>Upload BOQ</span>
                                 </button>
                                 <button className={`${mbs.actionCard} ${mbs.genBoqBtn}`} onClick={handleGenerateFromBoq}>
-                                    <span style={{ fontSize: '1.4rem' }}>📋</span>
+                                    <span style={{ fontSize: '1.4rem' }}></span>
                                     <span>Generate From BOQ</span>
                                 </button>
                                 <button className={`${mbs.actionCard} ${mbs.genPlanBtn}`} onClick={handleUploadPlanTrigger}>
-                                    <span style={{ fontSize: '1.4rem' }}>📐</span>
+                                    <span style={{ fontSize: '1.4rem' }}></span>
                                     <span>Upload Plan</span>
                                 </button>
                                 <button className={`${mbs.actionCard} ${mbs.createNewBtn}`} onClick={handleCreateNewBoq}>
-                                    <span style={{ fontSize: '1.4rem' }}>➕</span>
+                                    <span style={{ fontSize: '1.4rem' }}></span>
                                     <span>Create New BOQ</span>
                                 </button>
 
@@ -1219,7 +1219,7 @@ export default function ValueEngineeredModal({
                                     onClick={() => setIsConfigOpen(true)}
                                     disabled={isRunning}
                                 >
-                                    <span style={{ fontSize: '1.4rem' }}>✨</span>
+                                    <span style={{ fontSize: '1.4rem' }}></span>
                                     <span>
                                         {isRunning
                                             ? `AI RUNNING${progress.total > 0 ? ` (${progress.current}/${progress.total})` : '...'}`
@@ -1293,7 +1293,7 @@ export default function ValueEngineeredModal({
                                 </div>
                             ) : (
                                 <div style={{ flex: 1, display: 'flex', width: '100%', height: '100%', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#64748b' }}>
-                                    <div style={{ fontSize: '3rem', opacity: 0.2 }}>📁</div>
+                                    <div style={{ fontSize: '3rem', opacity: 0.2 }}></div>
                                     <div style={{ marginTop: '1rem' }}>Drag and Drop BOQ files here, or click "Upload BOQ".</div>
                                 </div>
                             )}
@@ -1395,7 +1395,7 @@ export default function ValueEngineeredModal({
                 <div className={afStyles.overlay} style={{ zIndex: 99999 }} onClick={() => setIsConfigOpen(false)}>
                     <div className={afStyles.modal} onClick={e => e.stopPropagation()}>
                         <div className={afStyles.header}>
-                            <h2>✨ AI Value Engineer Config</h2>
+                            <h2> AI Value Engineer Config</h2>
                             <button className={afStyles.closeBtn} onClick={() => setIsConfigOpen(false)}>×</button>
                         </div>
 
@@ -1420,7 +1420,7 @@ export default function ValueEngineeredModal({
                                 }} onClick={() => setBrandMode(brandMode === 'auto_detect' ? 'simple' : 'auto_detect')}>
                                     <div style={{ flex: 1, paddingRight: '1rem' }}>
                                         <div style={{ fontWeight: 700, color: brandMode === 'auto_detect' ? '#a855f7' : '#e2e8f0', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '1rem' }}>
-                                            🤖 Auto Detect Brand & Model
+                                             Auto Detect Brand & Model
                                             {brandMode === 'auto_detect' && <span style={{ background: 'linear-gradient(135deg, #6366f1, #a855f7)', color: 'white', fontSize: '0.7rem', padding: '2px 8px', borderRadius: '20px', fontWeight: 600 }}>ACTIVE</span>}
                                         </div>
                                         <div style={{ fontSize: '0.8rem', color: '#94a3b8', marginTop: '0.2rem' }}>

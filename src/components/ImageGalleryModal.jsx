@@ -132,7 +132,7 @@ export default function ImageGalleryModal({
                             onClick={() => setIsZoomed(!isZoomed)}
                             title={isZoomed ? "Reset Zoom" : "Zoom In (1.75x)"}
                         >
-                            {isZoomed ? '🔍 Normal' : '🔍 Zoom'}
+                            {isZoomed ? ' Normal' : ' Zoom'}
                         </button>
 
                         <button
@@ -140,7 +140,7 @@ export default function ImageGalleryModal({
                             onClick={handleDownload}
                             title="Download original image"
                         >
-                            📥 Save
+                             Save
                         </button>
 
                         <button
@@ -149,7 +149,7 @@ export default function ImageGalleryModal({
                             title="Reverse visual image search on Google Lens (Zero LLM Tokens)"
                             style={{ background: 'rgba(59, 130, 246, 0.15)', borderColor: 'rgba(59, 130, 246, 0.4)', color: '#60a5fa' }}
                         >
-                            🌐 Lens Search
+                             Lens Search
                         </button>
 
                         {onRemoveImage && (
@@ -158,7 +158,7 @@ export default function ImageGalleryModal({
                                 onClick={handleRemoveCurrent}
                                 title="Remove this image (Del key)"
                             >
-                                🗑️ Remove
+                                 Remove
                             </button>
                         )}
 
@@ -167,7 +167,7 @@ export default function ImageGalleryModal({
                             onClick={onClose} 
                             title="Close viewer (Esc)"
                         >
-                            ✕
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
                         </button>
                     </div>
                 </div>

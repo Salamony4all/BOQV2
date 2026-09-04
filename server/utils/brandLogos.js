@@ -30,8 +30,6 @@ export const CONTRACT_BRAND_LOGOS = {
     'emu': 'https://media.architonic.com/m-on/3100062/logo/emu_logo_01dc.jpg',
     'figueras': 'https://media.architonic.com/m-on/3100234/logo/figueras_logo_fba6.jpg',
     'ton': 'https://media.architonic.com/m-on/3100171/logo/ton_logo_1a8e.jpg',
-    'moonako': 'https://moodie.ae/wp-content/uploads/2023/08/moonako-logo.svg',
-    'moodie': 'https://moodie.ae/wp-content/uploads/2023/08/moonako-logo.svg',
     'andreu world': 'https://media.architonic.com/m-on/3100015/logo/andreu-world_logo_3979.jpg',
     'magis': 'https://media.architonic.com/m-on/3100013/logo/magis_logo_f158.jpg',
     'wiesner hager': 'https://media.architonic.com/m-on/3100185/logo/wiesner-hager_logo_e11d.jpg',

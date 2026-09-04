@@ -54,12 +54,12 @@ const SpecialistModal = ({ isOpen, onClose, data }) => {
                             <div className={styles.productHeader}>
                                 <div className={styles.statusRow}>
                                     <div className={styles.verifiedBadge}>
-                                        <span className={styles.checkIcon}>✅</span>
+                                        <span className={styles.checkIcon}></span>
                                         <span>Verified Match</span>
                                     </div>
                                     {hardened && (
                                         <div className={styles.hardenBadge}>
-                                            <span className={styles.gemIcon}>💎</span>
+                                            <span className={styles.gemIcon}></span>
                                             <span>Hardened to Brand Catalog</span>
                                         </div>
                                     )}
@@ -105,7 +105,7 @@ const SpecialistModal = ({ isOpen, onClose, data }) => {
                         </div>
                     ) : (
                         <div className={styles.errorContainer}>
-                            <div className={styles.errorIcon}>⚠️</div>
+                            <div className={styles.errorIcon}></div>
                             <div className={styles.errorText}>
                                 <h3>Match Failed</h3>
                                 <p>{error_message || "The AI Search Engine could not find a verifiable match from this brand that meets the BOQ requirements."}</p>

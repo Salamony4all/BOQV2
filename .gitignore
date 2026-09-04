@@ -83,3 +83,5 @@ scripts/scan_local_pdfs.js
 scripts/copy_local_pdfs.js
 scripts/test_single.js
 
+.lens-chrome-profile/
+.lens-jar/

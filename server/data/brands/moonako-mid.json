@@ -1,0 +1,40 @@
+{
+  "id": 1788514982016,
+  "name": "Moonako",
+  "logo": "https://www.google.com/s2/favicons?domain=moonako.com&sz=128",
+  "budgetTier": "mid",
+  "origin": "VE-Prescan-Discovery",
+  "products": [
+    {
+      "brand": "Moonako",
+      "model": "Arco - Moonako Arabesque Collection",
+      "mainCategory": "Furniture",
+      "subCategory": "",
+      "imageUrl": "",
+      "websiteUrl": "https://www.moonako.fr",
+      "lastUpdated": "2026-09-04T09:43:01.858Z",
+      "source": "VE-Prescan-Discovery"
+    },
+    {
+      "brand": "Moonako",
+      "model": "Limone - Moonako Arabesque Collection",
+      "mainCategory": "Furniture",
+      "subCategory": "",
+      "imageUrl": "",
+      "websiteUrl": "https://www.moonako.fr",
+      "lastUpdated": "2026-09-04T09:43:01.858Z",
+      "source": "VE-Prescan-Discovery"
+    },
+    {
+      "brand": "Moonako",
+      "model": "Limone 80 - Moonako Arabesque Collection",
+      "mainCategory": "Furniture",
+      "subCategory": "",
+      "imageUrl": "",
+      "websiteUrl": "https://www.moonako.fr",
+      "lastUpdated": "2026-09-04T09:43:01.858Z",
+      "source": "VE-Prescan-Discovery"
+    }
+  ],
+  "createdAt": "2026-09-04T09:43:01.858Z"
+}

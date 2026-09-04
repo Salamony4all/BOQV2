@@ -135,7 +135,7 @@ export default function CostingModal({ isOpen, onClose, initialFactors, onApply 
         <div className={styles.modalOverlay} onClick={onClose}>
             <div className={styles.costingModal} onClick={e => e.stopPropagation()}>
                 <div className={styles.modalHeader}>
-                    <h2 className={styles.modalTitle}>💰 Costing Factors</h2>
+                    <h2 className={styles.modalTitle}> Costing Factors</h2>
                     <button className={styles.closeBtn} onClick={onClose}>×</button>
                 </div>
 
@@ -208,7 +208,7 @@ export default function CostingModal({ isOpen, onClose, initialFactors, onApply 
 
                 <div className={styles.sectionTitle}>
                     Currency Exchange
-                    {isLoadingRate && <span style={{ marginLeft: 10, fontSize: '0.8em', opacity: 0.7 }}>⏳ Loading...</span>}
+                    {isLoadingRate && <span style={{ marginLeft: 10, fontSize: '0.8em', opacity: 0.7 }}> Loading...</span>}
                 </div>
 
                 <div className={styles.currencyRow}>
@@ -274,7 +274,7 @@ export default function CostingModal({ isOpen, onClose, initialFactors, onApply 
                                 }}
                                 title="Refresh live rate"
                             >
-                                🔄
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 4 23 10 17 10" /><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" /></svg>
                             </button>
                         </div>
                     </div>
@@ -294,12 +294,12 @@ export default function CostingModal({ isOpen, onClose, initialFactors, onApply 
                     </span>
                     {lastUpdated && (
                         <span style={{ color: '#10b981' }}>
-                            ✓ Live rate
+                             Live rate
                         </span>
                     )}
                     {rateError && (
                         <span style={{ color: '#f59e0b' }}>
-                            ⚠ {rateError}
+                             {rateError}
                         </span>
                     )}
                 </div>
@@ -313,7 +313,7 @@ export default function CostingModal({ isOpen, onClose, initialFactors, onApply 
                     border: '1px solid rgba(59, 130, 246, 0.3)'
                 }}>
                     <div style={{ fontSize: '0.85em', fontWeight: 'bold', marginBottom: 10, color: '#3b82f6' }}>
-                        📊 Calculation Preview
+                         Calculation Preview
                     </div>
                     <div style={{ fontSize: '0.8em', display: 'flex', flexDirection: 'column', gap: 5 }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between' }}>

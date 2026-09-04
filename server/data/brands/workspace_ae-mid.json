@@ -1,0 +1,50 @@
+{
+  "id": 1788514988875,
+  "name": "Workspace.ae",
+  "logo": "https://www.google.com/s2/favicons?domain=workspaceae.com&sz=128",
+  "budgetTier": "mid",
+  "origin": "VE-Prescan-Discovery",
+  "products": [
+    {
+      "brand": "Workspace.ae",
+      "model": "Ace Series Meeting Table",
+      "mainCategory": "Furniture",
+      "subCategory": "",
+      "imageUrl": "",
+      "websiteUrl": "https://workspace.ae",
+      "lastUpdated": "2026-09-04T09:43:08.006Z",
+      "source": "VE-Prescan-Discovery"
+    },
+    {
+      "brand": "Workspace.ae",
+      "model": "Ava Series Rectangular Executive Desk",
+      "mainCategory": "Furniture",
+      "subCategory": "",
+      "imageUrl": "",
+      "websiteUrl": "https://workspace.ae",
+      "lastUpdated": "2026-09-04T09:43:08.006Z",
+      "source": "VE-Prescan-Discovery"
+    },
+    {
+      "brand": "Workspace.ae",
+      "model": "Edge Series Chamfered Low Height 2 Door Black Cabinet",
+      "mainCategory": "Furniture",
+      "subCategory": "",
+      "imageUrl": "",
+      "websiteUrl": "https://workspace.ae",
+      "lastUpdated": "2026-09-04T09:43:08.006Z",
+      "source": "VE-Prescan-Discovery"
+    },
+    {
+      "brand": "Workspace.ae",
+      "model": "Ace Series Cluster of 4 Face to Face Workstation",
+      "mainCategory": "Furniture",
+      "subCategory": "",
+      "imageUrl": "",
+      "websiteUrl": "https://workspace.ae",
+      "lastUpdated": "2026-09-04T09:43:08.006Z",
+      "source": "VE-Prescan-Discovery"
+    }
+  ],
+  "createdAt": "2026-09-04T09:43:08.006Z"
+}

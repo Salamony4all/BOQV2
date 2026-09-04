@@ -37,7 +37,19 @@ export default function AISemanticMatchModal({
   // Google Lens visual match state (via Chrome extension)
   const [lensResults, setLensResults] = useState(null);
   const [lensLoading, setLensLoading] = useState(false);
+  const [lensError, setLensError] = useState(null);
+  const [lensRunMode, setLensRunMode] = useState(null); // 'extension' | 'server' | null
+  // Best picked image (raw) + resolved public URL + pick explanation
+  const [lensBestRaw, setLensBestRaw] = useState(null);
+  const [lensImageUrl, setLensImageUrl] = useState(null);
+  const [lensPickNote, setLensPickNote] = useState('');
+  const [lensCandidates, setLensCandidates] = useState([]);
   const extensionInstalled = document.documentElement.getAttribute('data-auto-browser-extension-installed') === 'true';
+  // Kill-switch: extension path disabled until the content-script injection issue
+  // is resolved. Lens runs via plain Google tab (uploadbyurl) with the auto-picked
+  // best image. Set true to re-enable silent background matching.
+  const LENS_EXTENSION_ENABLED = false;
+  const lensSilentAvailable = LENS_EXTENSION_ENABLED && extensionInstalled;
 
   // ── Image URL helpers ──────────────────────────────────────────────────────
   /** True when the URL is a local server path that Google Lens cannot reach */
@@ -72,12 +84,211 @@ export default function AISemanticMatchModal({
     return resolveLocalUrl(rawUrl);
   };
 
+  /**
+   * Resolve any item image to a Lens-usable URL without duplicating Supabase objects.
+   * - Already-public http(s) (non-localhost, non-proxy) → returned as-is, no upload.
+   * - /api/image-proxy?url=<inner> → unwrapped first, then re-checked.
+   * - Local /temp/ /api/ /localhost paths → POST /api/image/lens-share (single upload),
+   *   fallback to localhost URL for the minimized-window extension path.
+   */
+  const resolveLensPublicUrl = async (rawUrl) => {
+    if (!rawUrl) return null;
+    let candidate = typeof rawUrl === 'string' ? rawUrl : rawUrl?.url;
+    if (!candidate) return null;
+    // Unwrap our own image-proxy so Lens gets the real public URL, not localhost
+    try {
+      if (candidate.includes('/api/image-proxy')) {
+        const u = new URL(candidate, window.location.origin);
+        const inner = u.searchParams.get('url');
+        if (inner) candidate = decodeURIComponent(inner);
+      }
+    } catch { /* keep candidate as-is */ }
+    const isPublicHttp =
+      candidate.startsWith('http') &&
+      !candidate.includes('localhost') &&
+      !candidate.includes('127.0.0.1');
+    if (isPublicHttp) return candidate; // Already on Supabase/CDN — do NOT re-upload
+    // Local path — needs one Supabase share upload for uploadbyurl consumers
+    try {
+      const apiBase = getApiBase();
+      const res = await fetch(`${apiBase}/api/image/lens-share`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ imagePath: candidate })
+      });
+      const data = await res.json().catch(() => null);
+      if (data?.success && data?.publicUrl) return data.publicUrl;
+    } catch (e) {
+      console.warn('[Lens] lens-share upload failed, falling back to local URL:', e.message);
+    }
+    return resolveLocalUrl(candidate);
+  };
+
+  /** All candidate image URLs for this item (primary + every cell image), deduped */
+  const collectLensCandidates = () => {
+    const out = [];
+    const push = (v) => {
+      const u = typeof v === 'string' ? v : v?.url || v?.src || v?.data;
+      if (u && typeof u === 'string' && !out.includes(u)) out.push(u);
+    };
+    push(item?.imageUrl);
+    if (Array.isArray(item?.images)) item.images.forEach(push);
+    return out;
+  };
+
+  /** Hasler–Süsstrunk colorfulness + size score via a downscaled canvas. Null when unreadable. */
+  const scoreImageColor = (url, timeoutMs = 25000) => new Promise((resolve) => {
+    try {
+      const timer = setTimeout(() => resolve(null), timeoutMs);
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        try {
+          const w = img.naturalWidth || 0, h = img.naturalHeight || 0;
+          if (!w || !h) { clearTimeout(timer); resolve(null); return; }
+          // Score the CENTER region only: color strips, watermarks and borders live
+          // at the edges and would otherwise pass a B&W drawing off as colorful.
+          const sx = Math.round(w * 0.15), sy = Math.round(h * 0.15);
+          const sw = Math.round(w * 0.7), sh = Math.round(h * 0.7);
+          const scale = Math.min(1, 64 / Math.max(sw, sh));
+          const cw = Math.max(1, Math.round(sw * scale)), ch = Math.max(1, Math.round(sh * scale));
+          const canvas = document.createElement('canvas');
+          canvas.width = cw; canvas.height = ch;
+          const ctx = canvas.getContext('2d', { willReadFrequently: true });
+          ctx.drawImage(img, sx, sy, sw, sh, 0, 0, cw, ch);
+          const px = ctx.getImageData(0, 0, cw, ch).data; // throws if CORS-tainted
+          let sumRg = 0, sumYb = 0, n = 0;
+          const rgs = [], ybs = [];
+          const uniq = new Set();
+          for (let i = 0; i < px.length; i += 16) { // sample every 4th pixel
+            const r = px[i], g = px[i + 1], b = px[i + 2];
+            const rg = r - g, yb = 0.5 * (r + g) - b;
+            sumRg += rg; sumYb += yb; rgs.push(rg); ybs.push(yb); n++;
+            uniq.add((r >> 3) * 1024 + (g >> 3) * 32 + (b >> 3)); // 5-bit quantized color
+          }
+          const meanRg = sumRg / n, meanYb = sumYb / n;
+          let vRg = 0, vYb = 0;
+          for (let k = 0; k < n; k++) { vRg += (rgs[k] - meanRg) ** 2; vYb += (ybs[k] - meanYb) ** 2; }
+          const colorfulness = Math.sqrt(vRg / n + vYb / n) + 0.3 * Math.sqrt(meanRg ** 2 + meanYb ** 2);
+          const uniqueColors = uniq.size;
+          clearTimeout(timer);
+          resolve({ score: colorfulness * Math.log10(w * h + 10), colorfulness, uniqueColors, w, h });
+        } catch { clearTimeout(timer); resolve(null); }
+      };
+      img.onerror = () => { clearTimeout(timer); resolve(null); };
+      img.src = resolveLocalUrl(url);
+    } catch { resolve(null); }
+  });
+
+  const isLogoLike = (url) => /logo|clearbit|\.svg($|\?)/i.test(url || '');
+
+  /**
+   * Pick the best colored photo for Lens: skip logos, score the rest by
+   * colorfulness × size, fall back to the first candidate when scoring fails.
+   */
+  const pickBestLensImage = async (candidates) => {
+    if (!candidates || candidates.length === 0) return { url: null, note: '', ranked: [] };
+    if (candidates.length === 1) return { url: candidates[0], note: '', ranked: [{ url: candidates[0], color: null, size: '', final: null, gray: false }] };
+    const photos = candidates.filter((u) => !isLogoLike(u));
+    const pool = photos.length > 0 ? photos : candidates;
+    try {
+      const scored = await Promise.all(pool.map(async (u) => ({ u, s: await scoreImageColor(u) })));
+      if (typeof console !== 'undefined' && console.table) {
+        try {
+          console.table(scored.map((r) => ({
+            url: String(r.u).slice(-48),
+            color: r.s ? r.s.colorfulness.toFixed(0) : 'UNREADABLE',
+            uniq: r.s ? r.s.uniqueColors : '-',
+            size: r.s ? `${r.s.w}x${r.s.h}` : '-',
+            score: r.s ? r.s.score.toFixed(0) : '-'
+          })));
+        } catch { /* console unavailable — skip pick diagnostics */ }
+      }
+      const unscored = scored.filter((r) => !r.s).length;
+      const ok = scored.filter((r) => r.s && r.s.w >= 40 && r.s.h >= 40).map((r) => {
+        // Drawings/graphics lose twice: near-zero colorfulness (grayscale) and few
+        // flat quantized colors (graphic) — photos carry gradient shades by the hundreds.
+        // Either flag costs 80%; a flat grayscale drawing keeps 4% and only wins solo.
+        const grayPenalty = r.s.colorfulness < 15 ? 0.2 : 1;
+        const graphicPenalty = (r.s.uniqueColors || 0) < 60 ? 0.2 : 1;
+        return { ...r, final: r.s.score * grayPenalty * graphicPenalty, gray: r.s.colorfulness < 15, graphic: (r.s.uniqueColors || 0) < 60 };
+      });
+      // Fully-colored photographic automation: colorful non-graphic finalists always win.
+      // Flat or grayscale graphics are only eligible when NO photo-like candidate scored.
+      const colorful = ok.filter((r) => !r.gray && !r.graphic);
+      const finalists = colorful.length > 0 ? colorful : ok;
+      const grayFallback = colorful.length === 0 && ok.length > 0;
+      if (finalists.length > 0) {
+        finalists.sort((a, b) => b.final - a.final);
+        const best = finalists[0];
+        return {
+          url: best.u,
+          note: `best of ${candidates.length} · color ${best.s.colorfulness.toFixed(0)} · ${best.s.w}×${best.s.h}${grayFallback ? ' · graphic-only (no photo)' : ''}${unscored > 0 ? ` · ${unscored} unscored` : ''}`,
+          ranked: [...finalists, ...ok.filter((r) => (r.gray || r.graphic) && !finalists.includes(r))].map((r) => ({ url: r.u, color: Math.round(r.s.colorfulness), uniq: r.s.uniqueColors, size: `${r.s.w}×${r.s.h}`, final: Math.round(r.final), gray: r.gray, graphic: r.graphic }))
+        };
+      }
+      if (unscored > 0) console.warn(`[Lens] all ${pool.length} candidates unreadable (CORS/hotlink?) — using first image`);
+    } catch (e) {
+      console.warn('[Lens] color scoring failed, using first image:', e.message);
+    }
+    return { url: pool[0], note: pool.length > 1 ? `first of ${candidates.length} (unscored)` : '', ranked: [] };
+  };
+
   // Editable test query for live simulation
   const [testDescription, setTestDescription] = useState('');
 
   const availableBrands = allBrands && allBrands.length > 0
     ? allBrands.filter(b => b.name && b.products && b.products.length > 0)
     : [];
+
+  // ── Lens-aware alternatives: rank catalog matches corroborated by Lens first,
+  // append pure-Lens finds the catalog missed. Specified-brand mentions boost. ──
+  const lensVisuals = (lensResults?.visualMatches || []).slice(0, 6);
+  const lensHostOf = (u) => { try { return new URL(u).hostname.replace(/^www\./i, '').toLowerCase(); } catch { return ''; } };
+  const lensHosts = new Set(lensVisuals.map((m) => lensHostOf(m.url)).filter(Boolean));
+  const specifiedBrandTokens = ((autoDetectResult?.brand || specBreakdown?.brand || '').toLowerCase().split(/[\s&/]+/).filter((t) => t.length > 2));
+  const isLensHit = (m) => {
+    if (lensVisuals.length === 0) return false;
+    const h = lensHostOf(m.officialProductUrl || m.websiteUrl || m.productUrl || '');
+    if (h && lensHosts.has(h)) return true;
+    const hay = `${m.brand || ''} ${m.model || ''}`.toLowerCase();
+    if (specifiedBrandTokens.length > 0 && specifiedBrandTokens.some((t) => hay.includes(t))) return true;
+    return lensVisuals.some((l) => {
+      const lt = (l.title || '').toLowerCase();
+      if (!lt) return false;
+      const words = hay.split(/[^a-z0-9]+/).filter((w) => w.length > 3);
+      return words.filter((w) => lt.includes(w)).length >= 2;
+    });
+  };
+  const rankedMatches = [...matches].map((m) => ({ ...m, _lensHit: isLensHit(m) }))
+    .sort((a, b) => ((b._lensHit ? 1 : 0) - (a._lensHit ? 1 : 0)));
+  const lensOnlyMatches = lensVisuals.filter((l) => {
+    const lt = (l.title || '').toLowerCase(), lh = lensHostOf(l.url);
+    return !matches.some((m) => {
+      const mh = lensHostOf(m.officialProductUrl || m.websiteUrl || m.productUrl || '');
+      if (mh && mh === lh) return true;
+      const mt = `${m.brand || ''} ${m.model || ''}`.toLowerCase();
+      return mt && lt && mt.length > 5 && lt.length > 5 && (mt.includes(lt.slice(0, 18)) || lt.includes(mt.slice(0, 18)));
+    });
+  }).slice(0, 3).map((l) => ({
+    brand: l.source || lensHostOf(l.url) || 'Lens find',
+    model: l.title || 'Visual match',
+    imageUrl: l.imageUrl || '',
+    websiteUrl: l.url, productUrl: l.url,
+    description: 'Found by Google Lens visual match — not in partner catalog.',
+    source: 'Lens Visual Match', _lensOnly: true, _lensHit: true
+  }));
+  const displayMatches = [...rankedMatches, ...lensOnlyMatches];
+  // Lens visual matches ranked by specified brand + model mention (exact anchoring)
+  const specifiedModelStr = (autoDetectResult?.model || '').toLowerCase().trim();
+  const lensBrandScore = (l) => {
+    const t = `${l.title || ''} ${l.source || ''}`.toLowerCase();
+    let s = 0;
+    specifiedBrandTokens.forEach((tok) => { if (t.includes(tok)) s += 2; });
+    if (specifiedModelStr.length > 3 && t.includes(specifiedModelStr)) s += 3;
+    return s;
+  };
+  const rankedLensVisuals = [...lensVisuals].sort((a, b) => lensBrandScore(b) - lensBrandScore(a));
 
   // Animate loading stages smoothly
   useEffect(() => {
@@ -102,22 +313,45 @@ export default function AISemanticMatchModal({
       // Reset lens state for new item
       setLensResults(null);
       setLensLoading(false);
+      setLensRunMode(null);
+      setLensBestRaw(null);
+      setLensImageUrl(null);
+      setLensPickNote('');
+      setLensError(null);
+      setLensCandidates([]);
+      lensAnchoredRef.current = false;
 
       // ① AI match — starts immediately
       runFullTestSimulation(initialDesc);
 
-      // ② Lens match — upload local image to Supabase for a public URL, then run Lens
-      const rawImage =
-        item.imageUrl ||
-        (Array.isArray(item.images) && item.images.length > 0
-          ? (typeof item.images[0] === 'string' ? item.images[0] : item.images[0]?.url)
-          : null);
+      // ② Lens match — pick the best colored photo across all cell images and
+      // resolve it once to a public URL. Silent extension matching is disabled
+      // (LENS_EXTENSION_ENABLED=false); the manual Lens tab link uses this URL.
+      const candidates = collectLensCandidates();
 
-      if (rawImage && extensionInstalled) {
+      if (candidates.length > 0) {
         setTimeout(async () => {
           try {
-            const lensImage = await resolveLensPublicUrl(rawImage);
-            if (lensImage) triggerLensMatch(lensImage, item.id || item.item_code || 'auto');
+            const best = await pickBestLensImage(candidates);
+            if (!best.url) return;
+            setLensBestRaw(best.url);
+            setLensPickNote(best.note);
+            setLensCandidates(best.ranked || []);
+            const lensImage = await resolveLensPublicUrl(best.url);
+            if (!lensImage) return;
+            setLensImageUrl(lensImage);
+            // Silent background match only when the extension path is enabled;
+            // otherwise try the server-headless path (capability-gated, Vercel-safe).
+            if (lensSilentAvailable) {
+              triggerLensMatch(lensImage, item.id || item.item_code || 'auto');
+            } else {
+              const capRes = await fetch(`${getApiBase()}/api/lens/capabilities`).then((r) => r.json()).catch(() => null);
+              if (capRes?.supported && !capRes?.walled) {
+                runServerHeadlessLens(lensImage, item?.brand || '', item?.model || '', 'auto');
+              } else if (capRes?.walled) {
+                setLensError('Google is limiting automated checks from this network for a few hours — open the manual link above; results stay on Google for now.');
+              }
+            }
           } catch (e) {
             console.warn('[Lens] Could not resolve public URL:', e.message);
           }
@@ -130,6 +364,13 @@ export default function AISemanticMatchModal({
       setError(null);
       setLensResults(null);
       setLensLoading(false);
+      setLensRunMode(null);
+      setLensBestRaw(null);
+      setLensImageUrl(null);
+      setLensPickNote('');
+      setLensError(null);
+      setLensCandidates([]);
+      lensAnchoredRef.current = false;
     }
   }, [isOpen, item]);
 
@@ -256,22 +497,77 @@ export default function AISemanticMatchModal({
   };
 
   /**
-   * Trigger Google Lens silent visual match via the Chrome extension.
-   * Fires automatically when an image URL is present and the extension is installed.
+   * Server-headless Lens run (no extension): POST /api/lens/scrape with the
+   * picked image + exact brand/model anchor. Manual link stays the fallback.
    */
-  const triggerLensMatch = (imageUrl, itemId) => {
-    if (!extensionInstalled || !imageUrl) return;
+  const runServerHeadlessLens = async (targetUrl, brand, model, idSuffix = 'server') => {
+    if (!targetUrl) return;
     setLensLoading(true);
+    setLensRunMode('server');
     setLensResults(null);
+    setLensError(null);
+    try {
+      const apiBase = getApiBase();
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 90000);
+      const sc = await fetch(`${apiBase}/api/lens/scrape`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        signal: ctrl.signal,
+        body: JSON.stringify({ imageUrl: targetUrl, brand: brand || '', model: model || '' })
+      }).then((r) => r.json()).catch(() => null);
+      clearTimeout(timer);
+      setLensLoading(false);
+      if (sc?.success && Array.isArray(sc?.visualMatches)) {
+        setLensResults({
+          itemId: `${item?.id || item?.item_code || 'auto'}-${idSuffix}`,
+          visualMatches: sc.visualMatches,
+          topMatch: sc.topMatch || sc.visualMatches[0] || null,
+          textQuery: sc.textQuery || null,
+          textAnchored: !!sc.textAnchored,
+          source: sc.source || 'Google Lens (server headless)'
+        });
+      } else if (sc?.walled) {
+        setLensError('Google is limiting automated checks from this network for a few hours — open the manual link above; results stay on Google for now.');
+      } else if (sc && sc.supported === false) {
+        console.warn('[Lens] server headless unsupported:', sc.reason);
+      } else {
+        setLensError(sc?.error || 'Server Lens scan returned no matches.');
+      }
+    } catch (e) {
+      setLensLoading(false);
+      const msg = e?.name === 'AbortError' ? 'Server Lens scan timed out (90s).' : (e.message || 'Server Lens scan failed.');
+      setLensError(msg);
+      console.warn('[Lens] server run failed:', msg);
+    }
+  };
+  /**
+   * Trigger Google Lens silent visual match via the Chrome extension.
+   * Gated by LENS_EXTENSION_ENABLED. An optional {brand, model} anchor focuses
+   * Lens textually as well as visually.
+   */
+  const triggerLensMatch = (imageUrl, itemId, anchor = null) => {
+    if (!LENS_EXTENSION_ENABLED || !extensionInstalled || !imageUrl) return;
+    setLensLoading(true);
+    setLensRunMode('extension');
+    setLensResults(null);
+    setLensError(null);
 
     const requestId = `lens-${Date.now()}`;
+    const anchorBrand = anchor?.brand || autoDetectResult?.brand || specBreakdown?.brand || item?.brand || '';
+    const anchorModel = anchor?.model || autoDetectResult?.model || item?.model || '';
 
     const handleResponse = (event) => {
       if (event.data?.source === 'auto-browser-extension' && event.data?.requestId === requestId) {
         window.removeEventListener('message', handleResponse);
+        clearTimeout(timerId);
         setLensLoading(false);
         if (event.data.success && event.data.result?.visualMatches) {
           setLensResults(event.data.result);
+        } else {
+          const msg = event.data?.error || event.data?.result?.error || 'Lens scan failed with no matches.';
+          setLensError(msg);
+          console.warn('[Lens] scan failed:', msg);
         }
       }
     };
@@ -281,15 +577,37 @@ export default function AISemanticMatchModal({
       source: 'auto-browser-app',
       requestId,
       action: 'lensVisualMatch',
-      args: { imageUrl, itemId: itemId || 'modal-auto', description: testDescription }
+      args: { imageUrl, itemId: itemId || 'modal-auto', description: testDescription, brand: anchorBrand, model: anchorModel }
     }, '*');
 
-    // Cleanup listener after 30s timeout
-    setTimeout(() => {
+    // Cleanup listener after 30s timeout — a timeout almost always means the
+    // message bridge is gone (page loaded before the extension was reloaded)
+    const timerId = setTimeout(() => {
       window.removeEventListener('message', handleResponse);
-      setLensLoading(false);
+      setLensLoading((was) => {
+        if (was) setLensError('No reply from the extension in 30s. If you just updated/reloaded it, refresh this page and reopen the modal, then wait ~20s.');
+        return false;
+      });
     }, 30000);
   };
+
+  // Anchored refine: once the AI match resolves an exact brand + model, re-run Lens
+  // with the text anchor — extension path when enabled, otherwise server headless.
+  // Only while results are still pending (never double-fire over completed results).
+  const lensAnchoredRef = React.useRef(false);
+  useEffect(() => {
+    const brand = autoDetectResult?.brand || '';
+    const model = autoDetectResult?.model || '';
+    if (!isOpen || !item || lensAnchoredRef.current || lensResults || !brand || model.length < 2) return;
+    const target = lensImageUrl;
+    if (!target) return;
+    lensAnchoredRef.current = true;
+    if (lensSilentAvailable) {
+      triggerLensMatch(target, `${item.id || item.item_code || 'auto'}-anchored`, { brand, model });
+    } else {
+      runServerHeadlessLens(target, brand, model, 'anchored');
+    }
+  }, [autoDetectResult]);
 
   const handleBrandFilterChange = async (e) => {
     const newBrand = e.target.value;
@@ -335,13 +653,13 @@ export default function AISemanticMatchModal({
         {/* Modal Header */}
         <div className={styles.header}>
           <div className={styles.headerLeft}>
-            <div className={styles.headerIcon}>✨</div>
+            <div className={styles.headerIcon}><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9" /><circle cx="12" cy="12" r="4.5" /><circle cx="12" cy="12" r="1" fill="#fff" /></svg></div>
             <div>
               <h2 className={styles.title}>AI Auto-Match Inspector</h2>
               <p className={styles.subtitle}>Single-Item Multimodal Auto-Match & Value-Engineering Sandbox</p>
             </div>
           </div>
-          <button className={styles.closeBtn} onClick={onClose} title="Close">✕</button>
+          <button className={styles.closeBtn} onClick={onClose} title="Close"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg></button>
         </div>
 
         {/* Modal Content */}
@@ -352,9 +670,9 @@ export default function AISemanticMatchModal({
             <div className={styles.contextHeaderRow}>
               <span className={styles.contextLabel}>Target Specification • Item {itemCode}</span>
               <div className={styles.contextMeta}>
-                {item.quantity != null && <span className={styles.metaBadge}>🔢 Qty: {item.quantity} {item.unit || 'pcs'}</span>}
-                {item.brand && <span className={styles.metaBadge}>🏷️ Brand: {item.brand}</span>}
-                {item.model && <span className={styles.metaBadge}>📦 Code: {item.model}</span>}
+                {item.quantity != null && <span className={styles.metaBadge}> Qty: {item.quantity} {item.unit || 'pcs'}</span>}
+                {item.brand && <span className={styles.metaBadge}> Brand: {item.brand}</span>}
+                {item.model && <span className={styles.metaBadge}> Code: {item.model}</span>}
               </div>
             </div>
             
@@ -373,13 +691,18 @@ export default function AISemanticMatchModal({
                   onClick={() => runFullTestSimulation(testDescription)}
                   disabled={loading}
                 >
-                  {loading ? '⚡ Auto-Matching...' : '🧪 Re-Run Auto-Match'}
+                  {loading ? ' Auto-Matching...' : ' Re-Run Auto-Match'}
                 </button>
                 <button
                   className={styles.runTestBtn}
                   onClick={() => {
                     const cleanQuery = (testDescription || '').replace(/[|#]/g, ' ').slice(0, 100).trim();
-                    if (primaryImage && typeof primaryImage === 'string' && primaryImage.startsWith('http')) {
+                    const rawImg = lensBestRaw || item?.imageUrl ||
+                      (Array.isArray(item?.images) && item.images.length > 0
+                        ? (typeof item.images[0] === 'string' ? item.images[0] : item.images[0]?.url)
+                        : null);
+                    const primaryImage = rawImg ? resolveLensImageUrl(rawImg) : null;
+                    if (primaryImage && typeof primaryImage === 'string' && primaryImage.startsWith('http') && !isLocalImage(rawImg)) {
                       window.open(`https://lens.google.com/uploadbyurl?url=${encodeURIComponent(primaryImage)}`, '_blank');
                     } else {
                       window.open(`https://www.google.com/search?q=${encodeURIComponent(cleanQuery)}&tbm=isch`, '_blank');
@@ -388,7 +711,7 @@ export default function AISemanticMatchModal({
                   style={{ background: 'rgba(59, 130, 246, 0.15)', borderColor: 'rgba(59, 130, 246, 0.4)', color: '#60a5fa' }}
                   title="Zero-token reverse image search on Google Lens / Google Images for custom or unmatched items"
                 >
-                  🌐 Visual Lens Search
+                   Visual Lens Search
                 </button>
                 {autoDetectResult && !loading && (
                   <button
@@ -396,7 +719,7 @@ export default function AISemanticMatchModal({
                     onClick={() => handleApplyMatch(autoDetectResult)}
                     title="Quickly apply this verified match to row"
                   >
-                    ⚡ Quick Apply to Row
+                     Quick Apply to Row
                   </button>
                 )}
               </div>
@@ -410,26 +733,26 @@ export default function AISemanticMatchModal({
               className={`${styles.tabBtn} ${activeTab === 'auto_detect' ? styles.activeTab : ''}`}
               onClick={() => setActiveTab('auto_detect')}
             >
-              🎯 Full Auto-Match Result {autoDetectResult && !loading && <span className={styles.tabBadge}>Verified</span>}
-            </button>
-            <button
-              className={`${styles.tabBtn} ${activeTab === 'partner_catalog' ? styles.activeTab : ''}`}
-              onClick={() => setActiveTab('partner_catalog')}
-            >
-              🏢 Partner Alternatives ({matches.length})
+               Full Auto-Match Result {autoDetectResult && !loading && <span className={styles.tabBadge}>Verified</span>}
             </button>
             <button
               className={`${styles.tabBtn} ${activeTab === 'lens_match' ? styles.activeTab : ''}`}
               onClick={() => setActiveTab('lens_match')}
               style={{ borderColor: activeTab === 'lens_match' ? 'rgba(124,58,237,0.7)' : undefined }}
             >
-              🔍 Lens Visual Match
+               Lens Visual Match
               {lensResults && !lensLoading && (
                 <span className={styles.tabBadge} style={{ background: 'rgba(124,58,237,0.3)', color: '#c4b5fd' }}>
                   {lensResults.visualMatches?.length || 0}
                 </span>
               )}
-              {lensLoading && <span className={styles.tabBadge} style={{ background: 'rgba(124,58,237,0.15)', color: '#a78bfa' }}>⏳</span>}
+              {lensLoading && <span className={styles.tabBadge} style={{ background: 'rgba(124,58,237,0.15)', color: '#a78bfa' }}></span>}
+            </button>
+            <button
+              className={`${styles.tabBtn} ${activeTab === 'partner_catalog' ? styles.activeTab : ''}`}
+              onClick={() => setActiveTab('partner_catalog')}
+            >
+               Partner Alternatives ({matches.length})
             </button>
           </div>
 
@@ -438,7 +761,7 @@ export default function AISemanticMatchModal({
             <div className={styles.loadingContainer}>
               <div className={styles.throbberWrapper}>
                 <div className={styles.throbberOrb}>
-                  <span className={styles.throbberIcon}>✨</span>
+                  <span className={styles.throbberIcon}></span>
                 </div>
                 <div className={styles.throbberRing} />
                 <div className={styles.throbberRingOuter} />
@@ -451,11 +774,11 @@ export default function AISemanticMatchModal({
 
               <div className={styles.loadingSteps}>
                 <div className={`${styles.stepItem} ${loadingStage >= 0 ? styles.stepActive : ''}`}>
-                  <span className={styles.stepDot}>{loadingStage > 0 ? '✓' : '1'}</span>
+                  <span className={styles.stepDot}>{loadingStage > 0 ? '' : '1'}</span>
                   <span>Decomposing item specifications & image tokens</span>
                 </div>
                 <div className={`${styles.stepItem} ${loadingStage >= 1 ? styles.stepActive : ''}`}>
-                  <span className={styles.stepDot}>{loadingStage > 1 ? '✓' : '2'}</span>
+                  <span className={styles.stepDot}>{loadingStage > 1 ? '' : '2'}</span>
                   <span>Scanning partner brand catalogs & manufacturer models</span>
                 </div>
                 <div className={`${styles.stepItem} ${loadingStage >= 2 ? styles.stepActive : ''}`}>
@@ -489,7 +812,7 @@ export default function AISemanticMatchModal({
           {/* Error Message */}
           {error && !loading && (
             <div className={styles.errorBox}>
-              ⚠️ {error}
+               {error}
             </div>
           )}
 
@@ -516,7 +839,7 @@ export default function AISemanticMatchModal({
                       </div>
                     </div>
                     <span className={styles.matchScoreBadge}>
-                      🎯 {specBreakdown?.confidenceScore ? `${specBreakdown.confidenceScore}%` : '100%'} Specification Fit
+                       {specBreakdown?.confidenceScore ? `${specBreakdown.confidenceScore}%` : '100%'} Specification Fit
                     </span>
                   </div>
 
@@ -533,7 +856,7 @@ export default function AISemanticMatchModal({
                           }}
                         />
                       ) : (
-                        <div className={styles.noImagePh}>🖼️ No Image</div>
+                        <div className={styles.noImagePh}> No Image</div>
                       )}
                     </div>
 
@@ -557,7 +880,15 @@ export default function AISemanticMatchModal({
                           <div className={styles.specItem}>
                             <span className={styles.specKey}>Official Link</span>
                             <a href={autoDetectResult.websiteUrl || autoDetectResult.productUrl} target="_blank" rel="noreferrer" className={styles.specLink}>
-                              🌐 View Product Page
+                               View Product Page
+                            </a>
+                          </div>
+                        )}
+                        {(autoDetectResult.supplierReferences && autoDetectResult.supplierReferences.length > 0) && (
+                          <div className={styles.specItem}>
+                            <span className={styles.specKey}>Supplier Ref</span>
+                            <a href={autoDetectResult.supplierReferences[0]} target="_blank" rel="noreferrer" className={styles.specLink} title={autoDetectResult.supplierReferences.join('\n')}>
+                               Dealer reference{autoDetectResult.supplierReferences.length > 1 ? ` (+${autoDetectResult.supplierReferences.length - 1})` : ''}
                             </a>
                           </div>
                         )}
@@ -574,7 +905,7 @@ export default function AISemanticMatchModal({
                         className={styles.applyPrimaryBtn}
                         onClick={() => handleApplyMatch(autoDetectResult)}
                       >
-                        ✨ Apply Matched Product to Row
+                         Apply Matched Product to Row
                       </button>
                     </div>
                   </div>
@@ -596,11 +927,11 @@ export default function AISemanticMatchModal({
                   padding: '14px'
                 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
-                    <span style={{ fontSize: '1rem' }}>🔍</span>
+                    <span style={{ fontSize: '1rem' }}></span>
                     <strong style={{ color: '#c4b5fd', fontSize: '0.88rem' }}>Google Lens 1:1 Visual Match</strong>
                     {lensLoading && (
                       <span style={{ fontSize: '0.75rem', color: '#94a3b8', marginLeft: '4px' }}>
-                        ⏳ Scanning Lens results silently...
+                         Scanning Lens results silently...
                       </span>
                     )}
                     {lensResults && !lensLoading && (
@@ -609,7 +940,7 @@ export default function AISemanticMatchModal({
                         border: '1px solid rgba(124,58,237,0.4)',
                         borderRadius: '20px', padding: '2px 8px', fontSize: '0.72rem', fontWeight: 700
                       }}>
-                        🎯 {lensResults.visualMatches?.length || 0} Visual Matches
+                         {lensResults.visualMatches?.length || 0} Visual Matches
                       </span>
                     )}
                   </div>
@@ -633,12 +964,12 @@ export default function AISemanticMatchModal({
                                 background: 'rgba(124,58,237,0.3)', color: '#e9d5ff',
                                 borderRadius: '20px', padding: '1px 7px', fontSize: '0.68rem',
                                 fontWeight: 700, display: 'inline-block', marginBottom: '3px'
-                              }}>🏆 Top Match</span>
+                              }}> Top Match</span>
                             )}
                             <div style={{ color: '#c4b5fd', fontWeight: 600, fontSize: '0.83rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                               {m.title || 'Visual Match'}
                             </div>
-                            <div style={{ color: '#94a3b8', fontSize: '0.74rem' }}>📌 {m.source || 'Unknown source'}</div>
+                            <div style={{ color: '#94a3b8', fontSize: '0.74rem' }}> {m.source || 'Unknown source'}</div>
                           </div>
                           {m.url && (
                             <a href={m.url} target="_blank" rel="noopener noreferrer" style={{
@@ -647,7 +978,7 @@ export default function AISemanticMatchModal({
                               border: '1px solid rgba(56,189,248,0.3)',
                               borderRadius: '6px', whiteSpace: 'nowrap'
                             }}>
-                              🔗 View →
+                               View →
                             </a>
                           )}
                         </div>
@@ -661,7 +992,7 @@ export default function AISemanticMatchModal({
                         target="_blank" rel="noopener noreferrer"
                         style={{ color: '#38bdf8', marginLeft: '6px' }}
                       >
-                        🌐 Open Lens manually →
+                         Open Lens manually →
                       </a>
                     </div>
                   ) : null}
@@ -680,8 +1011,8 @@ export default function AISemanticMatchModal({
                   marginTop: '10px', fontSize: '0.76rem', color: '#94a3b8',
                   display: 'flex', alignItems: 'center', gap: '6px'
                 }}>
-                  <span>🔌</span>
-                  <span>Install the <strong style={{ color: '#c4b5fd' }}>Auto Browser Extension</strong> to enable 🎯 Google Lens 1:1 visual matching for this item (zero AI tokens).</span>
+                  <span></span>
+                  <span>Install the <strong style={{ color: '#c4b5fd' }}>Auto Browser Extension</strong> to enable  Google Lens 1:1 visual matching for this item (zero AI tokens).</span>
                 </div>
               )}
             </div>
@@ -705,10 +1036,11 @@ export default function AISemanticMatchModal({
                 </select>
               </div>
 
-              {matches.length > 0 ? (
+              {displayMatches.length > 0 ? (
                 <div className={styles.matchesList}>
-                  {matches.map((match, idx) => {
+                  {displayMatches.map((match, idx) => {
                     const isLiveWeb = match.source === 'Live Architonic & Global Web Discovery';
+                    const isLensOnly = match.source === 'Lens Visual Match';
                     const fallbackSearchUrl = `https://www.architonic.com/en/search/?q=${encodeURIComponent((match.brand || '') + ' ' + (match.model || ''))}`;
                     const officialUrl = match.officialProductUrl || match.websiteUrl || match.productUrl || fallbackSearchUrl;
                     const architonicUrl = match.architonicUrl;
@@ -729,7 +1061,7 @@ export default function AISemanticMatchModal({
                               }}
                             />
                           ) : (
-                            <span className={styles.imagePlaceholder}>🪑</span>
+                            <span className={styles.imagePlaceholder}></span>
                           )}
                         </div>
 
@@ -738,25 +1070,34 @@ export default function AISemanticMatchModal({
                             <div>
                               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px', flexWrap: 'wrap' }}>
                                 <span className={styles.brandBadge}>{match.brand}</span>
-                                {isLiveWeb ? (
+                                {isLensOnly ? (
+                                  <span style={{ fontSize: '0.68rem', padding: '2px 8px', borderRadius: '12px', background: 'rgba(124,58,237,0.15)', color: '#c4b5fd', border: '1px solid rgba(124,58,237,0.4)', fontWeight: 600 }}>
+                                     Lens Visual Find
+                                  </span>
+                                ) : isLiveWeb ? (
                                   <span style={{ fontSize: '0.68rem', padding: '2px 8px', borderRadius: '12px', background: 'rgba(14, 165, 233, 0.15)', color: '#38bdf8', border: '1px solid rgba(14, 165, 233, 0.3)', fontWeight: 600 }}>
-                                    🌐 Architonic & Live Web Discovery
+                                     Architonic & Live Web Discovery
                                   </span>
                                 ) : (
                                   <span style={{ fontSize: '0.68rem', padding: '2px 8px', borderRadius: '12px', background: 'rgba(168, 85, 247, 0.15)', color: '#c084fc', border: '1px solid rgba(168, 85, 247, 0.3)', fontWeight: 600 }}>
-                                    🏷️ Verified Contract Partner
+                                     Verified Contract Partner
+                                  </span>
+                                )}
+                                {match._lensHit && !match._lensOnly && (
+                                  <span style={{ fontSize: '0.68rem', padding: '2px 8px', borderRadius: '12px', background: 'rgba(124,58,237,0.15)', color: '#c4b5fd', border: '1px solid rgba(124,58,237,0.4)', fontWeight: 600 }}>
+                                     Lens-seen
                                   </span>
                                 )}
                               </div>
                               <h4 className={styles.modelName}>{match.model}</h4>
                               {match.mainCategory && (
                                 <div style={{ fontSize: '0.72rem', color: '#94a3b8', marginTop: '2px' }}>
-                                  📂 {match.mainCategory} {match.subCategory ? `→ ${match.subCategory}` : ''}
+                                   {match.mainCategory} {match.subCategory ? `→ ${match.subCategory}` : ''}
                                 </div>
                               )}
                             </div>
                             <span className={`${styles.confidenceBadge} ${idx === 0 ? styles.topScore : ''}`}>
-                              {match.exactModelMatch ? '🎯 100% Exact' : `⚡ ${match.confidenceScore || match.specificationFit || 92}% Fit`}
+                              {match._lensOnly ? ' Visual match' : (match.exactModelMatch ? ' 100% Exact' : ` ${match.confidenceScore || match.specificationFit || 92}% Fit`)}
                             </span>
                           </div>
 
@@ -770,7 +1111,7 @@ export default function AISemanticMatchModal({
                               style={{ fontSize: '0.74rem', color: '#60a5fa', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
                               title="Open live manufacturer product portal or verified search"
                             >
-                              🌐 Official Website ↗
+                               Official Website ↗
                             </a>
                             {architonicUrl && (
                               <a
@@ -779,7 +1120,7 @@ export default function AISemanticMatchModal({
                                 rel="noreferrer"
                                 style={{ fontSize: '0.74rem', color: '#38bdf8', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
                               >
-                                🏛️ Architonic / Platform Page ↗
+                                 Architonic / Platform Page ↗
                               </a>
                             )}
                           </div>
@@ -792,7 +1133,7 @@ export default function AISemanticMatchModal({
                               className={styles.selectBtn}
                               onClick={() => handleApplyMatch(match)}
                             >
-                              ✓ Select Alternative
+                               Select Alternative
                             </button>
                           </div>
                         </div>
@@ -810,17 +1151,19 @@ export default function AISemanticMatchModal({
 
           {/* ── TAB 3: GOOGLE LENS VISUAL MATCH ── */}
           {activeTab === 'lens_match' && !loading && (() => {
-            const rawImage = item?.imageUrl ||
+            // Best picked image wins; fall back to first image while scoring runs
+            const rawImage = lensBestRaw || item?.imageUrl ||
               (Array.isArray(item?.images) && item.images.length > 0
                 ? (typeof item.images[0] === 'string' ? item.images[0] : item.images[0]?.url)
                 : null);
-            // Resolve to full URL for display + extension trigger
-            const primaryImage = rawImage ? resolveLocalUrl(rawImage) : null;
-            const imageIsLocal = isLocalImage(rawImage);
+            // Prefer the resolved Supabase public URL (set on modal open); fall back to local for display
+            const displayImage = lensImageUrl || (rawImage ? resolveLocalUrl(rawImage) : null);
+            const primaryImage = displayImage;
+            const imageIsLocal = !lensImageUrl && isLocalImage(rawImage);
 
-            // Manual Lens link only works for public URLs
-            const lensUrl = primaryImage && !imageIsLocal
-              ? `https://lens.google.com/uploadbyurl?url=${encodeURIComponent(primaryImage)}`
+            // Manual Lens link works once we have any public URL (Supabase-resolved or direct)
+            const lensUrl = (lensImageUrl || (primaryImage && !imageIsLocal))
+              ? `https://lens.google.com/uploadbyurl?url=${encodeURIComponent(lensImageUrl || primaryImage)}`
               : null;
 
             // Text fallback for local images
@@ -835,12 +1178,12 @@ export default function AISemanticMatchModal({
                 {/* Header row */}
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px', flexWrap: 'wrap', gap: '8px' }}>
                   <div>
-                    <div style={{ fontWeight: 700, color: '#c4b5fd', fontSize: '0.92rem', marginBottom: '2px' }}>🔍 Google Lens 1:1 Visual Match</div>
+                    <div style={{ fontWeight: 700, color: '#c4b5fd', fontSize: '0.92rem', marginBottom: '2px' }}> Google Lens 1:1 Visual Match</div>
                     <div style={{ fontSize: '0.74rem', color: '#94a3b8' }}>Zero AI tokens · Visual accuracy · Detects unlisted / custom products</div>
                   </div>
                   {lensResults && !lensLoading && (
                     <span style={{ background: 'rgba(124,58,237,0.25)', color: '#e9d5ff', border: '1px solid rgba(124,58,237,0.5)', borderRadius: '20px', padding: '3px 10px', fontSize: '0.74rem', fontWeight: 700 }}>
-                      🎯 {lensResults.visualMatches?.length || 0} Visual Matches Found
+                       {lensResults.visualMatches?.length || 0} Visual Matches Found{lensResults.extVersion ? ` · ext v${lensResults.extVersion}` : ''}
                     </span>
                   )}
                 </div>
@@ -855,33 +1198,67 @@ export default function AISemanticMatchModal({
                       onError={e => { e.target.style.display = 'none'; }}
                     />
                   ) : (
-                    <div style={{ width: 90, height: 90, borderRadius: '8px', border: '1px dashed #334155', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#475569', fontSize: '1.6rem', flexShrink: 0 }}>📷</div>
+                    <div style={{ width: 90, height: 90, borderRadius: '8px', border: '1px dashed #334155', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#475569', fontSize: '1.6rem', flexShrink: 0 }}></div>
                   )}
                   <div style={{ flex: 1 }}>
                     {primaryImage ? (
-                      <div style={{ fontSize: '0.75rem', color: '#64748b', marginBottom: '10px', wordBreak: 'break-all' }}>🖼️ {primaryImage.slice(0, 80)}{primaryImage.length > 80 ? '...' : ''}</div>
+                      <div style={{ fontSize: '0.75rem', color: '#64748b', marginBottom: '10px', wordBreak: 'break-all' }}> {primaryImage.slice(0, 80)}{primaryImage.length > 80 ? '...' : ''}</div>
                     ) : (
-                      <div style={{ fontSize: '0.78rem', color: '#94a3b8', marginBottom: '10px' }}>⚠️ No image available for this item. Lens matching requires a product image URL.</div>
+                      <div style={{ fontSize: '0.78rem', color: '#94a3b8', marginBottom: '10px' }}> No image available for this item. Lens matching requires a product image URL.</div>
                     )}
-                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                      {/* Extension-based silent match */}
-                      {extensionInstalled && primaryImage && (
-                        <button
-                          onClick={() => triggerLensMatch(primaryImage, item?.id || item?.item_code || 'unknown')}
-                          disabled={lensLoading}
-                          style={{
-                            padding: '8px 16px', borderRadius: '8px', border: 'none', cursor: lensLoading ? 'not-allowed' : 'pointer',
-                            background: lensLoading ? 'rgba(124,58,237,0.2)' : 'linear-gradient(135deg,#7c3aed,#a855f7)',
-                            color: '#fff', fontWeight: 700, fontSize: '0.82rem',
-                            boxShadow: lensLoading ? 'none' : '0 4px 14px rgba(124,58,237,0.35)',
-                            transition: 'all 0.2s'
-                          }}
-                        >
-                          {lensLoading ? '⏳ Scanning Lens...' : '🔍 Run Silent Lens Match'}
-                        </button>
-                      )}
-                      {/* Manual fallback — always available */}
-                      {lensUrl && (
+                    {lensPickNote && (
+                      <div style={{ fontSize: '0.72rem', color: '#a78bfa', marginBottom: '10px' }}> {lensPickNote}</div>
+                    )}
+                    {lensCandidates.length > 1 && (
+                      <div style={{ display: 'flex', gap: '6px', marginBottom: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
+                        <span style={{ fontSize: '0.7rem', color: '#64748b' }}>Candidates:</span>
+                        {lensCandidates.map((c, ci) => {
+                          const isBest = (lensBestRaw || '') === c.url;
+                          return (
+                            <button
+                              key={ci}
+                              title={`${c.url.slice(-40)} · color ${c.color ?? '?'} · shades ${c.uniq ?? '?'} · ${c.size}${c.gray ? ' · grayscale' : ''}${c.graphic ? ' · graphic' : ''} — click to use for Lens`}
+                              onClick={async () => {
+                                setLensBestRaw(c.url);
+                                setLensPickNote(`manual pick · color ${c.color ?? '?'} · ${c.size}`);
+                                setLensResults(null);
+                                setLensError(null);
+                                try {
+                                  const target = await resolveLensPublicUrl(c.url);
+                                  if (target) {
+                                    setLensImageUrl(target);
+                                    if (extensionInstalled) triggerLensMatch(target, `${item?.id || item?.item_code || 'unknown'}-manual`, { brand: autoDetectResult?.brand || '', model: autoDetectResult?.model || '' });
+                                  }
+                                } catch (e) {
+                                  console.warn('[Lens] manual pick resolve failed:', e.message);
+                                }
+                              }}
+                              style={{
+                                border: isBest ? '2px solid #a855f7' : '1px solid #334155',
+                                borderRadius: '6px', padding: 0, cursor: 'pointer', background: 'transparent',
+                                opacity: isBest ? 1 : 0.75
+                              }}
+                            >
+                              <img src={resolveLocalUrl(c.url)} alt="" style={{ width: 44, height: 44, objectFit: 'cover', borderRadius: '4px', display: 'block' }} onError={e => { e.target.style.display = 'none'; }} />
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                    {lensResults?.textAnchored && lensResults?.textQuery && (
+                      <div style={{ fontSize: '0.72rem', color: '#6ee7b7', marginBottom: '10px' }}> Lens anchored to “{lensResults.textQuery}”</div>
+                    )}
+                    {lensResults && !lensResults.textAnchored && (
+                      <div style={{ fontSize: '0.72rem', color: '#64748b', marginBottom: '10px' }}>Visual-only scan (brand/model landed after results)</div>
+                    )}
+                    {lensError && !lensLoading && (
+                      <div style={{ fontSize: '0.78rem', color: '#f87171', background: 'rgba(248,113,113,0.08)', border: '1px solid rgba(248,113,113,0.3)', borderRadius: '8px', padding: '8px 12px', marginBottom: '10px' }}> {lensError}</div>
+                    )}
+                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+                      {/* Extension-based silent match — disabled (LENS_EXTENSION_ENABLED=false).
+                          Manual Lens tab is the active path, fed with the auto-picked best image. */}
+                      {/* Manual path — always available, opens the picked image in a Google Lens tab */}
+                      {lensUrl ? (
                         <a
                           href={lensUrl}
                           target="_blank"
@@ -894,24 +1271,21 @@ export default function AISemanticMatchModal({
                             display: 'inline-flex', alignItems: 'center', gap: '5px'
                           }}
                         >
-                          🌐 Open in Google Lens ↗
+                           Open in Google Lens ↗
                         </a>
+                      ) : (
+                        <span style={{ fontSize: '0.78rem', color: '#64748b' }}>Resolving best image…</span>
                       )}
                     </div>
-                    {!extensionInstalled && primaryImage && (
-                      <div style={{ marginTop: '8px', fontSize: '0.74rem', color: '#64748b' }}>
-                        🔌 Install the <strong style={{ color: '#c4b5fd' }}>Auto Browser Extension</strong> to run the silent background Lens match without leaving this modal.
-                      </div>
-                    )}
                   </div>
                 </div>
 
                 {/* Results list */}
                 {lensLoading && (
                   <div style={{ textAlign: 'center', padding: '20px', color: '#a78bfa' }}>
-                    <div style={{ fontSize: '1.4rem', marginBottom: '6px' }}>🔄</div>
-                    <div style={{ fontSize: '0.82rem' }}>Opening minimized Lens window · Extracting visual matches...</div>
-                    <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '4px' }}>Takes 8–12 seconds · No flash in your browser</div>
+                    <div style={{ fontSize: '1.4rem', marginBottom: '6px' }}></div>
+                    <div style={{ fontSize: '0.82rem' }}>{lensRunMode === 'server' ? 'Running server Lens · Extracting visual matches...' : 'Opening hidden Lens window · Extracting visual matches...'}</div>
+                    <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '4px' }}>{lensRunMode === 'server' ? 'Real-browser run, up to ~60 seconds · Tab stays usable' : 'Takes 8–12 seconds · No flash in your browser'}</div>
                   </div>
                 )}
 
@@ -919,7 +1293,7 @@ export default function AISemanticMatchModal({
                   <div>
                     <div style={{ fontSize: '0.78rem', color: '#94a3b8', marginBottom: '10px', fontWeight: 600 }}>VISUAL MATCH RESULTS</div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                      {lensResults.visualMatches.slice(0, 6).map((m, i) => (
+                      {rankedLensVisuals.map((m, i) => (
                         <div key={i} style={{
                           background: i === 0 ? 'rgba(124,58,237,0.15)' : 'rgba(15,23,42,0.8)',
                           border: `1px solid ${i === 0 ? 'rgba(124,58,237,0.5)' : '#1e293b'}`,
@@ -931,9 +1305,10 @@ export default function AISemanticMatchModal({
                               onError={e => { e.target.style.display = 'none'; }} />
                           )}
                           <div style={{ flex: 1, minWidth: 0 }}>
-                            {i === 0 && <span style={{ background: 'rgba(124,58,237,0.3)', color: '#e9d5ff', borderRadius: '20px', padding: '1px 8px', fontSize: '0.67rem', fontWeight: 700, display: 'inline-block', marginBottom: '3px' }}>🏆 TOP VISUAL MATCH</span>}
+                            {i === 0 && <span style={{ background: 'rgba(124,58,237,0.3)', color: '#e9d5ff', borderRadius: '20px', padding: '1px 8px', fontSize: '0.67rem', fontWeight: 700, display: 'inline-block', marginBottom: '3px' }}> TOP VISUAL MATCH</span>}
+                            {lensBrandScore(m) > 0 && <span style={{ background: 'rgba(16,185,129,0.2)', color: '#6ee7b7', borderRadius: '20px', padding: '1px 8px', fontSize: '0.67rem', fontWeight: 700, display: 'inline-block', marginBottom: '3px', marginLeft: i === 0 ? '6px' : 0 }}> specified brand</span>}
                             <div style={{ color: '#c4b5fd', fontWeight: 600, fontSize: '0.85rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.title || 'Visual Match'}</div>
-                            <div style={{ color: '#64748b', fontSize: '0.73rem', marginTop: '2px' }}>📌 {m.source || 'Unknown source'}</div>
+                            <div style={{ color: '#64748b', fontSize: '0.73rem', marginTop: '2px' }}> {m.source || 'Unknown source'}</div>
                           </div>
                           <a
                             href={m.url}
@@ -941,28 +1316,28 @@ export default function AISemanticMatchModal({
                             rel="noopener noreferrer"
                             style={{ color: '#38bdf8', fontSize: '0.75rem', textDecoration: 'none', padding: '5px 12px', border: '1px solid rgba(56,189,248,0.3)', borderRadius: '6px', whiteSpace: 'nowrap', flexShrink: 0 }}
                           >
-                            🔗 View →
+                             View →
                           </a>
                         </div>
                       ))}
                     </div>
                     <div style={{ marginTop: '12px', fontSize: '0.73rem', color: '#475569', textAlign: 'center' }}>
-                      ✅ Satisfied with Lens results? Let us know and we'll promote Lens as the primary matching strategy.
+                       Satisfied with Lens results? Let us know and we'll promote Lens as the primary matching strategy.
                     </div>
                   </div>
                 )}
 
                 {lensResults && !lensLoading && (!lensResults.visualMatches || lensResults.visualMatches.length === 0) && (
                   <div style={{ textAlign: 'center', padding: '20px', color: '#64748b' }}>
-                    <div style={{ fontSize: '1.2rem', marginBottom: '6px' }}>😕</div>
+                    <div style={{ fontSize: '1.2rem', marginBottom: '6px' }}></div>
                     <div style={{ fontSize: '0.82rem' }}>No visual matches extracted from Lens DOM.</div>
-                    {lensUrl && <a href={lensUrl} target="_blank" rel="noopener noreferrer" style={{ color: '#38bdf8', fontSize: '0.78rem', marginTop: '6px', display: 'inline-block' }}>🌐 Try opening Google Lens manually →</a>}
+                    {lensUrl && <a href={lensUrl} target="_blank" rel="noopener noreferrer" style={{ color: '#38bdf8', fontSize: '0.78rem', marginTop: '6px', display: 'inline-block' }}> Try opening Google Lens manually →</a>}
                   </div>
                 )}
 
                 {!lensResults && !lensLoading && (
                   <div style={{ textAlign: 'center', padding: '16px', color: '#475569', fontSize: '0.8rem', borderTop: '1px solid #1e293b', marginTop: '4px' }}>
-                    Click <strong style={{ color: '#c4b5fd' }}>Run Silent Lens Match</strong> above to extract visual product matches from Google Lens — or open it manually in a new tab.
+                     The link above opens the auto-picked best image in a Google Lens tab — no extension needed.
                   </div>
                 )}
 

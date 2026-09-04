@@ -1,0 +1,30 @@
+{
+  "id": 1788514989295,
+  "name": "Herman Miller",
+  "logo": "https://media.architonic.com/m-on/3100010/logo/herman-miller_logo_53b0.jpg",
+  "budgetTier": "mid",
+  "origin": "VE-Prescan-Discovery",
+  "products": [
+    {
+      "brand": "Herman Miller",
+      "model": "Eames Aluminum Group Chairs",
+      "mainCategory": "Office Seating",
+      "subCategory": "",
+      "imageUrl": "",
+      "websiteUrl": "https://www.hermanmiller.com",
+      "lastUpdated": "2026-09-04T09:43:08.816Z",
+      "source": "VE-Prescan-Discovery"
+    },
+    {
+      "brand": "Herman Miller",
+      "model": "Verus Chairs",
+      "mainCategory": "Office Seating",
+      "subCategory": "",
+      "imageUrl": "",
+      "websiteUrl": "https://www.hermanmiller.com",
+      "lastUpdated": "2026-09-04T09:43:08.816Z",
+      "source": "VE-Prescan-Discovery"
+    }
+  ],
+  "createdAt": "2026-09-04T09:43:08.816Z"
+}

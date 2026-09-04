@@ -26,7 +26,7 @@ const PIPELINES = [
   {
     id: 'wordcom_v22',
     label: 'PDF WordCom V22',
-    icon: '🧩',
+    icon: '',
     color: '#0f766e',
     gradient: 'linear-gradient(135deg,#0f766e,#0d9488)',
     badge: 'Recommended',
@@ -35,7 +35,7 @@ const PIPELINES = [
   {
     id: 'wordcom',
     label: 'PDF WordCom',
-    icon: '📄',
+    icon: '',
     color: '#0284c7',
     gradient: 'linear-gradient(135deg,#0284c7,#0369a1)',
     desc: 'Our universal WordCom extractor. Best first choice for BOQ/FFE PDFs, preserving layout, images, embedded objects, and complex table structure.',
@@ -43,7 +43,7 @@ const PIPELINES = [
   {
     id: 'wordcom_vercel',
     label: 'PDF WordCom (Vercel Safe)',
-    icon: '⚡',
+    icon: '',
     color: '#10b981',
     gradient: 'linear-gradient(135deg,#10b981,#059669)',
     desc: 'Cloned Vercel-safe WebAssembly MuPDF parser with Supabase cloud image upload.',
@@ -51,7 +51,7 @@ const PIPELINES = [
   {
     id: 'default',
     label: 'PDF AI + Native',
-    icon: '🧠',
+    icon: '',
     color: '#7c3aed',
     gradient: 'linear-gradient(135deg,#7c3aed,#4f46e5)',
     desc: 'AI vision-based extraction with native image pairing. Good fallback for standard BOQ PDFs with visual product references.',
@@ -151,16 +151,6 @@ const PdfModelModal = ({ isOpen, onClose, onExtract, fileName }) => {
                       boxShadow: isActive ? `0 0 0 3px ${p.color}33` : 'none',
                     }}
                   >
-                    {/* Icon */}
-                    <div style={{
-                      width: 46, height: 46, borderRadius: 12, flexShrink: 0,
-                      background: p.gradient,
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      fontSize: '1.4rem',
-                      boxShadow: `0 4px 12px ${p.color}44`
-                    }}>
-                      {p.icon}
-                    </div>
 
                     {/* Text */}
                     <div style={{ flex: 1 }}>
@@ -188,7 +178,7 @@ const PdfModelModal = ({ isOpen, onClose, onExtract, fileName }) => {
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                       transition: 'all 0.2s'
                     }}>
-                      {isActive && <span style={{ color: '#fff', fontSize: '0.7rem', fontWeight: 900 }}>✓</span>}
+                      {isActive && <span style={{ color: '#fff', fontSize: '0.7rem', fontWeight: 900 }}></span>}
                     </div>
                   </div>
                 );
@@ -208,7 +198,7 @@ const PdfModelModal = ({ isOpen, onClose, onExtract, fileName }) => {
                 gap: '12px',
                 animation: 'pdmFadeIn 0.2s ease'
               }}>
-                <span style={{ fontSize: '1.2rem', flexShrink: 0 }}>ℹ️</span>
+                <span style={{ fontSize: '1.2rem', flexShrink: 0 }}>ℹ</span>
                 <span style={{ fontSize: '0.78rem', color: 'var(--text-muted, #64748b)', lineHeight: 1.5 }}>
                   Requires Windows with Microsoft Word installed. Preserves original layout, formatting, images, and embedded objects.
                 </span>
@@ -253,7 +243,6 @@ const PdfModelModal = ({ isOpen, onClose, onExtract, fileName }) => {
                 transition: 'all 0.25s ease'
               }}
             >
-              <span style={{ fontSize: '1.1rem' }}>{chosen?.icon}</span>
               {selectedPipeline === 'wordcom_v22' ? 'Extract and Consolidate' : `Extract with ${chosen?.label}`}
             </button>
           </div>

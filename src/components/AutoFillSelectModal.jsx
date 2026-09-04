@@ -63,7 +63,7 @@ export default function AutoFillSelectModal({ isOpen, onClose, allBrands, active
                                 <span className={styles.countPill}>{selectedCount} selected</span>
                             </span>
                             <div className={styles.quickActions}>
-                                <button className={`${styles.quickBtn} ${styles.quickBtnDanger}`} onClick={clearAll}>✕ Clear All</button>
+                                <button className={`${styles.quickBtn} ${styles.quickBtnDanger}`} onClick={clearAll}> Clear All</button>
                             </div>
                         </div>
 

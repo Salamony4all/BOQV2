@@ -564,8 +564,8 @@ export default function CompanySettings({ isModal = false, onClose = null }) {
                         {/* SECTION 1: BRANDING */}
                         <div className={`${styles.section} ${expandedSection === 'branding' ? styles.expanded : ''}`}>
                             <div className={styles.sectionHeader} onClick={() => toggleSection('branding')}>
-                                <h3><i className={styles.brandingIcon}>🏢</i> Company & Branding</h3>
-                                <span className={styles.chevron}>▼</span>
+                                <h3><i className={styles.brandingIcon}></i> Company & Branding</h3>
+                                <span className={styles.chevron}></span>
                             </div>
                             <div className={styles.sectionContent}>
                                 <div className={styles.field}>
@@ -624,8 +624,8 @@ export default function CompanySettings({ isModal = false, onClose = null }) {
                         {/* SECTION 2: AI CONFIGURATION */}
                         <div className={`${styles.section} ${expandedSection === 'ai' ? styles.expanded : ''}`}>
                             <div className={styles.sectionHeader} onClick={() => toggleSection('ai')}>
-                                <h3><i className={styles.aiIcon}>🤖</i> Global AI Settings</h3>
-                                <span className={styles.chevron}>▼</span>
+                                <h3><i className={styles.aiIcon}></i> Global AI Settings</h3>
+                                <span className={styles.chevron}></span>
                             </div>
                             <div className={styles.sectionContent}>
                                 <div className={styles.field}>
@@ -651,7 +651,7 @@ export default function CompanySettings({ isModal = false, onClose = null }) {
                                 {selectedEngine === 'google' && (
                                     <div style={{ marginTop: '16px', marginBottom: '24px', padding: '18px', background: theme === 'dark' ? 'rgba(26, 115, 232, 0.04)' : 'rgba(26, 115, 232, 0.03)', borderRadius: '12px', border: '1px solid rgba(26, 115, 232, 0.25)' }}>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
-                                            <span style={{ fontSize: '1.2rem' }}>🔷</span>
+                                            <span style={{ fontSize: '1.2rem' }}></span>
                                             <h4 style={{ margin: 0, fontSize: '0.92rem', fontWeight: 700, color: theme === 'dark' ? '#93c5fd' : '#1d4ed8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                                                 Google Gemini API Configuration
                                             </h4>
@@ -685,7 +685,7 @@ export default function CompanySettings({ isModal = false, onClose = null }) {
                                                                 onClick={() => setShowFreeKey(!showFreeKey)}
                                                                 style={{ position: 'absolute', right: '12px', background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '1.1rem' }}
                                                             >
-                                                                {showFreeKey ? '👁️' : '👁️‍🗨️'}
+                                                                {showFreeKey ? '' : ''}
                                                             </button>
                                                         )}
                                                     </div>
@@ -803,7 +803,7 @@ export default function CompanySettings({ isModal = false, onClose = null }) {
                                                                 onClick={() => setShowApiKey(!showApiKey)}
                                                                 style={{ position: 'absolute', right: '12px', background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '1.1rem' }}
                                                             >
-                                                                {showApiKey ? '👁️' : '👁️‍🗨️'}
+                                                                {showApiKey ? '' : ''}
                                                             </button>
                                                         )}
                                                     </div>
@@ -926,8 +926,8 @@ export default function CompanySettings({ isModal = false, onClose = null }) {
                                                     {testingProvider === 'google' ? 'Verifying Google Gemini Key...' : 'Test Google Gemini Key & Detect Models'}
                                                 </button>
                                                 
-                                                {providerErrors.google && <div style={{ color: '#ef4444', fontSize: '0.8rem', padding: '8px 12px', background: 'rgba(239, 68, 68, 0.1)', borderRadius: '8px', border: '1px solid rgba(239, 68, 68, 0.2)' }}>⚠️ {providerErrors.google}</div>}
-                                                {providerSuccesses.google && <div style={{ color: '#10b981', fontSize: '0.8rem', padding: '8px 12px', background: 'rgba(16, 185, 129, 0.1)', borderRadius: '8px', border: '1px solid rgba(16, 185, 129, 0.2)' }}>✅ {providerSuccesses.google}</div>}
+                                                {providerErrors.google && <div style={{ color: '#ef4444', fontSize: '0.8rem', padding: '8px 12px', background: 'rgba(239, 68, 68, 0.1)', borderRadius: '8px', border: '1px solid rgba(239, 68, 68, 0.2)' }}> {providerErrors.google}</div>}
+                                                {providerSuccesses.google && <div style={{ color: '#10b981', fontSize: '0.8rem', padding: '8px 12px', background: 'rgba(16, 185, 129, 0.1)', borderRadius: '8px', border: '1px solid rgba(16, 185, 129, 0.2)' }}> {providerSuccesses.google}</div>}
 
                                                 {/* Google Verified Models Display */}
                                                 <div 
@@ -942,7 +942,7 @@ export default function CompanySettings({ isModal = false, onClose = null }) {
                                                 >
                                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                                                         <div style={{ fontSize: '0.75rem', fontWeight: 700, color: theme === 'dark' ? '#93c5fd' : '#1d4ed8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                                                            ✓ Verified Google Gemini Models
+                                                             Verified Google Gemini Models
                                                         </div>
                                                         <span style={{ fontSize: '0.7rem', padding: '2px 8px', background: theme === 'dark' ? 'rgba(26, 115, 232, 0.25)' : 'rgba(26, 115, 232, 0.12)', color: theme === 'dark' ? '#bfdbfe' : '#1d4ed8', borderRadius: '20px', fontWeight: 600 }}>
                                                             {(verifiedModels.length > 0 ? verifiedModels : defaultGoogleModels).length} Models
@@ -966,7 +966,7 @@ export default function CompanySettings({ isModal = false, onClose = null }) {
                                                                 }}
                                                                 title="Click to select this model"
                                                             >
-                                                                {selectedModel === m ? '✓ ' : ''}{m}
+                                                                {selectedModel === m ? ' ' : ''}{m}
                                                             </span>
                                                         ))}
                                                     </div>
@@ -980,7 +980,7 @@ export default function CompanySettings({ isModal = false, onClose = null }) {
                                 {selectedEngine === 'openrouter' && (
                                     <div style={{ marginTop: '16px', marginBottom: '24px', padding: '18px', background: theme === 'dark' ? 'rgba(99, 102, 241, 0.04)' : 'rgba(99, 102, 241, 0.03)', borderRadius: '12px', border: '1px solid rgba(99, 102, 241, 0.3)' }}>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
-                                            <span style={{ fontSize: '1.2rem' }}>🔮</span>
+                                            <span style={{ fontSize: '1.2rem' }}></span>
                                             <h4 style={{ margin: 0, fontSize: '0.92rem', fontWeight: 700, color: theme === 'dark' ? '#a5b4fc' : '#4f46e5', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                                                 OpenRouter API Gateway Configuration
                                             </h4>
@@ -1013,7 +1013,7 @@ export default function CompanySettings({ isModal = false, onClose = null }) {
                                                                 onClick={() => setShowOpenrouterKey(!showOpenrouterKey)}
                                                                 style={{ position: 'absolute', right: '12px', background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '1.1rem' }}
                                                             >
-                                                                {showOpenrouterKey ? '👁️' : '👁️‍🗨️'}
+                                                                {showOpenrouterKey ? '' : ''}
                                                             </button>
                                                         )}
                                                     </div>
@@ -1122,8 +1122,8 @@ export default function CompanySettings({ isModal = false, onClose = null }) {
                                                     {testingProvider === 'openrouter' ? 'Verifying OpenRouter Key...' : 'Test OpenRouter Key & Detect Models'}
                                                 </button>
                                                 
-                                                {providerErrors.openrouter && <div style={{ color: '#ef4444', fontSize: '0.8rem', padding: '8px 12px', background: 'rgba(239, 68, 68, 0.1)', borderRadius: '8px', border: '1px solid rgba(239, 68, 68, 0.2)' }}>⚠️ {providerErrors.openrouter}</div>}
-                                                {providerSuccesses.openrouter && <div style={{ color: '#10b981', fontSize: '0.8rem', padding: '8px 12px', background: 'rgba(16, 185, 129, 0.1)', borderRadius: '8px', border: '1px solid rgba(16, 185, 129, 0.2)' }}>✅ {providerSuccesses.openrouter}</div>}
+                                                {providerErrors.openrouter && <div style={{ color: '#ef4444', fontSize: '0.8rem', padding: '8px 12px', background: 'rgba(239, 68, 68, 0.1)', borderRadius: '8px', border: '1px solid rgba(239, 68, 68, 0.2)' }}> {providerErrors.openrouter}</div>}
+                                                {providerSuccesses.openrouter && <div style={{ color: '#10b981', fontSize: '0.8rem', padding: '8px 12px', background: 'rgba(16, 185, 129, 0.1)', borderRadius: '8px', border: '1px solid rgba(16, 185, 129, 0.2)' }}> {providerSuccesses.openrouter}</div>}
 
                                                 {/* OpenRouter Verified Models Display */}
                                                 <div 
@@ -1138,7 +1138,7 @@ export default function CompanySettings({ isModal = false, onClose = null }) {
                                                 >
                                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                                                         <div style={{ fontSize: '0.75rem', fontWeight: 700, color: theme === 'dark' ? '#a5b4fc' : '#4f46e5', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                                                            ✓ Authorized OpenRouter Models
+                                                             Authorized OpenRouter Models
                                                         </div>
                                                         <span style={{ fontSize: '0.7rem', padding: '2px 8px', background: theme === 'dark' ? 'rgba(99, 102, 241, 0.25)' : 'rgba(99, 102, 241, 0.12)', color: theme === 'dark' ? '#c7d2fe' : '#4f46e5', borderRadius: '20px', fontWeight: 600 }}>
                                                             {(verifiedOpenRouterModels.length > 0 ? verifiedOpenRouterModels : (MODEL_OPTIONS.openrouter || [])).length} Models
@@ -1149,7 +1149,7 @@ export default function CompanySettings({ isModal = false, onClose = null }) {
                                                     {(verifiedOpenRouterModels.length > 10 || (MODEL_OPTIONS.openrouter || []).length > 10) && (
                                                         <input 
                                                             type="text"
-                                                            placeholder="🔍 Search OpenRouter models (e.g. gemini, claude, llama, deepseek)..."
+                                                            placeholder=" Search OpenRouter models (e.g. gemini, claude, llama, deepseek)..."
                                                             value={modelSearchQuery}
                                                             onChange={(e) => setModelSearchQuery(e.target.value)}
                                                             style={{
@@ -1186,7 +1186,7 @@ export default function CompanySettings({ isModal = false, onClose = null }) {
                                                                     }}
                                                                     title="Click to select this model"
                                                                 >
-                                                                    {selectedModel === m ? '✓ ' : ''}{m}
+                                                                    {selectedModel === m ? ' ' : ''}{m}
                                                                 </span>
                                                             ))}
                                                     </div>
@@ -1200,7 +1200,7 @@ export default function CompanySettings({ isModal = false, onClose = null }) {
                                 {selectedEngine === 'nvidia' && (
                                     <div style={{ marginTop: '16px', marginBottom: '24px', padding: '18px', background: theme === 'dark' ? 'rgba(118, 185, 0, 0.04)' : 'rgba(118, 185, 0, 0.03)', borderRadius: '12px', border: '1px solid rgba(118, 185, 0, 0.3)' }}>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
-                                            <span style={{ fontSize: '1.2rem' }}>⚡</span>
+                                            <span style={{ fontSize: '1.2rem' }}></span>
                                             <h4 style={{ margin: 0, fontSize: '0.92rem', fontWeight: 700, color: theme === 'dark' ? '#bef264' : '#65a30d', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                                                 NVIDIA NIM API Configuration
                                             </h4>
@@ -1233,7 +1233,7 @@ export default function CompanySettings({ isModal = false, onClose = null }) {
                                                                 onClick={() => setShowNvidiaKey(!showNvidiaKey)}
                                                                 style={{ position: 'absolute', right: '12px', background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '1.1rem' }}
                                                             >
-                                                                {showNvidiaKey ? '👁️' : '👁️‍🗨️'}
+                                                                {showNvidiaKey ? '' : ''}
                                                             </button>
                                                         )}
                                                     </div>
@@ -1342,8 +1342,8 @@ export default function CompanySettings({ isModal = false, onClose = null }) {
                                                     {testingProvider === 'nvidia' ? 'Verifying NVIDIA Key...' : 'Test NVIDIA Key & Detect Models'}
                                                 </button>
                                                 
-                                                {providerErrors.nvidia && <div style={{ color: '#ef4444', fontSize: '0.8rem', padding: '8px 12px', background: 'rgba(239, 68, 68, 0.1)', borderRadius: '8px', border: '1px solid rgba(239, 68, 68, 0.2)' }}>⚠️ {providerErrors.nvidia}</div>}
-                                                {providerSuccesses.nvidia && <div style={{ color: '#10b981', fontSize: '0.8rem', padding: '8px 12px', background: 'rgba(16, 185, 129, 0.1)', borderRadius: '8px', border: '1px solid rgba(16, 185, 129, 0.2)' }}>✅ {providerSuccesses.nvidia}</div>}
+                                                {providerErrors.nvidia && <div style={{ color: '#ef4444', fontSize: '0.8rem', padding: '8px 12px', background: 'rgba(239, 68, 68, 0.1)', borderRadius: '8px', border: '1px solid rgba(239, 68, 68, 0.2)' }}> {providerErrors.nvidia}</div>}
+                                                {providerSuccesses.nvidia && <div style={{ color: '#10b981', fontSize: '0.8rem', padding: '8px 12px', background: 'rgba(16, 185, 129, 0.1)', borderRadius: '8px', border: '1px solid rgba(16, 185, 129, 0.2)' }}> {providerSuccesses.nvidia}</div>}
 
                                                 {/* NVIDIA Verified Models Display */}
                                                 <div 
@@ -1358,7 +1358,7 @@ export default function CompanySettings({ isModal = false, onClose = null }) {
                                                 >
                                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                                                         <div style={{ fontSize: '0.75rem', fontWeight: 700, color: theme === 'dark' ? '#bef264' : '#65a30d', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                                                            ✓ Authorized NVIDIA Models
+                                                             Authorized NVIDIA Models
                                                         </div>
                                                         <span style={{ fontSize: '0.7rem', padding: '2px 8px', background: theme === 'dark' ? 'rgba(118, 185, 0, 0.25)' : 'rgba(118, 185, 0, 0.12)', color: theme === 'dark' ? '#ecfccb' : '#4d7c0f', borderRadius: '20px', fontWeight: 600 }}>
                                                             {(verifiedNvidiaModels.length > 0 ? verifiedNvidiaModels : (MODEL_OPTIONS.nvidia || [])).length} Models
@@ -1369,7 +1369,7 @@ export default function CompanySettings({ isModal = false, onClose = null }) {
                                                     {(verifiedNvidiaModels.length > 10 || (MODEL_OPTIONS.nvidia || []).length > 10) && (
                                                         <input 
                                                             type="text"
-                                                            placeholder="🔍 Search NVIDIA models (e.g. gemma, llama, nemotron)..."
+                                                            placeholder=" Search NVIDIA models (e.g. gemma, llama, nemotron)..."
                                                             value={modelSearchQuery}
                                                             onChange={(e) => setModelSearchQuery(e.target.value)}
                                                             style={{
@@ -1406,7 +1406,7 @@ export default function CompanySettings({ isModal = false, onClose = null }) {
                                                                     }}
                                                                     title="Click to select this model"
                                                                 >
-                                                                    {selectedModel === m ? '✓ ' : ''}{m}
+                                                                    {selectedModel === m ? ' ' : ''}{m}
                                                                 </span>
                                                             ))}
                                                     </div>
@@ -1446,8 +1446,8 @@ export default function CompanySettings({ isModal = false, onClose = null }) {
                         {/* SECTION 3: BRANDS & DATABASE */}
                         <div className={`${styles.section} ${expandedSection === 'brands' ? styles.expanded : ''}`}>
                             <div className={styles.sectionHeader} onClick={() => toggleSection('brands')}>
-                                <h3><i className={styles.brandsIcon}>🔖</i> Brands & Database</h3>
-                                <span className={styles.chevron}>▼</span>
+                                <h3><i className={styles.brandsIcon}></i> Brands & Database</h3>
+                                <span className={styles.chevron}></span>
                             </div>
                             <div className={styles.sectionContent}>
                                 <BrandManagement isStandalone={true} />

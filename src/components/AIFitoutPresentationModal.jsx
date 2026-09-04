@@ -4,11 +4,11 @@ import { useTheme } from '../context/ThemeContext';
 import { getFullUrl } from '../utils/urlUtils';
 
 const FITOUT_STEPS = [
-    { id: 'query', label: 'Analyzing Engineering Spec', icon: '🛠️' },
-    { id: 'catalog', label: 'Exploring Fitout Database', icon: '🗄️' },
-    { id: 'filter', label: 'Calculating Material Needs', icon: '📊' },
-    { id: 'match', label: 'Optimizing Element Match', icon: '🏗️' },
-    { id: 'found', label: 'Engineering Solution Found', icon: '✅' }
+    { id: 'query', label: 'Analyzing Engineering Spec', icon: '' },
+    { id: 'catalog', label: 'Exploring Fitout Database', icon: '' },
+    { id: 'filter', label: 'Calculating Material Needs', icon: '' },
+    { id: 'match', label: 'Optimizing Element Match', icon: '' },
+    { id: 'found', label: 'Engineering Solution Found', icon: '' }
 ];
 
 const AIFitoutPresentationModal = ({ 
@@ -42,7 +42,7 @@ const AIFitoutPresentationModal = ({
     const modalRef = useRef(null);
     
     const AI_STEPS = FITOUT_STEPS;
-    const modeIcon = '🛠️';
+    const modeIcon = '';
     
     // Persistent display data: syncs image and description together
     const [memoizedDisplay, setMemoizedDisplay] = useState({
@@ -153,7 +153,7 @@ const AIFitoutPresentationModal = ({
     useEffect(() => {
         if (isOpen) {
             if (status === 'routing') {
-                setLogs(prev => [...prev, '🌐 Orchestrating Fitout Swarm...', '🏗️ Analyzing Structural Spec...', '🤖 AI Router Online'].slice(-5));
+                setLogs(prev => [...prev, ' Orchestrating Fitout Swarm...', ' Analyzing Structural Spec...', ' AI Router Online'].slice(-5));
             } else if (AI_STEPS[stepIndex]) {
                 setLogs(prev => [...prev, `${AI_STEPS[stepIndex].icon} ${AI_STEPS[stepIndex].label}`].slice(-5));
             }
@@ -216,10 +216,10 @@ const AIFitoutPresentationModal = ({
                     <div className={styles.minimizedHeader}>
                         <div className={styles.pulse} style={{ background: getTierColor() }}></div>
                         <span style={{ color: getTierColor() }}>
-                            🏗️ FITOUT: {tier.toUpperCase()} {Math.round(progress)}%
+                             FITOUT: {tier.toUpperCase()} {Math.round(progress)}%
                         </span>
                         <div className={styles.minimizedControls}>
-                             <button className={styles.maximizeBtn} onClick={() => onToggleMinimize(false)}>⛶</button>
+                             <button className={styles.maximizeBtn} onClick={() => onToggleMinimize(false)}></button>
                         </div>
                     </div>
                     <div className={styles.minimizedBody}>
@@ -253,7 +253,7 @@ const AIFitoutPresentationModal = ({
             <div className={`${styles.overlay} ${theme === 'light' ? styles.light : ''}`} onClick={onClose}>
                 <div className={styles.modal} style={{ padding: '40px', textAlign: 'center', borderColor: '#10b981' }} onClick={e => e.stopPropagation()}>
                     <div className={styles.completionHeader}>
-                        <div className={styles.sparkleLarge} style={{ color: '#10b981' }}>✅</div>
+                        <div className={styles.sparkleLarge} style={{ color: '#10b981' }}></div>
                         <h2 style={{ color: '#10b981' }}>FITOUT ANALYSIS COMPLETE</h2>
                         <p>We've successfully optimized and updated your Fitout elements.</p>
                     </div>
@@ -380,7 +380,7 @@ const AIFitoutPresentationModal = ({
                                         <div className={styles.tierNodePulse} />
                                         <div className={styles.tierNodeContent}>
                                             <span className={styles.tierNodeIcon}>
-                                                {tKey === 'budgetary' ? '🛠️' : tKey === 'mid' ? '🏗️' : '🏛️'}
+                                                {tKey === 'budgetary' ? '' : tKey === 'mid' ? '' : ''}
                                             </span>
                                             <span className={styles.tierNodeLabel}>{tKey.toUpperCase()}</span>
                                         </div>
@@ -423,7 +423,7 @@ const AIFitoutPresentationModal = ({
                                     <div className={styles.laneHeader}>
                                         <div className={styles.laneAvatar}>
                                             <div className={styles.avatarInner}>
-                                                {lane.status === 'success' ? '✓' : lane.id.substring(0, 1).toUpperCase()}
+                                                {lane.status === 'success' ? '' : lane.id.substring(0, 1).toUpperCase()}
                                             </div>
                                             {isProcessing && <div className={styles.avatarPulse}></div>}
                                             <div className={styles.laneScanner}></div>
@@ -570,10 +570,10 @@ const AIFitoutPresentationModal = ({
 
                                 return (
                                     <div key={step.id} className={`${styles.step} ${isActive ? styles.active : ''} ${isCurrent ? styles.current : ''} ${isFailed ? styles.failed : ''}`}>
-                                        <span className={styles.stepIcon}>{isFailed ? '❌' : (isActive && !isCurrent ? '✓' : '●')}</span>
+                                        <span className={styles.stepIcon}>{isFailed ? '' : (isActive && !isCurrent ? '' : '')}</span>
                                         <span className={styles.stepLabel} style={isCurrent ? { color: '#10b981' } : {}}>{isFailed ? 'Failed to resolve spec' : step.label}</span>
-                                        {isActive && !isCurrent && !isFailed && <span className={styles.stepCheck} style={{ color: '#10b981' }}>✓</span>}
-                                        {isFinal && status === 'success' && <span className={styles.stepCheck} style={{ color: '#10b981' }}>✓</span>}
+                                        {isActive && !isCurrent && !isFailed && <span className={styles.stepCheck} style={{ color: '#10b981' }}></span>}
+                                        {isFinal && status === 'success' && <span className={styles.stepCheck} style={{ color: '#10b981' }}></span>}
                                     </div>
                                 );
                             })}
@@ -599,7 +599,7 @@ const AIFitoutPresentationModal = ({
 
                 <div className={styles.footer}>
                     <div className={styles.discoveryTag}>
-                       <span className={styles.sparkle}>🛠️</span> 
+                       <span className={styles.sparkle}></span> 
                        {isTransitioning 
                         ? 'SOLVING ENGINEERING SPEC...' 
                         : (status === 'success' || memoizedDisplay.model) 

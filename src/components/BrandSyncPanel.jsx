@@ -76,7 +76,7 @@ const BrandSyncPanel = ({ onClose }) => {
           className={styles.refreshBtn}
           title="Close"
         >
-          ✕
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
         </button>
       </header>
 
@@ -88,7 +88,7 @@ const BrandSyncPanel = ({ onClose }) => {
           {statusData && (
             <div style={{ padding: '2rem' }}>
               <div style={{ marginBottom: '2rem', padding: '1rem', backgroundColor: '#1a1f3a', borderRadius: '8px', border: '1px solid #444' }}>
-                <h2 style={{ marginTop: 0, color: '#fff' }}>📦 Storage Status</h2>
+                <h2 style={{ marginTop: 0, color: '#fff' }}> Storage Status</h2>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: '1rem' }}>
                   <div>
                     <div style={{ color: '#888', fontSize: '0.9rem' }}>Local Brands</div>
@@ -104,7 +104,7 @@ const BrandSyncPanel = ({ onClose }) => {
                   </div>
                 </div>
                 <div style={{ marginTop: '1rem', padding: '0.5rem', backgroundColor: statusData.synced ? '#065f46' : '#7c2d12', borderRadius: '4px', color: statusData.synced ? '#86efac' : '#fed7aa' }}>
-                  {statusData.synced ? '✅ Database is synced' : '⚠️ Database is out of sync'}
+                  {statusData.synced ? ' Database is synced' : ' Database is out of sync'}
                 </div>
               </div>
 
@@ -123,7 +123,7 @@ const BrandSyncPanel = ({ onClose }) => {
                   marginBottom: '2rem'
                 }}
               >
-                {syncStatus === 'syncing' ? '⏳ Syncing...' : '🔄 Sync Now'}
+                {syncStatus === 'syncing' ? ' Syncing...' : ' Sync Now'}
               </button>
 
               {/* Sync Result */}
@@ -136,7 +136,7 @@ const BrandSyncPanel = ({ onClose }) => {
                   marginTop: '1rem'
                 }}>
                   <h3 style={{ marginTop: 0 }}>
-                    {syncStatus === 'success' ? '✅ Sync Successful' : '❌ Sync Failed'}
+                    {syncStatus === 'success' ? ' Sync Successful' : ' Sync Failed'}
                   </h3>
                   <p>{syncResult.message || syncResult.error}</p>
                   {syncResult.synced !== undefined && (
@@ -148,7 +148,7 @@ const BrandSyncPanel = ({ onClose }) => {
               {/* Blob Files List (if available) */}
               {statusData.blobs && statusData.blobs.length > 0 && (
                 <div style={{ marginTop: '2rem' }}>
-                  <h3 style={{ color: '#fff' }}>📋 Synced Brand Files</h3>
+                  <h3 style={{ color: '#fff' }}> Synced Brand Files</h3>
                   <div style={{ overflowY: 'auto', maxHeight: '300px' }}>
                     {statusData.blobs.map((blob, idx) => (
                       <div key={idx} style={{

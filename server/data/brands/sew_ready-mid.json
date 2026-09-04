@@ -1,0 +1,20 @@
+{
+  "id": 1788514997978,
+  "name": "Sew Ready",
+  "logo": "https://www.google.com/s2/favicons?domain=sewready.com&sz=128",
+  "budgetTier": "mid",
+  "origin": "VE-Prescan-Discovery",
+  "products": [
+    {
+      "brand": "Sew Ready",
+      "model": "Pro Stitch Craft Sewing Table",
+      "mainCategory": "Furniture",
+      "subCategory": "",
+      "imageUrl": "",
+      "websiteUrl": "https://www.homedepot.com",
+      "lastUpdated": "2026-09-04T09:43:17.212Z",
+      "source": "VE-Prescan-Discovery"
+    }
+  ],
+  "createdAt": "2026-09-04T09:43:17.212Z"
+}

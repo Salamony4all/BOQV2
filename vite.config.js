@@ -5,6 +5,11 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   plugins: [react()],
   server: {
+    // Never watch the headless-Chrome trust profile: Chrome locks its files
+    // (Cookies, etc.) and the watcher crashes with EBUSY. Also skips dist/temp noise.
+    watch: {
+      ignored: ['**/.lens-chrome-profile/**', '**/dist/**', '**/public/temp/**', '**/uploads/**']
+    },
     proxy: {
       '/api': {
         target: 'http://localhost:3001',

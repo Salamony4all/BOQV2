@@ -95,7 +95,7 @@ const BrandDropdown = ({
                         <span className={styles.placeholder}>{placeholder}</span>
                     )}
                 </div>
-                <span className={styles.triggerArrow}>▼</span>
+                <span className={styles.triggerArrow}></span>
             </div>
 
             {isOpen && (
@@ -121,7 +121,7 @@ const BrandDropdown = ({
                                 >
                                     <img src={getBrandLogo(brand)} alt="" className={styles.optionLogo} onError={(e) => { e.target.onerror = null; e.target.src = getBrandLogoFallback(brand); }} />
                                     <span className={styles.optionName}>{brand.name}</span>
-                                    {isSelected(brand.name) && <span className={styles.checkIcon}>✓</span>}
+                                    {isSelected(brand.name) && <span className={styles.checkIcon}></span>}
                                 </div>
                             ))
                         ) : (
@@ -144,7 +144,7 @@ const BrandDropdown = ({
                                     className={styles.removeChip}
                                     onClick={() => onRemove(brandName)}
                                 >
-                                    ✕
+                                    
                                 </button>
                             </div>
                         );

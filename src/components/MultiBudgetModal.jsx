@@ -139,10 +139,10 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
     }, []);
 
     const VE_UI_CONFIG = {
-        desking: { label: 'Desking Agent', color: '#3b82f6', icon: '💻' },
-        seating: { label: 'Seating Agent', color: '#10b981', icon: '🪑' },
-        softSeating: { label: 'Soft Seating Agent', color: '#8b5cf6', icon: '🛋️' },
-        accessories: { label: 'Accessories Agent', color: '#f59e0b', icon: '📎' }
+        desking: { label: 'Desking Agent', color: '#3b82f6', icon: '' },
+        seating: { label: 'Seating Agent', color: '#10b981', icon: '' },
+        softSeating: { label: 'Soft Seating Agent', color: '#8b5cf6', icon: '' },
+        accessories: { label: 'Accessories Agent', color: '#f59e0b', icon: '' }
     };
 
     const [furnitureStatuses, setFurnitureStatuses] = useState({
@@ -572,7 +572,7 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
         const workableRows = firstTierRows.filter(r => !isHeaderRow(r.description, r) && (!r.scope || !r.scope.toUpperCase().includes('FITOUT')) && r.aiStatus !== 'success');
 
         if (selectionMode === 'categorized' && workableRows.length > 0) {
-            console.log('🚀 [MB AI] Routing items via AI Router...');
+            console.log(' [MB AI] Routing items via AI Router...');
             const routingPayload = workableRows.map(r => ({ id: String(r.id), desc: r.description }));
 
             const getInitialLogo = (cat) => {
@@ -605,14 +605,14 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                 if (routeData.status === 'success' && routeData.categoryMap?.status !== 'error') {
                     categoryMap = routeData.categoryMap;
                 } else {
-                    console.error('❌ [MB AI] Routing failed:', routeData.categoryMap?.error_message);
+                    console.error(' [MB AI] Routing failed:', routeData.categoryMap?.error_message);
                     alert("AI Routing failed: " + (routeData.categoryMap?.error_message || "Unknown error"));
                     setIsFurnitureAutoFilling(false);
                     setSwarm({ active: false, lanes: {}, minimized: false });
                     return;
                 }
             } catch (err) {
-                console.error('❌ [MB AI] Routing fetch failed:', err);
+                console.error(' [MB AI] Routing fetch failed:', err);
                 alert("Network error during AI Routing.");
                 setIsFurnitureAutoFilling(false);
                 setSwarm({ active: false, lanes: {}, minimized: false });
@@ -2731,7 +2731,7 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
         }) || brands.find(b => b.name === row.selectedBrand);
         let brandProducts = activeBrand?.products ? [...activeBrand.products] : [];
 
-        // 🌟 Ensure that whatever the row was matched with (model, categories, url) is always present in brandProducts:
+        //  Ensure that whatever the row was matched with (model, categories, url) is always present in brandProducts:
         if (row.selectedModel) {
             const hasModel = brandProducts.some(p => p && p.model && p.model.toLowerCase().trim() === String(row.selectedModel).toLowerCase().trim());
             if (!hasModel) {
@@ -3077,7 +3077,7 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
 
         if (sampleRows.length === 0) return (
             <div className={styles.emptyState}>
-                <div style={{ fontSize: '3rem', opacity: 0.2 }}>🔍</div>
+                <div style={{ fontSize: '3rem', opacity: 0.2 }}></div>
                 <div style={{ marginTop: '1rem' }}>No data to compare. Select products for each tier first.</div>
             </div>
         );
@@ -3087,9 +3087,9 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                 <thead>
                     <tr>
                         <th style={{ width: '15%' }}>Original Item</th>
-                        <th style={{ width: '28.33%' }} className={`${styles.tierHeader} ${styles.tierBudgetary}`}>💰 Budgetary</th>
-                        <th style={{ width: '28.33%' }} className={`${styles.tierHeader} ${styles.tierMid}`}>⭐ Mid-Range</th>
-                        <th style={{ width: '28.33%' }} className={`${styles.tierHeader} ${styles.tierHigh}`}>👑 High-End</th>
+                        <th style={{ width: '28.33%' }} className={`${styles.tierHeader} ${styles.tierBudgetary}`}> Budgetary</th>
+                        <th style={{ width: '28.33%' }} className={`${styles.tierHeader} ${styles.tierMid}`}> Mid-Range</th>
+                        <th style={{ width: '28.33%' }} className={`${styles.tierHeader} ${styles.tierHigh}`}> High-End</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -3183,7 +3183,7 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
 
                     <div className={styles.header}>
                         <div className={styles.title}>
-                            💰 Multi-Budget Offers
+                             Multi-Budget Offers
                         </div>
                         <button className={styles.closeBtn} onClick={onClose}>×</button>
                     </div>
@@ -3193,19 +3193,19 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                         <div className={styles.topSection}>
                             <div className={styles.mainActions}>
                                 <button className={`${styles.actionCard} ${styles.uploadBoqBtn}`} onClick={handleUploadBoqTrigger}>
-                                    <span style={{ fontSize: '1.4rem' }}>📤</span>
+                                    <span style={{ fontSize: '1.4rem' }}></span>
                                     <span>Upload BOQ</span>
                                 </button>
                                 <button className={`${styles.actionCard} ${styles.genBoqBtn}`} onClick={handleGenerateFromBoq}>
-                                    <span style={{ fontSize: '1.4rem' }}>📋</span>
+                                    <span style={{ fontSize: '1.4rem' }}></span>
                                     <span>Generate from BOQ</span>
                                 </button>
                                 <button className={`${styles.actionCard} ${styles.genPlanBtn}`} onClick={handleUploadPlanTrigger}>
-                                    <span style={{ fontSize: '1.4rem' }}>📐</span>
+                                    <span style={{ fontSize: '1.4rem' }}></span>
                                     <span>Upload Plan</span>
                                 </button>
                                 <button className={`${styles.actionCard} ${styles.createNewBtn}`} onClick={handleCreateNewBoq}>
-                                    <span style={{ fontSize: '1.4rem' }}>➕</span>
+                                    <span style={{ fontSize: '1.4rem' }}></span>
                                     <span>Create New BOQ</span>
                                 </button>
 
@@ -3213,7 +3213,7 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                                     <button className={`${styles.actionCard} ${styles.planPreviewBtn}`} onClick={() => setPlanPreviewOpen(true)}>
                                         <div className={styles.planPreviewThumb}>
                                             {planPreviewType === 'application/pdf' ? (
-                                                <span className={styles.planPreviewPdfIcon} role="img" aria-label="PDF">📄</span>
+                                                <span className={styles.planPreviewPdfIcon} role="img" aria-label="PDF"></span>
                                             ) : (
                                                 <img src={planPreviewUrl} alt={planPreviewName || 'Plan preview'} className={styles.planPreviewThumbImg} />
                                             )}
@@ -3222,11 +3222,11 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                                     </button>
                                 )}
                                 <button className={`${styles.actionCard} ${styles.consolidateBtn} ${isConsolidated ? styles.consolidateBtnActive : ''}`} onClick={() => setIsConsolidated(!isConsolidated)}>
-                                    <span style={{ fontSize: '1.4rem' }}>{isConsolidated ? '🏠' : '📦'}</span>
+                                    <span style={{ fontSize: '1.4rem' }}>{isConsolidated ? '' : ''}</span>
                                     <span>{isConsolidated ? 'Room Wise' : 'Consolidate Items'}</span>
                                 </button>
                                 <button className={`${styles.actionCard} ${styles.addBrandBtn}`} onClick={handleAddBrand}>
-                                    <span style={{ fontSize: '1.4rem' }}>🏢</span>
+                                    <span style={{ fontSize: '1.4rem' }}></span>
                                     <span>Add Brand</span>
                                 </button>
                                 <button
@@ -3234,7 +3234,7 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                                     onClick={handleAutoFillAI}
                                     disabled={isFurnitureAutoFilling}
                                 >
-                                    <span style={{ fontSize: '1.4rem' }}>✨</span>
+                                    <span style={{ fontSize: '1.4rem' }}></span>
                                     <span>
                                         {isFurnitureAutoFilling
                                             ? `AI FURNITURE${furnitureProgress.budgetary?.total > 0 ? ` (${furnitureProgress.budgetary.current}/${furnitureProgress.budgetary.total})` : '...'}`
@@ -3247,7 +3247,7 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                                     onClick={handleFitoutAutoFill}
                                     disabled={isFitoutAutoFilling}
                                 >
-                                    <span style={{ fontSize: '1.4rem' }}>🛠️</span>
+                                    <span style={{ fontSize: '1.4rem' }}></span>
                                     <span>
                                         {isFitoutAutoFilling
                                             ? `AI FITOUT${fitoutProgress.budgetary?.total > 0 ? ` (${fitoutProgress.budgetary.current}/${fitoutProgress.budgetary.total})` : '...'}`

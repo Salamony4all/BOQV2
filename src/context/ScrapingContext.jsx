@@ -57,7 +57,7 @@ export function ScrapingProvider({ children }) {
                 .sort((a, b) => new Date(b.completedAt) - new Date(a.completedAt))[0];
 
             if (match) {
-                console.log(`📂 Found saved backup for ${brandName}:`, match.filename);
+                console.log(` Found saved backup for ${brandName}:`, match.filename);
                 return match;
             }
         } catch (e) {
@@ -191,7 +191,7 @@ export function ScrapingProvider({ children }) {
                                 // Only use if it looks new enough (created after we started)
                                 const fileTime = new Date(fileData.completedAt).getTime();
                                 if (fileTime > startTime) {
-                                    console.log('🎉 RECOVERED FROM SAVED FILE!');
+                                    console.log(' RECOVERED FROM SAVED FILE!');
 
                                     if (pollIntervalId) clearTimeout(pollIntervalId);
                                     pollingRef.current = null;
@@ -218,7 +218,7 @@ export function ScrapingProvider({ children }) {
 
                 // KEEP POLLING - use longer interval when errors occur
                 const nextInterval = getPollingInterval(currentErrorCount);
-                console.log(`🔄 Retrying in ${nextInterval / 1000}s (attempt ${currentErrorCount})`);
+                console.log(` Retrying in ${nextInterval / 1000}s (attempt ${currentErrorCount})`);
                 pollIntervalId = setTimeout(poll, nextInterval);
             }
         };
@@ -233,7 +233,7 @@ export function ScrapingProvider({ children }) {
     // Refresh/Reconnect function - manually restarts polling
     const refreshConnection = useCallback(() => {
         if (scrapingState.taskId && scrapingState.isActive) {
-            console.log('🔄 Manually refreshing connection for task:', scrapingState.taskId);
+            console.log(' Manually refreshing connection for task:', scrapingState.taskId);
 
             setScrapingState(prev => ({
                 ...prev,
@@ -401,7 +401,7 @@ export function ScrapingProvider({ children }) {
                         <div className={`${styles.throbber} ${!scrapingState.isConnected ? styles.paused : ''}`}></div>
                         <div className={styles.progressInfo}>
                             <span className={styles.minimizedText}>
-                                {!scrapingState.isConnected && '⚠️ '}
+                                {!scrapingState.isConnected && ' '}
                                 Scraping {scrapingState.brandName}... {scrapingState.progress}%
                             </span>
                             <span className={`${styles.minimizedStage} ${!scrapingState.isConnected ? styles.errorStage : ''}`}>
@@ -423,7 +423,7 @@ export function ScrapingProvider({ children }) {
                             }}
                             title="Refresh connection"
                         >
-                            🔄
+                            
                         </button>
                         <button
                             className={styles.cancelScrapeBtn}
@@ -441,7 +441,7 @@ export function ScrapingProvider({ children }) {
                 {/* Success Modal State (Transforms from Bar) */}
                 {successData && (
                     <div className={styles.successContent}>
-                        <div className={styles.successIcon}>✅</div>
+                        <div className={styles.successIcon}></div>
                         <div className={styles.successTitle}>Scraping Complete!</div>
                         <div className={styles.successDetails}>
                             Successfully added <strong>{successData.count}</strong> products to <strong>{successData.brandName}</strong>.

@@ -119,7 +119,23 @@ const ThemeToggle = () => {
       }}
       title={`Switch to ${theme === 'dark' ? 'Light' : 'Dark'} Mode`}
     >
-      {theme === 'dark' ? '☀️' : '🌙'}
+      {theme === 'dark' ? (
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="12" cy="12" r="5" />
+          <line x1="12" y1="1" x2="12" y2="3" />
+          <line x1="12" y1="21" x2="12" y2="23" />
+          <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+          <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+          <line x1="1" y1="12" x2="3" y2="12" />
+          <line x1="21" y1="12" x2="23" y2="12" />
+          <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
+          <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+        </svg>
+      ) : (
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+        </svg>
+      )}
     </button>
   );
 };
@@ -178,7 +194,18 @@ const AiModelSelector = ({ defaultGoogleModels }) => {
         }}
         title={`Select AI Model (${currentEngine}: ${currentModel})`}
       >
-        ⚙️
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="4" y="4" width="16" height="16" rx="2" />
+          <rect x="9" y="9" width="6" height="6" />
+          <line x1="9" y1="1" x2="9" y2="4" />
+          <line x1="15" y1="1" x2="15" y2="4" />
+          <line x1="9" y1="20" x2="9" y2="23" />
+          <line x1="15" y1="20" x2="15" y2="23" />
+          <line x1="20" y1="9" x2="23" y2="9" />
+          <line x1="20" y1="14" x2="23" y2="14" />
+          <line x1="1" y1="9" x2="4" y2="9" />
+          <line x1="1" y1="14" x2="4" y2="14" />
+        </svg>
       </button>
 
       {isOpen && (
@@ -198,7 +225,7 @@ const AiModelSelector = ({ defaultGoogleModels }) => {
                 className={`${styles.aiSelectorOption} ${currentModel === m ? styles.aiSelectorOptionActive : ''}`}
               >
                 <span>{m}</span>
-                {currentModel === m && <span className={styles.aiSelectorCheck}>✓</span>}
+                {currentModel === m && <span className={styles.aiSelectorCheck}><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg></span>}
               </button>
             ))
           )}
@@ -281,11 +308,11 @@ function AppContent({ onOpenSettings }) {
     setSessionId(newSessionId);
     sessionStorage.setItem('boq_session_id', newSessionId);
     
-    console.log('🚀 Initializing session:', newSessionId);
+    console.log(' Initializing session:', newSessionId);
 
     // 1. Cleanup previous session if it existed (from a previous refresh or crash)
     if (oldSessionId && oldSessionId !== newSessionId) {
-      console.log('🧹 Requesting cleanup for previous session:', oldSessionId);
+      console.log(' Requesting cleanup for previous session:', oldSessionId);
       fetch(apiUrl('/api/cleanup/session'), { 
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -839,7 +866,6 @@ function uploadToSupabaseWithProgress({ sbUrl, anonKey, bucket, filePath, file, 
               )}
             </div>
             <div style={{ marginLeft: 'auto', marginRight: '1rem', display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <AiModelSelector defaultGoogleModels={defaultGoogleModels} />
               <a
                 href="/extension.zip"
                 download="AutoBrowserBridge-Extension.zip"
@@ -853,6 +879,7 @@ function uploadToSupabaseWithProgress({ sbUrl, anonKey, bucket, filePath, file, 
                 </svg>
                 <span>Extension</span>
               </a>
+              <AiModelSelector defaultGoogleModels={defaultGoogleModels} />
               <ThemeToggle />
             </div>
           </header>
@@ -898,7 +925,7 @@ function uploadToSupabaseWithProgress({ sbUrl, anonKey, bucket, filePath, file, 
             <div className={styles.systemErrorBanner}>
               {systemErrors.map((err, idx) => (
                 <div key={idx} className={styles.systemErrorItem}>
-                  <span>⚠️ {err}</span>
+                  <span> {err}</span>
                   <button onClick={() => setSystemErrors(prev => prev.filter((_, i) => i !== idx))}>×</button>
                 </div>
               ))}
@@ -1031,7 +1058,6 @@ function uploadToSupabaseWithProgress({ sbUrl, anonKey, bucket, filePath, file, 
 
       {/* Theme Toggle & Model Select - Fixed Top Right */}
       <div style={{ position: 'fixed', top: '20px', right: '20px', zIndex: 10000, display: 'flex', alignItems: 'center', gap: '10px' }}>
-        <AiModelSelector defaultGoogleModels={defaultGoogleModels} />
         <a
           href="/extension.zip"
           download="AutoBrowserBridge-Extension.zip"
@@ -1045,6 +1071,7 @@ function uploadToSupabaseWithProgress({ sbUrl, anonKey, bucket, filePath, file, 
           </svg>
           <span>Extension</span>
         </a>
+        <AiModelSelector defaultGoogleModels={defaultGoogleModels} />
         <ThemeToggle />
       </div>
 
@@ -1167,7 +1194,7 @@ function uploadToSupabaseWithProgress({ sbUrl, anonKey, bucket, filePath, file, 
             style={{ cursor: 'pointer', userSelect: 'none' }}
             title="Launch Value Engineered Offer"
           >
-            <h3 className={styles.featureTitle}>✨ VALUE ENGINEERED OFFER</h3>
+            <h3 className={styles.featureTitle}> VALUE ENGINEERED OFFER</h3>
             <p className={styles.featureDesc}>
               Upload your BOQ (Excel/PDF) or Plan drawings, configure category-specific brand preferences, and let the AI produce a single, optimized value-engineered offer — one best-fit product per line item, ready in minutes.
             </p>
@@ -1306,7 +1333,7 @@ function uploadToSupabaseWithProgress({ sbUrl, anonKey, bucket, filePath, file, 
 
       {isGlobalDragging && (
         <div className={styles.dragDropOverlay}>
-          <div className={styles.dragDropIcon}>📥</div>
+          <div className={styles.dragDropIcon}></div>
           <h2 className={styles.dragDropTitle}>Drop BOQ Files Here</h2>
           <p className={styles.dragDropSub}>
             Drop one or multiple PDF / Excel BOQ documents to process and consolidate

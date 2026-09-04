@@ -88,7 +88,7 @@ function TenderAutofillModal({ isOpen, onClose, tables, apiBase }) {
                 if (event.data.event === "progress") {
                     setLogs(prev => [...prev, event.data.data.text]);
                 } else if (event.data.event === "tabClosed") {
-                    setLogs(prev => [...prev, "⚠️ Connection lost: The Tender Board browser tab was closed."]);
+                    setLogs(prev => [...prev, " Connection lost: The Tender Board browser tab was closed."]);
                     setTenderStatus('idle');
                     setSessionInfo({ id: null, vncUrl: null });
                 }
@@ -199,7 +199,7 @@ function TenderAutofillModal({ isOpen, onClose, tables, apiBase }) {
                     }
                 }
             } catch (err) {
-                console.warn('⚠️ Log sync polling error:', err);
+                console.warn(' Log sync polling error:', err);
             }
             // Next poll starts only after the current one completes
             pollingRef.current = setTimeout(poll, 2500);
@@ -218,13 +218,13 @@ function TenderAutofillModal({ isOpen, onClose, tables, apiBase }) {
         setTenderStatus('loading_browser');
         if (useExtension) {
             try {
-                setLogs(prev => [...prev, `🔌 Extension mode active. Connecting to ${isSandbox ? 'Mock Portal Sandbox' : 'Chrome Extension'}...`]);
+                setLogs(prev => [...prev, ` Extension mode active. Connecting to ${isSandbox ? 'Mock Portal Sandbox' : 'Chrome Extension'}...`]);
                 const targetUrl = isSandbox 
                     ? `${window.location.origin}/mock-portal.html` 
                     : "https://etendering.tenderboard.gov.om/product/publicDash?CTRL_STRDIRECTION=LTR";
                 const res = await sendExtensionCommand("connect", { url: targetUrl });
                 setSessionInfo({ id: "extension-session", vncUrl: null });
-                setLogs(prev => [...prev, `✅ Browser tab connected successfully! (Tab ID: ${res.tabId})`]);
+                setLogs(prev => [...prev, ` Browser tab connected successfully! (Tab ID: ${res.tabId})`]);
                 setTenderStatus('ready');
             } catch (err) {
                 setErrorMessage(`Extension Connection Error: ${err.message}`);
@@ -253,11 +253,11 @@ function TenderAutofillModal({ isOpen, onClose, tables, apiBase }) {
     };
 
     const handleMapPlatform = async () => {
-        setLogs(prev => [...prev, `🔍 Mapping platform for ${domainName}...`]);
+        setLogs(prev => [...prev, ` Mapping platform for ${domainName}...`]);
         try {
             let domOutline = null;
             if (useExtension) {
-                setLogs(prev => [...prev, "🔌 Extracting DOM structure from target tab via Extension..."]);
+                setLogs(prev => [...prev, " Extracting DOM structure from target tab via Extension..."]);
                 const domScript = `
                     const elements = [];
                     const traverse = (node, depth = 0) => {
@@ -296,7 +296,7 @@ function TenderAutofillModal({ isOpen, onClose, tables, apiBase }) {
                     return elements.join("\\n");
                 `;
                 domOutline = await sendExtensionCommand("executeScript", { code: domScript });
-                setLogs(prev => [...prev, `✅ DOM outline extracted successfully. Sending to AI for mapping...`]);
+                setLogs(prev => [...prev, ` DOM outline extracted successfully. Sending to AI for mapping...`]);
             }
 
             const response = await fetch(`${apiBase}/api/tender/map-platform`, {
@@ -312,7 +312,7 @@ function TenderAutofillModal({ isOpen, onClose, tables, apiBase }) {
             const data = await response.json();
             if (data.success) {
                 setBlueprint(data.blueprint);
-                setLogs(prev => [...prev, `✅ Platform successfully mapped and blueprint stored.`]);
+                setLogs(prev => [...prev, ` Platform successfully mapped and blueprint stored.`]);
                 return data.blueprint;
             } else {
                 throw new Error(data.error || 'Failed to map platform.');
@@ -339,7 +339,7 @@ function TenderAutofillModal({ isOpen, onClose, tables, apiBase }) {
 
         let activeBlueprint = blueprint;
         if (!activeBlueprint) {
-            setLogs(prev => [...prev, `🔍 Blueprint not found. Automatically mapping platform first...`]);
+            setLogs(prev => [...prev, ` Blueprint not found. Automatically mapping platform first...`]);
             activeBlueprint = await handleMapPlatform();
             if (!activeBlueprint) {
                 setErrorMessage('Automatic platform mapping failed. Cannot run bulk autofill.');
@@ -348,7 +348,7 @@ function TenderAutofillModal({ isOpen, onClose, tables, apiBase }) {
             }
         }
 
-        setLogs(prev => [...prev, `🚀 Deploying bulk script for Page ${currentPage}/${totalPages} (${pageData.length} items)...`]);
+        setLogs(prev => [...prev, ` Deploying bulk script for Page ${currentPage}/${totalPages} (${pageData.length} items)...`]);
 
         if (useExtension) {
             try {
@@ -363,7 +363,7 @@ function TenderAutofillModal({ isOpen, onClose, tables, apiBase }) {
                         window.postMessage({ source: "auto-browser-target-page", data: { text } }, "*");
                     };
 
-                    report("🚀 Starting bulk fill of " + boqData.length + " items directly in page...");
+                    report(" Starting bulk fill of " + boqData.length + " items directly in page...");
 
                     // Fill global fields using smart finder helper
                     const findGlobalInput = (labelOrSelector) => {
@@ -417,9 +417,9 @@ function TenderAutofillModal({ isOpen, onClose, tables, apiBase }) {
                                 el.value = field.value;
                                 el.dispatchEvent(new Event('input', { bubbles: true }));
                                 el.dispatchEvent(new Event('change', { bubbles: true }));
-                                report("✏️ Filled global field: " + field.name + " -> " + field.value);
+                                report(" Filled global field: " + field.name + " -> " + field.value);
                             } else {
-                                report("⚠️ Global field input target not found: " + field.name);
+                                report(" Global field input target not found: " + field.name);
                             }
                         } catch (e) {
                             console.warn("Global field fill error:", e);
@@ -451,14 +451,14 @@ function TenderAutofillModal({ isOpen, onClose, tables, apiBase }) {
                                 input.dispatchEvent(new Event('change', { bubbles: true }));
                                 input.blur();
                                 successCount++;
-                                report("✅ [" + (i + 1) + "/" + boqData.length + "] Filled: " + label + " -> " + priceValue);
+                                report(" [" + (i + 1) + "/" + boqData.length + "] Filled: " + label + " -> " + priceValue);
                             } else {
                                 failCount++;
-                                report("⚠️ [" + (i + 1) + "/" + boqData.length + "] Failed to find input inside row: " + label);
+                                report(" [" + (i + 1) + "/" + boqData.length + "] Failed to find input inside row: " + label);
                             }
                         } catch (err) {
                             failCount++;
-                            report("⚠️ [" + (i + 1) + "/" + boqData.length + "] Error filling row " + label + ": " + err.message);
+                            report(" [" + (i + 1) + "/" + boqData.length + "] Error filling row " + label + ": " + err.message);
                         }
                         await new Promise(r => setTimeout(r, 150));
                     }
@@ -474,9 +474,9 @@ function TenderAutofillModal({ isOpen, onClose, tables, apiBase }) {
                 
                 setLogs(prev => [
                     ...prev, 
-                    `🎉 Chunk completed successfully!`,
-                    `📈 Filled rows: ${res.successCount}`,
-                    `⚠️ Failed/Readonly: ${res.failCount}`
+                    ` Chunk completed successfully!`,
+                    ` Filled rows: ${res.successCount}`,
+                    ` Failed/Readonly: ${res.failCount}`
                 ]);
 
                 if (currentPage >= totalPages) {
@@ -537,7 +537,7 @@ function TenderAutofillModal({ isOpen, onClose, tables, apiBase }) {
                     <div style={{ width: '320px', borderRight: '1px solid #334155', display: 'flex', flexDirection: 'column', backgroundColor: '#1e293b' }}>
                         <div style={{ padding: '20px 16px', borderBottom: '1px solid #334155' }}>
                             <h3 style={{ margin: '0 0 8px 0', color: '#f8fafc', fontSize: '1.05rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <span>📋</span> Global Fields
+                                <span></span> Global Fields
                             </h3>
                             <p style={{ margin: 0, color: '#94a3b8', fontSize: '0.8rem', lineHeight: 1.4 }}>
                                 Define required fields (e.g. Manufacturer, Delivery Schedule) to be filled with the exact same value across <strong>all rows</strong>.
@@ -592,12 +592,12 @@ function TenderAutofillModal({ isOpen, onClose, tables, apiBase }) {
                         {/* Automation Mode Selector */}
                         <div style={{ padding: '16px', borderTop: '1px solid #334155', backgroundColor: '#1e293b' }}>
                             <h3 style={{ margin: '0 0 8px 0', color: '#f8fafc', fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <span>⚙️</span> Automation Mode
+                                <span></span> Automation Mode
                             </h3>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid #334155', paddingBottom: '8px' }}>
                                     <span style={{ fontSize: '0.8rem', color: '#94a3b8', fontWeight: 600 }}>
-                                        {extensionInstalled ? '🔌 Extension Detected' : '⚠️ Extension Missing'}
+                                        {extensionInstalled ? ' Extension Detected' : ' Extension Missing'}
                                     </span>
                                     <a 
                                         href="/extension.zip" 
@@ -621,7 +621,7 @@ function TenderAutofillModal({ isOpen, onClose, tables, apiBase }) {
                                                     setUseExtension(e.target.checked);
                                                     setTenderStatus('idle');
                                                     setSessionInfo({ id: null, vncUrl: null });
-                                                    setLogs(prev => [...prev, `🔄 Switched mode: ${e.target.checked ? 'Chrome Extension' : 'Server Controller'}`]);
+                                                    setLogs(prev => [...prev, ` Switched mode: ${e.target.checked ? 'Chrome Extension' : 'Server Controller'}`]);
                                                 }}
                                                 style={{ opacity: 0, width: 0, height: 0 }}
                                             />
@@ -642,7 +642,7 @@ function TenderAutofillModal({ isOpen, onClose, tables, apiBase }) {
                                 {extensionInstalled && (
                                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: '1px solid #334155', paddingTop: '8px', marginTop: '4px' }}>
                                         <span style={{ fontSize: '0.8rem', color: '#94a3b8', fontWeight: 600 }}>
-                                            🎯 Sandbox Mode (Test)
+                                             Sandbox Mode (Test)
                                         </span>
                                         <label style={{ position: 'relative', display: 'inline-block', width: '38px', height: '20px', margin: 0 }}>
                                             <input 
@@ -653,7 +653,7 @@ function TenderAutofillModal({ isOpen, onClose, tables, apiBase }) {
                                                     setDomainName(e.target.checked ? 'localhost' : 'etendering.tenderboard.gov.om');
                                                     setTenderStatus('idle');
                                                     setSessionInfo({ id: null, vncUrl: null });
-                                                    setLogs(prev => [...prev, `🔄 Target portal switched to: ${e.target.checked ? 'Mock Sandbox' : 'Oman Tender Board (Live)'}`]);
+                                                    setLogs(prev => [...prev, ` Target portal switched to: ${e.target.checked ? 'Mock Sandbox' : 'Oman Tender Board (Live)'}`]);
                                                 }}
                                                 style={{ opacity: 0, width: 0, height: 0 }}
                                             />
@@ -693,7 +693,7 @@ function TenderAutofillModal({ isOpen, onClose, tables, apiBase }) {
                                             onMouseOver={e => { e.currentTarget.style.backgroundColor = '#7dd3fc'; }}
                                             onMouseOut={e => { e.currentTarget.style.backgroundColor = '#38bdf8'; }}
                                         >
-                                            📥 Install Extension (Download ZIP)
+                                             Install Extension (Download ZIP)
                                         </a>
                                         <div style={{ fontSize: '0.75rem', color: '#cbd5e1', lineHeight: 1.4, padding: '10px', background: '#0f172a', borderRadius: '6px', border: '1px solid #334155' }}>
                                             <strong>Quick Install Steps:</strong>
@@ -717,7 +717,7 @@ function TenderAutofillModal({ isOpen, onClose, tables, apiBase }) {
                         {/* Session Fill Progress checklist */}
                         <div style={{ padding: '16px', borderTop: '1px solid #334155', backgroundColor: '#1e293b' }}>
                             <h3 style={{ margin: '0 0 12px 0', color: '#f8fafc', fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <span>📊</span> Fill Progress
+                                <span></span> Fill Progress
                             </h3>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '180px', overflowY: 'auto' }}>
                                 {Array.from({ length: totalPages }, (_, i) => {
@@ -730,20 +730,20 @@ function TenderAutofillModal({ isOpen, onClose, tables, apiBase }) {
                                     const endIdx = Math.min(startIdx + itemsPerPage, payloadData.length);
                                     const rangeText = itemsPerPage === 99999 ? `All (${payloadData.length} items)` : `Items ${startIdx + 1}-${endIdx}`;
 
-                                    let statusIcon = '⏳';
+                                    let statusIcon = '';
                                     let statusColor = '#94a3b8';
                                     let statusText = 'Pending';
 
                                     if (isCompleted) {
-                                        statusIcon = '✅';
+                                        statusIcon = '';
                                         statusColor = '#34d399';
                                         statusText = 'Completed';
                                     } else if (isExecuting) {
-                                        statusIcon = '🔄';
+                                        statusIcon = '';
                                         statusColor = '#38bdf8';
                                         statusText = 'Executing...';
                                     } else if (isActive) {
-                                        statusIcon = '⚡';
+                                        statusIcon = '';
                                         statusColor = '#f59e0b';
                                         statusText = 'Current Page';
                                     }
@@ -795,13 +795,13 @@ function TenderAutofillModal({ isOpen, onClose, tables, apiBase }) {
                                             onClick={setupTenderSession} 
                                             style={{ padding: '6px 12px', background: '#1e293b', border: '1px solid #334155', color: '#cbd5e1', borderRadius: '6px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 600 }}
                                         >
-                                            🔌 Reconnect Tab
+                                             Reconnect Tab
                                         </button>
                                         <button 
                                             onClick={() => setLogs([])} 
                                             style={{ padding: '6px 12px', background: '#1e293b', border: '1px solid #334155', color: '#ef4444', borderRadius: '6px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 600 }}
                                         >
-                                            🧹 Clear Console
+                                             Clear Console
                                         </button>
                                     </div>
                                 </div>
@@ -810,16 +810,16 @@ function TenderAutofillModal({ isOpen, onClose, tables, apiBase }) {
                                 <div style={{ flex: 1, padding: '20px', overflowY: 'auto', fontFamily: 'Courier New, Courier, monospace', fontSize: '0.85rem', color: '#e2e8f0', display: 'flex', flexDirection: 'column', gap: '6px', backgroundColor: '#090f1d' }}>
                                     {logs.length === 0 ? (
                                         <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', height: '100%', color: '#475569', textAlign: 'center' }}>
-                                            <span style={{ fontSize: '2rem', marginBottom: '8px' }}>🤖</span>
+                                            <span style={{ fontSize: '2rem', marginBottom: '8px' }}></span>
                                             <p style={{ margin: 0 }}>Console ready. Click "Execute Bulk Fill" to ignite the pipeline.</p>
                                         </div>
                                     ) : (
                                         logs.map((log, i) => {
                                             let color = '#38bdf8'; // Blue for info
-                                            if (log.includes('✅')) color = '#34d399'; // Green for success
-                                            if (log.includes('🛑') || log.includes('Failed') || log.includes('Error')) color = '#f87171'; // Red for errors
-                                            if (log.includes('⚠️')) color = '#fbbf24'; // Yellow for warnings
-                                            if (log.includes('✏️')) color = '#c084fc'; // Purple for fills
+                                            if (log.includes('')) color = '#34d399'; // Green for success
+                                            if (log.includes('') || log.includes('Failed') || log.includes('Error')) color = '#f87171'; // Red for errors
+                                            if (log.includes('')) color = '#fbbf24'; // Yellow for warnings
+                                            if (log.includes('')) color = '#c084fc'; // Purple for fills
 
                                             return (
                                                 <div key={i} style={{ lineBreak: 'anywhere', whiteSpace: 'pre-wrap', color }}>
@@ -836,14 +836,14 @@ function TenderAutofillModal({ isOpen, onClose, tables, apiBase }) {
                             <>
                                 {tenderStatus === 'loading_browser' && (
                                     <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', color: '#94a3b8' }}>
-                                        <div style={{ fontSize: '2rem', marginBottom: '12px', animation: 'pulse 1.5s infinite' }}>🛸</div>
+                                        <div style={{ fontSize: '2rem', marginBottom: '12px', animation: 'pulse 1.5s infinite' }}></div>
                                         <p style={{ margin: 0, fontSize: '0.9rem' }}>Provisioning secure isolated Chrome container runtime display via internal network...</p>
                                     </div>
                                 )}
 
                                 {tenderStatus === 'error' && (
                                     <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', color: '#f87171', padding: '20px', textAlign: 'center' }}>
-                                        <div style={{ fontSize: '2.5rem', marginBottom: '12px' }}>🛑</div>
+                                        <div style={{ fontSize: '2.5rem', marginBottom: '12px' }}></div>
                                         <p style={{ margin: '0 0 6px 0', fontSize: '1rem', fontWeight: 'bold' }}>Execution Engine Dropped Thread</p>
                                         <p style={{ margin: '0 0 16px 0', color: '#64748b', fontSize: '0.85rem', maxWidth: '400px' }}>{errorMessage}</p>
                                         <button onClick={setupTenderSession} style={{ padding: '8px 20px', background: '#dc2626', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 600, fontSize: '0.8rem' }}>Re-allocate Node Context</button>
@@ -862,14 +862,14 @@ function TenderAutofillModal({ isOpen, onClose, tables, apiBase }) {
                                         </div>
                                     ) : (
                                         <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', color: '#cbd5e1', padding: '20px', textAlign: 'center', background: '#0b1121' }}>
-                                            <div style={{ fontSize: '3rem', marginBottom: '16px' }}>💻</div>
+                                            <div style={{ fontSize: '3rem', marginBottom: '16px' }}></div>
                                             <p style={{ margin: '0 0 6px 0', fontSize: '1.2rem', fontWeight: 'bold', color: '#38bdf8' }}>Local Browser Connected</p>
                                             <p style={{ margin: '0 0 20px 0', color: '#94a3b8', fontSize: '0.9rem', maxWidth: '500px' }}>
                                                 The controller is taking over your local Google Chrome window via Remote Debugging. You can view, interact, and log in directly in the popped Chrome tab.
                                             </p>
                                             <div style={{ display: 'flex', gap: '12px' }}>
                                                 <button onClick={setupTenderSession} style={{ padding: '10px 20px', background: '#1e293b', border: '1px solid #475569', color: '#cbd5e1', borderRadius: '6px', cursor: 'pointer', fontWeight: 600, fontSize: '0.85rem' }}>
-                                                    🔄 Reconnect Browser
+                                                     Reconnect Browser
                                                 </button>
                                             </div>
                                         </div>
@@ -886,7 +886,7 @@ function TenderAutofillModal({ isOpen, onClose, tables, apiBase }) {
                     {/* Left: Latest Telemetry Event */}
                     <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
                         <div style={{ fontSize: '0.8rem', color: '#94a3b8', fontWeight: 'bold', marginBottom: '4px' }}>
-                            <span style={{ color: '#f59e0b' }}>💡 Auto-Fill Agent</span> | {payloadData.length} items mapped
+                            <span style={{ color: '#f59e0b' }}> Auto-Fill Agent</span> | {payloadData.length} items mapped
                         </div>
                         <div style={{ fontFamily: 'monospace', fontSize: '0.9rem', color: '#38bdf8', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                             {logs.length > 0 ? `> ${logs[logs.length - 1]}` : '> Awaiting pipeline ignition sequence...'}
@@ -958,7 +958,7 @@ function TenderAutofillModal({ isOpen, onClose, tables, apiBase }) {
                                     transition: 'all 0.15s ease'
                                 }}
                             >
-                                ◀
+                                
                             </button>
                             <span style={{ color: '#cbd5e1', fontSize: '0.85rem', minWidth: '85px', textAlign: 'center' }}>
                                 Page {currentPage} of {totalPages}
@@ -984,7 +984,7 @@ function TenderAutofillModal({ isOpen, onClose, tables, apiBase }) {
                                     transition: 'all 0.15s ease'
                                 }}
                             >
-                                ▶
+                                
                             </button>
                         </div>
                     </div>
@@ -1005,7 +1005,7 @@ function TenderAutofillModal({ isOpen, onClose, tables, apiBase }) {
                                 fontWeight: 600,
                                 animation: 'fadeInUp 0.3s ease-out'
                             }}>
-                                <span>✅</span> Bulk fill done!
+                                <span></span> Bulk fill done!
                             </div>
                         )}
                         <button
@@ -1023,7 +1023,7 @@ function TenderAutofillModal({ isOpen, onClose, tables, apiBase }) {
                                 transition: 'all 0.15s ease'
                             }}
                         >
-                            🔌 {sessionInfo.id ? 'Reconnect Browser' : 'Connect Browser'}
+                             {sessionInfo.id ? 'Reconnect Browser' : 'Connect Browser'}
                         </button>
 
                         <button
@@ -1043,7 +1043,7 @@ function TenderAutofillModal({ isOpen, onClose, tables, apiBase }) {
                                 boxShadow: (tenderStatus === 'ready' || tenderStatus === 'completed') ? '0 4px 12px rgba(16, 185, 129, 0.3)' : 'none'
                             }}
                         >
-                            {tenderStatus === 'executing' ? `⏳ Running Script...` : `Execute Bulk Fill ⚡`}
+                            {tenderStatus === 'executing' ? ` Running Script...` : `Execute Bulk Fill `}
                         </button>
                     </div>
                 </div>

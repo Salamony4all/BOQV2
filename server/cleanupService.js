@@ -17,7 +17,10 @@ const admin = () => supabaseAdmin || supabase;
 // from this list, so it accumulated indefinitely — keep in sync with every
 // `uploadToSupabase('assets', ...)` call site (server.js, visionBOQExtractor.js,
 // wordExtractorServiceVercel.js, universalPatternParsersVercel.js).
-const EPHEMERAL_ROOT_FOLDERS = ['temp-uploads', 'extracted-images', 'manual-upload', 'vision-crops', 'mupdf-crops'];
+// NOTE: 'extracted-images' is deliberately NOT ephemeral. Extraction rows reference
+// these URLs across sessions and restarts — wiping them orphans every extracted row
+// and kills saved Lens links. Same for 'lens-share/' (single-upload Lens targets).
+const EPHEMERAL_ROOT_FOLDERS = ['temp-uploads', 'manual-upload', 'vision-crops', 'mupdf-crops'];
 
 /**
  * Service to manage file and cloud blob cleanup on session end

@@ -85,8 +85,8 @@ export default function FitoutAutoFillModal({ isOpen, onClose, allBrands = [], a
                                 <span className={styles.countPill}>{selectedBrands.length} selected</span>
                             </span>
                             <div className={styles.quickActions}>
-                                <button className={styles.quickBtn} onClick={selectAll}>✓ All</button>
-                                <button className={`${styles.quickBtn} ${styles.quickBtnDanger}`} onClick={clearAll}>✕ Clear</button>
+                                <button className={styles.quickBtn} onClick={selectAll}> All</button>
+                                <button className={`${styles.quickBtn} ${styles.quickBtnDanger}`} onClick={clearAll}> Clear</button>
                             </div>
                         </div>
 

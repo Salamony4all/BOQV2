@@ -72,7 +72,7 @@ export default function BrandManagement({ onBrandAdded, onBrandUpdated, onClose,
             const data = await res.json();
 
             if (data.success) {
-                alert(`✅ Recovered "${data.brandName}" to Supabase! (Backup preserved on cloud)`);
+                alert(` Recovered "${data.brandName}" to Supabase! (Backup preserved on cloud)`);
                 fetchBrands();
             } else {
                 throw new Error(data.error || 'Unknown error');
@@ -294,7 +294,7 @@ export default function BrandManagement({ onBrandAdded, onBrandUpdated, onClose,
         <div className={`${styles.container} ${isStandalone ? styles.standalone : ''}`}>
             {!isStandalone && (
                 <div className={styles.header}>
-                    <div className={styles.title}>➕ Brand Management</div>
+                    <div className={styles.title}> Brand Management</div>
                     <div className={styles.headerActions}>
                         <button className={styles.supabaseDbBtn} onClick={() => setIsSupabaseDashboardOpen(true)}>
                             <i className="ri-database-2-line"></i>
@@ -308,7 +308,7 @@ export default function BrandManagement({ onBrandAdded, onBrandUpdated, onClose,
             <div className={styles.content}>
                 {/* Add Brand Section */}
                 <div className={styles.sectionHeader}>
-                    <div className={styles.sectionTitle}>🚀 Add New Brand</div>
+                    <div className={styles.sectionTitle}> Add New Brand</div>
                     {isStandalone && (
                         <button className={styles.supabaseDbBtn} onClick={() => setIsSupabaseDashboardOpen(true)}>
                             <i className="ri-database-2-line"></i>
@@ -340,9 +340,9 @@ export default function BrandManagement({ onBrandAdded, onBrandUpdated, onClose,
                     <div className={styles.formGroup}>
                         <label className={styles.label}>Budget Tier</label>
                         <select className={styles.select} value={budgetTier} onChange={e => setBudgetTier(e.target.value)}>
-                            <option value="budgetary">💰 Budgetary</option>
-                            <option value="mid">⭐ Mid-Range</option>
-                            <option value="high">👑 High-End</option>
+                            <option value="budgetary"> Budgetary</option>
+                            <option value="mid"> Mid-Range</option>
+                            <option value="high"> High-End</option>
                         </select>
                     </div>
                 </div>
@@ -356,7 +356,7 @@ export default function BrandManagement({ onBrandAdded, onBrandUpdated, onClose,
                                 className={`${styles.engineBtn} ${scrapingEngine === 'js' ? styles.activeEngine : ''}`}
                                 onClick={() => handleEngineChange('js')}
                             >
-                                <span className={styles.engineIcon}>🟨</span>
+                                <span className={styles.engineIcon}></span>
                                 <div className={styles.engineInfo}>
                                     <span className={styles.engineName}>JS Scraper Service</span>
                                     <span className={styles.engineDesc}>Playwright & Crawlee (High Fidelity)</span>
@@ -367,7 +367,7 @@ export default function BrandManagement({ onBrandAdded, onBrandUpdated, onClose,
                                 className={`${styles.engineBtn} ${scrapingEngine === 'python' ? styles.activeEngine : ''}`}
                                 onClick={() => handleEngineChange('python')}
                             >
-                                <span className={styles.engineIcon}>🟦</span>
+                                <span className={styles.engineIcon}></span>
                                 <div className={styles.engineInfo}>
                                     <span className={styles.engineName}>Python Scraper Service</span>
                                     <span className={styles.engineDesc}>FastAPI, Requests & AI (High Performance)</span>
@@ -385,18 +385,18 @@ export default function BrandManagement({ onBrandAdded, onBrandUpdated, onClose,
                         >
                             {scrapingEngine === 'js' ? (
                                 <>
-                                    <option value="standard">🤖 Universal Scraper (Intelligent WooCommerce/Standard)</option>
-                                    <option value="architonic">🔧 Specialized Scraper (Architonic)</option>
-                                    <option value="ai">🤖 AI Scraper (Legacy Structure-based)</option>
-                                    <option value="scrapling">🧠 Scrapling (Legacy Playwright Python)</option>
+                                    <option value="standard"> Universal Scraper (Intelligent WooCommerce/Standard)</option>
+                                    <option value="architonic"> Specialized Scraper (Architonic)</option>
+                                    <option value="ai"> AI Scraper (Legacy Structure-based)</option>
+                                    <option value="scrapling"> Scrapling (Legacy Playwright Python)</option>
                                 </>
                             ) : (
                                 <>
-                                    <option value="py_universal">🐍 Universal Scraper (Python API)</option>
-                                    <option value="py_architonic">🔧 Architonic Platform (Python API)</option>
-                                    <option value="py_requests">🐍 Python Requests (Fast / API-based)</option>
-                                    <option value="italian">🇮🇹 Italian Furniture (Martex, Manerba, etc.)</option>
-                                    <option value="firecrawl">🔥 Firecrawl AI (Complex / Unstructured sites)</option>
+                                    <option value="py_universal"> Universal Scraper (Python API)</option>
+                                    <option value="py_architonic"> Architonic Platform (Python API)</option>
+                                    <option value="py_requests"> Python Requests (Fast / API-based)</option>
+                                    <option value="italian"> Italian Furniture (Martex, Manerba, etc.)</option>
+                                    <option value="firecrawl"> Firecrawl AI (Complex / Unstructured sites)</option>
                                 </>
                             )}
                         </select>
@@ -405,25 +405,25 @@ export default function BrandManagement({ onBrandAdded, onBrandUpdated, onClose,
 
                 <div className={styles.actionRow}>
                     <button className={styles.getProductsBtn} onClick={handleScraping} disabled={loading || !name || !website}>
-                        {loading ? 'Processing...' : '🔍 Start Harvesting'}
+                        {loading ? 'Processing...' : ' Start Harvesting'}
                     </button>
                 </div>
 
                 {/* Cloud Recovery */}
                 <div className={styles.cloudBackupsHeader}>
                     <div className={styles.cloudBackupsTitle}>
-                        <span>☁️ Cloud Backups (Railway)</span>
+                        <span> Cloud Backups (Railway)</span>
                         <button 
                             onClick={(e) => { e.preventDefault(); fetchRailwayFiles(); }}
                             className={styles.refreshIconBtn}
                             title="Force Refresh"
                         >
-                            🔄
+                            
                         </button>
                     </div>
                     {dashboardUrl && (
                         <a href={dashboardUrl} target="_blank" rel="noopener noreferrer" className={styles.externalLink}>
-                            🔗 Manage Volume
+                             Manage Volume
                         </a>
                     )}
                 </div>
@@ -449,14 +449,14 @@ export default function BrandManagement({ onBrandAdded, onBrandUpdated, onClose,
                                             onClick={() => handleImportRailway(file.filename)}
                                             disabled={importingRailway === file.filename || deletingRailway === file.filename}
                                         >
-                                            {importingRailway === file.filename ? '⏳' : '📥'} Recover
+                                            {importingRailway === file.filename ? '' : ''} Recover
                                         </button>
                                         <button
                                             className={`${styles.actionBtn} ${styles.miniDeleteBtn}`}
                                             onClick={() => handleDeleteRailway(file.filename)}
                                             disabled={importingRailway === file.filename || deletingRailway === file.filename}
                                         >
-                                            {deletingRailway === file.filename ? '...' : '🗑️'}
+                                            {deletingRailway === file.filename ? '...' : ''}
                                         </button>
                                     </div>
                                 </div>
@@ -466,7 +466,7 @@ export default function BrandManagement({ onBrandAdded, onBrandUpdated, onClose,
                 </div>
 
                 {/* DB Management */}
-                <div className={styles.excelSectionTitle}>📥 Excel Database Operations</div>
+                <div className={styles.excelSectionTitle}> Excel Database Operations</div>
                 <div className={styles.description}>Bulk update products using Excel.</div>
 
                 <div className={styles.brandListScrollContainer}>
@@ -484,13 +484,13 @@ export default function BrandManagement({ onBrandAdded, onBrandUpdated, onClose,
                                     </div>
                                     <div className={styles.brandActions}>
                                         <button className={`${styles.actionBtn} ${styles.miniDownloadBtn}`} onClick={() => handleDownloadDB(brand.id)}>
-                                            📥 Export
+                                             Export
                                         </button>
                                         <button className={`${styles.actionBtn} ${styles.miniUploadBtn}`} onClick={() => handleUploadClick(brand.id)}>
-                                            📤 {importingId === brand.id ? '...' : 'Import'}
+                                             {importingId === brand.id ? '...' : 'Import'}
                                         </button>
                                         <button className={`${styles.actionBtn} ${styles.miniDeleteBtn}`} onClick={() => handleDeleteBrand(brand)} disabled={deletingId === brand.id}>
-                                            🗑️ {deletingId === brand.id ? '...' : 'Delete'}
+                                             {deletingId === brand.id ? '...' : 'Delete'}
                                         </button>
                                     </div>
                                 </div>

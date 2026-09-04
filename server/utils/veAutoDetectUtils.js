@@ -285,16 +285,51 @@ export function repairAndExtractUrls(text) {
 }
 
 /**
+ * True when the URL belongs to a marketplace/dealer host (never an official manufacturer link).
+ */
+export function isMarketplaceUrl(urlStr) {
+    if (!urlStr || typeof urlStr !== 'string') return false;
+    try {
+        const host = new URL(urlStr.startsWith('http') ? urlStr : `https://${urlStr}`).hostname.toLowerCase();
+        return /(^|\.)(amazon|noon|ikea|ebay|ubuy|desertcart|alibaba|made-in-china|moodie)\.[a-z.]+$/.test(host);
+    } catch { return false; }
+}
+
+/**
  * Deterministically checks for specified brand/manufacturer in description or reference URLs.
+ * Manufacturer-domain URLs win over dealer-alias URLs (e.g. moonako.fr beats moodie.com.au
+ * even when the dealer link appears first). Raw dealer URLs are preserved as supplierUrls.
  */
 export function detectSpecifiedBrandInText(text) {
     if (!text || typeof text !== 'string') return null;
 
-    // 1. Direct URL check with line-wrap healing
+    // 1. Direct URL check with line-wrap healing — manufacturer domains preferred.
+    // Collect every brand-mapped URL first; a raw manufacturer-domain URL (host matches
+    // the canonical brand host) wins. Otherwise the first mapped URL wins but links
+    // canonically, with raw dealer URLs kept as supplier references.
     const urlMatches = repairAndExtractUrls(text);
+    const mapped = [];
     for (const urlStr of urlMatches) {
         const info = cleanDomainToBrand(urlStr);
-        if (info && info.name) return { brand: info.name, url: urlStr };
+        if (info && info.name) mapped.push({ brand: info.name, canonical: info.websiteUrl || urlStr, sourceUrl: urlStr });
+    }
+    if (mapped.length > 0) {
+        const hostOf = (u) => {
+            try { return new URL(u.startsWith('http') ? u : `https://${u}`).hostname.replace(/^www\./i, '').toLowerCase(); }
+            catch { return ''; }
+        };
+        for (const m of mapped) {
+            const rawHost = hostOf(m.sourceUrl), canHost = hostOf(m.canonical);
+            if (rawHost && canHost && (rawHost === canHost || rawHost.endsWith(`.${canHost}`) || canHost.endsWith(`.${rawHost}`))) {
+                const others = mapped.filter((x) => x.sourceUrl !== m.sourceUrl).map((x) => x.sourceUrl);
+                return { brand: m.brand, url: m.sourceUrl, sourceUrl: m.sourceUrl, domain: rawHost, supplierUrls: others };
+            }
+        }
+        const first = mapped[0];
+        const firstHost = hostOf(first.sourceUrl);
+        const suppliers = mapped.map((x) => x.sourceUrl).filter((u) => u !== first.canonical);
+        if (!suppliers.includes(first.sourceUrl) && first.sourceUrl !== first.canonical) suppliers.unshift(first.sourceUrl);
+        return { brand: first.brand, url: first.canonical, sourceUrl: first.sourceUrl, domain: firstHost, supplierUrls: suppliers };
     }
 
     // 2. Explicit Maker / Manufacturer / Brand key labels in specification
@@ -404,10 +439,13 @@ export function extractSpecifiedProductDetails(text) {
     }
 
 
-    // 3. URL Path/Query model extraction (fallback if no explicit model pattern in text)
-    if (!candidateModel && brandInfo.url) {
+    // 3. URL Path/Query model extraction — mine EVERY raw URL (dealer ?product=
+    // params often carry the model even when linking goes canonical manufacturer)
+    if (!candidateModel) {
+      const urlsToMine = [brandInfo.sourceUrl, ...(brandInfo.supplierUrls || []), brandInfo.url].filter(Boolean);
+      for (const mineUrl of urlsToMine) {
         try {
-            const u = new URL(brandInfo.url);
+            const u = new URL(mineUrl);
             const productParam = u.searchParams.get('product') || '';
             if (productParam) {
                 const cleanParam = productParam.replace(/^\d+-moonako-?/i, '').replace(/[-_]/g, ' ').trim();
@@ -425,7 +463,9 @@ export function extractSpecifiedProductDetails(text) {
                     candidateModel = cleanPath.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
                 }
             }
+            if (candidateModel) break; // mined from this URL — stop
         } catch (e) {}
+      }
     }
 
     // 4. Extract dimensions, finishes, and type
@@ -441,6 +481,8 @@ export function extractSpecifiedProductDetails(text) {
     return {
         brand: brandInfo.brand,
         url: brandInfo.url,
+        sourceUrl: brandInfo.sourceUrl || brandInfo.url || '',
+        supplierUrls: brandInfo.supplierUrls || [],
         model: candidateModel,
         size,
         finish,
@@ -567,6 +609,7 @@ export async function veMatchAuto(description, providerModel = null, assets = []
                         imageUrl: exactProduct.imageUrl || (exactProduct.images && exactProduct.images[0]) || '',
                         websiteUrl: specifiedDetails.url || exactProduct.productUrl || '',
                         productUrl: specifiedDetails.url || exactProduct.productUrl || '',
+                        supplierReferences: specifiedDetails.supplierUrls || [],
                         price: exactProduct.price || 0,
                         currency: exactProduct.currency || 'USD',
                         description: exactProduct.description || '',
@@ -595,6 +638,7 @@ export async function veMatchAuto(description, providerModel = null, assets = []
                     family: specifiedDetails.model.split(/[\s\-_]/)[0] || '',
                     websiteUrl: specifiedDetails.url || '',
                     productUrl: specifiedDetails.url || '',
+                    supplierReferences: specifiedDetails.supplierUrls || [],
                     price: 0,
                     currency: 'USD',
                     description: `Specified Manufacturer: ${specifiedDetails.brand} | Model: ${specifiedDetails.model}${specifiedDetails.size ? ` | Size: ${specifiedDetails.size}` : ''}${specifiedDetails.finish ? ` | Finish: ${specifiedDetails.finish}` : ''}`,

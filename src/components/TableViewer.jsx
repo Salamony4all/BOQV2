@@ -126,7 +126,7 @@ function TableViewer({
 
                 // If the background positional pairing is completed
                 if (meta && meta.isReady && meta.rows) {
-                    console.log('🎉 Background native image matching ready! Updating TableViewer tables.');
+                    console.log(' Background native image matching ready! Updating TableViewer tables.');
 
                     setTables(prevTables => {
                         return prevTables.map(table => {
@@ -3480,7 +3480,7 @@ function TableViewer({
     // ===================== PREMIUM PRESENTATION PDF =====================
     const handleGeneratePptPdf = async (sourceTables, templateId = 'corporate') => {
         try {
-            console.log(`🚀 [Frontend] Generating PPTX natively with template ${templateId} to send for PDF conversion...`);
+            console.log(` [Frontend] Generating PPTX natively with template ${templateId} to send for PDF conversion...`);
 
             // Generate the PPTX natively in frontend to ensure identical styling
             const pptxBase64 = await handleGeneratePresentation(sourceTables, true, templateId);
@@ -3523,9 +3523,9 @@ function TableViewer({
             window.URL.revokeObjectURL(url);
             document.body.removeChild(a);
 
-            console.log('✅ [Background] Presentation PDF downloaded.');
+            console.log(' [Background] Presentation PDF downloaded.');
         } catch (err) {
-            console.error('❌ [Background] Presentation PDF error:', err);
+            console.error(' [Background] Presentation PDF error:', err);
             alert(`Failed to generate high-fidelity PDF: ${err.message}.`);
         }
     };
@@ -3870,7 +3870,7 @@ function TableViewer({
                 style={isCosted ? { border: '1px solid #f59e0b', background: 'rgba(245, 158, 11, 0.05)' } : {}}>
                 <div className={styles.tableHeader}>
                     <h3 className={styles.sheetName} style={isCosted ? { color: '#f59e0b' } : {}} >
-                        {isCosted ? '💰 ' : ''}Sheet: {table.sheetName} {isCosted ? '(Simulated Costs)' : ''}
+                        {isCosted ? ' ' : ''}Sheet: {table.sheetName} {isCosted ? '(Simulated Costs)' : ''}
                     </h3>
                     <span className={styles.rowCount}>
                         {table.rows.length} rows × {table.columnCount} columns
@@ -3898,7 +3898,7 @@ function TableViewer({
                                             <tr className={styles.sectionHeaderRow}>
                                                 <td colSpan={(table.header?.length || 0) + 1} className={styles.sectionHeaderCell}>
                                                     <div className={styles.sectionHeaderContent}>
-                                                        <span className={styles.sectionIcon}>📁</span>
+                                                        <span className={styles.sectionIcon}></span>
                                                         <span className={styles.sectionTitleText}>{row.sectionLabel}</span>
                                                         {row.pageNum && <span className={styles.sectionPageBadge}>Page {row.pageNum}</span>}
                                                     </div>
@@ -4010,10 +4010,10 @@ function TableViewer({
                                                             fontWeight: 600,
                                                             boxShadow: '0 2px 6px rgba(99, 102, 241, 0.3)'
                                                         }}
-                                                        title="✨ AI Auto-Match & Inspector (Opens live multimodal matcher with real-time throbber & alternatives)"
+                                                        title=" AI Auto-Match & Inspector (Opens live multimodal matcher with real-time throbber & alternatives)"
                                                         onClick={() => handleOpenSemanticMatch(tableIndex, rowIndex, row, table.header)}
                                                     >
-                                                        ✨
+                                                        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="currentColor" style={{ display: 'block' }}><path d="M12 2 L14.5 9.5 L22 12 L14.5 14.5 L12 22 L9.5 14.5 L2 12 L9.5 9.5 Z" /></svg>
                                                     </button>
                                                     <button className={`${styles.actionBtn} ${styles.addBtn}`} onClick={() => handleAddRow(tableIndex, rowIndex)}>+</button>
                                                     <button className={`${styles.actionBtn} ${styles.removeBtn}`} onClick={() => handleRemoveRow(tableIndex, rowIndex)}>×</button>
@@ -4096,7 +4096,7 @@ function TableViewer({
 
             {/* 1. Original Data Top Header */}
             <div className={styles.header}>
-                <h2 className={styles.title}>📋 Extracted Data ({tables.length} {tables.length === 1 ? 'Table' : 'Tables'})</h2>
+                <h2 className={styles.title}> Extracted Data ({tables.length} {tables.length === 1 ? 'Table' : 'Tables'})</h2>
             </div>
 
             {/* Render Original Tables */}
@@ -4114,7 +4114,7 @@ function TableViewer({
                         onClick={() => setProjectPanelOpen(true)}
                         title="Project Settings — fills info on all generated documents"
                     >
-                        ☰ Project Settings
+                         Project Settings
                         {(project.projectName || project.clientName) && (
                             <span className={actionStyles.projectBadge}>
                                 {project.projectName || project.clientName}
@@ -4123,28 +4123,28 @@ function TableViewer({
                     </button>
                 </div>
                 <div className={actionStyles.buttonGroup}>
-                    <button className={actionStyles.actionBtn} onClick={() => handleDownloadPDF(tables, 'Original_Offer')}>📄 Download Offer PDF</button>
-                    <button className={actionStyles.actionBtn} onClick={() => handleDownloadExcel(tables, 'Original_Offer')}>📊 Download Offer Excel</button>
+                    <button className={actionStyles.actionBtn} onClick={() => handleDownloadPDF(tables, 'Original_Offer')}> Download Offer PDF</button>
+                    <button className={actionStyles.actionBtn} onClick={() => handleDownloadExcel(tables, 'Original_Offer')}> Download Offer Excel</button>
                     <button
                         className={`${actionStyles.actionBtn} ${generatingType === 'pptx_original' ? actionStyles.loading : ''}`}
                         onClick={() => triggerPptxExport(tables, false, false)}
                         disabled={!!generatingType}
                     >
-                        {generatingType === 'pptx_original' ? '⏳ Generating...' : '📽️ Generate Presentation'}
+                        {generatingType === 'pptx_original' ? ' Generating...' : ' Generate Presentation'}
                     </button>
                     <button
                         className={`${actionStyles.actionBtn} ${generatingType === 'pdf_original' ? actionStyles.loading : ''}`}
                         onClick={() => triggerPptxExport(tables, true, false)}
                         disabled={!!generatingType}
                     >
-                        {generatingType === 'pdf_original' ? '⏳ Generating...' : '📑 Presentation PDF'}
+                        {generatingType === 'pdf_original' ? ' Generating...' : ' Presentation PDF'}
                     </button>
 
-                    <button className={actionStyles.actionBtn} onClick={() => handleGenerateMas(tables)}>📋 Generate MAS</button>
-                    <button className={`${actionStyles.actionBtn} ${actionStyles.actionBtnMir}`} onClick={() => handleGenerateMIR(tables)}>🔍 Generate MIR</button>
-                    <button className={`${actionStyles.actionBtn} ${actionStyles.actionBtnWir}`} onClick={() => handleGenerateWIR(tables)}>🔧 Generate WIR</button>
-                    <button className={`${actionStyles.actionBtn} ${actionStyles.actionBtnDn}`} onClick={() => handleGenerateDeliveryNote(tables)}>🚚 Delivery Note</button>
-                    <button className={`${actionStyles.actionBtn} ${actionStyles.actionBtnDn}`} style={{ background: '#10b981', color: '#ffffff', borderColor: '#059669', fontWeight: '500' }} onClick={() => setTenderAutofillOpen(true)}>🤖 Autofill on Tender Board</button>
+                    <button className={actionStyles.actionBtn} onClick={() => handleGenerateMas(tables)}> Generate MAS</button>
+                    <button className={`${actionStyles.actionBtn} ${actionStyles.actionBtnMir}`} onClick={() => handleGenerateMIR(tables)}> Generate MIR</button>
+                    <button className={`${actionStyles.actionBtn} ${actionStyles.actionBtnWir}`} onClick={() => handleGenerateWIR(tables)}> Generate WIR</button>
+                    <button className={`${actionStyles.actionBtn} ${actionStyles.actionBtnDn}`} onClick={() => handleGenerateDeliveryNote(tables)}> Delivery Note</button>
+                    <button className={`${actionStyles.actionBtn} ${actionStyles.actionBtnDn}`} style={{ background: '#10b981', color: '#ffffff', borderColor: '#059669', fontWeight: '500' }} onClick={() => setTenderAutofillOpen(true)}> Autofill on Tender Board</button>
                 </div>
             </div>
 
@@ -4153,16 +4153,16 @@ function TableViewer({
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginTop: '2rem', marginBottom: '2rem' }}>
                 <div style={{ display: 'flex', gap: '2rem', justifyContent: 'center', flexWrap: 'wrap' }}>
                     <button className={actionStyles.btnCostingTrigger} onClick={() => setCostingOpen(true)}>
-                        💰 Apply Costing Factors
+                         Apply Costing Factors
                     </button>
                     <button className={actionStyles.btnMultiBudget} onClick={() => setMultiBudgetOpen(true)}>
-                        📦 Multi Budget Offer
+                         Multi Budget Offer
                     </button>
                     <button
                         className={actionStyles.btnAiValueEngineer}
                         onClick={() => setValueEngineeredOpen(true)}
                     >
-                        ✨ AI Value Engineer
+                         AI Value Engineer
                     </button>
                     <label className={actionStyles.btnMultiBudget} style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', background: '#0f766e', borderColor: '#0d9488' }}>
                         <input
@@ -4178,7 +4178,7 @@ function TableViewer({
                                 e.target.value = '';
                             }}
                         />
-                        ➕ Append / Batch BOQs
+                         Append / Batch BOQs
                     </label>
                 </div>
                 {costingFactors && (
@@ -4192,7 +4192,7 @@ function TableViewer({
             {costedTables && (
                 <div id="costed-results" style={{ animation: 'fadeInUp 0.5s ease' }}>
                     <div className={styles.header}>
-                        <h2 className={styles.title} style={{ color: UI_COLORS.costing }}>💰 Cost Simulation Results</h2>
+                        <h2 className={styles.title} style={{ color: UI_COLORS.costing }}> Cost Simulation Results</h2>
                     </div>
                     {renderTableList(costedTables, true)}
 
@@ -4205,7 +4205,7 @@ function TableViewer({
                                 onClick={() => setProjectPanelOpen(true)}
                                 title="Project Settings"
                             >
-                                ☰ Project Settings
+                                 Project Settings
                                 {(project.projectName || project.clientName) && (
                                     <span className={actionStyles.projectBadge}>
                                         {project.projectName || project.clientName}
@@ -4214,27 +4214,27 @@ function TableViewer({
                             </button>
                         </div>
                         <div className={actionStyles.buttonGroup}>
-                            <button className={actionStyles.actionBtn} onClick={() => handleDownloadPDF(costedTables, 'Costed_Offer')}>📄 Download Costed PDF</button>
-                            <button className={actionStyles.actionBtn} onClick={() => handleDownloadExcel(costedTables, 'Costed_Offer')}>📊 Download Costed Excel</button>
+                            <button className={actionStyles.actionBtn} onClick={() => handleDownloadPDF(costedTables, 'Costed_Offer')}> Download Costed PDF</button>
+                            <button className={actionStyles.actionBtn} onClick={() => handleDownloadExcel(costedTables, 'Costed_Offer')}> Download Costed Excel</button>
                             <button
                                 className={`${actionStyles.actionBtn} ${generatingType === 'pptx_costed' ? actionStyles.loading : ''}`}
                                 onClick={() => triggerPptxExport(costedTables, false, true)}
                                 disabled={!!generatingType}
                             >
-                                {generatingType === 'pptx_costed' ? '⏳ Generating...' : '📽️ Generate Costed Presentation'}
+                                {generatingType === 'pptx_costed' ? ' Generating...' : ' Generate Costed Presentation'}
                             </button>
                             <button
                                 className={`${actionStyles.actionBtn} ${generatingType === 'pdf_costed' ? actionStyles.loading : ''}`}
                                 onClick={() => triggerPptxExport(costedTables, true, true)}
                                 disabled={!!generatingType}
                             >
-                                {generatingType === 'pdf_costed' ? '⏳ Generating...' : '📑 Costed Presentation PDF'}
+                                {generatingType === 'pdf_costed' ? ' Generating...' : ' Costed Presentation PDF'}
                             </button>
 
-                            <button className={actionStyles.actionBtn} onClick={() => handleGenerateMas(costedTables)}>📋 Generate Costed MAS</button>
-                            <button className={`${actionStyles.actionBtn} ${actionStyles.actionBtnMir}`} onClick={() => handleGenerateMIR(costedTables)}>🔍 Generate Costed MIR</button>
-                            <button className={`${actionStyles.actionBtn} ${actionStyles.actionBtnWir}`} onClick={() => handleGenerateWIR(costedTables)}>🔧 Generate Costed WIR</button>
-                            <button className={`${actionStyles.actionBtn} ${actionStyles.actionBtnDn}`} onClick={() => handleGenerateDeliveryNote(costedTables)}>🚚 Costed Delivery Note</button>
+                            <button className={actionStyles.actionBtn} onClick={() => handleGenerateMas(costedTables)}> Generate Costed MAS</button>
+                            <button className={`${actionStyles.actionBtn} ${actionStyles.actionBtnMir}`} onClick={() => handleGenerateMIR(costedTables)}> Generate Costed MIR</button>
+                            <button className={`${actionStyles.actionBtn} ${actionStyles.actionBtnWir}`} onClick={() => handleGenerateWIR(costedTables)}> Generate Costed WIR</button>
+                            <button className={`${actionStyles.actionBtn} ${actionStyles.actionBtnDn}`} onClick={() => handleGenerateDeliveryNote(costedTables)}> Costed Delivery Note</button>
                         </div>
                     </div>
                 </div>

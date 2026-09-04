@@ -39,7 +39,7 @@ export async function executeValueEngineeredAI_API(description, targetBrand, qty
             success: data.status === 'success' || data.success === true
         };
     } catch (error) {
-        console.error('❌ [AI Utils] executeValueEngineeredAI_API failed:', error);
+        console.error(' [AI Utils] executeValueEngineeredAI_API failed:', error);
         return { success: false, error: error.message };
     }
 }
@@ -65,7 +65,7 @@ export async function executeValueEngineeredRouting_API(items) {
         
         return await response.json();
     } catch (error) {
-        console.error('❌ [AI Utils] executeValueEngineeredRouting_API failed:', error);
+        console.error(' [AI Utils] executeValueEngineeredRouting_API failed:', error);
         return { status: 'error', error_message: error.message };
     }
 }

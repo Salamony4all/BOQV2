@@ -3,25 +3,25 @@ import { useProject } from '../context/ProjectContext';
 import styles from '../styles/ProjectSettingsPanel.module.css';
 
 const FIELDS = [
-    { key: 'projectName', label: 'Project Name', placeholder: 'e.g. Al Rayyan Tower Fit-Out', icon: '🏗️' },
-    { key: 'projectNumber', label: 'Project Number', placeholder: 'e.g. PRJ-2026-001', icon: '🔢' },
-    { key: 'clientName', label: 'Client / Owner', placeholder: 'e.g. ABC Holding Group', icon: '👤' },
-    { key: 'clientLogo', label: 'Client Logo', type: 'image', icon: '🖼️' },
-    { key: 'locationZone', label: 'Location / Zone', placeholder: 'e.g. Zone B – Level 3', icon: '📍' },
-    { key: 'contractor', label: 'Contractor', placeholder: 'e.g. XYZ Contracting LLC', icon: '🏢', toggleKey: 'includeContractor' },
-    { key: 'consultant', label: 'Consultant', placeholder: 'e.g. AECOM Middle East', icon: '📐', toggleKey: 'includeConsultant' },
-    { key: 'siteEngineer', label: 'Site Engineer', placeholder: 'e.g. Eng. Ahmed Al-Rashid', icon: '👷' },
-    { key: 'issueDate', label: 'Issue Date', placeholder: '', icon: '📅', type: 'date' },
-    { key: 'revision', label: 'Revision', placeholder: 'e.g. Rev 0', icon: '🔄' },
-    { key: 'mirReference', label: 'MIR Reference / Code', placeholder: 'e.g. MIR-001', icon: '📝' },
-    { key: 'wirReference', label: 'WIR Reference / Code', placeholder: 'e.g. WIR-001', icon: '📝' },
-    { key: 'brand', label: 'Brand', placeholder: 'e.g. Dauphin', icon: '🏷️' },
-    { key: 'brandOrigin', label: 'Brand / Origin (Preset)', placeholder: 'e.g. Sony / Japan', icon: '🏷️' },
-    { key: 'unitOfMeasure', label: 'Unit of Measure (Preset)', placeholder: 'e.g. PCS, Nos', icon: '📏' },
-    { key: 'originatorName', label: 'Originator Name', placeholder: 'e.g. John Doe', icon: '👤' },
-    { key: 'originatorDesignation', label: 'Originator Designation', placeholder: 'e.g. QA/QC Engineer', icon: '📛' },
-    { key: 'clientRepName', label: 'Client Rep Name', placeholder: 'e.g. Jane Smith', icon: '👤' },
-    { key: 'clientRepDesignation', label: 'Client Rep Designation', placeholder: 'e.g. Project Manager', icon: '📛' },
+    { key: 'projectName', label: 'Project Name', placeholder: 'e.g. Al Rayyan Tower Fit-Out', icon: '' },
+    { key: 'projectNumber', label: 'Project Number', placeholder: 'e.g. PRJ-2026-001', icon: '' },
+    { key: 'clientName', label: 'Client / Owner', placeholder: 'e.g. ABC Holding Group', icon: '' },
+    { key: 'clientLogo', label: 'Client Logo', type: 'image', icon: '' },
+    { key: 'locationZone', label: 'Location / Zone', placeholder: 'e.g. Zone B – Level 3', icon: '' },
+    { key: 'contractor', label: 'Contractor', placeholder: 'e.g. XYZ Contracting LLC', icon: '', toggleKey: 'includeContractor' },
+    { key: 'consultant', label: 'Consultant', placeholder: 'e.g. AECOM Middle East', icon: '', toggleKey: 'includeConsultant' },
+    { key: 'siteEngineer', label: 'Site Engineer', placeholder: 'e.g. Eng. Ahmed Al-Rashid', icon: '' },
+    { key: 'issueDate', label: 'Issue Date', placeholder: '', icon: '', type: 'date' },
+    { key: 'revision', label: 'Revision', placeholder: 'e.g. Rev 0', icon: '' },
+    { key: 'mirReference', label: 'MIR Reference / Code', placeholder: 'e.g. MIR-001', icon: '' },
+    { key: 'wirReference', label: 'WIR Reference / Code', placeholder: 'e.g. WIR-001', icon: '' },
+    { key: 'brand', label: 'Brand', placeholder: 'e.g. Dauphin', icon: '' },
+    { key: 'brandOrigin', label: 'Brand / Origin (Preset)', placeholder: 'e.g. Sony / Japan', icon: '' },
+    { key: 'unitOfMeasure', label: 'Unit of Measure (Preset)', placeholder: 'e.g. PCS, Nos', icon: '' },
+    { key: 'originatorName', label: 'Originator Name', placeholder: 'e.g. John Doe', icon: '' },
+    { key: 'originatorDesignation', label: 'Originator Designation', placeholder: 'e.g. QA/QC Engineer', icon: '' },
+    { key: 'clientRepName', label: 'Client Rep Name', placeholder: 'e.g. Jane Smith', icon: '' },
+    { key: 'clientRepDesignation', label: 'Client Rep Designation', placeholder: 'e.g. Project Manager', icon: '' },
 ];
 
 export default function ProjectSettingsPanel({ isOpen, onClose }) {
@@ -77,7 +77,7 @@ export default function ProjectSettingsPanel({ isOpen, onClose }) {
                 {/* Header */}
                 <div className={styles.drawerHeader}>
                     <div className={styles.headerLeft}>
-                        <span className={styles.headerIcon}>☰</span>
+                        <span className={styles.headerIcon}></span>
                         <div>
                             <h2 className={styles.headerTitle}>Project Settings</h2>
                             <p className={styles.headerSub}>These details appear on all generated documents</p>
@@ -167,7 +167,7 @@ export default function ProjectSettingsPanel({ isOpen, onClose }) {
                         className={`${styles.saveBtn} ${saved ? styles.saveBtnSuccess : ''}`}
                         onClick={handleSave}
                     >
-                        {saved ? '✓ Saved!' : '💾 Save Settings'}
+                        {saved ? ' Saved!' : ' Save Settings'}
                     </button>
                 </div>
             </div>

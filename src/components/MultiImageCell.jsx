@@ -192,12 +192,12 @@ export default function MultiImageCell({
             >
                 {isDragOver ? (
                     <div className={styles.dropOverlay}>
-                        <span>📥</span>
+                        <span></span>
                         <span style={{ fontSize: '0.58rem' }}>Drop here</span>
                     </div>
                 ) : (
                     <>
-                        <span className={styles.emptyIcon}>📷</span>
+                        <span className={styles.emptyIcon}></span>
                         <span className={styles.emptyText}>No Ref</span>
                     </>
                 )}
@@ -221,7 +221,7 @@ export default function MultiImageCell({
             {/* Drag-over indicator overlay */}
             {isDragOver && (
                 <div className={styles.dropOverlay}>
-                    <span>📥</span>
+                    <span></span>
                     <span style={{ fontSize: '0.62rem' }}>Add Asset</span>
                 </div>
             )}
@@ -250,7 +250,7 @@ export default function MultiImageCell({
                         </button>
                     )}
                     <div className={styles.hoverOverlay}>
-                        <span className={styles.zoomIcon}>🔍</span>
+                        <span className={styles.zoomIcon}></span>
                     </div>
                 </div>
             )}

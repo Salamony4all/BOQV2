@@ -304,7 +304,7 @@ const AIPresentationModal = ({
                             {type?.toUpperCase() === 'FITOUT' ? 'FITOUT' : 'FURNITURE'}: {tier.toUpperCase()} {Math.round(progress)}%
                         </span>
                         <div className={styles.minimizedControls}>
-                             <button className={styles.maximizeBtn} onClick={(e) => { e.stopPropagation(); onToggleMinimize(false); }}>⛶</button>
+                             <button className={styles.maximizeBtn} onClick={(e) => { e.stopPropagation(); onToggleMinimize(false); }}></button>
                         </div>
                     </div>
                     <div className={styles.minimizedBody}>
@@ -603,10 +603,10 @@ const AIPresentationModal = ({
                                         key={step.id} 
                                         className={`${styles.step} ${isActive ? styles.active : ''} ${isCurrent ? styles.current : ''} ${isFailed ? styles.failed : ''}`}
                                     >
-                                        <span className={styles.stepIcon}>{isFailed ? 'X' : (isActive && !isCurrent ? '✓' : '')}</span>
+                                        <span className={styles.stepIcon}>{isFailed ? 'X' : (isActive && !isCurrent ? '' : '')}</span>
                                         <span className={styles.stepLabel}>{isFailed ? 'Failed to process row' : step.label}</span>
                                         {isActive && !isCurrent && !isFailed && <span className={styles.stepCheck}></span>}
-                                        {isFinal && status === 'success' && <span className={styles.stepCheck}>✓</span>}
+                                        {isFinal && status === 'success' && <span className={styles.stepCheck}></span>}
                                     </div>
                                 );
                             })}

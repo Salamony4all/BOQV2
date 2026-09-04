@@ -156,7 +156,7 @@ const PlanAnalyzerModal = ({ isOpen, onClose, onApply }) => {
                 <div className={styles.header}>
                     <div className={styles.titleGroup}>
                         <div className={styles.title}>
-                            <span className={styles.pulseIcon}>◈</span>
+                            <span className={styles.pulseIcon}></span>
                             Precision Plan AI Analyzer
                         </div>
                         <div className={styles.subtitle}>
@@ -169,7 +169,7 @@ const PlanAnalyzerModal = ({ isOpen, onClose, onApply }) => {
                 <div className={styles.content}>
                     {error && (
                         <div className={styles.errorMsg}>
-                            <span className={styles.errorIcon}>⚠️</span>
+                            <span className={styles.errorIcon}></span>
                             {error}
                         </div>
                     )}
@@ -187,7 +187,7 @@ const PlanAnalyzerModal = ({ isOpen, onClose, onApply }) => {
                                     onChange={handleFileSelection}
                                 />
                                 <div className={styles.dropZoneContent}>
-                                    <div className={styles.dropIcon}>📁</div>
+                                    <div className={styles.dropIcon}></div>
                                     <h3>Upload Floor Plans</h3>
                                     <p>Select one or more architectural drawings (PDF/JPG/PNG)</p>
                                     <button className={styles.browseBtn} onClick={handleBrowseClick}>Browse Files</button>
@@ -222,13 +222,13 @@ const PlanAnalyzerModal = ({ isOpen, onClose, onApply }) => {
                             <div className={styles.sectionTitle} style={{ marginTop: '1.5rem', width: '100%', maxWidth: '800px', textAlign: 'left' }}>Extraction Scope</div>
                             <div className={styles.scopeCards}>
                                 <div className={styles.scopeCard} onClick={() => startAnalysis('furniture')}>
-                                    <div className={styles.scopeIcon}>🛋️</div>
+                                    <div className={styles.scopeIcon}></div>
                                     <div className={styles.scopeTitle}>Loose Furniture</div>
                                     <div className={styles.scopeDesc}>Extract only desks, chairs, sofas, and standalone items.</div>
                                 </div>
                                 
                                 <div className={styles.scopeCard} onClick={() => startAnalysis('both')}>
-                                    <div className={styles.scopeIcon}>🏗️</div>
+                                    <div className={styles.scopeIcon}></div>
                                     <div className={styles.scopeTitle}>Furniture & Fitout</div>
                                     <div className={styles.scopeDesc}>Comprehensive extraction including partitions, walls, and flooring.</div>
                                 </div>
@@ -324,7 +324,7 @@ const PlanAnalyzerModal = ({ isOpen, onClose, onApply }) => {
                     
                     {stage === 'results' && (
                         <button className={styles.applyBtn} onClick={handleApplyResults}>
-                            {hasAutoApplied ? 'Done' : 'Apply to Project BOQ ⚡'}
+                            {hasAutoApplied ? 'Done' : 'Apply to Project BOQ '}
                         </button>
                     )}
                 </div>
