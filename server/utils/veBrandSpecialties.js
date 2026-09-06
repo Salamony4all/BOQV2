@@ -4,8 +4,10 @@
  */
 
 export const BRAND_SPECIALTIES = {
-  // Auditorium & Theater Seating
+  // Auditorium & Theater Seating (TMA = LEADCOM highest priority)
   auditoriumAndTheater: [
+    'tma',
+    'leadcom',
     'figueras',
     'ares line',
     'cinearredo',
@@ -14,8 +16,47 @@ export const BRAND_SPECIALTIES = {
     'quinette gallay',
     'ezcaray seating',
     'destro',
-    'jezet seating',
-    'leadcom'
+    'jezet seating'
+  ],
+
+  // Cinema Seating (Ferco-led)
+  cinemaSeating: [
+    'ferco seating',
+    'leadcom',
+    'camatic',
+    'figueras',
+    'skeie',
+    'quinette gallay'
+  ],
+
+  // Dining & Restaurant Seating
+  diningSeating: [
+    'pedrali',
+    'andreu world',
+    'ton',
+    'billiani',
+    'et al.',
+    'et al. (metalmobil)',
+    'very wood',
+    'gaber',
+    'magis',
+    'plank',
+    'sokoa'
+  ],
+
+  // Urban Outdoor & Public Realm
+  urbanOutdoor: [
+    'mmcité',
+    'mmcite',
+    'escofet',
+    'santa & cole',
+    'santa and cole',
+    'metalco',
+    'benito urban',
+    'vondom',
+    'pedrali',
+    'attf (automatic terrazzo tiles factory)',
+    'assarain concrete products'
   ],
 
   // Classroom & Multi-Purpose Stackable Seating
@@ -68,10 +109,10 @@ export const BRAND_SPECIALTIES = {
   softSeating: [
     'b&t',
     'b&t design',
+    'pedrali',
+    'arper',
     'b t_design',
     'divani',
-    'arper',
-    'pedrali',
     'poliform',
     'amara',
     'frezza',
@@ -84,14 +125,15 @@ export const BRAND_SPECIALTIES = {
     'las'
   ],
 
-  // Task Seating & Office Chairs (1,372 catalog products in DB)
+  // Task Seating & Office Chairs (Narbutas > Sedus > Sokoa > RIM-led)
   taskSeating: [
+    'narbutas',
+    'sedus',
+    'sedus stoll',
     'sokoa',
     'rim',
     'dauphin',
     'dauphin products__collections_and_more',
-    'sedus',
-    'sedus stoll',
     'mw',
     'mw structure_test',
     'ottimo',
@@ -103,22 +145,22 @@ export const BRAND_SPECIALTIES = {
     'teknion me'
   ],
 
-  // Desking & Workstations (1,326 catalog products in DB)
+  // Desking & Workstations (Narbutas > Ottimo > Ismobil-led)
   desking: [
     'narbutas',
-    'nurus',
     'ottimo',
     'ottimo furniture',
+    'ismobil',
+    'las',
+    'mw',
+    'mw structure_test',
+    'nurus',
     'frezza',
     'teknion',
     'teknion me',
     'sedus',
     'sedus stoll',
-    'ofifran',
-    'ismobil',
-    'las',
-    'mw',
-    'mw structure_test'
+    'ofifran'
   ],
 
   // Meeting Tables & Coffee Tables
@@ -216,6 +258,21 @@ export const DOMAIN_EXCLUSIONS = {
 export function detectSpecArchetype(description, categoryHint = '') {
   const text = `${description} ${categoryHint}`.toLowerCase();
 
+  // 0. Retail / generic accessories sold on consumer marketplaces (Amazon, Noon,
+  // IKEA). A retailer product URL means a retail item: keep the exact listing
+  // as primary and source fast-delivery GCC equivalents — never contract chairs.
+  const isRetailMarketplace = /https?:\/\/(www\.)?(amazon|noon|ikea|homecentre|home centre)\.[a-z.]+\//i.test(text);
+  if (isRetailMarketplace) {
+    return 'genericAccessories';
+  }
+
+  // 0. Cinema Seating (strict chair/seating keywords — checked before auditorium
+  // so shared words like "tip-up" don't drag cinema rows into theater)
+  const isCinemaSeating = /\b(cinema\s*chairs?|cinema\s*seating|cinema\s*seats?|movie\s*theater|multiplex\s*seating)\b/i.test(text);
+  if (isCinemaSeating) {
+    return 'cinemaSeating';
+  }
+
   // 0. Auditorium & Theater Seating (Highest Specificity)
   const isAuditorium = /\b(theatre\s*seats|theater\s*seats|theatre|theater|auditorium|cinema|tip-up|tip\s*up|gravity\s*set|row\s*numbering|stadium\s*seating)\b/i.test(text);
   if (isAuditorium) {
@@ -232,6 +289,20 @@ export function detectSpecArchetype(description, categoryHint = '') {
   const isFolding = /\b(foldable\s*chair|folding\s*chair|round\s*chair\s*\(\s*foldable\s*\)|round\s*foldable\s*chair|foldable\s*stool|folding\s*stool|x-shape\s*legs|x-shape|x\s*shape|handle\s*to\s*carry|portable\s*chair|portable\s*stool|collapsible\s*chair|collapsible\s*stool)\b/i.test(text);
   if (isFolding) {
     return 'foldingAndPortableSeating';
+  }
+
+  // 0.4 Dining & Restaurant Seating (product-type + chair/seating required, so
+  // "bistro table" and "dining table" still fall through to tables)
+  const isDiningSeating = /\b(dining\s*chairs?|dining\s*seating|restaurant\s*chairs?|restaurant\s*seating|bistro\s*(chair|seating)|cafe\s*chair|caf[eé]\s*chair|brasserie\s*chair|banquette\s*seating)\b/i.test(text);
+  if (isDiningSeating) {
+    return 'diningSeating';
+  }
+
+  // 0.5 Urban Outdoor & Public Realm (street/park furniture — not terrazzo,
+  // which is claimed above; generic "bench" still routes to public seating)
+  const isUrbanOutdoor = /\b(urban\s*furniture|park\s*bench|street\s*bench|urban\s*bench|bollards?|litter\s*bins?|bus\s*shelter|public\s*realm)\b/i.test(text);
+  if (isUrbanOutdoor) {
+    return 'urbanOutdoor';
   }
 
   // 1. Classroom & Multi-Purpose Stackable Seating
@@ -295,7 +366,8 @@ export function detectSpecArchetype(description, categoryHint = '') {
     text.includes('castors') ||
     text.includes('stool');
 
-  // 6. Tables & Coffee Tables
+  // 6. Tables & Coffee Tables (incl. work/folding/training tables — "swiveled
+  // casters" must not drag these into taskSeating; tables win on priority)
   const isTable = text.includes('coffee table') ||
     text.includes('side table') ||
     text.includes('center table') ||
@@ -303,7 +375,19 @@ export function detectSpecArchetype(description, categoryHint = '') {
     text.includes('meeting table') ||
     text.includes('conference table') ||
     text.includes('boardroom table') ||
-    text.includes('dining table');
+    text.includes('dining table') ||
+    text.includes('working table') ||
+    text.includes('work table') ||
+    text.includes('folding table') ||
+    text.includes('foldable table') ||
+    text.includes('training table') ||
+    text.includes('flip-top') ||
+    text.includes('flip top') ||
+    text.includes('tilt-top') ||
+    text.includes('tilt top') ||
+    text.includes('height-adjustable table') ||
+    text.includes('height adjustable table') ||
+    text.includes('sit-stand');
 
   // 7. Desking / Workstations
   const isDesk = text.includes('desk') ||

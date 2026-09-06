@@ -44,11 +44,22 @@ export default function AISemanticMatchModal({
   const [lensImageUrl, setLensImageUrl] = useState(null);
   const [lensPickNote, setLensPickNote] = useState('');
   const [lensCandidates, setLensCandidates] = useState([]);
-  const extensionInstalled = document.documentElement.getAttribute('data-auto-browser-extension-installed') === 'true';
-  // Kill-switch: extension path disabled until the content-script injection issue
-  // is resolved. Lens runs via plain Google tab (uploadbyurl) with the auto-picked
-  // best image. Set true to re-enable silent background matching.
-  const LENS_EXTENSION_ENABLED = false;
+  const [extensionInstalled, setExtensionInstalled] = useState(
+    () => typeof document !== 'undefined' && document.documentElement.getAttribute('data-auto-browser-extension-installed') === 'true'
+  );
+  // The content script sets the flag + fires this event when it loads, which
+  // can be after this modal mounted — listen so the Lens tab lights up live.
+  useEffect(() => {
+    const check = () => {
+      if (document.documentElement.getAttribute('data-auto-browser-extension-installed') === 'true') setExtensionInstalled(true);
+    };
+    check();
+    window.addEventListener('AutoBrowserExtensionReady', check);
+    return () => window.removeEventListener('AutoBrowserExtensionReady', check);
+  }, []);
+  // Extension bridge live: Lens runs in your own trusted tab (your IP trust
+  // passes captcha), results return over the page message bridge.
+  const LENS_EXTENSION_ENABLED = true;
   const lensSilentAvailable = LENS_EXTENSION_ENABLED && extensionInstalled;
 
   // ── Image URL helpers ──────────────────────────────────────────────────────
@@ -176,7 +187,15 @@ export default function AISemanticMatchModal({
         } catch { clearTimeout(timer); resolve(null); }
       };
       img.onerror = () => { clearTimeout(timer); resolve(null); };
-      img.src = resolveLocalUrl(url);
+      // Score through our own same-origin proxy for public URLs: a direct
+      // cross-origin load taints the canvas (getImageData throws → unscored),
+      // so the colorful photo could never win. Local paths resolve as before.
+      try {
+        const apiBase = getApiBase();
+        img.src = (typeof url === 'string' && url.startsWith('http') && !url.includes('localhost') && !url.includes('127.0.0.1'))
+          ? `${apiBase}/api/image-proxy?url=${encodeURIComponent(url)}`
+          : resolveLocalUrl(url);
+      } catch { img.src = resolveLocalUrl(url); }
     } catch { resolve(null); }
   });
 
@@ -192,7 +211,13 @@ export default function AISemanticMatchModal({
     const photos = candidates.filter((u) => !isLogoLike(u));
     const pool = photos.length > 0 ? photos : candidates;
     try {
-      const scored = await Promise.all(pool.map(async (u) => ({ u, s: await scoreImageColor(u) })));
+      let scored = await Promise.all(pool.map(async (u) => ({ u, s: await scoreImageColor(u) })));
+      // One retry for the unreadable: proxy hiccups are transient, and a missed
+      // photo defaults the whole run to a drawing.
+      if (scored.some((r) => !r.s)) {
+        await new Promise((r) => setTimeout(r, 1500));
+        scored = await Promise.all(scored.map(async (r) => (r.s ? r : { u: r.u, s: await scoreImageColor(r.u) })));
+      }
       if (typeof console !== 'undefined' && console.table) {
         try {
           console.table(scored.map((r) => ({
@@ -227,7 +252,7 @@ export default function AISemanticMatchModal({
           ranked: [...finalists, ...ok.filter((r) => (r.gray || r.graphic) && !finalists.includes(r))].map((r) => ({ url: r.u, color: Math.round(r.s.colorfulness), uniq: r.s.uniqueColors, size: `${r.s.w}×${r.s.h}`, final: Math.round(r.final), gray: r.gray, graphic: r.graphic }))
         };
       }
-      if (unscored > 0) console.warn(`[Lens] all ${pool.length} candidates unreadable (CORS/hotlink?) — using first image`);
+      if (unscored > 0) console.warn(`[Lens] ${unscored} of ${pool.length} candidates unreadable even via proxy:`, scored.filter((r) => !r.s).map((r) => String(r.u).slice(-72)));
     } catch (e) {
       console.warn('[Lens] color scoring failed, using first image:', e.message);
     }
@@ -290,6 +315,59 @@ export default function AISemanticMatchModal({
   };
   const rankedLensVisuals = [...lensVisuals].sort((a, b) => lensBrandScore(b) - lensBrandScore(a));
 
+  // Live maker check state (declared before makerCard — its subtitle reads it).
+  const [makerLive, setMakerLive] = useState(null);
+  const makerVerifyRef = React.useRef('');
+  // The maker, from your spec (not from Lens): when AI resolved the brand plus
+  // its official page, it leads the Lens tab — Lens below only hunts lookalikes.
+  // Lens has no question box, so asking it "who makes this" was never possible.
+  const makerCardUrl = autoDetectResult?.websiteUrl || autoDetectResult?.productUrl || '';
+  let makerCardHost = '';
+  try { makerCardHost = new URL(makerCardUrl).hostname.replace(/^www\./i, ''); } catch { /* no usable URL */ }
+  const makerCard = (autoDetectResult?.brand && makerCardHost && !/amazon|noon|ebay|alibaba|aliexpress/i.test(makerCardHost)) ? (
+    <div style={{
+      background: 'rgba(16,185,129,0.12)',
+      border: '1px solid rgba(16,185,129,0.5)',
+      borderRadius: '10px', padding: '12px 14px',
+      display: 'flex', alignItems: 'center', gap: '12px'
+    }}>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <span style={{ background: 'rgba(16,185,129,0.3)', color: '#a7f3d0', borderRadius: '20px', padding: '1px 8px', fontSize: '0.67rem', fontWeight: 700, display: 'inline-block', marginBottom: '3px' }}> SPECIFIED MANUFACTURER</span>
+        <div style={{ color: '#a7f3d0', fontWeight: 600, fontSize: '0.85rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{`${autoDetectResult.brand}${autoDetectResult.model ? ` ${autoDetectResult.model}` : ''} — official page`}</div>
+        <div style={{ color: '#64748b', fontSize: '0.73rem', marginTop: '2px' }}> {makerCardHost}{makerLive === true ? ' · verified live at maker' : ' · from your spec, not a Lens guess'}</div>
+      </div>
+      <a
+        href={makerCardUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        style={{ color: '#34d399', fontSize: '0.75rem', textDecoration: 'none', padding: '5px 12px', border: '1px solid rgba(52,211,153,0.4)', borderRadius: '6px', whiteSpace: 'nowrap', flexShrink: 0 }}
+      >
+         View →
+      </a>
+    </div>
+  ) : null;
+
+  // Live maker check: confirm the spec's maker URL really carries this model.
+  // Runs once per item, silently — a dead link keeps the card, just unbadged.
+  useEffect(() => {
+    if (!makerCard || !makerCardUrl) return;
+    const key = `${item?.id || item?.item_code || 'auto'}|${makerCardUrl}`;
+    if (makerVerifyRef.current === key) return;
+    makerVerifyRef.current = key;
+    setMakerLive(null);
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 30000);
+    fetch(`${getApiBase()}/api/maker/verify`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      signal: ctrl.signal,
+      body: JSON.stringify({ url: makerCardUrl, brand: autoDetectResult?.brand || '', model: autoDetectResult?.model || '' })
+    }).then((r) => r.json()).catch(() => null).then((d) => {
+      clearTimeout(t);
+      if (makerVerifyRef.current === key) setMakerLive(d?.verified === true);
+    });
+    return () => { clearTimeout(t); ctrl.abort(); };
+  }, [makerCardUrl, autoDetectResult?.brand, autoDetectResult?.model]);
+
   // Animate loading stages smoothly
   useEffect(() => {
     let timer1, timer2;
@@ -319,14 +397,16 @@ export default function AISemanticMatchModal({
       setLensPickNote('');
       setLensError(null);
       setLensCandidates([]);
-      lensAnchoredRef.current = false;
+      lensAnchoredRef.current = '';
+      makerVerifyRef.current = '';
+      setMakerLive(null);
 
       // ① AI match — starts immediately
       runFullTestSimulation(initialDesc);
 
       // ② Lens match — pick the best colored photo across all cell images and
-      // resolve it once to a public URL. Silent extension matching is disabled
-      // (LENS_EXTENSION_ENABLED=false); the manual Lens tab link uses this URL.
+      // resolve it once to a public URL. Extension silent match runs first when
+      // installed; otherwise the server-headless path (capability-gated).
       const candidates = collectLensCandidates();
 
       if (candidates.length > 0) {
@@ -370,7 +450,9 @@ export default function AISemanticMatchModal({
       setLensPickNote('');
       setLensError(null);
       setLensCandidates([]);
-      lensAnchoredRef.current = false;
+      lensAnchoredRef.current = '';
+      makerVerifyRef.current = '';
+      setMakerLive(null);
     }
   }, [isOpen, item]);
 
@@ -502,6 +584,7 @@ export default function AISemanticMatchModal({
    */
   const runServerHeadlessLens = async (targetUrl, brand, model, idSuffix = 'server') => {
     if (!targetUrl) return;
+    const seq = ++lensRunSeqRef.current; // supersede older runs, same as extension path
     setLensLoading(true);
     setLensRunMode('server');
     setLensResults(null);
@@ -518,6 +601,7 @@ export default function AISemanticMatchModal({
       }).then((r) => r.json()).catch(() => null);
       clearTimeout(timer);
       setLensLoading(false);
+      if (seq !== lensRunSeqRef.current) return; // superseded by a newer anchored run
       if (sc?.success && Array.isArray(sc?.visualMatches)) {
         setLensResults({
           itemId: `${item?.id || item?.item_code || 'auto'}-${idSuffix}`,
@@ -548,22 +632,79 @@ export default function AISemanticMatchModal({
    */
   const triggerLensMatch = (imageUrl, itemId, anchor = null) => {
     if (!LENS_EXTENSION_ENABLED || !extensionInstalled || !imageUrl) return;
+    // Liveness ping first: after an extension reload the page can hold a stale
+    // flag with an orphaned content script (its chrome.runtime is dead). A ping
+    // that goes unanswered means refresh — fail in ~6s with the real fix,
+    // instead of burning the full 30s seven steps later.
+    const pingId = `lens-ping-${Date.now()}`;
+    let pingAnswered = false;
+    const onPing = (event) => {
+      if (event.data?.source === 'auto-browser-extension' && event.data?.requestId === pingId) {
+        pingAnswered = true;
+        window.removeEventListener('message', onPing);
+        clearTimeout(pingTimer);
+        if (event.data?.error === 'EXTENSION_RELOADED_REFRESH_PAGE' || /context invalidated|reloaded/i.test(event.data?.error || '')) {
+          setLensLoading(false);
+          setLensError('Extension reloaded but this tab still talks to its old copy — refresh the localhost tab once and reopen the modal.');
+          return;
+        }
+        startLensRun();
+      }
+    };
+    window.addEventListener('message', onPing);
+    window.postMessage({ source: 'auto-browser-app', requestId: pingId, action: 'getStatus', args: {} }, '*');
+    const pingTimer = setTimeout(() => {
+      window.removeEventListener('message', onPing);
+      if (!pingAnswered) {
+        setLensLoading(false);
+        setLensError('Extension reloaded but this tab still talks to its old copy — refresh the localhost tab once and reopen the modal.');
+      }
+    }, 6000);
+    const startLensRun = () => {
     setLensLoading(true);
+    // Sequence guard: the anchored re-run supersedes the first weak run. Late
+    // arrivals from the older run are ignored so weak results ("LF-001")
+    // can never overwrite anchored ones ("Moonako Lobby").
+    const seq = ++lensRunSeqRef.current;
     setLensRunMode('extension');
     setLensResults(null);
     setLensError(null);
 
     const requestId = `lens-${Date.now()}`;
     const anchorBrand = anchor?.brand || autoDetectResult?.brand || specBreakdown?.brand || item?.brand || '';
-    const anchorModel = anchor?.model || autoDetectResult?.model || item?.model || '';
+    // Prefer genuine model names; never a BOQ row code ("LF-019", "A-19") —
+    // codes actively confuse Lens, so they resolve to visual-only instead.
+    let anchorModel = anchor?.model || autoDetectResult?.model || specBreakdown?.identifiedModel || item?.model || '';
+    const rowCode = String(item?.item_code || item?.code || '').trim().toLowerCase();
+    if (anchorModel && (anchorModel.toLowerCase() === rowCode || /^([A-Z]{1,3}-?\d{2,5}[A-Z]?|LF-\d+)$/i.test(anchorModel.trim()))) anchorModel = '';
 
     const handleResponse = (event) => {
       if (event.data?.source === 'auto-browser-extension' && event.data?.requestId === requestId) {
         window.removeEventListener('message', handleResponse);
         clearTimeout(timerId);
         setLensLoading(false);
+        if (seq !== lensRunSeqRef.current) return; // superseded by a newer anchored run
         if (event.data.success && event.data.result?.visualMatches) {
-          setLensResults(event.data.result);
+          // Manufacturer-first: Google ranks lookalikes and suppliers above the
+          // maker. Re-sort by detected brand/model token hits so the exact
+          // manufacturer's own page leads, suppliers follow. A maker-domain
+          // hit (hostname carries the brand) counts double — derived from the
+          // detected brand itself, no lists.
+          const toks = `${anchorBrand} ${anchorModel}`.toLowerCase().split(/[\s&/]+/).filter((t) => t.length > 2);
+          const brandTok = String(anchorBrand || '').toLowerCase().split(/[^a-z0-9]+/).filter((t) => t.length > 2)[0] || '';
+          const hits = (m) => {
+            const hay = `${m?.title || ''} ${m?.url || ''} ${m?.source || ''}`.toLowerCase();
+            let s = toks.reduce((acc, t) => acc + (hay.includes(t) ? 1 : 0), 0);
+            try {
+              const host = new URL(m?.url || '', 'http://x').hostname.toLowerCase().replace(/^www\./, '');
+              if (brandTok && host.includes(brandTok)) s += 2;
+              // Marketplaces/B2B bazaars never verify a maker — sink them.
+              if (/amazon|noon|ebay|alibaba|aliexpress|made-in-china/i.test(host)) s -= 2;
+            } catch { /* relative URL — skip domain adjustments */ }
+            return s;
+          };
+          const sorted = [...event.data.result.visualMatches].sort((a, b) => hits(b) - hits(a));
+          setLensResults({ ...event.data.result, visualMatches: sorted, topMatch: sorted[0] || event.data.result.topMatch || null });
         } else {
           const msg = event.data?.error || event.data?.result?.error || 'Lens scan failed with no matches.';
           setLensError(msg);
@@ -577,7 +718,7 @@ export default function AISemanticMatchModal({
       source: 'auto-browser-app',
       requestId,
       action: 'lensVisualMatch',
-      args: { imageUrl, itemId: itemId || 'modal-auto', description: testDescription, brand: anchorBrand, model: anchorModel }
+      args: { imageUrl, itemId: itemId || 'modal-auto', description: item?.description || testDescription, brand: anchorBrand, model: anchorModel }
     }, '*');
 
     // Cleanup listener after 30s timeout — a timeout almost always means the
@@ -589,25 +730,31 @@ export default function AISemanticMatchModal({
         return false;
       });
     }, 30000);
+    };
   };
 
-  // Anchored refine: once the AI match resolves an exact brand + model, re-run Lens
-  // with the text anchor — extension path when enabled, otherwise server headless.
-  // Only while results are still pending (never double-fire over completed results).
-  const lensAnchoredRef = React.useRef(false);
+  // Anchored refine: the first Lens run fires before AI resolves the brand, so
+  // it anchors weak ("LF-001"). Re-run per resolved brand+model — keyed, so a
+  // later AI answer replaces weak results instead of being skipped. Skips while
+  // a run is in flight; the effect re-fires when loading flips back to false.
+  const lensAnchoredRef = React.useRef('');
+  // Monotonic run id — see sequence guard in startLensRun.
+  const lensRunSeqRef = React.useRef(0);
   useEffect(() => {
     const brand = autoDetectResult?.brand || '';
     const model = autoDetectResult?.model || '';
-    if (!isOpen || !item || lensAnchoredRef.current || lensResults || !brand || model.length < 2) return;
+    if (!isOpen || !item || !brand || model.length < 2) return;
     const target = lensImageUrl;
     if (!target) return;
-    lensAnchoredRef.current = true;
+    const query = `${brand} ${model}`.toLowerCase();
+    if (lensAnchoredRef.current === query || lensLoading) return;
+    lensAnchoredRef.current = query;
     if (lensSilentAvailable) {
       triggerLensMatch(target, `${item.id || item.item_code || 'auto'}-anchored`, { brand, model });
     } else {
       runServerHeadlessLens(target, brand, model, 'anchored');
     }
-  }, [autoDetectResult]);
+  }, [autoDetectResult, lensImageUrl, lensLoading]);
 
   const handleBrandFilterChange = async (e) => {
     const newBrand = e.target.value;
@@ -1255,8 +1402,7 @@ export default function AISemanticMatchModal({
                       <div style={{ fontSize: '0.78rem', color: '#f87171', background: 'rgba(248,113,113,0.08)', border: '1px solid rgba(248,113,113,0.3)', borderRadius: '8px', padding: '8px 12px', marginBottom: '10px' }}> {lensError}</div>
                     )}
                     <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
-                      {/* Extension-based silent match — disabled (LENS_EXTENSION_ENABLED=false).
-                          Manual Lens tab is the active path, fed with the auto-picked best image. */}
+                      {/* Extension silent match (primary) + manual Lens tab (always available) */}
                       {/* Manual path — always available, opens the picked image in a Google Lens tab */}
                       {lensUrl ? (
                         <a
@@ -1284,7 +1430,7 @@ export default function AISemanticMatchModal({
                 {lensLoading && (
                   <div style={{ textAlign: 'center', padding: '20px', color: '#a78bfa' }}>
                     <div style={{ fontSize: '1.4rem', marginBottom: '6px' }}></div>
-                    <div style={{ fontSize: '0.82rem' }}>{lensRunMode === 'server' ? 'Running server Lens · Extracting visual matches...' : 'Opening hidden Lens window · Extracting visual matches...'}</div>
+                    <div style={{ fontSize: '0.82rem' }}>{lensRunMode === 'server' ? 'Running server Lens · Extracting visual matches...' : 'Opening background Lens tab · Extracting visual matches...'}</div>
                     <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '4px' }}>{lensRunMode === 'server' ? 'Real-browser run, up to ~60 seconds · Tab stays usable' : 'Takes 8–12 seconds · No flash in your browser'}</div>
                   </div>
                 )}
@@ -1293,6 +1439,7 @@ export default function AISemanticMatchModal({
                   <div>
                     <div style={{ fontSize: '0.78rem', color: '#94a3b8', marginBottom: '10px', fontWeight: 600 }}>VISUAL MATCH RESULTS</div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      {makerCard}
                       {rankedLensVisuals.map((m, i) => (
                         <div key={i} style={{
                           background: i === 0 ? 'rgba(124,58,237,0.15)' : 'rgba(15,23,42,0.8)',

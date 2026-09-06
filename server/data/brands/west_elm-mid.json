@@ -76,7 +76,7 @@
   "gatewayVersion": 1,
   "registry": {
     "name": "West Elm",
-    "officialDomain": "",
+    "officialDomain": "www.westelm.com",
     "budgetTier": "mid",
     "origin": "VE-Prescan-Discovery"
   },
@@ -84,6 +84,9 @@
     "discoveredAt": "2026-09-04T09:43:13.617Z",
     "ttlDays": 30,
     "verified": false,
-    "quarantine": true
+    "quarantine": true,
+    "domainVerified": false,
+    "expired": true,
+    "expireReason": "domain http-403"
   }
 }

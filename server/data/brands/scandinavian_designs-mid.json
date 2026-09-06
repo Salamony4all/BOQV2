@@ -18,6 +18,9 @@
     "discoveredAt": "2026-09-04T09:43:14.212Z",
     "ttlDays": 30,
     "verified": false,
-    "quarantine": true
+    "quarantine": true,
+    "domainVerified": false,
+    "expired": true,
+    "expireReason": "domain no-domain"
   }
 }

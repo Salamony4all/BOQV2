@@ -1,5 +1,5 @@
 // background.js - Automation Bridge Background Service Worker
-const EXT_VERSION = '1.1.0'; // must match manifest.json — bump together
+const EXT_VERSION = '1.2.8'; // must match manifest.json — bump together
 console.log(`[Auto Browser Extension] Background service worker started (v${EXT_VERSION}).`);
 
 let automationTabId = null;
@@ -118,31 +118,72 @@ async function handleLensVisualMatch(args) {
   const { imageUrl, itemId, description, brand, model } = args || {};
   if (!imageUrl) return { success: false, error: "Missing image URL for Google Lens search" };
 
-  // Text anchor: exact specified brand + model focuses Lens beyond pure pixels
-  const textQuery = [brand, model].filter((s) => s && String(s).trim().length > 1).join(' ').trim();
+  // Text anchor: exact specified brand + model focuses Lens beyond pure pixels.
+  // Plus generic product-type nouns mined from the spec description, so Lens
+  // gets maker + model + type ("Moonako Lobby bench") instead of maker alone.
+  // Pure English vocabulary — no brand data, works for any item.
+  const TYPE_NOUNS = ['bench','benches','chair','chairs','armchair','sofa','couch','table','tables','desk','desks','stool','stools','ottoman','pouf','lamp','lamps','pendant','chandelier','sconce','shelf','shelves','shelving','bookcase','cabinet','cabinets','cupboard','wardrobe','drawer','drawers','bed','beds','headboard','mirror','mirrors','rug','carpet','curtain','curtains','workstation','counter','sideboard','credenza','lounge','daybed','seat','seats','seating','theatre','theater','auditorium','recliner','chaise'];
+  const singularOf = (hit) => {
+    if (hit.endsWith('es') && TYPE_NOUNS.includes(hit.slice(0, -2))) return hit.slice(0, -2);
+    if (hit.endsWith('s') && TYPE_NOUNS.includes(hit.slice(0, -1))) return hit.slice(0, -1);
+    return hit;
+  };
+  const mineTypeNouns = (text) => {
+    const found = [];
+    for (const w of String(text || '').toLowerCase().split(/[^a-z]+/)) {
+      let hit = TYPE_NOUNS.includes(w) ? w : null;
+      if (!hit && w.endsWith('s') && w.length > 4) {
+        const b = w.slice(0, -1);
+        if (TYPE_NOUNS.includes(b)) hit = b;
+      }
+      hit = hit ? singularOf(hit) : null;
+      if (hit && !found.includes(hit)) found.push(hit);
+      if (found.length >= 2) break;
+    }
+    return found;
+  };
+  // Category leads, maker + model follow ("theatre seat Figueras Scala"):
+  // Lens weighs early words most, and BOQ codes ("LF-019") actively confuse
+  // it, so codes never enter the query — only maker, model, type nouns.
+  // Maker hostname trial: when the spec text carries a URL on the maker's own
+  // domain (host contains the brand), append the host to the typed query —
+  // Google weighs it as a domain signal. Dealer/marketplace URLs are skipped
+  // (they would steer to dealers), as is the raw "https://…" string, whose
+  // https/www/com tokens only dilute the query.
+  const makerHostOf = (text, brandName) => {
+    const bt = String(brandName || '').toLowerCase().split(/[^a-z0-9]+/).filter((t) => t.length > 2)[0] || '';
+    if (!bt) return '';
+    const urls = String(text || '').match(/https?:\/\/[^\s"'<>|]+/gi) || [];
+    for (const u of urls) {
+      try {
+        const host = new URL(u).hostname.toLowerCase().replace(/^www\./, '');
+        if (/amazon|noon|ebay|alibaba|aliexpress/i.test(host)) continue;
+        if (host.replace(/[^a-z0-9]/g, '').includes(bt.replace(/[^a-z0-9]/g, ''))) return host;
+      } catch { /* malformed URL — ignore */ }
+    }
+    return '';
+  };
+  const textQuery = [...mineTypeNouns(description), brand, model, makerHostOf(description, brand)].filter((s) => s && String(s).trim().length > 1).join(' ').trim();
 
   const targetUrl = `https://lens.google.com/uploadbyurl?url=${encodeURIComponent(imageUrl)}`;
   console.log(`[Auto Browser Extension] Launching Google Lens visual match for: ${imageUrl}${textQuery ? ` (anchor: "${textQuery}")` : ''}`);
 
-  let winId = null;
   let tabId = null;
+  // MV3 keep-alive: the run below sleeps ~16s across waits, and Chrome kills
+  // an idle service worker mid-sleep — the page then gets exactly
+  // "message channel closed before a response was received". A storage write
+  // every 15s resets the idle timer until the run finishes.
+  const keepAlive = setInterval(() => {
+    try { chrome.storage.local.set({ _lensAlive: Date.now() }).catch(() => {}); } catch (_) { /* worker going away */ }
+  }, 15000);
   try {
-    // Open in an off-screen, unfocused popup — never flashes in the user's face.
-    // NOTE: do NOT combine state:'minimized' with bounds (Chrome rejects it with
-    // "Invalid value for state"). Off-screen + unfocused achieves the same silence.
-    const win = await chrome.windows.create({
-      url: targetUrl,
-      type: 'popup',
-      width: 1280,
-      height: 900,
-      left: -3000,  // off-screen extra safety
-      top: 0,
-      focused: false
-    });
-    winId = win.id;
-    tabId = win.tabs?.[0]?.id;
+    // Silent background tab (inactive): no window bounds involved, no flash,
+    // no popup-blocker conflict. Off-screen popup windows are rejected by
+    // Chrome ("Bounds must be at least 50% within visible screen space").
+    const tab = await chrome.tabs.create({ url: targetUrl, active: false });
+    tabId = tab?.id;
 
-    if (!tabId) throw new Error("Failed to get tab ID from minimized window");
+    if (!tabId) throw new Error("Lens background tab could not be opened (popup blocked?)");
 
     // Wait for page to fully load
     await new Promise((resolve) => {
@@ -196,19 +237,38 @@ async function handleLensVisualMatch(args) {
       }
     }
 
-    // Extract visual matches from the Google Lens DOM
-    const results = await chrome.scripting.executeScript({
+    // Extract visual matches from the Google Lens DOM (double pass: Lens is an
+    // SPA and merchant tiles render late — scrape, wait, scrape, merge).
+    const scrapeOnce = () => chrome.scripting.executeScript({
       target: { tabId },
-      func: () => {
+      func: (query) => {
         try {
           const cards = [];
           const seen = new Set();
+          const toks = String(query || '').toLowerCase().split(/[\s&/]+/).filter((t) => t.length > 2);
 
           // Collect search result links
-          const links = Array.from(document.querySelectorAll('a[href^="http"]'));
+          const links = Array.from(document.querySelectorAll('a[href]'));
+          const NOISE = /(facebook\.com|instagram\.com|tiktok\.com|linkedin\.com|twitter\.com|x\.com)(\/|$)/i;
+          const unwrap = (href) => {
+            // Google wraps merchant links as /url?q=<real-url> — the old code
+            // saw "google.com" and threw the maker away. Unwrap first.
+            try {
+              const u = new URL(href, location.origin);
+              if ((u.hostname.includes('google.') || u.hostname.includes('googleusercontent.')) && u.pathname === '/url') {
+                const real = u.searchParams.get('q') || u.searchParams.get('url');
+                if (real && /^https?:\/\//i.test(real)) return real;
+                return null; // pure-google redirect with no target — skip
+              }
+              return href;
+            } catch { return href; }
+          };
           for (const a of links) {
-            const href = a.href;
+            const raw = a.getAttribute('href') || '';
+            if (!raw || raw.startsWith('#') || raw.startsWith('javascript:')) continue;
+            const href = unwrap(a.href);
             if (!href || href.includes('google.com') || href.includes('gstatic.com') || seen.has(href)) continue;
+            if (NOISE.test(href)) continue; // social junk never names the maker
 
             const text = (a.innerText || a.textContent || '').trim();
             if (text.length < 4 || /^(privacy|terms|feedback|about|sign in|google)/i.test(text)) continue;
@@ -222,22 +282,40 @@ async function handleLensVisualMatch(args) {
               title: firstLine,
               url: href,
               imageUrl: imgSrc,
-              source: new URL(href).hostname.replace(/^www\./i, '')
+              source: (() => { try { return new URL(href).hostname.replace(/^www\./i, ''); } catch { return ''; } })()
             });
 
-            if (cards.length >= 6) break;
+            if (cards.length >= 12) break;
           }
 
-          return { success: true, cards };
+          // Mentioned-keyword boost in-page: maker/model hits float above the
+          // 8-card cut so the modal sort actually receives them.
+          const hitCount = (c) => {
+            const hay = `${c.title} ${c.url} ${c.source}`.toLowerCase();
+            return toks.reduce((s, t) => s + (hay.includes(t) ? 1 : 0), 0);
+          };
+          cards.sort((a, b) => hitCount(b) - hitCount(a));
+          return { success: true, cards: cards.slice(0, 8) };
         } catch (e) {
           return { success: false, error: e.message, cards: [] };
         }
-      }
+      },
+      args: [textQuery]
     });
+    const first = await scrapeOnce();
+    await new Promise((r) => setTimeout(r, 3000)); // late SPA tiles
+    const second = await scrapeOnce();
+    const merged = new Map();
+    for (const run of [first, second]) {
+      for (const c of (run[0]?.result?.cards || [])) {
+        if (!merged.has(c.url)) merged.set(c.url, c);
+      }
+    }
+    const results = [{ result: { success: true, cards: [...merged.values()].slice(0, 8) } }];
 
-    // Close the minimized window silently
-    if (winId) {
-      await chrome.windows.remove(winId).catch(() => {});
+    // Close the background tab silently
+    if (tabId) {
+      await chrome.tabs.remove(tabId).catch(() => {});
     }
 
     const scriptResult = results[0]?.result;
@@ -245,6 +323,7 @@ async function handleLensVisualMatch(args) {
 
     console.log(`[Auto Browser Extension] Google Lens extracted ${cards.length} visual matches.`);
 
+    clearInterval(keepAlive);
     return {
       success: true,
       result: {
@@ -258,8 +337,9 @@ async function handleLensVisualMatch(args) {
       }
     };
   } catch (err) {
-    if (winId) {
-      await chrome.windows.remove(winId).catch(() => {});
+    clearInterval(keepAlive);
+    if (tabId) {
+      await chrome.tabs.remove(tabId).catch(() => {});
     }
     console.error('[Auto Browser Extension] Google Lens automation error:', err.message);
     return { success: false, error: err.message };

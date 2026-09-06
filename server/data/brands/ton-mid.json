@@ -24,7 +24,7 @@
   "gatewayVersion": 1,
   "registry": {
     "name": "TON",
-    "officialDomain": "",
+    "officialDomain": "www.ton.eu",
     "budgetTier": "mid",
     "origin": "VE-Prescan-Discovery"
   },
@@ -32,6 +32,8 @@
     "discoveredAt": "2026-09-04T09:43:10.600Z",
     "ttlDays": 30,
     "verified": false,
-    "quarantine": true
+    "quarantine": true,
+    "domainVerified": true,
+    "domainCheckedAt": "2026-09-04T16:52:02.326Z"
   }
 }

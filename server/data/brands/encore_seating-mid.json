@@ -1,37 +1,103 @@
 {
-  "id": 1788514991593,
+  "id": "1788264236649",
   "name": "Encore Seating",
-  "logo": "https://www.google.com/s2/favicons?domain=encoreseating.com&sz=128",
-  "budgetTier": "mid",
-  "origin": "VE-Prescan-Discovery",
   "products": [
     {
       "brand": "Encore Seating",
       "model": "Romp Occasional Tables",
-      "mainCategory": "Furniture",
-      "subCategory": "",
+      "source": "VE-Prescan-Discovery",
       "imageUrl": "",
       "websiteUrl": "https://encoreseating.com",
-      "lastUpdated": "2026-09-04T09:43:11.214Z",
-      "source": "VE-Prescan-Discovery",
-      "verified": false,
-      "discoveredAt": "2026-09-04T09:43:11.214Z",
-      "ttlDays": 30
+      "lastUpdated": "2026-09-01T12:03:55.843Z",
+      "subCategory": "",
+      "mainCategory": "Furniture"
+    },
+    {
+      "brand": "Encore Seating",
+      "model": "Lounge & Modular",
+      "family": "",
+      "mainCategory": "products",
+      "subCategory": "Lounge Chairs",
+      "description": "Lounge & Modular",
+      "imageUrl": "https://encoreseating.com/app/uploads/2024/12/Hoom-Lounge_03-1-aspect-ratio-1920-432-1.jpg",
+      "websiteUrl": "https://encoreseating.com/products/seating/lounge-modular/",
+      "officialProductUrl": "https://encoreseating.com/products/seating/lounge-modular/",
+      "source": "AI-Specialist-Discovery",
+      "verified": true,
+      "lastUpdated": "2026-09-04T18:54:44.886Z"
+    },
+    {
+      "brand": "Encore Seating",
+      "model": "Guest & Stackable",
+      "family": "",
+      "mainCategory": "products",
+      "subCategory": "Conference Chairs",
+      "description": "Guest & Stackable",
+      "imageUrl": "https://encoreseating.com/app/uploads/2024/12/Hoom_Guest_02-1-aspect-ratio-1920-432-5.jpg",
+      "websiteUrl": "https://encoreseating.com/products/seating/guest-stackable/",
+      "officialProductUrl": "https://encoreseating.com/products/seating/guest-stackable/",
+      "source": "AI-Specialist-Discovery",
+      "verified": true,
+      "lastUpdated": "2026-09-04T18:54:48.766Z"
+    },
+    {
+      "brand": "Encore Seating",
+      "model": "Multi Use",
+      "family": "",
+      "mainCategory": "products",
+      "subCategory": "Conference Chairs",
+      "description": "Multi Use",
+      "imageUrl": "https://encoreseating.com/app/uploads/2022/01/Kitsy-1-scaled-aspect-ratio-1920-432-scaled.jpg",
+      "websiteUrl": "https://encoreseating.com/products/seating/multi-use/",
+      "officialProductUrl": "https://encoreseating.com/products/seating/multi-use/",
+      "source": "AI-Specialist-Discovery",
+      "verified": true,
+      "lastUpdated": "2026-09-04T18:54:51.516Z"
+    },
+    {
+      "brand": "Encore Seating",
+      "model": "Executive & Task",
+      "family": "",
+      "mainCategory": "products",
+      "subCategory": "Conference Chairs",
+      "description": "Executive & Task",
+      "imageUrl": "https://encoreseating.com/app/uploads/2021/09/Espo-Conference-Environment-aspect-ratio-1920-432-3.jpg",
+      "websiteUrl": "https://encoreseating.com/products/seating/executive-task/",
+      "officialProductUrl": "https://encoreseating.com/products/seating/executive-task/",
+      "source": "AI-Specialist-Discovery",
+      "verified": true,
+      "lastUpdated": "2026-09-04T18:54:54.263Z"
+    },
+    {
+      "brand": "Encore Seating",
+      "model": "Stools",
+      "family": "",
+      "mainCategory": "products",
+      "subCategory": "Conference Chairs",
+      "description": "Stools",
+      "imageUrl": "https://encoreseating.com/app/uploads/2024/12/Hoom-Stools_01-1-aspect-ratio-1920-432.jpg",
+      "websiteUrl": "https://encoreseating.com/products/seating/stools/",
+      "officialProductUrl": "https://encoreseating.com/products/seating/stools/",
+      "source": "AI-Specialist-Discovery",
+      "verified": true,
+      "lastUpdated": "2026-09-04T18:54:57.009Z"
     }
   ],
-  "createdAt": "2026-09-04T09:43:11.214Z",
+  "source": "VE-Prescan-Discovery",
   "budget_tier": "mid",
-  "gatewayVersion": 1,
-  "registry": {
-    "name": "Encore Seating",
-    "officialDomain": "",
-    "budgetTier": "mid",
-    "origin": "VE-Prescan-Discovery"
+  "logo": "https://www.google.com/s2/favicons?domain=encoreseating.com&sz=128",
+  "updated_at": "2026-09-01T12:03:57.347168+00:00",
+  "budgetTier": "mid",
+  "origin": "VE-Prescan-Discovery",
+  "categoryTree": {
+    "Furniture": [],
+    "products": [
+      "Lounge Chairs",
+      "Conference Chairs"
+    ]
   },
-  "discovery": {
-    "discoveredAt": "2026-09-04T09:43:11.214Z",
-    "ttlDays": 30,
-    "verified": false,
-    "quarantine": true
-  }
+  "categoryList": [
+    "Furniture",
+    "products"
+  ]
 }

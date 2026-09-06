@@ -1,37 +1,125 @@
 {
-  "id": 1788514999708,
+  "id": "1788264244336",
   "name": "Emu",
-  "logo": "https://media.architonic.com/m-on/3100062/logo/emu_logo_01dc.jpg",
-  "budgetTier": "mid",
-  "origin": "VE-Prescan-Discovery",
   "products": [
     {
       "brand": "Emu",
       "model": "Carousel Armchair",
-      "mainCategory": "Furniture",
-      "subCategory": "",
+      "source": "VE-Prescan-Discovery",
       "imageUrl": "",
       "websiteUrl": "https://www.emu.it",
-      "lastUpdated": "2026-09-04T09:43:19.048Z",
-      "source": "VE-Prescan-Discovery",
-      "verified": false,
-      "discoveredAt": "2026-09-04T09:43:19.048Z",
-      "ttlDays": 30
+      "lastUpdated": "2026-09-01T12:04:04.258Z",
+      "subCategory": "",
+      "mainCategory": "Furniture"
+    },
+    {
+      "brand": "Emu",
+      "model": "Chair Garden Outside Steel Ala 150",
+      "family": "",
+      "mainCategory": "Chairs",
+      "subCategory": "Conference Chairs",
+      "description": "Chair Garden Outside Steel Ala 150",
+      "imageUrl": "https://www.emu.it/wp-content/uploads/2018/08/sedia-ala-150-emu-esterno-giardino-acciaio-ferro-antico-cam008.jpg",
+      "websiteUrl": "https://www.emu.it/en/p/chair-garden-outside-steel-ala-150/",
+      "officialProductUrl": "https://www.emu.it/en/p/chair-garden-outside-steel-ala-150/",
+      "source": "AI-Specialist-Discovery",
+      "verified": true,
+      "lastUpdated": "2026-09-04T18:21:05.413Z"
+    },
+    {
+      "brand": "Emu",
+      "model": "Armchair Garden Outside Steel Ala 151",
+      "family": "",
+      "mainCategory": "Armchairs",
+      "subCategory": "Lounge Chairs",
+      "description": "Armchair Garden Outside Steel Ala 151",
+      "imageUrl": "https://www.emu.it/wp-content/uploads/2018/08/poltroncina-ala-151-emu-esterno-giardino-acciaio-ferro-antico-cam008.jpg",
+      "websiteUrl": "https://www.emu.it/en/p/armchair-garden-outside-steel-ala-151/",
+      "officialProductUrl": "https://www.emu.it/en/p/armchair-garden-outside-steel-ala-151/",
+      "source": "AI-Specialist-Discovery",
+      "verified": true,
+      "lastUpdated": "2026-09-04T18:21:09.677Z"
+    },
+    {
+      "brand": "Emu",
+      "model": "Armchair Garden Outside Steel Athena",
+      "family": "",
+      "mainCategory": "Armchairs",
+      "subCategory": "Lounge Chairs",
+      "description": "Armchair Garden Outside Steel Athena",
+      "imageUrl": "https://www.emu.it/wp-content/uploads/2018/08/poltroncina-athena-3413-emu-esterno-giardino-acciaio-ferro-antico-cam008.jpg",
+      "websiteUrl": "https://www.emu.it/en/p/armchair-garden-outside-steel-athena-3413/",
+      "officialProductUrl": "https://www.emu.it/en/p/armchair-garden-outside-steel-athena-3413/",
+      "source": "AI-Specialist-Discovery",
+      "verified": true,
+      "lastUpdated": "2026-09-04T18:21:11.384Z"
+    },
+    {
+      "brand": "Emu",
+      "model": "Lounge Chair Garden Outside Steel Athena",
+      "family": "",
+      "mainCategory": "Sofas",
+      "subCategory": "Lounge Chairs",
+      "description": "Lounge Chair Garden Outside Steel Athena",
+      "imageUrl": "https://www.emu.it/wp-content/uploads/2018/08/poltrona-cuscino-athena-3416-emu-esterno-giardino-acciaio-ferro-antico-cam008.jpg",
+      "websiteUrl": "https://www.emu.it/en/p/lounge-chair-garden-outside-steel-athena-3416/",
+      "officialProductUrl": "https://www.emu.it/en/p/lounge-chair-garden-outside-steel-athena-3416/",
+      "source": "AI-Specialist-Discovery",
+      "verified": true,
+      "lastUpdated": "2026-09-04T18:21:13.040Z"
+    },
+    {
+      "brand": "Emu",
+      "model": "Two seats sofa",
+      "family": "",
+      "mainCategory": "Sofas",
+      "subCategory": "Sofas",
+      "description": "Two seats sofa",
+      "imageUrl": "https://www.emu.it/wp-content/uploads/2018/08/divano-cuscino-athena-3417-emu-esterno-giardino-acciaio-ferro-antico-cam008.jpg",
+      "websiteUrl": "https://www.emu.it/en/p/two-seats-sofa-garden-outside-steel-athena-3417/",
+      "officialProductUrl": "https://www.emu.it/en/p/two-seats-sofa-garden-outside-steel-athena-3417/",
+      "source": "AI-Specialist-Discovery",
+      "verified": true,
+      "lastUpdated": "2026-09-04T18:21:14.877Z"
+    },
+    {
+      "brand": "Emu",
+      "model": "Coffee table 100x60",
+      "family": "",
+      "mainCategory": "Tables",
+      "subCategory": "Coffee Tables",
+      "description": "Coffee table 100x60",
+      "imageUrl": "https://www.emu.it/wp-content/uploads/2018/08/tavolo-basso-athena-3418-emu-esterno-giardino-acciaio-ferro-antico-cam008.jpg",
+      "websiteUrl": "https://www.emu.it/en/p/coffee-table-100x60-garden-outside-steel-athena-3418/",
+      "officialProductUrl": "https://www.emu.it/en/p/coffee-table-100x60-garden-outside-steel-athena-3418/",
+      "source": "AI-Specialist-Discovery",
+      "verified": true,
+      "lastUpdated": "2026-09-04T18:21:16.548Z"
     }
   ],
-  "createdAt": "2026-09-04T09:43:19.048Z",
+  "source": "VE-Prescan-Discovery",
   "budget_tier": "mid",
-  "gatewayVersion": 1,
-  "registry": {
-    "name": "Emu",
-    "officialDomain": "",
-    "budgetTier": "mid",
-    "origin": "VE-Prescan-Discovery"
+  "logo": "https://media.architonic.com/m-on/3100062/logo/emu_logo_01dc.jpg",
+  "updated_at": "2026-09-01T12:04:05.758927+00:00",
+  "budgetTier": "mid",
+  "origin": "VE-Prescan-Discovery",
+  "categoryTree": {
+    "Furniture": [],
+    "Chairs": [
+      "Conference Chairs"
+    ],
+    "Armchairs": [
+      "Lounge Chairs"
+    ],
+    "Sofas": [
+      "Lounge Chairs",
+      "Sofas"
+    ]
   },
-  "discovery": {
-    "discoveredAt": "2026-09-04T09:43:19.048Z",
-    "ttlDays": 30,
-    "verified": false,
-    "quarantine": true
-  }
+  "categoryList": [
+    "Furniture",
+    "Chairs",
+    "Armchairs",
+    "Sofas"
+  ]
 }

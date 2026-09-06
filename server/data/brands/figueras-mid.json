@@ -1,9 +1,6 @@
 {
-  "id": 1788514987690,
+  "id": "1788514987690",
   "name": "Figueras",
-  "logo": "https://media.architonic.com/m-on/3100234/logo/figueras_logo_fba6.jpg",
-  "budgetTier": "mid",
-  "origin": "VE-Prescan-Discovery",
   "products": [
     {
       "brand": "Figueras",
@@ -17,21 +14,68 @@
       "verified": false,
       "discoveredAt": "2026-09-04T09:43:06.774Z",
       "ttlDays": 30
+    },
+    {
+      "brand": "Figueras",
+      "model": "Chronos Figueras Seating",
+      "family": "",
+      "mainCategory": "Chronos",
+      "subCategory": "Conference Chairs",
+      "description": "Chronos Figueras Seating",
+      "imageUrl": "https://figueras.com/wp-content/uploads/2026/04/Chronos_w00_Delta.webp",
+      "websiteUrl": "https://figueras.com/fr/siege/chronos/",
+      "officialProductUrl": "https://figueras.com/fr/siege/chronos/",
+      "source": "AI-Specialist-Discovery",
+      "verified": true,
+      "lastUpdated": "2026-09-04T18:55:27.757Z"
+    },
+    {
+      "brand": "Figueras",
+      "model": "Talas Figueras Seating",
+      "family": "",
+      "mainCategory": "Segments &gt; Publicum",
+      "subCategory": "Conference Chairs",
+      "description": "Talas Figueras Seating",
+      "imageUrl": "https://figueras.com/wp-content/uploads/2025/08/Talas_w00.webp",
+      "websiteUrl": "https://figueras.com/fr/siege/talas/",
+      "officialProductUrl": "https://figueras.com/fr/siege/talas/",
+      "source": "AI-Specialist-Discovery",
+      "verified": true,
+      "lastUpdated": "2026-09-04T18:55:31.422Z"
+    },
+    {
+      "brand": "Figueras",
+      "model": "Gaudí Figueras Seating",
+      "family": "",
+      "mainCategory": "Gaudi",
+      "subCategory": "Conference Chairs",
+      "description": "Gaudí Figueras Seating",
+      "imageUrl": "https://figueras.com/wp-content/uploads/2023/11/Gaudi_w000.webp",
+      "websiteUrl": "https://figueras.com/fr/siege/gaudi/",
+      "officialProductUrl": "https://figueras.com/fr/siege/gaudi/",
+      "source": "AI-Specialist-Discovery",
+      "verified": true,
+      "lastUpdated": "2026-09-04T18:55:34.395Z"
     }
   ],
-  "createdAt": "2026-09-04T09:43:06.774Z",
+  "source": "VE-Prescan-Discovery",
   "budget_tier": "mid",
-  "gatewayVersion": 1,
-  "registry": {
-    "name": "Figueras",
-    "officialDomain": "",
-    "budgetTier": "mid",
-    "origin": "VE-Prescan-Discovery"
+  "logo": "https://media.architonic.com/m-on/3100234/logo/figueras_logo_fba6.jpg",
+  "updated_at": "2026-09-04T09:43:08.162794+00:00",
+  "budgetTier": "mid",
+  "origin": "VE-Prescan-Discovery",
+  "categoryTree": {
+    "Seating": [],
+    "Chronos": [
+      "Conference Chairs"
+    ],
+    "Segments &gt; Publicum": [
+      "Conference Chairs"
+    ]
   },
-  "discovery": {
-    "discoveredAt": "2026-09-04T09:43:06.774Z",
-    "ttlDays": 30,
-    "verified": false,
-    "quarantine": true
-  }
+  "categoryList": [
+    "Seating",
+    "Chronos",
+    "Segments &gt; Publicum"
+  ]
 }

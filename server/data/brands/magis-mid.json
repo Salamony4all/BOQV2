@@ -24,7 +24,7 @@
   "gatewayVersion": 1,
   "registry": {
     "name": "Magis",
-    "officialDomain": "",
+    "officialDomain": "www.magisdesign.com",
     "budgetTier": "mid",
     "origin": "VE-Prescan-Discovery"
   },
@@ -32,6 +32,9 @@
     "discoveredAt": "2026-09-04T09:43:10.013Z",
     "ttlDays": 30,
     "verified": false,
-    "quarantine": true
+    "quarantine": true,
+    "domainVerified": false,
+    "expired": true,
+    "expireReason": "domain unreachable"
   }
 }

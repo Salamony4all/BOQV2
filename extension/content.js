@@ -15,19 +15,35 @@ window.addEventListener("message", (event) => {
   }
 
   const { requestId, action, args } = event.data;
+  const replyError = (msg) => {
+    try {
+      window.postMessage({ source: "auto-browser-extension", requestId, success: false, error: msg }, "*");
+    } catch (_) { /* page gone — nothing to tell */ }
+  };
+
+  // Orphaned script after an extension reload: chrome.* is dead but our DOM
+  // flag survives, so the page still talks to us. Answer plainly so the app
+  // says "refresh" instead of hanging until its timeout.
+  let alive = false;
+  try { alive = Boolean(chrome && chrome.runtime && chrome.runtime.id); } catch (_) { alive = false; }
+  if (!alive) { replyError("EXTENSION_RELOADED_REFRESH_PAGE"); return; }
+
   console.log("[Auto Browser Extension] Received request from page:", action, args);
 
   // Send request to background service worker
-  chrome.runtime.sendMessage({ action, args }, (response) => {
-    // Send response back to the page
-    window.postMessage({
-      source: "auto-browser-extension",
-      requestId,
-      success: response?.success !== false,
-      result: response?.result,
-      error: response?.error
-    }, "*");
-  });
+  try {
+    chrome.runtime.sendMessage({ action, args }, (response) => {
+      if (chrome.runtime.lastError) { replyError(chrome.runtime.lastError.message || "EXTENSION_RELOADED_REFRESH_PAGE"); return; }
+      // Send response back to the page
+      window.postMessage({
+        source: "auto-browser-extension",
+        requestId,
+        success: response?.success !== false,
+        result: response?.result,
+        error: response?.error
+      }, "*");
+    });
+  } catch (_) { replyError("EXTENSION_RELOADED_REFRESH_PAGE"); }
 });
 
 // Also listen for messages from the background service worker (e.g. status updates)
@@ -48,7 +64,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 if (window.location.host.includes("tenderboard.gov.om") || window.location.href.includes("mock-portal.html")) {
   window.addEventListener("message", (event) => {
     if (event.source === window && event.data && event.data.source === "auto-browser-target-page") {
-      chrome.runtime.sendMessage({ action: "reportProgress", args: event.data.data });
+      // Checked send: an unwatched promise rejection surfaces as
+      // "Unchecked runtime.lastError" in the page console.
+      try {
+        if (!chrome?.runtime?.id) return;
+        const p = chrome.runtime.sendMessage({ action: "reportProgress", args: event.data.data });
+        if (p && typeof p.catch === "function") p.catch(() => {});
+      } catch (_) { /* worker restarting — progress ping dropped, harmless */ }
     }
   });
 }

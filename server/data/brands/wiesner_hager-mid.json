@@ -1,37 +1,60 @@
 {
-  "id": 1788514988257,
+  "id": "1788514988257",
   "name": "Wiesner Hager",
-  "logo": "https://media.architonic.com/m-on/3100185/logo/wiesner-hager_logo_e11d.jpg",
-  "budgetTier": "mid",
-  "origin": "VE-Prescan-Discovery",
   "products": [
     {
       "brand": "Wiesner Hager",
       "model": "Skill Tables",
-      "mainCategory": "Furniture",
-      "subCategory": "",
+      "source": "VE-Prescan-Discovery",
       "imageUrl": "",
       "websiteUrl": "https://www.wiesner-hager.com",
       "lastUpdated": "2026-09-04T09:43:07.388Z",
-      "source": "VE-Prescan-Discovery",
-      "verified": false,
-      "discoveredAt": "2026-09-04T09:43:07.389Z",
-      "ttlDays": 30
+      "subCategory": "",
+      "mainCategory": "Furniture"
+    },
+    {
+      "brand": "Wiesner Hager",
+      "model": "delv",
+      "family": "",
+      "mainCategory": "products",
+      "subCategory": "Conference Chairs",
+      "description": "delv",
+      "imageUrl": "",
+      "websiteUrl": "https://www.wiesner-hager.com/en/products/seating/office-chairs/delv-6571",
+      "officialProductUrl": "https://www.wiesner-hager.com/en/products/seating/office-chairs/delv-6571",
+      "source": "AI-Specialist-Discovery",
+      "verified": true,
+      "lastUpdated": "2026-09-04T18:59:24.943Z"
+    },
+    {
+      "brand": "Wiesner Hager",
+      "model": "agilos+",
+      "family": "",
+      "mainCategory": "products",
+      "subCategory": "Conference Chairs",
+      "description": "agilos+",
+      "imageUrl": "",
+      "websiteUrl": "https://www.wiesner-hager.com/en/products/tables/office-desks/agilos-6573",
+      "officialProductUrl": "https://www.wiesner-hager.com/en/products/tables/office-desks/agilos-6573",
+      "source": "AI-Specialist-Discovery",
+      "verified": true,
+      "lastUpdated": "2026-09-04T18:59:26.704Z"
     }
   ],
-  "createdAt": "2026-09-04T09:43:07.389Z",
+  "source": "VE-Prescan-Discovery",
   "budget_tier": "mid",
-  "gatewayVersion": 1,
-  "registry": {
-    "name": "Wiesner Hager",
-    "officialDomain": "",
-    "budgetTier": "mid",
-    "origin": "VE-Prescan-Discovery"
+  "logo": "https://media.architonic.com/m-on/3100185/logo/wiesner-hager_logo_e11d.jpg",
+  "updated_at": "2026-09-04T09:43:08.780375+00:00",
+  "budgetTier": "mid",
+  "origin": "VE-Prescan-Discovery",
+  "categoryTree": {
+    "Furniture": [],
+    "products": [
+      "Conference Chairs"
+    ]
   },
-  "discovery": {
-    "discoveredAt": "2026-09-04T09:43:07.389Z",
-    "ttlDays": 30,
-    "verified": false,
-    "quarantine": true
-  }
+  "categoryList": [
+    "Furniture",
+    "products"
+  ]
 }

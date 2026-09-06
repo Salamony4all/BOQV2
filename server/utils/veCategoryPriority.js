@@ -12,7 +12,7 @@ export const VE_CATEGORY_CONFIG = {
     auditoriumAndTheater: {
         id: 'auditoriumAndTheater',
         label: 'Auditorium & Theater Seating',
-        priorityBrands: ['Figueras', 'Ares Line', 'Cinearredo', 'Lamm', 'Ferco Seating', 'Quinette Gallay', 'Ezcaray Seating', 'Destro'],
+        priorityBrands: ['TMA', 'LEADCOM', 'Figueras', 'Ferco Seating', 'Quinette Gallay', 'Ezcaray Seating', 'Ares Line', 'Cinearredo', 'Lamm', 'Destro'],
         keywords: [
             'theatre seats', 'theater seats', 'theatre', 'theater', 'auditorium', 'cinema',
             'tip-up', 'tip up', 'gravity', 'row numbering', 'wooden armrest', 'wooden panel',
@@ -43,7 +43,7 @@ export const VE_CATEGORY_CONFIG = {
     desking: {
         id: 'desking',
         label: 'Desking & Tables',
-        priorityBrands: ['NARBUTAS', 'Nurus', 'FREZZA', 'LAS', 'Ofifran', 'Ottimo Furniture', 'MW Structure Test'],
+        priorityBrands: ['Narbutas', 'Ottimo', 'Ismobil', 'LAS Mobili', 'M&W', 'Actiu', 'Fantoni', 'Nurus', 'FREZZA', 'Ofifran', 'MW Structure Test'],
         keywords: [
             'desk', 'workstation', 'table', 'meeting', 'conference', 'reception', 'counter',
             'executive desk', 'folding desk', 'bench table', 'managerial desk', 'l-shape', 'l shape',
@@ -53,7 +53,7 @@ export const VE_CATEGORY_CONFIG = {
     taskSeating: {
         id: 'taskSeating',
         label: 'Task & Office Seating',
-        priorityBrands: ['NARBUTAS', 'Sedus Stoll', 'Sokoa', 'Rim', 'Dauphin products, collections and more', 'Nurus', 'Ottimo Furniture'],
+        priorityBrands: ['Narbutas', 'Sedus', 'Sokoa', 'RIM', 'Interstuhl', 'Dauphin', 'SitLand', 'Nurus', 'Ottimo Furniture'],
         keywords: [
             'task chair', 'operator chair', 'executive chair', 'mesh chair', 'visitor chair',
             'cantilever', 'medium back', 'high back', 'low back', 'conference chair', 'swivel chair',
@@ -63,7 +63,7 @@ export const VE_CATEGORY_CONFIG = {
     softSeating: {
         id: 'softSeating',
         label: 'Soft & Lounge Seating',
-        priorityBrands: ['B&T Design', 'True Design', 'Arper', 'AMARA', 'Divani', 'FREZZA', 'NARBUTAS'],
+        priorityBrands: ['B&T Design', 'Pedrali', 'Marelli', 'Tacchini', 'Arper', 'Sancal', 'Kastel', 'True Design', 'AMARA', 'Divani', 'FREZZA', 'NARBUTAS'],
         keywords: [
             'sofa', 'single seater', 'two seater', 'three seater', 'lounge', 'armchair',
             'ottoman', 'pouf', 'modular sofa', 'booth', 'acoustic sofa', 'couch',
@@ -73,7 +73,7 @@ export const VE_CATEGORY_CONFIG = {
     outdoorSeating: {
         id: 'outdoorSeating',
         label: 'Outdoor & Landscape Seating',
-        priorityBrands: ['Pedrali', 'Vondom', 'Dedon', 'Emu', 'Slide Design', 'Escofet'],
+        priorityBrands: ['Pedrali', 'B&T Design', 'Emu', 'Vondom', 'Kettal', 'Scab Design', 'Dedon', 'Slide Design', 'Escofet'],
         keywords: [
             'outdoor chair', 'outdoor table', 'patio chair', 'terrace seating', 'garden chair',
             'polyethylene outdoor', 'weather resistant', 'outdoor bench', 'exterior seating'
@@ -82,7 +82,7 @@ export const VE_CATEGORY_CONFIG = {
     auditoriumAndTheatre: {
         id: 'auditoriumAndTheatre',
         label: 'Auditorium & Theatre Seating',
-        priorityBrands: ['TMA', 'Leadcom', 'Figueras', 'Ferco Seating'],
+        priorityBrands: ['TMA', 'LEADCOM', 'Figueras', 'Ferco Seating', 'Quinette Gallay', 'Ezcaray Seating', 'Ares Line', 'Cinearredo', 'Lamm', 'Destro'],
         keywords: [
             'auditorium chair', 'auditorium seating', 'theatre chair', 'theatre seating', 'theater chair',
             'theater seating', 'cinema chair', 'cinema seating', 'tip-up seat', 'foldable auditorium',
@@ -92,7 +92,7 @@ export const VE_CATEGORY_CONFIG = {
     benchesAndPublicSeating: {
         id: 'benchesAndPublicSeating',
         label: 'Benches & Public Seating',
-        priorityBrands: ['Pedrali', 'Vondom', 'Slide Design', 'Arper', 'B&T Design', 'NARBUTAS', 'Nurus', 'Sedus Stoll', 'AMARA', 'Divani', 'Ottimo Furniture'],
+        priorityBrands: ['Sellex', 'Kastel', 'Arconas', 'Segis', 'Profim', 'Diemme', 'Pedrali', 'Vondom', 'Slide Design', 'Arper', 'B&T Design', 'NARBUTAS', 'Nurus', 'Sedus Stoll', 'AMARA', 'Divani', 'Ottimo Furniture'],
         keywords: [
             'bench', 'benches', 'modular bench', 'indoor bench', 'polyethylene bench',
             'public seating', 'beam seating', 'banquette', 'lobby bench', 'waiting bench'
@@ -136,10 +136,37 @@ export const VE_CATEGORY_CONFIG = {
             'center table', 'power rail', 'modesty panel', 'round center table'
         ]
     },
+    cinemaSeating: {
+        id: 'cinemaSeating',
+        label: 'Cinema Seating',
+        priorityBrands: ['Ferco Seating', 'LEADCOM', 'Camatic', 'Figueras', 'Skeie'],
+        keywords: [
+            'cinema chair', 'cinema seating', 'cinema seat', 'cinema seats',
+            'movie theater', 'multiplex seating'
+        ]
+    },
+    diningSeating: {
+        id: 'diningSeating',
+        label: 'Dining & Restaurant Seating',
+        priorityBrands: ['Pedrali', 'Andreu World', 'TON', 'Billiani', 'Et al. (Metalmobil)', 'Very Wood', 'Gaber'],
+        keywords: [
+            'dining chair', 'dining seating', 'restaurant chair', 'restaurant seating',
+            'bistro chair', 'bistro seating', 'cafe chair', 'banquette seating'
+        ]
+    },
+    urbanOutdoor: {
+        id: 'urbanOutdoor',
+        label: 'Urban Outdoor & Public Realm',
+        priorityBrands: ['mmcité', 'Escofet', 'Santa & Cole', 'Metalco', 'Benito Urban', 'Vondom', 'Pedrali'],
+        keywords: [
+            'urban furniture', 'park bench', 'street bench', 'urban bench',
+            'bollard', 'litter bin', 'bus shelter', 'public realm'
+        ]
+    },
     genericAccessories: {
         id: 'genericAccessories',
         label: 'Generic & Retail Accessories',
-        priorityBrands: ['Amazon', 'IKEA', 'Home Centre', 'Noon'],
+        priorityBrands: ['Amazon', 'Noon', 'IKEA', 'Home Centre'],
         keywords: [
             'cable grommet', 'power strip', 'monitor arm', 'pencil drawer', 'extension cord',
             'craft cart', 'sewing', 'consumer accessory', 'generic cable', 'power box',

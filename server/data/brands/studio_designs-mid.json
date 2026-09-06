@@ -7,7 +7,7 @@
   "products": [
     {
       "brand": "Studio Designs",
-      "model": "Swivel 3-Shelf Utility Mobile Cart",
+      "model": "Swivel 3 Shelf Utility Mobile Cart",
       "mainCategory": "Furniture",
       "subCategory": "",
       "imageUrl": "",
@@ -16,7 +16,8 @@
       "source": "VE-Prescan-Discovery",
       "verified": false,
       "discoveredAt": "2026-09-04T09:43:17.812Z",
-      "ttlDays": 30
+      "ttlDays": 30,
+      "description": "Swivel 3 Shelf Utility Mobile Cart"
     }
   ],
   "createdAt": "2026-09-04T09:43:17.812Z",
@@ -24,7 +25,7 @@
   "gatewayVersion": 1,
   "registry": {
     "name": "Studio Designs",
-    "officialDomain": "",
+    "officialDomain": "www.homedepot.com",
     "budgetTier": "mid",
     "origin": "VE-Prescan-Discovery"
   },
@@ -32,6 +33,9 @@
     "discoveredAt": "2026-09-04T09:43:17.812Z",
     "ttlDays": 30,
     "verified": false,
-    "quarantine": true
+    "quarantine": true,
+    "domainVerified": false,
+    "expired": true,
+    "expireReason": "domain http-403"
   }
 }

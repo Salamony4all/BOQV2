@@ -7,7 +7,7 @@
   "products": [
     {
       "brand": "Moonako",
-      "model": "Arco - Moonako Arabesque Collection",
+      "model": "Arco Moonako Arabesque Collection",
       "mainCategory": "Furniture",
       "subCategory": "",
       "imageUrl": "",
@@ -16,11 +16,12 @@
       "source": "VE-Prescan-Discovery",
       "verified": false,
       "discoveredAt": "2026-09-04T09:43:01.858Z",
-      "ttlDays": 30
+      "ttlDays": 30,
+      "description": "Arco Moonako Arabesque Collection"
     },
     {
       "brand": "Moonako",
-      "model": "Limone - Moonako Arabesque Collection",
+      "model": "Limone Moonako Arabesque Collection",
       "mainCategory": "Furniture",
       "subCategory": "",
       "imageUrl": "",
@@ -29,11 +30,12 @@
       "source": "VE-Prescan-Discovery",
       "verified": false,
       "discoveredAt": "2026-09-04T09:43:01.858Z",
-      "ttlDays": 30
+      "ttlDays": 30,
+      "description": "Limone Moonako Arabesque Collection"
     },
     {
       "brand": "Moonako",
-      "model": "Limone 80 - Moonako Arabesque Collection",
+      "model": "Limone 80 Moonako Arabesque Collection",
       "mainCategory": "Furniture",
       "subCategory": "",
       "imageUrl": "",
@@ -42,7 +44,8 @@
       "source": "VE-Prescan-Discovery",
       "verified": false,
       "discoveredAt": "2026-09-04T09:43:01.858Z",
-      "ttlDays": 30
+      "ttlDays": 30,
+      "description": "Limone 80 Moonako Arabesque Collection"
     }
   ],
   "createdAt": "2026-09-04T09:43:01.858Z",
@@ -50,7 +53,7 @@
   "gatewayVersion": 1,
   "registry": {
     "name": "Moonako",
-    "officialDomain": "",
+    "officialDomain": "www.moonako.fr",
     "budgetTier": "mid",
     "origin": "VE-Prescan-Discovery"
   },
@@ -58,6 +61,8 @@
     "discoveredAt": "2026-09-04T09:43:01.858Z",
     "ttlDays": 30,
     "verified": false,
-    "quarantine": true
+    "quarantine": true,
+    "domainVerified": true,
+    "domainCheckedAt": "2026-09-04T16:51:57.054Z"
   }
 }

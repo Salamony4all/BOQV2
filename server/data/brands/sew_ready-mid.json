@@ -24,7 +24,7 @@
   "gatewayVersion": 1,
   "registry": {
     "name": "Sew Ready",
-    "officialDomain": "",
+    "officialDomain": "www.homedepot.com",
     "budgetTier": "mid",
     "origin": "VE-Prescan-Discovery"
   },
@@ -32,6 +32,9 @@
     "discoveredAt": "2026-09-04T09:43:17.212Z",
     "ttlDays": 30,
     "verified": false,
-    "quarantine": true
+    "quarantine": true,
+    "domainVerified": false,
+    "expired": true,
+    "expireReason": "domain http-403"
   }
 }

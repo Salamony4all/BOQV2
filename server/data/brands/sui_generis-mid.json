@@ -1,9 +1,6 @@
 {
-  "id": 1788514985798,
+  "id": "1788514985798",
   "name": "Sui Generis",
-  "logo": "https://www.google.com/s2/favicons?domain=suigeneris.com&sz=128",
-  "budgetTier": "mid",
-  "origin": "VE-Prescan-Discovery",
   "products": [
     {
       "brand": "Sui Generis",
@@ -17,21 +14,97 @@
       "verified": false,
       "discoveredAt": "2026-09-04T09:43:05.566Z",
       "ttlDays": 30
+    },
+    {
+      "brand": "Sui Generis",
+      "model": "Circular Garden Water Feature",
+      "family": "",
+      "mainCategory": "water features",
+      "subCategory": "Conference Chairs",
+      "description": "Circular Garden Water Feature",
+      "imageUrl": "https://www.sgicomposites.co.uk/content/uploads/2025/02/aqua_corona_large_circular_pond_water_feature_in_jersey_channel_islands.jpg",
+      "websiteUrl": "https://www.sgicomposites.co.uk/water-features/aqua-corona-circular-garden-water-feature/",
+      "officialProductUrl": "https://www.sgicomposites.co.uk/water-features/aqua-corona-circular-garden-water-feature/",
+      "source": "AI-Specialist-Discovery",
+      "verified": true,
+      "lastUpdated": "2026-09-04T18:58:35.089Z"
+    },
+    {
+      "brand": "Sui Generis",
+      "model": "Halo Modular Planter",
+      "family": "",
+      "mainCategory": "planters",
+      "subCategory": "Planters",
+      "description": "Halo Modular Planter",
+      "imageUrl": "https://www.sgicomposites.co.uk/content/uploads/2025/03/halo_seating_and_planters_award_winning_garden_design_rhs_malvern_with_geomet-1.jpg",
+      "websiteUrl": "https://www.sgicomposites.co.uk/planters/halo-modern-modular-planter/",
+      "officialProductUrl": "https://www.sgicomposites.co.uk/planters/halo-modern-modular-planter/",
+      "source": "AI-Specialist-Discovery",
+      "verified": true,
+      "lastUpdated": "2026-09-04T18:58:43.334Z"
+    },
+    {
+      "brand": "Sui Generis",
+      "model": "Corona Circular Planter",
+      "family": "",
+      "mainCategory": "planters",
+      "subCategory": "Planters",
+      "description": "Corona Circular Planter",
+      "imageUrl": "https://www.sgicomposites.co.uk/content/uploads/2025/02/large_circle_planter_at_bristol_airport_lounge_roof_terrace.jpg",
+      "websiteUrl": "https://www.sgicomposites.co.uk/planters/corona-modern-circular-planter/",
+      "officialProductUrl": "https://www.sgicomposites.co.uk/planters/corona-modern-circular-planter/",
+      "source": "AI-Specialist-Discovery",
+      "verified": true,
+      "lastUpdated": "2026-09-04T18:58:45.321Z"
+    },
+    {
+      "brand": "Sui Generis",
+      "model": "Cube Planters",
+      "family": "",
+      "mainCategory": "planters",
+      "subCategory": "Conference Chairs",
+      "description": "Cube Planters",
+      "imageUrl": "https://www.sgicomposites.co.uk/content/uploads/2025/03/08_urban_street_cube_planter.jpg",
+      "websiteUrl": "https://www.sgicomposites.co.uk/planters/cube-modern-planter/",
+      "officialProductUrl": "https://www.sgicomposites.co.uk/planters/cube-modern-planter/",
+      "source": "AI-Specialist-Discovery",
+      "verified": true,
+      "lastUpdated": "2026-09-04T18:58:47.448Z"
+    },
+    {
+      "brand": "Sui Generis",
+      "model": "Drum Planter",
+      "family": "",
+      "mainCategory": "planters",
+      "subCategory": "Planters",
+      "description": "Drum Planter",
+      "imageUrl": "https://www.sgicomposites.co.uk/content/uploads/2025/02/modern-round-drum-planter-for-interior-design-and-garden-landscapes.jpg",
+      "websiteUrl": "https://www.sgicomposites.co.uk/planters/drum-modern-planter/",
+      "officialProductUrl": "https://www.sgicomposites.co.uk/planters/drum-modern-planter/",
+      "source": "AI-Specialist-Discovery",
+      "verified": true,
+      "lastUpdated": "2026-09-04T18:58:49.278Z"
     }
   ],
-  "createdAt": "2026-09-04T09:43:05.566Z",
+  "source": "VE-Prescan-Discovery",
   "budget_tier": "mid",
-  "gatewayVersion": 1,
-  "registry": {
-    "name": "Sui Generis",
-    "officialDomain": "",
-    "budgetTier": "mid",
-    "origin": "VE-Prescan-Discovery"
+  "logo": "https://www.google.com/s2/favicons?domain=suigeneris.com&sz=128",
+  "updated_at": "2026-09-04T09:43:06.955944+00:00",
+  "budgetTier": "mid",
+  "origin": "VE-Prescan-Discovery",
+  "categoryTree": {
+    "Furniture": [],
+    "water features": [
+      "Conference Chairs"
+    ],
+    "planters": [
+      "Planters",
+      "Conference Chairs"
+    ]
   },
-  "discovery": {
-    "discoveredAt": "2026-09-04T09:43:05.566Z",
-    "ttlDays": 30,
-    "verified": false,
-    "quarantine": true
-  }
+  "categoryList": [
+    "Furniture",
+    "water features",
+    "planters"
+  ]
 }

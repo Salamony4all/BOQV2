@@ -66,6 +66,18 @@ for (const b of brands) {
 
   // Stamp thin prescan stubs with gateway metadata (additive keys only)
   const isThinStub = d.origin === 'VE-Prescan-Discovery' || (d.products || []).every((p) => !p.imageUrl && (p.source === 'VE-Prescan-Discovery' || !p.source));
+  // Backfill registry.officialDomain (old stubs keep the domain on products only)
+  const domainOf = (u) => { try { return new URL(u).hostname; } catch { return ''; } };
+  const prodDomains = (d.products || []).map((p) => domainOf(p.websiteUrl || p.officialProductUrl || '')).filter(Boolean);
+  const topDomain = prodDomains.sort((a, b) =>
+    prodDomains.filter((x) => x === b).length - prodDomains.filter((x) => x === a).length)[0] || '';
+  const brandDomain = domainOf(d.websiteUrl || d.url || '') || topDomain;
+  if (d.registry && !d.registry.officialDomain && brandDomain) {
+    d.registry.officialDomain = brandDomain;
+    changed = true;
+    if (!report.unified.includes(b.fn)) report.unified.push(`${b.fn} (domain backfill: ${brandDomain})`);
+  }
+
   if (isThinStub && !d.gatewayVersion) {
     d.gatewayVersion = 1;
     d.registry = {

@@ -23,8 +23,40 @@ export async function discoverLiveWebAndArchitonicAlternatives(description, cate
 
     const archetype = detectSpecArchetype(description, categoryHint);
     const brandToExclude = String(currentBrand || '').trim();
+    // GCC fast-delivery mode: retail/marketplace specs (Amazon etc.) get
+    // equivalents from regional platforms with UAE/GCC stock — Noon first —
+    // instead of contract-catalog alternatives that miss the price tier.
+    const isGccRetail = archetype === 'genericAccessories';
 
-    const systemPrompt = `You are a Senior FF&E Commercial Furniture Specification Consultant and Value Engineering Specialist.
+    const systemPrompt = isGccRetail ? `You are a helpful shopping assistant for UAE fit-out projects.
+Find the same kind of everyday retail accessory on UAE/GCC shopping sites.
+
+### How to choose:
+1. Same product type with the closest size, material and finish, at a normal retail price.
+2. Look first on noon.com, then amazon.ae, then ikea.com/ae, then homecentre.com. Spread picks across these sites.
+3. Choose listings that ship to the UAE and include each product page URL.
+4. ${brandToExclude ? `Suggest other sellers than "${brandToExclude}".` : 'Suggest a mix of sellers.'}
+5. Always answer with the JSON array below, using your best knowledge. If an exact listing is uncertain, give the closest item with confidenceScore 60-70 and the site's search-page URL.
+
+Return ONLY a valid JSON array of objects in this exact schema:
+[
+  {
+    "brand": "Platform Name (e.g. Noon, Amazon.ae, IKEA, Home Centre)",
+    "model": "Exact product title as listed",
+    "family": "Category",
+    "mainCategory": "Retail Accessories",
+    "subCategory": "General",
+    "dimensions": "Dimensions string",
+    "material": "Material & finish",
+    "officialProductUrl": "https://www.noon.com/... (platform product URL)",
+    "architonicUrl": "",
+    "imageUrl": "https://... (direct product image URL)",
+    "estimatedPrice": 120,
+    "currency": "AED",
+    "confidenceScore": 90,
+    "veReason": "Same product type and specs, in stock on a GCC platform with fast UAE delivery."
+  }
+]` : `You are a Senior FF&E Commercial Furniture Specification Consultant and Value Engineering Specialist.
 Your goal is to find real-world, commercial-grade furniture alternatives from premier manufacturer catalogs and architectural platforms like Architonic (architonic.com) and Archiproducts (archiproducts.com).
 
 ### 🎯 STRICT ARCHETYPE & SPECIFICATION MATCHING RULES:
@@ -82,18 +114,33 @@ Find ${topK} premier commercial furniture alternatives on Architonic, Archiprodu
             tools: [{ googleSearch: {} }]
         });
 
-        // Set 12-second timeout for live web grounding
-        const resultPromise = model.generateContent(userPrompt);
-        const timeoutPromise = new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('Live web discovery timeout')), 12000)
-        );
-
-        const res = await Promise.race([resultPromise, timeoutPromise]);
-        const text = res.response.text();
+        // Set 20-second timeout for live web grounding (shopping queries are slower)
+        // Two attempts: lite models occasionally return an empty reply on the
+        // first pass (observed live) — a single retry rescues the run.
+        let text = '';
+        for (let attempt = 1; attempt <= 2; attempt++) {
+            const resultPromise = model.generateContent(userPrompt);
+            const timeoutPromise = new Promise((_, reject) =>
+                setTimeout(() => reject(new Error('Live web discovery timeout')), 20000)
+            );
+            try {
+                const res = await Promise.race([resultPromise, timeoutPromise]);
+                text = res.response.text() || '';
+            } catch (e) {
+                if (attempt === 2) throw e;
+                await new Promise((r) => setTimeout(r, 3000));
+                continue;
+            }
+            if (text.trim().length > 0) break;
+            if (attempt < 2) await new Promise((r) => setTimeout(r, 3000));
+        }
 
         // Extract JSON array
         const jsonMatch = text.match(/\[\s*\{[\s\S]*\}\s*\]/);
-        if (!jsonMatch) return [];
+        if (!jsonMatch) {
+            console.warn('[LiveDiscovery] no JSON array in reply (first 200 chars):', String(text || '').slice(0, 200));
+            return [];
+        }
 
         const rawAlts = JSON.parse(jsonMatch[0]);
         if (!Array.isArray(rawAlts) || rawAlts.length === 0) return [];

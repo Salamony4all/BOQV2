@@ -41,7 +41,7 @@
   "gatewayVersion": 1,
   "registry": {
     "name": "Freifrau",
-    "officialDomain": "",
+    "officialDomain": "www.freifrau.com",
     "budgetTier": "mid",
     "origin": "VE-Prescan-Discovery"
   },
@@ -49,6 +49,8 @@
     "discoveredAt": "2026-09-04T16:41:27.318Z",
     "ttlDays": 30,
     "verified": false,
-    "quarantine": true
+    "quarantine": true,
+    "domainVerified": true,
+    "domainCheckedAt": "2026-09-04T16:51:48.126Z"
   }
 }

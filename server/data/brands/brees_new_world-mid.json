@@ -1,9 +1,6 @@
 {
-  "id": 1788519080061,
+  "id": "1788519080061",
   "name": "Brees New World",
-  "logo": "https://www.google.com/s2/favicons?domain=breesnewworld.com&sz=128",
-  "budgetTier": "mid",
-  "origin": "VE-Prescan-Discovery",
   "products": [
     {
       "brand": "Brees New World",
@@ -17,21 +14,92 @@
       "verified": false,
       "discoveredAt": "2026-09-04T10:51:19.707Z",
       "ttlDays": 30
+    },
+    {
+      "brand": "Brees New World",
+      "model": "Dining room chair Ace II F",
+      "family": "",
+      "mainCategory": "eetkamerstoelen",
+      "subCategory": "Conference Chairs",
+      "description": "Dining room chair Ace II F",
+      "imageUrl": "https://d2ftqzf4nsbvwq.cloudfront.net/wp-content/uploads/www.breesnewworld.nl/2020/07/Eetkamerstoel-leder-cognac-Brees-New-World-Ace-II-F.jpg",
+      "websiteUrl": "https://www.breesnewworld.nl/en/collection/eetkamerstoelen/dining-room-chair-ace-ii-f/",
+      "officialProductUrl": "https://www.breesnewworld.nl/en/collection/eetkamerstoelen/dining-room-chair-ace-ii-f/",
+      "source": "AI-Specialist-Discovery",
+      "verified": true,
+      "lastUpdated": "2026-09-04T18:53:33.228Z"
+    },
+    {
+      "brand": "Brees New World",
+      "model": "Dining chair Ace II G",
+      "family": "",
+      "mainCategory": "eetkamerstoelen",
+      "subCategory": "Conference Chairs",
+      "description": "Dining chair Ace II G",
+      "imageUrl": "https://d2ftqzf4nsbvwq.cloudfront.net/wp-content/uploads/www.breesnewworld.nl/2020/07/Ace-II-G-design-eetkamerstoel-leder-groen-lime.jpg",
+      "websiteUrl": "https://www.breesnewworld.nl/en/collection/eetkamerstoelen/ace-ii-g/",
+      "officialProductUrl": "https://www.breesnewworld.nl/en/collection/eetkamerstoelen/ace-ii-g/",
+      "source": "AI-Specialist-Discovery",
+      "verified": true,
+      "lastUpdated": "2026-09-04T18:53:48.120Z"
+    },
+    {
+      "brand": "Brees New World",
+      "model": "Dining room chair Amore",
+      "family": "",
+      "mainCategory": "eetkamerstoelen",
+      "subCategory": "Conference Chairs",
+      "description": "Dining room chair Amore",
+      "imageUrl": "https://d2ftqzf4nsbvwq.cloudfront.net/wp-content/uploads/www.breesnewworld.nl/2024/03/Amore-eetkamerstoel-keuken-leder-groen.jpg",
+      "websiteUrl": "https://www.breesnewworld.nl/en/collection/eetkamerstoelen/dining-room-chair-amore/",
+      "officialProductUrl": "https://www.breesnewworld.nl/en/collection/eetkamerstoelen/dining-room-chair-amore/",
+      "source": "AI-Specialist-Discovery",
+      "verified": true,
+      "lastUpdated": "2026-09-04T18:53:51.716Z"
+    },
+    {
+      "brand": "Brees New World",
+      "model": "Dining chair City",
+      "family": "",
+      "mainCategory": "eetkamerstoelen",
+      "subCategory": "Conference Chairs",
+      "description": "Dining chair City",
+      "imageUrl": "https://d2ftqzf4nsbvwq.cloudfront.net/wp-content/uploads/www.breesnewworld.nl/2020/07/design-eetkamerstoel-leder-cognac-City.jpg",
+      "websiteUrl": "https://www.breesnewworld.nl/en/collection/eetkamerstoelen/city/",
+      "officialProductUrl": "https://www.breesnewworld.nl/en/collection/eetkamerstoelen/city/",
+      "source": "AI-Specialist-Discovery",
+      "verified": true,
+      "lastUpdated": "2026-09-04T18:53:59.711Z"
+    },
+    {
+      "brand": "Brees New World",
+      "model": "Dining room chair City arm",
+      "family": "",
+      "mainCategory": "eetkamerstoelen",
+      "subCategory": "Conference Chairs",
+      "description": "Dining room chair City arm",
+      "imageUrl": "https://d2ftqzf4nsbvwq.cloudfront.net/wp-content/uploads/www.breesnewworld.nl/2020/07/design-eetkamerstoel-met-armleuning-blauw-leer-breesnewworld-city.jpg",
+      "websiteUrl": "https://www.breesnewworld.nl/en/collection/eetkamerstoelen/city-arm/",
+      "officialProductUrl": "https://www.breesnewworld.nl/en/collection/eetkamerstoelen/city-arm/",
+      "source": "AI-Specialist-Discovery",
+      "verified": true,
+      "lastUpdated": "2026-09-04T18:54:02.920Z"
     }
   ],
-  "createdAt": "2026-09-04T10:51:19.707Z",
+  "source": "VE-Prescan-Discovery",
   "budget_tier": "mid",
-  "gatewayVersion": 1,
-  "registry": {
-    "name": "Brees New World",
-    "officialDomain": "",
-    "budgetTier": "mid",
-    "origin": "VE-Prescan-Discovery"
+  "logo": "https://www.google.com/s2/favicons?domain=breesnewworld.com&sz=128",
+  "updated_at": "2026-09-04T10:51:21.190081+00:00",
+  "budgetTier": "mid",
+  "origin": "VE-Prescan-Discovery",
+  "categoryTree": {
+    "Furniture": [],
+    "eetkamerstoelen": [
+      "Conference Chairs"
+    ]
   },
-  "discovery": {
-    "discoveredAt": "2026-09-04T10:51:19.707Z",
-    "ttlDays": 30,
-    "verified": false,
-    "quarantine": true
-  }
+  "categoryList": [
+    "Furniture",
+    "eetkamerstoelen"
+  ]
 }

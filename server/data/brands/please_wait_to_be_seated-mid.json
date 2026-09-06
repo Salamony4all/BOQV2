@@ -1,37 +1,60 @@
 {
-  "id": 1788514991864,
+  "id": "1788514991864",
   "name": "Please Wait to Be Seated",
-  "logo": "https://www.google.com/s2/favicons?domain=pleasewaittobeseated.com&sz=128",
-  "budgetTier": "mid",
-  "origin": "VE-Prescan-Discovery",
   "products": [
     {
       "brand": "Please Wait to Be Seated",
       "model": "Eiermann SBG197R Office Chair",
-      "mainCategory": "Office Seating",
-      "subCategory": "",
+      "source": "VE-Prescan-Discovery",
       "imageUrl": "",
       "websiteUrl": "https://www.pleasewaittobeseated.com",
       "lastUpdated": "2026-09-04T09:43:11.828Z",
-      "source": "VE-Prescan-Discovery",
-      "verified": false,
-      "discoveredAt": "2026-09-04T09:43:11.828Z",
-      "ttlDays": 30
+      "subCategory": "",
+      "mainCategory": "Office Seating"
+    },
+    {
+      "brand": "Please Wait to Be Seated",
+      "model": "AHM chair",
+      "family": "",
+      "mainCategory": "seating",
+      "subCategory": "Conference Chairs",
+      "description": "AHM chair",
+      "imageUrl": "https://www.pleasewaittobeseated.com/Files/Images/Plytix/Default/1000503_AHM_Chair_Jaipur_cut_thumbnail.jpg",
+      "websiteUrl": "https://www.pleasewaittobeseated.com/seating/ahm-chair/ahm-chair-jaipur",
+      "officialProductUrl": "https://www.pleasewaittobeseated.com/seating/ahm-chair/ahm-chair-jaipur",
+      "source": "AI-Specialist-Discovery",
+      "verified": true,
+      "lastUpdated": "2026-09-04T18:57:51.355Z"
+    },
+    {
+      "brand": "Please Wait to Be Seated",
+      "model": "BONDI chair",
+      "family": "",
+      "mainCategory": "seating",
+      "subCategory": "Conference Chairs",
+      "description": "BONDI chair",
+      "imageUrl": "https://www.pleasewaittobeseated.com/Files/Images/Plytix/Default/1000400_BONDI_Natural_Ash_thumbnail.jpg",
+      "websiteUrl": "https://www.pleasewaittobeseated.com/seating/bondi-chair/bondi-chair-natural-ash",
+      "officialProductUrl": "https://www.pleasewaittobeseated.com/seating/bondi-chair/bondi-chair-natural-ash",
+      "source": "AI-Specialist-Discovery",
+      "verified": true,
+      "lastUpdated": "2026-09-04T18:57:54.141Z"
     }
   ],
-  "createdAt": "2026-09-04T09:43:11.828Z",
+  "source": "VE-Prescan-Discovery",
   "budget_tier": "mid",
-  "gatewayVersion": 1,
-  "registry": {
-    "name": "Please Wait to Be Seated",
-    "officialDomain": "",
-    "budgetTier": "mid",
-    "origin": "VE-Prescan-Discovery"
+  "logo": "https://www.google.com/s2/favicons?domain=pleasewaittobeseated.com&sz=128",
+  "updated_at": "2026-09-04T09:43:13.217703+00:00",
+  "budgetTier": "mid",
+  "origin": "VE-Prescan-Discovery",
+  "categoryTree": {
+    "Office Seating": [],
+    "seating": [
+      "Conference Chairs"
+    ]
   },
-  "discovery": {
-    "discoveredAt": "2026-09-04T09:43:11.828Z",
-    "ttlDays": 30,
-    "verified": false,
-    "quarantine": true
-  }
+  "categoryList": [
+    "Office Seating",
+    "seating"
+  ]
 }

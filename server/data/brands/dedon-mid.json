@@ -1,37 +1,102 @@
 {
-  "id": 1788514999138,
+  "id": "1788264243798",
   "name": "Dedon",
-  "logo": "https://media.architonic.com/m-on/3100020/logo/dedon_logo_691e.jpg",
-  "budgetTier": "mid",
-  "origin": "VE-Prescan-Discovery",
   "products": [
     {
       "brand": "Dedon",
       "model": "Satellite Dining Table",
-      "mainCategory": "Furniture",
-      "subCategory": "",
+      "source": "VE-Prescan-Discovery",
       "imageUrl": "",
       "websiteUrl": "https://www.dedon.de",
-      "lastUpdated": "2026-09-04T09:43:18.434Z",
-      "source": "VE-Prescan-Discovery",
-      "verified": false,
-      "discoveredAt": "2026-09-04T09:43:18.434Z",
-      "ttlDays": 30
+      "lastUpdated": "2026-09-01T12:04:03.651Z",
+      "subCategory": "",
+      "mainCategory": "Furniture"
+    },
+    {
+      "brand": "Dedon",
+      "model": "Dala Accessoires Übertopf S",
+      "family": "",
+      "mainCategory": "accessories",
+      "subCategory": "accessories",
+      "description": "Dala Accessoires Übertopf S",
+      "imageUrl": "https://www.dedon.de/-/media/product-catalog/products/accessories/dala/01-kollektionsbilder/2021/DEDON-DALA-Accessories-Planter-S-rioja.jpg?rx=300&ry=0&rw=1318&rh=1266",
+      "websiteUrl": "https://www.dedon.de/de-DE/Produkt-Finder/accessories/dala_accessoires/Planter-S",
+      "officialProductUrl": "https://www.dedon.de/de-DE/Produkt-Finder/accessories/dala_accessoires/Planter-S",
+      "source": "AI-Specialist-Discovery",
+      "verified": true,
+      "lastUpdated": "2026-09-04T17:07:44.918Z"
+    },
+    {
+      "brand": "Dedon",
+      "model": "Dala Accessoires Übertopf M",
+      "family": "",
+      "mainCategory": "accessories",
+      "subCategory": "accessories",
+      "description": "Dala Accessoires Übertopf M",
+      "imageUrl": "https://www.dedon.de/-/media/product-catalog/products/accessories/dala/01-kollektionsbilder/2021/DEDON-DALA-Accessories-Planter-M-rioja.jpg?rx=300&ry=0&rw=1318&rh=1266",
+      "websiteUrl": "https://www.dedon.de/de-DE/Produkt-Finder/accessories/dala_accessoires/Planter-M",
+      "officialProductUrl": "https://www.dedon.de/de-DE/Produkt-Finder/accessories/dala_accessoires/Planter-M",
+      "source": "AI-Specialist-Discovery",
+      "verified": true,
+      "lastUpdated": "2026-09-04T17:07:47.436Z"
+    },
+    {
+      "brand": "Dedon",
+      "model": "Dala Accessoires Übertopf L",
+      "family": "",
+      "mainCategory": "accessories",
+      "subCategory": "accessories",
+      "description": "Dala Accessoires Übertopf L",
+      "imageUrl": "https://www.dedon.de/-/media/product-catalog/products/accessories/dala/01-kollektionsbilder/2021/DEDON-DALA-Accessories-Planter-L-rioja.jpg?rx=300&ry=0&rw=1318&rh=1266",
+      "websiteUrl": "https://www.dedon.de/de-DE/Produkt-Finder/accessories/dala_accessoires/Planter-L",
+      "officialProductUrl": "https://www.dedon.de/de-DE/Produkt-Finder/accessories/dala_accessoires/Planter-L",
+      "source": "AI-Specialist-Discovery",
+      "verified": true,
+      "lastUpdated": "2026-09-04T17:07:49.339Z"
+    },
+    {
+      "brand": "Dedon",
+      "model": "Dala Accessoires Laterne S",
+      "family": "",
+      "mainCategory": "accessories",
+      "subCategory": "accessories",
+      "description": "Dala Accessoires Laterne S",
+      "imageUrl": "https://www.dedon.de/-/media/product-catalog/products/accessories/dala/01-kollektionsbilder/2021/DEDON-DALA-Accessories-Lantern-S-rioja.jpg?rx=300&ry=0&rw=1318&rh=1266",
+      "websiteUrl": "https://www.dedon.de/de-DE/Produkt-Finder/accessories/dala_accessoires/Lantern-S",
+      "officialProductUrl": "https://www.dedon.de/de-DE/Produkt-Finder/accessories/dala_accessoires/Lantern-S",
+      "source": "AI-Specialist-Discovery",
+      "verified": true,
+      "lastUpdated": "2026-09-04T17:07:50.509Z"
+    },
+    {
+      "brand": "Dedon",
+      "model": "Dala Accessoires Laterne M",
+      "family": "",
+      "mainCategory": "accessories",
+      "subCategory": "accessories",
+      "description": "Dala Accessoires Laterne M",
+      "imageUrl": "https://www.dedon.de/-/media/product-catalog/products/accessories/dala/01-kollektionsbilder/2021/DEDON-DALA-Accessories-Lantern-M-rioja.jpg?rx=300&ry=0&rw=1318&rh=1266",
+      "websiteUrl": "https://www.dedon.de/de-DE/Produkt-Finder/accessories/dala_accessoires/Lantern-M",
+      "officialProductUrl": "https://www.dedon.de/de-DE/Produkt-Finder/accessories/dala_accessoires/Lantern-M",
+      "source": "AI-Specialist-Discovery",
+      "verified": true,
+      "lastUpdated": "2026-09-04T17:07:51.696Z"
     }
   ],
-  "createdAt": "2026-09-04T09:43:18.434Z",
+  "source": "VE-Prescan-Discovery",
   "budget_tier": "mid",
-  "gatewayVersion": 1,
-  "registry": {
-    "name": "Dedon",
-    "officialDomain": "",
-    "budgetTier": "mid",
-    "origin": "VE-Prescan-Discovery"
+  "logo": "https://media.architonic.com/m-on/3100020/logo/dedon_logo_691e.jpg",
+  "updated_at": "2026-09-01T12:04:05.147159+00:00",
+  "budgetTier": "mid",
+  "origin": "VE-Prescan-Discovery",
+  "categoryTree": {
+    "Furniture": [],
+    "accessories": [
+      "accessories"
+    ]
   },
-  "discovery": {
-    "discoveredAt": "2026-09-04T09:43:18.434Z",
-    "ttlDays": 30,
-    "verified": false,
-    "quarantine": true
-  }
+  "categoryList": [
+    "Furniture",
+    "accessories"
+  ]
 }

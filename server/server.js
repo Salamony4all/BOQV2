@@ -38,6 +38,9 @@ import { findSemanticMatches, ensureBrandCatalogEmbeddings } from './embeddingSe
 import { readSettings, writeSettings, getPublicSettings } from './settings.js';
 import { isLensHeadlessAvailable, scrapeLensVisualMatches, isLensWalled } from './utils/lensHeadless.js';
 import { searchViaJar, fetchImageBytes, jarStatus } from './utils/lensJar.js';
+import { enrichBrandFromOfficialSite } from './utils/brandEnricher.js';
+import { enrichBrandFromArchitonic } from './utils/architonicAdapter.js';
+import { fetchProductFacts } from './utils/jsonldVerifier.js';
 import { VE_CATEGORY_CONFIG, classifyFurnishingCategory, isGenuineContractBrand, findBrandInCatalog, NON_BRAND_MODEL_WORDS, BRAND_ALIASES } from './utils/veCategoryPriority.js';
 import { getCanonicalBrandLogo, classifyContractCategory, CONTRACT_BRAND_LOGOS } from './utils/brandLogos.js';
 import { fetchLiveProductImage, cleanTechnicalDescription } from './utils/veImageEnricher.js';
@@ -2937,7 +2940,9 @@ app.post('/api/ve-prescan-brands', async (req, res) => {
         await brandStorage.saveBrand(newBrandObj);
         existingBrandNames.add(bNameLower);
         provisionedCount++;
-        console.log(`🎉 [VE Pre-Scan] Provisioned brand "${bName}" with ${dBrand.models?.length || 0} models into database!`);
+        console.log(`[VE Pre-Scan] Provisioned brand "${bName}" with ${dBrand.models?.length || 0} models into database!`);
+        // New brand found → automatically map + enrich it in the background
+        queueBrandEnrich(bName);
       }
     }
 
@@ -2951,6 +2956,158 @@ app.post('/api/ve-prescan-brands', async (req, res) => {
   } catch (error) {
     console.error('❌ [VE Pre-Scan Error]:', error.message);
     res.status(500).json({ status: 'error', error_message: error.message });
+  }
+});
+
+/**
+ * Split glued words for display: "AccessoiresLaterne" -> "Accessoires Laterne",
+ * "dala_accessoires" -> "Dala Accessoires". Keeps codes ("LF-001") and
+ * all-caps acronyms ("WC") intact.
+ */
+function cleanModelName(raw) {
+  let s = String(raw || '').replace(/[-_]+/g, ' ').replace(/\s+/g, ' ').trim();
+  s = s.replace(/([a-zäöüß])([A-ZÄÖÜ])/g, '$1 $2');
+  s = s.replace(/([A-ZÄÖÜ]{2,})([A-ZÄÖÜ][a-zäöü])/g, '$1 $2');
+  return s.replace(/\s+/g, ' ').trim();
+}
+
+/**
+ * Enrich one catalog brand by name: crawl its official site, verify live
+ * products, merge proven ones (deduped + normalized). Shared by the manual
+ * endpoint and the automatic prescan hook below.
+ * Vercel note: serverless caps at 60s, so on Vercel we check at most 3 pages
+ * and skip the Architonic second source (official site only).
+ */
+async function enrichBrandByName(brandName, maxPages = 6) {
+  const ON_VERCEL = process.env.VERCEL === '1';
+  const pages = ON_VERCEL ? Math.min(maxPages, 3) : maxPages;
+  const brands = await brandStorage.getAllBrands(true);
+  const target = brands.find((b) => String(b.name || '').toLowerCase().trim() === String(brandName).toLowerCase().trim());
+  if (!target) return { success: false, error: `brand "${brandName}" not in catalog` };
+  // Skip expired/dead and already-rich brands
+  if (target.discovery?.expired) return { success: false, error: `brand "${brandName}" expired — skipping` };
+  const verifiedCount = (target.products || []).filter((p) => p.verified === true && p.imageUrl).length;
+  if (verifiedCount >= 3) return { success: true, brand: target.name, skipped: 'already-rich', verified: verifiedCount, added: 0, checked: 0 };
+  const prodUrls = (target.products || []).map((p) => p.websiteUrl || p.officialProductUrl || '').filter(Boolean);
+  const domain = (() => {
+    try { return new URL(target.websiteUrl || target.url || target.registry?.officialDomain && `https://${target.registry.officialDomain}` || prodUrls[0] || '').hostname; }
+    catch { return target.registry?.officialDomain || ''; }
+  })();
+  if (!domain) return { success: false, error: `brand "${brandName}" has no website to enrich from` };
+  const found = await enrichBrandFromOfficialSite({ domain, brandName: target.name, maxPages: pages });
+  let pool = [...(found.products || [])];
+  let poolSource = found.sitemap || null;
+  // Second source: Architonic brand page when the official site yields little.
+  // Skipped on Vercel (60s cap) and when the official crawl barely ran.
+  if (!ON_VERCEL && pool.length < 2 && found.checked > 3) {
+    try {
+      console.log(`[BrandEnrich] "${target.name}": official site gave ${pool.length} verified from ${found.checked} checked, trying Architonic...`);
+      const archi = await enrichBrandFromArchitonic({ brandName: target.name, maxPages: pages });
+      for (const p of (archi.products || [])) {
+        if (!pool.some((q) => String(q.model || '').toLowerCase().trim() === String(p.model || '').toLowerCase().trim())) pool.push(p);
+      }
+      if (!poolSource && archi.brandPageUrl) poolSource = archi.brandPageUrl;
+    } catch (e) { console.log(`[BrandEnrich] Architonic fallback missed (${e.message})`); }
+  }
+  let added = 0;
+  let failed = 0;
+  for (const p of pool) {
+    try {
+      const model = cleanModelName(p.model);
+      const ok = await brandStorage.addProductToBrand(target.name, target.budgetTier || target.budget_tier || 'mid', {
+        brand: target.name,
+        model,
+        family: '',
+        mainCategory: p.category || 'Furniture',
+        subCategory: '',
+        description: model,
+        imageUrl: p.imageUrl || '',
+        websiteUrl: p.officialProductUrl || target.websiteUrl || target.url || '',
+        officialProductUrl: p.officialProductUrl || '',
+        source: p.source || 'brand-enrich',
+        verified: true,
+        lastUpdated: new Date().toISOString()
+      });
+      if (ok) added++;
+      else failed++;
+    } catch (e) {
+      failed++;
+      console.log(`[BrandEnrich] ${target.name}: product "${p.model}" add failed (${e.message})`);
+    }
+  }
+  brandStorage.invalidateCache();
+  return {
+    success: true, brand: target.name, domain,
+    checked: (found.checked || 0), verified: pool.length, added, failed,
+    sitemap: poolSource, reason: pool.length ? null : (found.reason || null)
+  };
+}
+
+// Auto-enrich queue: newly provisioned brands get live products in the
+// background, one at a time (polite), never blocking the prescan response.
+let enrichQueue = Promise.resolve();
+function queueBrandEnrich(brandName) {
+  enrichQueue = enrichQueue.then(async () => {
+    try {
+      console.log(`[AutoEnrich] background enrich for "${brandName}"...`);
+      const out = await enrichBrandByName(brandName, 5);
+      console.log(`[AutoEnrich] "${brandName}":`, out.success
+        ? (out.skipped || `checked ${out.checked}, verified ${out.verified}, added ${out.added}`)
+        : `skipped (${out.error})`);
+    } catch (e) {
+      console.warn(`[AutoEnrich] "${brandName}" failed:`, e.message);
+    }
+    await new Promise((r) => setTimeout(r, 5000)); // breathing room between brands
+  });
+}
+
+/**
+ * POST /api/maker/verify { url, brand?, model? } — live-check a maker page from
+ * the spec (never typed into Lens; Lens would keyword-search the URL string).
+ * Fetches the page's product facts and confirms the model/brand actually live
+ * there. Always 200; { verified:false + reason } on any doubt. Silent helper
+ * for the modal's maker card — never blocks matching.
+ */
+app.post('/api/maker/verify', async (req, res) => {
+  try {
+    const { url, brand = '', model = '' } = req.body || {};
+    if (!url || !String(url).startsWith('http')) return res.json({ success: false, verified: false, reason: 'bad-url' });
+    const facts = await fetchProductFacts(String(url));
+    if (!facts.ok) return res.json({ success: true, verified: false, reason: facts.reason || 'fetch-fail' });
+    const page = `${facts.product?.model || ''} ${facts.product?.brand || ''} ${facts.product?.category || ''}`.toLowerCase();
+    const toks = `${model} ${brand}`.toLowerCase().split(/[^a-z0-9]+/).filter((t) => t.length > 2);
+    const hits = toks.filter((t) => page.includes(t));
+    const verified = toks.length > 0 && hits.length > 0;
+    return res.json({
+      success: true, verified,
+      pageModel: facts.product?.model || '', pageBrand: facts.product?.brand || '',
+      reason: verified ? null : 'model-not-on-page', via: facts.via || null
+    });
+  } catch (err) {
+    return res.json({ success: false, verified: false, reason: String(err.message || err).slice(0, 80) });
+  }
+});
+
+/**
+ * POST /api/brands/enrich { brandName, maxPages? } — Phase 3 demand-driven enrichment.
+ * Takes a quarantined (prescan-discovered) brand, crawls its official site's
+ * sitemap for product pages, verifies each via JSON-LD/OG, and merges the
+ * proven products into the catalog (model-deduped, taxonomy-normalized).
+ * Explicit per-brand call, plus automatic via the prescan hook — never bulk.
+ * On Vercel maxPages is clamped to 3 (60s serverless cap).
+ */
+app.post('/api/brands/enrich', async (req, res) => {
+  try {
+    const { brandName, maxPages = 6 } = req.body || {};
+    if (!brandName || !String(brandName).trim()) {
+      return res.status(400).json({ success: false, error: 'brandName required' });
+    }
+    const out = await enrichBrandByName(brandName, maxPages);
+    if (!out.success) return res.status(out.error?.includes('not in catalog') ? 404 : 422).json(out);
+    return res.json(out);
+  } catch (err) {
+    console.error('[BrandEnrich] failed:', err.message);
+    return res.status(500).json({ success: false, error: err.message });
   }
 });
 

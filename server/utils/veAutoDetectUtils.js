@@ -911,7 +911,7 @@ export function generateCrossBrandAlternatives(primaryBrand, primaryModel, descr
                 description: bestProd.description || `Value-engineered specification alternative from ${brandObj.name}`,
                 confidenceScore: fitScore,
                 specificationFit: fitScore,
-                veReason: `Verified 100% equivalent ${archetype} specification from premier partner ${brandObj.name}`,
+                veReason: `Verified 100% equivalent ${VE_CATEGORY_CONFIG[archetype]?.label || archetype} specification from premier partner ${brandObj.name}`,
                 source: 'Verified Contract Partner'
             });
 
@@ -947,8 +947,18 @@ export async function generateCrossBrandAlternativesAsync(primaryBrand, primaryM
         console.warn('Live alternatives merge notice:', e.message);
     }
 
-    // Sort by fit score descending
-    combined.sort((a, b) => (b.confidenceScore || 0) - (a.confidenceScore || 0));
+    // Sort by priority-sequence position first (user's Category & Manufacturer
+    // Priority Matrix), fit score second. Brands outside the sequence (live web
+    // finds) trail the sequenced DB makers — exactly the requested 3-tier order:
+    // AutoMatch exact (tab 1) → Lens-corroborated (badged) → sequence → online.
+    const seqOrder = (VE_CATEGORY_CONFIG[detectSpecArchetype(description, categoryHint)]?.priorityBrands || [])
+        .map((b) => String(b).toLowerCase().trim());
+    const seqIdx = (a) => {
+        const n = String(a.brand || '').toLowerCase().trim();
+        const i = seqOrder.findIndex((s) => s === n || n.includes(s) || s.includes(n));
+        return i === -1 ? 9999 : i;
+    };
+    combined.sort((a, b) => (seqIdx(a) - seqIdx(b)) || ((b.confidenceScore || 0) - (a.confidenceScore || 0)));
     const selected = combined.slice(0, Math.max(topK, 4));
 
     // Parallel high-resolution image verification & retrieval for all selected alternatives
