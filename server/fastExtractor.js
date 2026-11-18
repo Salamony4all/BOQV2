@@ -938,7 +938,7 @@ async function uploadMatchedMedia(matchedCandidates, mediaEntriesByName, imagesD
     const savedImages = {};
     const timestamp = Date.now();
     const mediaList = Array.from(neededMediaNames);
-    const BATCH_SIZE = 5;
+    const BATCH_SIZE = process.env.VERCEL === '1' ? 10 : 5;
 
     for (let i = 0; i < mediaList.length; i += BATCH_SIZE) {
         const batch = mediaList.slice(i, i + BATCH_SIZE);
@@ -1055,57 +1055,23 @@ async function uploadMatchedMedia(matchedCandidates, mediaEntriesByName, imagesD
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
-// Workbook Readers (ExcelJS Random-Access + SheetJS Fallback)
+// Workbook Readers (Low-Memory SheetJS Dense + Streaming ExcelJS Fallback)
 // ──────────────────────────────────────────────────────────────────────────────
 
 async function readWorkbookSheets(filePath) {
-    const isBinaryXlsb = filePath.toLowerCase().endsWith('.xlsb');
     try {
-        if (isBinaryXlsb) {
-            throw new Error('Binary .xlsb format uses SheetJS reader directly');
-        }
-        const workbook = new ExcelJS.Workbook();
-        await workbook.xlsx.readFile(filePath);
-        const sheetsData = [];
-
-        workbook.eachSheet((ws) => {
-            const rows = [];
-            ws.eachRow({ includeEmpty: false }, (row, rowNumber) => {
-                const maxCol = Math.max(row.cellCount || 0, (row.values?.length || 1) - 1);
-                const cells = [];
-                for (let c = 1; c <= maxCol; c++) {
-                    const cell = row.getCell(c);
-                    // Suppress duplicate text on horizontally-merged slave cells
-                    if (cell.isMerged && cell.master && cell.master.row === rowNumber && cell.master.col !== c) {
-                        cells.push('');
-                    } else {
-                        cells.push(extractText(cell.value));
-                    }
-                }
-                if (cells.some(Boolean)) {
-                    rows.push({ rowNumber, cells });
-                }
-            });
-
-            sheetsData.push({
-                name: ws.name,
-                sheetId: ws.id,
-                state: ws.state || 'visible',
-                rows
-            });
+        const wb = XLSX.readFile(filePath, {
+            cellStyles: false,
+            cellHTML: false,
+            cellFormula: false,
+            dense: true
         });
-
-        if (sheetsData.length === 0) {
-            throw new Error('ExcelJS loaded 0 worksheets');
-        }
-        return sheetsData;
-    } catch (excelErr) {
-        console.warn(`[FastExtractor] ExcelJS readFile failed (${excelErr.message}), falling back to SheetJS reader.`);
-        const wb = XLSX.readFile(filePath);
         const sheetMeta = wb.Workbook?.Sheets || [];
-        return wb.SheetNames.map((name, idx) => {
+        const sheetsData = wb.SheetNames.map((name, idx) => {
             const meta = sheetMeta[idx];
             const state = meta?.Hidden === 1 ? 'hidden' : (meta?.Hidden === 2 ? 'veryHidden' : 'visible');
+            const parsedId = meta?.sheetId ? parseInt(meta.sheetId, 10) : NaN;
+            const sheetId = Number.isFinite(parsedId) ? parsedId : (idx + 1);
             const ws = wb.Sheets[name];
             const rawRows = XLSX.utils.sheet_to_json(ws, { header: 1, raw: false, defval: '' });
             const rows = [];
@@ -1117,11 +1083,41 @@ async function readWorkbookSheets(filePath) {
             }
             return {
                 name,
-                sheetId: idx + 1,
+                sheetId,
                 state,
                 rows
             };
         });
+
+        return sheetsData;
+    } catch (sheetJsErr) {
+        console.warn(`[FastExtractor] SheetJS dense readFile failed (${sheetJsErr.message}), falling back to ExcelJS streaming WorkbookReader.`);
+        const workbookReader = new ExcelJS.stream.xlsx.WorkbookReader(filePath, {
+            sharedStrings: 'cache',
+            hyperlinks: 'ignore',
+            styles: 'ignore',
+            worksheets: 'emit'
+        });
+        const sheetsData = [];
+        let order = 0;
+        for await (const ws of workbookReader) {
+            order++;
+            const rows = [];
+            for await (const row of ws) {
+                if (!row.values || row.values.length === 0) continue;
+                const cells = row.values.slice(1).map(extractText);
+                if (cells.some(Boolean)) {
+                    rows.push({ rowNumber: row.number, cells });
+                }
+            }
+            sheetsData.push({
+                name: ws.name || `Sheet${order}`,
+                sheetId: ws.id || order,
+                state: ws.state || 'visible',
+                rows
+            });
+        }
+        return sheetsData;
     }
 }
 
@@ -1173,11 +1169,10 @@ async function extractExcelData(filePath, progressCallback = () => { }, onBlobCr
 
     progressCallback(15);
 
-    const [sheetsData, anchorData] = await Promise.all([
-        readWorkbookSheets(filePath),
-        parseDrawingAnchors(filePath)
-    ]);
-
+    // Parse sequentially so SheetJS workbook buffers can be reclaimed before opening AdmZip
+    const sheetsData = await readWorkbookSheets(filePath);
+    progressCallback(30);
+    const anchorData = await parseDrawingAnchors(filePath);
     progressCallback(50);
 
     // Filter sheets & rows first so non-product figures (cover logos, banners, stamps) are excluded before uploading
@@ -1193,6 +1188,7 @@ async function extractExcelData(filePath, progressCallback = () => { }, onBlobCr
             imagesDir,
             onBlobCreated
         );
+        anchorData.mediaEntriesByName = null;
 
         for (const candidate of preResult.matchedCandidates) {
             for (const colMap of candidate.matchedAnchorsByRow.values()) {

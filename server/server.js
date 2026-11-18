@@ -1939,13 +1939,10 @@ app.post('/api/process-blob', async (req, res) => {
   try {
     console.log(`📦 [Process-Blob] Starting extraction for: ${url}`);
 
-    // Download the file from Blob to /tmp for processing
-    const response = await axios.get(url, { responseType: 'arraybuffer' });
-    const buffer = Buffer.from(response.data);
+    // Stream the file directly from Blob to /tmp to avoid double-buffering large files in RAM
     const tempDir = isVercel ? '/tmp/uploads' : path.join(__dirname, '../uploads');
     await fs.mkdir(tempDir, { recursive: true });
 
-    // Derive file name & extension accurately:
     let rawName = clientFileName || '';
     if (!rawName && url) {
       try {
@@ -1954,33 +1951,47 @@ app.post('/api/process-blob', async (req, res) => {
       } catch (e) {}
     }
 
+    const safeBaseName = (rawName ? path.basename(rawName, path.extname(rawName)) : `large_${Date.now()}`).replace(/[^a-zA-Z0-9_-]/g, '_');
+    const tempDownloadPath = path.join(tempDir, `${safeBaseName}_${Date.now()}.part`);
+
+    const response = await axios.get(url, { responseType: 'stream', timeout: 120000 });
+    await new Promise((resolve, reject) => {
+      const writer = fs_sync.createWriteStream(tempDownloadPath);
+      response.data.pipe(writer);
+      writer.on('finish', resolve);
+      writer.on('error', reject);
+      response.data.on('error', reject);
+    });
+
+    const fdHead = await fs.open(tempDownloadPath, 'r');
+    const headBuf = Buffer.alloc(8);
+    const { bytesRead } = await fdHead.read(headBuf, 0, 8, 0);
+    await fdHead.close();
+
     let ext = path.extname(rawName).toLowerCase();
-    // Magic byte detection fallback
     if (!ext || ext === '.bin' || ext === '.tmp') {
-      if (buffer.length >= 4 && buffer[0] === 0x25 && buffer[1] === 0x50 && buffer[2] === 0x44 && buffer[3] === 0x46) {
+      if (bytesRead >= 4 && headBuf[0] === 0x25 && headBuf[1] === 0x50 && headBuf[2] === 0x44 && headBuf[3] === 0x46) {
         ext = '.pdf';
-      } else if (buffer.length >= 4 && buffer[0] === 0x50 && buffer[1] === 0x4B && buffer[2] === 0x03 && buffer[3] === 0x04) {
+      } else if (bytesRead >= 4 && headBuf[0] === 0x50 && headBuf[1] === 0x4B && headBuf[2] === 0x03 && headBuf[3] === 0x04) {
         ext = '.xlsx';
-      } else if (buffer.length >= 4 && buffer[0] === 0xD0 && buffer[1] === 0xCF && buffer[2] === 0x11 && buffer[3] === 0xE0) {
+      } else if (bytesRead >= 4 && headBuf[0] === 0xD0 && headBuf[1] === 0xCF && headBuf[2] === 0x11 && headBuf[3] === 0xE0) {
         ext = '.xls';
-      } else if (buffer.length >= 4 && buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4E && buffer[3] === 0x47) {
+      } else if (bytesRead >= 4 && headBuf[0] === 0x89 && headBuf[1] === 0x50 && headBuf[2] === 0x4E && headBuf[3] === 0x47) {
         ext = '.png';
-      } else if (buffer.length >= 3 && buffer[0] === 0xFF && buffer[1] === 0xD8 && buffer[2] === 0xFF) {
+      } else if (bytesRead >= 3 && headBuf[0] === 0xFF && headBuf[1] === 0xD8 && headBuf[2] === 0xFF) {
         ext = '.jpg';
       } else {
         ext = rawName.toLowerCase().endsWith('.pdf') ? '.pdf' : '.xlsx';
       }
     }
 
-    // Force PDF extension if buffer signature is %PDF (hex 0x25 0x50 0x44 0x46)
-    if (buffer.length >= 4 && buffer[0] === 0x25 && buffer[1] === 0x50 && buffer[2] === 0x44 && buffer[3] === 0x46) {
+    if (bytesRead >= 4 && headBuf[0] === 0x25 && headBuf[1] === 0x50 && headBuf[2] === 0x44 && headBuf[3] === 0x46) {
       ext = '.pdf';
     }
 
-    const safeBaseName = (rawName ? path.basename(rawName, path.extname(rawName)) : `large_${Date.now()}`).replace(/[^a-zA-Z0-9_-]/g, '_');
     const finalFileName = `${safeBaseName}_${Date.now()}${ext}`;
     const filePath = path.join(tempDir, finalFileName);
-    await fs.writeFile(filePath, buffer);
+    await fs.rename(tempDownloadPath, filePath);
 
     const extractionMode = req.headers['x-extraction-mode'] || pipeline || 'parallel';
     const modelName = req.headers['x-model-name'] || bodyModelName || null;
