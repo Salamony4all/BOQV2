@@ -862,7 +862,7 @@ function uploadToSupabaseWithProgress({ sbUrl, anonKey, bucket, filePath, file, 
               ) : logoOriginal ? (
                 <img src={logoOriginal} alt={companyName} className={styles.headerLogo} />
               ) : (
-                <span className={styles.logoTextSmall}>BOQ FLOW</span>
+                <span className={styles.logoTextSmall}>{companyName || 'BOQ FLOW'}</span>
               )}
             </div>
             <div style={{ marginLeft: 'auto', marginRight: '1rem', display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -1086,7 +1086,7 @@ function uploadToSupabaseWithProgress({ sbUrl, anonKey, bucket, filePath, file, 
             <img src={logoOriginal} alt={companyName} className={styles.landingLogo} />
           ) : (
             <span className={styles.logoTextSmall} style={{ fontSize: '3rem' }}>
-              BOQ FLOW
+              {companyName || 'BOQ FLOW'}
             </span>
           )}
         </div>

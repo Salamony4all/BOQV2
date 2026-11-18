@@ -1,6 +1,4 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import ALSHAYA_COLOR from '../assets/alshaya-color.png';
-import ALSHAYA_WHITE from '../assets/alshaya-white.png';
 import { DEFAULT_AI_SETTINGS, MODEL_OPTIONS } from '../utils/aiConstants';
 
 // Create the context
@@ -9,16 +7,28 @@ const CompanyContext = createContext(null);
 // Storage key
 const STORAGE_KEY = 'boqflow_company_profile';
 
+const isLegacyDefaultLogo = (logoObj) => {
+    if (!logoObj) return true;
+    const b64 = String(logoObj.base64 || '');
+    const white = String(logoObj.whiteLogo || '');
+    if (!b64 && !white) return true;
+    // Catch Vite asset paths (/src/assets/alshaya-*.png, /assets/alshaya-*.png) or legacy base64 Alshaya PNGs (1561x865 IHDR 'AABhkAAANh')
+    if (
+        b64.toLowerCase().includes('alshaya') ||
+        white.toLowerCase().includes('alshaya') ||
+        b64.includes('AABhkAAANh') ||
+        white.includes('AABhkAAANh') ||
+        (!b64.startsWith('data:') && logoObj.width === 1561 && logoObj.height === 865)
+    ) {
+        return true;
+    }
+    return false;
+};
+
 const DEFAULT_PROFILE = {
     companyName: 'BOQ FLOW',
     website: '',
-    logo: {
-        base64: ALSHAYA_COLOR,
-        width: 1561,
-        height: 865,
-        isLight: false,
-        whiteLogo: ALSHAYA_WHITE
-    },
+    logo: null,
     aiSettings: {
         engine: DEFAULT_AI_SETTINGS.engine,
         model: DEFAULT_AI_SETTINGS.model,
@@ -77,6 +87,9 @@ export function CompanyProvider({ children }) {
                     delete parsed.logoWhite;
                     delete parsed.logoBlue;
                 }
+                const hadLegacyLogo = !!parsed.logo && isLegacyDefaultLogo(parsed.logo);
+                const sanitizedLogo = isLegacyDefaultLogo(parsed.logo) ? null : parsed.logo;
+
                 // Merge with defaults to ensure missing fields (like website) are filled
                 // HOWEVER, if a profile was already saved, we don't want to revert the logo to default
                 const integratedProfile = {
@@ -84,14 +97,17 @@ export function CompanyProvider({ children }) {
                     ...parsed,
                     companyName: parsed.companyName || DEFAULT_PROFILE.companyName,
                     website: (parsed.website !== undefined) ? parsed.website : DEFAULT_PROFILE.website,
-                    // Only use default logo if the parsed one is completely missing or empty and no profile existed
-                    logo: (parsed.logo && (parsed.logo.base64 || parsed.logo.whiteLogo)) 
-                        ? parsed.logo 
-                        : (parsed.setupComplete ? parsed.logo : DEFAULT_PROFILE.logo),
+                    logo: sanitizedLogo,
                     aiSettings: parsed.aiSettings ? { ...DEFAULT_PROFILE.aiSettings, ...parsed.aiSettings } : DEFAULT_PROFILE.aiSettings,
                     accentColor: parsed.accentColor || DEFAULT_PROFILE.accentColor,
                     secondaryColor: parsed.secondaryColor || DEFAULT_PROFILE.secondaryColor
                 };
+
+                if (hadLegacyLogo) {
+                    try {
+                        localStorage.setItem(STORAGE_KEY, JSON.stringify(integratedProfile));
+                    } catch (e) {}
+                }
 
                 // Validate AI settings model
                 if (integratedProfile.aiSettings.engine === 'google') {

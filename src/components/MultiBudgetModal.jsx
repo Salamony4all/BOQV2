@@ -1947,8 +1947,6 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                     });
                 }
             } catch (e) { }
-        } else {
-            titleSlide.addText('LOGO', { x: 8.3, y: 0.25, w: 1.5, h: 0.3, fontSize: 10, color: colors.lightText, align: 'center' });
         }
 
         let itemNum = 1;
@@ -1980,8 +1978,6 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                         });
                     }
                 } catch (e) { }
-            } else {
-                slide.addText('LOGO', { x: 8.3, y: 0.25, w: 1.5, h: 0.3, fontSize: 10, color: colors.lightText, align: 'center' });
             }
 
             const leftX = 0.3;

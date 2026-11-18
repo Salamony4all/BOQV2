@@ -26,13 +26,9 @@ export default function CompanySettings({ isModal = false, onClose = null }) {
     // Local State
     const [name, setName] = useState(companyName || 'BOQ FLOW');
     const [website, setWebsite] = useState(storedWebsite || '');
-    const [logo, setLogo] = useState(storedLogo || {
-        base64: logoOriginal || '',
-        width: 1561,
-        height: 865,
-        isLight: false,
-        whiteLogo: logoWhite || ''
-    });
+    const [logo, setLogo] = useState(
+        (storedLogo && (storedLogo.base64 || storedLogo.whiteLogo)) ? storedLogo : null
+    );
     const [accentColor, setAccentColor] = useState(initialAccent || '#0f3e67');
     const [secondaryColor, setSecondaryColor] = useState(initialSecondary || '#f59e0b');
 
@@ -88,7 +84,7 @@ export default function CompanySettings({ isModal = false, onClose = null }) {
         if (!isInitializedRef.current && storedAiSettings) {
             if (companyName) setName(companyName);
             if (storedWebsite) setWebsite(storedWebsite);
-            if (storedLogo) setLogo(storedLogo);
+            setLogo((storedLogo && (storedLogo.base64 || storedLogo.whiteLogo)) ? storedLogo : null);
             if (storedAiSettings.engine) setSelectedEngine(storedAiSettings.engine);
             if (storedAiSettings.model) setSelectedModel(storedAiSettings.model);
             if (storedAiSettings.googleApiKey !== undefined) {
@@ -266,9 +262,15 @@ export default function CompanySettings({ isModal = false, onClose = null }) {
         if (type === 'both') {
             setLogo(null);
         } else if (type === 'white') {
-            setLogo(prev => ({ ...prev, whiteLogo: null }));
+            setLogo(prev => {
+                const next = { ...prev, whiteLogo: null };
+                return next.base64 ? next : null;
+            });
         } else {
-            setLogo(prev => ({ ...prev, base64: null }));
+            setLogo(prev => {
+                const next = { ...prev, base64: null };
+                return next.whiteLogo ? next : null;
+            });
         }
         
         if (fileInputRef.current) {
@@ -586,7 +588,7 @@ export default function CompanySettings({ isModal = false, onClose = null }) {
                                         className={styles.input}
                                         value={website}
                                         onChange={(e) => setWebsite(e.target.value)}
-                                        placeholder="e.g. www.alshaya.com"
+                                        placeholder="e.g. www.yourcompany.com"
                                     />
                                 </div>
 

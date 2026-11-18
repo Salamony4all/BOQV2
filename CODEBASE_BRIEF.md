@@ -512,6 +512,12 @@ The System Configuration modal handles a lot. For the Brands section specificall
 
 ## Session History
 
+### Nov 18, 2026 — Neutral White-Label Branding & Full Codebase Audit
+- **Removed Default Company Logo**: Removed hardcoded `alshaya-color.png` / `alshaya-white.png` imports from `src/context/CompanyContext.jsx` and set `DEFAULT_PROFILE.logo` to `null` so the app presents neutrally out-of-the-box (`BOQ FLOW` or user's configured `companyName`) until a company uploads its own branding.
+- **Legacy `localStorage` Sanitization**: Added automatic `isLegacyDefaultLogo` detection and cleanup on hydration in `CompanyContext.jsx` to strip cached Alshaya logos from existing browser sessions while preserving saved AI keys and settings.
+- **Neutralized UI & Export Fallbacks**: Removed hardcoded `https://alshayaenterprises.com` and `www.alshaya.com` fallbacks from `src/components/TableViewer.jsx`, `server/utils/pptxExportService.js`, and `src/components/CompanySettings.jsx`, and removed literal `'LOGO'` text placeholders in `src/components/MultiBudgetModal.jsx` PPTX slide generation.
+- **Deep File-by-File Audit**: Cataloged P0/P1/P2 bugs, security findings, and tech debt across frontend, backend, scrapers, extension, and sidecars into the backlog below.
+
 ### Jul 3, 2026 — Chrome Extension Autofill & Vercel ZIP Fix
 - **Chrome Extension**: Built full MV3 extension (`content.js`, `background.js`, `popup.js`) enabling direct client-side portal filling without a remote Railway browser container.
 - **Vercel Compatibility**: Updated `extension/manifest.json` host permissions to cover `boqv-2.vercel.app`. Extension API calls dynamically resolve to the deployed Vercel backend.
@@ -563,3 +569,43 @@ The System Configuration modal handles a lot. For the Brands section specificall
 
 > [!NOTE]
 > **CSS lint warnings**: `scrollbar-width`, `scrollbar-color` in `MultiBudgetModal.module.css` and `AutoFillSelectModal.module.css` — non-breaking, cosmetic.
+
+---
+
+## Known Issues & Technical Debt Backlog (Nov 2026 Deep Codebase Audit)
+
+### P0 — Security & Credentials
+- **`server/data/ai-settings.json`**: Live Google, OpenRouter, and NVIDIA API keys are persisted on disk; move secrets to environment variables / untracked runtime storage and ensure `.gitignore` excludes them.
+- **`server/fastExtractor.js` (`L275–L285`)**: Hardcoded `freeimage.host` API key fallback uploads extracted BOQ images to a public third-party host when Supabase and Railway fail.
+- **`server/server.js` (`L4401`, `L1943`)**: `/api/image-proxy` and `/api/process-blob` fetch arbitrary user-supplied URLs with `rejectUnauthorized: false` and no private-IP/SSRF filtering.
+
+### P0 — Runtime Crashes (`ReferenceError` / Missing Imports)
+- **`server/server.js` (`L2728`, `L3122`, `L3225`)**: Missing imports for `autoMatchMultiBrand` (from `./utils/llmUtils.js`), `veRouteCategories`, and `veMatchSimple` (from `./utils/veMatchUtils.js`).
+- **`server/server.js` (`L1528`, `L4388`)**: Undeclared `DOCLING_SERVICE_URL` constant breaks Docling/Paddle/OpenDataLoader extraction and `/docling/assets/:jobId/:filename`.
+- **`server/utils/veAutoDetectUtils.js` (`L837–L838`)**: References undeclared `prodText` instead of `prodDesc` inside `generateCrossBrandAlternatives` (`customLandscapeAndTerrazzo` branch).
+- **`server/utils/llmUtils.js` (`L621`, `L640`, `L1224–L1225`, `L1342`, `L1357`)**: `autoMatchMultiBrand` calls undefined `AUTO_MATCH_MULTI_ROUTER_SYSTEM` / `AUTO_MATCH_MULTI_AGENT_SYSTEM`; `callUniversalMultimodalAI` and `analyzePlan` reference undeclared `NVIDIA_API_KEY` / `OPENROUTER_API_KEY`.
+- **`src/components/MultiBudgetModal.jsx` (`L2861`)**: `"Search Online"` button on `no_match` rows calls undefined `handleManualEnrich`.
+- **`server/pdfProductExtractor.js` (`L198`)**: References `doc` and `mupdf` outside their `try` block scope on the Vercel non-Google provider path.
+- **`server/scraper.js` (`L832`)**: References `collectionName` before `let collectionName` initialization on paginated Architonic collection pages.
+
+### P1 — Logic & Functional Bugs
+- **`src/components/TableViewer.jsx` (`L189`, `L4103`, `L4126–L4127`)**: `tablesWithSummary` memo is computed but `tables` is passed to `renderTableList`, `handleDownloadPDF`, and `handleDownloadExcel`, preventing inline edits from updating totals.
+- **`src/components/TableViewer.jsx` (`L763–L815`)**: Offer PDF cover page header rectangle ends at `Y=90` while white `COMMERCIAL OFFER` text is drawn at `Y=110` on white background.
+- **`src/components/PlanAnalyzerModal.jsx` (`L105–L132`)**: `onApply` is called immediately with `hasAutoApplied = true` before the user edits quantities in the verification table, discarding manual quantity edits.
+- **`src/context/CompanyContext.jsx` (`L140–L142`)**: `window.location.port || '3001'` appends `:3001` to production HTTPS URLs when syncing `/api/ai/save-settings` (should use `getApiBase()`).
+- **`src/components/ActionCard.jsx` (`L18`)**: `handleDrop` omits `e.stopPropagation()`, causing drops on `"UPLOAD PLAN"` to bubble up to `window`'s global BOQ upload drop listener in `App.jsx`.
+- **`server/server.js` (`L3702`)**: Missing `await` on `getFormattedAlternatives(...)` in `POST /api/ve-match-auto`.
+- **`server/server.js` (`L4590–L4596`)**: Calls `sc.scrape(...)` instead of `sc.scrapeBrand(...)` on local `StructureScraper` and `ScraperService` instances.
+- **`server/server.js` (`L2019` vs `L4855`, `L2035` vs `L4888`)**: Duplicate route registrations for `POST /api/reset` and `POST /api/cleanup/session` shadow the second handlers.
+- **`server/utils/llmUtils.js` (`L49`, `L134`, `L1060`)**: `VALID_NVIDIA_MODELS` is `[]` (blocking all NVIDIA models in `analyzePlan`); `cleanQty` regex `/[\\d.]+/` is double-escaped.
+- **`server/utils/veBrandSpecialties.js` (`L224–L237`)**: `customLandscapeAndTerrazzo` specialist brands were placed inside `DOMAIN_EXCLUSIONS` and overwritten, leaving `BRAND_SPECIALTIES.customLandscapeAndTerrazzo` undefined.
+- **`server/utils/brandLogos.js` (`L74–L78`)**: Substring match on 3-letter brand keys (`'las'`, `'rim'`, `'ton'`, `'emu'`, `'hay'`) causes false logo matches.
+- **`server/embeddingService.js` (`L193–L204`)**: `ensureBrandCatalogEmbeddings` is never invoked, so `brandEmbeddingCache` stays empty and `cosineSim` falls back to `Math.max(0.75, tokenScore)`.
+- **`python-scraper/scraper.py` (`L727`, `L778`)**: `scrape_italian` and `scrape_firecrawl` pass 2 arguments to 1-argument `scrape_url(url)`, always falling back to mock Unsplash products.
+- **`src/utils/arabicPdfUtils.js` (`L76–L155`)**: Redundant first segmentation loop, reversed digits inside Arabic runs, missing Lam-Alif (`لا`) ligatures, and uncached CDN font fetching.
+
+### P2 — Dead / Duplicate Code & Cleanup
+- `server/universalPatternParsersVercel.js` and `server/universalPatternParsersVercel.v22.dynamic-header-boq-spec.js` are 100% byte-for-byte identical 99KB files.
+- Dead/orphaned files: `src/App.css`, `src/utils/arabicFont.js`, `src/components/BrandSyncPanel.jsx` (imports missing `BlobDashboard.module.css`), `src/styles/PdfModelSelectionModal.module.css`, `src/styles/ValueEngineeredModal.module.css` (0 bytes), `server/utils/imageUtils.js`, `server/browserlessScraper.js`, `server/scrapingBeeScraper.js`.
+- `src/components/TenderAutofillModal.jsx` (`L819–L822`): Log colorizer checks `log.includes('')` (always `true` due to stripped emojis).
+- `src/components/CompanySettings.jsx` (`L688`, `L806`, `L1016`, `L1236`) and `BrandManagement.jsx` (`L421`, `L459`): Stripped button icons render empty toggle/delete labels.

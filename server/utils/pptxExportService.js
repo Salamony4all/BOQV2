@@ -246,7 +246,9 @@ export async function generatePresentationPdf(data) {
             // ===== FOOTER =====
             slide.addText('Warranty', { x: 0.2, y: 5.08, w: 1, h: 0.18, fontSize: 8, bold: true, color: brandColors.primary });
             slide.addText('As per manufacturer - 5 years', { x: 0.2, y: 5.24, w: 2.5, h: 0.15, fontSize: 7, color: brandColors.lightText });
-            slide.addText(website || 'https://alshayaenterprises.com', { x: 3.5, y: 5.32, w: 3, h: 0.15, fontSize: 7, color: brandColors.primary, align: 'center' });
+            if (website) {
+                slide.addText(website, { x: 3.5, y: 5.32, w: 3, h: 0.15, fontSize: 7, color: brandColors.primary, align: 'center' });
+            }
             slide.addText(`${itemNum} / ${totalItems}`, { x: 8.5, y: 5.32, w: 1, h: 0.15, fontSize: 7, color: brandColors.lightText, align: 'right' });
 
             itemNum++;

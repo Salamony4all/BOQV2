@@ -3427,11 +3427,13 @@ function TableViewer({
                     fontSize: 7, color: footerTextColor, fontFace: fontFace
                 });
 
-                // Page URL/reference
-                slide.addText(website || 'https://alshayaenterprises.com', {
-                    x: 3.5, y: 5.32, w: 3, h: 0.15,
-                    fontSize: 7, color: footerLinkColor, fontFace: fontFace, align: 'center'
-                });
+                // Page URL/reference (only render if company website is configured)
+                if (website) {
+                    slide.addText(website, {
+                        x: 3.5, y: 5.32, w: 3, h: 0.15,
+                        fontSize: 7, color: footerLinkColor, fontFace: fontFace, align: 'center'
+                    });
+                }
 
                 // Page number
                 slide.addText(`${itemNum} / ${totalItems}`, {
