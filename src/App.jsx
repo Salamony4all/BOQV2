@@ -16,17 +16,6 @@ import { MODEL_OPTIONS } from './utils/aiConstants';
 
 import { createClient } from '@supabase/supabase-js';
 
-// Modern workspace images for carousel
-const CAROUSEL_IMAGES = [
-  'https://images.unsplash.com/photo-1497366216548-37526070297c?w=800&q=80', // Modern office
-  'https://images.unsplash.com/photo-1497215728101-856f4ea42174?w=800&q=80', // Workspace
-  'https://images.unsplash.com/photo-1524758631624-e2822e304c36?w=800&q=80', // Interior design
-  'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=800&q=80', // Modern furniture
-  'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=800&q=80', // Sofa design
-];
-
-const LOGO_Q_IMAGE = new URL('/geared_q.png', import.meta.url).href;
-
 import { getApiBase } from './utils/apiBase';
 
 const API_BASE = getApiBase();
@@ -281,8 +270,9 @@ function AppContent({ onOpenSettings }) {
   const [extractedData, setExtractedData] = useState(null);
   const [error, setError] = useState(null);
   const [isMultiBudgetOpen, setMultiBudgetOpen] = useState(false);
-  const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [showLanding, setShowLanding] = useState(true);
+  const landingBoqInputRef = useRef(null);
+  const landingPlanInputRef = useRef(null);
   const [isPlanScopeOpen, setIsPlanScopeOpen] = useState(false);
   const [seededPlanItems, setSeededPlanItems] = useState(null);
   const [allBrands, setAllBrands] = useState([]);
@@ -359,14 +349,6 @@ function AppContent({ onOpenSettings }) {
     return () => {
       window.removeEventListener('beforeunload', handleUnload);
     };
-  }, []);
-
-  // Image carousel auto-rotate
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setCurrentImageIndex((prev) => (prev + 1) % CAROUSEL_IMAGES.length);
-    }, 4000);
-    return () => clearInterval(interval);
   }, []);
 
   // Generate preview URL for the uploaded plan file
@@ -821,6 +803,126 @@ function uploadToSupabaseWithProgress({ sbUrl, anonKey, bucket, filePath, file, 
     setMultiBudgetOpen(true);
   };
 
+  const handleLoadSampleBoq = () => {
+    const sampleTable = {
+      sheetName: 'Corporate Office Furniture Schedule (Sample)',
+      columnCount: 9,
+      header: ['Item No', 'Code', 'Image', 'Description', 'Brand', 'Qty', 'Unit', 'Rate', 'Amount'],
+      rows: [
+        {
+          cells: [
+            { value: '1' },
+            { value: 'WS-01' },
+            {
+              value: '',
+              image: 'https://media.architonic.com/m-on/10001981/product/20727055/narbutas_zedo-desk_b19f7496.jpeg?format=webp&quality=75',
+              images: ['https://media.architonic.com/m-on/10001981/product/20727055/narbutas_zedo-desk_b19f7496.jpeg?format=webp&quality=75']
+            },
+            { value: 'Executive L-Shape Desk with Integrated Return Credenza & Cable Tray | Size: 2000x1800x750mm | Finish: Natural Oak Veneer & Matte Anthracite Base' },
+            { value: 'LAS / Narbutas' },
+            { value: '4' },
+            { value: 'Nos' },
+            { value: '1450.00' },
+            { value: '5800.00' }
+          ]
+        },
+        {
+          cells: [
+            { value: '2' },
+            { value: 'CH-01' },
+            {
+              value: '',
+              image: 'https://media.architonic.com/m-on/3100165/product/20088118/sedus-stoll_black-dot-air_d69097f7.jpeg?format=webp&quality=75',
+              images: ['https://media.architonic.com/m-on/3100165/product/20088118/sedus-stoll_black-dot-air_d69097f7.jpeg?format=webp&quality=75']
+            },
+            { value: 'Ergonomic High-Back Task Chair with Synchronized Mechanism, 4D Armrests, Lumbar Support & Breathable Black Mesh Back | 5-Star Aluminum Base' },
+            { value: 'Sedus / Interstuhl' },
+            { value: '36' },
+            { value: 'Nos' },
+            { value: '420.00' },
+            { value: '15120.00' }
+          ]
+        },
+        {
+          cells: [
+            { value: '3' },
+            { value: 'WS-02' },
+            {
+              value: '',
+              image: 'https://media.architonic.com/m-on/10001981/product/20264116/narbutas_nova-u-desks_602d9b06.jpeg?format=webp&quality=75',
+              images: ['https://media.architonic.com/m-on/10001981/product/20264116/narbutas_nova-u-desks_602d9b06.jpeg?format=webp&quality=75']
+            },
+            { value: '4-Person Cluster Bench Workstation with Fabric Acoustic Divider Screens & Flip-Top Power/Data Access | Size: 2800x1400x750mm' },
+            { value: 'Narbutas' },
+            { value: '8' },
+            { value: 'Cluster' },
+            { value: '1890.00' },
+            { value: '15120.00' }
+          ]
+        },
+        {
+          cells: [
+            { value: '4' },
+            { value: 'MT-01' },
+            {
+              value: '',
+              image: 'https://media.architonic.com/m-on/10001981/product/20732677/narbutas_arqus-meeting-table_7de65d9c.jpeg?format=webp&quality=75',
+              images: ['https://media.architonic.com/m-on/10001981/product/20732677/narbutas_arqus-meeting-table_7de65d9c.jpeg?format=webp&quality=75']
+            },
+            { value: 'Boardroom Conference Table for 12 Pax with Concealed Wire Management & Dual Flip-Up Media Connectivity Boxes | Size: 3800x1400x750mm' },
+            { value: 'LAS / Frezza' },
+            { value: '2' },
+            { value: 'Nos' },
+            { value: '2650.00' },
+            { value: '5300.00' }
+          ]
+        },
+        {
+          cells: [
+            { value: '5' },
+            { value: 'LS-01' },
+            {
+              value: '',
+              image: 'https://media.architonic.com/m-on/3100165/product/1215599/sedus-stoll_sweetspot_7973a795.jpeg?format=webp&quality=75',
+              images: ['https://media.architonic.com/m-on/3100165/product/1215599/sedus-stoll_sweetspot_7973a795.jpeg?format=webp&quality=75']
+            },
+            { value: 'Reception & Breakout Upholstered Lounge Armchair on Sled Base | Commercial Grade Cat-B Bouclé Fabric | Size: 740x680x780mm' },
+            { value: 'Arper / B&T Design' },
+            { value: '12' },
+            { value: 'Nos' },
+            { value: '580.00' },
+            { value: '6960.00' }
+          ]
+        },
+        {
+          cells: [
+            { value: '6' },
+            { value: 'ST-01' },
+            {
+              value: '',
+              image: 'https://media.architonic.com/m-on/10001981/product/20727035/narbutas_combus-shelving-system_b877ef07.jpeg?format=webp&quality=75',
+              images: ['https://media.architonic.com/m-on/10001981/product/20727035/narbutas_combus-shelving-system_b877ef07.jpeg?format=webp&quality=75']
+            },
+            { value: 'Medium Height Hinged-Door Storage Cabinet with Soft-Close Hinges, Lock & 3 Adjustable Melamine Shelves | Size: 800x420x1100mm' },
+            { value: 'LAS / Ottimo' },
+            { value: '14' },
+            { value: 'Nos' },
+            { value: '390.00' },
+            { value: '5460.00' }
+          ]
+        }
+      ],
+      extractedSummary: {
+        totalRate: 7380,
+        totalAmount: 53760,
+        totalQty: 76,
+        itemCount: 6
+      }
+    };
+    setExtractedData({ tables: [sampleTable] });
+    setShowLanding(false);
+  };
+
   const handleMultiBudgetApply = (data) => {
     setExtractedData(data);
     setMultiBudgetOpen(false);
@@ -866,6 +968,15 @@ function uploadToSupabaseWithProgress({ sbUrl, anonKey, bucket, filePath, file, 
               )}
             </div>
             <div style={{ marginLeft: 'auto', marginRight: '1rem', display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <button
+                type="button"
+                onClick={onOpenSettings}
+                className={styles.extensionDownloadBtn}
+                title="Upload your company logo, set brand colors, and configure AI models"
+              >
+                <i className="ri-building-2-line" style={{ fontSize: '14px' }} />
+                <span>{logoOriginal || logoWhite ? 'Company Branding' : 'Add Company Logo'}</span>
+              </button>
               <a
                 href="/extension.zip"
                 download="AutoBrowserBridge-Extension.zip"
@@ -1058,6 +1169,15 @@ function uploadToSupabaseWithProgress({ sbUrl, anonKey, bucket, filePath, file, 
 
       {/* Theme Toggle & Model Select - Fixed Top Right */}
       <div style={{ position: 'fixed', top: '20px', right: '20px', zIndex: 10000, display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <button
+          type="button"
+          onClick={onOpenSettings}
+          className={styles.extensionDownloadBtn}
+          title="Upload your company logo, set brand colors, and configure AI models"
+        >
+          <i className="ri-building-2-line" style={{ fontSize: '14px' }} />
+          <span>{logoOriginal || logoWhite ? 'Company Branding' : 'Add Company Logo'}</span>
+        </button>
         <a
           href="/extension.zip"
           download="AutoBrowserBridge-Extension.zip"
@@ -1077,57 +1197,54 @@ function uploadToSupabaseWithProgress({ sbUrl, anonKey, bucket, filePath, file, 
 
       {/* Hero Section */}
       <section className={styles.hero}>
-        {/* Logo */}
-        {/* Logo with Image Q */}
+        {/* Eyebrow Badge */}
+        <div className={styles.heroBadge}>
+          <i className="ri-sparkling-2-fill" />
+          <span>AI FURNITURE &amp; FITOUT ESTIMATION WORKSPACE</span>
+        </div>
+
+        {/* Company Logo / Brand Identity */}
         <div className={styles.logoContainer} onClick={() => window.location.reload()} style={{ cursor: 'pointer' }}>
           {theme === 'dark' && logoWhite ? (
             <img src={logoWhite} alt={companyName} className={styles.landingLogo} />
           ) : logoOriginal ? (
             <img src={logoOriginal} alt={companyName} className={styles.landingLogo} />
           ) : (
-            <span className={styles.logoTextSmall} style={{ fontSize: '3rem' }}>
+            <span className={styles.logoTextSmall} style={{ fontSize: '2.75rem' }}>
               {companyName || 'BOQ FLOW'}
             </span>
           )}
         </div>
 
         {/* Main Headline */}
-        <h2 className={styles.headline}>
-          <span className={styles.headlineAccent}>Automate</span> Your Workflow
-        </h2>
+        <h1 className={styles.headline}>
+          Turn Layout Drawings &amp; Tender BOQs Into{' '}
+          <span className={styles.headlineAccent}>Branded Offers</span> in Minutes
+        </h1>
         <p className={styles.subheadline}>
-          Transform layout drawings and BOQs into professional offers instantly.
-          Automate Furniture & Fitout estimation, Multi-Budget alternatives, and PM exports (MAS, MIR, WIR).
+          Purpose-built for corporate furniture suppliers and fitout estimators. Read layout drawings,
+          match tender specifications to your partner brands, and export live-formula Excel BOQs,
+          PPTX showcases, and MAS/MIR submittals in one click.
         </p>
 
-        {/* Image Carousel */}
-        <div className={styles.carouselSection}>
-          <div className={styles.carouselWrapper}>
-            {CAROUSEL_IMAGES.map((img, idx) => (
-              <div
-                key={idx}
-                className={`${styles.carouselSlide} ${idx === currentImageIndex ? styles.active : ''}`}
-              >
-                <img src={img} alt={`Workspace ${idx + 1}`} className={styles.carouselImage} />
-              </div>
-            ))}
-          </div>
-          {/* Carousel Indicators */}
-          <div className={styles.carouselIndicators}>
-            {CAROUSEL_IMAGES.map((_, idx) => (
-              <button
-                key={idx}
-                className={`${styles.indicator} ${idx === currentImageIndex ? styles.activeIndicator : ''}`}
-                onClick={() => setCurrentImageIndex(idx)}
-              />
-            ))}
-          </div>
+        {/* Estimator Pillar Pills */}
+        <div className={styles.estimatorPills}>
+          <span className={styles.estimatorPill}>
+            <i className="ri-checkbox-circle-fill" /> AI Drawing &amp; PDF Schedule Takeoff
+          </span>
+          <span className={styles.estimatorPill}>
+            <i className="ri-checkbox-circle-fill" /> Live-Formula Excel, PPTX &amp; MAS
+          </span>
+          <span className={styles.estimatorPill}>
+            <i className="ri-checkbox-circle-fill" /> Instant VE &amp; 3-Tier Brand Matching
+          </span>
         </div>
 
-        {/* CTA Buttons */}
+        {/* Above-the-Fold CTA Buttons */}
         <div className={styles.ctaGroup}>
           <label className={styles.ctaPrimary}>
             <input
+              ref={landingBoqInputRef}
               type="file"
               accept=".xlsx,.xls,.pdf,.png,.jpg,.jpeg"
               style={{ display: 'none' }}
@@ -1140,19 +1257,22 @@ function uploadToSupabaseWithProgress({ sbUrl, anonKey, bucket, filePath, file, 
                 e.target.value = '';
               }}
             />
-            Upload BOQ
+            <i className="ri-file-upload-line" />
+            <span>
+              <strong>Upload BOQ</strong>
+              <small className={styles.ctaSub}>Excel • PDF • Spec Schedule</small>
+            </span>
           </label>
-          <button className={styles.ctaPrimary} onClick={handleStartNewBOQ}>
-            Create New BOQ
-          </button>
-          <label className={styles.ctaPrimary}>
+
+          <label className={styles.ctaPlan}>
             <input
+              ref={landingPlanInputRef}
               type="file"
               accept=".pdf,.png,.jpg,.jpeg"
               style={{ display: 'none' }}
               multiple
               onChange={(e) => {
-                const files = Array.from(e.target.files);
+                const files = Array.from(e.target.files || []).filter(Boolean);
                 if (files.length > 0) {
                   setCurrentPlanFiles(files);
                   setUploadedPlanFile(files[0]);
@@ -1161,8 +1281,131 @@ function uploadToSupabaseWithProgress({ sbUrl, anonKey, bucket, filePath, file, 
                 e.target.value = '';
               }}
             />
-            Upload Plan
+            <i className="ri-draft-line" />
+            <span>
+              <strong>Upload Floor Plan</strong>
+              <small className={styles.ctaSub}>CAD PDF • Layout Image</small>
+            </span>
           </label>
+
+          <button type="button" className={styles.ctaSecondary} onClick={handleStartNewBOQ}>
+            <i className="ri-equalizer-line" />
+            <span>
+              <strong>3-Tier / New BOQ</strong>
+              <small className={styles.ctaSub}>Budget • Mid • High Offers</small>
+            </span>
+          </button>
+
+          <button type="button" className={styles.ctaDemo} onClick={handleLoadSampleBoq}>
+            <i className="ri-play-circle-fill" />
+            <span>
+              <strong>Try Sample Office Tender</strong>
+              <small className={styles.ctaSub}>Instant 1-Click Live Demo</small>
+            </span>
+          </button>
+        </div>
+
+        {/* 3-Step Interactive Workflow Showcase */}
+        <div className={styles.pipelineShowcase}>
+          <div
+            className={styles.pipelineCard}
+            onClick={() => landingBoqInputRef.current?.click()}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => e.key === 'Enter' && landingBoqInputRef.current?.click()}
+          >
+            <div className={styles.pipelineCardTop}>
+              <span className={styles.pipelineStepBadge}>STEP 01 • INGEST</span>
+              <span className={styles.pipelineIcon}><i className="ri-file-search-line" /></span>
+            </div>
+            <h3 className={styles.pipelineTitle}>PDF Schedules, Spec Cards &amp; Drawings</h3>
+            <p className={styles.pipelineDesc}>
+              Extracts multi-page BOQs, LF-code specification sheets, dimensions, finishes, and
+              embedded reference images—or counts furniture directly from floor plans.
+            </p>
+            <div className={styles.pipelineTags}>
+              <span className={styles.pipelineTag}>PDF V22 Spatial</span>
+              <span className={styles.pipelineTag}>Excel (.xlsx/.xls)</span>
+              <span className={styles.pipelineTag}>Floor Plans</span>
+            </div>
+          </div>
+
+          <div className={styles.pipelineConnector} aria-hidden="true">
+            <i className="ri-arrow-right-line" />
+          </div>
+
+          <div
+            className={styles.pipelineCard}
+            onClick={() => setValueEngineeredOpen(true)}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => e.key === 'Enter' && setValueEngineeredOpen(true)}
+          >
+            <div className={styles.pipelineCardTop}>
+              <span className={styles.pipelineStepBadge}>STEP 02 • AI MATCH &amp; COST</span>
+              <span className={styles.pipelineIcon}><i className="ri-cpu-line" /></span>
+            </div>
+            <h3 className={styles.pipelineTitle}>Partner Catalogs, VE &amp; 3-Tier Pricing</h3>
+            <p className={styles.pipelineDesc}>
+              Matches generic or specified items against 50+ contract brands (or via Google Lens
+              1:1 visual search) with live Profit, Freight, Customs, and Currency conversion.
+            </p>
+            <div className={styles.pipelineTags}>
+              <span className={styles.pipelineTag}>Budget / Mid / High</span>
+              <span className={styles.pipelineTag}>Google Lens 1:1</span>
+              <span className={styles.pipelineTag}>EUR/USD → AED/OMR</span>
+            </div>
+          </div>
+
+          <div className={styles.pipelineConnector} aria-hidden="true">
+            <i className="ri-arrow-right-line" />
+          </div>
+
+          <div
+            className={styles.pipelineCard}
+            onClick={handleLoadSampleBoq}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => e.key === 'Enter' && handleLoadSampleBoq()}
+          >
+            <div className={styles.pipelineCardTop}>
+              <span className={styles.pipelineStepBadge}>STEP 03 • SUBMITTALS</span>
+              <span className={styles.pipelineIcon}><i className="ri-slideshow-3-line" /></span>
+            </div>
+            <h3 className={styles.pipelineTitle}>Branded Excel, PPTX &amp; MAS Submittals</h3>
+            <p className={styles.pipelineDesc}>
+              Exports client-ready Excel offers with live formulas, 16:9 widescreen PowerPoint
+              product showcases, Material Approval Sheets (MAS), MIR, WIR, and Delivery Notes.
+            </p>
+            <div className={styles.pipelineTags}>
+              <span className={styles.pipelineTag}>Live Excel Formulas</span>
+              <span className={styles.pipelineTag}>5 PPTX Themes</span>
+              <span className={styles.pipelineTag}>MAS / MIR / WIR</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Pre-Integrated Contract Catalogs Strip */}
+      <section className={styles.brandTrustSection}>
+        <p className={styles.brandTrustLabel}>
+          PRE-INTEGRATED COMMERCIAL FURNITURE CATALOGS &amp; LIVE WEB HARVESTER
+        </p>
+        <div className={styles.brandTrustList}>
+          {[
+            'LAS MOBILI', 'INTERSTUHL', 'SEDUS STOLL', 'NARBUTAS', 'ARPER',
+            'TEKNION', 'NURUS', 'FREZZA', 'SOKOA', 'DAUPHIN',
+            'B&T DESIGN', 'OTTIMO', 'PEDRALI', 'RIM', 'OFIFRAN'
+          ].map((brand) => (
+            <span key={brand} className={styles.brandPill}>{brand}</span>
+          ))}
+          <button
+            type="button"
+            className={`${styles.brandPill} ${styles.brandPillAction}`}
+            onClick={onOpenSettings}
+          >
+            + Add Any Brand URL
+          </button>
         </div>
       </section>
 
@@ -1170,70 +1413,137 @@ function uploadToSupabaseWithProgress({ sbUrl, anonKey, bucket, filePath, file, 
       <section className={styles.statsSection}>
         <div className={styles.stat}>
           <div className={styles.statValue}>10x</div>
-          <div className={styles.statLabel}>Faster Processing</div>
+          <div className={styles.statLabel}>Faster Tender Turnaround</div>
         </div>
         <div className={styles.statDivider} />
         <div className={styles.stat}>
-          <div className={styles.statValue}>Unlimited</div>
-          <div className={styles.statLabel}>Scalability</div>
+          <div className={styles.statValue}>50+</div>
+          <div className={styles.statLabel}>Integrated Contract Brands</div>
+        </div>
+        <div className={styles.statDivider} />
+        <div className={styles.stat}>
+          <div className={styles.statValue}>7-in-1</div>
+          <div className={styles.statLabel}>Excel, PPTX, Offer, MAS, MIR, WIR &amp; DN</div>
         </div>
         <div className={styles.statDivider} />
         <div className={styles.stat}>
           <div className={styles.statValue}>100%</div>
-          <div className={styles.statLabel}>Accuracy</div>
+          <div className={styles.statLabel}>White-Label Your Company Logo</div>
         </div>
       </section>
 
       {/* Features Section */}
       <section className={styles.featuresSection}>
-        <h2 className={styles.sectionTitle}>Everything You Need</h2>
+        <h2 className={styles.sectionTitle}>Everything Your Estimation Team Needs</h2>
         <div className={styles.featuresGrid}>
           <div
             className={`${styles.featureCard} ${styles.featureCardFeatured}`}
             onClick={() => setValueEngineeredOpen(true)}
-            style={{ cursor: 'pointer', userSelect: 'none' }}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => e.key === 'Enter' && setValueEngineeredOpen(true)}
             title="Launch Value Engineered Offer"
           >
-            <h3 className={styles.featureTitle}> VALUE ENGINEERED OFFER</h3>
+            <div className={styles.featureIconWrap}>
+              <i className="ri-vip-diamond-line" />
+            </div>
+            <h3 className={styles.featureTitle}>VALUE ENGINEERED OFFER</h3>
             <p className={styles.featureDesc}>
               Upload your BOQ (Excel/PDF) or Plan drawings, configure category-specific brand preferences, and let the AI produce a single, optimized value-engineered offer — one best-fit product per line item, ready in minutes.
             </p>
+            <span className={styles.featureActionHint}>
+              Launch AI Value Engineer <i className="ri-arrow-right-line" />
+            </span>
           </div>
-          <div className={styles.featureCard}>
-            <h3 className={styles.featureTitle}>Plan to BOQ</h3>
+
+          <div
+            className={styles.featureCard}
+            onClick={() => landingPlanInputRef.current?.click()}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => e.key === 'Enter' && landingPlanInputRef.current?.click()}
+          >
+            <div className={styles.featureIconWrap}><i className="ri-compasses-2-line" /></div>
+            <h3 className={styles.featureTitle}>Plan to BOQ (Drawing Takeoff)</h3>
             <p className={styles.featureDesc}>
-              Instantly extract furniture and fitout quantities from layout drawings using specialized AI geometric analysis
+              Instantly extract furniture and fitout quantities room-by-room from layout drawings using specialized AI geometric analysis.
             </p>
+            <span className={styles.featureActionHint}>Upload Floor Plan <i className="ri-arrow-right-line" /></span>
           </div>
-          <div className={styles.featureCard}>
-            <h3 className={styles.featureTitle}>Fitout Estimation</h3>
+
+          <div
+            className={styles.featureCard}
+            onClick={() => setMultiBudgetOpen(true)}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => e.key === 'Enter' && setMultiBudgetOpen(true)}
+          >
+            <div className={styles.featureIconWrap}><i className="ri-layers-line" /></div>
+            <h3 className={styles.featureTitle}>Multi-Budget (3-Tier Offers)</h3>
             <p className={styles.featureDesc}>
-              Specialized module for glass walls, flooring, and ceiling works with deep internal database synchronization
+              Create Budgetary, Mid-Range, and High-End alternatives side-by-side instantly with automated brand matching.
             </p>
+            <span className={styles.featureActionHint}>Open 3-Tier Workspace <i className="ri-arrow-right-line" /></span>
           </div>
-          <div className={styles.featureCard}>
-            <h3 className={styles.featureTitle}>PM Exports</h3>
+
+          <div
+            className={styles.featureCard}
+            onClick={handleLoadSampleBoq}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => e.key === 'Enter' && handleLoadSampleBoq()}
+          >
+            <div className={styles.featureIconWrap}><i className="ri-slideshow-line" /></div>
+            <h3 className={styles.featureTitle}>Visual PPTX &amp; PDF Catalogs</h3>
             <p className={styles.featureDesc}>
-              Professional project management bundle: Export MAS, MIR, WIR, and Delivery Notes in one click
+              Generate 5-theme widescreen PowerPoint presentations and client-ready commercial offers featuring high-resolution product images.
             </p>
+            <span className={styles.featureActionHint}>Try Sample Export <i className="ri-arrow-right-line" /></span>
           </div>
-          <div className={styles.featureCard}>
-            <h3 className={styles.featureTitle}>Multi-Budget</h3>
+
+          <div
+            className={styles.featureCard}
+            onClick={handleLoadSampleBoq}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => e.key === 'Enter' && handleLoadSampleBoq()}
+          >
+            <div className={styles.featureIconWrap}><i className="ri-file-shield-2-line" /></div>
+            <h3 className={styles.featureTitle}>PM Submittals (MAS, MIR, WIR)</h3>
             <p className={styles.featureDesc}>
-              Create budgetary, mid-range, and high-end alternatives instantly with automated brand matching
+              Complete project management submittal bundle: Export MAS, MIR, WIR, Delivery Notes, and live-formula Excel sheets in one click.
             </p>
+            <span className={styles.featureActionHint}>Preview Submittals <i className="ri-arrow-right-line" /></span>
           </div>
-          <div className={styles.featureCard}>
-            <h3 className={styles.featureTitle}>Visual Catalogs</h3>
+
+          <div
+            className={styles.featureCard}
+            onClick={() => setMultiBudgetOpen(true)}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => e.key === 'Enter' && setMultiBudgetOpen(true)}
+          >
+            <div className={styles.featureIconWrap}><i className="ri-building-4-line" /></div>
+            <h3 className={styles.featureTitle}>Fitout &amp; Joinery Estimation</h3>
             <p className={styles.featureDesc}>
-              Beautiful PowerPoint and PDF presentations featuring high-resolution product showcases and specs
+              Specialized module for partitions, acoustic walls, flooring, and ceiling works with internal catalog database synchronization.
             </p>
+            <span className={styles.featureActionHint}>Open Fitout Builder <i className="ri-arrow-right-line" /></span>
           </div>
-          <div className={styles.featureCard}>
-            <h3 className={styles.featureTitle}>AI Scraping</h3>
+
+          <div
+            className={styles.featureCard}
+            onClick={onOpenSettings}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => e.key === 'Enter' && onOpenSettings()}
+          >
+            <div className={styles.featureIconWrap}><i className="ri-global-line" /></div>
+            <h3 className={styles.featureTitle}>White-Label &amp; AI Brand Scraper</h3>
             <p className={styles.featureDesc}>
-              Automatically fetch real-time product data, images, and technical specifications from global brand websites
+              Upload your company logo and harvest live product catalogs, images, and technical specs from any manufacturer website.
             </p>
+            <span className={styles.featureActionHint}>Configure Branding &amp; Brands <i className="ri-arrow-right-line" /></span>
           </div>
         </div>
       </section>
