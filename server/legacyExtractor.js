@@ -1,99 +1,46 @@
 import XLSX from 'xlsx';
-import path from 'path';
+import { extractCleanBoqTablesFromMatrix } from './fastExtractor.js';
 
 /**
- * Legacy Excel (.xls) extractor using SheetJS
- * This is a best-effort extractor for old formats.
- * Note: Images are generally NOT supported in .xls by this library.
+ * Legacy Excel (.xls) extractor using SheetJS, backed by the universal
+ * BOQ table filtering, header consolidation, and multi-sheet alignment logic.
+ * Note: Images are generally NOT supported in .xls by SheetJS alone.
  */
 export async function extractLegacyExcelData(filePath) {
     const workbook = XLSX.readFile(filePath);
-    const tables = [];
+    const sheetMeta = workbook.Workbook?.Sheets || [];
 
-    // Header patterns for BOQ detection (Shared with fastExtractor)
-    const BOQ_HEADER_KEYWORDS = [/description|desc/i, /qty|quantity/i, /unit/i, /rate|price/i, /amount|total/i, /image|photo/i, /sn|s\.n|no\.|item/i];
-
-    for (const sheetName of workbook.SheetNames) {
+    const sheetsData = workbook.SheetNames.map((sheetName, idx) => {
+        const meta = sheetMeta[idx];
+        const state = meta?.Hidden === 1 ? 'hidden' : (meta?.Hidden === 2 ? 'veryHidden' : 'visible');
         const worksheet = workbook.Sheets[sheetName];
-        const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1, raw: true, defval: '' });
-        
-        let headerRow = null;
-        let isTableStarted = false;
-        const validRows = [];
+        const rawRows = XLSX.utils.sheet_to_json(worksheet, { header: 1, raw: false, defval: '' });
 
-        for (let i = 0; i < rows.length; i++) {
-            const rowValues = rows[i];
-            if (!rowValues || rowValues.length === 0) continue;
-
-            const rowStrings = rowValues.map(v => v ? String(v).trim() : '');
-
-            // 1. Detect Header
-            if (!isTableStarted) {
-                const matchCount = BOQ_HEADER_KEYWORDS.reduce((count, pattern) => {
-                    return count + (rowStrings.some(str => pattern.test(str)) ? 1 : 0);
-                }, 0);
-
-                if (matchCount >= 2) {
-                    isTableStarted = true;
-                    headerRow = rowStrings;
-                    continue;
-                }
-                continue;
-            }
-
-            // 2. Process Data Rows
-            let hasContent = false;
-            const rowData = [];
-            
-            // Limit to header length or row values length
-            const colCount = headerRow ? headerRow.length : rowValues.length;
-
-            for (let j = 0; j < colCount; j++) {
-                const val = rowValues[j] ? String(rowValues[j]).trim() : '';
-                if (val) hasContent = true;
-
-                rowData.push({
-                    value: val,
-                    images: [], // Images not supported in legacy .xls mode
-                    isMerged: false,
-                    image: null
-                });
-            }
-
-            if (hasContent) {
-                validRows.push({
-                    cells: rowData,
-                    isHeader: false,
-                    isSummary: false
-                });
+        const rows = [];
+        for (let r = 0; r < rawRows.length; r++) {
+            const cells = (rawRows[r] || []).map(v => String(v ?? '').trim());
+            if (cells.some(Boolean)) {
+                rows.push({ rowNumber: r + 1, cells });
             }
         }
 
-        if (isTableStarted && validRows.length > 0) {
-            tables.push({
-                sheetName: sheetName,
-                header: headerRow,
-                rows: validRows,
-                columnCount: headerRow.length
-            });
-        }
-    }
-
-    // Stitch into a single table if multiple found, or return all
-    // To match fastExtractor's "BOQ Schedule" stitching:
-    if (tables.length > 0) {
-        const unifiedRows = [];
-        tables.forEach(t => unifiedRows.push(...t.rows));
-        
         return {
-            tables: [{
-                sheetName: "BOQ Schedule (Legacy)",
-                rows: unifiedRows,
-                columnCount: tables[0].header.length,
-                header: tables[0].header,
-                isLegacy: true // Mark as legacy so frontend knows images are limited
-            }],
-            totalTables: 1
+            name: sheetName,
+            sheetId: idx + 1,
+            state,
+            rows
+        };
+    });
+
+    const result = extractCleanBoqTablesFromMatrix(sheetsData);
+    if (result.tables.length > 0) {
+        return {
+            tables: result.tables.map(t => ({
+                ...t,
+                sheetName: 'BOQ Schedule (Legacy)',
+                isLegacy: true
+            })),
+            totalTables: result.tables.length
         };
     }
 

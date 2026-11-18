@@ -1018,7 +1018,7 @@ const upload = multer({
       'image/jpeg',
       'image/jpg'
     ];
-    if (allowedTypes.includes(file.mimetype) || file.originalname.match(/\.(xls|xlsx|pdf|png|jpg|jpeg)$/i)) {
+    if (allowedTypes.includes(file.mimetype) || file.originalname.match(/\.(xls|xlsx|xlsb|pdf|png|jpg|jpeg)$/i)) {
       cb(null, true);
     } else {
       cb(new Error('Only Excel, PDF, and Image files are allowed.'));

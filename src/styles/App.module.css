@@ -93,24 +93,148 @@
   min-height: 100vh;
   background: var(--bg-primary);
   background-image:
-    radial-gradient(at 0% 0%, rgba(59, 130, 246, 0.12) 0, transparent 50%),
-    radial-gradient(at 100% 100%, rgba(245, 158, 11, 0.12) 0, transparent 50%);
+    radial-gradient(ellipse 80% 50% at 15% 0%, rgba(59, 130, 246, 0.14) 0, transparent 60%),
+    radial-gradient(ellipse 70% 50% at 85% 10%, rgba(245, 158, 11, 0.11) 0, transparent 55%),
+    radial-gradient(at 100% 100%, rgba(245, 158, 11, 0.08) 0, transparent 50%);
   color: var(--text-primary);
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   overflow-x: hidden;
 }
 
+/* Sticky Glassmorphic Landing Navbar */
+.landingNavbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 10000;
+  background: rgba(15, 23, 42, 0.78);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  transition: background 0.25s ease, border-color 0.25s ease;
+}
+
+:global(.light-mode) .landingNavbar {
+  background: rgba(255, 255, 255, 0.86);
+  border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+  box-shadow: 0 2px 16px rgba(15, 23, 42, 0.04);
+}
+
+.landingNavInner {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 0.7rem 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.landingNavLeft {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.landingNavBrand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.65rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+.landingNavLogoImg {
+  height: 36px;
+  width: auto;
+  max-width: 170px;
+  object-fit: contain;
+}
+
+.landingNavMark {
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+  border-radius: 6px;
+}
+
+.landingNavBrandText {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  line-height: 1.05;
+}
+
+.landingNavBrandBadge {
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.landingNavRight {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.landingNavRight .extensionDownloadBtn {
+  opacity: 0.92;
+  padding: 5px 12px;
+  font-size: 0.76rem;
+}
+
+:global(.light-mode) .landingNavRight .extensionDownloadBtn {
+  color: #334155;
+  background: rgba(248, 250, 252, 0.9);
+  border-color: #cbd5e1;
+}
+
 /* Hero Section */
 .hero {
-  min-height: 100vh;
+  min-height: auto;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 5.5rem 2rem 3.5rem;
+  padding: 6.25rem 2rem 3.25rem;
   text-align: center;
   max-width: 1240px;
   margin: 0 auto;
+}
+
+.heroWordmark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  font-size: 2.5rem;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.heroWordmarkIcon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.18) 0%, rgba(245, 158, 11, 0.22) 100%);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  color: var(--accent);
+  font-size: 1.4rem;
+  margin-right: 0.35rem;
+}
+
+:global(.light-mode) .heroWordmarkIcon {
+  background: linear-gradient(135deg, rgba(37, 99, 235, 0.1) 0%, rgba(217, 119, 6, 0.15) 100%);
+  color: #d97706;
 }
 
 .heroBadge {
@@ -653,69 +777,177 @@
   opacity: 0.75;
 }
 
-/* Pre-Integrated Contract Catalogs Strip */
+/* Pre-Integrated Contract Catalogs Logo Grid */
 .brandTrustSection {
-  padding: 2.25rem 2rem;
+  padding: 3.75rem 2rem 4rem;
   background: rgba(255, 255, 255, 0.02);
   border-top: 1px solid var(--border-color);
   text-align: center;
 }
 
 :global(.light-mode) .brandTrustSection {
-  background: #f8fafc;
+  background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
 }
 
-.brandTrustLabel {
-  font-size: 0.78rem;
-  font-weight: 700;
-  letter-spacing: 0.12em;
+.brandSectionHeader {
+  max-width: 760px;
+  margin: 0 auto 2.25rem;
+}
+
+.brandSectionEyebrow {
+  display: inline-block;
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  color: var(--accent-light);
+  margin-bottom: 0.6rem;
+}
+
+:global(.light-mode) .brandSectionEyebrow {
+  color: #b45309;
+}
+
+.brandSectionTitle {
+  font-size: clamp(1.55rem, 2.5vw, 2.05rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+  margin-bottom: 0.6rem;
+}
+
+.brandSectionSub {
+  font-size: 0.96rem;
   color: var(--text-muted);
-  margin-bottom: 1.15rem;
+  line-height: 1.6;
 }
 
-.brandTrustList {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 0.65rem;
-  max-width: 1100px;
+.brandLogoGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(175px, 1fr));
+  gap: 0.9rem;
+  max-width: 1180px;
   margin: 0 auto;
 }
 
-.brandPill {
-  padding: 0.45rem 0.9rem;
-  border-radius: 8px;
-  font-size: 0.8rem;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  color: var(--text-secondary);
+.brandLogoCard {
   background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 14px;
+  padding: 0.85rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.65rem;
+  cursor: pointer;
+  transition: transform 0.22s ease, border-color 0.22s ease, box-shadow 0.22s ease, background 0.22s ease;
+  backdrop-filter: blur(8px);
 }
 
-:global(.light-mode) .brandPill {
+.brandLogoCard:hover {
+  transform: translateY(-4px);
+  border-color: var(--accent);
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 12px 26px rgba(0, 0, 0, 0.28);
+}
+
+:global(.light-mode) .brandLogoCard {
   background: #ffffff;
-  color: #334155;
   border-color: #e2e8f0;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.04);
 }
 
-.brandPillAction {
+:global(.light-mode) .brandLogoCard:hover {
+  border-color: var(--accent);
+  box-shadow: 0 12px 26px rgba(15, 23, 42, 0.09);
+}
+
+.brandLogoWell {
+  width: 100%;
+  height: 54px;
+  background: #ffffff;
+  border-radius: 10px;
+  padding: 0.45rem 0.8rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(15, 23, 42, 0.07);
+  overflow: hidden;
+}
+
+.brandLogoImg {
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  display: block;
+}
+
+.brandCardInfo {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+  width: 100%;
+}
+
+.brandCardName {
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.brandCardMeta {
+  font-size: 0.69rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.brandLogoCardAction {
+  background: rgba(245, 158, 11, 0.08);
+  border: 1.5px dashed rgba(245, 158, 11, 0.48);
+  border-radius: 14px;
+  padding: 0.85rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
   cursor: pointer;
   color: var(--accent-light);
-  border-color: rgba(245, 158, 11, 0.4);
-  background: rgba(245, 158, 11, 0.1);
-  transition: all 0.2s ease;
   font-family: inherit;
+  transition: transform 0.22s ease, background 0.22s ease, border-color 0.22s ease;
 }
 
-.brandPillAction:hover {
-  background: rgba(245, 158, 11, 0.2);
-  transform: translateY(-2px);
+.brandLogoCardAction:hover {
+  transform: translateY(-4px);
+  background: rgba(245, 158, 11, 0.16);
+  border-color: var(--accent-light);
 }
 
-:global(.light-mode) .brandPillAction {
+:global(.light-mode) .brandLogoCardAction {
+  background: rgba(245, 158, 11, 0.1);
   color: #b45309;
-  background: rgba(245, 158, 11, 0.14);
+  border-color: rgba(217, 119, 6, 0.45);
+}
+
+:global(.light-mode) .brandLogoCardAction .brandCardName {
+  color: #92400e;
+}
+
+.brandActionIcon {
+  font-size: 1.75rem;
+  line-height: 1;
+  margin-bottom: 0.15rem;
 }
 
 /* Stats Section */
@@ -723,8 +955,8 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  gap: 4rem;
-  padding: 4rem 2rem;
+  gap: 3.5rem;
+  padding: 3.75rem 2rem;
   background: var(--bg-secondary);
   border-top: 1px solid var(--border-color);
   border-bottom: 1px solid var(--border-color);
@@ -733,11 +965,29 @@
 
 .stat {
   text-align: center;
-  min-width: 140px;
+  min-width: 160px;
+}
+
+.statIcon {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  margin: 0 auto 0.65rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(59, 130, 246, 0.12);
+  color: var(--primary);
+  font-size: 1.15rem;
+}
+
+:global(.light-mode) .statIcon {
+  background: rgba(15, 62, 103, 0.08);
+  color: #0f3e67;
 }
 
 .statValue {
-  font-size: 2.8rem;
+  font-size: 2.65rem;
   font-weight: 800;
   background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%);
   -webkit-background-clip: text;
@@ -748,10 +998,11 @@
 }
 
 .statLabel {
-  font-size: 0.95rem;
+  font-size: 0.85rem;
+  font-weight: 600;
   color: var(--text-muted);
   text-transform: uppercase;
-  letter-spacing: 1px;
+  letter-spacing: 0.08em;
 }
 
 .statDivider {
@@ -1254,8 +1505,25 @@
   }
 
   .hero {
-    padding: 4.75rem 1rem 2.5rem;
+    padding: 5.75rem 1rem 2.5rem;
     min-height: initial;
+  }
+
+  .landingNavInner {
+    padding: 0.6rem 0.9rem;
+  }
+
+  .landingNavBrandBadge {
+    display: none;
+  }
+
+  .brandTrustSection {
+    padding: 2.75rem 1rem 3rem;
+  }
+
+  .brandLogoGrid {
+    grid-template-columns: repeat(auto-fill, minmax(145px, 1fr));
+    gap: 0.7rem;
   }
 
   /* Better touch targets for mobile */

@@ -4169,7 +4169,7 @@ function TableViewer({
                     <label className={actionStyles.btnMultiBudget} style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', background: '#0f766e', borderColor: '#0d9488' }}>
                         <input
                             type="file"
-                            accept=".xlsx,.xls,.pdf,.png,.jpg,.jpeg"
+                            accept=".xlsx,.xls,.xlsb,.pdf,.png,.jpg,.jpeg"
                             style={{ display: 'none' }}
                             multiple
                             onChange={(e) => {

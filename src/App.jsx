@@ -17,6 +17,44 @@ import { MODEL_OPTIONS } from './utils/aiConstants';
 import { createClient } from '@supabase/supabase-js';
 
 import { getApiBase } from './utils/apiBase';
+import { getBrandLogo, getBrandLogoFallback } from './utils/urlUtils';
+
+const FEATURED_PARTNER_BRANDS = [
+  { name: 'NARBUTAS', origin: 'Lithuania • Workstations', aliases: ['narbutas'] },
+  { name: 'SEDUS STOLL', origin: 'Germany • Ergonomic', aliases: ['sedus stoll', 'sedus'] },
+  { name: 'ARPER', origin: 'Italy • Soft Seating', aliases: ['arper'] },
+  { name: 'FREZZA', origin: 'Italy • Executive', aliases: ['frezza'] },
+  { name: 'NURUS', origin: 'Turkey • Contract', aliases: ['nurus'] },
+  { name: 'TEKNION', origin: 'Canada • Systems', aliases: ['teknion me', 'teknion'] },
+  { name: 'LAS MOBILI', origin: 'Italy • Office', aliases: ['las mobili', 'las'] },
+  { name: 'DAUPHIN', origin: 'Germany • Task Seating', aliases: ['dauphin', 'dauphin products, collections and more'] },
+  { name: 'SOKOA', origin: 'France • Seating', aliases: ['sokoa'] },
+  { name: 'B&T DESIGN', origin: 'Turkey • Collaborative', aliases: ['b&t design', 'bt design', 'b&t'] },
+  { name: 'OFIFRAN', origin: 'Spain • Executive', aliases: ['ofifran'] },
+  { name: 'RIM', origin: 'Czechia • Task & Soft', aliases: ['rim'] },
+  { name: 'OTTIMO', origin: 'UAE • Fitout & Office', aliases: ['ottimo furniture', 'ottimo'] },
+  { name: 'M&W', origin: 'Systems • Partition & Desk', aliases: ['mw structure test', 'm&w'] },
+  { name: 'INTERSTUHL', origin: 'Germany • Performance', aliases: ['interstuhl'] },
+  { name: 'PEDRALI', origin: 'Italy • Hospitality', aliases: ['pedrali'] },
+  { name: 'HERMAN MILLER', origin: 'USA • Iconic Contract', aliases: ['herman miller'] },
+  { name: 'VITRA', origin: 'Switzerland • Design', aliases: ['vitra'] }
+];
+
+const findBrandCatalogCount = (brandEntry, allBrands = []) => {
+  if (!Array.isArray(allBrands) || allBrands.length === 0) return 0;
+  const targets = [brandEntry.name, ...(brandEntry.aliases || [])].map(s => s.toLowerCase().trim());
+  let maxCount = 0;
+  for (const b of allBrands) {
+    const bn = String(b?.name || '').toLowerCase().trim();
+    if (!bn) continue;
+    const matched = targets.some(t => bn === t || (t.length >= 4 && bn.includes(t)));
+    if (matched) {
+      const count = Array.isArray(b.products) ? b.products.length : (Number(b.productCount) || 0);
+      if (count > maxCount) maxCount = count;
+    }
+  }
+  return maxCount;
+};
 
 const API_BASE = getApiBase();
 console.debug('[API] Using API_BASE:', API_BASE);
@@ -1004,7 +1042,7 @@ function uploadToSupabaseWithProgress({ sbUrl, anonKey, bucket, filePath, file, 
                 iconText="BOQ"
                 hint="High-Fidelity Extraction (Excel/PDF/Image)"
                 formats="Supports Excel, PDF, PNG, JPG"
-                accept=".xls,.xlsx,.pdf,.png,.jpg,.jpeg"
+                accept=".xls,.xlsx,.xlsb,.pdf,.png,.jpg,.jpeg"
                 disabled={uploading}
                 onSelect={handleFileUpload}
               />
@@ -1160,40 +1198,62 @@ function uploadToSupabaseWithProgress({ sbUrl, anonKey, bucket, filePath, file, 
   // Landing Page
   return (
     <div className={styles.landingPage}>
-      {/* Hamburger Menu - Fixed Top Left */}
-      <button className={styles.hamburgerFixed} onClick={onOpenSettings} title="Settings">
-        <span className={styles.hamburgerLine}></span>
-        <span className={styles.hamburgerLine}></span>
-        <span className={styles.hamburgerLine}></span>
-      </button>
+      {/* Sticky Glassmorphic Top Navbar */}
+      <header className={styles.landingNavbar}>
+        <div className={styles.landingNavInner}>
+          <div className={styles.landingNavLeft}>
+            <button className={styles.hamburgerBtn} onClick={onOpenSettings} title="Settings">
+              <span className={styles.hamburgerLine}></span>
+              <span className={styles.hamburgerLine}></span>
+              <span className={styles.hamburgerLine}></span>
+            </button>
+            <div className={styles.landingNavBrand} onClick={() => window.location.reload()} role="button" tabIndex={0} onKeyDown={(e) => e.key === 'Enter' && window.location.reload()}>
+              {(theme === 'dark' && logoWhite) || logoOriginal ? (
+                <img
+                  src={theme === 'dark' && logoWhite ? logoWhite : logoOriginal}
+                  alt={companyName || 'BOQ FLOW'}
+                  className={styles.landingNavLogoImg}
+                />
+              ) : (
+                <>
+                  <img src="/geared_q.png" alt="BOQ Flow" className={styles.landingNavMark} onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+                  <div className={styles.landingNavBrandText}>
+                    <span className={styles.logoTextSmall}>{companyName || 'BOQ FLOW'}</span>
+                    <span className={styles.landingNavBrandBadge}>AI ESTIMATION SUITE</span>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
 
-      {/* Theme Toggle & Model Select - Fixed Top Right */}
-      <div style={{ position: 'fixed', top: '20px', right: '20px', zIndex: 10000, display: 'flex', alignItems: 'center', gap: '10px' }}>
-        <button
-          type="button"
-          onClick={onOpenSettings}
-          className={styles.extensionDownloadBtn}
-          title="Upload your company logo, set brand colors, and configure AI models"
-        >
-          <i className="ri-building-2-line" style={{ fontSize: '14px' }} />
-          <span>{logoOriginal || logoWhite ? 'Company Branding' : 'Add Company Logo'}</span>
-        </button>
-        <a
-          href="/extension.zip"
-          download="AutoBrowserBridge-Extension.zip"
-          className={styles.extensionDownloadBtn}
-          title="Download the Auto Browser Extension to enable silent Google Lens matching, Tender Board autofill, and portal automation"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-            <polyline points="7 10 12 15 17 10"/>
-            <line x1="12" y1="15" x2="12" y2="3"/>
-          </svg>
-          <span>Extension</span>
-        </a>
-        <AiModelSelector defaultGoogleModels={defaultGoogleModels} />
-        <ThemeToggle />
-      </div>
+          <div className={styles.landingNavRight}>
+            <button
+              type="button"
+              onClick={onOpenSettings}
+              className={styles.extensionDownloadBtn}
+              title="Upload your company logo, set brand colors, and configure AI models"
+            >
+              <i className="ri-building-2-line" style={{ fontSize: '14px' }} />
+              <span>{logoOriginal || logoWhite ? 'Company Branding' : 'Add Company Logo'}</span>
+            </button>
+            <a
+              href="/extension.zip"
+              download="AutoBrowserBridge-Extension.zip"
+              className={styles.extensionDownloadBtn}
+              title="Download the Auto Browser Extension to enable silent Google Lens matching, Tender Board autofill, and portal automation"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="7 10 12 15 17 10"/>
+                <line x1="12" y1="15" x2="12" y2="3"/>
+              </svg>
+              <span>Extension</span>
+            </a>
+            <AiModelSelector defaultGoogleModels={defaultGoogleModels} />
+            <ThemeToggle />
+          </div>
+        </div>
+      </header>
 
       {/* Hero Section */}
       <section className={styles.hero}>
@@ -1210,9 +1270,11 @@ function uploadToSupabaseWithProgress({ sbUrl, anonKey, bucket, filePath, file, 
           ) : logoOriginal ? (
             <img src={logoOriginal} alt={companyName} className={styles.landingLogo} />
           ) : (
-            <span className={styles.logoTextSmall} style={{ fontSize: '2.75rem' }}>
-              {companyName || 'BOQ FLOW'}
-            </span>
+            <div className={styles.heroWordmark}>
+              <span className={styles.heroWordmarkIcon}><i className="ri-layout-masonry-fill" /></span>
+              <span className={styles.logoTextBlue}>BOQ</span>
+              <span className={styles.logoTextGold}>FLOW</span>
+            </div>
           )}
         </div>
 
@@ -1246,7 +1308,7 @@ function uploadToSupabaseWithProgress({ sbUrl, anonKey, bucket, filePath, file, 
             <input
               ref={landingBoqInputRef}
               type="file"
-              accept=".xlsx,.xls,.pdf,.png,.jpg,.jpeg"
+              accept=".xlsx,.xls,.xlsb,.pdf,.png,.jpg,.jpeg"
               style={{ display: 'none' }}
               multiple
               onChange={(e) => {
@@ -1325,7 +1387,7 @@ function uploadToSupabaseWithProgress({ sbUrl, anonKey, bucket, filePath, file, 
             </p>
             <div className={styles.pipelineTags}>
               <span className={styles.pipelineTag}>PDF V22 Spatial</span>
-              <span className={styles.pipelineTag}>Excel (.xlsx/.xls)</span>
+              <span className={styles.pipelineTag}>Excel (.xlsx/.xls/.xlsb)</span>
               <span className={styles.pipelineTag}>Floor Plans</span>
             </div>
           </div>
@@ -1386,25 +1448,59 @@ function uploadToSupabaseWithProgress({ sbUrl, anonKey, bucket, filePath, file, 
         </div>
       </section>
 
-      {/* Pre-Integrated Contract Catalogs Strip */}
+      {/* Pre-Integrated Contract Catalogs Logo Grid */}
       <section className={styles.brandTrustSection}>
-        <p className={styles.brandTrustLabel}>
-          PRE-INTEGRATED COMMERCIAL FURNITURE CATALOGS &amp; LIVE WEB HARVESTER
-        </p>
-        <div className={styles.brandTrustList}>
-          {[
-            'LAS MOBILI', 'INTERSTUHL', 'SEDUS STOLL', 'NARBUTAS', 'ARPER',
-            'TEKNION', 'NURUS', 'FREZZA', 'SOKOA', 'DAUPHIN',
-            'B&T DESIGN', 'OTTIMO', 'PEDRALI', 'RIM', 'OFIFRAN'
-          ].map((brand) => (
-            <span key={brand} className={styles.brandPill}>{brand}</span>
-          ))}
+        <div className={styles.brandSectionHeader}>
+          <span className={styles.brandSectionEyebrow}>PRE-INTEGRATED COMMERCIAL FURNITURE ECOSYSTEM</span>
+          <h2 className={styles.brandSectionTitle}>50+ Partner Contract Brands &amp; Live Web Harvester</h2>
+          <p className={styles.brandSectionSub}>
+            Match tender specifications directly against verified European, Turkish, and North American catalogs — or harvest any manufacturer URL on demand.
+          </p>
+        </div>
+
+        <div className={styles.brandLogoGrid}>
+          {FEATURED_PARTNER_BRANDS.map((brandItem) => {
+            const count = findBrandCatalogCount(brandItem, allBrands);
+            return (
+              <div
+                key={brandItem.name}
+                className={styles.brandLogoCard}
+                onClick={onOpenSettings}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => e.key === 'Enter' && onOpenSettings()}
+                title={`${brandItem.name} — ${brandItem.origin}${count > 0 ? ` (${count} catalog items)` : ''}`}
+              >
+                <div className={styles.brandLogoWell}>
+                  <img
+                    src={getBrandLogo(brandItem)}
+                    alt={brandItem.name}
+                    className={styles.brandLogoImg}
+                    loading="lazy"
+                    onError={(e) => {
+                      e.currentTarget.onerror = null;
+                      e.currentTarget.src = getBrandLogoFallback(brandItem.name);
+                    }}
+                  />
+                </div>
+                <div className={styles.brandCardInfo}>
+                  <span className={styles.brandCardName}>{brandItem.name}</span>
+                  <span className={styles.brandCardMeta}>
+                    {count > 0 ? `${count} items • ` : ''}{brandItem.origin}
+                  </span>
+                </div>
+              </div>
+            );
+          })}
+
           <button
             type="button"
-            className={`${styles.brandPill} ${styles.brandPillAction}`}
+            className={styles.brandLogoCardAction}
             onClick={onOpenSettings}
           >
-            + Add Any Brand URL
+            <span className={styles.brandActionIcon}><i className="ri-add-circle-line" /></span>
+            <span className={styles.brandCardName}>+ Add Any Brand URL</span>
+            <span className={styles.brandCardMeta}>Live AI Catalog Harvester</span>
           </button>
         </div>
       </section>
@@ -1412,21 +1508,25 @@ function uploadToSupabaseWithProgress({ sbUrl, anonKey, bucket, filePath, file, 
       {/* Stats Section */}
       <section className={styles.statsSection}>
         <div className={styles.stat}>
+          <div className={styles.statIcon}><i className="ri-flashlight-fill" /></div>
           <div className={styles.statValue}>10x</div>
           <div className={styles.statLabel}>Faster Tender Turnaround</div>
         </div>
         <div className={styles.statDivider} />
         <div className={styles.stat}>
+          <div className={styles.statIcon}><i className="ri-award-line" /></div>
           <div className={styles.statValue}>50+</div>
           <div className={styles.statLabel}>Integrated Contract Brands</div>
         </div>
         <div className={styles.statDivider} />
         <div className={styles.stat}>
+          <div className={styles.statIcon}><i className="ri-file-list-3-line" /></div>
           <div className={styles.statValue}>7-in-1</div>
           <div className={styles.statLabel}>Excel, PPTX, Offer, MAS, MIR, WIR &amp; DN</div>
         </div>
         <div className={styles.statDivider} />
         <div className={styles.stat}>
+          <div className={styles.statIcon}><i className="ri-palette-line" /></div>
           <div className={styles.statValue}>100%</div>
           <div className={styles.statLabel}>White-Label Your Company Logo</div>
         </div>
