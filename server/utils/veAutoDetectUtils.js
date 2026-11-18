@@ -834,8 +834,8 @@ export function generateCrossBrandAlternatives(primaryBrand, primaryModel, descr
                 if (/\b(chair|sofa|couch|armchair|pouf|desk|workstation)\b/i.test(prodDesc)) return false;
                 if (!/\b(cabinet|credenza|storage|filing|bookcase|wardrobe|cupboard|drawers|pedestal)\b/i.test(prodDesc)) return false;
             } else if (archetype === 'customLandscapeAndTerrazzo') {
-                const isTerrazzoConcrete = /\b(terrazzo|terazzo|precast|concrete|monolithic|landscape|outdoor|street\s*furniture|arcade)\b/i.test(prodText);
-                const isIndoorOffice = /\b(swivel|castor|5-star|mesh|executive|task|waiting\s*bench|beam\s*seating)\b/i.test(prodText);
+                const isTerrazzoConcrete = /\b(terrazzo|terazzo|precast|concrete|monolithic|landscape|outdoor|street\s*furniture|arcade)\b/i.test(prodDesc);
+                const isIndoorOffice = /\b(swivel|castor|5-star|mesh|executive|task|waiting\s*bench|beam\s*seating)\b/i.test(prodDesc);
                 if (!isTerrazzoConcrete || isIndoorOffice) return false;
             }
 
