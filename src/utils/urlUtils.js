@@ -16,12 +16,14 @@ export const getFullUrl = (input) => {
         normalizedUrl = 'https:' + normalizedUrl;
     }
 
-    // If already routed through image-proxy or is data URL, return immediately
+    // Always normalize any /api/image-proxy URL to the current API_BASE (same-origin on Vercel HTTPS).
+    // Prevents Chrome Active Mixed-Content blocks when backend/saved rows carry http://.../api/image-proxy URLs.
     if (normalizedUrl.includes('/api/image-proxy')) {
-        if (normalizedUrl.startsWith('http')) return normalizedUrl;
-        return `${API_BASE}${normalizedUrl.startsWith('/') ? '' : '/'}${normalizedUrl}`;
+        const proxyPathIdx = normalizedUrl.indexOf('/api/image-proxy');
+        const relativeProxy = normalizedUrl.slice(proxyPathIdx);
+        return `${API_BASE}${relativeProxy}`;
     }
-    if (normalizedUrl.startsWith('data:image/')) {
+    if (normalizedUrl.startsWith('data:image/') || normalizedUrl.startsWith('blob:')) {
         return normalizedUrl;
     }
     
@@ -81,6 +83,136 @@ export const getFullUrl = (input) => {
     }
     
     return `${API_BASE}${normalizedUrl.startsWith('/') ? '' : '/'}${normalizedUrl}`;
+};
+
+/**
+ * Normalizes any image reference (string or { url, data, src }) into a plain string URL.
+ */
+export const extractImageUrl = (img) => {
+    if (!img) return '';
+    if (typeof img === 'string') return img.trim();
+    return String(img.url || img.data || img.src || '').trim();
+};
+
+/**
+ * Loads any image (data URI, blob URI, relative asset, Supabase Storage, or external CDN)
+ * as a clean canvas-encoded dataUrl for PDF / Excel / PPTX / MAS / MIR / WIR exports.
+ *
+ * Defeats three live-Vercel export pitfalls:
+ *  1. Active Mixed Content: normalizes http://.../api/image-proxy URLs to same-origin /api/image-proxy.
+ *  2. Chrome CORS Cache Conflict: avoids img.crossOrigin failure on non-CORS cached Supabase/CDN images
+ *     by fetching binary blobs directly (cache: 'no-store') and falling back automatically to /api/image-proxy.
+ *  3. Tainted/zero-dimension canvases: safely guards naturalWidth/Height and canvas.toDataURL().
+ */
+export const loadExportImageData = async (input, options = {}, cache = null) => {
+    const rawUrl = extractImageUrl(input);
+    if (!rawUrl) return null;
+
+    const maxWidth = options.maxWidth || 1000;
+    const format = options.format || 'image/jpeg';
+    const quality = options.quality || 0.85;
+    const normalizedUrl = getFullUrl(rawUrl) || rawUrl;
+    const cacheKey = `${normalizedUrl}_${maxWidth}_${format}_${quality}`;
+
+    if (cache && cache.has(cacheKey)) {
+        return cache.get(cacheKey);
+    }
+
+    const drawToCanvas = (imgSrc, useCrossOrigin = false) => {
+        return new Promise((resolve) => {
+            const img = new Image();
+            if (useCrossOrigin) img.crossOrigin = 'Anonymous';
+            img.onload = () => {
+                try {
+                    const natW = img.naturalWidth || img.width || 0;
+                    const natH = img.naturalHeight || img.height || 0;
+                    if (natW <= 0 || natH <= 0) return resolve(null);
+
+                    const canvas = document.createElement('canvas');
+                    const ratio = Math.min(1, maxWidth / natW);
+                    canvas.width = Math.max(1, Math.round(natW * ratio));
+                    canvas.height = Math.max(1, Math.round(natH * ratio));
+                    const ctx = canvas.getContext('2d');
+
+                    if (format === 'image/jpeg') {
+                        ctx.fillStyle = '#FFFFFF';
+                        ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    } else {
+                        ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    }
+
+                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                    const dataUrl = canvas.toDataURL(format, quality);
+                    if (!dataUrl || dataUrl === 'data:,') return resolve(null);
+
+                    resolve({
+                        dataUrl,
+                        width: canvas.width,
+                        height: canvas.height
+                    });
+                } catch (err) {
+                    console.warn('[Export Image] Canvas encode failed:', err?.message || err);
+                    resolve(null);
+                }
+            };
+            img.onerror = () => resolve(null);
+            img.src = imgSrc;
+        });
+    };
+
+    const fetchViaBlob = async (targetUrl, fetchOpts = {}) => {
+        try {
+            const response = await fetch(targetUrl, fetchOpts);
+            if (!response.ok) return null;
+            const ct = String(response.headers.get('content-type') || '').toLowerCase();
+            if (ct.includes('text/html') || ct.includes('application/json')) return null;
+
+            const blob = await response.blob();
+            if (!blob || blob.size === 0) return null;
+
+            const blobUrl = URL.createObjectURL(blob);
+            try {
+                return await drawToCanvas(blobUrl, false);
+            } finally {
+                URL.revokeObjectURL(blobUrl);
+            }
+        } catch (err) {
+            console.warn('[Export Image] Fetch failed for', targetUrl?.slice(0, 90), err?.message || err);
+            return null;
+        }
+    };
+
+    let result = null;
+
+    if (normalizedUrl.startsWith('data:') || normalizedUrl.startsWith('blob:')) {
+        result = await drawToCanvas(normalizedUrl, false);
+    } else if (normalizedUrl.includes('/api/image-proxy')) {
+        result = await fetchViaBlob(normalizedUrl);
+    } else if (/^https?:\/\//i.test(normalizedUrl)) {
+        // Direct external URL (e.g. Supabase Storage / Unsplash / freeimage.host):
+        // 1) Fetch fresh CORS blob (bypasses Chrome non-CORS <img> cache taint)
+        const secureDirectUrl = (typeof window !== 'undefined' && window.location?.protocol === 'https:' && normalizedUrl.startsWith('http://'))
+            ? normalizedUrl.replace(/^http:\/\//i, 'https://')
+            : normalizedUrl;
+        result = await fetchViaBlob(secureDirectUrl, { mode: 'cors', cache: 'no-store' });
+
+        // 2) Guaranteed server-side proxy fallback if direct CORS fetch fails
+        if (!result) {
+            const proxyUrl = `${API_BASE}/api/image-proxy?url=${encodeURIComponent(normalizedUrl)}`;
+            result = await fetchViaBlob(proxyUrl);
+        }
+    } else {
+        // Same-origin relative asset (/logo.png, /uploads/..., etc.)
+        result = await fetchViaBlob(normalizedUrl);
+        if (!result) {
+            result = await drawToCanvas(normalizedUrl, true);
+        }
+    }
+
+    if (result && cache) {
+        cache.set(cacheKey, result);
+    }
+    return result;
 };
 
 const buildWordmarkSvg = (label, { color = '#0f172a', accent = '#d97706', fontWeight = '700', letterSpacing = '2', fontSize = '30', italic = false, mark = 'bar' } = {}) => {

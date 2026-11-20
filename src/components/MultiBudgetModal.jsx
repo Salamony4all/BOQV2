@@ -34,7 +34,7 @@ import { useCompanyProfile } from '../context/CompanyContext';
 import { useTheme } from '../context/ThemeContext';
 import { fixArabic, hasArabic, loadArabicFont } from '../utils/arabicPdfUtils';
 import { getApiBase } from '../utils/apiBase';
-import { getFullUrl } from '../utils/urlUtils';
+import { getFullUrl, loadExportImageData } from '../utils/urlUtils';
 
 const API_BASE = getApiBase();
 
@@ -1745,53 +1745,7 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
     };
 
     const getImageData = async (url, options = {}) => {
-        if (!url) return null;
-        const maxWidth = options.maxWidth || 1000;
-        const format = options.format || 'image/jpeg';
-        const quality = options.quality || 0.85;
-        const isExternal = url.startsWith('http') && !url.includes('localhost:3001') && !url.includes(window.location.hostname);
-
-        const loadImageToCanvas = (imgSrc) => {
-            return new Promise((resolve) => {
-                const img = new Image();
-                img.crossOrigin = "Anonymous";
-                img.onload = () => {
-                    const canvas = document.createElement("canvas");
-                    const ratio = Math.min(1, maxWidth / img.width);
-                    canvas.width = img.width * ratio;
-                    canvas.height = img.height * ratio;
-                    const ctx = canvas.getContext("2d");
-                    if (format === 'image/jpeg') {
-                        ctx.fillStyle = "#FFFFFF";
-                        ctx.fillRect(0, 0, canvas.width, canvas.height);
-                    } else {
-                        ctx.clearRect(0, 0, canvas.width, canvas.height);
-                    }
-                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                    resolve({ dataUrl: canvas.toDataURL(format, quality), width: canvas.width, height: canvas.height });
-                };
-                img.onerror = () => resolve(null);
-                img.src = imgSrc;
-            });
-        };
-
-        if (isExternal) {
-            try {
-                const proxyUrl = `${API_BASE}/api/image-proxy?url=${encodeURIComponent(url)}`;
-                const response = await fetch(proxyUrl);
-                if (!response.ok) return null;
-                const blob = await response.blob();
-                const blobUrl = URL.createObjectURL(blob);
-                const result = await loadImageToCanvas(blobUrl);
-                URL.revokeObjectURL(blobUrl);
-                return result;
-            } catch (e) {
-                console.warn('Image proxy fetch failed:', e);
-                return null;
-            }
-        } else {
-            return loadImageToCanvas(url);
-        }
+        return loadExportImageData(url, options);
     };
 
     const calcFitSize = (imgW, imgH, maxW, maxH) => {

@@ -65,7 +65,10 @@ console.debug('[API] Using API_BASE:', API_BASE);
 const originalFetch = window.fetch;
 window.fetch = async function (url, options = {}) {
   const urlStr = typeof url === 'string' ? url : (url instanceof URL ? url.toString() : '');
-  if (urlStr.includes('/api/')) {
+  const isInternalApi = urlStr.includes('/api/')
+    && !urlStr.includes('/api/image-proxy')
+    && (urlStr.startsWith('/') || (API_BASE && urlStr.startsWith(API_BASE)) || (typeof window !== 'undefined' && urlStr.startsWith(window.location.origin)));
+  if (isInternalApi) {
     const stored = localStorage.getItem('boqflow_company_profile');
     if (stored) {
       try {

@@ -875,6 +875,7 @@ async function processTextTablesWithNativeImages(fastapiRes, filePath, uploadId,
 const activeLayoutPromises = new Map();
 
 const app = express();
+app.set('trust proxy', true);
 const PORT = 3001;
 let server;
 
@@ -3024,7 +3025,7 @@ app.post('/api/auto-match-ai', async (req, res) => {
               brandLogo: '',
               imageUrl: matchResult.product.imageUrl || '',
               images: (matchResult.product.images || []).map(img =>
-                img.startsWith('http') ? `${req.protocol}://${req.get('host')}/api/image-proxy?url=${encodeURIComponent(img)}` : img
+                img && img.startsWith('http') ? toProxiedImageUrl(req, img) : img
               )
             },
             source: 'internal-fitout-db',
@@ -3361,7 +3362,7 @@ app.post('/api/auto-match-swarm', async (req, res) => {
               brand: brand,
               brandLogo: dbEntry?.logo || '',
               images: (product.images || []).map(img =>
-                img.startsWith('http') ? `${req.protocol}://${req.get('host')}/api/image-proxy?url=${encodeURIComponent(img)}` : img
+                img && img.startsWith('http') ? toProxiedImageUrl(req, img) : img
               )
             },
             identifiedModel: match.model,
@@ -3439,7 +3440,7 @@ app.post('/api/auto-match-multi-swarm', async (req, res) => {
               brand: matchedBrandName,
               brandLogo: dbEntry?.logo || '',
               images: (product.images || []).map(img =>
-                img.startsWith('http') ? `${req.protocol}://${req.get('host')}/api/image-proxy?url=${encodeURIComponent(img)}` : img
+                img && img.startsWith('http') ? toProxiedImageUrl(req, img) : img
               )
             },
             identifiedModel: match.model,
@@ -3520,7 +3521,7 @@ app.post('/api/ai/semantic-match', async (req, res) => {
       apiKey: clientApiKey
     });
 
-    const proxyBase = `${req.protocol}://${req.get('host')}/api/image-proxy?url=`;
+    const proxyBase = getProxyBase(req);
     const formattedMatches = matches.map(m => ({
       ...m,
       imageUrl: m.imageUrl && m.imageUrl.startsWith('https://') && !m.imageUrl.includes('image-proxy')
@@ -4027,7 +4028,7 @@ app.post('/api/ve-match', async (req, res) => {
       }
 
       // Proxy image URLs
-      const proxyBase = `${req.protocol}://${req.get('host')}/api/image-proxy?url=`;
+      const proxyBase = getProxyBase(req);
       if (p.imageUrl) p.imageUrl = toProxiedImageUrl(req, p.imageUrl);
       if (p.images && Array.isArray(p.images)) {
         p.images = p.images.map(img => img && img.startsWith('https://') && !img.includes('image-proxy') ? `${proxyBase}${encodeURIComponent(img)}` : img);
@@ -4128,12 +4129,30 @@ function resolveCanonicalBrand(identifiedBrand, identifiedModel, allLocalBrands)
 // VALUE ENGINEERED OFFER — Dedicated Auto-Detect API Endpoints
 // ─────────────────────────────────────────────────────────────────────────────
 
+function getProxyBase(req) {
+  const forwardedProto = String(req?.headers?.['x-forwarded-proto'] || '').split(',')[0].trim().toLowerCase();
+  const host = req?.get?.('host') || req?.headers?.host || '';
+  const isLocalHost = /^(localhost|127\.0\.0\.1)(:\d+)?$/i.test(host);
+  const proto = forwardedProto === 'https'
+    ? 'https'
+    : ((process.env.VERCEL === '1' || (!isLocalHost && host)) ? 'https' : (req?.protocol || 'http'));
+  return host ? `${proto}://${host}/api/image-proxy?url=` : '/api/image-proxy?url=';
+}
+
 function toProxiedImageUrl(req, url) {
   if (!url || typeof url !== 'string') return '';
-  if (url.startsWith('https://') && !url.includes('image-proxy')) {
-    return `${req.protocol}://${req.get('host')}/api/image-proxy?url=${encodeURIComponent(url)}`;
+  const trimmed = url.trim();
+  if (!trimmed) return '';
+  if (trimmed.includes('/api/image-proxy')) {
+    const qIdx = trimmed.indexOf('/api/image-proxy');
+    const host = req?.get?.('host') || req?.headers?.host || '';
+    const base = getProxyBase(req).replace(/\/api\/image-proxy\?url=$/, '');
+    return host ? `${base}${trimmed.slice(qIdx)}` : trimmed.slice(qIdx);
   }
-  return url;
+  if (/^https?:\/\//i.test(trimmed)) {
+    return `${getProxyBase(req)}${encodeURIComponent(trimmed)}`;
+  }
+  return trimmed;
 }
 
 function isBadOrLogoUrl(url) {
@@ -4475,7 +4494,7 @@ app.post('/api/ve-match-auto', async (req, res) => {
         const rawAlts = includeLiveAlternatives === true
           ? await generateCrossBrandAlternativesAsync(matchedBrand, matchedModel, enrichedDesc, allLocalBrands, catHint, 4)
           : generateCrossBrandAlternatives(matchedBrand, matchedModel, enrichedDesc, allLocalBrands, catHint, 4);
-        const proxyBase = `${req.protocol}://${req.get('host')}/api/image-proxy?url=`;
+        const proxyBase = getProxyBase(req);
         return rawAlts.map(alt => ({
           ...alt,
           imageUrl: alt.imageUrl && alt.imageUrl.startsWith('https://') && !alt.imageUrl.includes('image-proxy')
@@ -4923,7 +4942,7 @@ app.post('/api/ve-match-auto', async (req, res) => {
           }
           const catNorm = classifyContractCategory('Furniture', 'Storage', p.model || identifiedModel, p.description || enrichedDesc);
           const cleanDesc = cleanTechnicalDescription(p.description || enrichedDesc, canonicalBrand || 'Amazon', p.model || identifiedModel);
-          const proxyBase = `${req.protocol}://${req.get('host')}/api/image-proxy?url=`;
+          const proxyBase = getProxyBase(req);
           let proxiedImageUrl = liveImg;
           if (proxiedImageUrl && proxiedImageUrl.startsWith('https://') && !proxiedImageUrl.includes('image-proxy')) {
             proxiedImageUrl = `${proxyBase}${encodeURIComponent(proxiedImageUrl)}`;
@@ -5281,7 +5300,7 @@ app.post('/api/ai/live-alternatives', async (req, res) => {
     const allLocalBrands = await brandStorage.getAllBrands();
     const alternatives = await generateCrossBrandAlternativesAsync(currentBrand, null, description, allLocalBrands, category, topK || 4);
 
-    const proxyBase = `${req.protocol}://${req.get('host')}/api/image-proxy?url=`;
+    const proxyBase = getProxyBase(req);
     const formatted = alternatives.map(alt => ({
       ...alt,
       imageUrl: alt.imageUrl && alt.imageUrl.startsWith('https://') && !alt.imageUrl.includes('image-proxy')
@@ -5933,11 +5952,23 @@ app.get('/api/image-proxy', async (req, res) => {
     if (!imageUrl) return res.status(400).send('URL required');
 
     // Support base64 encoded URLs if they don't start with http
-    if (!imageUrl.startsWith('http')) {
+    if (!imageUrl.startsWith('http') && !imageUrl.startsWith('/api/image-proxy')) {
       try {
         imageUrl = Buffer.from(imageUrl, 'base64').toString('utf-8');
       } catch (e) {
         return res.status(400).send('Invalid URL format');
+      }
+    }
+
+    // Unwrap accidental nested /api/image-proxy?url=... references (up to 3 hops)
+    for (let hop = 0; hop < 3 && typeof imageUrl === 'string' && imageUrl.includes('/api/image-proxy'); hop++) {
+      try {
+        const parsedProxy = new URL(imageUrl.startsWith('http') ? imageUrl : `https://placeholder.local${imageUrl}`);
+        const inner = parsedProxy.searchParams.get('url');
+        if (!inner || inner === imageUrl) break;
+        imageUrl = inner;
+      } catch {
+        break;
       }
     }
 
@@ -5949,30 +5980,58 @@ app.get('/api/image-proxy', async (req, res) => {
       keepAlive: true
     });
 
-    const response = await safeAxiosGet(
-      axios,
-      urlObj.toString(),
-      {
-        responseType: 'arraybuffer',
-        timeout: 15000,
-        httpsAgent,
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-          'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
-          'Accept-Language': 'en-US,en;q=0.9',
-          'Referer': origin,
-          'Cache-Control': 'no-cache',
-          'Pragma': 'no-cache'
-        }
-      },
-      { allowedHosts: getTrustedStorageHosts() }
-    );
+    const baseHeaders = {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
+      'Accept-Language': 'en-US,en;q=0.9',
+      'Cache-Control': 'no-cache',
+      'Pragma': 'no-cache'
+    };
+
+    let response;
+    try {
+      response = await safeAxiosGet(
+        axios,
+        urlObj.toString(),
+        {
+          responseType: 'arraybuffer',
+          timeout: 15000,
+          httpsAgent,
+          headers: { ...baseHeaders, 'Referer': origin }
+        },
+        { allowedHosts: getTrustedStorageHosts() }
+      );
+    } catch (firstErr) {
+      if (firstErr.response?.status === 403) {
+        response = await safeAxiosGet(
+          axios,
+          urlObj.toString(),
+          {
+            responseType: 'arraybuffer',
+            timeout: 15000,
+            httpsAgent,
+            headers: baseHeaders
+          },
+          { allowedHosts: getTrustedStorageHosts() }
+        );
+      } else {
+        throw firstErr;
+      }
+    }
 
     let data = response.data;
     let contentType = String(response.headers['content-type'] || 'image/jpeg').toLowerCase();
 
-    // Reject HTML/JSON/text soft-404 pages returned with HTTP 200 by upstream websites
-    if (/(text\/html|application\/json|text\/plain)/i.test(contentType)) {
+    // Reject HTML/JSON soft-404 pages returned with HTTP 200 by upstream websites
+    const buf = Buffer.isBuffer(data) ? data : Buffer.from(data || '');
+    const hasRasterMagic = buf.length >= 12 && (
+      (buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff) ||
+      (buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47) ||
+      (buf[0] === 0x47 && buf[1] === 0x49 && buf[2] === 0x46 && buf[3] === 0x38) ||
+      (buf[0] === 0x52 && buf[1] === 0x49 && buf[2] === 0x46 && buf[3] === 0x46 && buf[8] === 0x57 && buf[9] === 0x45) ||
+      (buf[4] === 0x66 && buf[5] === 0x74 && buf[6] === 0x79 && buf[7] === 0x70)
+    );
+    if (/(text\/html|application\/json)/i.test(contentType) || (/text\/plain/i.test(contentType) && !hasRasterMagic)) {
       console.warn(`🖼️  [Image Proxy] Upstream soft-404 (${contentType}): ${imageUrl?.substring(0, 80)}`);
       return res.status(404).send('Upstream returned non-image content');
     }
@@ -6024,6 +6083,8 @@ app.get('/api/image-proxy', async (req, res) => {
     }
 
     res.set('Content-Type', contentType);
+    res.set('Access-Control-Allow-Origin', '*');
+    res.set('Cross-Origin-Resource-Policy', 'cross-origin');
     res.set('Cache-Control', 'public, max-age=31536000');
     res.send(data);
 

@@ -18,7 +18,7 @@ import { useProject } from '../context/ProjectContext';
 import { fixArabic, hasArabic, loadArabicFont } from '../utils/arabicPdfUtils';
 
 import { getApiBase } from '../utils/apiBase';
-import { getFullUrl } from '../utils/urlUtils';
+import { getFullUrl, loadExportImageData, extractImageUrl } from '../utils/urlUtils';
 import {
     recategorizeTables,
     resolveSectionDividerMeta,
@@ -651,81 +651,9 @@ function TableViewer({
     // In-memory image cache for ultra-fast presentation and document generation
     const imageCache = useMemo(() => new Map(), []);
 
-    // Helper: Load image as data URL with size and format optimization
+    // Helper: Load image as data URL with size and format optimization (mixed-content & CORS-safe for Vercel)
     const getImageData = async (url, options = {}) => {
-        if (!url) return null;
-
-        const maxWidth = options.maxWidth || 1000;
-        const format = options.format || 'image/jpeg';
-        const quality = options.quality || 0.85;
-        const cacheKey = `${url}_${maxWidth}_${format}_${quality}`;
-
-        if (imageCache.has(cacheKey)) {
-            return imageCache.get(cacheKey);
-        }
-
-        // Helper to load image into canvas and return dataUrl
-        const loadImageToCanvas = (imgSrc) => {
-            return new Promise((resolve) => {
-                const img = new Image();
-                img.crossOrigin = "Anonymous";
-                img.onload = () => {
-                    const canvas = document.createElement("canvas");
-                    const ratio = Math.min(1, maxWidth / img.width);
-                    canvas.width = img.width * ratio;
-                    canvas.height = img.height * ratio;
-                    const ctx = canvas.getContext("2d");
-
-                    if (format === 'image/jpeg') {
-                        ctx.fillStyle = "#FFFFFF";
-                        ctx.fillRect(0, 0, canvas.width, canvas.height);
-                    } else {
-                        ctx.clearRect(0, 0, canvas.width, canvas.height);
-                    }
-
-                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                    const res = {
-                        dataUrl: canvas.toDataURL(format, quality),
-                        width: canvas.width,
-                        height: canvas.height
-                    };
-                    imageCache.set(cacheKey, res);
-                    resolve(res);
-                };
-                img.onerror = () => resolve(null);
-                img.src = imgSrc;
-            });
-        };
-
-        // Check if this is a proxy URL or external URL
-        const isProxyUrl = url.includes('/api/image-proxy');
-
-        if (isProxyUrl) {
-            try {
-                // Proxy returns raw binary image - convert to blob URL
-                const response = await fetch(url);
-                if (!response.ok) return null;
-
-                const blob = await response.blob();
-                const blobUrl = URL.createObjectURL(blob);
-
-                const result = await loadImageToCanvas(blobUrl);
-
-                // Clean up blob URL
-                URL.revokeObjectURL(blobUrl);
-
-                if (result) imageCache.set(cacheKey, result);
-                return result;
-            } catch (e) {
-                console.warn('Image proxy fetch failed:', e);
-                return null;
-            }
-        } else {
-            // Local images - load directly
-            const result = await loadImageToCanvas(url);
-            if (result) imageCache.set(cacheKey, result);
-            return result;
-        }
+        return loadExportImageData(url, options, imageCache);
     };
 
     // Helper: Calculate fit dimensions maintaining aspect ratio (contain)
@@ -1031,9 +959,10 @@ function TableViewer({
                     if (allImages.length > 0) {
                         imageDataMap[rowIdx] = [];
                         for (const img of allImages) {
-                            if (img?.url) {
+                            const rawImgUrl = extractImageUrl(img);
+                            if (rawImgUrl) {
                                 try {
-                                    const imgResult = await getImageData(getFullUrl(img.url), { maxWidth: 800, format: 'image/jpeg' });
+                                    const imgResult = await getImageData(getFullUrl(rawImgUrl), { maxWidth: 800, format: 'image/jpeg' });
                                     if (imgResult) imageDataMap[rowIdx].push(imgResult);
                                 } catch (e) { }
                             }
@@ -1580,9 +1509,10 @@ function TableViewer({
                     if (allImages.length > 0) {
                         imageDataByRow[rowIdx] = [];
                         for (const img of allImages) {
-                            if (img?.url) {
+                            const rawImgUrl = extractImageUrl(img);
+                            if (rawImgUrl) {
                                 try {
-                                    const imgResult = await getImageData(getFullUrl(img.url), { maxWidth: 800, format: 'image/jpeg', quality: 0.95 });
+                                    const imgResult = await getImageData(getFullUrl(rawImgUrl), { maxWidth: 800, format: 'image/jpeg', quality: 0.95 });
                                     if (imgResult) {
                                         const base64 = imgResult.dataUrl.split(',')[1];
                                         const imageId = workbook.addImage({
@@ -2078,9 +2008,10 @@ function TableViewer({
                 // Load all images (JPEG for MAS products)
                 const imageResults = [];
                 for (const img of allImages.slice(0, 4)) {
-                    if (img?.url) {
+                    const rawImgUrl = extractImageUrl(img);
+                    if (rawImgUrl) {
                         try {
-                            const imgResult = await getImageData(getFullUrl(img.url), { maxWidth: 800, format: 'image/jpeg' });
+                            const imgResult = await getImageData(getFullUrl(rawImgUrl), { maxWidth: 800, format: 'image/jpeg' });
                             if (imgResult) imageResults.push(imgResult);
                         } catch (e) { }
                     }
@@ -2402,9 +2333,10 @@ function TableViewer({
                 for (const cell of row.cells) {
                     const imgs = cell.images || (cell.image ? [cell.image] : []);
                     for (const img of imgs) {
-                        if (img?.url) {
+                        const rawImgUrl = extractImageUrl(img);
+                        if (rawImgUrl) {
                             try {
-                                const ir = await getImageData(getFullUrl(img.url), { maxWidth: 800, format: 'image/jpeg' });
+                                const ir = await getImageData(getFullUrl(rawImgUrl), { maxWidth: 800, format: 'image/jpeg' });
                                 if (ir) allImages.push(ir);
                             } catch (e) { }
                         }
@@ -2725,9 +2657,10 @@ function TableViewer({
                 for (const cell of row.cells) {
                     const imgs = cell.images || (cell.image ? [cell.image] : []);
                     for (const img of imgs) {
-                        if (img?.url) {
+                        const rawImgUrl = extractImageUrl(img);
+                        if (rawImgUrl) {
                             try {
-                                const ir = await getImageData(getFullUrl(img.url), { maxWidth: 800, format: 'image/jpeg' });
+                                const ir = await getImageData(getFullUrl(rawImgUrl), { maxWidth: 800, format: 'image/jpeg' });
                                 if (ir) allImages.push(ir);
                             } catch (e) { }
                         }
@@ -3533,7 +3466,10 @@ function TableViewer({
 
                 // Pre-load all images in parallel to get actual dimensions instantly
                 const loadedImages = (await Promise.all(
-                    allImages.slice(0, 4).map(img => img?.url ? getImageData(getFullUrl(img.url)) : null)
+                    allImages.slice(0, 4).map(img => {
+                        const rawImgUrl = extractImageUrl(img);
+                        return rawImgUrl ? getImageData(getFullUrl(rawImgUrl)) : null;
+                    })
                 )).filter(Boolean);
 
                 // Helper to convert inches to pixels for aspect ratio calc (96 DPI)
@@ -3957,9 +3893,10 @@ function TableViewer({
                 // Load and draw images
                 const imageResults = [];
                 for (const img of allImages.slice(0, 4)) {
-                    if (img?.url) {
+                    const rawImgUrl = extractImageUrl(img);
+                    if (rawImgUrl) {
                         try {
-                            const imgResult = await getImageData(getFullUrl(img.url));
+                            const imgResult = await getImageData(getFullUrl(rawImgUrl));
                             if (imgResult) imageResults.push(imgResult);
                         } catch (e) { }
                     }
