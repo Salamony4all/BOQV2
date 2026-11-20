@@ -1945,9 +1945,37 @@
       "imageUrl": "https://media.architonic.com/m-on/3103368/product/1408695/sokoa_oxel_e3312f58.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/sokoa-oxel-1408695/",
       "price": 0
+    },
+    {
+      "brand": "Sokoa",
+      "model": "IZAR",
+      "family": "Sokoa products, collections and more",
+      "mainCategory": "Office Seating",
+      "subCategory": "Conference Chairs",
+      "description": "Sokoa products, collections and more — Discover the world of Sokoa: from products and latest collections to inspiring projects and stories, or find your nearest dealer.",
+      "imageUrl": "https://media.architonic.com/m-on/3103368/header/sokoa_header_d11e28eb.jpeg?width=1920&format=webp&quality=70",
+      "websiteUrl": "https://www.architonic.com/en/b/sokoa/collections/3103368/",
+      "productUrl": "https://www.architonic.com/en/b/sokoa/collections/3103368/",
+      "officialProductUrl": "https://www.architonic.com/en/b/sokoa/collections/3103368/",
+      "price": 0,
+      "currency": "USD",
+      "verified": true,
+      "source": "AI-Specialist-Discovery",
+      "lastUpdated": "2026-11-18T13:46:51.166Z"
     }
   ],
   "createdAt": "2025-12-21T11:53:39.750Z",
   "websiteUrl": "https://www.architonic.com/en/b/sokoa/collections/3103368/",
-  "budget_tier": "mid"
+  "budget_tier": "mid",
+  "categoryTree": {
+    "Furniture": [
+      "Collaborative Workspaces",
+      "Executive Workspaces",
+      "Meeting Workspaces",
+      "Informal And Recepcion Spaces"
+    ]
+  },
+  "categoryList": [
+    "Furniture"
+  ]
 }

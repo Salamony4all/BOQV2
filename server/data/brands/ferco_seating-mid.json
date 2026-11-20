@@ -27,8 +27,34 @@
       "description": "Compact folding theatre and concert hall seat with wooden outer shell, acoustic absorption, gravity tip-up mechanism.",
       "imageUrl": "https://images.unsplash.com/photo-1517604931442-7e0c8ed2963c?w=800&auto=format&fit=crop&q=80",
       "websiteUrl": "https://www.fercoseating.com/products/auditorium/beaufort/"
+    },
+    {
+      "brand": "Ferco Seating",
+      "model": "Primera",
+      "family": "Atlantic",
+      "mainCategory": "Office Seating",
+      "subCategory": "Specialist Chairs",
+      "description": "For theater style seating the Primera Atlantic range provides the perfect solution - compact and versatile chairs offering outstanding comfort.",
+      "imageUrl": "https://www.fercoseating.com/files/styles/hero_slider_mobile_wide/public/background_image/hero_upload/atlanticauditoriumseatingbethanychurch.jpg?itok=SGKlVii2",
+      "websiteUrl": "https://www.fercoseating.com/products/theatre-auditorium/primera-series/atlantic",
+      "productUrl": "https://www.fercoseating.com/products/theatre-auditorium/primera-series/atlantic",
+      "officialProductUrl": "https://www.fercoseating.com/products/theatre-auditorium/primera-series/atlantic",
+      "price": 350,
+      "currency": "USD",
+      "verified": true,
+      "source": "AI-Specialist-Discovery",
+      "lastUpdated": "2026-11-19T13:03:13.289Z"
     }
   ],
   "url": "https://www.fercoseating.com",
-  "budget_tier": "mid"
+  "budget_tier": "mid",
+  "id": "ferco_seating",
+  "categoryTree": {
+    "Specialist Seating": [
+      "Auditorium & Theater Seating"
+    ]
+  },
+  "categoryList": [
+    "Specialist Seating"
+  ]
 }

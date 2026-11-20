@@ -26,7 +26,7 @@ import { ExcelDbManager } from './excelManager.js';
 import { convertXlsToXlsx } from './utils/xlsToXlsxConverter.js';
 import { brandStorage, kv } from './storageProvider.js';
 import { getAiMatch, identifyModel, fetchProductDetails, searchAndEnrichModel, analyzePlan, matchFitoutItem, autoMatchSingleBrand, autoMatchMultiBrand, VALID_OPENROUTER_MODELS, VALID_NVIDIA_MODELS, GOOGLE_MODEL, OPENROUTER_MODEL, NVIDIA_MODEL, aiKeyStorage } from './utils/llmUtils.js';
-import { veMatchAuto, vePrescanBrands, detectSpecifiedBrandInText, extractSpecifiedProductDetails, isMarketplaceUrl, generateCrossBrandAlternatives, generateCrossBrandAlternativesAsync } from './utils/veAutoDetectUtils.js';
+import { veMatchAuto, vePrescanBrands, detectSpecifiedBrandInText, extractSpecifiedProductDetails, cleanDomainToBrand, isMarketplaceUrl, generateCrossBrandAlternatives, generateCrossBrandAlternativesAsync, isProductIdentityAligned, isGarbageProductDesc } from './utils/veAutoDetectUtils.js';
 import { veMatchSimple, veMatchAdvanced, veGetProductDetails, veRouteCategories } from './utils/veMatchUtils.js';
 import { generatePresentationPdf } from './utils/pptxExportService.js';
 import { convertEmfToPng } from './utils/emfConverter.js';
@@ -42,9 +42,18 @@ import { enrichBrandFromOfficialSite } from './utils/brandEnricher.js';
 import { enrichBrandFromArchitonic } from './utils/architonicAdapter.js';
 import { fetchProductFacts } from './utils/jsonldVerifier.js';
 import { VE_CATEGORY_CONFIG, classifyFurnishingCategory, isGenuineContractBrand, findBrandInCatalog, NON_BRAND_MODEL_WORDS, BRAND_ALIASES } from './utils/veCategoryPriority.js';
-import { getCanonicalBrandLogo, classifyContractCategory, CONTRACT_BRAND_LOGOS } from './utils/brandLogos.js';
-import { fetchLiveProductImage, cleanTechnicalDescription } from './utils/veImageEnricher.js';
+import { getCanonicalBrandLogo, getCanonicalBrandWebsite, resolveBrandLogo, classifyContractCategory, CONTRACT_BRAND_LOGOS } from './utils/brandLogos.js';
+import { fetchLiveProductImage, cleanTechnicalDescription, verifyImageUrl } from './utils/veImageEnricher.js';
+import { enrichProductFromLiveWeb } from './utils/veLiveEnricher.js';
 import { verifyImagePairing } from './utils/veImageVerification.js';
+import { discoverOfficialOriginViaWeb } from './utils/webSearchUtils.js';
+import { assertSafeExternalUrl, safeAxiosGet } from './utils/urlSecurity.js';
+import {
+  getRouterHealthSnapshot,
+  ingestLiveGoogleModels,
+  ensureLiveCatalogSynced,
+  refreshLiveGoogleCatalog
+} from './utils/freeModelRouter.js';
 
 // ALL heavy PDF/Vision extractors are LAZY to prevent Vercel boot crash
 // (pdfProductExtractor uses pdfjs, visionBOQExtractor uses Playwright)
@@ -878,7 +887,19 @@ console.log('✅ [Server] All services initialized.');
 
 // --- Configuration & Tasks ---
 const JS_SCRAPER_SERVICE_URL = process.env.JS_SCRAPER_SERVICE_URL;
+const DOCLING_SERVICE_URL = process.env.DOCLING_SERVICE_URL || process.env.PYTHON_SERVICE_URL || 'http://localhost:8000';
 const tasks = new Map();
+
+function getTrustedStorageHosts() {
+  const hosts = [];
+  for (const raw of [process.env.SUPABASE_URL, process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.JS_SCRAPER_SERVICE_URL]) {
+    if (!raw) continue;
+    try {
+      hosts.push(new URL(raw).hostname.toLowerCase());
+    } catch { }
+  }
+  return hosts;
+}
 
 // --- Stable Railway Helpers ---
 const isJsScraperAvailable = () => !!JS_SCRAPER_SERVICE_URL;
@@ -955,16 +976,16 @@ app.use('/api', (req, res, next) => {
   const sanitizeKey = (k) => (k || '').replace(/^\[|\]$/g, '').trim();
   const saved = readSettings();
   const store = {
-    googleApiKey:      sanitizeKey(req.headers['x-google-api-key'])      || saved.googleApiKey      || '',
-    googleFreeKey:     sanitizeKey(req.headers['x-google-free-key'])     || saved.googleFreeKey     || '',
-    activeTier:        req.headers['x-google-active-tier']               || saved.activeTier        || 'free',
-    googleModel:       req.headers['x-google-model']      || req.headers['x-model-name'] || saved.googleModel || saved.model || '',
-    aiProvider:        req.headers['x-ai-provider']       || req.headers['x-provider']   || saved.engine || 'google',
-    openrouterApiKey:  sanitizeKey(req.headers['x-openrouter-key'])      || saved.openrouterApiKey  || '',
-    openrouterModel:   req.headers['x-openrouter-model'] || req.headers['x-model-name'] || saved.openrouterModel || '',
-    nvidiaApiKey:      sanitizeKey(req.headers['x-nvidia-key'])          || saved.nvidiaApiKey      || '',
-    nvidiaModel:       req.headers['x-nvidia-model']     || req.headers['x-model-name'] || saved.nvidiaModel    || '',
-    localUrl:          req.headers['x-local-url']         || ''
+    googleApiKey: sanitizeKey(req.headers['x-google-api-key']) || saved.googleApiKey || '',
+    googleFreeKey: sanitizeKey(req.headers['x-google-free-key']) || saved.googleFreeKey || '',
+    activeTier: req.headers['x-google-active-tier'] || saved.activeTier || 'free',
+    googleModel: req.headers['x-google-model'] || req.headers['x-model-name'] || saved.googleModel || saved.model || '',
+    aiProvider: req.headers['x-ai-provider'] || req.headers['x-provider'] || saved.engine || 'google',
+    openrouterApiKey: sanitizeKey(req.headers['x-openrouter-key']) || saved.openrouterApiKey || '',
+    openrouterModel: req.headers['x-openrouter-model'] || req.headers['x-model-name'] || saved.openrouterModel || '',
+    nvidiaApiKey: sanitizeKey(req.headers['x-nvidia-key']) || saved.nvidiaApiKey || '',
+    nvidiaModel: req.headers['x-nvidia-model'] || req.headers['x-model-name'] || saved.nvidiaModel || '',
+    localUrl: req.headers['x-local-url'] || ''
   };
   aiKeyStorage.run(store, () => {
     next();
@@ -1574,7 +1595,7 @@ async function executeExtractionPipeline({
       console.log(`[Upload] [wordcom_v22] Starting dynamic-header extraction...`);
       try {
         const uploadId = crypto.randomUUID();
-        const { extractMultiplePdfsV21 } = await import('./universalPatternParsersVercel.v22.dynamic-header-boq-spec.js');
+        const { extractMultiplePdfsV21 } = await import('./universalPatternParsersVercel.js');
         extractedData = await extractMultiplePdfsV21([filePath], (p) => {
           console.log(`[Upload] [wordcom_v22] progress: ${p}%`);
         });
@@ -1630,7 +1651,7 @@ async function executeExtractionPipeline({
           console.warn(`[Upload] Falling back to Vercel-safe MuPDF extractor...`);
           const uploadId = crypto.randomUUID();
           const { extractPdfViaWordVercel } = await import('./wordExtractorServiceVercel.js');
-          extractedData = await extractPdfViaWordVercel(filePath, () => {});
+          extractedData = await extractPdfViaWordVercel(filePath, () => { });
           if (extractedData && Array.isArray(extractedData.tables)) {
             extractedData.tables = extractedData.tables.map(t => ({ ...t, uploadId, engineUsed: 'wordcom-vercel-fallback' }));
             return extractedData;
@@ -1677,7 +1698,7 @@ async function executeExtractionPipeline({
           console.warn(`[Upload] FastAPI failed on Vercel, attempting Vercel-safe fallback...`);
           const uploadId = crypto.randomUUID();
           const { extractPdfViaWordVercel } = await import('./wordExtractorServiceVercel.js');
-          const fallbackData = await extractPdfViaWordVercel(filePath, () => {});
+          const fallbackData = await extractPdfViaWordVercel(filePath, () => { });
           if (fallbackData && Array.isArray(fallbackData.tables)) {
             fallbackData.tables = fallbackData.tables.map(t => ({ ...t, uploadId, engineUsed: 'vercel-fastapi-fallback' }));
             return fallbackData;
@@ -1690,7 +1711,7 @@ async function executeExtractionPipeline({
       try {
         const uploadId = crypto.randomUUID();
         const { extractPdfViaWordVercel } = await import('./wordExtractorServiceVercel.js');
-        extractedData = await extractPdfViaWordVercel(filePath, () => {});
+        extractedData = await extractPdfViaWordVercel(filePath, () => { });
         if (extractedData && Array.isArray(extractedData.tables) && extractedData.tables.length > 0) {
           extractedData.tables = extractedData.tables.map(t => ({ ...t, uploadId, engineUsed: 'wordcom-vercel-safe' }));
           return extractedData;
@@ -1937,6 +1958,7 @@ app.post('/api/process-blob', async (req, res) => {
   if (!url) return res.status(400).json({ error: 'URL is required' });
 
   try {
+    await assertSafeExternalUrl(url, { allowedHosts: getTrustedStorageHosts() });
     console.log(`📦 [Process-Blob] Starting extraction for: ${url}`);
 
     // Stream the file directly from Blob to /tmp to avoid double-buffering large files in RAM
@@ -1948,13 +1970,18 @@ app.post('/api/process-blob', async (req, res) => {
       try {
         const parsed = new URL(url);
         rawName = decodeURIComponent(path.basename(parsed.pathname));
-      } catch (e) {}
+      } catch (e) { }
     }
 
     const safeBaseName = (rawName ? path.basename(rawName, path.extname(rawName)) : `large_${Date.now()}`).replace(/[^a-zA-Z0-9_-]/g, '_');
     const tempDownloadPath = path.join(tempDir, `${safeBaseName}_${Date.now()}.part`);
 
-    const response = await axios.get(url, { responseType: 'stream', timeout: 120000 });
+    const response = await safeAxiosGet(
+      axios,
+      url,
+      { responseType: 'stream', timeout: 120000 },
+      { allowedHosts: getTrustedStorageHosts() }
+    );
     await new Promise((resolve, reject) => {
       const writer = fs_sync.createWriteStream(tempDownloadPath);
       response.data.pipe(writer);
@@ -1999,7 +2026,7 @@ app.post('/api/process-blob', async (req, res) => {
 
     let parsedOptions = options;
     if (typeof parsedOptions === 'string') {
-      try { parsedOptions = JSON.parse(parsedOptions); } catch (e) {}
+      try { parsedOptions = JSON.parse(parsedOptions); } catch (e) { }
     }
 
     const extractedData = await executeExtractionPipeline({
@@ -2022,34 +2049,9 @@ app.post('/api/process-blob', async (req, res) => {
     });
   } catch (error) {
     console.error('Blob processing error:', error);
-    res.status(500).json({ error: 'Failed to process blob file', details: error.message });
+    const status = error.statusCode || 500;
+    res.status(status).json({ error: status === 403 ? 'Blocked URL' : 'Failed to process blob file', details: error.message });
   }
-});
-
-// Reset/Cleanup endpoint for app initialization
-app.post('/api/reset', async (req, res) => {
-  console.log('Resetting application state...');
-  await cleanupService.cleanupAll();
-
-  // Re-create uploads directory immediately to ensure readiness
-  const uploadsDir = isVercel ? '/tmp/uploads' : path.join(__dirname, '../uploads');
-  const imagesDir = isVercel ? '/tmp/uploads/images' : path.join(__dirname, '../uploads/images');
-  try {
-    await fs.mkdir(uploadsDir, { recursive: true });
-    await fs.mkdir(imagesDir, { recursive: true });
-  } catch (e) { console.error('Error recreating dirs:', e); }
-
-  res.json({ success: true, message: 'Environment reset complete' });
-});
-
-// Explicit session cleanup (e.g. on refresh or close)
-app.post('/api/cleanup/session', async (req, res) => {
-  const { sessionId } = req.body;
-  if (!sessionId) return res.status(400).json({ error: 'Session ID is required' });
-
-  console.log(`[Cleanup] Manual cleanup request for session: ${sessionId}`);
-  await cleanupService.cleanupSession(sessionId);
-  res.json({ success: true, message: `Cleanup initiated for session ${sessionId}` });
 });
 
 // Health check fallback for some UI integrations
@@ -2061,9 +2063,7 @@ app.get('/api/brands', async (req, res) => {
     const brands = await brandStorage.getAllBrands();
     const enrichedBrands = brands.map(b => {
       if (!b) return b;
-      const logo = (b.logo && b.logo.trim() && !b.logo.includes('clearbit.com'))
-        ? b.logo
-        : (getCanonicalBrandLogo(b.name, b.websiteUrl) || b.logo || '');
+      const logo = resolveBrandLogo(b) || b.logo || '';
       return { ...b, logo };
     });
     res.json(enrichedBrands);
@@ -2113,8 +2113,10 @@ app.get('/api/models/available', async (req, res) => {
   let googleModels = [];
   if (activeKey) {
     try {
-      const response = await axios.get(`https://generativelanguage.googleapis.com/v1beta/models?key=${activeKey}`, { timeout: 10000 });
+      const response = await axios.get(`https://generativelanguage.googleapis.com/v1beta/models?key=${activeKey}&pageSize=200`, { timeout: 10000 });
       if (response.data && Array.isArray(response.data.models)) {
+        // Feed full live model metadata directly into the dynamic Free-Tier pipeline router
+        ingestLiveGoogleModels(response.data.models, 'live_api');
         googleModels = response.data.models
           .filter(m => m.supportedGenerationMethods && m.supportedGenerationMethods.includes('generateContent'))
           .map(m => m.name.replace(/^models\//, ''));
@@ -2124,21 +2126,41 @@ app.get('/api/models/available', async (req, res) => {
     }
   }
 
-  // If no models were fetched (offline, key invalid, etc.), use a clean fallback
+  // If no models were fetched (offline, key invalid, etc.), use verified Free-Tier defaults
   if (googleModels.length === 0) {
-    googleModels = ['gemini-2.0-flash', 'gemini-2.5-flash', 'gemini-2.5-pro'];
+    googleModels = ['gemini-3.5-flash-lite', 'gemini-2.5-flash-lite', 'gemini-2.5-flash', 'gemini-3-flash-preview'];
   }
 
+  const dynamicRouting = getRouterHealthSnapshot(aiKeyStorage);
   res.json({
     google: googleModels,
     openrouter: VALID_OPENROUTER_MODELS,
     nvidia: VALID_NVIDIA_MODELS,
     defaults: {
-      google: googleModels[0] || 'gemini-2.0-flash',
+      google: dynamicRouting.activeAssignments.matching?.[0] || googleModels[0] || 'gemini-3.5-flash-lite',
       openrouter: OPENROUTER_MODEL,
       nvidia: NVIDIA_MODEL
-    }
+    },
+    routing: dynamicRouting
   });
+});
+
+// Inspect live dynamically-discovered per-pipeline model assignments and active failover cooldowns
+app.get('/api/models/routing-status', async (req, res) => {
+  const contextStore = aiKeyStorage.getStore() || {};
+  const activeKey = (contextStore.activeTier === 'billed' ? contextStore.googleApiKey : contextStore.googleFreeKey)
+    || process.env.GOOGLE_FREE_KEY || process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY || '';
+  await ensureLiveCatalogSynced(activeKey);
+  res.json(getRouterHealthSnapshot(aiKeyStorage));
+});
+
+// Force-refresh live Google model catalog on demand (0 generation tokens consumed)
+app.post('/api/models/refresh-routing', async (req, res) => {
+  const contextStore = aiKeyStorage.getStore() || {};
+  const activeKey = (contextStore.activeTier === 'billed' ? contextStore.googleApiKey : contextStore.googleFreeKey)
+    || process.env.GOOGLE_FREE_KEY || process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY || '';
+  await refreshLiveGoogleCatalog(activeKey, { force: true });
+  res.json(getRouterHealthSnapshot(aiKeyStorage));
 });
 
 /**
@@ -2301,8 +2323,519 @@ app.post('/api/brands/:id/import', upload.single('file'), async (req, res) => {
 //  Stage 3: If missing or price is 0 → AI fetches full product from web → saves permanently
 //
 // ──────────────────────────────────────────────────────────────────────────────
+const SCRAPED_CHROME_MODELS = /^(products?|furniture|seating|walls|previous|next|colour chart|color chart|find out more|filter|whistleblowing|privacy policy|contact us|environment|executive systems?|operative systems?|collaborative systems?|collaborative seating|armchairs and sofas|chairs and stools|we make space.*)$/i;
+
+function isScrapedChromeEntry(p, knownModelSet = null) {
+  if (!p || !p.model) return true;
+  const m = String(p.model).trim();
+  const s = String(p.subCategory || '').trim();
+  if (SCRAPED_CHROME_MODELS.test(m) || /^(find out more|whistleblowing)$/i.test(s)) return true;
+  // Exclude secondary subtitle/designer cards when subCategory itself names another real model (e.g. "Paolo Pampanoni [DIVO]")
+  if (knownModelSet && s) {
+    const mNorm = m.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const sNorm = s.toLowerCase().replace(/[^a-z0-9]/g, '');
+    if (sNorm && mNorm !== sNorm && knownModelSet.has(sNorm)) return true;
+  }
+  return false;
+}
+
+function cleanBracketedTagsFromMatchQuery(text = '') {
+  const raw = String(text || '').trim();
+  const stripped = raw.replace(/^(\s*\[[^\]]{1,45}\]\s*)+/, '').trim();
+  return stripped.split(/\s+/).length >= 3 ? stripped : raw;
+}
+
+const ARCHETYPE_BUCKETS = new Set([
+  'pod', 'windowTreatment', 'fitout', 'screen', 'highStool', 'highTable', 'coffeeTable',
+  'foldingTable', 'conferenceTable', 'receptionDesk', 'workstation', 'desking', 'sofa',
+  'armchair', 'seating', 'storage'
+]);
+
+function getArchetypeBucket(text = '', extraProduct = null) {
+  const raw = String(text || '');
+  // Strip paint/color compounds like "coffee-colored" so finish colors never trigger coffeeTable
+  const s = raw.toLowerCase().replace(/\bcoffee[-\s]+(?:colored|coloured|brown|matte|paint|finish)\b/g, 'brown finish');
+  const firstLine = !extraProduct ? raw.split(/[\r\n|]+/)[0].trim().toLowerCase() : '';
+  const prodDescPrefix = extraProduct ? String(extraProduct.description || '').trim().slice(0, 60).toLowerCase() : '';
+  const prodDescFull = extraProduct ? String(extraProduct.description || '').toLowerCase() : '';
+  const prodSub = extraProduct ? String(extraProduct.subCategory || '').toLowerCase() : '';
+  const prodModel = extraProduct ? String(extraProduct.model || '').toLowerCase() : '';
+
+  const hasPod = !/\b(sofa booth|booth seating|banquette)\b/.test(s)
+    && (/\b(acoustic pods?|phone booths?|meeting pods?|work pods?|soundproof booths?|acoustic booths?|silence booths?|silent\s*room|room-in-room|sonus)\b/.test(s)
+      || /\b(acoustic\s*pods?|phone\s*booths?|pods?|booths?)\b/.test(prodSub));
+  if (hasPod) return 'pod';
+
+  const hasWindowTreatment = /\b(electric\s*curtain|motorized\s*curtain|motorized\s*lift\s*curtain|curtain\s*(?:blackout|sunscreen|roller|track|lift)|roller\s*blinds?|blackout\s*blinds?|sunscreen\s*blinds?|venetian\s*blinds?|vertical\s*blinds?|window\s*blinds?|window\s*curtains?|drapery|sheer\s*curtain)\b/.test(s)
+    || /\bwindow\s*treatments?\b/.test(prodSub);
+  if (hasWindowTreatment) return 'windowTreatment';
+
+  const hasFitout = /\b(carpet tile|carpet flooring|tufted nylon carpet|prayer room carpet|carpet with underlay|carpet for\b|porcelain tile|ceramic tile|tile flooring|vinyl flooring|marble flooring|stone flooring|gypsum ceiling|false ceiling|mineral fiber ceiling|acoustic ceiling|partition wall|drywall partition|glass partition|swing door|sliding door|skirting|wall cladding|pantry cabinet|pantry sink)\b/.test(s)
+    && !/\b(mobile|freestanding|desk screen|privacy screen|conference table|meeting table|task chair|office chair|workstation|credenza|cupboard|bookcase|wardrobe|locker|pedestal)\b/.test(s);
+  if (hasFitout) return 'fitout';
+
+  // Product-level strict opening-sentence overrides (Bistro / Standing / Media Walls / Folding Flip-Top)
+  if (extraProduct) {
+    if (/^media\s*walls?\./i.test(prodDescPrefix) || /\bmedia\s*conference\s*wall\b/.test(prodModel)) return 'screen';
+    if (/^bistro\s*tables?\./i.test(prodDescPrefix) || /\bzoo\s*zoo\b|\bzoozoo\b/.test(prodModel)) return 'coffeeTable';
+    if (/^standing\s*tables?\./i.test(prodDescPrefix) || /\bhigh\s*tables?\b/.test(prodSub)) return 'highTable';
+    if (/\b(flip[-\s]?top|foldable\s*(?:conference|meeting|training)?\s*(?:table|desk)|folding\s*(?:conference|meeting|training)?\s*(?:table|desk)|tilt[-\s]?top)\b/.test(`${prodModel} ${prodSub} ${prodDescFull}`)
+      || (/\b(table|desk)\b/.test(`${prodModel} ${prodSub}`) && /\b(desktop\s+that\s+can\s+be\s+flipped|flip[-\s]?top\s+lock|foldable\s+conference)\b/.test(prodDescFull))) {
+      return 'foldingTable';
+    }
+  }
+
+  // Primary-subject headline overrides for multi-line BOQ specs (avoid footnotes like "refer to desk" or "- modesty panel" overriding the item)
+  if (!extraProduct && firstLine) {
+    if (/^(high\s+|low\s+|filing\s+)?cabinets?\b|\b(filing\s*racks?|mobile\s*filing|mobile\s*shelving|compactor|shoe\s*rack|coat\s*rack|storage\s*rack|wardrobe|credenza|bookcase|lockers?)\b/.test(firstLine)) {
+      return 'storage';
+    }
+    if (/\b(podium|lectern)\b/.test(firstLine)) return 'desking';
+    if (/\b(high\s*table|standing\s*table|bar\s*table|cocktail\s*table)\b/.test(firstLine)) return 'highTable';
+    if (/\b(movable|mobile|folding|foldable|flip[-\s]?top|tilt[-\s]?top|nesting)\s+(?:\w+\s+){0,2}(table|desk)s?\b/.test(firstLine)
+      && !/\b(chair|chairs|stool|stools)\b/.test(firstLine)) {
+      return 'foldingTable';
+    }
+    if (/\b(office\s*desk|executive\s*desk|manager(?:ial)?\s*desk|l[-\s]?shape(?:d)?\s*desk|single\s*desk|staff\s*desk|workstation|study\s*desk|computer\s*desk|height\s*adjustable\s*desk|sit[-\s]?stand\s*desk)\b/.test(firstLine)
+      && !/\b(desk\s*screen|privacy\s*screen|acoustic\s*screen|desk\s*lamp|desk\s*pad|desk\s*mat|desk\s*organizer|cable\s*tray)\b/.test(firstLine)) {
+      return 'workstation';
+    }
+    if (/\b(meeting\s*(?:room\s*)?table|conference\s*table|boardroom\s*table|training\s*table)\b/.test(firstLine)) {
+      const hasExplicitWheelOrFoldBody = /\b(flip[-\s]?top|foldable|folding|tilt[-\s]?top|wheels?\s+with|with\s+wheels|castors?|casters?)\b/.test(s)
+        && !/\b([89]|[1-9]\d+)\s*[-\s]?(pax|persons?|people|seaters?|seats?)\b|\bboardroom\b/.test(s);
+      return hasExplicitWheelOrFoldBody ? 'foldingTable' : 'conferenceTable';
+    }
+    if (/\b(single\s*seater|1[\s-]?seater|one\s*seater|armchair|lounge\s*chair|club\s*chair|tub\s*chair)\b/.test(firstLine)
+      && !/\b(2[\s-]?seater|3[\s-]?seater|two\s*seater|three\s*seater)\b/.test(firstLine)) {
+      return 'armchair';
+    }
+    if (/\b(chair|chairs|stool|stools)\b/.test(firstLine) && !/\b(table|desk|sofa|armchair|lounge\s*chair)\b/.test(firstLine)) {
+      if (/\b(high\s*chair|bar\s*stool|counter\s*stool)\b/.test(firstLine)) return 'highStool';
+      return 'seating';
+    }
+  }
+
+  const hasScreenOrAccessory = /\b(acoustic\s*screens?|desk\s*screens?|privacy\s*screens?|divider\s*screens?|room\s*dividers?|modesty\s*panels?|acoustic\s*panels?|baffles?|cable\s*(trays?|management|grommets?|channels?)|wire\s*management|monitor\s*arms?|cpu\s*holders?|power\s*modules?)\b/.test(s)
+    || /\b(acoustic\s*screens?|screens?|partitions?|dividers?|accessories|cable\s*management|wire\s*management)\b/.test(prodSub);
+  const isStandaloneScreenHeadline = /\b(acoustic\s*screen|desk\s*screen|privacy\s*screen|room\s*divider|divider\s*screen|modesty\s*panel\s*only|cable\s*tray|wire\s*management|monitor\s*arm|power\s*box\s*only)\b/.test(firstLine);
+  const isDeskWithAddon = !extraProduct && !isStandaloneScreenHeadline
+    && /\b(desk|workstation|table|bench)\b/.test(firstLine || s)
+    && /\b(modesty|screen|cable|wire\s*box|panel|power|drawer|pedestal)\b/.test(s);
+  if (hasScreenOrAccessory && !isDeskWithAddon) return 'screen';
+
+  const hasHighStool = /^bar\s*stools?\./i.test(prodDescPrefix)
+    || /\b(high chair|high chairs|bar stool|bar stools|counter stool|counter stools|bar chair|tall stool)\b/.test(s)
+    || /\bhigh\s*chairs?\b/.test(prodSub);
+  if (hasHighStool) return 'highStool';
+
+  const hasCoffeeTable = /^coffee\s*tables?\./i.test(prodDescPrefix)
+    || (!/\bwith\s+(?:a\s+)?(side|coffee)\s*table\b/.test(s) && /\b(coffee table|coffee tables|side table|center table|occasional table|low table)\b/.test(s))
+    || /\b(coffee|low|side)\s*tables?\b/.test(prodSub);
+  if (hasCoffeeTable) return 'coffeeTable';
+
+  const hasReception = /^counters?\./i.test(prodDescPrefix)
+    || /\b(reception counter|reception desk|reception furniture)\b/.test(s)
+    || /\breception\b/.test(prodSub);
+  if (hasReception) return 'receptionDesk';
+
+  const hasFoldingTable = !/\b(chair|chairs|stool|stools)\b/.test(s) && (
+    /\b(flip[-\s]?top|foldable\s*(?:meeting|conference|training)?\s*(?:table|desk)|folding\s*(?:meeting|conference|training)?\s*(?:table|desk)|movable\s*(?:meeting|conference|training)?\s*table)\b/.test(s)
+    || (/\b(training|meeting|conference)\s*table\b/.test(s) && /\b(black\s*wheels|wheels?\s+with|lockable\s*wheels|castors?|casters?)\b/.test(s) && !/\b([89]|[1-9]\d+)\s*[-\s]?(pax|persons?|people|seaters?|seats?)\b|\bboardroom\b/.test(s))
+  );
+  if (hasFoldingTable) return 'foldingTable';
+
+  const hasConfTable = /\b(conference table|conference tables|meeting table|meeting tables|meeting room table|boardroom table)\b/.test(s)
+    || /\b(conference|meeting)\s*tables?\b/.test(prodSub);
+  const hasWorkstation = /^desks?\./i.test(prodDescPrefix)
+    || /\b(workstation|workstations|bench system|benching|cluster desk|executive desk|executive furniture|manager desk|manager office desk|office desk|rectangular\s+(?:\w+\s+)?desk|study desk|l-shaped desk|desk\s*\d+)\b/.test(s)
+    || /\b(desks|benching|workstations|manager tables)\b/.test(prodSub);
+  const hasGenericTable = /\b(desk|table|lectern|podium)\b/.test(s);
+  const hasStorage = /\b(cabinet|cabinets|locker|lockers|credenza|credenzas|pedestal|pedestals|bookcase|shelving|storage|filing\s*racks?|mobile\s*filing|systemfile|lateral\s*files?|shoe\s*rack)\b/.test(s);
+  const hasSofa = /^sofas?\./i.test(prodDescPrefix)
+    || (/\b(sofa|sofas|couch|two seater|three seater|2-seater|3-seater|l-shaped modular lounge|modular lounge seating)\b/.test(s)
+      && !/\b(armchair|single\s*seater|1[\s-]?seater|one\s*seater|tub chair)\b/.test(s));
+  const hasArmchair = /^(armchairs?|poufs?)\./i.test(prodDescPrefix)
+    || (/\b(armchair|armchairs|pouf|poufs|ottoman|lounge chair|tub chair|single\s*seater|1[\s-]?seater|one\s*seater)\b/.test(s)
+      && !/\b(2[\s-]?seater|3[\s-]?seater|two\s*seater|three\s*seater)\b/.test(s))
+    || /\b(armchairs|poufs|lounge chairs|lounges)\b/.test(prodSub);
+  const hasChair = /\b(chair|chairs|seating|stool|stools)\b/.test(s);
+
+  if (hasArmchair && (extraProduct || !hasSofa)) return 'armchair';
+  if (hasSofa && !hasChair) return 'sofa';
+  if (hasConfTable && !hasChair) return 'conferenceTable';
+  if (hasWorkstation && !hasChair) return 'workstation';
+  if (hasGenericTable && !hasChair) return 'desking';
+  if ((hasChair || hasArmchair || hasSofa) && !hasGenericTable && !hasStorage) {
+    if (hasArmchair && !hasChair) return 'armchair';
+    if (hasSofa) return 'sofa';
+    return 'seating';
+  }
+  if (hasStorage && !hasChair && !hasGenericTable && !hasWorkstation && !hasConfTable) return 'storage';
+  return '';
+}
+
+function isArchetypeConflict(targetTextOrBucket, product) {
+  if (!targetTextOrBucket || !product) return false;
+  const targetStr = String(targetTextOrBucket || '').trim();
+  const targetBucket = ARCHETYPE_BUCKETS.has(targetStr) ? targetStr : getArchetypeBucket(targetStr);
+
+  // Inspect model + taxonomy + opening descriptor sentence only (avoid downstream "also offers reception/storage" blurbs)
+  const descOpening = String(product.description || '').split(/\.\s+/)[0].slice(0, 60);
+  const prodDescFull = String(product.description || '').toLowerCase();
+  const prodModelLower = String(product.model || '').toLowerCase();
+  const prodSubLower = String(product.subCategory || '').toLowerCase();
+  const prodText = `${product.model || ''} ${product.mainCategory || ''} ${product.subCategory || ''} ${descOpening}`;
+  const candBucket = getArchetypeBucket(prodText, product);
+
+  // Acoustic pods / phone booths must NEVER match non-pod specifications even when targetBucket is broad/empty
+  if (candBucket === 'pod' && targetBucket !== 'pod') {
+    return true;
+  }
+
+  // Window treatments (curtains, roller blinds) must NEVER cross-match furniture (counters, desks, chairs, storage)
+  if ((targetBucket === 'windowTreatment' && candBucket !== 'windowTreatment')
+    || (candBucket === 'windowTreatment' && targetBucket !== 'windowTreatment')) {
+    return true;
+  }
+
+  if (!targetBucket) return false;
+
+  // Guard workstations against products whose photo is a storage cabinet
+  if (targetBucket === 'workstation' && /storage-cabinet/i.test(String(product.imageUrl || ''))) {
+    return true;
+  }
+
+  // Large multi-pax conference/boardroom tables must match fixed contract conference/meeting tables,
+  // NEVER small round tables, bistro/coffee tables, single flip-top/folding desks, media walls, or plain single desks.
+  if (!ARCHETYPE_BUCKETS.has(targetStr) && targetBucket === 'conferenceTable') {
+    const tLower = targetStr.toLowerCase();
+    const wantsLargeBoardroom = (/\b([89]|[1-9]\d+)\s*[-\s]?(pax|persons?|people|seaters?|seats?)\b|\bw?\s*([3-9]\d{3}|[1-9]\d{4})\s*[x×]|\b(rectangular|boat[-\s]?shaped|boardroom)\b/i.test(tLower))
+      && !/\bround\b/i.test(tLower);
+    if (wantsLargeBoardroom) {
+      const isRoundProd = /\bround\b/i.test(prodModelLower) || /\bround\s+tabletops?\b/i.test(prodDescFull);
+      const isFoldingProd = /\b(flip[-\s]?top|foldable|folding|casters?|castors?)\b/i.test(`${prodModelLower} ${prodDescFull}`);
+      const isBistroOrCoffeeProd = /\b(bistro\s*tables?|coffee\s*tables?|zoo\s*zoo|zoozoo)\b/i.test(`${prodModelLower} ${prodDescFull}`);
+      const isPlainSingleDesk = /^desks?\./i.test(prodDescFull.trim())
+        && !/\bconference\s*tables?\b/i.test(prodSubLower)
+        && !/\bexecutive\s+furniture\b/i.test(prodDescFull);
+      if (isRoundProd || isFoldingProd || isBistroOrCoffeeProd || isPlainSingleDesk) {
+        return true;
+      }
+    }
+  }
+
+  // Heavy-duty / mechanical mobile / steel filing systems must NEVER match open decorative room-divider shelving or tiny underdesk pedestals
+  if (!ARCHETYPE_BUCKETS.has(targetStr) && targetBucket === 'storage') {
+    const tLower = targetStr.toLowerCase();
+    const wantsClosedOrMobileFiling = /\b(mechanical\s*mobile\s*filing|mobile\s*filing|mobile\s*shelving|compactor|high[\s-]?density\s*(?:filing|shelving)|filing\s*racks?|arch\s*file|box\s*file|udl\s*load|steel\s*filing|metal\s*filing|lockable\s*filing)\b/i.test(tLower);
+    if (wantsClosedOrMobileFiling) {
+      const prodCombined = `${prodModelLower} ${prodSubLower} ${prodDescFull}`;
+      const isOpenDividerOrUnrelated = /\b(conference\s*walls?|shaping\s+and\s+dividing\s+spaces|room\s*divider|open\s+modular\s+divider|combus|phylo|coat\s*rack|clothes\s*rack|coat\s*hanger|magazine\s*rack|mainframe\s*bracket|easel|planter|personal\s*pedestal|underdesk|desk\s*storage)\b/i.test(prodCombined)
+        || (/^pedestals?\./i.test(prodDescFull.trim()) && !/\btall\b/i.test(prodModelLower))
+        || (/\bpedestals?\b/i.test(prodSubLower) && !/\btall\b/i.test(prodModelLower));
+      if (isOpenDividerOrUnrelated) {
+        return true;
+      }
+    }
+  }
+
+  // Visitor / Cantilever / 4-Leg chairs must not match 5-star swivel task/staff chairs
+  if (!ARCHETYPE_BUCKETS.has(targetStr) && targetBucket === 'seating') {
+    const tLower = targetStr.toLowerCase();
+    const wantsVisitorCantilever = /\b(visitor\s*chair|guest\s*chair|cantilever|4[\s-]?leg|sled\s*base)\b/i.test(tLower)
+      && !/\b(task\s*chair|swivel|5[\s-]?star|operator\s*chair|ergonomic\s*task)\b/i.test(tLower);
+    if (wantsVisitorCantilever) {
+      const isSwivelTaskCand = /\b(task\s*chairs?|staff\s*chairs?|operator\s*chairs?|swivel\s*task)\b/i.test(`${prodModelLower} ${prodSubLower} ${prodDescFull.slice(0, 120)}`)
+        && !/\b(visitor|guest|cantilever|conference\s*chair|4[\s-]?leg|sled)\b/i.test(`${prodModelLower} ${prodSubLower} ${prodDescFull.slice(0, 140)}`);
+      if (isSwivelTaskCand) return true;
+    }
+  }
+
+  if (!candBucket) return false;
+  if (candBucket === targetBucket) return false;
+
+  // Allow compatible subtypes within broad umbrellas while blocking genuine category mismatches
+  if (targetBucket === 'desking' && ['workstation', 'conferenceTable', 'receptionDesk'].includes(candBucket)) return false;
+  if (candBucket === 'desking' && ['workstation', 'conferenceTable', 'receptionDesk'].includes(targetBucket)) return false;
+  if (targetBucket === 'seating' && candBucket === 'armchair') {
+    return !/\b(lounge|club|tub|waiting|reception)\b/i.test(targetStr);
+  }
+  return true;
+}
+
+function filterValidFitoutProducts(products = []) {
+  if (!Array.isArray(products)) return [];
+  const valid = products.filter(p => {
+    if (!p || !p.model) return false;
+    const price = parseFloat(p.price || 0);
+    const desc = String(p.description || '');
+    if (price <= 0 && /not publicly available|could not be found|no official product/i.test(desc)) return false;
+    return true;
+  });
+  return valid.length > 0 ? valid : products;
+}
+
+const FITOUT_DETERMINISTIC_RULES = [
+  { rx: /\b(electric\s*curtain|motorized\s*curtain|window\s*curtain|roller\s*blinds?|blackout\s*blinds?|sunscreen\s*blinds?|venetian\s*blinds?|vertical\s*blinds?|window\s*blinds?|drapery|curtain)\b/i, subRx: /window\s*treatment/i },
+  { rx: /\b(prayer\s*room\s*carpet|wall[\s-]?to[\s-]?wall\s*carpet|carpet\s*with\s*underlay|carpet\s*tile|broadloom|carpet)\b/i, subRx: /carpet/i },
+  { rx: /\b(marble|stone\s*floor|granite|porcelain|ceramic)\b/i, subRx: /stone\s*floor|wet\s*work/i },
+  { rx: /\b(self\s*leveling|screed)\b/i, subRx: /preparation/i },
+  { rx: /\b(wood\s*slat|timber\s*ceiling|wood\s*ceiling)\b/i, subRx: /wood\s*ceiling/i },
+  { rx: /\b(acoustic\s*ceiling|gypsum\s*ceiling|false\s*ceiling|suspended\s*ceiling|mineral\s*fiber)\b/i, subRx: /acoustic\s*ceiling|ceiling/i },
+  { rx: /\b(frosted\s*glass)\b/i, subRx: /specialized\s*glass/i },
+  { rx: /\b(glass\s*partition|toughened\s*glass)\b/i, subRx: /glass\s*partition/i },
+  { rx: /\b(acoustic\s*partition|acoustic\s*panel)\b/i, subRx: /acoustic\s*partition/i },
+  { rx: /\b(gypsum\s*partition|drywall|masonry)\b/i, subRx: /masonry|gypsum/i },
+  { rx: /\b(wood\s*cladding|veneer\s*cladding|fluted\s*panel)\b/i, subRx: /wood\s*cladding/i },
+  { rx: /\b(metal\s*cladding|stainless\s*steel\s*trim)\b/i, subRx: /metal\s*cladding|finishing/i },
+  { rx: /\b(sliding\s*door|swing\s*door|glass\s*door|wooden\s*door)\b/i, subRx: /door/i },
+  { rx: /\b(skirting)\b/i, subRx: /skirting/i },
+  { rx: /\b(wallpaper)\b/i, subRx: /wallpaper/i },
+  { rx: /\b(mirror)\b/i, subRx: /mirror/i },
+  { rx: /\b(artwork|art\s*work|painting)\b/i, subRx: /artwork/i },
+  { rx: /\b(pantry\s*cabinet|custom\s*cabinet|overhead\s*cabinet|base\s*cabinet)\b/i, subRx: /custom\s*cabinet/i },
+  { rx: /\b(whiteboard)\b/i, subRx: /specialized\s*unit/i },
+  { rx: /\b(ablution|sink|vanity|sanitary)\b/i, subRx: /plumbing|sanitary/i }
+];
+
+function matchFitoutCatalogDeterministic(desc = '', internalProducts = []) {
+  if (!desc || !Array.isArray(internalProducts) || internalProducts.length === 0) return null;
+  const low = String(desc).toLowerCase();
+  const matchedRule = FITOUT_DETERMINISTIC_RULES.find(r => r.rx.test(low));
+  const tokens = low.replace(/[^a-z0-9\s]/g, ' ').split(/\s+/).filter(t => t.length >= 3);
+
+  let best = null;
+  let bestScore = 0;
+
+  for (const p of internalProducts) {
+    const sub = String(p.subCategory || '').toLowerCase();
+    const text = `${p.model || ''} ${p.mainCategory || ''} ${sub} ${p.description || ''}`.toLowerCase();
+    let score = 0;
+    if (matchedRule && matchedRule.subRx.test(sub)) {
+      score += 100;
+    }
+    if (/\bwall[\s-]?to[\s-]?wall|underlay|prayer\s*room\b/.test(low) && /\bwall\s*to\s*wall|underlay\b/.test(text)) {
+      score += 20;
+    }
+    for (const t of tokens) {
+      if (text.includes(t)) score += 3;
+    }
+    if (score > bestScore) {
+      bestScore = score;
+      best = p;
+    }
+  }
+
+  if (!best || bestScore < 50) return null;
+  return {
+    status: 'success',
+    product: {
+      ...best,
+      brand: 'FitOut V2',
+      matchScore: Math.min(0.95, bestScore / 120),
+      logic: `Deterministic FitOut catalog match (${best.subCategory || best.model})`
+    }
+  };
+}
+
+function inferMainCategoryFromSubCategory(subCat = '') {
+  if (!subCat) return '';
+  const target = String(subCat).toLowerCase().trim();
+  for (const [mainKey, subMap] of Object.entries(TAXONOMY)) {
+    if (subMap && Object.keys(subMap).some(s => s.toLowerCase().trim() === target)) {
+      return mainKey;
+    }
+  }
+  return '';
+}
+
+async function resolveFitoutCatalogMatch(req, desc, requestedTier = 'mid', provider = 'google', providerModel = null, { normalizeCategory = true, skipLlm = false } = {}) {
+  const tierNorm = String(requestedTier || 'mid').toLowerCase().trim();
+  let dbName = 'fitout_v2-mid.json';
+  if (tierNorm === 'budget' || tierNorm === 'budgetary') {
+    dbName = 'fitout_v2-budgetary.json';
+  } else if (tierNorm === 'high' || tierNorm === 'premium') {
+    dbName = 'fitout_v2-high.json';
+  }
+
+  let dbPath = path.join(__dirname, 'data', 'brands', dbName);
+  try {
+    await fs.access(dbPath);
+  } catch {
+    dbPath = path.join(__dirname, 'data', 'brands', 'fitout_v2-mid.json');
+  }
+
+  console.log(`  🔍 [VE Fitout] Loading local database: ${dbPath}`);
+  const dbRaw = await fs.readFile(dbPath, 'utf-8');
+  const dbData = JSON.parse(dbRaw);
+  const internalProducts = filterValidFitoutProducts(dbData.products || []);
+
+  const tierLabel = dbName.replace('fitout_v2-', '').replace('.json', '');
+  let matchResult = null;
+  if (!skipLlm) {
+    try {
+      matchResult = await matchFitoutItem(desc, internalProducts, tierLabel, provider, providerModel);
+    } catch (llmFitoutErr) {
+      console.warn(`  ⚡ [VE Fitout Local Fallback] LLM fitout matcher failed (${llmFitoutErr.message}) — falling back to deterministic catalog matcher.`);
+    }
+  }
+  if (!matchResult || matchResult.status !== 'success' || !matchResult.product) {
+    matchResult = matchFitoutCatalogDeterministic(desc, internalProducts);
+  }
+  if (!matchResult || matchResult.status !== 'success' || !matchResult.product) {
+    return null;
+  }
+
+  const p = { ...matchResult.product };
+  let subCat = p.subCategory || 'full height partition wall';
+  let mainCat = p.mainCategory || p.category || inferMainCategoryFromSubCategory(subCat) || 'Partitions & Wall Cladding';
+  if (normalizeCategory) {
+    mainCat = Object.keys(TAXONOMY).find(c => c.toLowerCase() === mainCat.toLowerCase()) || mainCat || 'Partitions & Wall Cladding';
+    const subCats = TAXONOMY[mainCat] ? Object.keys(TAXONOMY[mainCat]) : [];
+    subCat = subCats.find(s => s.toLowerCase() === subCat.toLowerCase()) || subCat || (subCats[0] || 'full height partition wall');
+  }
+
+  if (p.imageUrl) p.imageUrl = toProxiedImageUrl(req, p.imageUrl);
+  if (Array.isArray(p.images)) {
+    p.images = p.images.map(img => toProxiedImageUrl(req, img));
+  }
+
+  console.log(`  ✨ [VE Fitout Success] Found internal match: "${p.model}" (Category: ${mainCat} / ${subCat})`);
+  return {
+    status: 'success',
+    product: {
+      ...p,
+      brand: 'FitOut V2',
+      brandLogo: '',
+      mainCategory: mainCat,
+      subCategory: subCat
+    },
+    identifiedModel: p.model
+  };
+}
+
+function buildCatalogHints(rawProducts = []) {
+  const subtitleHints = new Map();
+  const knownModelSet = new Set();
+
+  for (const p of rawProducts) {
+    if (!p?.model || SCRAPED_CHROME_MODELS.test(String(p.model).trim())) continue;
+    if (/^(seating|furniture|desks|office chairs|visitor chairs|conference chairs|task chairs|executive chairs|meeting tables|conference tables|tables|discovery)$/i.test(String(p.subCategory || '').trim())) {
+      knownModelSet.add(String(p.model).toLowerCase().replace(/[^a-z0-9]/g, ''));
+    }
+  }
+
+  for (const p of rawProducts) {
+    if (!p?.model || !p?.subCategory) continue;
+    const mNorm = String(p.model).toLowerCase().replace(/[^a-z0-9]/g, '');
+    const sNorm = String(p.subCategory).toLowerCase().replace(/[^a-z0-9]/g, '');
+    if (sNorm && mNorm !== sNorm && knownModelSet.has(sNorm)) {
+      const m = String(p.model).trim();
+      if (!/^(previous|next|colour chart|color chart|csr .+)$/i.test(m) && !subtitleHints.has(sNorm)) {
+        subtitleHints.set(sNorm, m);
+      }
+    }
+  }
+  return { knownModelSet, subtitleHints };
+}
+
+function deriveProductHint(p, subtitleHints) {
+  const modelClean = String(p.model || '').replace(/\s*#\d+\s*$/, '').trim();
+  const desc = String(p.description || '').replace(/\s+/g, ' ').trim();
+  if (desc && desc.length >= 18 && desc.toLowerCase() !== modelClean.toLowerCase()) {
+    return desc.length > 55 ? `${desc.slice(0, 52).trim()}...` : desc;
+  }
+  const mNorm = modelClean.toLowerCase().replace(/[^a-z0-9]/g, '');
+  const subHint = subtitleHints?.get(mNorm) || '';
+  let fileHint = '';
+  if (p.imageUrl && /^https?:/i.test(p.imageUrl)) {
+    try {
+      const base = new URL(p.imageUrl).pathname.split('/').pop().replace(/\.[a-z0-9]+$/i, '');
+      const cleaned = base.replace(/[-_]+/g, ' ').replace(/\b(thumb|ok|scaled|\d+)\b/gi, '').replace(/\s+/g, ' ').trim();
+      if (cleaned && cleaned.toLowerCase() !== mNorm && cleaned.length >= 4) {
+        fileHint = cleaned;
+      }
+    } catch { }
+  }
+  return [subHint, fileHint].filter(Boolean).join('; ');
+}
+
+function scoreCatalogMatchPriority(p, boqTokens, fullText) {
+  let score = p.verified ? 2 : 0;
+  if (/^discovery$/i.test(String(p.subCategory || '').trim())) score -= 12;
+  if (/img\.architonic\.com\/img_pro/i.test(String(p.imageUrl || ''))) score -= 12;
+  for (const tok of boqTokens) {
+    if (fullText.includes(tok)) score += 3;
+  }
+  return score;
+}
+
+function scopeCatalogProductsForQuery(rawProducts = [], enrichedDescription = '') {
+  const { knownModelSet, subtitleHints } = buildCatalogHints(rawProducts);
+  let products = rawProducts.filter(p => !isScrapedChromeEntry(p, knownModelSet) && !isArchetypeConflict(enrichedDescription, p));
+
+  const validImaged = products.filter(p =>
+    p.imageUrl &&
+    !isBadOrLogoUrl(p.imageUrl) &&
+    !/img\.architonic\.com\/img_pro/i.test(p.imageUrl) &&
+    !/^ai-suggested$/i.test(p.source || '') &&
+    p.verified !== false
+  );
+  if (validImaged.length >= 6) {
+    products = validImaged;
+  }
+
+  const hintOf = (p) => deriveProductHint(p, subtitleHints);
+  const fullTextOf = (p) => `${p.model || ''} ${p.mainCategory || ''} ${p.subCategory || ''} ${p.description || ''} ${hintOf(p)}`.toLowerCase();
+
+  const wantArchetype = getArchetypeBucket(enrichedDescription);
+  const wantsIndividualChair = /\bchair\b/i.test(enrichedDescription) && !/\b(bench|sofa|couch|loveseat|booth|pod|stool)\b/i.test(enrichedDescription);
+  const wantsDeskOrTable = ['desking', 'workstation', 'conferenceTable', 'coffeeTable', 'receptionDesk'].includes(wantArchetype);
+
+  if (wantArchetype === 'seating') {
+    let seatingProds = products.filter(p => /\b(chair|seating|stool|armchair|sofa|pouf|bench|seduta|sedie|poltrona)\b/.test(fullTextOf(p)));
+    if (wantsIndividualChair) {
+      const chairOnly = seatingProds.filter(p => {
+        const txt = fullTextOf(p);
+        const isLoungeOrBenchOrStool = /\b(sofa|couch|pouf|ottoman|bench|soft seating|collaborative seating|armchairs and sofas|lounge chair|waiting zone|waiting area|bar stool|high stool|low stool|high chair)\b/.test(txt);
+        const isTaskTrainingVisitor = /\b(training|nesting|stacking|visitor|conference|task chair|office chair|executive chair|operative|seduta operativa|chair 4 legs|chairs and stools)\b/.test(txt);
+        return !isLoungeOrBenchOrStool || (isTaskTrainingVisitor && !/\b(lounge chair|bar stool|bench)\b/.test(txt));
+      });
+      if (chairOnly.length >= 2) seatingProds = chairOnly;
+    }
+    if (seatingProds.length >= 2) products = seatingProds;
+  } else if (wantsDeskOrTable) {
+    const deskingProds = products.filter(p => {
+      const txt = fullTextOf(p);
+      const isNonDesk = /\b(seating|chair|stool|armchair|sofa|pouf|phone booth|acoustic booth|reception counter|counters)\b/.test(txt);
+      const isDesk = /\b(desk|table|workstation|flip-top|folding|conference table|meeting table)\b/.test(txt);
+      return isDesk || !isNonDesk;
+    });
+    if (deskingProds.length >= 2) products = deskingProds;
+  }
+
+  // Rank best matching archetype/keyword candidates first so prompt cap keeps the top candidates without bloating LLM latency
+  const boqTokens = [...new Set(
+    String(enrichedDescription || '')
+      .toLowerCase()
+      .split(/[^a-z0-9]+/)
+      .filter(t => t.length >= 3 && !/^(the|and|for|with|from|qty|unit|nos|mm|cm)$/.test(t))
+  )];
+  if (products.length > 100 && boqTokens.length > 0) {
+    products = [...products]
+      .sort((a, b) => scoreCatalogMatchPriority(b, boqTokens, fullTextOf(b)) - scoreCatalogMatchPriority(a, boqTokens, fullTextOf(a)))
+      .slice(0, 120);
+  }
+
+  return { products, subtitleHints, hintOf };
+}
+
 function fuzzyFindModel(products, targetModelName, targetCategory = '') {
   if (!products || !Array.isArray(products) || !targetModelName) return null;
+
+  const { knownModelSet } = buildCatalogHints(products);
+  const cleanProducts = products.filter(p => !isScrapedChromeEntry(p, knownModelSet));
+  const pool = cleanProducts.length > 0 ? cleanProducts : products;
 
   const SYNONYMS = {
     'stool': ['chair', 'seat', 'barstool', 'bench'],
@@ -2323,9 +2856,46 @@ function fuzzyFindModel(products, targetModelName, targetCategory = '') {
   const target = normalize(targetModelName);
   if (!target) return null;
 
-  // 1. Exact Match Check (High Efficiency)
-  const exact = products.find(p => normalize(p.model) === target);
-  if (exact) return exact;
+  const GENERIC_SERIES_WORDS = new Set([
+    'chair', 'chairs', 'seating', 'stool', 'stools', 'sofa', 'sofas', 'couch', 'armchair', 'armchairs',
+    'desk', 'desks', 'table', 'tables', 'meeting', 'conference', 'coffee', 'side', 'lounge',
+    'reception', 'counter', 'counters', 'furniture', 'system', 'systems', 'unit', 'units',
+    'cabinet', 'cabinets', 'pedestal', 'pedestals', 'credenza', 'pod', 'booth',
+    'cantilever', 'visitor', 'executive', 'manager', 'managerial', 'task', 'staff', 'swivel',
+    'mesh', 'high', 'low', 'mid', 'back', 'wooden', 'wood', 'plastic', 'leather', 'fabric',
+    'modular', 'curved', 'round', 'rectangular', 'boat', 'shaped', 'single', 'two', 'three',
+    'seater', 'pax', 'office', 'open', 'area', 'room', 'cafe', 'dining', 'pantry'
+  ]);
+  const targetTokens = target.split(' ').filter(Boolean);
+  const coreSeriesTokens = targetTokens.length <= 6
+    ? targetTokens.filter(t => !GENERIC_SERIES_WORDS.has(t) && (t.length >= 2 || /^[a-z0-9]$/.test(t)))
+    : [];
+
+  const isCompatibleBucket = (p) => !isArchetypeConflict(targetCategory ? `${targetModelName} ${targetCategory}` : targetModelName, p);
+  const hasCoreSeriesToken = (p) => {
+    if (coreSeriesTokens.length === 0) return true;
+    const candTokens = normalize(`${p.model || ''} ${p.family || ''}`).split(' ').filter(Boolean);
+    const candJoined = candTokens.join(' ');
+    const strongTokens = coreSeriesTokens.filter(t => t.length >= 3);
+    const checkList = strongTokens.length > 0 ? strongTokens : coreSeriesTokens;
+    return checkList.some(tok => candTokens.includes(tok) || (tok.length >= 4 && candJoined.includes(tok)));
+  };
+
+  // 1. Exact Match Check (preferring non-Discovery verified entries with compatible functional archetype)
+  const isNonDiscovery = (p) => !/^discovery$/i.test(String(p?.subCategory || '').trim());
+  const exactCompatibleHits = pool.filter(p => normalize(p.model) === target && isCompatibleBucket(p));
+  if (exactCompatibleHits.length > 0) {
+    return exactCompatibleHits.find(isNonDiscovery) || exactCompatibleHits[0];
+  }
+  const exactAny = pool.find(p => normalize(p.model) === target);
+  if (exactAny && isCompatibleBucket(exactAny)) return exactAny;
+
+  // Exact match on stripped core series (e.g. "Boom Sofa" -> "Boom #20327564", excluding generic Discovery stubs)
+  if (coreSeriesTokens.length > 0) {
+    const corePhrase = coreSeriesTokens.join(' ');
+    const coreExact = pool.find(p => normalize(p.model) === corePhrase && isCompatibleBucket(p) && isNonDiscovery(p));
+    if (coreExact) return coreExact;
+  }
 
   // 2. Fuse.js Implementation
   const options = {
@@ -2342,7 +2912,7 @@ function fuzzyFindModel(products, targetModelName, targetCategory = '') {
     minMatchCharLength: 2
   };
 
-  const fuse = new Fuse(products, options);
+  const fuse = new Fuse(pool, options);
   let results = fuse.search(target);
 
   // 3. Synonym Expansion (Fallback if no strong match)
@@ -2363,22 +2933,42 @@ function fuzzyFindModel(products, targetModelName, targetCategory = '') {
 
   if (results.length === 0) return null;
 
-  // 4. Category Boosting
+  const coreOverlapCount = (p) => {
+    if (coreSeriesTokens.length === 0) return 0;
+    const candTokens = normalize(`${p.model || ''} ${p.family || ''}`).split(' ').filter(Boolean);
+    const candJoined = candTokens.join(' ');
+    return coreSeriesTokens.filter(tok => candTokens.includes(tok) || (tok.length >= 4 && candJoined.includes(tok))).length;
+  };
+  const rankFuzzy = (arr) => [...arr].sort((a, b) => {
+    const overlapDiff = coreOverlapCount(b.item) - coreOverlapCount(a.item);
+    if (overlapDiff !== 0) return overlapDiff;
+    const discA = /^discovery$/i.test(String(a.item.subCategory || '').trim()) ? 1 : 0;
+    const discB = /^discovery$/i.test(String(b.item.subCategory || '').trim()) ? 1 : 0;
+    if (discA !== discB) return discA - discB;
+    return a.score - b.score;
+  });
+
+  // 4. Category Boosting & Archetype + Core Series Token Safety
   if (targetCategory && targetCategory.length > 2) {
     const cat = targetCategory.toLowerCase().trim();
-    const catMatches = results.filter(r => {
+    const catMatches = rankFuzzy(results.filter(r => {
       const mc = (r.item.mainCategory || '').toLowerCase();
       const sc = (r.item.subCategory || '').toLowerCase();
-      return mc.includes(cat) || sc.includes(cat) || cat.includes(mc) || cat.includes(sc);
-    });
+      return (mc.includes(cat) || sc.includes(cat) || cat.includes(mc) || cat.includes(sc))
+        && isCompatibleBucket(r.item)
+        && hasCoreSeriesToken(r.item);
+    }));
     if (catMatches.length > 0 && catMatches[0].score < 0.5) {
       return catMatches[0].item;
     }
   }
 
-  // 5. Final Threshold Verification
+  const compatibleMatches = rankFuzzy(results.filter(r => r.score <= 0.45 && isCompatibleBucket(r.item) && hasCoreSeriesToken(r.item)));
+  if (compatibleMatches.length > 0) return compatibleMatches[0].item;
+
+  // 5. Final Threshold Verification (never match wrong series on generic words alone)
   const best = results[0];
-  return best.score <= 0.45 ? best.item : null;
+  return (best.score <= 0.35 && isCompatibleBucket(best.item) && hasCoreSeriesToken(best.item)) ? best.item : null;
 }
 
 
@@ -2418,7 +3008,7 @@ app.post('/api/auto-match-ai', async (req, res) => {
 
         const dbRaw = await fs.readFile(dbPath, 'utf-8');
         const dbData = JSON.parse(dbRaw);
-        const internalProducts = dbData.products || [];
+        const internalProducts = filterValidFitoutProducts(dbData.products || []);
 
         // Match using specialized local matcher
         const matchResult = await matchFitoutItem(description, internalProducts, finalTier, provider, providerModel);
@@ -2468,9 +3058,10 @@ app.post('/api/auto-match-ai', async (req, res) => {
       return res.status(400).json({ status: 'error', error_message: 'No brands provided' });
     }
 
-    // Build a richer description by appending size/qty context if available.
+    // Build a clean matching description (strip leading [Location]/[Code] tags if substantial spec text follows)
+    const effectiveMatchDesc = cleanBracketedTagsFromMatchQuery(description);
     const sizeContext = [qty && `Qty: ${qty}`, unit && `Unit: ${unit}`].filter(Boolean).join(', ');
-    const enrichedDescription = sizeContext ? `${description} | ${sizeContext}` : description;
+    const enrichedDescription = sizeContext ? `${effectiveMatchDesc} | ${sizeContext}` : effectiveMatchDesc;
 
     console.log(`\n🤖 [AI AutoFill] "${enrichedDescription.substring(0, 70)}" | Tier: ${finalTier} | Brands: ${brandCandidates.join(', ')} | Provider: ${provider}`);
 
@@ -2501,13 +3092,22 @@ app.post('/api/auto-match-ai', async (req, res) => {
         const dbEntry = allLocalBrands.find(b =>
           b.name.toLowerCase().trim() === candidateBrand.toLowerCase().trim()
         );
-        const products = dbEntry?.products || [];
-        const knownCategories = [...new Set(products.map(p => p.subCategory).filter(Boolean))];
-        const modelList = products.map(p => p.model);
+        const { products, hintOf } = scopeCatalogProductsForQuery(dbEntry?.products || [], enrichedDescription);
+
+        const knownCategories = [...new Set(products.map(p => p.subCategory || p.mainCategory).filter(c => c && !/^(find out more|whistleblowing|products?)$/i.test(c)))];
+        const modelList = products.slice(0, 120).map(p => {
+          const catTag = [p.mainCategory, p.subCategory].filter(c => c && !/^(products?|find out more|whistleblowing)$/i.test(c)).join(' / ');
+          const baseLabel = catTag ? `${p.model} [${catTag}]` : p.model;
+          const hint = hintOf(p);
+          return hint ? `${baseLabel} — ${hint}` : baseLabel;
+        });
         const budgetTier = dbEntry?.budgetTier || 'mid';
 
         // Add brandCategoryRules at the end of this line
         const identity = await identifyModel(enrichedDescription, candidateBrand, provider, knownCategories, modelList, budgetTier, providerModel, brandCategoryRules);
+        if (identity?.model) {
+          identity.model = String(identity.model).replace(/\s*\[[^\]]*\]$/, '').trim();
+        }
         return { candidateBrand, identity, knownCategories };
       } catch (err) {
         return { candidateBrand, identity: { status: 'error' }, knownCategories: [] };
@@ -2544,73 +3144,141 @@ app.post('/api/auto-match-ai', async (req, res) => {
       const localBrand = brandMatches.find(b => (b.budgetTier || 'mid').toLowerCase() === finalTier.toLowerCase()) || brandMatches[0];
 
       if (localBrand && localBrand.products?.length > 0) {
-        const dbProduct = fuzzyFindModel(localBrand.products, identifiedModel, identifiedCategory);
+        const eligibleStage2 = localBrand.products.filter(p => !isScrapedChromeEntry(p) && !isArchetypeConflict(enrichedDescription, p));
+        const dbProduct = fuzzyFindModel(eligibleStage2, identifiedModel, identifiedSubCategory || identifiedCategory);
 
         if (dbProduct) {
           console.log(`  ✨ [Stage 2] CACHE HIT: "${dbProduct.model}" loaded from local DB.`);
+          let cachedImg = dbProduct.imageUrl || (dbProduct.images && dbProduct.images[0]) || '';
+          if (cachedImg && !dbProduct.verified && !await verifyImageUrl(cachedImg, dbProduct.websiteUrl || localBrand.websiteUrl || '')) {
+            console.warn(`  ⚠️ [Stage 2] Cached unverified image failed live HTTP check: "${cachedImg}". Replacing via live enrichment.`);
+            cachedImg = '';
+          }
+
+          const liveMerged = await resolveAndMergeLiveProduct({
+            req,
+            brand: identifiedBrand,
+            model: dbProduct.model,
+            boqDescription: enrichedDescription,
+            directUrl: dbProduct.officialProductUrl || dbProduct.productUrl || dbProduct.websiteUrl || '',
+            localBrand,
+            categoryHint: dbProduct.mainCategory || identifiedCategory,
+            subCategoryHint: dbProduct.subCategory || identifiedSubCategory,
+            familyHint: dbProduct.family || '',
+            providerModel,
+            currentImageUrl: cachedImg,
+            currentDescription: dbProduct.description || '',
+            currentPrice: dbProduct.price || 0,
+            currentCurrency: dbProduct.currency || 'USD',
+            persistToCatalog: true,
+            requirePrice: false
+          });
+
           return res.json({
             status: 'success',
-            product: { ...dbProduct, brand: identifiedBrand, brandLogo: localBrand.logo || '' },
+            product: {
+              ...dbProduct,
+              brand: identifiedBrand,
+              brandLogo: liveMerged.brandLogo || resolveBrandLogo(localBrand),
+              imageUrl: liveMerged.imageUrl,
+              websiteUrl: liveMerged.websiteUrl,
+              productUrl: liveMerged.websiteUrl,
+              description: liveMerged.description,
+              price: liveMerged.price,
+              currency: liveMerged.currency,
+              mainCategory: liveMerged.mainCategory,
+              subCategory: liveMerged.subCategory,
+              family: liveMerged.family
+            },
             source: 'local-database',
-            identifiedModel
+            identifiedModel: dbProduct.model
           });
         }
         console.log(`  📂 [Stage 2] Miss: No validated local entry for "${identifiedModel}".`);
       }
 
-      // ── STAGE 3: DEEP SEARCH (Web Discovery) ─────
+      // ── STAGE 3: DEEP SEARCH (Web Discovery + Live Official-Site Enricher) ──
       console.log(`  🌐 [Stage 3] Deep Discovery Engine engaged: searching live web for ${identifiedBrand} ${identifiedModel}...`);
       const webResult = await fetchProductDetails(identifiedBrand, identifiedModel, finalTier, provider, providerModel);
+      const wp = (webResult.status === 'success' && webResult.product) ? webResult.product : {};
 
-      if (webResult.status === 'success' && webResult.product) {
+      const liveMerged = await resolveAndMergeLiveProduct({
+        req,
+        brand: identifiedBrand,
+        model: wp.model || identifiedModel,
+        boqDescription: enrichedDescription,
+        directUrl: (wp.websiteUrl && /^https?:\/\//i.test(wp.websiteUrl)) ? wp.websiteUrl : '',
+        localBrand,
+        categoryHint: wp.mainCategory || identifiedCategory,
+        subCategoryHint: wp.subCategory || identifiedSubCategory,
+        familyHint: wp.family || '',
+        providerModel,
+        currentImageUrl: (wp.imageUrl && wp.imageUrl !== 'FAILED') ? wp.imageUrl : '',
+        currentDescription: wp.description || '',
+        currentPrice: parseFloat(wp.price) || 0,
+        currentCurrency: wp.currency || 'USD',
+        persistToCatalog: false,
+        requirePrice: false
+      });
+
+      if (liveMerged.rawImageUrl || wp.model) {
         const newProduct = {
-          ...webResult.product,
+          ...wp,
           brand: identifiedBrand,
-          mainCategory: webResult.product.mainCategory || identifiedCategory || 'Furniture',
+          model: wp.model || identifiedModel,
+          family: liveMerged.family,
+          mainCategory: liveMerged.mainCategory,
+          subCategory: liveMerged.subCategory,
+          description: liveMerged.description,
+          price: liveMerged.price,
+          currency: liveMerged.currency,
+          websiteUrl: liveMerged.websiteUrl,
+          productUrl: liveMerged.websiteUrl,
+          officialProductUrl: liveMerged.websiteUrl,
+          imageUrl: liveMerged.rawImageUrl || '',
+          verified: Boolean(liveMerged.rawImageUrl),
           lastUpdated: new Date().toISOString(),
           source: 'AI-Discovery-Engine'
         };
 
-        // Validate imageUrl
-        const rawImg = newProduct.imageUrl || '';
-        const isValidImage = rawImg.startsWith('https://') && !rawImg.includes('localhost') && /\.(jpg|jpeg|png|webp|svg)(\?|$)/i.test(rawImg);
-        if (!isValidImage) {
-          newProduct.imageUrl = localBrand?.logo || '';
-        }
-
-        // Persist to local DB permanently
-        try {
-          if (localBrand) {
-            console.log(`  💾 [Stage 3] Permanently adding "${newProduct.model}" to ${identifiedBrand}...`);
-            await brandStorage.addProductToBrand(identifiedBrand, localBrand.budgetTier || finalTier, newProduct);
-          } else {
-            console.log(`  💾 [Stage 3] Creating NEW brand "${identifiedBrand}" for permanence...`);
-            const newBrand = {
-              id: Date.now(),
-              name: identifiedBrand,
-              logo: '',
-              budgetTier: finalTier,
-              origin: 'AI-Discovery',
-              products: [newProduct],
-              createdAt: new Date().toISOString()
-            };
-            await brandStorage.saveBrand(newBrand);
+        // Only persist newly discovered products to catalog DB if a live verified photo was confirmed
+        if (liveMerged.rawImageUrl) {
+          try {
+            if (localBrand) {
+              console.log(`  💾 [Stage 3] Permanently adding "${newProduct.model}" to ${identifiedBrand}...`);
+              await brandStorage.addProductToBrand(identifiedBrand, localBrand.budgetTier || finalTier, newProduct);
+            } else {
+              console.log(`  💾 [Stage 3] Creating NEW brand "${identifiedBrand}" for permanence...`);
+              const newBrand = {
+                id: Date.now(),
+                name: identifiedBrand,
+                logo: resolveBrandLogo({ name: identifiedBrand, websiteUrl: newProduct.websiteUrl }, newProduct.websiteUrl),
+                budgetTier: finalTier,
+                origin: 'AI-Discovery',
+                products: [newProduct],
+                createdAt: new Date().toISOString()
+              };
+              await brandStorage.saveBrand(newBrand);
+            }
+          } catch (saveErr) {
+            console.error(`  ⚠️  [Stage 3] Persistence failed:`, saveErr.message);
           }
-        } catch (saveErr) {
-          console.error(`  ⚠️  [Stage 3] Persistence failed:`, saveErr.message);
         }
 
-        const proxyBase = `${req.protocol}://${req.get('host')}/api/image-proxy?url=`;
-        newProduct.imageUrl = `${proxyBase}${encodeURIComponent(newProduct.imageUrl)}`;
-        if (newProduct.images && Array.isArray(newProduct.images)) {
-          newProduct.images = newProduct.images.map(img => `${proxyBase}${encodeURIComponent(img)}`);
+        const responseProduct = {
+          ...newProduct,
+          imageUrl: liveMerged.imageUrl || '',
+          brandLogo: liveMerged.brandLogo || resolveBrandLogo(localBrand || { name: identifiedBrand, websiteUrl: newProduct.websiteUrl })
+        };
+        if (responseProduct.images && Array.isArray(responseProduct.images)) {
+          responseProduct.images = responseProduct.images.map(img => toProxiedImageUrl(req, img)).filter(Boolean);
         }
 
         return res.json({
           status: 'success',
-          product: { ...newProduct, brandLogo: localBrand?.logo || '' },
+          product: responseProduct,
           source: 'ai-discovery-hardened',
-          identifiedModel
+          identifiedModel: newProduct.model
         });
       }
       console.warn(`  ❌ [Stage 3] Web fetch failed for ${identifiedBrand}.`);
@@ -2898,37 +3566,38 @@ app.post('/api/ve-prescan-brands', async (req, res) => {
     const discoveredBrands = prescanResult.brands || [];
     let provisionedCount = 0;
 
-    // Auto-provision any contract brands not in local database
+    // Auto-provision any contract brands not in local database (parallel save + deferred background enrich)
     const allCurrentBrands = await brandStorage.getAllBrands();
-    const existingBrandNames = new Set(allCurrentBrands.map(b => b.name?.toLowerCase().trim()));
+    const seenProvisioned = new Set();
+    const brandsToSave = [];
+    const brandsToQueueEnrich = [];
 
     for (const dBrand of discoveredBrands) {
       const bName = (dBrand.name || '').trim();
       const bNameLower = bName.toLowerCase();
-      
+
       // Skip consumer retail marketplaces, local dealers, and suppliers from contract brand database registration
-      if (!bName || /^(amazon|noon|desertcart|ubuy|marketplace|ikea|homedepot|fahmy|kr furniture|al jassar|gear4music|attf|assarain|acp|automatic terrazzo|generic|unknown|dealer|trader|supplier|distributor)/i.test(bNameLower)) {
+      if (!bName || seenProvisioned.has(bNameLower) || /^(amazon|noon|desertcart|ubuy|marketplace|ikea|homedepot|fahmy|kr furniture|al jassar|gear4music|attf|assarain|acp|automatic terrazzo|generic|unknown|dealer|trader|supplier|distributor)/i.test(bNameLower)) {
         continue;
       }
 
-      if (!existingBrandNames.has(bNameLower)) {
-        let logoUrl = '';
-        if (dBrand.websiteUrl) {
-          try {
-            logoUrl = `https://logo.clearbit.com/${new URL(dBrand.websiteUrl).hostname}`;
-          } catch (e) { logoUrl = ''; }
-        }
+      const existingBrand = findBrandInCatalog(bName, allCurrentBrands);
+      if (!existingBrand) {
+        seenProvisioned.add(bNameLower);
+        const canonicalSite = dBrand.websiteUrl || getCanonicalBrandWebsite(bName) || '';
+        const logoUrl = getCanonicalBrandLogo(bName, canonicalSite);
 
         const newBrandObj = {
-          id: Date.now() + Math.floor(Math.random() * 1000),
+          id: Date.now() + Math.floor(Math.random() * 10000),
           name: bName,
           logo: logoUrl,
+          websiteUrl: canonicalSite,
           budgetTier: budgetTier || 'mid',
           origin: 'VE-Prescan-Discovery',
           gatewayVersion: 1,
           registry: {
             name: bName,
-            officialDomain: (() => { try { return new URL(dBrand.websiteUrl || '').hostname; } catch { return ''; } })(),
+            officialDomain: (() => { try { return new URL(canonicalSite || '').hostname; } catch { return ''; } })(),
             budgetTier: budgetTier || 'mid',
             origin: 'VE-Prescan-Discovery'
           },
@@ -2939,7 +3608,7 @@ app.post('/api/ve-prescan-brands', async (req, res) => {
             mainCategory: dBrand.categoryHint || 'Furniture',
             subCategory: '',
             imageUrl: '',
-            websiteUrl: dBrand.websiteUrl || '',
+            websiteUrl: canonicalSite,
             lastUpdated: new Date().toISOString(),
             source: 'VE-Prescan-Discovery',
             verified: false,
@@ -2948,22 +3617,40 @@ app.post('/api/ve-prescan-brands', async (req, res) => {
           })),
           createdAt: new Date().toISOString()
         };
-        await brandStorage.saveBrand(newBrandObj);
-        existingBrandNames.add(bNameLower);
-        provisionedCount++;
-        console.log(`[VE Pre-Scan] Provisioned brand "${bName}" with ${dBrand.models?.length || 0} models into database!`);
-        // New brand found → automatically map + enrich it in the background
-        queueBrandEnrich(bName);
+        brandsToSave.push(newBrandObj);
+        brandsToQueueEnrich.push(bName);
+      } else {
+        const verifiedCount = (existingBrand?.products || []).filter(p => p.verified === true && p.imageUrl).length;
+        const hasImageGaps = (existingBrand?.products || []).some(p => !p.imageUrl);
+        if (verifiedCount < 3 && hasImageGaps) {
+          brandsToQueueEnrich.push(existingBrand.name);
+        }
       }
     }
 
-    const updatedBrands = await brandStorage.getAllBrands();
+    if (brandsToSave.length > 0) {
+      await Promise.all(brandsToSave.map(async (bObj) => {
+        await brandStorage.saveBrand(bObj);
+        provisionedCount++;
+        console.log(`[VE Pre-Scan] Provisioned brand "${bObj.name}" with ${bObj.products?.length || 0} models into database!`);
+      }));
+    }
+
+    const updatedBrands = provisionedCount > 0 ? await brandStorage.getAllBrands() : allCurrentBrands;
     res.json({
       status: 'success',
       discoveredBrands,
       provisionedCount,
       allBrands: updatedBrands
     });
+
+    if (brandsToQueueEnrich.length > 0) {
+      setTimeout(() => {
+        for (const enrichName of [...new Set(brandsToQueueEnrich)]) {
+          queueBrandEnrich(enrichName);
+        }
+      }, 1500);
+    }
   } catch (error) {
     console.error('❌ [VE Pre-Scan Error]:', error.message);
     res.status(500).json({ status: 'error', error_message: error.message });
@@ -3000,19 +3687,30 @@ async function enrichBrandByName(brandName, maxPages = 6) {
   const verifiedCount = (target.products || []).filter((p) => p.verified === true && p.imageUrl).length;
   if (verifiedCount >= 3) return { success: true, brand: target.name, skipped: 'already-rich', verified: verifiedCount, added: 0, checked: 0 };
   const prodUrls = (target.products || []).map((p) => p.websiteUrl || p.officialProductUrl || '').filter(Boolean);
-  const domain = (() => {
-    try { return new URL(target.websiteUrl || target.url || target.registry?.officialDomain && `https://${target.registry.officialDomain}` || prodUrls[0] || '').hostname; }
+  let domain = (() => {
+    try { return new URL(target.websiteUrl || target.url || (target.registry?.officialDomain && `https://${target.registry.officialDomain}`) || prodUrls[0] || '').hostname; }
     catch { return target.registry?.officialDomain || ''; }
   })();
-  if (!domain) return { success: false, error: `brand "${brandName}" has no website to enrich from` };
-  const found = await enrichBrandFromOfficialSite({ domain, brandName: target.name, maxPages: pages });
+  if (!domain) {
+    const discoveredOrigin = await discoverOfficialOriginViaWeb(target.name);
+    if (discoveredOrigin) {
+      try {
+        domain = new URL(discoveredOrigin).hostname;
+        target.websiteUrl = discoveredOrigin;
+        target.logo = target.logo || getCanonicalBrandLogo(target.name, discoveredOrigin);
+        await brandStorage.saveBrand(target);
+      } catch { /* ignore */ }
+    }
+  }
+  const found = domain
+    ? await enrichBrandFromOfficialSite({ domain, brandName: target.name, maxPages: pages })
+    : { ok: false, products: [], checked: 0, sitemap: null };
   let pool = [...(found.products || [])];
   let poolSource = found.sitemap || null;
-  // Second source: Architonic brand page when the official site yields little.
-  // Skipped on Vercel (60s cap) and when the official crawl barely ran.
-  if (!ON_VERCEL && pool.length < 2 && found.checked > 3) {
+  // Second source: Architonic brand page whenever the official site yields little or has no sitemap.
+  if (!ON_VERCEL && pool.length < 2) {
     try {
-      console.log(`[BrandEnrich] "${target.name}": official site gave ${pool.length} verified from ${found.checked} checked, trying Architonic...`);
+      console.log(`[BrandEnrich] "${target.name}": official site gave ${pool.length} verified from ${found.checked || 0} checked, trying Architonic...`);
       const archi = await enrichBrandFromArchitonic({ brandName: target.name, maxPages: pages });
       for (const p of (archi.products || [])) {
         if (!pool.some((q) => String(q.model || '').toLowerCase().trim() === String(p.model || '').toLowerCase().trim())) pool.push(p);
@@ -3020,18 +3718,22 @@ async function enrichBrandByName(brandName, maxPages = 6) {
       if (!poolSource && archi.brandPageUrl) poolSource = archi.brandPageUrl;
     } catch (e) { console.log(`[BrandEnrich] Architonic fallback missed (${e.message})`); }
   }
+  if (!domain && pool.length === 0) return { success: false, error: `brand "${brandName}" has no website or Architonic listing to enrich from` };
   let added = 0;
   let failed = 0;
   for (const p of pool) {
     try {
       const model = cleanModelName(p.model);
+      if (!p.imageUrl) continue;
       const ok = await brandStorage.addProductToBrand(target.name, target.budgetTier || target.budget_tier || 'mid', {
         brand: target.name,
         model,
         family: '',
         mainCategory: p.category || 'Furniture',
         subCategory: '',
-        description: model,
+        description: p.description || model,
+        price: parseFloat(p.price) || 0,
+        currency: p.currency || 'USD',
         imageUrl: p.imageUrl || '',
         websiteUrl: p.officialProductUrl || target.websiteUrl || target.url || '',
         officialProductUrl: p.officialProductUrl || '',
@@ -3044,6 +3746,37 @@ async function enrichBrandByName(brandName, maxPages = 6) {
     } catch (e) {
       failed++;
       console.log(`[BrandEnrich] ${target.name}: product "${p.model}" add failed (${e.message})`);
+    }
+  }
+
+  // Also backfill existing un-imaged stub products (e.g. VE-Prescan-Discovery)
+  const stubProducts = (target.products || []).filter(p => p && (!p.imageUrl || !p.description)).slice(0, ON_VERCEL ? 2 : 5);
+  for (const stub of stubProducts) {
+    try {
+      const liveStub = await enrichProductFromLiveWeb({
+        brand: target.name,
+        model: stub.model,
+        description: stub.description || stub.model,
+        directUrl: stub.officialProductUrl || stub.websiteUrl || target.websiteUrl || '',
+        localBrand: target,
+        categoryHint: stub.mainCategory || ''
+      });
+      if (liveStub.imageUrl || liveStub.description) {
+        const ok = await brandStorage.addProductToBrand(target.name, target.budgetTier || target.budget_tier || 'mid', {
+          ...stub,
+          description: liveStub.description || stub.description || stub.model,
+          imageUrl: liveStub.imageUrl || stub.imageUrl || '',
+          price: liveStub.price > 0 ? liveStub.price : (stub.price || 0),
+          currency: liveStub.currency || stub.currency || 'USD',
+          websiteUrl: liveStub.websiteUrl || stub.websiteUrl || '',
+          officialProductUrl: liveStub.websiteUrl || stub.officialProductUrl || '',
+          verified: Boolean(liveStub.imageUrl || stub.imageUrl),
+          source: liveStub.source || stub.source
+        });
+        if (ok) added++;
+      }
+    } catch (stubErr) {
+      console.warn(`[BrandEnrich] stub backfill failed for "${stub.model}":`, stubErr.message);
     }
   }
   brandStorage.invalidateCache();
@@ -3158,62 +3891,21 @@ app.post('/api/ve-match', async (req, res) => {
 
     // Enrich description with qty/unit context (same as auto-match-ai)
     const sizeContext = [qty && `Qty: ${qty}`, unit && `Unit: ${unit}`].filter(Boolean).join(', ');
-    const enrichedDesc = sizeContext ? `${description} | ${sizeContext}` : description;
+    const effectiveMatchDesc = cleanBracketedTagsFromMatchQuery(description);
+    const enrichedDesc = sizeContext ? `${effectiveMatchDesc} | ${sizeContext}` : effectiveMatchDesc;
 
     // 🏗️ FITOUT BRAND ISOLATION ROUTING
     if (brand && (brand.toLowerCase().trim() === 'fitout v2' || brand.toLowerCase().includes('fitout'))) {
       console.log(`\n🏗️ [VE Fitout Interceptor] Selected brand is fitout! Routing "${description}" to internal Fitout DB...`);
       try {
-        const requestedTier = (req.body.tier || req.body.budgetTier || 'mid').toLowerCase().trim();
-        let dbName = 'fitout_v2-mid.json';
-        if (requestedTier === 'budget' || requestedTier === 'budgetary') {
-          dbName = 'fitout_v2-budgetary.json';
-        } else if (requestedTier === 'high' || requestedTier === 'premium') {
-          dbName = 'fitout_v2-high.json';
-        }
-
-        const dbPath = path.join(__dirname, 'data', 'brands', dbName);
-        console.log(`  🔍 [VE Fitout] Loading local database: ${dbPath}`);
-        const dbRaw = await fs.readFile(dbPath, 'utf-8');
-        const dbData = JSON.parse(dbRaw);
-        const internalProducts = dbData.products || [];
-
-        const matchResult = await matchFitoutItem(enrichedDesc, internalProducts, dbName.replace('fitout_v2-', '').replace('.json', ''), 'google', providerModel);
-        if (matchResult && matchResult.status === 'success' && matchResult.product) {
-          const p = matchResult.product;
-
-          const rawMain = p.mainCategory || p.category || 'Partition Wall';
-          const rawSub = p.subCategory || 'full height partition wall';
-
-          const mainCat = Object.keys(TAXONOMY).find(c => c.toLowerCase() === rawMain.toLowerCase()) || 'Partition Wall';
-          const subCats = TAXONOMY[mainCat] ? Object.keys(TAXONOMY[mainCat]) : [];
-          const subCat = subCats.find(s => s.toLowerCase() === rawSub.toLowerCase()) || (subCats[0] || 'full height partition wall');
-
-          console.log(`  ✨ [VE Fitout Success] Found internal match: "${p.model}" (Normalized Category: ${mainCat} / ${subCat})`);
-
-          const proxyBase = `${req.protocol}://${req.get('host')}/api/image-proxy?url=`;
-          if (p.imageUrl && p.imageUrl.startsWith('https://') && !p.imageUrl.includes('image-proxy')) {
-            p.imageUrl = `${proxyBase}${encodeURIComponent(p.imageUrl)}`;
-          }
-          if (p.images && Array.isArray(p.images)) {
-            p.images = p.images.map(img => img.startsWith('https://') && !img.includes('image-proxy') ? `${proxyBase}${encodeURIComponent(img)}` : img);
-          }
-
+        const fitoutRes = await resolveFitoutCatalogMatch(req, enrichedDesc, req.body.tier || req.body.budgetTier || 'mid', 'google', providerModel);
+        if (fitoutRes) {
           return res.json({
-            status: 'success',
-            product: {
-              ...p,
-              brand: 'FitOut V2',
-              brandLogo: '',
-              mainCategory: mainCat,
-              subCategory: subCat
-            },
-            source: 'local-database',
-            identifiedModel: p.model
+            ...fitoutRes,
+            source: 'local-database'
           });
-        } else {
-          console.log(`  ⚠️ [VE Fitout] No match returned by matchFitoutItem. Falling back.`);
         }
+        console.log(`  ⚠️ [VE Fitout] No match returned by matchFitoutItem. Falling back.`);
       } catch (fitoutErr) {
         console.error('  ❌ [VE Fitout Interceptor Error]:', fitoutErr.message);
       }
@@ -3300,11 +3992,11 @@ app.post('/api/ve-match', async (req, res) => {
     if (detailResult.status === 'success' && detailResult.product) {
       const p = detailResult.product;
 
-      // Validate image URL
-      const rawImg = p.imageUrl || '';
-      const isValidImage = rawImg.startsWith('https://') && !rawImg.includes('localhost') && /\.(jpg|jpeg|png|webp|svg)(\?|$)/i.test(rawImg);
-      if (!isValidImage) {
-        p.imageUrl = localBrand?.logo || '';
+      // Validate image URL; rescue with live image search and avoid saving logos as product photos
+      let rawImg = p.imageUrl || '';
+      if (isBadOrLogoUrl(rawImg)) {
+        rawImg = await fetchLiveProductImage(identifiedBrand, identifiedModel, p.websiteUrl || '');
+        p.imageUrl = rawImg || '';
       }
 
       // Persist to local DB (optional — non-blocking)
@@ -3313,6 +4005,7 @@ app.post('/api/ve-match', async (req, res) => {
           ...p,
           brand: identifiedBrand,
           mainCategory: identifiedCategory || 'Furniture',
+          verified: Boolean(p.imageUrl),
           lastUpdated: new Date().toISOString(),
           source: 'VE-AI-Discovery'
         };
@@ -3322,7 +4015,7 @@ app.post('/api/ve-match', async (req, res) => {
           await brandStorage.saveBrand({
             id: Date.now(),
             name: identifiedBrand,
-            logo: '',
+            logo: resolveBrandLogo({ name: identifiedBrand, websiteUrl: p.websiteUrl || '' }, p.websiteUrl || ''),
             budgetTier: 'mid',
             origin: 'VE-Discovery',
             products: [newProduct],
@@ -3335,9 +4028,9 @@ app.post('/api/ve-match', async (req, res) => {
 
       // Proxy image URLs
       const proxyBase = `${req.protocol}://${req.get('host')}/api/image-proxy?url=`;
-      if (p.imageUrl) p.imageUrl = `${proxyBase}${encodeURIComponent(p.imageUrl)}`;
+      if (p.imageUrl) p.imageUrl = toProxiedImageUrl(req, p.imageUrl);
       if (p.images && Array.isArray(p.images)) {
-        p.images = p.images.map(img => `${proxyBase}${encodeURIComponent(img)}`);
+        p.images = p.images.map(img => img && img.startsWith('https://') && !img.includes('image-proxy') ? `${proxyBase}${encodeURIComponent(img)}` : img);
       }
 
       return res.json({
@@ -3345,7 +4038,7 @@ app.post('/api/ve-match', async (req, res) => {
         product: {
           ...p,
           brand: identifiedBrand,
-          brandLogo: localBrand?.logo || '',
+          brandLogo: resolveBrandLogo(localBrand || { name: identifiedBrand, websiteUrl: p.websiteUrl }, p.websiteUrl || ''),
           mainCategory: identifiedCategory
         },
         source: 've-ai-discovery',
@@ -3391,29 +4084,18 @@ function resolveCanonicalBrand(identifiedBrand, identifiedModel, allLocalBrands)
     return { brand: 'Generic', brandObj: null, isNew: false };
   }
 
-  // 1. Alias Dictionary Check (Highest Priority - Guaranteed Canonical Mapping)
+  // 1-3. Dynamic canonical, alias, origin-stripped & catalog quality lookup (shared helper)
+  const catalogMatch = findBrandInCatalog(identifiedBrand, allLocalBrands, identifiedModel);
+  if (catalogMatch) {
+    if (catalogMatch.name.toLowerCase().trim() !== idBrandLower) {
+      console.log(`🎯 [VE Brand Resolver] Mapped "${identifiedBrand}" to catalog "${catalogMatch.name}".`);
+    }
+    return { brand: catalogMatch.name, brandObj: catalogMatch, isNew: false };
+  }
+
   const aliasCanonical = BRAND_ALIASES[idBrandLower] || null;
   if (aliasCanonical) {
-    const matched = allLocalBrands.find(b => b && b.name && b.name.toLowerCase().trim() === aliasCanonical.toLowerCase().trim());
-    return { brand: aliasCanonical, brandObj: matched || null, isNew: !matched };
-  }
-
-  // 2. Exact Name Match in local brands
-  let matched = allLocalBrands.find(b => b && b.name && b.name.toLowerCase().trim() === idBrandLower);
-  if (matched) {
-    return { brand: matched.name, brandObj: matched, isNew: false };
-  }
-
-  // 3. Substring match (e.g., "Sedus" matches "Sedus Stoll")
-  matched = allLocalBrands.find(b => {
-    if (!b || !b.name) return false;
-    const existingLower = b.name.toLowerCase().trim();
-    if (existingLower.length < 4 || idBrandLower.length < 4) return false;
-    return existingLower.includes(idBrandLower) || idBrandLower.includes(existingLower);
-  });
-  if (matched) {
-    console.log(`🎯 [VE Brand Resolver] Substring match: mapped "${identifiedBrand}" to "${matched.name}".`);
-    return { brand: matched.name, brandObj: matched, isNew: false };
+    return { brand: aliasCanonical, brandObj: null, isNew: true };
   }
 
   // 3. Genuine contract manufacturer check
@@ -3446,7 +4128,266 @@ function resolveCanonicalBrand(identifiedBrand, identifiedModel, allLocalBrands)
 // VALUE ENGINEERED OFFER — Dedicated Auto-Detect API Endpoints
 // ─────────────────────────────────────────────────────────────────────────────
 
+function toProxiedImageUrl(req, url) {
+  if (!url || typeof url !== 'string') return '';
+  if (url.startsWith('https://') && !url.includes('image-proxy')) {
+    return `${req.protocol}://${req.get('host')}/api/image-proxy?url=${encodeURIComponent(url)}`;
+  }
+  return url;
+}
+
+function isBadOrLogoUrl(url) {
+  if (!url || typeof url !== 'string') return true;
+  return !url.startsWith('http')
+    || url.includes('localhost')
+    || /img\.architonic\.com/i.test(url)
+    || /\/logo\/|\/header\/|logo_|logo\.|favicon|data:image\/svg|\.svg(\?|$)|amazon_logo/i.test(url);
+}
+
+const LIVE_WEB_ENRICH_CACHE = new Map();
+const LIVE_WEB_ENRICH_INFLIGHT = new Map();
+
+async function resolveAndMergeLiveProduct({
+  req,
+  brand,
+  model,
+  boqDescription,
+  directUrl = '',
+  localBrand = null,
+  categoryHint = '',
+  subCategoryHint = '',
+  familyHint = '',
+  providerModel = null,
+  currentImageUrl = '',
+  currentDescription = '',
+  currentPrice = 0,
+  currentCurrency = 'USD',
+  fallbackBoqImageUrl = '',
+  persistToCatalog = false,
+  requirePrice = true,
+  skipLlm = false,
+  preferOfficialRefresh = false,
+  currentImageVerified = false
+}) {
+  const cleanModelLower = String(model || '').replace(/\s*#\d+\s*$/, '').trim().toLowerCase();
+  const currentAligned = isProductIdentityAligned(model, '', currentDescription, currentImageUrl || directUrl);
+  const safeCurrentDesc = (currentAligned && !isGarbageProductDesc(currentDescription)) ? currentDescription : '';
+  let safeCurrentImg = currentAligned ? currentImageUrl : '';
+  const safeDirectUrl = currentAligned ? directUrl : '';
+
+  // Never blindly trust unverified LLM/DB image URLs (e.g. hallucinated 404 wp-content paths or soft-404s)
+  let hadDeadInputImg = false;
+  if (safeCurrentImg && !isBadOrLogoUrl(safeCurrentImg) && !currentImageVerified) {
+    const imgAlive = await Promise.race([
+      verifyImageUrl(safeCurrentImg, safeDirectUrl),
+      new Promise(r => setTimeout(() => r(false), 2600))
+    ]);
+    if (!imgAlive) {
+      console.warn(`  🛡️ [Image Guard] Discarded dead/unverified image URL for "${brand} ${model}": ${safeCurrentImg.slice(0, 95)}`);
+      safeCurrentImg = '';
+      hadDeadInputImg = true;
+    }
+  }
+
+  const trimDesc = String(safeCurrentDesc || '').trim();
+  const needsDesc = !trimDesc
+    || trimDesc.startsWith('Specified Manufacturer:')
+    || trimDesc.length < 25
+    || trimDesc.toLowerCase() === cleanModelLower;
+  const needsImg = isBadOrLogoUrl(safeCurrentImg);
+  const catalogProducts = Array.isArray(localBrand?.products) ? localBrand.products : [];
+  const pricedCount = catalogProducts.filter(p => parseFloat(p?.price) > 0).length;
+  const catalogIsPriced = pricedCount >= 2 || (pricedCount >= 1 && catalogProducts.length <= 10);
+  const expectsRetailPrice = requirePrice || catalogIsPriced || isMarketplaceUrl(safeDirectUrl);
+  const needsPrice = expectsRetailPrice && !(parseFloat(currentPrice) > 0);
+  const needsUrl = !safeDirectUrl || isMarketplaceUrl(safeDirectUrl);
+
+  let live = null;
+  if (needsDesc || needsImg || needsPrice || needsUrl || preferOfficialRefresh) {
+    const liveKey = `${String(brand || '').toLowerCase().trim()}::${String(model || '').replace(/\s*#\d+\s*$/, '').toLowerCase().trim()}::${preferOfficialRefresh ? 'official' : String(providerModel || '')}`;
+    const cachedLive = LIVE_WEB_ENRICH_CACHE.get(liveKey);
+    if (cachedLive && (Date.now() - cachedLive.ts) < 15 * 60 * 1000) {
+      live = cachedLive.data;
+    } else if (LIVE_WEB_ENRICH_INFLIGHT.has(liveKey)) {
+      live = await LIVE_WEB_ENRICH_INFLIGHT.get(liveKey).catch(() => null);
+    } else {
+      // When refreshing an older Architonic entry from the brand's official website, don't pin directUrl to architonic.com
+      const enrichDirectUrl = (preferOfficialRefresh && /architonic\.com/i.test(safeDirectUrl)) ? '' : safeDirectUrl;
+      const p = enrichProductFromLiveWeb({
+        brand,
+        model,
+        description: boqDescription,
+        directUrl: enrichDirectUrl,
+        localBrand,
+        categoryHint,
+        providerModel,
+        skipLlm
+      }).then(resLive => {
+        if (resLive) {
+          const liveAligned = isProductIdentityAligned(model, resLive.model, resLive.description, resLive.imageUrl || resLive.websiteUrl);
+          if (!liveAligned || isGarbageProductDesc(resLive.description)) {
+            console.warn(`  🛡️ [Identity Guard] Rejected mismatched live enrichment "${resLive.model || 'unknown'}" for requested "${brand} ${model}".`);
+            return null;
+          }
+          if (resLive.description || resLive.imageUrl) {
+            if (LIVE_WEB_ENRICH_CACHE.size >= 400) {
+              LIVE_WEB_ENRICH_CACHE.delete(LIVE_WEB_ENRICH_CACHE.keys().next().value);
+            }
+            LIVE_WEB_ENRICH_CACHE.set(liveKey, { data: resLive, ts: Date.now() });
+          }
+        }
+        return resLive;
+      }).catch(e => {
+        console.warn(`  ⚠️ [Live Web Enricher] Warning for "${brand} ${model}":`, e.message);
+        return null;
+      }).finally(() => {
+        LIVE_WEB_ENRICH_INFLIGHT.delete(liveKey);
+      });
+      LIVE_WEB_ENRICH_INFLIGHT.set(liveKey, p);
+      live = await p;
+    }
+  }
+
+  const liveIsOfficialNonArchi = Boolean(
+    live?.websiteUrl
+    && !/architonic\.com/i.test(live.websiteUrl)
+    && !isMarketplaceUrl(live.websiteUrl)
+    && live?.imageUrl
+    && !isBadOrLogoUrl(live.imageUrl)
+  );
+
+  let resolvedDesc = safeCurrentDesc;
+  if (live?.description && live.description.trim().length >= 25 && (needsDesc || (preferOfficialRefresh && liveIsOfficialNonArchi) || !safeCurrentDesc)) {
+    const titlePrefix = live.model && !live.description.toLowerCase().includes(live.model.toLowerCase()) ? `${live.model} — ` : '';
+    resolvedDesc = `${titlePrefix}${live.description}`;
+  } else if (needsDesc) {
+    const sourceText = (safeCurrentDesc && !safeCurrentDesc.startsWith('Specified Manufacturer:')) ? safeCurrentDesc : boqDescription;
+    resolvedDesc = cleanTechnicalDescription(sourceText, brand, model);
+  } else {
+    resolvedDesc = cleanTechnicalDescription(safeCurrentDesc, brand, model);
+  }
+
+  let rawImg = (preferOfficialRefresh && liveIsOfficialNonArchi)
+    ? live.imageUrl
+    : (!needsImg ? safeCurrentImg : (live?.imageUrl || fallbackBoqImageUrl || ''));
+  if (isBadOrLogoUrl(rawImg)) {
+    rawImg = (!needsImg ? safeCurrentImg : fallbackBoqImageUrl) || '';
+  }
+
+  const resolvedPrice = (live?.price > 0) ? live.price : (parseFloat(currentPrice) || 0);
+  const resolvedCurrency = (live?.price > 0 && live.currency) ? live.currency : (currentCurrency || 'USD');
+  const cleanDirect = (safeDirectUrl && !isMarketplaceUrl(safeDirectUrl)) ? safeDirectUrl : '';
+  const cleanLiveUrl = (live?.websiteUrl && !isMarketplaceUrl(live.websiteUrl)) ? live.websiteUrl : '';
+  const resolvedUrl = (preferOfficialRefresh && liveIsOfficialNonArchi)
+    ? cleanLiveUrl
+    : ((cleanLiveUrl && cleanLiveUrl.length > cleanDirect.length)
+      ? cleanLiveUrl
+      : (cleanDirect || cleanLiveUrl || getCanonicalBrandWebsite(brand) || ''));
+  const resolvedFamily = (live?.model && live.model.toLowerCase() !== String(model || '').toLowerCase())
+    ? live.model
+    : (familyHint || String(model || '').split(/[\s\-_]/)[0] || 'Collection');
+
+  const catNorm = classifyContractCategory(
+    categoryHint || live?.mainCategory,
+    subCategoryHint || live?.subCategory,
+    live?.model || model,
+    resolvedDesc || boqDescription
+  );
+
+  const liveSourceStr = String(live?.source || '');
+  const hasRealLiveScrape = Boolean(
+    liveSourceStr
+    && /(jsonld:|og:|official-site|architonic|web-scrape|grounded)/i.test(liveSourceStr)
+    && resolvedUrl
+    && !isMarketplaceUrl(resolvedUrl)
+    && (rawImg || (live?.description && live.description.length >= 25) || (live?.model && live.websiteUrl && live.websiteUrl.split('/').length >= 4))
+  );
+  const effectiveModelName = (live?.model && live.model.length >= 2 && live.model.toLowerCase() !== String(brand || '').toLowerCase())
+    ? live.model
+    : model;
+
+  let persistedBrandObj = localBrand || null;
+  if (persistToCatalog && brand && !/^(generic|unknown|local|custom)$/i.test(String(brand).trim()) && !isMarketplaceUrl(resolvedUrl) && (hasRealLiveScrape || (localBrand && rawImg && live?.description))) {
+    try {
+      let officialOrigin = '';
+      try { officialOrigin = new URL(resolvedUrl).origin; } catch { /* ignore */ }
+      const productPayload = {
+        brand,
+        model: effectiveModelName || model,
+        sourceModel: model,
+        family: resolvedFamily,
+        mainCategory: catNorm.mainCategory,
+        subCategory: catNorm.subCategory,
+        description: resolvedDesc,
+        imageUrl: rawImg,
+        websiteUrl: resolvedUrl,
+        productUrl: resolvedUrl,
+        officialProductUrl: resolvedUrl,
+        price: resolvedPrice,
+        currency: resolvedCurrency,
+        verified: Boolean(rawImg || hasRealLiveScrape),
+        ...(liveIsOfficialNonArchi ? { officialRefreshedAt: new Date().toISOString(), forceOfficialRefresh: true } : {}),
+        ...(hadDeadInputImg && rawImg ? { forceImageUpgrade: true } : {}),
+        source: liveSourceStr || 'AI-Specialist-Discovery'
+      };
+
+      if (!localBrand) {
+        const brandLogoUrl = resolveBrandLogo({ name: brand, websiteUrl: officialOrigin || resolvedUrl }, resolvedUrl);
+        const newBrandRecord = {
+          id: Date.now() + Math.floor(Math.random() * 10000),
+          name: brand,
+          logo: brandLogoUrl,
+          websiteUrl: officialOrigin || resolvedUrl,
+          budgetTier: 'mid',
+          origin: 'VE-Live-Scrape-Discovery',
+          gatewayVersion: 1,
+          registry: {
+            name: brand,
+            officialDomain: (() => { try { return new URL(officialOrigin || resolvedUrl).hostname; } catch { return ''; } })(),
+            budgetTier: 'mid',
+            origin: 'VE-Live-Scrape-Discovery'
+          },
+          discovery: { discoveredAt: new Date().toISOString(), ttlDays: 90, verified: true, quarantine: false },
+          products: [productPayload],
+          createdAt: new Date().toISOString()
+        };
+        await brandStorage.saveBrand(newBrandRecord);
+        persistedBrandObj = newBrandRecord;
+        console.log(`💎 [Live Web Enricher] Auto-created NEW brand "${brand}" (${officialOrigin || resolvedUrl}) & saved scraped model "${productPayload.model}" to Product DB!`);
+        setTimeout(() => queueBrandEnrich(brand), 1200);
+      } else {
+        await brandStorage.addProductToBrand(brand, localBrand.budgetTier || 'mid', productPayload);
+        console.log(`💎 [Live Web Enricher] Saved/upgraded scraped model "${productPayload.model}" under "${brand}" in Product DB!`);
+      }
+    } catch (persistErr) {
+      console.warn(`  ⚠️ [Live Web Enricher] Catalog upgrade failed (non-fatal):`, persistErr.message);
+    }
+  }
+
+  return {
+    model: effectiveModelName,
+    description: resolvedDesc,
+    imageUrl: toProxiedImageUrl(req, rawImg),
+    rawImageUrl: rawImg,
+    price: resolvedPrice,
+    currency: resolvedCurrency,
+    websiteUrl: resolvedUrl,
+    family: resolvedFamily,
+    mainCategory: catNorm.mainCategory,
+    subCategory: catNorm.subCategory,
+    brandLogo: resolveBrandLogo(persistedBrandObj || { name: brand, websiteUrl: resolvedUrl }, resolvedUrl),
+    liveSource: liveSourceStr,
+    verifiedLiveScrape: hasRealLiveScrape,
+    persistedBrandObj
+  };
+}
+
+const VE_AUTO_RESULT_CACHE = new Map();
+const VE_AUTO_INFLIGHT = new Map();
+const VE_AUTO_CACHE_TTL_MS = 15 * 60 * 1000;
+
 app.post('/api/ve-match-auto', async (req, res) => {
+  let settleInFlight = () => {};
   try {
     const {
       description,
@@ -3456,7 +4397,8 @@ app.post('/api/ve-match-auto', async (req, res) => {
       imageUrl = null,
       imageAssets = [],
       rowBoundingBox = null,
-      ocrTokens = []
+      ocrTokens = [],
+      includeLiveAlternatives = false
     } = req.body;
 
     if (!description || !description.trim()) {
@@ -3465,22 +4407,74 @@ app.post('/api/ve-match-auto', async (req, res) => {
 
     // Enrich description with qty/unit context (same as auto-match-ai)
     const sizeContext = [qty && `Qty: ${qty}`, unit && `Unit: ${unit}`].filter(Boolean).join(', ');
-    const enrichedDesc = sizeContext ? `${description} | ${sizeContext}` : description;
+    const effectiveMatchDesc = cleanBracketedTagsFromMatchQuery(description);
+    const enrichedDesc = sizeContext ? `${effectiveMatchDesc} | ${sizeContext}` : effectiveMatchDesc;
+
+    // Deterministic Cache & In-Flight Request Coalescing (identical specs always yield identical matches & avoid duplicate LLM calls)
+    const veCacheKey = [
+      effectiveMatchDesc.toLowerCase().replace(/\s+/g, ' ').trim(),
+      String(providerModel || ''),
+      String(imageUrl || ''),
+      String(req.body.tier || req.body.budgetTier || ''),
+      includeLiveAlternatives === true ? 'liveAlt' : 'localAlt'
+    ].join('||');
+
+    const cachedEntry = VE_AUTO_RESULT_CACHE.get(veCacheKey);
+    if (cachedEntry && (Date.now() - cachedEntry.ts) < VE_AUTO_CACHE_TTL_MS) {
+      console.log(`  ⚡ [VE Auto-Detect Deterministic Cache] Instant hit for "${effectiveMatchDesc.slice(0, 50)}..."`);
+      return res.json(cachedEntry.payload);
+    }
+
+    if (VE_AUTO_INFLIGHT.has(veCacheKey)) {
+      const sharedPayload = await VE_AUTO_INFLIGHT.get(veCacheKey);
+      if (sharedPayload) {
+        console.log(`  ⚡ [VE Auto-Detect Coalesced Hit] Reused in-flight deterministic match for "${effectiveMatchDesc.slice(0, 50)}..."`);
+        return res.json(sharedPayload);
+      }
+    }
+
+    let resolveInFlight;
+    const inFlightPromise = new Promise(resolve => { resolveInFlight = resolve; });
+    VE_AUTO_INFLIGHT.set(veCacheKey, inFlightPromise);
+    let inFlightSettled = false;
+    settleInFlight = (payload) => {
+      if (inFlightSettled) return;
+      inFlightSettled = true;
+      if (payload && payload.status === 'success') {
+        if (!payload.llmQuotaFallback) {
+          if (VE_AUTO_RESULT_CACHE.size >= 500) {
+            VE_AUTO_RESULT_CACHE.delete(VE_AUTO_RESULT_CACHE.keys().next().value);
+          }
+          VE_AUTO_RESULT_CACHE.set(veCacheKey, { payload, ts: Date.now() });
+        }
+        resolveInFlight(payload);
+      } else {
+        resolveInFlight(null);
+      }
+      VE_AUTO_INFLIGHT.delete(veCacheKey);
+    };
+    const origResJson = res.json.bind(res);
+    res.json = (payload) => {
+      settleInFlight(payload);
+      return origResJson(payload);
+    };
 
     // Load all local brands
     const allLocalBrands = await brandStorage.getAllBrands();
     const availableBrandNames = allLocalBrands.filter(b => b.name && !b.name.toLowerCase().includes('fitout')).map(b => b.name);
 
     console.log(`\n🔷 [VE Auto-Detect Endpoint] Model Matching with ${availableBrandNames.length} preferred catalog brands`);
-    
+
     // Prepare structured image context metadata (never send raw multi-MB binaries)
-    const normalizedImageAssets = (imageAssets && imageAssets.length > 0) 
-      ? imageAssets 
+    const normalizedImageAssets = (imageAssets && imageAssets.length > 0)
+      ? imageAssets
       : (imageUrl ? [{ url: imageUrl, ocrText: (ocrTokens || []).join(' ') }] : []);
 
     const getFormattedAlternatives = async (matchedBrand, matchedModel, catHint) => {
       try {
-        const rawAlts = await generateCrossBrandAlternativesAsync(matchedBrand, matchedModel, enrichedDesc, allLocalBrands, catHint, 4);
+        const rawAlts = includeLiveAlternatives === true
+          ? await generateCrossBrandAlternativesAsync(matchedBrand, matchedModel, enrichedDesc, allLocalBrands, catHint, 4)
+          : generateCrossBrandAlternatives(matchedBrand, matchedModel, enrichedDesc, allLocalBrands, catHint, 4);
         const proxyBase = `${req.protocol}://${req.get('host')}/api/image-proxy?url=`;
         return rawAlts.map(alt => ({
           ...alt,
@@ -3494,7 +4488,22 @@ app.post('/api/ve-match-auto', async (req, res) => {
       }
     };
 
-    const identityResult = await veMatchAuto(enrichedDesc, providerModel, normalizedImageAssets, availableBrandNames, allLocalBrands);
+    let llmQuotaExhausted = false;
+    let identityResult;
+    try {
+      identityResult = await veMatchAuto(enrichedDesc, providerModel, normalizedImageAssets, availableBrandNames, allLocalBrands);
+    } catch (veAutoErr) {
+      const msg = String(veAutoErr?.message || '');
+      if (veAutoErr?.allModelsExhausted || /429|503|quota|spending cap|rate-limit|resource_exhausted|high demand|overloaded|unavailable|timed out|timeout|aborted|all google/i.test(msg)) {
+        llmQuotaExhausted = true;
+        console.warn(`  ⚡ [VE Auto-Detect Local Fallback] LLM unavailable/throttled (${msg.slice(0, 90)}). Falling back deterministically to local Category Priority catalog for "${effectiveMatchDesc.slice(0, 50)}..."`);
+        identityResult = { status: 'fallback_local', brand: 'Generic', model: '', mainCategory: '', subCategory: '' };
+      } else {
+        throw veAutoErr;
+      }
+    }
+
+    let exactMissRequestedMeta = null;
 
     if (identityResult && identityResult.matchTier === 'EXACT_MATCH') {
       const imageVerif = verifyImagePairing({
@@ -3505,36 +4514,78 @@ app.post('/api/ve-match-auto', async (req, res) => {
       });
 
       const matchedBrandName = identityResult.brand || identityResult.product?.brand || 'Contract Manufacturer';
-      const matchedBrandObj = allLocalBrands.find(b => b.name && b.name.toLowerCase().trim() === matchedBrandName.toLowerCase().trim());
-      const brandLogo = identityResult.brandLogo || identityResult.product?.brandLogo || matchedBrandObj?.logo || '';
-      const resolvedImg = identityResult.imageUrl || imageVerif.selectedImage || (normalizedImageAssets[0]?.url) || identityResult.product?.imageUrl || '';
-      const alternatives = await getFormattedAlternatives(matchedBrandName, identityResult.model || identityResult.product?.model, identityResult.mainCategory);
+      const matchedBrandObj = findBrandInCatalog(matchedBrandName, allLocalBrands)
+        || allLocalBrands.find(b => b.name && b.name.toLowerCase().trim() === matchedBrandName.toLowerCase().trim());
+      const identityModel = identityResult.model || identityResult.product?.model || '';
+      const rawSiteUrl = identityResult.websiteUrl || identityResult.productUrl || identityResult.product?.websiteUrl || '';
+      const rawImg = identityResult.imageUrl || identityResult.product?.imageUrl || '';
+      const boqCropFallback = imageVerif.selectedImage || (normalizedImageAssets[0]?.url) || '';
+      const isCatalogBackedExact = Boolean(matchedBrandObj && (
+        identityResult.evidence?.matchType === 'DETERMINISTIC_CATALOG_EXACT'
+        || rawImg
+        || rawSiteUrl
+      ));
 
-      return res.json({
-        status: 'success',
-        matchTier: 'EXACT_MATCH',
-        confidenceScore: identityResult.confidenceScore || 100,
-        product: {
-          brand: matchedBrandName,
-          brandLogo: brandLogo,
-          model: identityResult.model || identityResult.product?.model,
-          family: identityResult.family || identityResult.product?.family || '',
-          mainCategory: identityResult.mainCategory || identityResult.product?.mainCategory || 'Office Furniture',
-          subCategory: identityResult.subCategory || identityResult.product?.subCategory || '',
-          price: identityResult.price || identityResult.product?.price || 0,
-          currency: identityResult.currency || identityResult.product?.currency || 'USD',
-          imageUrl: resolvedImg,
-          websiteUrl: identityResult.websiteUrl || identityResult.productUrl || identityResult.product?.websiteUrl || '',
-          supplierReferences: identityResult.supplierReferences || identityResult.product?.supplierReferences || [],
-          description: identityResult.description || identityResult.product?.description || ''
-        },
-        alternatives,
-        evidence: identityResult.evidence || {
-          matchType: 'DETERMINISTIC_EXACT_SHORTCIRCUIT',
-          matchedTokens: [identityResult.brand, identityResult.model]
-        },
-        imageVerification: imageVerif
+      const liveMerged = await resolveAndMergeLiveProduct({
+        req,
+        brand: matchedBrandName,
+        model: identityModel,
+        boqDescription: enrichedDesc,
+        directUrl: rawSiteUrl,
+        localBrand: matchedBrandObj,
+        categoryHint: identityResult.mainCategory || identityResult.product?.mainCategory || '',
+        subCategoryHint: identityResult.subCategory || identityResult.product?.subCategory || '',
+        familyHint: identityResult.family || identityResult.product?.family || '',
+        providerModel,
+        currentImageUrl: rawImg,
+        currentDescription: identityResult.description || identityResult.product?.description || '',
+        currentPrice: identityResult.price || identityResult.product?.price || 0,
+        currentCurrency: identityResult.currency || identityResult.product?.currency || 'USD',
+        fallbackBoqImageUrl: boqCropFallback,
+        persistToCatalog: Boolean(matchedBrandName && !/^(amazon|noon|desertcart|ubuy|marketplace|ikea|homedepot|generic|unknown|local)$/i.test(matchedBrandName)),
+        skipLlm: llmQuotaExhausted
       });
+
+      // Only return EXACT_MATCH if backed by our local DB OR verified live scrape from official site / Architonic!
+      // Otherwise fall through to our verified local partner alternatives rather than returning an un-imaged empty stub.
+      if (isCatalogBackedExact || liveMerged.verifiedLiveScrape) {
+        const resolvedImg = liveMerged.imageUrl || toProxiedImageUrl(req, boqCropFallback) || '';
+        const finalExactModel = liveMerged.model || identityModel;
+        const alternatives = await getFormattedAlternatives(matchedBrandName, finalExactModel, liveMerged.mainCategory);
+
+        return res.json({
+          status: 'success',
+          matchTier: 'EXACT_MATCH',
+          confidenceScore: identityResult.confidenceScore || 100,
+          product: {
+            brand: matchedBrandObj?.name || matchedBrandName,
+            brandLogo: liveMerged.brandLogo || identityResult.brandLogo || matchedBrandObj?.logo || '',
+            model: finalExactModel,
+            family: liveMerged.family,
+            mainCategory: liveMerged.mainCategory,
+            subCategory: liveMerged.subCategory,
+            price: liveMerged.price,
+            currency: liveMerged.currency,
+            imageUrl: resolvedImg,
+            websiteUrl: liveMerged.websiteUrl,
+            productUrl: liveMerged.websiteUrl,
+            supplierReferences: identityResult.supplierReferences || identityResult.product?.supplierReferences || [],
+            description: liveMerged.description
+          },
+          alternatives,
+          brandCreated: Boolean(!matchedBrandObj && liveMerged.persistedBrandObj),
+          newBrand: liveMerged.persistedBrandObj || matchedBrandObj || null,
+          source: isCatalogBackedExact ? 'local-database' : 'live-web-scraped-and-saved',
+          evidence: identityResult.evidence || {
+            matchType: isCatalogBackedExact ? 'DETERMINISTIC_EXACT_SHORTCIRCUIT' : 'LIVE_WEB_SCRAPED_EXACT',
+            matchedTokens: [matchedBrandName, finalExactModel]
+          },
+          imageVerification: imageVerif
+        });
+      }
+
+      console.log(`  🔄 [VE Exact-Match Unverified] "${matchedBrandName} - ${identityModel}" not found in local DB, official site, or Architonic. Falling back to verified local partner alternatives...`);
+      exactMissRequestedMeta = { requestedBrand: matchedBrandName, requestedModel: identityModel };
     }
 
     let identifiedModel = (identityResult && identityResult.model) ? identityResult.model.trim() : enrichedDesc;
@@ -3543,7 +4594,7 @@ app.post('/api/ve-match-auto', async (req, res) => {
     const identifiedSubCategory = (identityResult && identityResult.subCategory) ? identityResult.subCategory.trim() : '';
 
     // Deterministic override if specification text or URL explicitly named an authentic manufacturer and model
-    const explicitDetails = extractSpecifiedProductDetails(enrichedDesc);
+    const explicitDetails = extractSpecifiedProductDetails(enrichedDesc, allLocalBrands);
     if (explicitDetails && explicitDetails.brand && isGenuineContractBrand(explicitDetails.brand, allLocalBrands)) {
       if (identifiedBrand.toLowerCase() !== explicitDetails.brand.toLowerCase()) {
         console.log(`🎯 [VE Auto-Detect Specified Brand Override] Specification explicitly specified "${explicitDetails.brand}". Overriding initial detection "${identifiedBrand}".`);
@@ -3552,12 +4603,13 @@ app.post('/api/ve-match-auto', async (req, res) => {
       if (explicitDetails.url && !identityResult.productUrl) {
         identityResult.productUrl = explicitDetails.url;
       }
-      if (explicitDetails.model && (!identifiedModel || identifiedModel.length < 3 || 
-          identifiedModel.toLowerCase().includes('moonako') || 
-          identifiedModel.toLowerCase().includes('moodie') || 
-          identifiedModel.toLowerCase().includes('arabesque') || 
-          identifiedModel === '06-Moonako' || identifiedModel.includes('moonako-') || 
-          NON_BRAND_MODEL_WORDS.has(identifiedModel.toLowerCase()))) {
+      if (explicitDetails.model && (!identifiedModel || identifiedModel.length < 3 ||
+        identifiedModel === enrichedDesc || llmQuotaExhausted ||
+        identifiedModel.toLowerCase().includes('moonako') ||
+        identifiedModel.toLowerCase().includes('moodie') ||
+        identifiedModel.toLowerCase().includes('arabesque') ||
+        identifiedModel === '06-Moonako' || identifiedModel.includes('moonako-') ||
+        NON_BRAND_MODEL_WORDS.has(identifiedModel.toLowerCase()))) {
         console.log(`🎯 [VE Auto-Detect Specified Model Override] Extracted authentic model "${explicitDetails.model}" from specification.`);
         identifiedModel = explicitDetails.model;
       }
@@ -3575,7 +4627,7 @@ app.post('/api/ve-match-auto', async (req, res) => {
 
     // 🛡️ Guard against erroneous Marketplace assignment on Commercial Office Furniture
     const isCommercialFurniture = /(chair|seating|stool|desk|workstation|table|sofa|couch|lounge|cabinet|credenza|storage|filing|pod|booth|boardroom)/i.test(enrichedDesc) ||
-                                  /(office seating|desk & table|storage|soft furniture|commercial)/i.test(identifiedCategory);
+      /(office seating|desk & table|storage|soft furniture|commercial)/i.test(identifiedCategory);
     const hasExplicitMarketplaceUrl = /https?:\/\/(www\.)?(amazon|noon|desertcart|ubuy|ikea|homedepot)\./i.test(enrichedDesc);
 
     if (isMarketplace && isCommercialFurniture && !hasExplicitMarketplaceUrl) {
@@ -3585,9 +4637,277 @@ app.post('/api/ve-match-auto', async (req, res) => {
     }
 
     const isUnbrandedSpec = /^(local|local-uae|local uae|far east|fareast|custom|unbranded|sample)/i.test(enrichedDesc.trim()) ||
-                            /\b(local-uae|far east)\b/i.test(enrichedDesc) ||
-                            NON_BRAND_MODEL_WORDS.has(identifiedBrand.toLowerCase().trim());
+      /\b(local-uae|far east)\b/i.test(enrichedDesc) ||
+      NON_BRAND_MODEL_WORDS.has(identifiedBrand.toLowerCase().trim());
     const isGenuine = isGenuineContractBrand(canonicalBrand, allLocalBrands);
+
+    const targetBucket = getArchetypeBucket(enrichedDesc);
+    const furnishingCatPrecheck = classifyFurnishingCategory(enrichedDesc);
+    const hasExplicitBrandInDesc = canonicalBrand && !isGenericBrand && canonicalBrand.length > 2
+      && enrichedDesc.toLowerCase().includes(canonicalBrand.toLowerCase());
+    const isFitoutBrandDetected = canonicalBrand && (canonicalBrand.toLowerCase().trim() === 'fitout v2' || canonicalBrand.toLowerCase().includes('fitout'));
+    const isUnbrandedArchitecturalFitout = furnishingCatPrecheck === 'fitoutArchitectural' && !hasExplicitBrandInDesc;
+
+    // 🏗️ ARCHITECTURAL FITOUT INTERCEPTOR (Handles both FitOut V2 detections and unbranded Plan Fitout items)
+    if (isFitoutBrandDetected || isUnbrandedArchitecturalFitout) {
+      console.log(`\n🏗️ [VE Auto-Detect Fitout Interceptor] Routing "${description}" (${isFitoutBrandDetected ? canonicalBrand : furnishingCatPrecheck}) to internal Fitout DB...`);
+      try {
+        const fitoutRes = await resolveFitoutCatalogMatch(req, enrichedDesc, req.body.tier || req.body.budgetTier || 'mid', 'google', providerModel, { skipLlm: llmQuotaExhausted });
+        if (fitoutRes) {
+          return res.json({
+            ...fitoutRes,
+            alternatives: [],
+            source: isFitoutBrandDetected ? 'local-database' : 'category-priority-fitout'
+          });
+        }
+      } catch (fitoutErr) {
+        console.error('  ❌ [VE Auto-Detect Fitout Interceptor Error]:', fitoutErr.message);
+      }
+    }
+
+    // Reusable Local Partner Alternative Matcher (used both for unbranded specs AND when a specified brand/model cannot be exact-matched online)
+    const resolveLocalPriorityAlternative = async (sourceTag = 'category-priority-match', requestedMeta = null) => {
+      const furnishingCat = furnishingCatPrecheck;
+      const catConfig = VE_CATEGORY_CONFIG[furnishingCat] || VE_CATEGORY_CONFIG.desking;
+      const prioritySequence = catConfig.priorityBrands;
+
+      console.log(`\n🎯 [VE Priority Matcher] ${requestedMeta ? `No verified exact match for "${requestedMeta.requestedBrand} ${requestedMeta.requestedModel}" — falling back to local alternatives.` : 'Specification is unbranded/generic.'} Auto-categorized as "${catConfig.label}" (${furnishingCat}). Priority Sequence: ${prioritySequence.join(' ➔ ')}`);
+
+      let matchedProduct = null;
+      let matchedBrandObj = null;
+
+      for (const priorityBrandName of prioritySequence) {
+        if (/^fitout\s*v2$/i.test(priorityBrandName)) {
+          try {
+            const fitoutRes = await resolveFitoutCatalogMatch(req, enrichedDesc, req.body.tier || req.body.budgetTier || 'mid', 'google', providerModel, { skipLlm: llmQuotaExhausted });
+            if (fitoutRes) {
+              return {
+                ...fitoutRes,
+                alternatives: [],
+                source: requestedMeta ? 've-alternative-fallback-fitout' : 'category-priority-fitout',
+                ...(requestedMeta ? { evidence: { matchType: 'ALTERNATIVE_FALLBACK', ...requestedMeta } } : {}),
+                ...(llmQuotaExhausted ? { llmQuotaFallback: true } : {})
+              };
+            }
+          } catch (fitoutErr) {
+            console.warn('  ⚠️ [VE Priority Fitout Warning]:', fitoutErr.message);
+          }
+          continue;
+        }
+
+        if (/^(amazon|noon)/i.test(priorityBrandName)) {
+          if (furnishingCat === 'genericAccessories' && !llmQuotaExhausted) {
+            const marketplaceHit = await veGetProductDetails('Amazon', identifiedModel || description, providerModel, null, 'Accessories');
+            if (marketplaceHit && marketplaceHit.status === 'success' && marketplaceHit.product) {
+              matchedProduct = marketplaceHit.product;
+              matchedBrandObj = { name: 'Amazon', logo: 'https://upload.wikimedia.org/wikipedia/commons/a/a9/Amazon_logo.svg' };
+              break;
+            }
+          }
+          continue;
+        }
+
+        const b = findBrandInCatalog(priorityBrandName, allLocalBrands);
+        if (!b || !b.products || b.products.length === 0) continue;
+
+        const PRIORITY_CAT_FALLBACK_BUCKET = {
+          desking: 'desking',
+          storage: 'storage',
+          heavyDutyAndMobileFiling: 'storage',
+          taskSeating: 'seating',
+          softSeating: 'sofa',
+          classroomAndStackable: 'seating',
+          foldingAndPortableSeating: 'seating',
+          diningSeating: 'seating',
+          outdoorSeating: 'seating',
+          auditoriumAndTheater: 'seating',
+          auditoriumAndTheatre: 'seating'
+        };
+        const priorityConflictTarget = getArchetypeBucket(enrichedDesc)
+          ? enrichedDesc
+          : (PRIORITY_CAT_FALLBACK_BUCKET[furnishingCat] || enrichedDesc);
+
+        const eligibleProducts = b.products.filter(p =>
+          !isScrapedChromeEntry(p)
+          && !isGarbageProductDesc(p.description)
+          && !isArchetypeConflict(priorityConflictTarget, p)
+        );
+        if (eligibleProducts.length === 0) continue;
+
+        // Collect ranked candidates (preferring live-imaged entries over defunct img.architonic.com stubs)
+        const rankedCandidates = [];
+        const seenModels = new Set();
+        const pushCand = (cand, label) => {
+          if (!cand || !cand.model || isArchetypeConflict(priorityConflictTarget, cand)) return;
+          const mk = String(cand.model).toLowerCase().trim();
+          if (seenModels.has(mk)) return;
+          seenModels.add(mk);
+          rankedCandidates.push({ cand, label });
+        };
+
+        const filterCat = catConfig.label || identifiedCategory || null;
+        const fuzzyHit = fuzzyFindModel(eligibleProducts, requestedMeta ? enrichedDesc : (identifiedModel || enrichedDesc), filterCat);
+        if (fuzzyHit) pushCand(fuzzyHit, 'Fast Hit');
+
+        try {
+          const clientApiKey = req.headers['x-google-api-key'] || req.headers['x-google-free-key'] || null;
+          const semanticHits = await findSemanticMatches({
+            description: enrichedDesc,
+            brandName: b.name,
+            products: eligibleProducts,
+            category: filterCat,
+            topK: 6,
+            apiKey: clientApiKey
+          });
+          for (const sh of (semanticHits || [])) {
+            if (sh.exactModelMatch || sh.confidenceScore >= 60) {
+              pushCand(sh, `Semantic ${sh.confidenceScore}%`);
+            }
+          }
+        } catch (semErr) {
+          console.warn(`  ⚠️ [VE Priority Semantic Warning for ${b.name}]:`, semErr.message);
+        }
+
+        const catMatchedProduct = eligibleProducts.find(p => {
+          const pCat = (p.mainCategory || p.category || '').toLowerCase();
+          const pSub = (p.subCategory || '').toLowerCase();
+          const target = (catConfig.label || furnishingCat).toLowerCase();
+          return (pCat.includes(target) || pSub.includes(target)) && !isBadOrLogoUrl(p.imageUrl);
+        });
+        if (catMatchedProduct) pushCand(catMatchedProduct, 'Category Hit');
+
+        // Verify candidate image liveness & auto-upgrade stale Architonic/dead-image entries from the brand's official website
+        const brandOfficialSite = getCanonicalBrandWebsite(b.name) || b.websiteUrl || b.registry?.officialDomain || '';
+        const hasKnownOfficialSite = Boolean(brandOfficialSite && !/architonic\.com/i.test(brandOfficialSite));
+
+        let fallbackUnimaged = null;
+        for (const { cand, label } of rankedCandidates) {
+          const catalogRef = b.products.find(p => String(p.model || '').toLowerCase().trim() === String(cand.model || '').toLowerCase().trim()) || cand;
+          const rawImg = catalogRef.imageUrl || cand.imageUrl || (cand.images && cand.images[0]) || '';
+          const imgOk = Boolean(rawImg) && !isBadOrLogoUrl(rawImg)
+            && await Promise.race([verifyImageUrl(rawImg, catalogRef.officialProductUrl || catalogRef.websiteUrl || ''), new Promise(r => setTimeout(() => r(false), 2500))]);
+
+          const isArchitonicEntry = /architonic\.com/i.test(rawImg) || /architonic\.com/i.test(catalogRef.websiteUrl || catalogRef.productUrl || '') || /#\d+\s*$/.test(String(cand.model || ''));
+          const needsOfficialRefresh = hasKnownOfficialSite && !catalogRef.officialRefreshedAt && (!imgOk || isArchitonicEntry);
+
+          if (!imgOk || needsOfficialRefresh) {
+            const liveMerged = await resolveAndMergeLiveProduct({
+              req,
+              brand: b.name,
+              model: cand.model,
+              boqDescription: enrichedDesc,
+              directUrl: isArchitonicEntry ? '' : (catalogRef.officialProductUrl || catalogRef.productUrl || catalogRef.websiteUrl || ''),
+              localBrand: b,
+              categoryHint: cand.mainCategory || catConfig.label,
+              subCategoryHint: cand.subCategory || identifiedSubCategory,
+              familyHint: cand.family || '',
+              providerModel,
+              currentImageUrl: imgOk ? rawImg : '',
+              currentDescription: cand.description || '',
+              currentPrice: cand.price || 0,
+              currentCurrency: cand.currency || 'USD',
+              persistToCatalog: true,
+              skipLlm: llmQuotaExhausted,
+              preferOfficialRefresh: needsOfficialRefresh,
+              currentImageVerified: imgOk
+            });
+
+            if (liveMerged.rawImageUrl && !isBadOrLogoUrl(liveMerged.rawImageUrl)) {
+              const upgradedFromOfficial = liveMerged.rawImageUrl !== rawImg;
+              console.log(`  ✨ [VE Priority ${label}] Matched "${cand.model}" from Priority Brand "${b.name}"${upgradedFromOfficial ? ` (refreshed live from ${b.name} official site!)` : ''}`);
+              // Mark in-memory so subsequent rows in same session don't re-probe official site
+              catalogRef.officialRefreshedAt = catalogRef.officialRefreshedAt || new Date().toISOString();
+              if (upgradedFromOfficial) {
+                catalogRef.imageUrl = liveMerged.rawImageUrl;
+                catalogRef.description = liveMerged.description || catalogRef.description;
+                catalogRef.websiteUrl = liveMerged.websiteUrl || catalogRef.websiteUrl;
+                catalogRef.officialProductUrl = liveMerged.websiteUrl || catalogRef.officialProductUrl;
+              }
+              const alternatives = await getFormattedAlternatives(b.name, cand.model, liveMerged.mainCategory);
+              return {
+                status: 'success',
+                matchTier: requestedMeta ? 'ALTERNATIVE_MATCH' : 'SUGGESTED',
+                product: {
+                  ...cand,
+                  brand: b.name,
+                  brandLogo: liveMerged.brandLogo || b.logo || '',
+                  imageUrl: liveMerged.imageUrl,
+                  websiteUrl: liveMerged.websiteUrl,
+                  productUrl: liveMerged.websiteUrl,
+                  price: liveMerged.price,
+                  currency: liveMerged.currency,
+                  family: liveMerged.family,
+                  mainCategory: liveMerged.mainCategory,
+                  subCategory: liveMerged.subCategory,
+                  description: liveMerged.description
+                },
+                alternatives,
+                source: upgradedFromOfficial ? `${sourceTag}+official-refresh` : sourceTag,
+                identifiedModel: cand.model,
+                ...(requestedMeta ? { evidence: { matchType: 'ALTERNATIVE_FALLBACK', ...requestedMeta } } : {}),
+                ...(llmQuotaExhausted ? { llmQuotaFallback: true } : {})
+              };
+            }
+            // Mark attempted even if official site didn't have this older SKU, and skip to next candidate if dead image
+            catalogRef.officialRefreshedAt = catalogRef.officialRefreshedAt || new Date().toISOString();
+            if (!imgOk) {
+              console.warn(`  ⚠️ [VE Priority Dead Image Skip] "${b.name} - ${cand.model}" image failed verification and could not be rescued; trying next candidate...`);
+              if (!fallbackUnimaged) fallbackUnimaged = { cand, brand: b };
+              continue;
+            }
+          }
+
+          if (imgOk) {
+            matchedProduct = cand;
+            matchedBrandObj = b;
+            console.log(`  ✨ [VE Priority ${label}] Matched "${matchedProduct.model}" from Priority Brand "${b.name}"`);
+            break;
+          }
+        }
+
+        if (matchedProduct && matchedBrandObj) break;
+        if (!matchedProduct && fallbackUnimaged) {
+          matchedProduct = fallbackUnimaged.cand;
+          matchedBrandObj = fallbackUnimaged.brand;
+          matchedProduct = { ...matchedProduct, _deadImageCleared: true };
+        }
+      }
+
+      if (!matchedProduct || !matchedBrandObj) return null;
+
+      const rawImg = matchedProduct._deadImageCleared
+        ? ''
+        : (matchedProduct.imageUrl || (matchedProduct.images && matchedProduct.images[0]) || '');
+      const safeImg = (rawImg && !isBadOrLogoUrl(rawImg)) ? toProxiedImageUrl(req, rawImg) : '';
+      const alternatives = await getFormattedAlternatives(matchedBrandObj.name, matchedProduct.model, matchedProduct.mainCategory || catConfig.label);
+
+      return {
+        status: 'success',
+        matchTier: requestedMeta ? 'ALTERNATIVE_MATCH' : 'SUGGESTED',
+        product: {
+          ...matchedProduct,
+          brand: matchedBrandObj.name,
+          brandLogo: matchedBrandObj.logo || '',
+          imageUrl: safeImg,
+          mainCategory: matchedProduct.mainCategory || matchedProduct.category || catConfig.label,
+          subCategory: matchedProduct.subCategory || identifiedSubCategory || ''
+        },
+        alternatives,
+        source: sourceTag,
+        identifiedModel: matchedProduct.model,
+        ...(requestedMeta ? { evidence: { matchType: 'ALTERNATIVE_FALLBACK', ...requestedMeta } } : {}),
+        ...(llmQuotaExhausted ? { llmQuotaFallback: true } : {})
+      };
+    };
+
+    // If Exact-Match Short-Circuit checked local DB + official site + Architonic and found no verifiable page,
+    // immediately fall back to our verified local partner alternatives!
+    if (exactMissRequestedMeta) {
+      const altPayload = await resolveLocalPriorityAlternative('ve-alternative-fallback', exactMissRequestedMeta);
+      if (altPayload) {
+        return res.json(altPayload);
+      }
+    }
 
     // ── FALLBACK STRATEGY: IF NO CONTRACT MANUFACTURER IS DETECTED OR SPEC IS EXPLICITLY UNBRANDED ──
     // Auto-categorize into Furnishing Categories & match via User's Priority Brand Sequence
@@ -3628,186 +4948,55 @@ app.post('/api/ve-match-auto', async (req, res) => {
         }
       }
 
-      const furnishingCat = classifyFurnishingCategory(enrichedDesc);
-      const catConfig = VE_CATEGORY_CONFIG[furnishingCat] || VE_CATEGORY_CONFIG.desking;
-      const prioritySequence = catConfig.priorityBrands;
-
-      console.log(`\n🎯 [VE Priority Matcher] Specification is unbranded/generic. Auto-categorized as "${catConfig.label}" (${furnishingCat}). Priority Sequence: ${prioritySequence.join(' ➔ ')}`);
-
-      let matchedProduct = null;
-      let matchedBrandObj = null;
-
-      for (const priorityBrandName of prioritySequence) {
-        if (/^(amazon|noon)/i.test(priorityBrandName)) {
-          if (furnishingCat === 'genericAccessories') {
-            const marketplaceHit = await veGetProductDetails('Amazon', identifiedModel || description, providerModel, null, 'Accessories');
-            if (marketplaceHit && marketplaceHit.status === 'success' && marketplaceHit.product) {
-              matchedProduct = marketplaceHit.product;
-              matchedBrandObj = { name: 'Amazon', logo: 'https://upload.wikimedia.org/wikipedia/commons/a/a9/Amazon_logo.svg' };
-              break;
-            }
-          }
-          continue;
-        }
-
-        const b = findBrandInCatalog(priorityBrandName, allLocalBrands);
-        if (!b || !b.products || b.products.length === 0) continue;
-
-        // 1. Fast Fuzzy & Token Overlap Search within preferred brand (< 2ms)
-        const filterCat = catConfig.label || identifiedCategory || null;
-        const fuzzyHit = fuzzyFindModel(b.products, identifiedModel || enrichedDesc, filterCat);
-        if (fuzzyHit) {
-          matchedProduct = fuzzyHit;
-          matchedBrandObj = b;
-          console.log(`  ✨ [VE Priority Fast Hit] Matched "${matchedProduct.model}" from Priority Brand "${b.name}" in <2ms`);
-          break;
-        }
-
-        // 2. High-speed Semantic / Vector Embedding Check
-        try {
-          const clientApiKey = req.headers['x-google-api-key'] || req.headers['x-google-free-key'] || null;
-          const semanticHits = await findSemanticMatches({
-            description: enrichedDesc,
-            brandName: b.name,
-            products: b.products,
-            category: filterCat,
-            topK: 1,
-            apiKey: clientApiKey
-          });
-
-          if (semanticHits && semanticHits.length > 0 && (semanticHits[0].exactModelMatch || semanticHits[0].confidenceScore >= 60)) {
-            matchedProduct = semanticHits[0];
-            matchedBrandObj = b;
-            console.log(`  ✨ [VE Priority Hit] Matched "${matchedProduct.model}" from Priority Brand "${b.name}" (${matchedProduct.confidenceScore}% confidence)`);
-            break;
-          }
-        } catch (semErr) {
-          console.warn(`  ⚠️ [VE Priority Semantic Warning for ${b.name}]:`, semErr.message);
-        }
-
-        // 3. Fallback: Pick top catalog item in matching category
-        const catMatchedProduct = b.products.find(p => {
-          const pCat = (p.mainCategory || p.category || '').toLowerCase();
-          const pSub = (p.subCategory || '').toLowerCase();
-          const target = (catConfig.label || furnishingCat).toLowerCase();
-          return pCat.includes(target) || pSub.includes(target);
-        });
-        if (catMatchedProduct) {
-          matchedProduct = catMatchedProduct;
-          matchedBrandObj = b;
-          console.log(`  ✨ [VE Priority Category Hit] Matched "${matchedProduct.model}" from "${b.name}"`);
-          break;
-        }
-      }
-
-      if (matchedProduct && matchedBrandObj) {
-        const proxyBase = `${req.protocol}://${req.get('host')}/api/image-proxy?url=`;
-        let img = matchedProduct.imageUrl || (matchedProduct.images && matchedProduct.images[0]) || '';
-        if (img && (img.includes('/logo/') || img.includes('logo_') || img.includes('data:image/svg') || img.includes('amazon_logo'))) {
-          img = '';
-        }
-        if (img && img.startsWith('https://') && !img.includes('image-proxy')) {
-          img = `${proxyBase}${encodeURIComponent(img)}`;
-        }
-
-        const alternatives = getFormattedAlternatives(matchedBrandObj.name, matchedProduct.model, matchedProduct.mainCategory || catConfig.label);
-
-        return res.json({
-          status: 'success',
-          product: {
-            ...matchedProduct,
-            brand: matchedBrandObj.name,
-            brandLogo: matchedBrandObj.logo || '',
-            imageUrl: img,
-            mainCategory: matchedProduct.mainCategory || matchedProduct.category || catConfig.label,
-            subCategory: matchedProduct.subCategory || identifiedSubCategory || ''
-          },
-          alternatives,
-          source: 'category-priority-match',
-          identifiedModel: matchedProduct.model
-        });
-      }
-    }
-
-    // 🏗️ FITOUT BRAND ISOLATION FOR AUTO-DETECT
-    if (canonicalBrand && (canonicalBrand.toLowerCase().trim() === 'fitout v2' || canonicalBrand.toLowerCase().includes('fitout'))) {
-      console.log(`\n🏗️ [VE Auto-Detect Fitout Interceptor] Identified brand is fitout! Routing "${description}" to internal Fitout DB...`);
-      try {
-        const requestedTier = (req.body.tier || req.body.budgetTier || 'mid').toLowerCase().trim();
-        let dbName = 'fitout_v2-mid.json';
-        if (requestedTier === 'budget' || requestedTier === 'budgetary') {
-          dbName = 'fitout_v2-budgetary.json';
-        } else if (requestedTier === 'high' || requestedTier === 'premium') {
-          dbName = 'fitout_v2-high.json';
-        }
-
-        const dbPath = path.join(__dirname, 'data', 'brands', dbName);
-        console.log(`  🔍 [VE Auto-Detect Fitout] Loading local database: ${dbPath}`);
-        const dbRaw = await fs.readFile(dbPath, 'utf-8');
-        const dbData = JSON.parse(dbRaw);
-        const internalProducts = dbData.products || [];
-
-        const matchResult = await matchFitoutItem(enrichedDesc, internalProducts, dbName.replace('fitout_v2-', '').replace('.json', ''), 'google', providerModel);
-        if (matchResult && matchResult.status === 'success' && matchResult.product) {
-          const p = matchResult.product;
-
-          const rawMain = p.mainCategory || p.category || 'Partition Wall';
-          const rawSub = p.subCategory || 'full height partition wall';
-
-          const mainCat = Object.keys(TAXONOMY).find(c => c.toLowerCase() === rawMain.toLowerCase()) || 'Partition Wall';
-          const subCats = TAXONOMY[mainCat] ? Object.keys(TAXONOMY[mainCat]) : [];
-          const subCat = subCats.find(s => s.toLowerCase() === rawSub.toLowerCase()) || (subCats[0] || 'full height partition wall');
-
-          console.log(`  ✨ [VE Auto-Detect Fitout Success] Found internal match: "${p.model}" (Normalized Category: ${mainCat} / ${subCat})`);
-
-          const proxyBase = `${req.protocol}://${req.get('host')}/api/image-proxy?url=`;
-          if (p.imageUrl && p.imageUrl.startsWith('https://') && !p.imageUrl.includes('image-proxy')) {
-            p.imageUrl = `${proxyBase}${encodeURIComponent(p.imageUrl)}`;
-          }
-          if (p.images && Array.isArray(p.images)) {
-            p.images = p.images.map(img => img.startsWith('https://') && !img.includes('image-proxy') ? `${proxyBase}${encodeURIComponent(img)}` : img);
-          }
-
-          return res.json({
-            status: 'success',
-            product: {
-              ...p,
-              brand: 'FitOut V2',
-              brandLogo: '',
-              mainCategory: mainCat,
-              subCategory: subCat
-            },
-            source: 'local-database',
-            identifiedModel: p.model
-          });
-        }
-      } catch (fitoutErr) {
-        console.error('  ❌ [VE Auto-Detect Fitout Interceptor Error]:', fitoutErr.message);
+      const priorityPayload = await resolveLocalPriorityAlternative('category-priority-match', null);
+      if (priorityPayload) {
+        return res.json(priorityPayload);
       }
     }
 
     // ── STAGE 2: LOCAL DB CACHE LOOKUP (Instant Zero-Latency) ──────────────────
     if (localBrand && localBrand.products && localBrand.products.length > 0) {
-      console.log(`  🔍 [VE Auto-Detect Stage 2] Searching for "${identifiedModel}" in local cache (Brand: ${canonicalBrand}, Category Hint: ${identifiedCategory})...`);
+      const stage2Products = localBrand.products.filter(p => !isScrapedChromeEntry(p) && !isArchetypeConflict(enrichedDesc, p));
+      console.log(`  🔍 [VE Auto-Detect Stage 2] Searching for "${identifiedModel}" in local cache (Brand: ${canonicalBrand}, Category Hint: ${identifiedCategory}, Eligible: ${stage2Products.length}/${localBrand.products.length})...`);
 
       // 2.1: Exact Model Match by Name
-      const exactHit = localBrand.products.find(p => p.model && String(p.model).toLowerCase().trim() === String(identifiedModel || '').toLowerCase().trim());
+      const cleanIdModel = String(identifiedModel || '').replace(/\s*#\d+\s*$/, '').toLowerCase().trim();
+      const exactHit = stage2Products.find(p => p.model && String(p.model).replace(/\s*#\d+\s*$/, '').toLowerCase().trim() === cleanIdModel);
       let best = exactHit || null;
 
-      // 2.2: High-Confidence Semantic Vector Match
-      if (!best) {
+      // 2.2: High-Confidence Semantic Vector Match (with strict Series Anti-Collapse & Sub-Archetype Guard)
+      const STAGE2_STOP_WORDS = new Set(['chair', 'chairs', 'table', 'tables', 'desk', 'desks', 'sofa', 'sofas', 'lounge', 'armchair', 'stool', 'stools', 'bench', 'cabinet', 'storage', 'office', 'meeting', 'conference', 'visitor', 'guest', 'task', 'swivel', 'executive', 'manager', 'staff', 'medium', 'high', 'low', 'back', 'black', 'white', 'grey', 'gray', 'blue', 'red', 'green', 'mesh', 'fabric', 'leather', 'wood', 'metal', 'base', 'star', 'legs', 'castors', 'armrest', 'armrests', 'series', 'model', 'collection', 'furniture', 'system', 'modular', 'with', 'and', 'for', 'the']);
+      const idSeriesTokens = cleanIdModel.split(/[\s\-_\/]+/).filter(t => t.length >= 3 && !STAGE2_STOP_WORDS.has(t));
+      const descLowerForSub = enrichedDesc.toLowerCase();
+      const specWantsVisitor = /\b(visitor\s+chair|guest\s+chair|cantilever|4[\s-]?leg|sled\s+base|star\s+base.*visitor)\b/i.test(descLowerForSub);
+      const specWantsTask = /\b(task\s+chair|swivel\s+task|ergonomic.*task|synchro|operator\s+chair|staff\s+chair)\b/i.test(descLowerForSub) && !specWantsVisitor;
+
+      if (!best && stage2Products.length > 0) {
         try {
           const semanticResults = await findSemanticMatches({
             description: enrichedDesc,
             brandName: canonicalBrand,
-            products: localBrand.products,
+            products: stage2Products,
             category: identifiedCategory,
             topK: 1
           });
           if (semanticResults && semanticResults.length > 0) {
             const hit = semanticResults[0];
             const isCategoryCompatible = !identifiedCategory || !hit.mainCategory || hit.mainCategory.toLowerCase() === identifiedCategory.toLowerCase() || hit.mainCategory.toLowerCase().includes(identifiedCategory.toLowerCase());
-            if ((hit.exactModelMatch || hit.confidenceScore >= 78) && isCategoryCompatible) {
+            const subWanted = String(identifiedSubCategory || '').toLowerCase();
+            const subHit = String(hit.subCategory || '').toLowerCase();
+            const hitModelLower = String(hit.model || '').toLowerCase();
+            const isSubMismatch = (subWanted.includes('coffee') && subHit.includes('conference'))
+              || (subWanted.includes('conference') && subHit.includes('coffee'))
+              || (subWanted.includes('reception') && subHit.includes('conference'))
+              || (specWantsVisitor && /\b(task|staff|medium\s+back\s+chair|operator|swivel)\b/i.test(`${hitModelLower} ${subHit}`) && !/\b(visitor|guest|conference|cantilever)\b/i.test(`${hitModelLower} ${subHit}`))
+              || (specWantsTask && /\b(visitor|guest|cantilever|dining|cafe)\b/i.test(`${hitModelLower} ${subHit}`) && !/\b(task|swivel|staff)\b/i.test(`${hitModelLower} ${subHit}`));
+
+            // Prevent collapsing distinct specified named models (e.g. "Yukon", "Matel", "Guess") onto an unrelated small-catalog fallback
+            const hasSeriesMatch = idSeriesTokens.length === 0 || idSeriesTokens.some(tok => hitModelLower.includes(tok));
+            const allowSpecCollapse = !hasExplicitBrandInDesc || hasSeriesMatch || stage2Products.length >= 25;
+
+            if ((hit.exactModelMatch || (hit.confidenceScore >= 78 && allowSpecCollapse)) && isCategoryCompatible && !isSubMismatch && !isArchetypeConflict(enrichedDesc, hit)) {
               best = hit;
               console.log(`  ✨ [VE Auto-Detect Instant Hit] "${best.model}" matched with confidence ${best.confidenceScore}% (${best.exactModelMatch ? 'EXACT MODEL HIT' : 'SPEC MATCH'}) in 1ms`);
             }
@@ -3817,71 +5006,101 @@ app.post('/api/ve-match-auto', async (req, res) => {
         }
       }
 
-      // 2.3: Fallback Fuzzy Lookup only if no distinct model was detected
-      if (!best && localBrand.products.length > 5) {
-        best = fuzzyFindModel(localBrand.products, identifiedModel, identifiedCategory);
+      // 2.3: Fallback Fuzzy Lookup only if no distinct named model was missing from a small catalog
+      if (!best && stage2Products.length > 5 && (!hasExplicitBrandInDesc || idSeriesTokens.length === 0)) {
+        const fuzz = fuzzyFindModel(stage2Products, identifiedModel, identifiedSubCategory || identifiedCategory);
+        if (fuzz && !isArchetypeConflict(enrichedDesc, fuzz)) {
+          best = fuzz;
+        }
       }
 
       // 2.4: LLM Catalog Disambiguation (only for established multi-product catalogs)
-      if (!best && localBrand.products.length > 3) {
-        const modelList = localBrand.products.map(p => p.model + (p.subCategory || p.mainCategory ? ` [${p.mainCategory} / ${p.subCategory}]` : '')).filter(Boolean);
-        const matchResult = await veMatchAdvanced(enrichedDesc, canonicalBrand, identifiedCategory || 'Commercial Furniture', modelList, providerModel);
-        if (matchResult && matchResult.status === 'success' && matchResult.model && matchResult.model !== 'FAILED') {
-          const rawHit = String(matchResult.model).replace(/\s*\[.*\]$/, '').trim().toLowerCase();
-          best = localBrand.products.find(p => p?.model && String(p.model).toLowerCase().trim() === rawHit) ||
-                 localBrand.products.find(p => p?.model && String(p.model).toLowerCase().includes(rawHit)) ||
-                 localBrand.products.find(p => p?.model && rawHit.includes(String(p.model).toLowerCase()));
+      if (!best && stage2Products.length > 3 && !llmQuotaExhausted) {
+        const modelList = stage2Products.map(p => p.model + (p.subCategory || p.mainCategory ? ` [${p.mainCategory} / ${p.subCategory}]` : '')).filter(Boolean);
+        const matchResult = await veMatchAdvanced(enrichedDesc, canonicalBrand, identifiedSubCategory || identifiedCategory || 'Commercial Furniture', modelList, providerModel);
+        if (matchResult && matchResult.status === 'success' && matchResult.model && matchResult.model !== 'FAILED' && matchResult.model !== 'NO_CATALOG_MATCH') {
+          const rawFull = String(matchResult.model).replace(/\s*\[.*\]$/, '').trim().toLowerCase();
+          const rawClean = rawFull.replace(/\s*#\d+\s*$/, '').trim();
+          const escapeRx = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          const wordRx = rawClean.length >= 2 ? new RegExp(`\\b${escapeRx(rawClean)}\\b`, 'i') : null;
+          const desiredSub = String(matchResult.subCategory || identifiedSubCategory || '').toLowerCase();
+
+          let topScore = -Infinity;
+          for (const cand of stage2Products) {
+            if (!cand?.model || isArchetypeConflict(enrichedDesc, cand)) continue;
+            const cFull = String(cand.model).toLowerCase().trim();
+            const cClean = cFull.replace(/\s*#\d+\s*$/, '').trim();
+
+            let score = 0;
+            if (cFull === rawFull || cClean === rawClean) score = 100;
+            else if (wordRx && wordRx.test(cClean)) score = 60;
+            else if (cClean.startsWith(rawClean) || rawClean.startsWith(cClean)) score = 35;
+            else if (cFull.includes(rawFull) || rawFull.includes(cFull) || cClean.includes(rawClean)) score = 15;
+            else continue;
+
+            const cSub = String(cand.subCategory || '').toLowerCase();
+            const cMain = String(cand.mainCategory || '').toLowerCase();
+            if (desiredSub && (cSub.includes(desiredSub) || desiredSub.includes(cSub))) score += 25;
+            else if (identifiedCategory && cMain.includes(identifiedCategory.toLowerCase())) score += 10;
+            if (parseFloat(cand.price) > 0) score += 5;
+
+            if (score > topScore || (score === topScore && best && String(cand.model).localeCompare(String(best.model)) < 0)) {
+              topScore = score;
+              best = cand;
+            }
+          }
           if (best) {
             console.log(`  🧠 [VE Auto-Detect Stage 2.4] veMatchAdvanced selected: "${best.model}"`);
           }
         }
       }
 
-      if (best && (best.imageUrl || (localBrand.products && localBrand.products.length > 5))) {
+      if (best && !isArchetypeConflict(enrichedDesc, best) && (best.imageUrl || (stage2Products.length > 5))) {
         console.log(`  ✨ [VE Auto-Detect Cache Hit] "${best.model}" loaded from local DB.`);
 
-        // Classify category to guarantee 4-tier tree validity
-        const catNorm = classifyContractCategory(
-          best.mainCategory || identifiedCategory,
-          best.subCategory || identifiedSubCategory,
-          best.model || identifiedModel,
-          best.description || enrichedDesc
-        );
-
-        let verifiedImg = best.imageUrl || (best.images && best.images[0]) || '';
-        if (verifiedImg && (verifiedImg.includes('/logo/') || verifiedImg.includes('logo_') || verifiedImg.includes('data:image/svg') || verifiedImg.includes('amazon_logo'))) {
-          verifiedImg = '';
+        let verifiedStage2Image = best.imageUrl || (best.images && best.images[0]) || '';
+        if (verifiedStage2Image) {
+          const stage2ImgOk = !isBadOrLogoUrl(verifiedStage2Image)
+            && await Promise.race([verifyImageUrl(verifiedStage2Image, best.officialProductUrl || best.websiteUrl || ''), new Promise(r => setTimeout(() => r(false), 2500))]);
+          if (!stage2ImgOk) verifiedStage2Image = '';
         }
 
-        // If image is missing, try live enrichment
-        if (!verifiedImg) {
-          verifiedImg = await fetchLiveProductImage(canonicalBrand, best.model, best.websiteUrl || best.productUrl || identityResult.productUrl);
-        }
+        const liveMerged = await resolveAndMergeLiveProduct({
+          req,
+          brand: canonicalBrand,
+          model: best.model,
+          boqDescription: enrichedDesc,
+          directUrl: best.officialProductUrl || best.productUrl || best.websiteUrl || identityResult.productUrl || '',
+          localBrand,
+          categoryHint: best.mainCategory || identifiedCategory,
+          subCategoryHint: best.subCategory || identifiedSubCategory,
+          familyHint: best.family || '',
+          providerModel,
+          currentImageUrl: verifiedStage2Image,
+          currentDescription: best.description || '',
+          currentPrice: best.price || 0,
+          currentCurrency: best.currency || 'USD',
+          persistToCatalog: true,
+          skipLlm: llmQuotaExhausted
+        });
 
-        const proxyBase = `${req.protocol}://${req.get('host')}/api/image-proxy?url=`;
-        let proxiedImageUrl = verifiedImg;
-        if (proxiedImageUrl && proxiedImageUrl.startsWith('https://') && !proxiedImageUrl.includes('image-proxy')) {
-          proxiedImageUrl = `${proxyBase}${encodeURIComponent(proxiedImageUrl)}`;
-        }
-
-        const cleanDesc = cleanTechnicalDescription(best.description || identityResult.logic || '', canonicalBrand, best.model);
-        const resolvedLogo = (localBrand.logo && localBrand.logo.trim() && !localBrand.logo.includes('clearbit.com'))
-          ? localBrand.logo
-          : (getCanonicalBrandLogo(canonicalBrand, localBrand.websiteUrl) || localBrand.logo || '');
-
-        const alternatives = await getFormattedAlternatives(canonicalBrand, best.model, catNorm.mainCategory);
+        const alternatives = await getFormattedAlternatives(canonicalBrand, best.model, liveMerged.mainCategory);
 
         return res.json({
           status: 'success',
           product: {
             ...best,
             brand: canonicalBrand,
-            brandLogo: resolvedLogo,
-            imageUrl: proxiedImageUrl,
-            family: best.family || (best.model || identifiedModel).split(' ')[0] || 'Collection',
-            mainCategory: catNorm.mainCategory,
-            subCategory: catNorm.subCategory,
-            description: cleanDesc
+            brandLogo: liveMerged.brandLogo || localBrand.logo || '',
+            imageUrl: liveMerged.imageUrl,
+            websiteUrl: liveMerged.websiteUrl,
+            productUrl: liveMerged.websiteUrl,
+            price: liveMerged.price,
+            currency: liveMerged.currency,
+            family: liveMerged.family,
+            mainCategory: liveMerged.mainCategory,
+            subCategory: liveMerged.subCategory,
+            description: liveMerged.description
           },
           alternatives,
           source: 'local-database',
@@ -3896,131 +5115,162 @@ app.post('/api/ve-match-auto', async (req, res) => {
     const isSloganOrInvalid = !identifiedModel || identifiedModel.length < 3 || SLOGAN_BLACKLIST.test(identifiedModel) || String(identifiedModel).trim().toUpperCase() === 'FAILED';
 
     // ── STAGE 3: WEB DISCOVERY (Deep Product Details for genuine manufacturers only) ──
-    if (!isSloganOrInvalid && isGenuine && !isGenericBrand) {
+    if (!isSloganOrInvalid && isGenuine && !isGenericBrand && !llmQuotaExhausted) {
       console.log(`  🌐 [VE Auto-Detect Stage 3] Fetching live details for ${canonicalBrand} ${identifiedModel}...`);
       const detailResult = await veGetProductDetails(canonicalBrand, identifiedModel, providerModel, identityResult.productUrl, identifiedCategory);
 
       if (detailResult.status === 'success' && detailResult.product && detailResult.product.model && !SLOGAN_BLACKLIST.test(detailResult.product.model) && String(detailResult.product.model).trim().toUpperCase() !== 'FAILED') {
         const p = detailResult.product;
+        const preferredUrl = (explicitDetails?.url && !isMarketplaceUrl(explicitDetails.url)) ? explicitDetails.url : (p.websiteUrl || identityResult.productUrl || '');
 
-        // Classify and normalize standard contract category tree (4-tier dropdown compatibility)
-        const catNorm = classifyContractCategory(
-          p.mainCategory || identifiedCategory,
-          p.subCategory || identifiedSubCategory,
-          p.model || identifiedModel,
-          p.description || identityResult.logic
-        );
-
-        // Resolve crisp brand logo (Architonic CDN, SVG registry, Google Favicon)
-        const resolvedBrandLogo = (p.brandLogo && p.brandLogo.startsWith('http') && !p.brandLogo.includes('clearbit.com') && !p.brandLogo.includes('grounding-api-redirect') && !p.brandLogo.includes('vertexaisearch'))
-          ? p.brandLogo
-          : (getCanonicalBrandLogo(canonicalBrand, p.websiteUrl || identityResult.productUrl) || localBrand?.logo || '');
-
-        // Validate and enrich image URL: product photos must be authentic images, NEVER brand logos
-        let liveImg = p.imageUrl || '';
-        const isLogo = liveImg.includes('/logo/') || liveImg.includes('logo_') || liveImg.includes('logo.') || liveImg.includes('data:image/svg') || liveImg.includes('amazon_logo');
-        const isValidInitial = liveImg.startsWith('http') && !liveImg.includes('localhost') && !isLogo;
-
-        if (!isValidInitial) {
-          liveImg = await fetchLiveProductImage(canonicalBrand, p.model || identifiedModel, identityResult.productUrl || p.websiteUrl);
-        }
-        p.imageUrl = liveImg || '';
-
-        const cleanDesc = cleanTechnicalDescription(p.description || identityResult.logic || '', canonicalBrand, p.model || identifiedModel);
+        const liveMerged = await resolveAndMergeLiveProduct({
+          req,
+          brand: canonicalBrand,
+          model: p.model || identifiedModel,
+          boqDescription: enrichedDesc,
+          directUrl: preferredUrl,
+          localBrand,
+          categoryHint: p.mainCategory || identifiedCategory,
+          subCategoryHint: p.subCategory || identifiedSubCategory,
+          familyHint: p.family || '',
+          providerModel,
+          currentImageUrl: p.imageUrl || '',
+          currentDescription: p.description || '',
+          currentPrice: parseFloat(p.price) || parseFloat(identityResult.estimatedPrice) || 0,
+          currentCurrency: p.currency || 'USD',
+          persistToCatalog: Boolean(localBrand && !isMarketplace)
+        });
 
         const newProduct = {
           ...p,
           brand: canonicalBrand,
           model: p.model || identifiedModel,
-          family: p.family || (p.model || identifiedModel).split(' ')[0] || 'Collection',
-          mainCategory: catNorm.mainCategory,
-          subCategory: catNorm.subCategory,
-          description: cleanDesc,
-          price: parseFloat(p.price) || parseFloat(identityResult.estimatedPrice) || 0,
-          currency: p.currency || 'USD',
-          // Canonical manufacturer URL wins as the official link (never a dealer/marketplace URL)
-          websiteUrl: (explicitDetails?.url && !isMarketplaceUrl(explicitDetails.url)) ? explicitDetails.url : (p.websiteUrl || identityResult.productUrl || ''),
-          productUrl: (explicitDetails?.url && !isMarketplaceUrl(explicitDetails.url)) ? explicitDetails.url : (p.websiteUrl || identityResult.productUrl || ''),
+          family: liveMerged.family,
+          mainCategory: liveMerged.mainCategory,
+          subCategory: liveMerged.subCategory,
+          description: liveMerged.description,
+          price: liveMerged.price,
+          currency: liveMerged.currency,
+          websiteUrl: liveMerged.websiteUrl,
+          productUrl: liveMerged.websiteUrl,
           supplierReferences: explicitDetails?.supplierUrls || identityResult.supplierReferences || [],
           lastUpdated: new Date().toISOString(),
           source: 'VE-AI-AutoDetect-Discovery'
         };
 
-        let savedBrandObj = localBrand;
-
-        // Retain on-the-fly discovery in-memory without polluting brand database files
-        console.log(`  ✨ [VE Auto-Detect Stage 3] Discovered live product "${newProduct.model}" for brand "${canonicalBrand}". Serving on-the-fly.`);
-
-        // Proxy image URLs
-        const proxyBase = `${req.protocol}://${req.get('host')}/api/image-proxy?url=`;
-        let proxiedImageUrl = newProduct.imageUrl;
-        if (proxiedImageUrl && proxiedImageUrl.startsWith('https://') && !proxiedImageUrl.includes('image-proxy')) {
-          proxiedImageUrl = `${proxyBase}${encodeURIComponent(proxiedImageUrl)}`;
-        }
-
-        const alternatives = await getFormattedAlternatives(canonicalBrand, newProduct.model, catNorm.mainCategory);
+        console.log(`  ✨ [VE Auto-Detect Stage 3] Discovered live product "${newProduct.model}" for brand "${canonicalBrand}".`);
+        const alternatives = await getFormattedAlternatives(canonicalBrand, newProduct.model, liveMerged.mainCategory);
 
         return res.json({
           status: 'success',
           product: {
             ...newProduct,
-            imageUrl: proxiedImageUrl,
-            brandLogo: resolvedBrandLogo || savedBrandObj?.logo || localBrand?.logo || (isMarketplace ? 'https://upload.wikimedia.org/wikipedia/commons/a/a9/Amazon_logo.svg' : '')
+            imageUrl: liveMerged.imageUrl,
+            brandLogo: liveMerged.brandLogo || (isMarketplace ? 'https://upload.wikimedia.org/wikipedia/commons/a/a9/Amazon_logo.svg' : '')
           },
           alternatives,
           brandCreated: !localBrand && !isMarketplace,
-          newBrand: savedBrandObj,
+          newBrand: localBrand,
           source: 've-ai-discovery',
           identifiedModel
         });
       }
     }
 
-    // Stage 3 fallback — return identity result with estimated price / URL
-    console.log(`  ✨ [VE Auto-Detect] Returning on-the-fly product result for ${canonicalBrand} ${identifiedModel}.`);
-    const fallbackPrice = parseFloat(identityResult.estimatedPrice) || 0;
+    // Stage 3 fallback — attempt live official-site + Architonic scraping & DB persistence;
+    // if still unable to exact-match by any means, fall back cleanly to our verified local partner alternatives!
+    console.log(`  ✨ [VE Auto-Detect] Attempting on-the-fly official/Architonic scrape for ${canonicalBrand} "${identifiedModel}".`);
     const fallbackUrl = identityResult.productUrl || explicitDetails?.url || '';
-    const fallbackLogo = isMarketplace ? 'https://upload.wikimedia.org/wikipedia/commons/a/a9/Amazon_logo.svg' : (getCanonicalBrandLogo(canonicalBrand, fallbackUrl) || localBrand?.logo || '');
+    const skipGenericLive = isGenericBrand && llmQuotaExhausted && !fallbackUrl;
+    const liveFallback = skipGenericLive
+      ? {
+          model: identifiedModel,
+          family: '',
+          mainCategory: identifiedCategory || 'Accessories',
+          subCategory: identifiedSubCategory || '',
+          imageUrl: toProxiedImageUrl(req, normalizedImageAssets[0]?.url || '') || '',
+          rawImageUrl: '',
+          brandLogo: '',
+          websiteUrl: '',
+          price: 0,
+          currency: 'USD',
+          description: effectiveMatchDesc,
+          liveSource: '',
+          verifiedLiveScrape: false,
+          persistedBrandObj: null
+        }
+      : await resolveAndMergeLiveProduct({
+          req,
+          brand: canonicalBrand,
+          model: identifiedModel,
+          boqDescription: enrichedDesc,
+          directUrl: fallbackUrl,
+          localBrand,
+          categoryHint: identifiedCategory,
+          subCategoryHint: identifiedSubCategory,
+          familyHint: identityResult.family || '',
+          providerModel,
+          currentImageUrl: '',
+          currentDescription: identityResult.logic || '',
+          currentPrice: parseFloat(identityResult.estimatedPrice) || 0,
+          currentCurrency: 'USD',
+          persistToCatalog: Boolean(!isGenericBrand && !isMarketplace),
+          skipLlm: llmQuotaExhausted
+        });
 
-    // Attempt live photo discovery even in fallback path
-    let fallbackPhoto = await fetchLiveProductImage(canonicalBrand, identifiedModel, fallbackUrl);
-    const proxyBase = `${req.protocol}://${req.get('host')}/api/image-proxy?url=`;
-    if (fallbackPhoto && fallbackPhoto.startsWith('https://') && !fallbackPhoto.includes('image-proxy')) {
-      fallbackPhoto = `${proxyBase}${encodeURIComponent(fallbackPhoto)}`;
+    // If a named brand/model could NOT be exact-matched from local DB, official site, OR Architonic,
+    // automatically fall back to our verified local partner alternatives (unless it's a decorative generic accessory).
+    if (!isGenericBrand && !isMarketplace && !liveFallback.verifiedLiveScrape && furnishingCatPrecheck !== 'genericAccessories') {
+      const altFallback = await resolveLocalPriorityAlternative('ve-alternative-fallback', {
+        requestedBrand: canonicalBrand,
+        requestedModel: identifiedModel
+      });
+      if (altFallback) {
+        return res.json(altFallback);
+      }
     }
 
-    const fallbackCat = classifyContractCategory(identifiedCategory, identifiedSubCategory, identifiedModel, enrichedDesc);
-    const fallbackDesc = cleanTechnicalDescription(identityResult.logic || '', canonicalBrand, identifiedModel);
-    const fallbackAlternatives = await getFormattedAlternatives(canonicalBrand, identifiedModel, identifiedCategory);
+    const finalScrapedModel = liveFallback.model || identifiedModel;
+    const fallbackAlternatives = await getFormattedAlternatives(canonicalBrand, finalScrapedModel, liveFallback.mainCategory);
 
     return res.json({
       status: 'success',
+      matchTier: liveFallback.verifiedLiveScrape ? 'EXACT_MATCH' : 'SUGGESTED',
       product: {
         brand: canonicalBrand,
-        model: identifiedModel,
-        mainCategory: fallbackCat.mainCategory || identifiedCategory || 'Furniture',
-        subCategory: fallbackCat.subCategory || identifiedSubCategory || '',
-        imageUrl: fallbackPhoto || '',
-        brandLogo: fallbackLogo,
-        websiteUrl: fallbackUrl,
-        productUrl: fallbackUrl,
+        model: finalScrapedModel,
+        family: liveFallback.family,
+        mainCategory: liveFallback.mainCategory || identifiedCategory || 'Furniture',
+        subCategory: liveFallback.subCategory || identifiedSubCategory || '',
+        imageUrl: liveFallback.imageUrl || '',
+        brandLogo: isMarketplace ? 'https://upload.wikimedia.org/wikipedia/commons/a/a9/Amazon_logo.svg' : liveFallback.brandLogo,
+        websiteUrl: liveFallback.websiteUrl,
+        productUrl: liveFallback.websiteUrl,
         supplierReferences: identityResult.supplierReferences || explicitDetails?.supplierUrls || [],
-        price: fallbackPrice,
-        currency: 'USD',
-        description: fallbackDesc
+        price: liveFallback.price,
+        currency: liveFallback.currency,
+        description: liveFallback.description
       },
       alternatives: fallbackAlternatives,
-      source: isMarketplace ? 'amazon-on-the-fly' : 've-identity-only',
-      identifiedModel
+      brandCreated: Boolean(!localBrand && !isMarketplace && liveFallback.persistedBrandObj),
+      newBrand: liveFallback.persistedBrandObj || localBrand || null,
+      source: liveFallback.verifiedLiveScrape
+        ? 'live-web-scraped-and-saved'
+        : (isMarketplace ? 'amazon-on-the-fly' : 've-identity-only'),
+      identifiedModel: finalScrapedModel,
+      ...(llmQuotaExhausted && !liveFallback.verifiedLiveScrape ? { llmQuotaFallback: true } : {})
     });
 
   } catch (error) {
+    settleInFlight(null);
     console.error('🔥 [VE Auto-Detect Endpoint Error]:', error.message, error.stack);
     res.status(500).json({
       status: 'error',
       error_message: error.message,
       rawResponse: error.rawResponse || null
     });
+  } finally {
+    settleInFlight(null);
   }
 });
 
@@ -4030,7 +5280,7 @@ app.post('/api/ai/live-alternatives', async (req, res) => {
     const { description, category, currentBrand, topK } = req.body || {};
     const allLocalBrands = await brandStorage.getAllBrands();
     const alternatives = await generateCrossBrandAlternativesAsync(currentBrand, null, description, allLocalBrands, category, topK || 4);
-    
+
     const proxyBase = `${req.protocol}://${req.get('host')}/api/image-proxy?url=`;
     const formatted = alternatives.map(alt => ({
       ...alt,
@@ -4393,6 +5643,274 @@ app.post('/api/lens/scrape', async (req, res) => {
   }
 });
 
+/**
+ * POST /api/ve-match-lens { imageUrl, description?, brand?, model? }
+ * Zero-LLM visual product matching via Google Lens (cookie-jar fast path -> local headless Chrome).
+ * Never bypasses CAPTCHAs or bot-walls; returns manualLensUrl if Google rate-limits automation.
+ */
+app.post('/api/ve-match-lens', async (req, res) => {
+  try {
+    const { imageUrl, description = '', brand = '', model = '' } = req.body || {};
+    if (!imageUrl || typeof imageUrl !== 'string') {
+      return res.status(400).json({ status: 'error', error: 'imageUrl is required' });
+    }
+
+    // 1. Unwrap local image-proxy URLs and resolve bytes + public URL for Lens
+    let candidate = imageUrl.trim();
+    if (candidate.includes('/api/image-proxy')) {
+      try {
+        const m = candidate.match(/[?&]url=([^&]+)/);
+        if (m) candidate = decodeURIComponent(m[1]);
+      } catch { /* keep candidate */ }
+    }
+
+    let imageBytes = null;
+    let publicUrl = candidate;
+    const isLocalImg = !candidate.startsWith('http') || candidate.includes('localhost') || candidate.includes('127.0.0.1');
+
+    if (isLocalImg) {
+      const relativePath = candidate
+        .replace(/^https?:\/\/[^/]+/, '')
+        .replace(/^\/temp\//, 'public/temp/');
+      const absolutePath = path.join(process.cwd(), relativePath.replace(/^\/+/, ''));
+      if (fs_sync.existsSync(absolutePath)) {
+        imageBytes = fs_sync.readFileSync(absolutePath);
+        try {
+          const ext = path.extname(absolutePath) || '.jpg';
+          const mimeType = ext === '.png' ? 'image/png' : ext === '.webp' ? 'image/webp' : 'image/jpeg';
+          const storagePath = `lens-share/${Date.now()}_${path.basename(absolutePath, ext)}${ext}`;
+          const up = await uploadToSupabase('assets', storagePath, imageBytes, { contentType: mimeType, cacheControl: '3600' });
+          if (up?.url) publicUrl = up.url;
+        } catch (upErr) {
+          console.warn('[VE Lens] Supabase share upload skipped:', upErr.message);
+        }
+      }
+    } else {
+      try { imageBytes = await fetchImageBytes(candidate); } catch { /* headless still uses publicUrl */ }
+    }
+
+    const manualLensUrl = /^https?:\/\//i.test(publicUrl) && !publicUrl.includes('localhost')
+      ? `https://lens.google.com/uploadbyurl?url=${encodeURIComponent(publicUrl)}`
+      : null;
+
+    // 2. Attempt 1: Plain-HTTP cookie-jar fast path (zero browser, zero LLM)
+    let visualMatches = [];
+    let lensSource = '';
+    if (imageBytes) {
+      const fast = await searchViaJar({ imageBytes });
+      if (fast.ok && Array.isArray(fast.result?.matches) && fast.result.matches.length > 0) {
+        visualMatches = fast.result.matches.map(m => ({
+          title: m.title,
+          url: m.url,
+          imageUrl: null,
+          source: m.domain
+        }));
+        lensSource = 'google-lens-jar-fast-path';
+      } else {
+        console.log(`[VE Lens] Jar fast path missed (${fast.reason || 'empty'}).`);
+      }
+    }
+
+    // 3. Attempt 2: Local Chrome headless Lens (if not walled and publicUrl is reachable)
+    if (visualMatches.length === 0) {
+      if (isLensWalled()) {
+        return res.status(429).json({
+          status: 'walled',
+          walled: true,
+          manualLensUrl,
+          error: 'Google Lens is currently rate-limiting automated requests. Use the manual Lens link.'
+        });
+      }
+      const caps = await isLensHeadlessAvailable();
+      if (!caps.supported || !manualLensUrl) {
+        return res.status(501).json({
+          status: 'unsupported',
+          manualLensUrl,
+          error: !manualLensUrl ? 'Image must be uploaded to a public URL for server Lens.' : `Headless Lens unavailable (${caps.reason}).`
+        });
+      }
+      try {
+        const scraped = await scrapeLensVisualMatches({ imageUrl: publicUrl, brand, model });
+        visualMatches = scraped.visualMatches || [];
+        lensSource = 'google-lens-headless';
+      } catch (err) {
+        if (err.code === 'WALLED' || String(err.message).includes('lens-headless-walled')) {
+          return res.status(429).json({
+            status: 'walled',
+            walled: true,
+            manualLensUrl,
+            error: 'Google Lens showed a bot-check gate. Automated Lens paused — use the manual Lens link.'
+          });
+        }
+        throw err;
+      }
+    }
+
+    if (visualMatches.length === 0) {
+      return res.json({ status: 'no_match', lensMatches: [], manualLensUrl, source: lensSource });
+    }
+
+    // 4. Rank visual matches: prefer local contract brands & official non-marketplace product pages
+    const allLocalBrands = await brandStorage.getAllBrands();
+    const ranked = visualMatches
+      .filter(m => m?.url && /^https?:\/\//i.test(m.url))
+      .map(m => {
+        const domainBrand = cleanDomainToBrand(m.url);
+        const catBrand = domainBrand ? findBrandInCatalog(domainBrand.name, allLocalBrands) : null;
+        const isMarket = isMarketplaceUrl(m.url) || /pinterest|instagram|facebook|tiktok|youtube|reddit|alibaba|aliexpress|made-in-china/i.test(m.url);
+        const isArchi = /architonic\.com\/en\/p\//i.test(m.url);
+        let score = 10;
+        if (catBrand) score += 30;
+        if (isArchi) score += 20;
+        if (!isMarket) score += 15;
+        else score -= 25;
+        if (brand && `${m.title} ${m.source}`.toLowerCase().includes(brand.toLowerCase())) score += 25;
+        return { ...m, domainBrand, catBrand, isMarket, score };
+      })
+      .sort((a, b) => b.score - a.score);
+
+    const bestCard = ranked[0];
+    if (!bestCard) {
+      return res.json({ status: 'no_match', lensMatches: visualMatches, manualLensUrl, source: lensSource });
+    }
+
+    // 5. Scrape verified product facts from the winning Lens URL (zero LLM) & persist to DB
+    const facts = await fetchProductFacts(bestCard.url, { timeoutMs: 8500 }).catch(() => ({ ok: false }));
+    const scrapedProd = facts?.ok ? facts.product : null;
+    const resolvedBrandName = bestCard.catBrand?.name
+      || scrapedProd?.brand
+      || bestCard.domainBrand?.name
+      || (bestCard.source || '').split('.')[0]
+      || 'Contract Manufacturer';
+    const resolvedModelName = scrapedProd?.model || bestCard.title || model || 'Visual Match';
+    const localBrand = findBrandInCatalog(resolvedBrandName, allLocalBrands);
+
+    const liveMerged = await resolveAndMergeLiveProduct({
+      req,
+      brand: resolvedBrandName,
+      model: resolvedModelName,
+      boqDescription: description || resolvedModelName,
+      directUrl: bestCard.url,
+      localBrand,
+      categoryHint: scrapedProd?.category || '',
+      subCategoryHint: '',
+      familyHint: '',
+      providerModel: null,
+      currentImageUrl: scrapedProd?.imageUrl || bestCard.imageUrl || '',
+      currentDescription: scrapedProd?.description || bestCard.title || '',
+      currentPrice: scrapedProd?.price || 0,
+      currentCurrency: scrapedProd?.currency || 'USD',
+      fallbackBoqImageUrl: imageUrl,
+      persistToCatalog: Boolean(!bestCard.isMarket && isGenuineContractBrand(resolvedBrandName, allLocalBrands)),
+      skipLlm: true
+    });
+
+    return res.json({
+      status: 'success',
+      matchTier: 'VISUAL_LENS_MATCH',
+      confidenceScore: 92,
+      product: {
+        brand: localBrand?.name || resolvedBrandName,
+        brandLogo: liveMerged.brandLogo || localBrand?.logo || '',
+        model: liveMerged.model || resolvedModelName,
+        family: liveMerged.family || '',
+        mainCategory: liveMerged.mainCategory || 'Furniture',
+        subCategory: liveMerged.subCategory || '',
+        price: liveMerged.price || 0,
+        currency: liveMerged.currency || 'USD',
+        imageUrl: liveMerged.imageUrl || toProxiedImageUrl(req, bestCard.imageUrl || imageUrl) || '',
+        websiteUrl: liveMerged.websiteUrl || bestCard.url,
+        productUrl: liveMerged.websiteUrl || bestCard.url,
+        description: liveMerged.description || bestCard.title || ''
+      },
+      lensMatches: visualMatches.slice(0, 6),
+      manualLensUrl,
+      brandCreated: Boolean(!localBrand && liveMerged.persistedBrandObj),
+      newBrand: liveMerged.persistedBrandObj || localBrand || null,
+      source: lensSource
+    });
+  } catch (err) {
+    console.error('[VE Lens] Match error:', err.message);
+    return res.status(500).json({ status: 'error', error: err.message });
+  }
+});
+
+/**
+ * POST /api/brands/:id/refresh-official { limit?, onlyBrokenOrArchitonic? }
+ * Batch-refreshes a brand's products directly from its official manufacturer website (zero LLM),
+ * healing broken 404/ENOTFOUND images and upgrading stale Architonic snapshots with newest official photos & specs.
+ */
+app.post('/api/brands/:id/refresh-official', async (req, res) => {
+  try {
+    const brandId = String(req.params.id || '').trim();
+    const limit = Math.min(Math.max(parseInt(req.body?.limit || '20', 10) || 20, 1), 60);
+    const onlyBrokenOrArchitonic = req.body?.onlyBrokenOrArchitonic !== false;
+
+    const allBrands = await brandStorage.getAllBrands();
+    const brandObj = allBrands.find(b => String(b.id) === brandId || String(b.name || '').toLowerCase() === brandId.toLowerCase());
+    if (!brandObj) return res.status(404).json({ status: 'error', error: 'Brand not found' });
+
+    const officialSite = getCanonicalBrandWebsite(brandObj.name) || brandObj.websiteUrl || brandObj.registry?.officialDomain || '';
+    if (!officialSite || /architonic\.com/i.test(officialSite)) {
+      return res.status(400).json({ status: 'error', error: `No official website configured for "${brandObj.name}"` });
+    }
+
+    const targets = (brandObj.products || []).filter(p => {
+      if (!p || !p.model || isScrapedChromeEntry(p)) return false;
+      if (!onlyBrokenOrArchitonic) return true;
+      const img = p.imageUrl || '';
+      const u = p.officialProductUrl || p.websiteUrl || p.productUrl || '';
+      return isBadOrLogoUrl(img) || /architonic\.com/i.test(img) || /architonic\.com/i.test(u) || !p.officialRefreshedAt;
+    }).slice(0, limit);
+
+    let upgraded = 0;
+    const updatedModels = [];
+    for (const p of targets) {
+      try {
+        const live = await enrichProductFromLiveWeb({
+          brand: brandObj.name,
+          model: p.model,
+          description: p.description || p.model,
+          directUrl: '',
+          localBrand: brandObj,
+          categoryHint: p.mainCategory || p.category || '',
+          skipLlm: true
+        });
+        if (live?.imageUrl && !isBadOrLogoUrl(live.imageUrl) && live.websiteUrl && !/architonic\.com/i.test(live.websiteUrl)) {
+          p.imageUrl = live.imageUrl;
+          if (live.description && live.description.length >= 25) {
+            p.description = `${live.model && !live.description.toLowerCase().includes(live.model.toLowerCase()) ? `${live.model} — ` : ''}${live.description}`;
+          }
+          p.websiteUrl = live.websiteUrl;
+          p.productUrl = live.websiteUrl;
+          p.officialProductUrl = live.websiteUrl;
+          p.officialRefreshedAt = new Date().toISOString();
+          p.verified = true;
+          upgraded++;
+          updatedModels.push({ model: p.model, officialModel: live.model, url: live.websiteUrl, imageUrl: live.imageUrl });
+        }
+      } catch { /* skip single item failure */ }
+    }
+
+    if (upgraded > 0) {
+      brandObj.updatedAt = new Date().toISOString();
+      await brandStorage.saveBrand(brandObj);
+    }
+
+    return res.json({
+      status: 'success',
+      brand: brandObj.name,
+      officialSite,
+      checked: targets.length,
+      upgraded,
+      updatedModels
+    });
+  } catch (err) {
+    console.error('[Brand Official Refresh] Error:', err.message);
+    return res.status(500).json({ status: 'error', error: err.message });
+  }
+});
+
 // Proxy endpoint for Docling service assets (images)
 app.get('/docling/assets/:jobId/:filename', async (req, res) => {
   const { jobId, filename } = req.params;
@@ -4423,31 +5941,41 @@ app.get('/api/image-proxy', async (req, res) => {
       }
     }
 
-    const urlObj = new URL(imageUrl);
+    const urlObj = await assertSafeExternalUrl(imageUrl, { allowedHosts: getTrustedStorageHosts() });
     const origin = `${urlObj.protocol}//${urlObj.hostname}/`;
 
-    // Create a robust HTTPS agent that can handle some common SSL issues if needed
     const httpsAgent = new https.Agent({
-      rejectUnauthorized: false, // Bypass some SSL issues for proxying
+      rejectUnauthorized: process.env.ALLOW_INSECURE_IMAGE_PROXY !== '1',
       keepAlive: true
     });
 
-    const response = await axios.get(imageUrl, {
-      responseType: 'arraybuffer',
-      timeout: 15000,
-      httpsAgent,
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
-        'Accept-Language': 'en-US,en;q=0.9',
-        'Referer': origin,
-        'Cache-Control': 'no-cache',
-        'Pragma': 'no-cache'
-      }
-    });
+    const response = await safeAxiosGet(
+      axios,
+      urlObj.toString(),
+      {
+        responseType: 'arraybuffer',
+        timeout: 15000,
+        httpsAgent,
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
+          'Accept-Language': 'en-US,en;q=0.9',
+          'Referer': origin,
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache'
+        }
+      },
+      { allowedHosts: getTrustedStorageHosts() }
+    );
 
     let data = response.data;
-    let contentType = response.headers['content-type'] || 'image/jpeg';
+    let contentType = String(response.headers['content-type'] || 'image/jpeg').toLowerCase();
+
+    // Reject HTML/JSON/text soft-404 pages returned with HTTP 200 by upstream websites
+    if (/(text\/html|application\/json|text\/plain)/i.test(contentType)) {
+      console.warn(`🖼️  [Image Proxy] Upstream soft-404 (${contentType}): ${imageUrl?.substring(0, 80)}`);
+      return res.status(404).send('Upstream returned non-image content');
+    }
 
     // Handle EMF/WMF conversion on the fly
     if (imageUrl.toLowerCase().match(/\.(emf|wmf)$/) || contentType.includes('image/x-emf') || contentType.includes('image/x-wmf') || contentType.includes('application/x-msmetafile')) {
@@ -4500,7 +6028,12 @@ app.get('/api/image-proxy', async (req, res) => {
     res.send(data);
 
   } catch (error) {
-    const status = error.response?.status || 502;
+    if (error.statusCode === 400 || error.statusCode === 403) {
+      console.warn(`🛡️  [Image Proxy] Blocked request (${error.statusCode}): ${error.message}`);
+      return res.status(error.statusCode).send(error.message);
+    }
+
+    const status = error.response?.status || error.statusCode || 502;
     const code = error.code || 'UNKNOWN_ERROR';
     const msg = error.response?.statusText || error.message;
 
@@ -4598,13 +6131,10 @@ async function handleScrapeRequest(req, res, method = 'standard') {
 
         if (method === 'ai') {
           const sc = await getStructureScraper();
-          results = await sc.scrape(url, { onProgress, brandName: name, origin, budgetTier });
-        } else if (method === 'scrapling') {
-          const sc = await getScraperService();
-          results = await sc.scrape(url, { onProgress, brandName: name, origin, budgetTier, useScrapling: true });
+          results = await sc.scrapeBrand(url, name, onProgress);
         } else {
           const sc = await getScraperService();
-          results = await sc.scrape(url, { onProgress, brandName: name, origin, budgetTier });
+          results = await sc.scrapeBrand(url, onProgress);
         }
       }
 
@@ -4735,7 +6265,7 @@ app.post('/api/ai/match-fitout', async (req, res) => {
 
     const dbRaw = await fs.readFile(dbPath, 'utf-8');
     const dbData = JSON.parse(dbRaw);
-    const internalProducts = dbData.products || [];
+    const internalProducts = filterValidFitoutProducts(dbData.products || []);
 
     const results = await Promise.all(items.map(async (item) => {
       try {
@@ -4879,6 +6409,14 @@ app.post('/api/reset', async (req, res) => {
         await fs.rm(path.join(publicTemp, f), { recursive: true, force: true });
       }
     }
+
+    // Re-create uploads directories immediately to ensure readiness
+    const uploadsDir = isVercel ? '/tmp/uploads' : path.join(__dirname, '../uploads');
+    const imagesDir = isVercel ? '/tmp/uploads/images' : path.join(__dirname, '../uploads/images');
+    try {
+      await fs.mkdir(uploadsDir, { recursive: true });
+      await fs.mkdir(imagesDir, { recursive: true });
+    } catch (e) { console.error('Error recreating dirs:', e); }
 
     res.json({ success: true, message: 'System reset complete. All temporary files and cloud sessions cleared.' });
   } catch (err) {

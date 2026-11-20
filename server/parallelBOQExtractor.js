@@ -103,7 +103,7 @@ export async function extractParallelBOQData(filePath, mimeType, progressCallbac
                 PARALLEL_BOQ_SYSTEM,
                 `MANDATORY: Convert Page ${pageNum} to JSON. Capture EVERY row verbatim INCLUDING the original Serial Number (S.N) column. Output JSON only starting with {`,
                 [{ base64Data: base64, mimeType: 'image/png' }],
-                modelName || 'gemma-4-26b-a4b-it',
+                modelName || null,
                 true
             );
 

@@ -417,8 +417,9 @@ export default function BrandManagement({ onBrandAdded, onBrandUpdated, onClose,
                             onClick={(e) => { e.preventDefault(); fetchRailwayFiles(); }}
                             className={styles.refreshIconBtn}
                             title="Force Refresh"
+                            aria-label="Force Refresh Cloud Backups"
                         >
-                            
+                            ↻
                         </button>
                     </div>
                     {dashboardUrl && (
@@ -448,15 +449,18 @@ export default function BrandManagement({ onBrandAdded, onBrandUpdated, onClose,
                                             className={`${styles.actionBtn} ${styles.miniUploadBtn}`}
                                             onClick={() => handleImportRailway(file.filename)}
                                             disabled={importingRailway === file.filename || deletingRailway === file.filename}
+                                            title="Recover brand backup from Railway"
                                         >
-                                            {importingRailway === file.filename ? '' : ''} Recover
+                                            {importingRailway === file.filename ? 'Recovering...' : '⬇ Recover'}
                                         </button>
                                         <button
                                             className={`${styles.actionBtn} ${styles.miniDeleteBtn}`}
                                             onClick={() => handleDeleteRailway(file.filename)}
                                             disabled={importingRailway === file.filename || deletingRailway === file.filename}
+                                            title="Delete backup"
+                                            aria-label="Delete backup"
                                         >
-                                            {deletingRailway === file.filename ? '...' : ''}
+                                            {deletingRailway === file.filename ? '...' : '✕'}
                                         </button>
                                     </div>
                                 </div>

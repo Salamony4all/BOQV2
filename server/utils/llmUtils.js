@@ -4,6 +4,15 @@ import axios from 'axios';
 import 'dotenv/config';
 import { TAXONOMY } from './normalizer.js';
 import { readSettings } from '../settings.js';
+import {
+    PIPELINE_TIMEOUT_MS,
+    isGoogleFreeTierActive,
+    ensureLiveCatalogSynced,
+    getPipelineModelCandidates,
+    recordModelFailure,
+    recordModelSuccess,
+    withModelTimeout
+} from './freeModelRouter.js';
 
 export const aiKeyStorage = new AsyncLocalStorage();
 
@@ -37,9 +46,9 @@ export const getGoogleModel = () => resolveKey('googleModel', 'googleModel') || 
 export const getOpenRouterModel = () => resolveKey('openrouterModel', 'openrouterModel');
 export const getNvidiaModel = () => resolveKey('nvidiaModel', 'nvidiaModel');
 
-// Legacy constant aliases — now dynamic (kept for backward compat)
-export const GOOGLE_MODEL = 'gemini-flash-lite-latest';
-export const GROUNDING_MODEL = 'gemini-flash-lite-latest';
+// Legacy constant aliases — now aligned with empirically verified Free-Tier best defaults
+export const GOOGLE_MODEL = 'gemini-2.5-flash-lite';
+export const GROUNDING_MODEL = 'gemini-2.5-flash-lite';
 export const VISION_MODEL = 'gemini-2.5-flash';
 export const OPENROUTER_MODEL = '';
 export const NVIDIA_MODEL = '';
@@ -83,10 +92,8 @@ export function getGoogleAI(modelName) {
     // Determine whether to use Billed Key or Free Key based on active tier
     let useBilledKey = (reqActiveTier === 'billed') || forceBilled;
 
-    // If an AIzaSy key is provided in googleApiKey, prefer it as it's the official Gemini API Key
-    const isStandardStudioKey = finalApiKey && finalApiKey.startsWith('AIza');
-
-    if (useBilledKey || isStandardStudioKey || !finalFreeApiKey) {
+    // Respect explicit Free Tier selection whenever a free key is configured
+    if (useBilledKey || !finalFreeApiKey) {
         if (finalApiKey) {
             console.log(`  🔑 [LLM Utils] Using Google API Key (${maskKey(finalApiKey)}) for "${normalizedModel}".`);
             return new GoogleGenerativeAI(finalApiKey);
@@ -127,11 +134,11 @@ export const getProviderForModel = (modelName) => {
 };
 
 const isValidProviderModel = (provider, model) => {
-    if (!model) return false;
+    if (!model || !String(model).trim()) return false;
     if (provider === 'local') return true;
-    if (provider === 'google') return true; // Since models are fetched dynamically, any model name is valid
+    if (provider === 'google') return true; // Models are discovered dynamically from Google AI API
     if (provider === 'openrouter') return VALID_OPENROUTER_MODELS.includes(model) || model.includes('/');
-    if (provider === 'nvidia') return VALID_NVIDIA_MODELS.includes(model);
+    if (provider === 'nvidia') return VALID_NVIDIA_MODELS.includes(model) || String(model).trim().length > 0;
     return false;
 };
 
@@ -152,12 +159,18 @@ export function safeParseJSON(text) {
         .trim();
 
     const attemptParse = (str) => {
+        if (!str) return null;
+        // Strip control characters that might break JSON.parse
+        const san = str.replace(/[\u0000-\u001F\u007F-\u009F]/g, '');
         try {
-            // Further clean: strip control characters that might break JSON.parse
-            const san = str.replace(/[\u0000-\u001F\u007F-\u009F]/g, '');
             return JSON.parse(san);
         } catch (e) {
-            return null;
+            try {
+                // Retry after stripping trailing commas before } or ]
+                return JSON.parse(san.replace(/,\s*([}\]])/g, '$1'));
+            } catch (e2) {
+                return null;
+            }
         }
     };
 
@@ -215,32 +228,79 @@ export function safeParseJSON(text) {
         if (result) return result;
     }
 
-    console.warn('  ⚠️ [LLM Utils] Standard parse failed, attempting surgical repair...');
+    console.warn(`  ⚠️ [LLM Utils] Standard parse failed (chars=${cleanText.length}), attempting string-aware surgical repair...`);
 
-    // 5. Fallback repair (balances unclosed braces)
-    let fixed = cleanText;
-    const quoteMatches = fixed.match(/"/g) || [];
-    if (quoteMatches.length % 2 !== 0) {
-        fixed += '"';
-    }
+    // 5. String-aware fallback repair (handles truncated arrays/objects & brackets inside string values)
+    const firstObjIdx = cleanText.indexOf('{');
+    const firstArrIdx = cleanText.indexOf('[');
+    let startIdx = -1;
+    if (firstObjIdx !== -1 && firstArrIdx !== -1) startIdx = Math.min(firstObjIdx, firstArrIdx);
+    else startIdx = Math.max(firstObjIdx, firstArrIdx);
 
-    const balanceAndParse = (str) => {
-        let stack = [];
-        let finalStr = str;
-        for (let char of str) {
-            if (char === '{') stack.push('}');
-            else if (char === '[') stack.push(']');
-            else if (char === '}') { if (stack[stack.length - 1] === '}') stack.pop(); }
-            else if (char === ']') { if (stack[stack.length - 1] === ']') stack.pop(); }
+    const scanStructure = (str) => {
+        const stack = [];
+        let inString = false;
+        let escapeNext = false;
+        let lastArrayItemEnd = -1;
+
+        for (let i = 0; i < str.length; i++) {
+            const ch = str[i];
+            if (escapeNext) {
+                escapeNext = false;
+                continue;
+            }
+            if (inString) {
+                if (ch === '\\') escapeNext = true;
+                else if (ch === '"') inString = false;
+                continue;
+            }
+            if (ch === '"') {
+                inString = true;
+            } else if (ch === '{') {
+                stack.push('}');
+            } else if (ch === '[') {
+                stack.push(']');
+            } else if (ch === '}' || ch === ']') {
+                if (stack.length > 0 && stack[stack.length - 1] === ch) {
+                    stack.pop();
+                    if (ch === '}' && stack.length > 0 && stack[stack.length - 1] === ']') {
+                        lastArrayItemEnd = i;
+                    }
+                }
+            }
         }
-        finalStr += stack.reverse().join('');
-        return attemptParse(finalStr);
+        return { stack, inString, escapeNext, lastArrayItemEnd };
     };
 
-    result = balanceAndParse(fixed);
-    if (result) return result;
+    const closeTruncatedFragment = (fragment) => {
+        const { stack, inString, escapeNext } = scanStructure(fragment);
+        let candidate = fragment;
+        if (escapeNext) candidate = candidate.slice(0, -1);
+        if (inString) candidate += '"';
+        candidate = candidate.replace(/,\s*$/, '');
+        candidate += stack.slice().reverse().join('');
+        return attemptParse(candidate);
+    };
 
-    console.error('  ❌ [LLM Utils] All JSON repair strategies exhausted.');
+    if (startIdx !== -1) {
+        const sliced = cleanText.slice(startIdx);
+        result = closeTruncatedFragment(sliced);
+        if (result) return result;
+
+        // If truncated mid-item inside an array (e.g. {"items": [{...}, {...}, {"desc": "cut off...),
+        // roll back to the last complete item object and close remaining open brackets cleanly.
+        const { lastArrayItemEnd } = scanStructure(sliced);
+        if (lastArrayItemEnd > 0) {
+            const recoveredSlice = sliced.slice(0, lastArrayItemEnd + 1);
+            result = closeTruncatedFragment(recoveredSlice);
+            if (result) {
+                console.warn(`  🩹 [LLM Utils] Recovered truncated JSON array cleanly up to char ${lastArrayItemEnd + 1}/${sliced.length}.`);
+                return result;
+            }
+        }
+    }
+
+    console.error(`  ❌ [LLM Utils] All JSON repair strategies exhausted (chars=${cleanText.length}). Head: ${JSON.stringify(cleanText.slice(0, 180))} | Tail: ${JSON.stringify(cleanText.slice(-180))}`);
     const finalErr = new Error('The AI response was severely malformed or truncated.');
     finalErr.rawResponse = text;
     throw finalErr;
@@ -319,47 +379,116 @@ export async function callNvidia(systemPrompt, userPrompt, modelName = null) {
     }
 }
 
-/** Google Gemini call with optional Grounding or specific Model override. */
-export async function callGoogle(systemPrompt, userPrompt, useSearch = false, modelName = null) {
-    const tools = useSearch ? [{ googleSearch: {} }] : [];
-    
-    // Retrieve request-scoped keys/model from AsyncLocalStorage
+/**
+ * Google Gemini call with optional Grounding, pipeline-aware Free-Tier routing,
+ * circuit-breaker cooldowns, and automatic model failover.
+ */
+export async function callGoogle(systemPrompt, userPrompt, useSearch = false, modelName = null, pipeline = null) {
     const contextStore = aiKeyStorage.getStore() || {};
     const reqGoogleModel = contextStore.googleModel;
+    const rawModelName = reqGoogleModel || modelName || (useSearch ? GROUNDING_MODEL : GOOGLE_MODEL);
+    const forceBilledSuffix = String(rawModelName || '').toLowerCase().trim().endsWith(':billed') ? ':billed' : '';
+    const freeTier = isGoogleFreeTierActive(aiKeyStorage, rawModelName);
+    const effectivePipeline = pipeline || (useSearch ? 'grounding' : 'matching');
+    const timeoutMs = PIPELINE_TIMEOUT_MS[effectivePipeline] || 25000;
 
-    // Resolve model name: context model (if provider matches) > passed param > env.GOOGLE_MODEL > default fallback
-    const rawModelName = reqGoogleModel || modelName || GOOGLE_MODEL || 'gemma-4-31b-it';
-    const cleanModelName = rawModelName.replace(':billed', '').trim();
-    const finalModel = MODEL_MAPPING[cleanModelName] || cleanModelName;
+    // Ensure live Google /v1beta/models catalog is synced (0ms once cached for 30m)
+    const activeCatalogKey = freeTier
+        ? (contextStore.googleFreeKey || contextStore.googleApiKey || '')
+        : (contextStore.googleApiKey || contextStore.googleFreeKey || '');
+    await ensureLiveCatalogSynced(activeCatalogKey);
 
-    const genAIInstance = getGoogleAI(rawModelName);
-    const model = genAIInstance.getGenerativeModel({
-        model: finalModel,
-        systemInstruction: systemPrompt,
-        tools: tools,
-        generationConfig: {
-            temperature: 0.1,
-            ...(tools.length > 0 ? {} : { responseMimeType: "application/json" })
+    const executeAttempt = async (candidateModel, attachSearch) => {
+        const tools = attachSearch ? [{ googleSearch: {} }] : [];
+        const genAIInstance = getGoogleAI(`${candidateModel}${forceBilledSuffix}`);
+        const model = genAIInstance.getGenerativeModel({
+            model: candidateModel,
+            systemInstruction: systemPrompt,
+            tools,
+            generationConfig: {
+                temperature: 0,
+                ...(tools.length > 0 ? {} : { responseMimeType: "application/json" })
+            }
+        });
+        const result = await withModelTimeout(
+            model.generateContent(userPrompt),
+            timeoutMs,
+            `Google(${candidateModel}${attachSearch ? ':search' : ''})`
+        );
+        const text = result.response.text();
+
+        if (process.env.DEBUG_AI === 'true') {
+            console.log(`\n🤖 [AI Raw Response] (${attachSearch ? 'Search' : 'Direct'} | ${candidateModel}):\n${text.substring(0, 500)}...`);
         }
+
+        try {
+            return safeParseJSON(text);
+        } catch (parseErr) {
+            if (text && (text.toLowerCase().includes('failed') || text.toLowerCase().includes('not found'))) {
+                return { model: 'FAILED', logic: text };
+            }
+            throw parseErr;
+        }
+    };
+
+    const candidates = getPipelineModelCandidates(effectivePipeline, rawModelName, {
+        freeTier,
+        useSearch,
+        modelMapping: MODEL_MAPPING
     });
-    const result = await model.generateContent(userPrompt);
-    const text = result.response.text();
 
-    // Log for debugging
-    if (process.env.DEBUG_AI === 'true') {
-        console.log(`\n🤖 [AI Raw Response] (${useSearch ? 'Search' : 'Direct'}):\n${text.substring(0, 500)}...`);
-    }
-
-    try {
-        return safeParseJSON(text);
-    } catch (err) {
-        // If it's a search result, sometimes it returns plain text if it failed to find anything.
-        // We handle this at the caller level, but let's try a generic wrapper here.
-        if (text.toLowerCase().includes('failed') || text.toLowerCase().includes('not found')) {
-            return { model: 'FAILED', logic: text };
+    let lastError = null;
+    for (let i = 0; i < candidates.length; i++) {
+        const candidate = candidates[i];
+        try {
+            if (freeTier && i === 0 && rawModelName && rawModelName.replace(':billed', '').trim() !== candidate) {
+                console.log(`  🧭 [Free Router:${effectivePipeline}] Routed "${rawModelName}" → "${candidate}"${useSearch ? ' (grounded)' : ''}`);
+            } else if (i > 0) {
+                console.log(`  🔁 [Model Failover:${effectivePipeline}] Switching to fallback "${candidate}"${useSearch ? ' (grounded)' : ''}...`);
+            }
+            const t0 = Date.now();
+            const parsed = await executeAttempt(candidate, useSearch);
+            recordModelSuccess(candidate, { useSearch, freeTier, latencyMs: Date.now() - t0 });
+            return parsed;
+        } catch (err) {
+            lastError = err;
+            const info = recordModelFailure(candidate, err, { useSearch, freeTier });
+            console.warn(`  ⚠️ [Google:${effectivePipeline}] "${candidate}" failed (${info.category}): ${err.message}`);
+            if (!info.retryableOnNextModel) {
+                throw err;
+            }
         }
-        throw err;
     }
+
+    // If grounded calls exhausted the Free Search Grounding quota (e.g. 20 RPD on 2.5 series), automatically rescue with ungrounded JSON chain
+    if (useSearch && freeTier) {
+        const rescueCandidates = getPipelineModelCandidates('grounding_ungrounded_rescue', null, {
+            freeTier: true,
+            useSearch: false,
+            modelMapping: MODEL_MAPPING
+        });
+        for (const rescueModel of rescueCandidates) {
+            try {
+                console.log(`  🛟 [Free Router:${effectivePipeline}] Search grounding unavailable — rescuing ungrounded via "${rescueModel}"...`);
+                const parsed = await executeAttempt(rescueModel, false);
+                recordModelSuccess(rescueModel, { useSearch: false, freeTier: true });
+                return parsed;
+            } catch (err) {
+                lastError = err;
+                const info = recordModelFailure(rescueModel, err, { useSearch: false, freeTier: true });
+                console.warn(`  ⚠️ [Google Rescue:${effectivePipeline}] "${rescueModel}" failed (${info.category}): ${err.message}`);
+                if (!info.retryableOnNextModel) throw err;
+            }
+        }
+    }
+
+    if (lastError) {
+        lastError.allModelsExhausted = true;
+        throw lastError;
+    }
+    const err = new Error(`All Google fallback models failed for pipeline "${effectivePipeline}"`);
+    err.allModelsExhausted = true;
+    throw err;
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -386,15 +515,25 @@ You are scoped to the "${assignedCategory}" category ONLY.
         }
     }
 
-    return `You are an expert Furniture Specialist for Boqify.
-Your task is to identify the EXACT product model from the brand "${brand}" that best matches the provided description.
+    return `You are an expert Commercial FF&E Furniture Specialist for Boqify.
+Your task is to identify the EXACT product model from the brand "${brand}" that best matches the provided BOQ specification.
 ${strictCategoryRule}
+### 🎯 STRICT FUNCTIONAL ARCHETYPE & ANTI-HALLUCINATION RULES:
+1. NEVER match a Chair/Seating product to a Desk/Table/Workstation specification, and NEVER match a Desk/Table/Cabinet/Acoustic-Pod product to a Chair/Seating specification.
+2. NEVER invent or hallucinate product mechanisms not supported by the catalog entry — NEVER guess a model's furniture type from phonetic or spelling similarity (e.g. unrelated sofa/lounge names vs. "training" or "swivel").
+   - NEVER match modular lounge sofas, reception soft seating, waiting-room benches, poufs, or high bar stools to an individual training/nesting/conference/task chair specification.
+   - NEVER match acoustic pods/booths, screens, or reception counters to a desk/folding table specification.
+3. Match physical form & commercial use case (e.g. folding/flip-top desk -> folding/flip-top/meeting table): for training/nesting/visitor chairs, strongly prefer catalog entries whose model name, category, or catalog summary confirms they are an actual Chair / Office Chair / Conference Chair / Visitor Chair / Task Chair / Operative Seating (containing Chair / Task / Visitor / Conference / Seduta / Operative), rather than unknown seating names when confirmed chair models exist.
+4. Return ONLY the clean verbatim model name in "model" — strip any bracketed category tag (" [...]") and any trailing summary (" — ...") when forming the "model" string.
+5. If this brand's catalog truly contains NO compatible product for the requested functional archetype, return "model": "FAILED" rather than forcing a mismatched category.
+
 ### 🏢 BRAND PROFILE:
 - Brand Name: ${brand}
 - Segment: ${tier.toUpperCase()} ${tier === 'budgetary' ? '(Prioritize simple, functional, value-driven models)' : '(Look for iconic, design-led, unique names)'}
 
 ${modelList.length > 0 ? `### 📦 KNOWN PRODUCT CATALOG:
-The following models ARE available for this brand. You MUST prioritize matching to one of these if the description fits:
+Each line gives: Model Name [Catalog Category] — Catalog Summary (when available).
+You MUST select ONE EXACT model name VERBATIM from this list below (closest matching functional archetype). DO NOT invent generic names (like "TRAINING CHAIR" or "CONFERENCE DESK") that are not listed below:
 - ${modelList.slice(0, 500).join('\n- ')}` : ''}
 
 ### 🏷️ NATURAL TAXONOMY HINTS (Brand's Existing Categories):
@@ -419,7 +558,7 @@ export async function identifyModel(description, brand, provider = 'google', kno
     return withRetry(async () => {
         // Pass brandCategoryRules down to the prompt builder
         const system = IDENTIFY_SYSTEM(brand, knownCategories, modelList, tier, brandCategoryRules);
-        const user = `What is the best matching model for: "${description}" from "${brand}"?`;
+        const user = `What is the best matching model for: "${description}" from "${brand}"? Return strictly valid JSON only.`;
 
         if (process.env.DEBUG_AI === 'true') {
             console.log(`\n🤖 [AI Identify] (Brand: ${brand}): Matching "${description.substring(0, 50)}..."`);
@@ -427,7 +566,18 @@ export async function identifyModel(description, brand, provider = 'google', kno
 
         let parsed;
         if (provider === 'google') {
-            parsed = await callGoogle(system, user, true, providerModel || GROUNDING_MODEL);
+            // Use strict JSON mode when matching against a known catalog list (tools disable responseMimeType and often emit Markdown)
+            const useGrounding = modelList.length < 3;
+            try {
+                parsed = await callGoogle(system, user, useGrounding, providerModel || (useGrounding ? GROUNDING_MODEL : GOOGLE_MODEL));
+            } catch (parseOrApiErr) {
+                if (useGrounding) {
+                    console.warn(`  ⚠️ [AI Identify] Grounded call returned non-JSON for ${brand}; rescuing with strict JSON mode...`);
+                    parsed = await callGoogle(system, user, false, providerModel || GOOGLE_MODEL);
+                } else {
+                    throw parseOrApiErr;
+                }
+            }
         } else if (provider === 'nvidia') {
             parsed = await callNvidia(system, user, providerModel || NVIDIA_MODEL);
         } else if (provider === 'local') {
@@ -608,6 +758,47 @@ ${batchItems.map(it => `- ID: ${it.id} | Description: ${it.description}`).join('
     });
 }
 
+const AUTO_MATCH_MULTI_ROUTER_SYSTEM = (availableBrands = []) => `You are a high-speed FF&E routing agent across multiple brands (${availableBrands.join(', ')}).
+Your task is to categorize the provided item descriptions into functional groups to optimize downstream multi-brand matching.
+CRITICAL: Output ONLY valid JSON exactly matching this structure, with no markdown:
+{
+  "desking": ["id1", "id3"],
+  "seating": ["id2"],
+  "softSeating": [],
+  "storage": [],
+  "accessories": []
+}`;
+
+const AUTO_MATCH_MULTI_AGENT_SYSTEM = (availableBrands = [], category = 'furniture', tier = 'mid') => `You are an expert FF&E Furniture Specialist specialized in "${category}".
+Your task is to select the best matching Brand and exact Model from the available brands for each item description.
+
+### 🏢 AVAILABLE BRANDS (${tier.toUpperCase()} TIER):
+- ${availableBrands.join('\n- ')}
+
+### 🌍 GLOBAL CATEGORY MAPPING:
+You MUST map each item to:
+- Main Category: ${ALLOWED_CATEGORIES}
+- Sub-Category: ${ALLOWED_SUB_CATEGORIES}
+
+### 📝 INSTRUCTIONS:
+1. Choose ONLY from the available brands listed above.
+2. Select the most accurate real product model for that brand matching the item's function, form factor, and dimensions.
+3. Return concise reasoning in "logic".
+
+Return ONLY valid JSON matching this structure:
+{
+  "matches": [
+    {
+      "id": "original_item_id",
+      "brand": "Selected Brand Name",
+      "model": "Exact Model Name",
+      "mainCategory": "Main Category",
+      "subCategory": "Sub-Category",
+      "logic": "Brief reasoning"
+    }
+  ]
+}`;
+
 /**
  * Swarm-based Multi-Brand Matching.
  * 1. Routes items into functional categories.
@@ -705,37 +896,43 @@ ${batchItems.map(it => `- ID: ${it.id} | Description: ${it.description}`).join('
  */
 async function verifyImageUrl(url, brand = '') {
     if (!url || url === 'FAILED' || !url.startsWith('http')) return false;
+    if (/\/logo\/|favicon|\.svg(\?|$)/i.test(url)) return false;
 
-    // 1. Extension and Trusted Domain Fast-Path
-    const isImageFile = /\.(jpg|jpeg|png|webp|gif|svg)$/i.test(url.split('?')[0]);
-    const trustedDomains = ['narbutas.com', 'steelcase.com', 'hermanmiller.com', 'knoll.com', 'vitra.com', 'muuto.com', 'haworth.com'];
+    const isImageFile = /\.(jpg|jpeg|png|webp|avif|gif)$/i.test(url.split('?')[0]);
+    const wafTrustedDomains = ['narbutas.com', 'steelcase.com', 'hermanmiller.com', 'knoll.com', 'vitra.com', 'muuto.com', 'haworth.com', 'architonic.com'];
     const lowerUrl = url.toLowerCase();
-    const isTrusted = trustedDomains.some(d => lowerUrl.includes(d)) || (brand && lowerUrl.includes(brand.toLowerCase()));
+    const isWafWhitelisted = wafTrustedDomains.some(d => lowerUrl.includes(d));
+    let refererHeader = {};
+    try { refererHeader = { 'Referer': new URL(url).origin + '/' }; } catch {}
 
     try {
         const res = await axios.head(url, {
-            timeout: 5000,
+            timeout: 2500,
             headers: {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8'
+                'Accept': 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8',
+                ...refererHeader
             }
         });
-        const contentType = res.headers['content-type'] || '';
-        if (res.status >= 200 && res.status < 400 && contentType.startsWith('image/')) return true;
+        const contentType = String(res.headers['content-type'] || '').toLowerCase();
+        if (res.status >= 200 && res.status < 400 && (contentType.startsWith('image/') || isImageFile) && !contentType.includes('html')) return true;
 
-        // 2. HEAD blocked? Fallback to small GET
         const resGet = await axios.get(url, {
-            timeout: 5000,
-            range: 'bytes=0-1024',
+            timeout: 2500,
+            responseType: 'arraybuffer',
             headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Range': 'bytes=0-2048',
+                ...refererHeader
             }
         });
-        return resGet.status >= 200 && resGet.status < 400;
+        const getCt = String(resGet.headers['content-type'] || '').toLowerCase();
+        return resGet.status >= 200 && resGet.status < 400 && (getCt.startsWith('image/') || isImageFile) && !getCt.includes('html');
     } catch (err) {
-        // 3. WAF / 403 Protection Bypass: If it's a known image link from a trusted domain, trust it.
-        if (isImageFile && isTrusted) {
-            console.log(`  ✅ [Stage 3.5] Smart Trust applied for: "${url.substring(0, 50)}..." (Domain/Ext Verified)`);
+        const httpStatus = err?.response?.status;
+        // Never treat HTTP 404/410 hallucinations as valid; only allow WAF 403 bypass for explicit CDN allowlist
+        if (httpStatus === 403 && isImageFile && isWafWhitelisted) {
+            console.log(`  ✅ [Stage 3.5] Smart Trust applied for WAF 403 CDN: "${url.substring(0, 50)}..."`);
             return true;
         }
         return false;
@@ -999,57 +1196,129 @@ Return ONLY valid JSON:
 // PLAN ANALYZER
 // ──────────────────────────────────────────────────────────────────────────────
 
-const PLAN_ANALYSIS_PROMPT = (includeFitout = false) => `You are an Elite Senior Quantity Surveyor (SQS). Your mission is to extract a high-precision BOQ from architectural drawings.
+const PLAN_ANALYSIS_PROMPT = (includeFitout = false) => `You are an Elite Senior Quantity Surveyor (SQS) & Interior Fitout Specification Writer. Your mission is to extract a high-precision, tender-ready Bill of Quantities (BOQ) from architectural drawings with rich technical specifications for automated catalog & pricing matching.
 ${!includeFitout ? `
 ### 🚨 STRICT SCOPE: FURNITURE ONLY
-- You MUST EXCLUSIVELY extract loose furniture items (Chairs, Desks, Tables, Sofas, Storage, etc.).
-- You MUST NOT extract any architectural or fitout elements such as Partition Walls, Flooring, Ceilings, or MEP services.
+- You MUST EXCLUSIVELY extract loose & system furniture items (Task Chairs, Meeting Chairs, Visitor Chairs, Lounge Seating, Conference Tables, Workstations, Executive Desks, Reception Counters, Dining/Pantry Tables, Storage Cabinets, Pedestals, Acoustic Pods/Booths).
+- You MUST NOT extract any architectural or fitout elements such as Partition Walls, Doors, Flooring, Ceilings, Skirting, or MEP services.
 ` : `
 ### 🏗️ SCOPE: FULL FITOUT & FURNITURE
-- Extract everything: Architectural elements (Partitions, Flooring, Ceilings), MEP services, and all Furniture items.
+- Extract BOTH all Architectural Fitout elements (Partitions, Doors & Glazing, Flooring Finishes, False Ceilings, Wall Cladding, Skirting, Fixed Joinery/Pantry Counters & Sinks, Lighting/MEP) AND all loose/system Furniture items as distinct line items.
+- Do NOT lump Furniture and Fitout into one item.
 `}
 
 ### 🎯 ACCURACY PROTOCOL - REJECT "LOT":
-You are strictly FORBIDDEN from using units like "Lot", "LS", "Lumpsum", or "Package". Every item MUST have a measurable numerical quantity and unit.
+You are strictly FORBIDDEN from using units like "Lot", "LS", "Lumpsum", or "Package". Every item MUST have a measurable numerical quantity and unit ("Nos", "SQM", or "LM").
 
-### 📐 QUANTITY CALCULATION DIRECTIVES:
-1. ** Nos (Count)**: Manually count every individual door, chair, desk, and lighting fixture.
-2. ** SQM (Area)**: For Flooring, Ceiling, and Wall Finishes:
-   - Search for room labels with area (e.g., "Office 01 - 15.5m2"). Use that number.
-   - If missing, find the Scale Bar (e.g., 1:100) and estimate dimensions (Length x Width).
-   - If no scale is found, use standard architectural dimensions (e.g., a standard office door is 0.9m, use this to calibrate the room size).
-3. ** LM (Linear)**: For Partitions, Skirting, and Cabinets, calculate the total length of the lines drawn.
-4. If a description mentions a group of items (e.g., '6 workstations'), set quantity to 6.
-9. **VISUAL PATTERN RECOGNITION (Architectural Logic)**:
-   - **Flooring**: Identify "Carpet" by stippled/dotted hatch patterns. Identify "Tiles" by grid patterns. Identify "Stone/Marble" by irregular vein patterns or large slab outlines.
-   - **Partitions**: "Glass Partitions" are typically thin double lines, often with a 'swing' symbol for doors. "Solid/Drywall Partitions" are thicker double lines, sometimes with solid or cross-hatch fill.
-   - **Ceilings**: Grid patterns on the plan often indicate "Acoustic Tile" ceilings. Smooth areas with perimeter lines indicate "Gypsum" or "Plasterboard" ceilings.
-   - **Joinery**: Built-in cabinets, pantries, and reception counters are typically identified by fixed outlines near walls, often with sink or equipment symbols.
-10. CATEGORY MAPPING: You MUST map every item to one of these valid Main Categories: ${ALLOWED_CATEGORIES}.
-11. SEPARATION OF CONCERNS:
-   - FURNITURE: Includes chairs, desks, tables, storage, pods, and mobile accessories.
-   - FITOUT: Includes architectural elements like 'Partition Wall', 'Tile Flooring', 'Gypsum Ceiling', 'Curtain Wall', 'Carpeting', 'Wall Cladding', or any fixed MEP/HVAC elements. 
-   - FLOORING & CARPET: Items like 'Carpet Tile', 'Floor Carpet', 'Vinyl', or 'Main Floor Finish' MUST be identified as FITOUT.
-   - IMPORTANT: If an item is an architectural element (Fixed Partition, Flooring, Ceiling), it belongs to FITOUT.
+### 📐 QUANTITY & DIMENSION CALIBRATION DIRECTIVES:
+1. **Calibrate Scale First**: Read explicit dimension strings on the plan (e.g., millimeter strings like 16950, 7105, 4585, 5260, 4600, 3000, room areas in m2, or Scale Bars like 1:100). If missing, use standard architectural door leaf width (~900 mm / 0.9 m) to calibrate room dimensions and furniture sizes.
+2. **Nos (Count)**: Carefully count EVERY individual chair (count cluster by cluster + conference room + cabins + pantry), workstation desk/position, table, door leaf (swing vs sliding), acoustic pod, storage unit, sink, and lighting fixture.
+   - If open office workstations are arranged in clusters (e.g., 5 clusters x 6 seats = 30 workstations), extract accurate total counts or clear cluster line items with exact total count matching the drawing annotations.
+3. **SQM (Area)**: For Flooring (Carpet Tile, Porcelain Tile, Vinyl, Marble), False Ceilings (Gypsum Board, Acoustic Grid Tile), and Wall Cladding: use explicit room areas or calibrated Length x Width (in meters) per zone.
+4. **LM (Linear)**: For Interior Partition Walls (Drywall / Glass Partitions), Skirting, and Fixed Pantry Counters/Wall Cabinets: measure total drawn wall/counter length along each zone.
 
-Return ONLY the JSON. No conversational text.
+### ✍️ MANDATORY TECHNICAL SPECIFICATION ENRICHMENT (FOR AUTO-MATCHING):
+Write a crisp, tender-grade technical BOQ specification for EVERY item derived accurately from the drawing — **WITHOUT inventing brand/model names, WITHOUT "Supply and installation of..." filler, and WITHOUT repeating clauses**:
+- **Tone & Conciseness**: Keep description crisp, factual, and scannable (20-32 words max, single sentence/clause format). Never invent an unseen base mechanism (for instance, do NOT write "cantilever-style" on chairs drawn around a table unless cantilever/sled legs are visually unmistakable; state "swivel / 4-leg / sled commercial base" if unshown).
+- **For Seating**: State chair role & geometry seen on plan (e.g., open office 5-star swivel task chair vs meeting room mid-back meeting/conference chair vs pantry cafe dining chair vs reception 2-seater / 3-seater / L-shaped modular lounge sofa ONLY if drawn as a multi-seat/L-shape, or lounge armchair if drawn as single square chairs), upholstery/back finish, base material, and calibrated W x D x H mm.
+  - Good example: "Mid-Back Conference / Meeting Chair (~600 x 600 x 880 mm) — Upholstered high-density molded foam seat, breathable mesh or fabric back, fixed/adjustable armrests, steel or aluminum base."
+- **For Desks, Tables & Workstations**: State exact geometry & seating capacity from plan (e.g., 12-Pax Rectangular/Boat Boardroom Conference Table with ~4200 x 1400 x 750 mm for long boardroom tables vs small round tables ONLY if drawn round, Executive L-Shaped Desk with Side Return, Linear Back-to-Back Workstation Desk System, Curved Reception Counter, Coffee Side Table), 25 mm E1 MFC/HPL worktop with 2 mm ABS edging, cable management/power box, and powder-coated steel frame.
+- **For Storage / Joinery / Pods**: State cabinet/pod type (Mobile 3-Drawer Pedestal, Low Storage Credenza, Acoustic Phone Booth / Pod if enclosed pod symbol exists), central lock, and L x W x H mm.
+- **For Fitout - Flooring**: State commercial system & finish from room context/hatching (Heavy-Duty Commercial Tufted Nylon Carpet Tile, 500x500 mm, bitumen/acoustic backing, Class 33, Bfl-s1; pantry/wet areas -> Rectified Anti-Slip Porcelain Floor Tile, 600x600x10 mm, R10 matte finish, cementitious screed & epoxy grout).
+- **For Fitout - Ceilings**: State ceiling system (12.5 mm Gypsum Board False Ceiling on 0.5 mm concealed galvanized MF steel furring grid, taped & matte emulsion paint; or 600x600x15 mm Acoustic Mineral Fiber Tile Ceiling on exposed T-grid).
+- **For Fitout - Partitions, Doors & Pantry Joinery**: State wall/door build-up (100-125 mm Acoustic Drywall Partition: double 12.5 mm plasterboard on 70 mm galvanized C-studs with 50 mm 60 kg/m3 rockwool infill; 10-12 mm Slimline Toughened Glass Partition in powder-coated aluminum channels; 900x2100x45 mm Solid-Core Flush Laminate Single Leaf Swing Door / Toughened Glass Sliding Door with overhead aluminum track; or Built-in Pantry Base/Wall Cabinet in HMR MDF/HPL with 20 mm quartz top & SS undermount sink).
+
+### 🧭 CATEGORY & SCOPE MAPPING:
+1. Map every item to an accurate main typology hint aligned with: ${ALLOWED_CATEGORIES}.
+2. SEPARATION OF CONCERNS:
+   - "Furniture": Chairs, Desks, Conference Tables, Workstations, Reception Desks, Cafe/Coffee Tables, Pedestals, Filing Cabinets, Sofas, Lounge Armchairs, Acoustic Pods.
+   - "Fitout (Architectural)": Partition Walls, Glass Partitions, Flooring finishes (Carpet Tile, Porcelain Tile, Vinyl, Marble), False Ceilings (Gypsum / Acoustic Grid), Swing Doors, Sliding Doors, Wall Cladding, Skirting.
+   - "Fitout (Joinery)": Built-in Pantry Cabinets, Built-in Wall Units, Countertops & Sink Vanity Joinery.
+   - "Fitout (Lighting)" / "Fitout (MEP)" / "Fitout (AV)": Only if clearly indicated on the plan.
+
+Return ONLY valid JSON. No markdown fences or conversational text.
 
 ### 📦 OUTPUT FORMAT:
-Return ONLY a valid JSON object:
 {
   "items": [
-    { 
-      "location": "Room Name/Zone", 
-      "scope": "Fitout (Architectural)" | "Fitout (MEP)" | "Fitout (Joinery)" | "Fitout (AV)" | "Fitout (Lighting)" | "Furniture", 
-      "code": "e.g., CH-01",
-      "description": "Specific naming (e.g., Ergonomic Task Chair, Carpet Type A)", 
-      "qty": 12.5, 
-      "unit": "Nos" | "SQM" | "LM" 
+    {
+      "location": "Exact Room / Zone Name from Plan",
+      "scope": "Furniture" | "Fitout (Architectural)" | "Fitout (Joinery)" | "Fitout (Lighting)" | "Fitout (MEP)" | "Fitout (AV)",
+      "code": "Tag if shown on plan or systematic code e.g. CH-01, WS-01, FL-01, DR-01",
+      "name": "Concise Standardized Item Title (no brand/model names)",
+      "dimensions": "Calibrated L x W x H mm or module size (e.g. '4200 x 1400 x 750 mm')",
+      "materialSpec": "Short non-repeating finish/construction spec (only used if description is brief)",
+      "categoryHint": "Valid category from allowed categories or Fitout trade",
+      "description": "One clean, non-repetitive tender BOQ specification (title + dimensions + key construction specs in ~20-32 words, no 'Supply and installation of')",
+      "qty": 12.5,
+      "unit": "Nos" | "SQM" | "LM"
     }
   ],
-  "planSummary": "Extraction of \$TOTAL_ITEMS items completed."
+  "planSummary": "Extraction of N items completed."
 }
 `;
+
+const normalizePlanScope = (rawScope, desc, includeFitout) => {
+    const scopeStr = String(rawScope || '').trim();
+    const lowerDesc = String(desc || '').toLowerCase();
+    const isClearArchitecturalFitout = /\b(carpet tile|carpet flooring|porcelain tile|tile flooring|vinyl flooring|marble flooring|gypsum ceiling|false ceiling|mineral fiber ceiling|acoustic grid ceiling|partition wall|drywall partition|glass partition|swing door|sliding door|wall cladding|skirting|ceiling finish|floor finish)\b/i.test(lowerDesc)
+        && !/\b(mobile|freestanding|acoustic pod|phone booth|desk screen|privacy screen)\b/i.test(lowerDesc);
+    const isClearFixedJoinery = /\b(pantry cabinet|built-in pantry|vanity counter|pantry sink|undermount sink)\b/i.test(lowerDesc);
+
+    if (isClearArchitecturalFitout) return 'Fitout (Architectural)';
+    if (isClearFixedJoinery && /fitout|joinery|cabinet|pantry/i.test(scopeStr || lowerDesc)) return 'Fitout (Joinery)';
+    if (scopeStr) return scopeStr;
+    return includeFitout ? 'Fitout (Architectural)' : 'Furniture';
+};
+
+const formatEnrichedPlanDescription = (item = {}) => {
+    const name = String(item.name || '').trim();
+    const rawDesc = String(item.description || '')
+        .replace(/^(supply\s+(?:and|&)\s+installation\s+of\s+(?:a|an|the)?\s*|supply\s+of\s+(?:a|an|the)?\s*)/i, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+    const dims = String(item.dimensions || '').replace(/^dimensions\s*:?\s*/i, '').trim();
+    const spec = String(item.materialSpec || item.material_spec || '').trim();
+
+    let out = rawDesc || name || 'Architectural BOQ Item';
+    if (name && rawDesc) {
+        const nameWords = name.toLowerCase().split(/[^a-z0-9]+/).filter(w => w.length >= 3);
+        const rawLower = rawDesc.toLowerCase();
+        const covered = nameWords.length > 0 && nameWords.every(w => rawLower.includes(w));
+        if (!covered && !rawLower.includes(name.toLowerCase())) {
+            out = `${name} — ${rawDesc.charAt(0).toUpperCase()}${rawDesc.slice(1)}`;
+        }
+    }
+
+    if (dims) {
+        const dimNums = dims.match(/\d{3,4}/g) || [];
+        const hasDimInOut = /\d{3,4}\s*[x×]\s*\d{3,4}/i.test(out)
+            || out.toLowerCase().includes(dims.toLowerCase())
+            || (dimNums.length >= 2 && dimNums.slice(0, 2).every(tok => out.includes(tok)));
+        if (!hasDimInOut) {
+            const cleanOut = out.replace(/[;.\s]+$/, '');
+            out = `${cleanOut} (${dims})`;
+        }
+    }
+
+    // Only append non-overlapping material clauses if the description is short
+    if (spec && out.length < 75) {
+        const outWordSet = new Set(out.toLowerCase().split(/[^a-z0-9]+/).filter(w => w.length >= 3));
+        const clauses = spec.split(/[;•]+/).map(c => c.trim()).filter(Boolean);
+        const freshClauses = clauses.filter(clause => {
+            const cWords = clause.toLowerCase().split(/[^a-z0-9]+/).filter(w => w.length >= 3);
+            if (cWords.length === 0) return false;
+            const overlap = cWords.filter(w => outWordSet.has(w)).length;
+            return (overlap / cWords.length) < 0.45;
+        });
+        if (freshClauses.length > 0) {
+            const cleanOut = out.replace(/[;.\s]+$/, '');
+            out = `${cleanOut}; ${freshClauses.join(', ')}`;
+        }
+    }
+
+    return out.replace(/\s+/g, ' ').replace(/\s*;\s*$/, '').trim();
+};
 
 const cleanQty = (val) => {
     if (typeof val === 'number') return val;
@@ -1057,7 +1326,7 @@ const cleanQty = (val) => {
     const s = String(val).toLowerCase().trim();
     const words = { 'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5, 'six': 6, 'seven': 7, 'eight': 8, 'nine': 9, 'ten': 10 };
     if (words[s]) return words[s];
-    const match = s.match(/[\\d.]+/);
+    const match = s.match(/[\d.]+/);
     return match ? parseFloat(match[0]) : 1;
 };
 
@@ -1159,7 +1428,7 @@ async function callLocalLLM(systemPrompt, userPrompt, model = 'llama3.2') {
  * UNIVERSAL MULTIMODAL CALL
  * Routes to Google SDK or OpenAI-style Vision API (Nvidia/OpenRouter)
  */
-export async function callUniversalMultimodalAI(systemPrompt, userPrompt, assets = [], modelName = null, jsonMode = false) {
+export async function callUniversalMultimodalAI(systemPrompt, userPrompt, assets = [], modelName = null, jsonMode = false, pipeline = null) {
     const contextStore = aiKeyStorage.getStore() || {};
     const reqGoogleModel = contextStore.googleModel;
     const reqOpenRouterModel = contextStore.openrouterModel;
@@ -1189,18 +1458,21 @@ export async function callUniversalMultimodalAI(systemPrompt, userPrompt, assets
 
     if (provider === 'google') {
         const rawModelName = finalModel;
-        const cleanModelName = rawModelName.replace(':billed', '').trim();
-        const sdkModelName = MODEL_MAPPING[cleanModelName] || cleanModelName;
+        const forceBilledSuffix = String(rawModelName || '').toLowerCase().trim().endsWith(':billed') ? ':billed' : '';
+        const freeTier = isGoogleFreeTierActive(aiKeyStorage, rawModelName);
+        const hasPdfAsset = Array.isArray(assets) && assets.some(a => /pdf/i.test(String(a?.mimeType || '')));
+        const effectivePipeline = pipeline || (hasPdfAsset ? 'pdf_boq' : 'matching');
+        const timeoutMs = PIPELINE_TIMEOUT_MS[effectivePipeline] || 30000;
 
-        const genAIInstance = getGoogleAI(rawModelName);
-        const model = genAIInstance.getGenerativeModel({
-            model: sdkModelName,
-            systemInstruction: systemPrompt,
-            generationConfig: {
-                temperature: 0.1,
-                maxOutputTokens: 16384,
-                ...(jsonMode ? { responseMimeType: 'application/json' } : {})
-            }
+        const activeCatalogKey = freeTier
+            ? (contextStore.googleFreeKey || contextStore.googleApiKey || '')
+            : (contextStore.googleApiKey || contextStore.googleFreeKey || '');
+        await ensureLiveCatalogSynced(activeCatalogKey);
+
+        const candidates = getPipelineModelCandidates(effectivePipeline, rawModelName, {
+            freeTier,
+            useSearch: false,
+            modelMapping: MODEL_MAPPING
         });
 
         const promptParts = [
@@ -1210,19 +1482,58 @@ export async function callUniversalMultimodalAI(systemPrompt, userPrompt, assets
             }))
         ];
 
-        try {
-            const result = await model.generateContent({ contents: [{ role: 'user', parts: promptParts }] });
-            return safeParseJSON(result.response.text());
-        } catch (err) {
-            console.error(`  ❌ [Google Multimodal] Global Error:`, err.message);
-            throw err;
+        let lastError = null;
+        for (let i = 0; i < candidates.length; i++) {
+            const candidate = candidates[i];
+            try {
+                if (freeTier && i === 0 && rawModelName && rawModelName.replace(':billed', '').trim() !== candidate) {
+                    console.log(`  🧭 [Free Router:${effectivePipeline}] Multimodal routed "${rawModelName}" → "${candidate}"`);
+                } else if (i > 0) {
+                    console.log(`  🔁 [Multimodal Failover:${effectivePipeline}] Switching to fallback "${candidate}"...`);
+                }
+                const genAIInstance = getGoogleAI(`${candidate}${forceBilledSuffix}`);
+                const model = genAIInstance.getGenerativeModel({
+                    model: candidate,
+                    systemInstruction: systemPrompt,
+                    generationConfig: {
+                        temperature: 0,
+                        maxOutputTokens: (effectivePipeline === 'pdf_boq' || effectivePipeline === 'plan_vision') ? 65536 : 16384,
+                        ...(jsonMode ? { responseMimeType: 'application/json' } : {})
+                    }
+                });
+
+                const t0 = Date.now();
+                const result = await withModelTimeout(
+                    model.generateContent({ contents: [{ role: 'user', parts: promptParts }] }),
+                    timeoutMs,
+                    `GoogleMultimodal(${candidate})`
+                );
+                const parsed = safeParseJSON(result.response.text());
+                recordModelSuccess(candidate, { useSearch: false, freeTier, latencyMs: Date.now() - t0 });
+                return parsed;
+            } catch (err) {
+                lastError = err;
+                const info = recordModelFailure(candidate, err, { useSearch: false, freeTier });
+                console.error(`  ❌ [Google Multimodal:${effectivePipeline}] "${candidate}" failed (${info.category}):`, err.message);
+                if (!info.retryableOnNextModel) {
+                    throw err;
+                }
+            }
         }
+
+        if (lastError) {
+            lastError.allModelsExhausted = true;
+            throw lastError;
+        }
+        const err = new Error(`All Google multimodal models failed for pipeline "${effectivePipeline}"`);
+        err.allModelsExhausted = true;
+        throw err;
     } else {
         // Nvidia or OpenRouter (OpenAI-style Vision)
         const endpoint = provider === 'nvidia' ? 'https://integrate.api.nvidia.com/v1/chat/completions' : 'https://openrouter.ai/api/v1/chat/completions';
-        const apiKey = provider === 'nvidia' 
-            ? (contextStore.nvidiaApiKey || NVIDIA_API_KEY)
-            : (contextStore.openrouterApiKey || OPENROUTER_API_KEY);
+        const apiKey = provider === 'nvidia'
+            ? (resolveKey('nvidiaApiKey', 'nvidiaApiKey') || process.env.NVIDIA_API_KEY || '')
+            : (resolveKey('openrouterApiKey', 'openrouterApiKey') || process.env.OPENROUTER_API_KEY || '');
 
         if (!apiKey) throw new Error(`API Key for ${provider} is missing in .env or Settings`);
 
@@ -1303,19 +1614,23 @@ export async function analyzePlan(filesData, options = {}) {
         const file = filesData[0];
 
         let parsed;
+        let actualModelUsed = selectedModel;
 
         if (provider === 'google') {
-            // Use Google Gemini SDK with multimodal support
-            const rawModel = reqGoogleModel || providerModel || GOOGLE_MODEL;
-            const cleanModel = rawModel.replace(':billed', '').trim();
-            const sdkModel = MODEL_MAPPING[cleanModel] || cleanModel;
-            console.log(`  📍 Using Google model: ${sdkModel} (Source: ${rawModel})`);
-
-            const genAIInstance = getGoogleAI(rawModel);
-            const model = genAIInstance.getGenerativeModel({
-                model: sdkModel,
-                generationConfig: { temperature: 0.1, maxOutputTokens: 16384 }
+            // Use Google Gemini SDK with pipeline-optimal Free-Tier model & failover chain
+            const rawModel = reqGoogleModel || providerModel || VISION_MODEL;
+            const forceBilledSuffix = String(rawModel || '').toLowerCase().trim().endsWith(':billed') ? ':billed' : '';
+            const freeTier = isGoogleFreeTierActive(aiKeyStorage, rawModel);
+            const activeCatalogKey = freeTier
+                ? (contextStore.googleFreeKey || contextStore.googleApiKey || '')
+                : (contextStore.googleApiKey || contextStore.googleFreeKey || '');
+            await ensureLiveCatalogSynced(activeCatalogKey);
+            const candidates = getPipelineModelCandidates('plan_vision', rawModel, {
+                freeTier,
+                useSearch: false,
+                modelMapping: MODEL_MAPPING
             });
+            const timeoutMs = PIPELINE_TIMEOUT_MS.plan_vision || 95000;
 
             const promptParts = [
                 { text: promptText },
@@ -1324,12 +1639,51 @@ export async function analyzePlan(filesData, options = {}) {
                 }))
             ];
 
-            const result = await model.generateContent({ contents: [{ role: 'user', parts: promptParts }] });
-            parsed = safeParseJSON(result.response.text());
+            let lastPlanErr = null;
+            for (let i = 0; i < candidates.length; i++) {
+                const candidate = candidates[i];
+                try {
+                    console.log(`  📍 [Plan Analyzer] Attempt ${i + 1}/${candidates.length} using Google model: ${candidate} (FreeTier=${freeTier})`);
+                    const genAIInstance = getGoogleAI(`${candidate}${forceBilledSuffix}`);
+                    const model = genAIInstance.getGenerativeModel({
+                        model: candidate,
+                        // Omit hard maxOutputTokens cap so thinking/reasoning models use their full native output budget without truncating large BOQ JSON
+                        generationConfig: { temperature: 0.1, responseMimeType: 'application/json' }
+                    });
+
+                    const result = await withModelTimeout(
+                        model.generateContent({ contents: [{ role: 'user', parts: promptParts }] }),
+                        timeoutMs,
+                        `PlanAnalyzer(${candidate})`
+                    );
+                    const candidateRes = result.response?.candidates?.[0];
+                    const finishReason = candidateRes?.finishReason || 'UNKNOWN';
+                    const rawText = result.response.text();
+                    console.log(`  📄 [Plan Analyzer] Response received (${candidate}): finishReason=${finishReason}, chars=${rawText?.length || 0}`);
+                    const candidateParsed = safeParseJSON(rawText);
+                    if (!candidateParsed || !Array.isArray(candidateParsed.items) || candidateParsed.items.length === 0) {
+                        throw new Error(`Model ${candidate} returned 0 items from floor plan`);
+                    }
+                    parsed = candidateParsed;
+                    actualModelUsed = candidate;
+                    recordModelSuccess(candidate, { useSearch: false, freeTier });
+                    break;
+                } catch (planErr) {
+                    lastPlanErr = planErr;
+                    const info = recordModelFailure(candidate, planErr, { useSearch: false, freeTier });
+                    console.warn(`  ⚠️ [Plan Analyzer] "${candidate}" failed (${info.category}): ${planErr.message}`);
+                    if (!info.retryableOnNextModel) throw planErr;
+                }
+            }
+            if (!parsed) {
+                throw lastPlanErr || new Error('All Google vision models failed to analyze floor plan');
+            }
 
         } else if (provider === 'openrouter') {
             // Use OpenRouter API with multimodal support
             const modelName = providerModel || OPENROUTER_MODEL;
+            const openrouterApiKey = resolveKey('openrouterApiKey', 'openrouterApiKey') || process.env.OPENROUTER_API_KEY || '';
+            if (!openrouterApiKey) throw new Error('OpenRouter API key is not configured. Open Settings → AI Configuration to add your key.');
             console.log(`  📍 Using OpenRouter model: ${modelName}`);
 
             parsed = await callVisionAPI(
@@ -1339,12 +1693,14 @@ export async function analyzePlan(filesData, options = {}) {
                 file.mimeType,
                 modelName,
                 'https://openrouter.ai/api/v1/chat/completions',
-                OPENROUTER_API_KEY
+                openrouterApiKey
             );
 
         } else if (provider === 'nvidia') {
             // Use NVIDIA NIM API with multimodal support
             const modelName = providerModel || NVIDIA_MODEL;
+            const nvidiaApiKey = resolveKey('nvidiaApiKey', 'nvidiaApiKey') || process.env.NVIDIA_API_KEY || '';
+            if (!nvidiaApiKey) throw new Error('NVIDIA API key is not configured. Open Settings → AI Configuration to add your key.');
             console.log(`  📍 Using NVIDIA model: ${modelName}`);
 
             parsed = await callVisionAPI(
@@ -1354,7 +1710,7 @@ export async function analyzePlan(filesData, options = {}) {
                 file.mimeType,
                 modelName,
                 'https://integrate.api.nvidia.com/v1/chat/completions',
-                NVIDIA_API_KEY
+                nvidiaApiKey
             );
 
         } else if (provider === 'local') {
@@ -1369,14 +1725,23 @@ export async function analyzePlan(filesData, options = {}) {
         let flatItems = [];
         if (parsed.items && Array.isArray(parsed.items)) {
             flatItems = parsed.items
-                .map(item => ({
-                    location: String(item.location || 'General Area').trim(),
-                    scope: String(item.scope || (includeFitout ? 'Fitout' : 'Furniture')).trim(),
-                    code: item.code ? String(item.code).trim() : '',
-                    description: String(item.description).trim(),
-                    qty: cleanQty(item.qty),
-                    unit: String(item.unit || 'Nos').trim()
-                }));
+                .filter(item => item && (item.description || item.name))
+                .map(item => {
+                    const enrichedDescription = formatEnrichedPlanDescription(item);
+                    const normalizedScope = normalizePlanScope(item.scope, enrichedDescription, includeFitout);
+                    return {
+                        location: String(item.location || 'General Area').trim(),
+                        scope: normalizedScope,
+                        code: item.code ? String(item.code).trim() : '',
+                        name: item.name ? String(item.name).trim() : '',
+                        dimensions: item.dimensions ? String(item.dimensions).trim() : '',
+                        materialSpec: (item.materialSpec || item.material_spec) ? String(item.materialSpec || item.material_spec).trim() : '',
+                        categoryHint: (item.categoryHint || item.category_hint) ? String(item.categoryHint || item.category_hint).trim() : '',
+                        description: enrichedDescription,
+                        qty: cleanQty(item.qty),
+                        unit: String(item.unit || 'Nos').trim()
+                    };
+                });
 
             // Safety Filter: If user requested Furniture only, strip out anything labeled as Fitout
             if (!includeFitout) {
@@ -1396,7 +1761,7 @@ export async function analyzePlan(filesData, options = {}) {
             planSummary: parsed.planSummary || `Extracted ${flatItems.length} items.`,
             items: flatItems,
             provider: provider,
-            model: providerModel || (provider === 'google' ? GOOGLE_MODEL : provider === 'openrouter' ? OPENROUTER_MODEL : NVIDIA_MODEL)
+            model: actualModelUsed || providerModel || (provider === 'google' ? VISION_MODEL : provider === 'openrouter' ? OPENROUTER_MODEL : NVIDIA_MODEL)
         };
 
     } catch (err) {
@@ -1417,8 +1782,12 @@ export async function withRetry(fn, retries = 4, delay = 1500) {
         try {
             return await fn();
         } catch (err) {
-            if (i === retries - 1) throw err;
             const errMsg = err.message || '';
+            // Do not waste 25s retrying hard billing caps or already-exhausted full failover chains
+            if (/exceeded its monthly spending cap/i.test(errMsg) || err?.allModelsExhausted) {
+                throw err;
+            }
+            if (i === retries - 1) throw err;
             let waitTime = delay * (i + 1);
             
             // Check if error is a 429 rate limit / quota error
@@ -1451,7 +1820,7 @@ export async function withRetry(fn, retries = 4, delay = 1500) {
  * @param {string} providerModel - Optional model override
  * @returns {Promise<object>} Validated JSON response
  */
-export async function callWithSchemaRetry(systemPrompt, userPrompt, schema = null, maxRetries = 2, providerModel = null) {
+export async function callWithSchemaRetry(systemPrompt, userPrompt, schema = null, maxRetries = 2, providerModel = null, pipeline = 'matching', useSearch = false) {
     let attempt = 0;
     let lastError = null;
     let currentSystemPrompt = systemPrompt;
@@ -1459,7 +1828,7 @@ export async function callWithSchemaRetry(systemPrompt, userPrompt, schema = nul
 
     while (attempt <= maxRetries) {
         try {
-            const parsed = await callGoogle(currentSystemPrompt, currentUserPrompt, false, providerModel);
+            const parsed = await callGoogle(currentSystemPrompt, currentUserPrompt, useSearch, providerModel, pipeline);
             if (!parsed || typeof parsed !== 'object') {
                 throw new Error('AI returned non-object response');
             }
@@ -1475,6 +1844,9 @@ export async function callWithSchemaRetry(systemPrompt, userPrompt, schema = nul
 
             return parsed;
         } catch (err) {
+            if (/exceeded its monthly spending cap/i.test(err?.message || '') || err?.allModelsExhausted) {
+                throw err;
+            }
             lastError = err;
             attempt++;
             console.warn(`  ⚠️ [LLM Schema Validation Retry ${attempt}/${maxRetries}] Error: ${err.message}`);

@@ -7,7 +7,7 @@ import {
     listSupabaseFiles,
     deleteFromSupabase
 } from './utils/supabaseStorage.js';
-import { classifyContractCategory, getCanonicalBrandLogo } from './utils/brandLogos.js';
+import { classifyContractCategory, getCanonicalBrandLogo, resolveBrandLogo } from './utils/brandLogos.js';
 import { createClient as createKvClient } from '@vercel/kv';
 import axios from 'axios';
 import path from 'path';
@@ -116,28 +116,43 @@ async function getLocalBrands() {
 
 let cachedBrands = null;
 let lastBrandCacheTime = 0;
+let inflightBrandsPromise = null;
+let lastSupabaseBrandsSnapshot = [];
 const BRAND_CACHE_TTL_MS = 180000; // 3 minutes in-memory cache
 
 export const brandStorage = {
     invalidateCache() {
         cachedBrands = null;
         lastBrandCacheTime = 0;
+        inflightBrandsPromise = null;
     },
 
     async getAllBrands(forceRefresh = false) {
         if (cachedBrands && !forceRefresh && (Date.now() - lastBrandCacheTime < BRAND_CACHE_TTL_MS)) {
             return cachedBrands;
         }
+        if (inflightBrandsPromise && !forceRefresh) {
+            return inflightBrandsPromise;
+        }
 
+        const loadPromise = (async () => {
         // Master list
         const brandMap = new Map();
 
-        // 1. Supabase - Top Priority "Source of Truth" with 3s timeout protection
+        // 1. Supabase - Top Priority "Source of Truth" with 5s timeout + last-known snapshot fallback
         if (supabase) {
             try {
                 const supabasePromise = getSupabaseBrands();
-                const timeoutPromise = new Promise(resolve => setTimeout(() => resolve([]), 3000));
-                const supabaseBrands = await Promise.race([supabasePromise, timeoutPromise]);
+                const timeoutPromise = new Promise(resolve => setTimeout(() => resolve([]), 5000));
+                let supabaseBrands = await Promise.race([supabasePromise, timeoutPromise]);
+
+                if (Array.isArray(supabaseBrands) && supabaseBrands.length > 0) {
+                    lastSupabaseBrandsSnapshot = supabaseBrands;
+                    console.log(`✅ [Storage] Loaded ${supabaseBrands.length} brands from Supabase.`);
+                } else if (lastSupabaseBrandsSnapshot.length > 0) {
+                    supabaseBrands = lastSupabaseBrandsSnapshot;
+                    console.warn(`⚠️ [Storage] Supabase timed out/empty — preserving ${supabaseBrands.length} cached Supabase brands.`);
+                }
 
                 supabaseBrands.forEach(b => {
                     if (b && (b.id || b.name)) {
@@ -150,11 +165,22 @@ export const brandStorage = {
                         brandMap.set(String(brandObj.id), brandObj);
                     }
                 });
-                if (supabaseBrands.length > 0) {
-                    console.log(`✅ [Storage] Loaded ${supabaseBrands.length} brands from Supabase.`);
-                }
             } catch (e) {
                 console.error('❌ [Storage] Supabase load failed:', e.message);
+                if (lastSupabaseBrandsSnapshot.length > 0) {
+                    lastSupabaseBrandsSnapshot.forEach(b => {
+                        if (b && (b.id || b.name)) {
+                            const brandObj = {
+                                ...b,
+                                id: b.id || Date.now(),
+                                origin: b.source || 'Supabase',
+                                products: Array.isArray(b.products) ? b.products : []
+                            };
+                            brandMap.set(String(brandObj.id), brandObj);
+                        }
+                    });
+                    console.warn(`⚠️ [Storage] Reused ${lastSupabaseBrandsSnapshot.length} cached Supabase brands after error.`);
+                }
             }
         }
 
@@ -182,8 +208,9 @@ export const brandStorage = {
             }
         });
 
-        // 2b. Build dynamic, read-only category trees for each brand (zero Supabase writes)
+        // 2b. Heal stale/mangled brand logos and build dynamic category trees (zero Supabase writes)
         for (const [id, brand] of brandMap) {
+            brand.logo = resolveBrandLogo(brand) || brand.logo || '';
             const categoryTree = {};
             const products = Array.isArray(brand.products) ? brand.products : [];
             products.forEach(p => {
@@ -220,6 +247,16 @@ export const brandStorage = {
         cachedBrands = finalBrands;
         lastBrandCacheTime = Date.now();
         return finalBrands;
+        })();
+
+        inflightBrandsPromise = loadPromise;
+        try {
+            return await loadPromise;
+        } finally {
+            if (inflightBrandsPromise === loadPromise) {
+                inflightBrandsPromise = null;
+            }
+        }
     },
 
     async getBrandById(brandId) {
@@ -250,11 +287,9 @@ export const brandStorage = {
             return true;
         }
 
-        // 🏷️ Auto-Resolve Brand Logo if missing or placeholder
-        if (!brand.logo || brand.logo.includes('clearbit.com') || brand.logo.includes('via.placeholder')) {
-            const canonicalLogo = getCanonicalBrandLogo(brand.name, brand.websiteUrl);
-            if (canonicalLogo) brand.logo = canonicalLogo;
-        }
+        // 🏷️ Auto-Resolve Brand Logo if missing, Clearbit, or naive .com placeholder
+        const canonicalLogo = resolveBrandLogo(brand, brand.websiteUrl);
+        if (canonicalLogo) brand.logo = canonicalLogo;
 
         // 1. Supabase Save (Attempt if configured)
         if (supabase) {
@@ -277,25 +312,22 @@ export const brandStorage = {
             } catch (error) { /* continue */ }
         }
 
-        // 3. Railway Persistent Volume Replication
+        // 3. Railway Persistent Volume Replication (async non-blocking backup)
         const scraperUrl = process.env.JS_SCRAPER_SERVICE_URL;
         if (scraperUrl) {
-            try {
-                const sanitizedName = brand.name.toLowerCase().replace(/[^a-z0-9]/g, '_');
-                const filename = `${sanitizedName}-${brand.budgetTier || 'mid'}.json`;
-                
-                console.log(`☁️ [Storage] Replicating brand "${brand.name}" to Railway persistent volume...`);
-                await axios.post(`${scraperUrl}/brands/upload`, JSON.stringify(brand, null, 2), {
-                    headers: {
-                        'Content-Type': 'text/plain',
-                        'X-Filename': filename
-                    },
-                    timeout: 10000
-                });
-                console.log(`✅ [Storage] Successfully backed up brand "${brand.name}" to Railway volume.`);
-            } catch (err) {
+            const sanitizedName = brand.name.toLowerCase().replace(/[^a-z0-9]/g, '_');
+            const filename = `${sanitizedName}-${brand.budgetTier || 'mid'}.json`;
+            axios.post(`${scraperUrl}/brands/upload`, JSON.stringify(brand, null, 2), {
+                headers: {
+                    'Content-Type': 'text/plain',
+                    'X-Filename': filename
+                },
+                timeout: 10000
+            }).then(() => {
+                console.log(`✅ [Storage] Backed up brand "${brand.name}" to Railway volume.`);
+            }).catch(err => {
                 console.warn(`⚠️ [Storage] Railway volume replication warning:`, err.message);
-            }
+            });
         }
 
         // Local / Try-Hard Strategy
@@ -327,11 +359,11 @@ export const brandStorage = {
         }
 
         const brands = await this.getAllBrands();
-        // Case-insensitive match for name and tier
+        // Case-insensitive match for name and tier (fallback to any tier for that brand)
         const targetBrand = brands.find(b =>
             b.name.toLowerCase().trim() === brandNameLower &&
-            (b.budgetTier || 'mid').toLowerCase() === budgetTier.toLowerCase()
-        );
+            (b.budgetTier || 'mid').toLowerCase() === (budgetTier || 'mid').toLowerCase()
+        ) || brands.find(b => b.name && b.name.toLowerCase().trim() === brandNameLower);
 
         if (!targetBrand) {
             console.warn(`⚠️ [Storage] Brand ${brandName} (${budgetTier}) not found for hardening.`);
@@ -341,17 +373,7 @@ export const brandStorage = {
         // Initialize products array if missing
         if (!targetBrand.products) targetBrand.products = [];
 
-        // Check if product already exists (by model name/number)
-        const exists = targetBrand.products.some(p =>
-            String(p.model).toLowerCase().trim() === String(product.model).toLowerCase().trim()
-        );
-
-        if (exists) {
-            console.log(`ℹ️ [Storage] Product "${product.model}" already exists in ${brandName}. Skipping hardening.`);
-            return true;
-        }
-
-        // Append new product with normalized contract taxonomy metadata, cleaning up AI internal fields
+        // Append or upgrade incomplete stub product with normalized contract taxonomy metadata
         const { status, logic, error_message, ...cleanProduct } = product;
         const norm = classifyContractCategory(
             cleanProduct.mainCategory,
@@ -359,13 +381,64 @@ export const brandStorage = {
             cleanProduct.model,
             cleanProduct.description
         );
-        targetBrand.products.push({
+        const preparedProduct = {
             ...cleanProduct,
             mainCategory: cleanProduct.mainCategory || norm.mainCategory,
             subCategory: cleanProduct.subCategory || norm.subCategory,
+            verified: Boolean(cleanProduct.imageUrl) && cleanProduct.verified !== false && cleanProduct.source !== 'grounded-search',
             lastUpdated: new Date().toISOString(),
-            source: 'AI-Specialist-Discovery'
-        });
+            source: cleanProduct.source || 'AI-Specialist-Discovery'
+        };
+
+        const lookupModels = new Set(
+            [product.model, product.sourceModel]
+                .map(m => String(m || '').toLowerCase().trim())
+                .filter(Boolean)
+        );
+        const existingIdx = targetBrand.products.findIndex(p =>
+            lookupModels.has(String(p.model || '').toLowerCase().trim())
+        );
+
+        if (existingIdx !== -1) {
+            const existing = targetBrand.products[existingIdx];
+            const isDeadExistingImg = /img\.architonic\.com/i.test(existing.imageUrl || '')
+                || !String(existing.imageUrl || '').startsWith('http');
+            const isGroundedUpgrade = existing.source === 'grounded-search'
+                && Boolean(preparedProduct.imageUrl)
+                && preparedProduct.source !== 'grounded-search';
+            const isOfficialUpgrade = Boolean(preparedProduct.officialRefreshedAt && preparedProduct.imageUrl)
+                && (!existing.officialRefreshedAt || preparedProduct.forceOfficialRefresh === true);
+            const isForcedImageUpgrade = preparedProduct.forceImageUpgrade === true
+                && Boolean(preparedProduct.imageUrl)
+                && preparedProduct.imageUrl !== existing.imageUrl;
+            const needsUpgrade = (!existing.imageUrl && preparedProduct.imageUrl) ||
+                (isDeadExistingImg && preparedProduct.imageUrl) ||
+                isGroundedUpgrade ||
+                isForcedImageUpgrade ||
+                isOfficialUpgrade ||
+                (!existing.description && preparedProduct.description) ||
+                (existing.verified === false && preparedProduct.verified === true) ||
+                (!(parseFloat(existing.price) > 0) && parseFloat(preparedProduct.price) > 0);
+            if (!needsUpgrade) {
+                console.log(`ℹ️ [Storage] Product "${product.model}" already exists in ${brandName}. Skipping hardening.`);
+                return true;
+            }
+            const { sourceModel: _sm, forceOfficialRefresh: _for, forceImageUpgrade: _fiu, ...cleanPrepared } = preparedProduct;
+            targetBrand.products[existingIdx] = {
+                ...existing,
+                ...cleanPrepared,
+                model: existing.model || cleanPrepared.model,
+                imageUrl: cleanPrepared.imageUrl || existing.imageUrl || '',
+                description: cleanPrepared.description || existing.description || '',
+                price: parseFloat(cleanPrepared.price) > 0 ? cleanPrepared.price : (existing.price || 0),
+                verified: Boolean(cleanPrepared.imageUrl || existing.imageUrl) && (cleanPrepared.verified || existing.verified)
+            };
+            console.log(`💎 [Storage] Upgraded "${existing.model}" in ${brandName} with live official image/specs.`);
+            return await this.saveBrand(targetBrand);
+        }
+
+        const { sourceModel: _smNew, forceOfficialRefresh: _forNew, forceImageUpgrade: _fiuNew, ...cleanNewProduct } = preparedProduct;
+        targetBrand.products.push(cleanNewProduct);
 
         console.log(`💎 [Storage] Hardening ${brandName}: Added "${product.model}" (Category: ${cleanProduct.mainCategory || norm.mainCategory} ➔ ${cleanProduct.subCategory || norm.subCategory})`);
         return await this.saveBrand(targetBrand);

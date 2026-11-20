@@ -203,6 +203,19 @@ export const BRAND_SPECIALTIES = {
     'mw structure_test',
     'frezza',
     'teknion'
+  ],
+
+  // Custom Landscape, Terrazzo & Precast Seating
+  customLandscapeAndTerrazzo: [
+    'attf',
+    'automatic terrazzo tiles factory',
+    'assarain',
+    'assarain concrete products',
+    'escofet',
+    'vondom',
+    'fitout v2',
+    'ciment studio',
+    'sui generis'
   ]
 };
 
@@ -219,19 +232,6 @@ export const DOMAIN_EXCLUSIONS = {
 
   // If an item is a Classroom / Stackable Chair, exclude pure desking/storage/upholstered sofas
   classroomAndStackable: ['hadid', 'fitout v2', 'ismobil', 'divani', 'amara'],
-
-  // Custom Landscape, Terrazzo & Precast Seating
-  customLandscapeAndTerrazzo: [
-    'attf',
-    'automatic terrazzo tiles factory',
-    'assarain',
-    'assarain concrete products',
-    'escofet',
-    'vondom',
-    'fitout v2',
-    'ciment studio',
-    'sui generis'
-  ],
 
   // If an item is a Custom Terrazzo / Precast Landscape bench, indoor office seating brands MUST NOT be matched
   customLandscapeAndTerrazzo: ['sedus', 'sedus stoll', 'narbutas', 'sokoa', 'rim', 'ofifran', 'frezza', 'las', 'nurus'],

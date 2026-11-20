@@ -77,7 +77,7 @@ export async function extractVisionBOQData(filePath, mimeType, progressCallback 
             VISION_BOQ_SYSTEM,
             `Extract the BOQ from this page. If you find product images, provide their bounding boxes.`,
             [{ base64Data: base64, mimeType: 'image/png' }],
-            modelName || 'gemma-4-26b-a4b-it', // Pass modelName
+            modelName || null, // Routed through pdf_boq free-tier optimal chain + failover
             true // jsonMode
         );
 

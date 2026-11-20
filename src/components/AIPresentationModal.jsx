@@ -170,6 +170,12 @@ const AIPresentationModal = ({
     };
 
     useEffect(() => {
+        if (!isOpen) {
+            lastMatchedModelRef.current = null;
+            setMemoizedDisplay({ image: null, model: '', brand: '', accuracy: 99.1, description: '', category: '' });
+            setIsTransitioning(false);
+            return;
+        }
         if (isOpen) {
             setStepIndex(0);
             setAccuracy(99.1 + Math.random() * 0.8);
@@ -400,7 +406,7 @@ const AIPresentationModal = ({
                     </div>
                     <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
                         {swarm && <div className={styles.swarmIndicator}>NEURAL SWARM SYNCHRONIZED</div>}
-                        {status === 'routing' && <div className={styles.routingIndicator}>ROUTING...</div>}
+                        {status === 'routing' && <div className={styles.routingIndicator}>PRE-SCANNING...</div>}
                          <button className={styles.minimizeBtn} title="Minimize" onClick={() => onToggleMinimize(true)}>_</button>
                          <button className={styles.close} title="Close" onClick={onClose}>×</button>
                     </div>
@@ -414,7 +420,11 @@ const AIPresentationModal = ({
                         <div className={styles.swarmSidePanel}>
                             <div className={styles.sidePanelHeader}>
                                 <div className={styles.sidePanelIcon}>
-                                    <i className="ri-cpu-line"></i>
+                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                                        <rect x="4" y="4" width="16" height="16" rx="2" />
+                                        <rect x="9" y="9" width="6" height="6" />
+                                        <path d="M9 1v3M15 1v3M9 20v3M15 20v3M20 9h3M20 14h3M1 9h3M1 14h3" />
+                                    </svg>
                                 </div>
                                 <span>{agentLabel}</span>
                             </div>
@@ -435,7 +445,10 @@ const AIPresentationModal = ({
                                             {lane.brandLogo ? (
                                                 <img src={lane.brandLogo} alt="" />
                                             ) : (
-                                                <i className="ri-building-line"></i>
+                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                    <path d="M3 21h18M5 21V7l8-4v18M19 21V11l-6-4" />
+                                                    <path d="M9 9v0M9 12v0M9 15v0M9 18v0" />
+                                                </svg>
                                             )}
                                         </div>
                                         
@@ -495,9 +508,18 @@ const AIPresentationModal = ({
                                     return (
                                         <div className={styles.placeholderVisual}>
                                             <div className={styles.neuralCoreContainer}>
-                                                <div className={styles.wireframeCube} />
                                                 <div className={styles.radarCircle} />
                                                 <div className={styles.radarCircle2} />
+                                                <div className={styles.wireframeCube}>
+                                                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#8a2be2" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                                                        <circle cx="11" cy="11" r="7" />
+                                                        <path d="M21 21l-4.35-4.35" />
+                                                        <path d="M11 8v6M8 11h6" />
+                                                    </svg>
+                                                </div>
+                                                <div className={styles.searchingText}>
+                                                    {status === 'routing' ? 'PRE-SCANNING BRANDS' : 'SCANNING CATALOG'}
+                                                </div>
                                                 
                                                 {/* Neural Scanning Gallery */}
                                                 {swarm && swarm.lanes && (
@@ -547,8 +569,16 @@ const AIPresentationModal = ({
                         </div>
 
                         <div className={styles.dataStreams}>
-                            <div className={styles.stream}>ITEM: {(memoizedDisplay.description || currentItem?.description || '...').substring(0, 20)}...</div>
-                            <div className={styles.stream}>BRAND: {isTransitioning ? '...' : (memoizedDisplay.brand || (foundModel ? brand : '...'))} | ACC: {isTransitioning ? '...' : `${(memoizedDisplay.accuracy || accuracy).toFixed(1)}%`}</div>
+                            <div className={styles.stream}>
+                                {status === 'routing' && !memoizedDisplay.model && !foundModel
+                                    ? 'STAGE: Global Schedule Pre-Scan'
+                                    : `ITEM: ${(memoizedDisplay.description || currentItem?.description || 'Scanning...').substring(0, 32)}...`}
+                            </div>
+                            <div className={styles.stream}>
+                                {status === 'routing' && !memoizedDisplay.brand && !foundModel
+                                    ? 'MODE: Contract Brand & SKU Detection'
+                                    : `BRAND: ${isTransitioning ? '...' : (memoizedDisplay.brand || (foundModel ? brand : 'Scanning...'))} | ACC: ${isTransitioning ? '...' : `${(memoizedDisplay.accuracy || accuracy).toFixed(1)}%`}`}
+                            </div>
                         </div>
                     </div>
 
@@ -603,10 +633,9 @@ const AIPresentationModal = ({
                                         key={step.id} 
                                         className={`${styles.step} ${isActive ? styles.active : ''} ${isCurrent ? styles.current : ''} ${isFailed ? styles.failed : ''}`}
                                     >
-                                        <span className={styles.stepIcon}>{isFailed ? 'X' : (isActive && !isCurrent ? '' : '')}</span>
+                                        <span className={styles.stepIcon}>{isFailed ? '✕' : isCurrent ? '●' : isActive ? '✓' : '○'}</span>
                                         <span className={styles.stepLabel}>{isFailed ? 'Failed to process row' : step.label}</span>
-                                        {isActive && !isCurrent && !isFailed && <span className={styles.stepCheck}></span>}
-                                        {isFinal && status === 'success' && <span className={styles.stepCheck}></span>}
+                                        {((isActive && !isCurrent && !isFailed) || (isFinal && status === 'success')) && <span className={styles.stepCheck}>✓</span>}
                                     </div>
                                 );
                             })}
@@ -630,12 +659,14 @@ const AIPresentationModal = ({
                 {/* Footer / Discovery Tag */}
                 <div className={styles.footer}>
                     {isTransitioning 
-                        ? 'AUTHENTICATING IDENTITY...' 
-                        : (status === 'success' || memoizedDisplay.model) 
-                            ? 'NEW MODEL AUTHENTICATED' 
-                            : 'DISCOVERING IDENTITY'}
+                        ? 'AUTHENTICATING IDENTITY' 
+                        : status === 'routing' && !memoizedDisplay.model
+                            ? 'PRE-SCANNING PROJECT SCHEDULE'
+                            : (status === 'success' || memoizedDisplay.model) 
+                                ? 'NEW MODEL AUTHENTICATED' 
+                                : 'DISCOVERING IDENTITY'}
                     {' : '}
-                    <strong>{isTransitioning ? 'VERIFYING SYMMETRY...' : (memoizedDisplay.brand || (foundModel ? brand : 'IDENTIFYING...'))} {isTransitioning ? '' : (foundModel || memoizedDisplay.model || '')}</strong>
+                    <strong>{isTransitioning ? 'VERIFYING SYMMETRY...' : status === 'routing' && !memoizedDisplay.model ? 'EXTRACTING BRANDS & SKUS...' : (memoizedDisplay.brand || (foundModel ? brand : 'IDENTIFYING...'))} {isTransitioning ? '' : (foundModel || memoizedDisplay.model || '')}</strong>
                 </div>
             </div>
         </div>

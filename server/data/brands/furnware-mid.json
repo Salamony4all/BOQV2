@@ -1,0 +1,60 @@
+{
+  "id": "1795008813152",
+  "name": "Furnware",
+  "products": [
+    {
+      "brand": "Furnware",
+      "model": "Switch Tables",
+      "mainCategory": "Educational & Classroom Furniture",
+      "subCategory": "",
+      "imageUrl": "",
+      "websiteUrl": "https://www.furnware.com",
+      "lastUpdated": "2026-11-18T13:33:32.886Z",
+      "source": "VE-Prescan-Discovery",
+      "verified": false,
+      "discoveredAt": "2026-11-18T13:33:32.886Z",
+      "ttlDays": 30
+    },
+    {
+      "brand": "Furnware",
+      "model": "SWITCH TABLES",
+      "mainCategory": "Educational & Classroom Furniture",
+      "subCategory": "",
+      "imageUrl": "",
+      "websiteUrl": "https://www.furnware.com",
+      "lastUpdated": "2026-11-18T13:33:32.886Z",
+      "source": "VE-Prescan-Discovery",
+      "verified": false,
+      "discoveredAt": "2026-11-18T13:33:32.886Z",
+      "ttlDays": 30
+    },
+    {
+      "brand": "Furnware",
+      "model": "Case Study Furnware",
+      "family": "",
+      "mainCategory": "en au",
+      "subCategory": "Conference Chairs",
+      "description": "Case Study Furnware",
+      "price": 0,
+      "currency": "USD",
+      "imageUrl": "https://www.furnware.com/wp-content/uploads/2026/10/Students-using-Bodyfurn-ergonomic-seating-in-the-classroom.jpg",
+      "websiteUrl": "https://www.furnware.com/en-au/articles/category/case-study/",
+      "officialProductUrl": "https://www.furnware.com/en-au/articles/category/case-study/",
+      "source": "og:furnware.com",
+      "verified": true,
+      "lastUpdated": "2026-11-18T13:37:45.226Z"
+    }
+  ],
+  "source": "VE-Prescan-Discovery",
+  "budget_tier": "mid",
+  "logo": "https://www.google.com/s2/favicons?domain=furnware.com&sz=128",
+  "updated_at": "2026-11-18T13:33:33.144321+00:00",
+  "budgetTier": "mid",
+  "origin": "VE-Prescan-Discovery",
+  "categoryTree": {
+    "Educational & Classroom Furniture": []
+  },
+  "categoryList": [
+    "Educational & Classroom Furniture"
+  ]
+}

@@ -502,7 +502,7 @@ def find_pagination(page, base_url):
     return pagination_urls[:10]  # Limit to 10 pages
 
 
-def scrape_url(url):
+def scrape_url(url, brand_name=None):
     """Main scraping function."""
     try:
         logger.info(f"Starting extraction for {url}")
@@ -514,7 +514,7 @@ def scrape_url(url):
         
         # Brand Info
         title = page.css('title::text').get() or "Unknown Brand"
-        brand_name = title.split('|')[0].split('-')[0].strip()
+        brand_name = (brand_name or "").strip() or title.split('|')[0].split('-')[0].strip()
         
         # Logo
         logo = ""

@@ -224,13 +224,13 @@ CRITICAL: Output ONLY pure valid JSON with no markdown formatting.`;
 
         let llmResult;
         if (provider === 'google') {
-            llmResult = await callGoogle("Output ONLY pure valid JSON.", prompt, false, activeModel);
+            llmResult = await callGoogle("Output ONLY pure valid JSON.", prompt, false, activeModel, 'tender_map');
         } else if (provider === 'openrouter') {
             llmResult = await callOpenRouter("Output ONLY pure valid JSON.", prompt, activeModel);
         } else if (provider === 'nvidia') {
             llmResult = await callNvidia("Output ONLY pure valid JSON.", prompt, activeModel);
         } else {
-            llmResult = await callGoogle("Output ONLY pure valid JSON.", prompt, false, activeModel);
+            llmResult = await callGoogle("Output ONLY pure valid JSON.", prompt, false, activeModel, 'tender_map');
         }
 
         if (!llmResult || !llmResult.row_selector || !llmResult.input_selector) {

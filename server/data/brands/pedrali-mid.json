@@ -52,8 +52,36 @@
       "description": "Multi-purpose portable folding chair with steel tubular frame and lightweight polypropylene seat.",
       "imageUrl": "https://images.unsplash.com/photo-1503602642458-232111445657?w=800&auto=format&fit=crop&q=80",
       "websiteUrl": "https://www.pedrali.com/en-us/products/chairs/passport"
+    },
+    {
+      "brand": "Pedrali",
+      "model": "Buddy Coffee Table",
+      "family": "Pedrali",
+      "mainCategory": "Desk & Table",
+      "subCategory": "Single Desks",
+      "description": "Discover the Pedrali collections: 100% Made in Italy chairs, tables and furnishings. For use in the office, at home and in public and outdoor spaces..Enter now!",
+      "imageUrl": "https://cdn-assets.pedrali.com/media/pedrali/media/home/slider panoramico/workspace 2026/homepage_2026_prova-rizz.jpg",
+      "websiteUrl": "https://www.pedrali.com/en-us/products/tables/buddy",
+      "productUrl": "https://www.pedrali.com/en-us/products/tables/buddy",
+      "officialProductUrl": "https://www.pedrali.com/en-us/products/tables/buddy",
+      "price": 650,
+      "currency": "USD",
+      "verified": true,
+      "source": "AI-Specialist-Discovery",
+      "lastUpdated": "2026-11-19T11:47:14.005Z"
     }
   ],
   "url": "https://www.pedrali.com",
-  "budget_tier": "mid"
+  "budget_tier": "mid",
+  "categoryTree": {
+    "Office Seating": [
+      "Conference Chairs",
+      "Training Chairs",
+      "Visitor Chairs",
+      "Folding Chairs & Stools"
+    ]
+  },
+  "categoryList": [
+    "Office Seating"
+  ]
 }

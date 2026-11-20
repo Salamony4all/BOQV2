@@ -1,0 +1,94 @@
+{
+  "id": "1795008814602",
+  "name": "Vestre",
+  "products": [
+    {
+      "brand": "Vestre",
+      "model": "Inclusive Outdoor Picnic Table",
+      "mainCategory": "Outdoor Furniture",
+      "subCategory": "",
+      "imageUrl": "",
+      "websiteUrl": "https://vestre.com",
+      "lastUpdated": "2026-11-18T13:33:33.737Z",
+      "source": "VE-Prescan-Discovery",
+      "verified": false,
+      "discoveredAt": "2026-11-18T13:33:33.737Z",
+      "ttlDays": 30
+    },
+    {
+      "brand": "Vestre",
+      "model": "FU02 Round outdoor table",
+      "mainCategory": "Outdoor Furniture",
+      "subCategory": "",
+      "imageUrl": "",
+      "websiteUrl": "https://vestre.com",
+      "lastUpdated": "2026-11-18T13:33:33.737Z",
+      "source": "VE-Prescan-Discovery",
+      "verified": false,
+      "discoveredAt": "2026-11-18T13:33:33.737Z",
+      "ttlDays": 30
+    },
+    {
+      "brand": "Vestre",
+      "model": "FU03 Lounge chair",
+      "mainCategory": "Outdoor Furniture",
+      "subCategory": "Lounge Chairs",
+      "imageUrl": "https://cdn.sanity.io/images/8r7wg1gm/production/f0bc92bb5a0273d578696188d50929a5667f5f4d-6000x4000.jpg?rect=0,425,6000,3150&w=1200&h=630&fm=jpg&q=90&fit=crop",
+      "websiteUrl": "https://vestre.com/products/chairs/fari-lounge-chair",
+      "lastUpdated": "2026-11-18T13:49:15.784Z",
+      "source": "og:vestre.com",
+      "verified": true,
+      "discoveredAt": "2026-11-18T13:33:33.737Z",
+      "ttlDays": 30,
+      "description": "FARI is a lounge chair designed to invite people to slow down and observe public life. With a relaxed seating position and a clear Scandinavian expression, it introduces a new level of comfort to public spaces while maintaining the durability and quality expected from Vestre.",
+      "price": 0,
+      "currency": "USD",
+      "officialProductUrl": "https://vestre.com/products/chairs/fari-lounge-chair"
+    },
+    {
+      "brand": "Vestre",
+      "model": "FU04 Outdoor chair with armrest",
+      "mainCategory": "Outdoor Furniture",
+      "subCategory": "",
+      "imageUrl": "",
+      "websiteUrl": "https://vestre.com",
+      "lastUpdated": "2026-11-18T13:33:33.737Z",
+      "source": "VE-Prescan-Discovery",
+      "verified": false,
+      "discoveredAt": "2026-11-18T13:33:33.737Z",
+      "ttlDays": 30
+    },
+    {
+      "brand": "Vestre",
+      "model": "AIR bord",
+      "family": "",
+      "mainCategory": "Bord",
+      "subCategory": "Conference Chairs",
+      "description": "Et bord med et lett og imøtekommende uttrykk, spesielt velegnet for langbord.",
+      "price": 0,
+      "currency": "USD",
+      "imageUrl": "https://cdn.sanity.io/images/8r7wg1gm/production/d3336f9aaaad2fb52bc0081fc0a54f0029893eab-4299x5374.jpg?rect=0,2315,4299,2257&w=1200&h=630&fm=jpg&q=90&fit=crop",
+      "websiteUrl": "https://www.vestre.com/no/produkter/bord/air-bord",
+      "officialProductUrl": "https://www.vestre.com/no/produkter/bord/air-bord",
+      "source": "og:vestre.com",
+      "verified": true,
+      "lastUpdated": "2026-11-18T13:40:09.241Z"
+    }
+  ],
+  "source": "VE-Prescan-Discovery",
+  "budget_tier": "mid",
+  "logo": "https://www.google.com/s2/favicons?domain=vestre.com&sz=128",
+  "updated_at": "2026-11-18T13:33:33.973538+00:00",
+  "budgetTier": "mid",
+  "origin": "VE-Prescan-Discovery",
+  "categoryTree": {
+    "Outdoor Furniture": [],
+    "Bord": [
+      "Conference Chairs"
+    ]
+  },
+  "categoryList": [
+    "Outdoor Furniture",
+    "Bord"
+  ]
+}

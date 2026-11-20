@@ -7,7 +7,7 @@
  * and premier architectural catalogs.
  */
 
-import { getGoogleAI, getGoogleModel } from './llmUtils.js';
+import { getGoogleAI, getGoogleModel, GROUNDING_MODEL } from './llmUtils.js';
 import { detectSpecArchetype } from './veBrandSpecialties.js';
 import { classifyContractCategory, getCanonicalBrandLogo } from './brandLogos.js';
 import { fetchLiveProductImage, verifyImageUrl } from './veImageEnricher.js';
@@ -106,7 +106,7 @@ ${archetype ? `Detected Archetype: ${archetype}` : ''}
 Find ${topK} premier commercial furniture alternatives on Architonic, Archiproducts, and official brand websites. Return the JSON array.`;
 
     try {
-        const modelName = getGoogleModel() || 'gemini-2.5-flash';
+        const modelName = GROUNDING_MODEL || 'gemini-flash-lite-latest';
         const ai = getGoogleAI(modelName);
         const model = ai.getGenerativeModel({
             model: modelName.replace(':billed', '').trim(),
@@ -114,25 +114,22 @@ Find ${topK} premier commercial furniture alternatives on Architonic, Archiprodu
             tools: [{ googleSearch: {} }]
         });
 
-        // Set 20-second timeout for live web grounding (shopping queries are slower)
-        // Two attempts: lite models occasionally return an empty reply on the
-        // first pass (observed live) — a single retry rescues the run.
         let text = '';
         for (let attempt = 1; attempt <= 2; attempt++) {
             const resultPromise = model.generateContent(userPrompt);
             const timeoutPromise = new Promise((_, reject) =>
-                setTimeout(() => reject(new Error('Live web discovery timeout')), 20000)
+                setTimeout(() => reject(new Error('Live web discovery timeout')), 14000)
             );
             try {
                 const res = await Promise.race([resultPromise, timeoutPromise]);
                 text = res.response.text() || '';
             } catch (e) {
                 if (attempt === 2) throw e;
-                await new Promise((r) => setTimeout(r, 3000));
+                await new Promise((r) => setTimeout(r, 1200));
                 continue;
             }
             if (text.trim().length > 0) break;
-            if (attempt < 2) await new Promise((r) => setTimeout(r, 3000));
+            if (attempt < 2) await new Promise((r) => setTimeout(r, 1200));
         }
 
         // Extract JSON array
@@ -177,18 +174,23 @@ Find ${topK} premier commercial furniture alternatives on Architonic, Archiprodu
             };
         });
 
-        // Parallel high-resolution image verification & fallback resolution
+        // Parallel high-resolution image verification & retrieval (bounded 5s per card)
         await Promise.all(normalized.map(async (alt) => {
-            let valid = false;
-            if (alt.imageUrl && alt.imageUrl.startsWith('http')) {
-                valid = await verifyImageUrl(alt.imageUrl);
-            }
-            if (!valid) {
-                try {
-                    const fallbackImg = await fetchLiveProductImage(alt.brand, alt.model, alt.officialProductUrl || alt.architonicUrl);
-                    if (fallbackImg) alt.imageUrl = fallbackImg;
-                } catch (e) {}
-            }
+            try {
+                await Promise.race([
+                    (async () => {
+                        let valid = false;
+                        if (alt.imageUrl && alt.imageUrl.startsWith('http')) {
+                            valid = await verifyImageUrl(alt.imageUrl);
+                        }
+                        if (!valid) {
+                            const fallbackImg = await fetchLiveProductImage(alt.brand, alt.model, alt.officialProductUrl || alt.architonicUrl);
+                            if (fallbackImg) alt.imageUrl = fallbackImg;
+                        }
+                    })(),
+                    new Promise(resolve => setTimeout(resolve, 5000))
+                ]);
+            } catch (e) {}
         }));
 
         return normalized;

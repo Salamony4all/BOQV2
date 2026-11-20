@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { getFullUrl } from '../utils/urlUtils';
 import styles from '../styles/MultiImageCell.module.css';
 
@@ -37,8 +37,37 @@ export default function MultiImageCell({
         .map(img => (typeof img === 'string' ? img : (img?.url || img?.data || img?.src || '')))
         .filter(url => url && typeof url === 'string' && url.trim().length > 0);
 
+    const imagesSignature = validImages.join('|');
+    useEffect(() => {
+        setBrokenImages(new Set());
+    }, [imagesSignature]);
+
     const handleImageError = (imgUrl, index) => {
         setBrokenImages(prev => new Set(prev).add(index));
+    };
+
+    const renderTileImage = (imgUrl, idx, altLabel) => {
+        if (brokenImages.has(idx)) {
+            return (
+                <div className={styles.brokenPlaceholder} title={`${altLabel} (image unavailable)`}>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                        <rect x="3" y="3" width="18" height="18" rx="2.5" />
+                        <circle cx="8.5" cy="8.5" r="1.5" />
+                        <path d="M21 15l-5-5L5 21" />
+                        <line x1="2" y1="2" x2="22" y2="22" />
+                    </svg>
+                    <span>No Img</span>
+                </div>
+            );
+        }
+        return (
+            <img
+                src={getFullUrl(imgUrl)}
+                alt={altLabel}
+                className={styles.cellImg}
+                onError={() => handleImageError(imgUrl, idx)}
+            />
+        );
     };
 
     const handleCellClick = (e, targetIndex = 0) => {
@@ -234,12 +263,7 @@ export default function MultiImageCell({
                     onDragStart={(e) => handleDragStart(e, 0, validImages[0])}
                     onDragEnd={handleDragEnd}
                 >
-                    <img
-                        src={getFullUrl(validImages[0])}
-                        alt={`${altPrefix} 1`}
-                        className={`${styles.cellImg} ${brokenImages.has(0) ? styles.brokenImg : ''}`}
-                        onError={() => handleImageError(validImages[0], 0)}
-                    />
+                    {renderTileImage(validImages[0], 0, `${altPrefix} 1`)}
                     {allowRemove && (
                         <button
                             className={styles.tileRemoveBtn}
@@ -268,12 +292,7 @@ export default function MultiImageCell({
                             onDrop={(e) => handleDrop(e, idx)}
                             onClick={(e) => handleCellClick(e, idx)}
                         >
-                            <img
-                                src={getFullUrl(img)}
-                                alt={`${altPrefix} ${idx + 1}`}
-                                className={`${styles.cellImg} ${brokenImages.has(idx) ? styles.brokenImg : ''}`}
-                                onError={() => handleImageError(img, idx)}
-                            />
+                            {renderTileImage(img, idx, `${altPrefix} ${idx + 1}`)}
                             {allowRemove && (
                                 <button
                                     className={styles.tileRemoveBtn}
@@ -300,12 +319,7 @@ export default function MultiImageCell({
                         onDrop={(e) => handleDrop(e, 0)}
                         onClick={(e) => handleCellClick(e, 0)}
                     >
-                        <img
-                            src={getFullUrl(validImages[0])}
-                            alt={`${altPrefix} 1`}
-                            className={`${styles.cellImg} ${brokenImages.has(0) ? styles.brokenImg : ''}`}
-                            onError={() => handleImageError(validImages[0], 0)}
-                        />
+                        {renderTileImage(validImages[0], 0, `${altPrefix} 1`)}
                         {allowRemove && (
                             <button
                                 className={styles.tileRemoveBtn}
@@ -329,12 +343,7 @@ export default function MultiImageCell({
                                     onDrop={(e) => handleDrop(e, realIdx)}
                                     onClick={(e) => handleCellClick(e, realIdx)}
                                 >
-                                    <img
-                                        src={getFullUrl(img)}
-                                        alt={`${altPrefix} ${realIdx + 1}`}
-                                        className={`${styles.cellImg} ${brokenImages.has(realIdx) ? styles.brokenImg : ''}`}
-                                        onError={() => handleImageError(img, realIdx)}
-                                    />
+                                    {renderTileImage(img, realIdx, `${altPrefix} ${realIdx + 1}`)}
                                     {allowRemove && (
                                         <button
                                             className={styles.tileRemoveBtn}
@@ -368,12 +377,7 @@ export default function MultiImageCell({
                                 onDrop={(e) => handleDrop(e, idx)}
                                 onClick={(e) => handleCellClick(e, idx)}
                             >
-                                <img
-                                    src={getFullUrl(img)}
-                                    alt={`${altPrefix} ${idx + 1}`}
-                                    className={`${styles.cellImg} ${brokenImages.has(idx) ? styles.brokenImg : ''}`}
-                                    onError={() => handleImageError(img, idx)}
-                                />
+                                {renderTileImage(img, idx, `${altPrefix} ${idx + 1}`)}
                                 {allowRemove && (
                                     <button
                                         className={styles.tileRemoveBtn}

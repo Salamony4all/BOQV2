@@ -815,11 +815,12 @@ function TenderAutofillModal({ isOpen, onClose, tables, apiBase }) {
                                         </div>
                                     ) : (
                                         logs.map((log, i) => {
+                                            const lower = String(log || '').toLowerCase();
                                             let color = '#38bdf8'; // Blue for info
-                                            if (log.includes('')) color = '#34d399'; // Green for success
-                                            if (log.includes('') || log.includes('Failed') || log.includes('Error')) color = '#f87171'; // Red for errors
-                                            if (log.includes('')) color = '#fbbf24'; // Yellow for warnings
-                                            if (log.includes('')) color = '#c084fc'; // Purple for fills
+                                            if (/\b(error|failed|exception|fatal)\b|❌/.test(lower)) color = '#f87171'; // Red for errors
+                                            else if (/\b(warn|warning|skip|skipped|timeout)\b|⚠️/.test(lower)) color = '#fbbf24'; // Yellow for warnings
+                                            else if (/\b(success|completed|complete|done|ready|connected|saved)\b|✅/.test(lower)) color = '#34d399'; // Green for success
+                                            else if (/\b(fill|filling|filled|typing|clicking|inject|submitting)\b|⚡|🚀/.test(lower)) color = '#c084fc'; // Purple for fills
 
                                             return (
                                                 <div key={i} style={{ lineBreak: 'anywhere', whiteSpace: 'pre-wrap', color }}>

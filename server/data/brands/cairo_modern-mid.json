@@ -1,0 +1,37 @@
+{
+  "id": 1795099891231,
+  "name": "CAIRO MODERN",
+  "logo": "https://www.google.com/s2/favicons?domain=cairomodern.com&sz=128",
+  "websiteUrl": "",
+  "budgetTier": "mid",
+  "origin": "VE-Prescan-Discovery",
+  "gatewayVersion": 1,
+  "registry": {
+    "name": "CAIRO MODERN",
+    "officialDomain": "",
+    "budgetTier": "mid",
+    "origin": "VE-Prescan-Discovery"
+  },
+  "discovery": {
+    "discoveredAt": "2026-11-19T14:51:21.269Z",
+    "ttlDays": 30,
+    "verified": false,
+    "quarantine": true
+  },
+  "products": [
+    {
+      "brand": "CAIRO MODERN",
+      "model": "90 X 120 cm - 2.2 mm thick",
+      "mainCategory": "Furniture",
+      "subCategory": "",
+      "imageUrl": "",
+      "websiteUrl": "",
+      "lastUpdated": "2026-11-19T14:51:21.269Z",
+      "source": "VE-Prescan-Discovery",
+      "verified": false,
+      "discoveredAt": "2026-11-19T14:51:21.269Z",
+      "ttlDays": 30
+    }
+  ],
+  "createdAt": "2026-11-19T14:51:21.269Z"
+}

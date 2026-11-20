@@ -1,0 +1,37 @@
+{
+  "id": 1795093281370,
+  "name": "EXO Modern Furniture",
+  "logo": "https://www.google.com/s2/favicons?domain=exomodernfurniture.com&sz=128",
+  "websiteUrl": "",
+  "budgetTier": "mid",
+  "origin": "VE-Prescan-Discovery",
+  "gatewayVersion": 1,
+  "registry": {
+    "name": "EXO Modern Furniture",
+    "officialDomain": "",
+    "budgetTier": "mid",
+    "origin": "VE-Prescan-Discovery"
+  },
+  "discovery": {
+    "discoveredAt": "2026-11-19T13:01:16.444Z",
+    "ttlDays": 30,
+    "verified": false,
+    "quarantine": true
+  },
+  "products": [
+    {
+      "brand": "EXO Modern Furniture",
+      "model": "Birch Wood Veneer Multi-Purpose Chair",
+      "mainCategory": "Seating",
+      "subCategory": "",
+      "imageUrl": "",
+      "websiteUrl": "",
+      "lastUpdated": "2026-11-19T13:01:16.444Z",
+      "source": "VE-Prescan-Discovery",
+      "verified": false,
+      "discoveredAt": "2026-11-19T13:01:16.444Z",
+      "ttlDays": 30
+    }
+  ],
+  "createdAt": "2026-11-19T13:01:16.444Z"
+}

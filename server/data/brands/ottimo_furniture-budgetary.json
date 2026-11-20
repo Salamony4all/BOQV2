@@ -1009,8 +1009,16 @@
       "imageUrl": "https://ottimouae.com/wp-content/uploads/2022/12/Reception-01_resized-280x280.jpg",
       "productUrl": "https://ottimouae.com/product/custom-made-reception-desk/",
       "description": "Italian MDF with special stone effect.",
-      "subCategory": "Reception Desk",
-      "mainCategory": "Desks"
+      "subCategory": "Single Desks",
+      "mainCategory": "Desk & Table",
+      "brand": "Ottimo Furniture",
+      "websiteUrl": "https://ottimouae.com/product/custom-made-reception-desk/",
+      "officialProductUrl": "https://ottimouae.com/product/custom-made-reception-desk/",
+      "currency": "USD",
+      "verified": true,
+      "officialRefreshedAt": "2026-11-20T10:35:45.285Z",
+      "source": "og:ottimouae.com",
+      "lastUpdated": "2026-11-20T10:35:45.285Z"
     },
     {
       "model": "Modern Counter Reception Desk",
@@ -1385,12 +1393,20 @@
     {
       "model": "CFTB 1 Modern Rectangular Coffee Table",
       "price": 0,
-      "family": "Ottimo Furniture",
-      "imageUrl": "https://ottimouae.com/wp-content/uploads/2022/10/05-280x280.jpg",
-      "productUrl": "https://ottimouae.com/product/cftb-1-modern-rectangular-coffee-table/",
-      "description": "This unique table top finish providing mix of contemporary and elegant elements, suitable for every office lounge and seating area.",
-      "subCategory": "Coffee Table",
-      "mainCategory": "Coffee Table"
+      "family": "CFTB-1 Modern Rectangular Coffee Table",
+      "imageUrl": "https://ottimouae.com/wp-content/uploads/2022/10/05.jpg",
+      "productUrl": "https://ottimouae.com/product/cftb-1-modern-rectangular-coffee-table",
+      "description": "CFTB-1 Modern Rectangular Coffee Table — This unique table top finish providing mix of contemporary and elegant elements, suitable for every office lounge and seating area.",
+      "subCategory": "Lounge Chairs",
+      "mainCategory": "Office Seating",
+      "brand": "Ottimo Furniture",
+      "websiteUrl": "https://ottimouae.com/product/cftb-1-modern-rectangular-coffee-table",
+      "officialProductUrl": "https://ottimouae.com/product/cftb-1-modern-rectangular-coffee-table",
+      "currency": "USD",
+      "verified": true,
+      "officialRefreshedAt": "2026-11-20T11:27:12.051Z",
+      "source": "og:ottimouae.com",
+      "lastUpdated": "2026-11-20T11:27:12.052Z"
     },
     {
       "model": "CFTB 2 Modern Rectangular Coffee Table",
@@ -2278,9 +2294,17 @@
       "family": "Ottimo Furniture",
       "imageUrl": "https://ottimouae.com/wp-content/uploads/2022/08/racer-HB-280x280.jpg",
       "productUrl": "https://ottimouae.com/product/racer-chair/",
-      "description": "Racer Chair",
-      "subCategory": "Chairs",
-      "mainCategory": "Chairs"
+      "description": "Shop Racer Chair from Ottimo Furniture. Leading Office Furniture Manufacturer in Dubai, Custom-Made Office Furniture | Office Furniture Dubai | Buy Online Ergonomic Office Chairs, Modern Desks and Workstations. Get Instant Quote for Customized Designs",
+      "subCategory": "Conference Chairs",
+      "mainCategory": "Office Seating",
+      "brand": "Ottimo Furniture",
+      "websiteUrl": "https://ottimouae.com/product/racer-chair/",
+      "officialProductUrl": "https://ottimouae.com/product/racer-chair/",
+      "currency": "USD",
+      "verified": true,
+      "officialRefreshedAt": "2026-11-20T11:28:03.734Z",
+      "source": "jsonld:ottimouae.com",
+      "lastUpdated": "2026-11-20T11:28:03.734Z"
     },
     {
       "model": "SAYL Chair",
@@ -3367,6 +3391,206 @@
       "description": "Customizable office desks and workstations designed for modern workplaces, offering various configurations and finishes.",
       "lastUpdated": "2026-08-31T08:56:25.215Z",
       "source": "AI-Specialist-Discovery"
+    },
+    {
+      "model": "Custom-Made Modern Reception Desk",
+      "price": 0,
+      "family": "Ottimo Furniture",
+      "imageUrl": "https://ottimouae.com/wp-content/uploads/2023/01/3-280x280.jpg",
+      "productUrl": "https://ottimouae.com/product/custom-made-modern-reception-desk/",
+      "description": "Inspired by Materiality, Combined with a Deep and Structured Finish. Optional Storage Drawers, CPU Holder and Cable Management Module.",
+      "subCategory": "Desks",
+      "mainCategory": "Desks"
+    },
+    {
+      "model": "Cluster 2 L-Shape Desk T-Shape",
+      "price": 0,
+      "family": "Ottimo Furniture",
+      "imageUrl": "https://ottimouae.com/wp-content/uploads/2022/08/PYRW-03-280x280.jpg",
+      "productUrl": "https://ottimouae.com/product/cluster-2-l-shape-desk-t-shape-2/",
+      "description": "Durable Table legs manufactured in powder coated( Can be customized to any size as per requirements ) and the style is unique, making you more eye-catching, From a variety of innovative products used by the brand, flexibility and sharing can break through expectations, and the functionality of the office space, Connectivity and openness blend together",
+      "subCategory": "Workstation",
+      "mainCategory": "Desks"
+    },
+    {
+      "model": "Cluster of 2 L-shape Desk- U-shape White Leg",
+      "price": 0,
+      "family": "Ottimo Furniture",
+      "imageUrl": "https://ottimouae.com/wp-content/uploads/2022/08/OXOW-11-280x280.jpg",
+      "productUrl": "https://ottimouae.com/product/cluster-of-2-l-shape-desk-u-shape-white-leg/",
+      "description": "Durable Table legs manufactured in powder coated( Can be customized to any size as per requirements ) and the style is unique, making you more eye-catching, From a variety of innovative products used by the brand, flexibility and sharing can break through expectations, and the functionality of the office space, Connectivity and openness blend together.",
+      "subCategory": "Workstation",
+      "mainCategory": "Desks"
+    },
+    {
+      "model": "Custom-Made Minimalist Reception Desk",
+      "price": 0,
+      "family": "Ottimo Furniture",
+      "imageUrl": "https://ottimouae.com/wp-content/uploads/2022/12/Rec-1-280x280.jpg",
+      "productUrl": "https://ottimouae.com/product/custom-made-minimalist-reception-desk/",
+      "description": "A custom-made minimalist design furniture",
+      "subCategory": "Reception Desk",
+      "mainCategory": "Desks"
+    },
+    {
+      "model": "CFTB-010 Modern Rectangular Coffee Table",
+      "price": 0,
+      "family": "Ottimo Furniture",
+      "imageUrl": "https://ottimouae.com/wp-content/uploads/2022/10/coffee-table-280x280.jpg",
+      "productUrl": "https://ottimouae.com/product/cftb-010-modern-rectangular-coffee-table/",
+      "description": "Slim powder coated frame with unique table top finish providing mix of contemporary and elegant elements. This modern coffee table is suitable for every office lounge and seating area.",
+      "subCategory": "Coffee Table",
+      "mainCategory": "Coffee Table"
+    },
+    {
+      "model": "CFTB-011 Rectangular White Frame Coffee Table",
+      "price": 0,
+      "family": "Ottimo Furniture",
+      "imageUrl": "https://ottimouae.com/wp-content/uploads/2022/10/CO1-280x280.jpg",
+      "productUrl": "https://ottimouae.com/product/cftb-011-rectangular-white-frame-coffee-table/",
+      "description": "Slim powder coated white frame with unique table top finish providing mix of contemporary and elegant elements. This modern coffee table is suitable for every office lounge and seating area.",
+      "subCategory": "Coffee Table",
+      "mainCategory": "Coffee Table"
+    },
+    {
+      "model": "CFTB-012 White/Black Frame Coffee Table",
+      "price": 0,
+      "family": "Ottimo Furniture",
+      "imageUrl": "https://ottimouae.com/wp-content/uploads/2022/10/CO2-280x280.jpg",
+      "productUrl": "https://ottimouae.com/product/cftb-012-white-black-frame-coffee-table/",
+      "description": "Slim frame with unique table top finish providing mix of contemporary and elegant elements. This modern coffee table is suitable for every office lounge and seating area.",
+      "subCategory": "Coffee Table",
+      "mainCategory": "Coffee Table"
+    },
+    {
+      "model": "CFTB-013 Modern Rectangular Coffee Table",
+      "price": 0,
+      "family": "Ottimo Furniture",
+      "imageUrl": "https://ottimouae.com/wp-content/uploads/2022/10/CO3-280x280.jpg",
+      "productUrl": "https://ottimouae.com/product/cftb-013-modern-rectangular-coffee-table/",
+      "description": "The table top and the support are made into a simple and clean whole through ingenious structural methods. The simple shape makes it suitable for different seating areas.",
+      "subCategory": "Coffee Table",
+      "mainCategory": "Coffee Table"
+    },
+    {
+      "model": "CFTB-014 Plank Modern Coffee Table",
+      "price": 0,
+      "family": "Ottimo Furniture",
+      "imageUrl": "https://ottimouae.com/wp-content/uploads/2022/10/CO4-280x280.jpg",
+      "productUrl": "https://ottimouae.com/product/cftb-014-plank-modern-coffee-table/",
+      "description": "The design of the product shows the designer’s precise consideration of the material utilization results in high strength, high stability.",
+      "subCategory": "Coffee Table",
+      "mainCategory": "Coffee Table"
+    },
+    {
+      "model": "CFTB-015 Round Coffee Table",
+      "price": 0,
+      "family": "Ottimo Furniture",
+      "imageUrl": "https://ottimouae.com/wp-content/uploads/2022/10/puff03-280x280.jpg",
+      "productUrl": "https://ottimouae.com/product/cftb-015-round-coffee-table/",
+      "description": "Minimalist style and sophisticated look for interior, designed for maximum space efficiency.",
+      "subCategory": "Coffee Table",
+      "mainCategory": "Coffee Table"
+    },
+    {
+      "model": "CFTB-016 Square White Coffee Table",
+      "price": 0,
+      "family": "Ottimo Furniture",
+      "imageUrl": "https://ottimouae.com/wp-content/uploads/2022/10/022-280x280.jpg",
+      "productUrl": "https://ottimouae.com/product/cftb-016-square-white-coffee-table/",
+      "description": "Square white coffee table which is designed for maximum space efficiency, suitable for short meetings.",
+      "subCategory": "Coffee Table",
+      "mainCategory": "Coffee Table"
+    },
+    {
+      "model": "CFTB-017 Origin Modern Coffee Table",
+      "price": 0,
+      "family": "Ottimo Furniture",
+      "imageUrl": "https://ottimouae.com/wp-content/uploads/2022/10/02-280x280.jpg",
+      "productUrl": "https://ottimouae.com/product/cftb-017-origin-modern-coffee-table/",
+      "description": "The simple shape and light weight of the Origin coffee table can be convenient for users to carry, making it suitable for different seating areas.",
+      "subCategory": "Coffee Table",
+      "mainCategory": "Coffee Table"
+    },
+    {
+      "model": "CFTB-1 Modern Rectangular Coffee Table",
+      "price": 0,
+      "family": "Ottimo Furniture",
+      "imageUrl": "https://ottimouae.com/wp-content/uploads/2022/10/05-280x280.jpg",
+      "productUrl": "https://ottimouae.com/product/cftb-1-modern-rectangular-coffee-table/",
+      "description": "This unique table top finish providing mix of contemporary and elegant elements, suitable for every office lounge and seating area.",
+      "subCategory": "Coffee Table",
+      "mainCategory": "Coffee Table"
+    },
+    {
+      "model": "CFTB-2 Modern Rectangular Coffee Table",
+      "price": 0,
+      "family": "Ottimo Furniture",
+      "imageUrl": "https://ottimouae.com/wp-content/uploads/2022/10/06-280x280.jpg",
+      "productUrl": "https://ottimouae.com/product/cftb-2-modern-rectangular-coffee-table/",
+      "description": "This unique table top finish providing mix of contemporary and elegant elements, suitable for every office lounge and seating area.",
+      "subCategory": "Coffee Table",
+      "mainCategory": "Coffee Table"
+    },
+    {
+      "model": "CFTB-3 Modern Coffee Table",
+      "price": 0,
+      "family": "Ottimo Furniture",
+      "imageUrl": "https://ottimouae.com/wp-content/uploads/2022/10/07-280x280.jpg",
+      "productUrl": "https://ottimouae.com/product/cftb-2-modern-coffee-table/",
+      "description": "The clean and pure modeling language ensures the simplicity of this tea table without losing its details. This modern coffee table is suitable for every office lounge and seating area.",
+      "subCategory": "Coffee Table",
+      "mainCategory": "Coffee Table"
+    },
+    {
+      "model": "CFTB-4 Modern Coffee Table",
+      "price": 0,
+      "family": "Ottimo Furniture",
+      "imageUrl": "https://ottimouae.com/wp-content/uploads/2022/10/08-280x280.jpg",
+      "productUrl": "https://ottimouae.com/product/cftb-4-modern-coffee-table/",
+      "description": "The clean and pure modeling language ensures the simplicity of this tea table without losing its details. This modern coffee table is suitable for every office lounge and seating area.",
+      "subCategory": "Coffee Table",
+      "mainCategory": "Coffee Table"
+    },
+    {
+      "model": "CFTB-5 Modern Coffee Table",
+      "price": 0,
+      "family": "Ottimo Furniture",
+      "imageUrl": "https://ottimouae.com/wp-content/uploads/2022/10/09-280x280.jpg",
+      "productUrl": "https://ottimouae.com/product/cftb-5-modern-coffee-table/",
+      "description": "This modern coffee table is suitable for every office lounge and seating area. The clean modeling language ensures the simplicity of this coffee table without losing its details.",
+      "subCategory": "Coffee Table",
+      "mainCategory": "Coffee Table"
+    },
+    {
+      "model": "CFTB-6 Coffee Table",
+      "price": 0,
+      "family": "Ottimo Furniture",
+      "imageUrl": "https://ottimouae.com/wp-content/uploads/2022/10/10-280x280.jpg",
+      "productUrl": "https://ottimouae.com/product/cftb-6-coffee-table/",
+      "description": "This modern coffee table is suitable for every office lounge and seating area. The clean modeling language ensures the simplicity of this coffee table without losing its details.",
+      "subCategory": "Coffee Table",
+      "mainCategory": "Coffee Table"
+    },
+    {
+      "model": "Cluster of 4 L-Shape Desk  + Shape White Leg",
+      "price": 0,
+      "family": "Ottimo Furniture",
+      "imageUrl": "https://ottimouae.com/wp-content/uploads/2022/08/OXOW-12-280x280.jpg",
+      "productUrl": "https://ottimouae.com/product/cluster-of-4-l-shape-desk-shape-white-leg/",
+      "description": "Durable Table legs manufactured in powder coated( Can be customized to any size as per requirements ) and the style is unique, making you more eye-catching, From a variety of innovative products used by the brand, flexibility and sharing can break through expectations, and the functionality of the office space, Connectivity and openness blend together.",
+      "subCategory": "Workstation",
+      "mainCategory": "Desks"
+    },
+    {
+      "model": "Cluster of 4 L-Shape Desk , + Shape White Leg",
+      "price": 0,
+      "family": "Ottimo Furniture",
+      "imageUrl": "https://ottimouae.com/wp-content/uploads/2022/08/PYRW-11-280x280.jpg",
+      "productUrl": "https://ottimouae.com/product/cluster-of-4-l-shape-desk-shape-white-leg-2/",
+      "description": "Durable Table legs manufactured in powder coated( Can be customized to any size as per requirements ) and the style is unique, making you more eye-catching, From a variety of innovative products used by the brand, flexibility and sharing can break through expectations, and the functionality of the office space, Connectivity and openness blend together",
+      "subCategory": "Workstation",
+      "mainCategory": "Desks"
     }
   ],
   "source": "UAE",
@@ -3374,5 +3598,56 @@
   "logo": "https://ottimouae.com/wp-content/uploads/2022/08/ottimo-logo-retina.png",
   "updated_at": "2026-05-01T08:11:15.16+00:00",
   "budgetTier": "budgetary",
-  "origin": "UAE"
+  "origin": "UAE",
+  "categoryTree": {
+    "Office Seating": [
+      "Folding Chairs & Stools",
+      "Lounge Chairs"
+    ],
+    "Chairs": [
+      "Stool",
+      "Executive Chairs",
+      "Chairs",
+      "Secretary Chairs",
+      "School Chairs"
+    ],
+    "Desks": [
+      "Desks",
+      "Workstation",
+      "Reception Desk",
+      "Meeting Table"
+    ],
+    "Desk & Table": [
+      "Single Desks",
+      "Lounge Tables"
+    ],
+    "Storage": [
+      "Storage",
+      "Full Height Cabinets"
+    ],
+    "Coffee Table": [
+      "Coffee Table"
+    ],
+    "Sofa": [
+      "Sofa"
+    ],
+    "Accessories": [
+      "Accessories"
+    ],
+    "Furniture": [
+      "Seating",
+      "Desk & Table"
+    ]
+  },
+  "categoryList": [
+    "Office Seating",
+    "Chairs",
+    "Desks",
+    "Desk & Table",
+    "Storage",
+    "Coffee Table",
+    "Sofa",
+    "Accessories",
+    "Furniture"
+  ]
 }

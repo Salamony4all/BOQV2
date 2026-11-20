@@ -1,0 +1,23 @@
+{
+  "id": 1795099890639,
+  "name": "Lion Steel",
+  "logo": "https://www.google.com/s2/favicons?domain=lionsteel.com&sz=128",
+  "websiteUrl": "",
+  "budgetTier": "mid",
+  "origin": "VE-Prescan-Discovery",
+  "gatewayVersion": 1,
+  "registry": {
+    "name": "Lion Steel",
+    "officialDomain": "",
+    "budgetTier": "mid",
+    "origin": "VE-Prescan-Discovery"
+  },
+  "discovery": {
+    "discoveredAt": "2026-11-19T14:51:21.269Z",
+    "ttlDays": 30,
+    "verified": false,
+    "quarantine": true
+  },
+  "products": [],
+  "createdAt": "2026-11-19T14:51:21.269Z"
+}

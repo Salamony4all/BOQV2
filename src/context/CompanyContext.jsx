@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { DEFAULT_AI_SETTINGS, MODEL_OPTIONS } from '../utils/aiConstants';
+import { getApiBase } from '../utils/apiBase';
 
 // Create the context
 const CompanyContext = createContext(null);
@@ -153,8 +154,7 @@ export function CompanyProvider({ children }) {
             // Persist AI settings to server file store (bridges localStorage → Node.js scripts)
             if (profileToSave.aiSettings) {
                 const ai = profileToSave.aiSettings;
-                const serverPort = window.location.port || '3001';
-                const baseUrl = `${window.location.protocol}//${window.location.hostname}:${serverPort}`;
+                const baseUrl = getApiBase();
                 fetch(`${baseUrl}/api/ai/save-settings`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },

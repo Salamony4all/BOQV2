@@ -7,16 +7,19 @@ function ActionCard({ onSelect, disabled, title, iconText, hint, formats, accept
 
     const handleDragOver = (e) => {
         e.preventDefault();
+        e.stopPropagation();
         if (!disabled) setIsDragging(true);
     };
 
     const handleDragLeave = (e) => {
         e.preventDefault();
+        e.stopPropagation();
         setIsDragging(false);
     };
 
     const handleDrop = (e) => {
         e.preventDefault();
+        e.stopPropagation();
         setIsDragging(false);
         if (disabled) return;
         const files = e.dataTransfer.files;

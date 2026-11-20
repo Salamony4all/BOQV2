@@ -5,6 +5,7 @@
 import { load as cheerioLoad } from 'cheerio';
 import { fetchProductFacts } from './jsonldVerifier.js';
 import { getGoogleAI, getGoogleModel } from './llmUtils.js';
+import { searchWebHtml } from './webSearchUtils.js';
 
 const TIMEOUT = 25000;
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36';
@@ -83,8 +84,38 @@ async function guessArchitonicBrandPage(brandName) {
 export async function findArchitonicBrandPage(brandName) {
   const want = String(brandName || '').trim();
   if (!want) return null;
+  const wantSlug = brandToSlug(want);
+  const wantTokens = want.toLowerCase().replace(/[^a-z0-9\s]/g, ' ').split(/\s+/).filter(t => t.length >= 3);
 
-  // Try AI first (if configured)
+  const isBrandPageAligned = (url, title = '') => {
+    const slugMatch = url.match(/architonic\.com\/en\/(?:b|manufacturer)\/([^/]+)\/(\d+)/i);
+    if (!slugMatch) return false;
+    const slug = slugMatch[1].toLowerCase();
+    const tLow = String(title || '').toLowerCase();
+    if (slug === wantSlug) return true;
+    if (wantSlug.length >= 4 && (slug.startsWith(`${wantSlug}-`) || slug === wantSlug)) return true;
+    if (wantTokens.length > 0 && wantTokens.every(tok => slug.includes(tok) || tLow.includes(tok))) {
+      // Guard against short false hits (e.g. "tuntex" vs "tunto" / "naturtex")
+      return wantTokens.every(tok => new RegExp(`(?:^|-)${tok.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?:-|$)`).test(slug));
+    }
+    return false;
+  };
+
+  // 1) Fast zero-LLM live Architonic discovery via DuckDuckGo HTML
+  try {
+    const webHits = await searchWebHtml(`site:architonic.com/en/b/ "${want}"`, 6);
+    for (const hit of webHits) {
+      if (!hit.url) continue;
+      const m = hit.url.match(/https?:\/\/www\.architonic\.com\/en\/(?:b|manufacturer)\/[^/]+\/\d+/i);
+      if (m && isBrandPageAligned(m[0], hit.title)) {
+        const cleanUrl = m[0].replace(/\/$/, '') + '/';
+        console.log(`🏛️ [Architonic] Resolved brand page via web search: "${want}" -> ${cleanUrl}`);
+        return cleanUrl;
+      }
+    }
+  } catch { /* continue */ }
+
+  // 2) Try AI grounded lookup (if configured and quota available)
   try {
     const modelName = getGoogleModel() || 'gemini-2.5-flash';
     const ai = getGoogleAI(modelName);
@@ -104,29 +135,51 @@ export async function findArchitonicBrandPage(brandName) {
       const html = await getHtml(url);
       if (html) {
         const title = (cheerioLoad(html)('title').text() || '').toLowerCase();
-        const firstWord = want.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean)[0] || '';
-        if (firstWord.length > 2 && (title.includes(firstWord) || html.toLowerCase().includes(`>${want.toLowerCase()}<`))) return url;
+        if (isBrandPageAligned(url, title)) return url;
       }
     }
   } catch {
-    // AI failed (likely no key configured) -> continue to slug guessing
     console.log(`[Architonic] AI lookup for "${want}" failed, trying slug guess...`);
   }
 
-  // Fallback: try slug guessing
+  // 3) Fallback: try slug guessing
   const slugUrl = await guessArchitonicBrandPage(brandName);
   if (slugUrl) return slugUrl;
 
-  // Last resort: try the /en/b/ with the slug, even if title doesn't match
-  // (Architonic sometimes redirects to a 404 with the brand name in meta tags)
-  try {
-    const slugUrl2 = `https://www.architonic.com/en/b/${brandToSlug(brandName)}/`;
-    const html = await getHtml(slugUrl2);
-    if (html && (html.toLowerCase().includes(brandName.toLowerCase()) || html.toLowerCase().includes(brandToSlug(brandName)))) {
-      return slugUrl2.replace(/\/$/, '') + '/';
-    }
-  } catch { /* ignore */ }
+  return null;
+}
 
+/**
+ * Direct on-the-fly Architonic product discovery & JSON-LD scraping (zero-LLM).
+ * Searches site:architonic.com/en/p/ for "<brandName>" <modelQuery> and scrapes exact facts.
+ */
+export async function searchArchitonicProduct(brandName, modelQuery) {
+  const cleanBrand = String(brandName || '').trim();
+  const cleanModel = String(modelQuery || '').trim();
+  if (!cleanBrand || !cleanModel) return null;
+
+  const brandTokens = cleanBrand.toLowerCase().replace(/[^a-z0-9\s]/g, ' ').split(/\s+/).filter(t => t.length >= 3);
+  const hits = await searchWebHtml(`site:architonic.com/en/p/ "${cleanBrand}" ${cleanModel}`, 5);
+
+  for (const hit of hits) {
+    if (!/architonic\.com\/en\/p\//i.test(hit.url)) continue;
+    const combined = `${hit.title} ${hit.url}`.toLowerCase();
+    const brandMatches = brandTokens.length === 0 || brandTokens.some(tok => combined.includes(tok));
+    if (!brandMatches) continue;
+
+    const facts = await fetchProductFacts(hit.url, { timeoutMs: 8000 });
+    if (facts.ok && facts.product && (facts.product.imageUrl || facts.product.description)) {
+      const scrapedBrand = String(facts.product.brand || '').toLowerCase();
+      if (scrapedBrand && brandTokens.length > 0 && !brandTokens.some(tok => scrapedBrand.includes(tok))) {
+        continue; // Different brand on Architonic
+      }
+      return {
+        ...facts.product,
+        brand: facts.product.brand || cleanBrand,
+        source: 'architonic-live-scrape'
+      };
+    }
+  }
   return null;
 }
 

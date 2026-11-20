@@ -525,8 +525,7 @@
 
 .ctaPrimary,
 .ctaPlan,
-.ctaSecondary,
-.ctaDemo {
+.ctaSecondary {
   display: inline-flex;
   align-items: center;
   justify-content: flex-start;
@@ -541,16 +540,14 @@
 
 .ctaPrimary > i,
 .ctaPlan > i,
-.ctaSecondary > i,
-.ctaDemo > i {
+.ctaSecondary > i {
   font-size: 1.55rem;
   flex-shrink: 0;
 }
 
 .ctaPrimary > span,
 .ctaPlan > span,
-.ctaSecondary > span,
-.ctaDemo > span {
+.ctaSecondary > span {
   display: flex;
   flex-direction: column;
   gap: 0.15rem;
@@ -559,8 +556,7 @@
 
 .ctaPrimary strong,
 .ctaPlan strong,
-.ctaSecondary strong,
-.ctaDemo strong {
+.ctaSecondary strong {
   font-size: 0.96rem;
   font-weight: 700;
   letter-spacing: 0.01em;
@@ -619,33 +615,6 @@
 :global(.light-mode) .ctaSecondary:hover {
   border-color: var(--accent);
   box-shadow: 0 10px 24px rgba(15, 23, 42, 0.1);
-}
-
-.ctaDemo {
-  background: linear-gradient(135deg, rgba(16, 185, 129, 0.18) 0%, rgba(5, 150, 105, 0.24) 100%);
-  color: #ecfdf5;
-  border: 1px solid rgba(16, 185, 129, 0.45);
-  box-shadow: 0 8px 24px rgba(16, 185, 129, 0.16);
-}
-
-.ctaDemo > i {
-  color: #34d399;
-}
-
-.ctaDemo:hover {
-  transform: translateY(-3px);
-  background: linear-gradient(135deg, rgba(16, 185, 129, 0.28) 0%, rgba(5, 150, 105, 0.35) 100%);
-  box-shadow: 0 12px 30px rgba(16, 185, 129, 0.28);
-}
-
-:global(.light-mode) .ctaDemo {
-  background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
-  color: #064e3b;
-  border-color: #10b981;
-}
-
-:global(.light-mode) .ctaDemo > i {
-  color: #059669;
 }
 
 /* 3-Step Interactive Workflow Showcase */
@@ -1535,8 +1504,7 @@
 
   .ctaPrimary,
   .ctaSecondary,
-  .ctaPlan,
-  .ctaDemo {
+  .ctaPlan {
     width: 100%;
     max-width: 100%;
     padding: 0.95rem 1.25rem;

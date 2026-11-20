@@ -685,9 +685,11 @@ export default function CompanySettings({ isModal = false, onClose = null }) {
                                                             <button
                                                                 type="button"
                                                                 onClick={() => setShowFreeKey(!showFreeKey)}
-                                                                style={{ position: 'absolute', right: '12px', background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '1.1rem' }}
+                                                                aria-label={showFreeKey ? 'Hide Free Tier API key' : 'Show Free Tier API key'}
+                                                                title={showFreeKey ? 'Hide key' : 'Show key'}
+                                                                style={{ position: 'absolute', right: '12px', background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 600 }}
                                                             >
-                                                                {showFreeKey ? '' : ''}
+                                                                {showFreeKey ? 'Hide' : 'Show'}
                                                             </button>
                                                         )}
                                                     </div>
@@ -803,9 +805,11 @@ export default function CompanySettings({ isModal = false, onClose = null }) {
                                                             <button
                                                                 type="button"
                                                                 onClick={() => setShowApiKey(!showApiKey)}
-                                                                style={{ position: 'absolute', right: '12px', background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '1.1rem' }}
+                                                                aria-label={showApiKey ? 'Hide Billed Tier API key' : 'Show Billed Tier API key'}
+                                                                title={showApiKey ? 'Hide key' : 'Show key'}
+                                                                style={{ position: 'absolute', right: '12px', background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 600 }}
                                                             >
-                                                                {showApiKey ? '' : ''}
+                                                                {showApiKey ? 'Hide' : 'Show'}
                                                             </button>
                                                         )}
                                                     </div>
@@ -1013,9 +1017,11 @@ export default function CompanySettings({ isModal = false, onClose = null }) {
                                                             <button
                                                                 type="button"
                                                                 onClick={() => setShowOpenrouterKey(!showOpenrouterKey)}
-                                                                style={{ position: 'absolute', right: '12px', background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '1.1rem' }}
+                                                                aria-label={showOpenrouterKey ? 'Hide OpenRouter API key' : 'Show OpenRouter API key'}
+                                                                title={showOpenrouterKey ? 'Hide key' : 'Show key'}
+                                                                style={{ position: 'absolute', right: '12px', background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 600 }}
                                                             >
-                                                                {showOpenrouterKey ? '' : ''}
+                                                                {showOpenrouterKey ? 'Hide' : 'Show'}
                                                             </button>
                                                         )}
                                                     </div>
@@ -1233,9 +1239,11 @@ export default function CompanySettings({ isModal = false, onClose = null }) {
                                                             <button
                                                                 type="button"
                                                                 onClick={() => setShowNvidiaKey(!showNvidiaKey)}
-                                                                style={{ position: 'absolute', right: '12px', background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '1.1rem' }}
+                                                                aria-label={showNvidiaKey ? 'Hide NVIDIA NIM API key' : 'Show NVIDIA NIM API key'}
+                                                                title={showNvidiaKey ? 'Hide key' : 'Show key'}
+                                                                style={{ position: 'absolute', right: '12px', background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 600 }}
                                                             >
-                                                                {showNvidiaKey ? '' : ''}
+                                                                {showNvidiaKey ? 'Hide' : 'Show'}
                                                             </button>
                                                         )}
                                                     </div>

@@ -2034,12 +2034,109 @@
       "description": "Leading European manufacturer of ergonomic office seating, workstations, and holistic workplace concepts Made in Germany.",
       "lastUpdated": "2026-05-06T12:52:19.709Z",
       "source": "AI-Specialist-Discovery"
+    },
+    {
+      "model": "meet chair mt-201",
+      "price": 0,
+      "family": "Sedus Stoll",
+      "imageUrl": "https://media.architonic.com/m-on/3100165/product/1066638/sedus-stoll_meet-chair-mt-201_seating_10b0c17a.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/sedus-stoll-meet-chair-mt-201-1066638/",
+      "description": "Chairs. Swivel chair with plastic shell in five colours, optionally available with felt upholstery, five-star base made of plastic in anthracite or black",
+      "subCategory": "Break Out Furniture",
+      "mainCategory": "Furniture"
+    },
+    {
+      "model": "meet table mt-334",
+      "price": 0,
+      "family": "Sedus Stoll",
+      "imageUrl": "https://media.architonic.com/m-on/3100165/product/1066645/sedus-stoll_meet-table-mt-334_97eaeaf2.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/sedus-stoll-meet-table-mt-334-1066645/",
+      "description": "Standing tables. Round standing table mt-334\nfolding, parkable, table height \n1120 mm, top dimensions, ø 600 mm \nand ø 700 mm",
+      "subCategory": "Break Out Furniture",
+      "mainCategory": "Furniture"
+    },
+    {
+      "model": "meet chair mt-222",
+      "price": 0,
+      "family": "Sedus Stoll",
+      "imageUrl": "https://media.architonic.com/m-on/3100165/product/1117122/sedus-stoll_meet-chair-mt-222_seating_aa907c3e.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/sedus-stoll-meet-chair-mt-222-1117122/",
+      "description": "Chairs. Visitor chair with plastic shell in five colours, optionally available with felt upholstery, chromed double-butted steel frame, can be stacked 10 high",
+      "subCategory": "Break Out Furniture",
+      "mainCategory": "Furniture"
+    },
+    {
+      "model": "se:lab island",
+      "price": 0,
+      "family": "Sedus Stoll",
+      "imageUrl": "https://placehold.co/240x240/ffffff/000000?text=Image%20not%20found",
+      "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:lab-island-20799325/",
+      "description": "Contract tables. Multifunctional meeting island for agile working // Working, meeting, socialising – se:lab island is the ideal place for agile working with an outdoor",
+      "subCategory": "Conference Furniture",
+      "mainCategory": "Furniture"
+    },
+    {
+      "model": "temptation four",
+      "price": 0,
+      "family": "Sedus Stoll",
+      "imageUrl": "https://media.architonic.com/m-on/3100165/product/1067172/sedus-stoll_temptation-four_398052c1.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/sedus-stoll-temptation-four-1067172/",
+      "description": "Contract tables. Sedus temptation four is a basic table range which combines innovative design with intelligent technology and solid value for money. The latest",
+      "subCategory": "Conference Furniture",
+      "mainCategory": "Furniture"
+    },
+    {
+      "model": "mastermind",
+      "price": 0,
+      "family": "Sedus Stoll",
+      "imageUrl": "https://media.architonic.com/m-on/3100165/product/1312128/sedus-stoll_mastermind_a8cea1e1.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/sedus-stoll-mastermind-1312128/",
+      "description": "Contract tables. Relaunch of the “mastermind” conference table system – communication culture with unlimited possibilities.\n\nThe solutions offered by Sedus with the",
+      "subCategory": "Conference Furniture",
+      "mainCategory": "Furniture"
+    },
+    {
+      "brand": "Sedus Stoll",
+      "model": "se:living Version OFML",
+      "family": "se:living",
+      "mainCategory": "Office Seating",
+      "subCategory": "Lounge Chairs",
+      "description": "se:living Version OFML — se:living combines the comfort of home with the functionality of the modern office. As a modular lounge furniture system, it offers versatile configuration options for agile working, informal meetings and relaxation zones.",
+      "imageUrl": "https://kfrjsvqhvwaezdvsrgzw.supabase.co/storage/v1/object/public/assets/extracted-images/extract_1795174142753_8da314c1/page_2_row_4_img_0_19eda9c8.png",
+      "websiteUrl": "https://www.sedus.com/en/products/families/se-living",
+      "productUrl": "https://www.sedus.com/en/products/families/se-living",
+      "officialProductUrl": "https://www.sedus.com/en/products/families/se-living",
+      "price": 0,
+      "currency": "USD",
+      "verified": false,
+      "source": "grounded-search",
+      "lastUpdated": "2026-11-20T11:29:57.499Z"
     }
   ],
   "source": "Cloud-Restore",
   "budget_tier": "mid",
   "logo": "https://media.architonic.com/m-on/3100165/logo/sedus-stoll_logo_2a03183e.png",
-  "updated_at": "2026-05-01T08:58:29.649+00:00",
+  "updated_at": "2026-05-06T12:52:19.718+00:00",
   "budgetTier": "mid",
-  "origin": "Cloud-Restore"
+  "origin": "Cloud-Restore",
+  "categoryTree": {
+    "Furniture": [
+      "Sedus Smart Cafe",
+      "Break Out Furniture",
+      "Executive Meeting Conference",
+      "Sofa For Cosy Offices",
+      "Office Seating",
+      "Room In Room Screens And Acoustic",
+      "Office Furniture",
+      "Conference Chairs",
+      "Conference Furniture"
+    ],
+    "Office Seating": [
+      "Conference Chairs"
+    ]
+  },
+  "categoryList": [
+    "Furniture",
+    "Office Seating"
+  ]
 }

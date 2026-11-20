@@ -3,6 +3,7 @@
 // No bulk crawl: runs only for brands your documents actually ask about.
 // Vercel-safe: no browser deps, global fetch + cheerio, native to Node 18+.
 import { fetchProductFacts } from './jsonldVerifier.js';
+import { fetchLiveProductImage } from './veImageEnricher.js';
 
 const TIMEOUT = 25000;
 const MAX_PAGES = 8;
@@ -10,8 +11,8 @@ const REQUEST_DELAY = 1000; // 1s between requests -> polite, avoids rate limits
 // Vercel serverless caps at 60s: keep the whole pass inside ~45s there.
 const GLOBAL_TIMEOUT = process.env.VERCEL === '1' ? 45000 : 600000; // 45s on Vercel, 10 min local
 // URL path hints that usually mean "a product page" (EN/DE/FR/IT/ES/NL)
-const PRODUCT_HINT = /(product|produkt|produit|prodotto|producto|finder|collect|katalog|catalog|assort|gamma|serie|series|moebel|meuble|arredo|stoel|chair|table|tisch|taf|bank|bed|bett|lettino|sedia|stoelen|fauteuil)/i;
-const SKIP_HINT = /(store-finder|blog|news|journal|press|career|job|contact|about|ueber-uns|impress|privacy|agb|faq|event|stor|dealer|handler|showroom|project|referenz|\.pdf|\.jpg|\.png)/i;
+const PRODUCT_HINT = /(product|produkt|produit|prodotto|producto|finder|collect|katalog|catalog|assort|gamma|serie|series|moebel|meuble|arredo|stoel|chair|table|desk|tisch|taf|bank|bed|bett|lettino|sedia|stoelen|fauteuil)/i;
+const SKIP_HINT = /(store-finder|blog|news|journal|press|career|job|contact|about|ueber-uns|impress|privacy|agb|faq|event|stor|dealer|handler|showroom|project|referenz|cart|checkout|login|my-account|wishlist|search|\?|\.pdf|\.jpg|\.png)/i;
 const pathDepth = (u) => { try { return new URL(u).pathname.split('/').filter(Boolean).length; } catch { return 0; } };
 
 // Category sanity: product name contains furniture category keywords but subCategory doesn't match
@@ -46,7 +47,7 @@ async function getText(url) {
   } catch { return null; } finally { clearTimeout(t); }
 }
 
-function locsFromSitemap(xml) {
+export function locsFromSitemap(xml) {
   const out = [];
   const re = /<loc>\s*([^<]+?)\s*<\/loc>/gi;
   let m;
@@ -112,18 +113,21 @@ export async function enrichBrandFromOfficialSite({ domain, brandName = '', maxP
   } else {
     urls = locsFromSitemap(sitemapXml).map((u) => ({ u, productMap: false }));
   }
-  // 3) Keep product-ish pages only -> deepest URLs first (listings are shallow,
-  // real products sit 4+ segments deep: /finder/<category>/<family>/<Model>).
+  // 3) Keep product-ish pages only -> deepest URLs and product-slug URLs first.
   // URLs from a *product* sitemap child skip the guessing entirely.
   const cands = urls
-    .filter(({ u, productMap }) => productMap || (PRODUCT_HINT.test(u) && pathDepth(u) >= 4))
+    .filter(({ u, productMap }) => {
+      if (productMap) return true;
+      const depth = pathDepth(u);
+      return (PRODUCT_HINT.test(u) && depth >= 2) || depth >= 3;
+    })
     .filter(({ u }) => !SKIP_HINT.test(u))
     // English locale first (kills FR/DE/ES/NL quadruplicates), then deepest
     .sort((a, b) => ((/\/en(\/|$)/.test(b.u) ? 1 : 0) - (/\/en(\/|$)/.test(a.u) ? 1 : 0)) || (pathDepth(b.u) - pathDepth(a.u)))
     .map(({ u }) => u);
   const finalCands = [...new Set(cands)].slice(0, maxPages);
   if (finalCands.length === 0) return { ok: false, reason: 'no-product-urls', products: [], sitemap: sitemapUrl };
-  // 4) Verify each via JSON-LD (brand backfilled when the page omits it)
+  // 4) Verify each via JSON-LD / OG and ensure a valid product image exists
   const products = [];
   const seenImg = new Set();
   for (const url of finalCands) {
@@ -142,6 +146,14 @@ export async function enrichBrandFromOfficialSite({ domain, brandName = '', maxP
           const words = slug.split(/[-_]+/).filter((w) => w && !(brandName && new RegExp(`^${brandName}$`, 'i').test(w)) && /^\d{4,}$/.test(w) === false);
           if (words.length > 1) r.product.model = words.map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
         } catch { /* keep generic title */ }
+      }
+      // Resolve fallback photo if JSON-LD/OG omitted one; never save un-imaged stubs as verified
+      if (!r.product.imageUrl) {
+        r.product.imageUrl = await fetchLiveProductImage(r.product.brand || brandName, r.product.model, url);
+      }
+      if (!r.product.imageUrl) {
+        console.log(`[BrandEnrich] ${brandName}: skipping "${r.product.model}" (no product image found on ${url})`);
+        continue;
       }
       // Category sanity check -> log but don't reject (soft warning)
       const sanity = checkCategorySanity(r.product.model, r.product.category);

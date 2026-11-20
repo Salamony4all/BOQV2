@@ -1,5 +1,16 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { getBrandAffinityScore, detectSpecArchetype, DOMAIN_EXCLUSIONS } from './utils/veBrandSpecialties.js';
+import { readSettings } from './settings.js';
+import { aiKeyStorage } from './utils/llmUtils.js';
+import {
+  PIPELINE_TIMEOUT_MS,
+  ensureLiveCatalogSynced,
+  getPipelineModelCandidates,
+  isGoogleFreeTierActive,
+  recordModelFailure,
+  recordModelSuccess,
+  withModelTimeout
+} from './utils/freeModelRouter.js';
 
 // In-memory cache for computed catalog embeddings: brandName -> { products, timestamp }
 const brandEmbeddingCache = new Map();
@@ -21,43 +32,67 @@ export function cosineSimilarity(vecA, vecB) {
   return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
 }
 
-const EMBEDDING_MODELS = ['gemini-embedding-001', 'gemini-embedding-2-preview', 'gemini-embedding-2', 'text-embedding-004'];
-
-async function getEmbeddingModel(genAI) {
-  for (const m of EMBEDDING_MODELS) {
-    try {
-      return genAI.getGenerativeModel({ model: m });
-    } catch (e) {}
+function resolveEmbeddingApiKey(explicitKey) {
+  if (explicitKey) return explicitKey;
+  const ctx = aiKeyStorage.getStore() || {};
+  const saved = readSettings();
+  const freeTier = isGoogleFreeTierActive(aiKeyStorage);
+  if (freeTier) {
+    return ctx.googleFreeKey || saved.googleFreeKey || ctx.googleApiKey || saved.googleApiKey || process.env.GOOGLE_FREE_KEY || process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || '';
   }
-  return genAI.getGenerativeModel({ model: 'gemini-embedding-001' });
+  return ctx.googleApiKey || saved.googleApiKey || ctx.googleFreeKey || saved.googleFreeKey || process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || process.env.GOOGLE_FREE_KEY || '';
+}
+
+async function embedWithFailover(genAI, text, apiKey = '') {
+  const freeTier = isGoogleFreeTierActive(aiKeyStorage);
+  await ensureLiveCatalogSynced(apiKey);
+  const candidates = getPipelineModelCandidates('embeddings', null, { freeTier });
+  let lastErr = null;
+  for (const modelId of candidates) {
+    try {
+      const t0 = Date.now();
+      const model = genAI.getGenerativeModel({ model: modelId });
+      const maxChars = modelId.includes('embedding-2') || /embedding-[3-9]/i.test(modelId) ? 6000 : 2048;
+      const result = await withModelTimeout(
+        model.embedContent(String(text || '').slice(0, maxChars)),
+        PIPELINE_TIMEOUT_MS.embeddings || 15000,
+        `Embedding(${modelId})`
+      );
+      recordModelSuccess(modelId, { freeTier, latencyMs: Date.now() - t0 });
+      return result.embedding.values;
+    } catch (err) {
+      lastErr = err;
+      const info = recordModelFailure(modelId, err, { freeTier });
+      console.warn(`[Embedding] Model "${modelId}" failed (${info.category}): ${err.message}`);
+      if (!info.retryableOnNextModel) throw err;
+    }
+  }
+  throw lastErr || new Error('All Google embedding models failed');
 }
 
 /**
- * Generate embedding for a single text using Google Generative AI (gemini-embedding-001)
+ * Generate embedding for a single text using dynamically ranked Google embedding models (with failover)
  */
 export async function getEmbedding(text, apiKey) {
-  const key = apiKey || process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || process.env.GOOGLE_FREE_KEY;
+  const key = resolveEmbeddingApiKey(apiKey);
   if (!key) {
     throw new Error('No Google Gemini API key configured for embeddings');
   }
 
   const genAI = new GoogleGenerativeAI(key);
-  const model = await getEmbeddingModel(genAI);
-  const result = await model.embedContent(text.slice(0, 2048));
-  return result.embedding.values;
+  return await embedWithFailover(genAI, text, key);
 }
 
 /**
- * Generate embeddings for an array of texts in batch
+ * Generate embeddings for an array of texts in batch with model failover
  */
 export async function getBatchEmbeddings(texts, apiKey) {
-  const key = apiKey || process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || process.env.GOOGLE_FREE_KEY;
+  const key = resolveEmbeddingApiKey(apiKey);
   if (!key) {
     throw new Error('No Google Gemini API key configured for embeddings');
   }
 
   const genAI = new GoogleGenerativeAI(key);
-  const model = await getEmbeddingModel(genAI);
 
   const embeddings = [];
   const CHUNK_SIZE = 8;
@@ -66,10 +101,9 @@ export async function getBatchEmbeddings(texts, apiKey) {
     const chunkResults = await Promise.all(
       chunk.map(async (t) => {
         try {
-          const res = await model.embedContent(t.slice(0, 2048));
-          return res.embedding.values;
+          return await embedWithFailover(genAI, t, key);
         } catch (e) {
-          console.warn(`[Embedding] Warning generating vector for "${t.slice(0, 40)}":`, e.message);
+          console.warn(`[Embedding] Warning generating vector for "${String(t || '').slice(0, 40)}":`, e.message);
           return null;
         }
       })
@@ -138,34 +172,113 @@ const BASIC_ENGLISH_STOPWORDS = new Set([
 ]);
 
 /**
- * Computes token-level overlap score between query description and product
+ * Computes token-level overlap score between query description and product,
+ * including functional-subtype alignment (folding/wheeled tables, large boardroom
+ * tables, round vs rectangular tables, steel/mobile filing vs open dividers).
  */
 export function computeTokenOverlapScore(queryText, product) {
   if (!queryText || !product) return 0;
+  // Strip color-compound phrases like "coffee-colored" so paint finishes never hijack coffee/bistro tables
+  const sanitizedQuery = String(queryText)
+    .toLowerCase()
+    .replace(/\bcoffee[-\s]+(?:colored|coloured|brown|matte|paint|finish)\b/g, 'brown finish');
   const qTokens = new Set(
-    queryText
-      .toLowerCase()
+    sanitizedQuery
       .replace(/[^a-z0-9\s]/g, ' ')
       .split(/\s+/)
       .filter(t => t.length > 2 && !BASIC_ENGLISH_STOPWORDS.has(t))
   );
   if (qTokens.size === 0) return 0;
 
-  const targetText = `${product.model || ''} ${product.subCategory || ''} ${product.family || ''} ${product.description || ''}`.toLowerCase();
+  const modelLower = String(product.model || '').toLowerCase();
+  const subLower = String(product.subCategory || '').toLowerCase();
+  const descLower = String(product.description || '').toLowerCase();
+  const targetText = `${modelLower} ${subLower} ${String(product.family || '').toLowerCase()} ${descLower}`;
   let matchCount = 0;
   let modelBonus = 0;
 
   for (const token of qTokens) {
     if (targetText.includes(token)) {
       matchCount++;
-      if ((product.model || '').toLowerCase().includes(token)) {
-        modelBonus += 0.35;
+      if (modelLower.includes(token)) {
+        modelBonus += 0.25;
       }
     }
   }
 
+  let functionalAdj = 0;
+
+  // 1. Folding / Movable / Wheeled Table discriminator
+  const wantsFoldingTable = (/\b(movable|mobile|folding|foldable|flip[-\s]?top|tilt[-\s]?top|nesting)\b/.test(sanitizedQuery) && /\b(table|desk)\b/.test(sanitizedQuery))
+    || (/\b(meeting|conference|training)\s*table\b/.test(sanitizedQuery) && /\b(wheels?|castors?|casters?|brakes)\b/.test(sanitizedQuery));
+  const isProdFoldingTable = /\b(flip[-\s]?top|foldable|folding|tilt[-\s]?top|nesting|casters?|castors?|wheels|flipped\s+up)\b/.test(`${modelLower} ${descLower}`);
+  if (wantsFoldingTable) {
+    functionalAdj += isProdFoldingTable ? 0.45 : -0.35;
+  }
+
+  // 2. Large fixed boardroom / multi-seat meeting table discriminator
+  const wantsLargeBoardroom = !wantsFoldingTable
+    && /\b(boardroom|conference\s*table|meeting\s*(?:room\s*)?table)\b/.test(sanitizedQuery)
+    && (/\b([89]|[1-9]\d+)\s*[-\s]?(pax|persons?|people|seaters?|seats?)\b/.test(sanitizedQuery) || /\bboardroom\b/.test(sanitizedQuery) || /\bw\s*([3-9]\d{3}|[1-9]\d{4})\b/.test(sanitizedQuery))
+    && !/\bround\b/.test(sanitizedQuery);
+  if (wantsLargeBoardroom) {
+    const isGenuineContractConf = /^contract\s*tables?\./i.test(descLower.trim())
+      || /\bconference\s*tables?\b/.test(subLower)
+      || /\b(modular\s+table\s+system|executive\s+furniture|modern\s+luxury|meeting\s+rooms?,\s+and\s+conference)\b/.test(descLower);
+    const isWeakBoardroomCandidate = isProdFoldingTable
+      || /\b(bistro\s*tables?|coffee\s*tables?|zoo\s*zoo|zoozoo|round\s+tabletops?|round\s+multipurpose|media\s*wall)\b/.test(`${modelLower} ${descLower}`)
+      || (/^desks?\./i.test(descLower.trim()) && !/\bconference\s*tables?\b/.test(subLower));
+    if (isGenuineContractConf && !isWeakBoardroomCandidate) functionalAdj += 0.35;
+    if (isWeakBoardroomCandidate) functionalAdj -= 0.45;
+  }
+
+  // 3. Round vs Rectangular table shape alignment
+  const wantsRoundTable = /\b(round\s+(?:meeting|conference|dining|coffee|side|bistro)?\s*table|dia\.?\s*\d{3,4})\b/.test(sanitizedQuery);
+  const isProdRoundTable = /\bround\b/.test(`${modelLower} ${descLower}`);
+  if (wantsRoundTable) {
+    functionalAdj += isProdRoundTable ? 0.30 : -0.10;
+  } else if (/\bw\s*\d{4}\s*[x×]\s*d\s*\d{3,4}\b/.test(sanitizedQuery) && isProdRoundTable) {
+    functionalAdj -= 0.25;
+  }
+
+  // 4. Mechanical Mobile / Steel Filing Racks vs Open Room-Divider Shelving
+  const wantsMobileOrSteelFiling = /\b(mechanical\s*mobile\s*filing|mobile\s*filing|mobile\s*shelving|compactor|high[\s-]?density\s*(?:filing|shelving)|filing\s*racks?|box\s*file|arch\s*file|steel\s*filing|metal\s*filing)\b/.test(sanitizedQuery);
+  if (wantsMobileOrSteelFiling) {
+    const isSteelOrMobileFiling = /\b(steel\s*(?:systemfile|filing|bookcase|swing|cabinet)|metal\s*(?:door\s*)?filing|systemfile|lateral\s*file|filing\s*cabinet|full\s*height.*filing|archive|compactor)\b/.test(`${modelLower} ${subLower} ${descLower}`);
+    const isOpenDecorDivider = /\b(conference\s*walls?|shaping\s+and\s+dividing\s+spaces|room\s*divider|combus|phylo|coat\s*rack|clothes\s*rack|magazine\s*rack|pedestal)\b/.test(`${modelLower} ${subLower} ${descLower}`);
+    if (isSteelOrMobileFiling && !isOpenDecorDivider) functionalAdj += 0.40;
+    if (isOpenDecorDivider) functionalAdj -= 0.50;
+  }
+
+  // 5. Single-Seater Sofa / Armchair vs Multi-Seater (2/3 Seater) Sofa alignment
+  const wantsSingleSeater = /\b(single\s*seater|1[\s-]?seater|one\s*seater|armchair|lounge\s*chair|club\s*chair|tub\s*chair)\b/.test(sanitizedQuery)
+    && !/\b(2[\s-]?seater|3[\s-]?seater|two\s*seater|three\s*seater)\b/.test(sanitizedQuery);
+  const wantsMultiSeater = /\b(2[\s-]?seater|3[\s-]?seater|two\s*seater|three\s*seater|modular\s*sofa)\b/.test(sanitizedQuery);
+  const isProdArmchair = /^armchairs?\./i.test(descLower.trim()) || /\b(armchair|lounge\s*chair|lounges|single\s*seater|1[\s-]?seater)\b/.test(`${modelLower} ${subLower}`);
+  const isProdMultiSofa = /^sofas?\./i.test(descLower.trim()) || /\b(2[\s-]?seater|3[\s-]?seater|two\s*seater|three\s*seater)\b/.test(`${modelLower} ${descLower}`);
+  if (wantsSingleSeater) {
+    if (isProdArmchair) functionalAdj += 0.35;
+    else if (isProdMultiSofa) functionalAdj -= 0.40;
+  } else if (wantsMultiSeater) {
+    if (isProdMultiSofa && !isProdArmchair) functionalAdj += 0.30;
+    else if (isProdArmchair) functionalAdj -= 0.35;
+  }
+
+  // 6. Visitor / Cantilever / 4-Leg Chair vs Swivel Task Chair alignment
+  const wantsVisitorCantilever = /\b(visitor\s*chair|guest\s*chair|cantilever|4[\s-]?leg|sled\s*base|conference\s*chair|meeting\s*chair)\b/.test(sanitizedQuery)
+    && !/\b(task\s*chair|swivel|5[\s-]?star|operator\s*chair)\b/.test(sanitizedQuery);
+  const wantsTaskSwivel = /\b(task\s*chair|swivel|5[\s-]?star|operator\s*chair|staff\s*chair|medium\s*back\s*chair|high\s*back\s*chair)\b/.test(sanitizedQuery) && !wantsVisitorCantilever;
+  const isProdTask = /\b(task\s*chair|staff\s*chairs?|operator\s*chair|swivel)\b/.test(`${modelLower} ${subLower} ${descLower.slice(0, 120)}`);
+  const isProdVisitor = /\b(visitor|guest|cantilever|conference\s*chair|4[\s-]?leg|sled|meeting\s*chair)\b/.test(`${modelLower} ${subLower} ${descLower.slice(0, 140)}`);
+  if (wantsVisitorCantilever) {
+    if (isProdVisitor && !isProdTask) functionalAdj += 0.35;
+    else if (isProdTask && !isProdVisitor) functionalAdj -= 0.40;
+  } else if (wantsTaskSwivel) {
+    if (isProdTask) functionalAdj += 0.25;
+  }
+
   const rawRatio = matchCount / qTokens.size;
-  return Math.min(1.0, rawRatio + modelBonus);
+  return Math.max(0, Math.min(1.0, rawRatio + Math.min(0.45, modelBonus) + functionalAdj));
 }
 
 

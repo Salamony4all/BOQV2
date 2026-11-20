@@ -955,10 +955,10 @@ async function uploadMatchedMedia(matchedCandidates, mediaEntriesByName, imagesD
                     if (pngPath && fsSync.existsSync(pngPath)) {
                         data = fsSync.readFileSync(pngPath);
                         currentFileName = path.basename(pngPath).replace(/^temp_/, '');
-                        try { fsSync.unlinkSync(tempInputPath); } catch (e) {}
-                        try { fsSync.unlinkSync(pngPath); } catch (e) {}
+                        try { fsSync.unlinkSync(tempInputPath); } catch (e) { }
+                        try { fsSync.unlinkSync(pngPath); } catch (e) { }
                     } else {
-                        try { if (fsSync.existsSync(tempInputPath)) fsSync.unlinkSync(tempInputPath); } catch (e) {}
+                        try { if (fsSync.existsSync(tempInputPath)) fsSync.unlinkSync(tempInputPath); } catch (e) { }
                     }
                 } catch (err) {
                     console.error(`[FastExtractor] Error during EMF conversion for ${fileName}:`, err.message);
@@ -1018,20 +1018,6 @@ async function uploadMatchedMedia(matchedCandidates, mediaEntriesByName, imagesD
                     }
                 } catch (eRail) {
                     console.warn(`[FastExtractor] Railway sidecar upload failed for ${currentFileName}:`, eRail.message);
-                }
-            }
-
-            if (!directUrl) {
-                try {
-                    const form = new FormData();
-                    form.append('key', '6d207e02198a847aa98d0a2a901485a5');
-                    form.append('action', 'upload');
-                    form.append('source', data.toString('base64'));
-                    form.append('format', 'json');
-                    const res1 = await axios.post('https://freeimage.host/api/1/upload', form, { headers: form.getHeaders() });
-                    if (res1.status === 200 && res1.data && res1.data.image) directUrl = res1.data.image.url;
-                } catch (e1) {
-                    console.warn(`[FastExtractor] Provider 1 (FreeImage) failed for ${fileName}, falling back to local.`);
                 }
             }
 

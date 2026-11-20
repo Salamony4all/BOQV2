@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useCompanyProfile } from '../context/CompanyContext';
 import { DEFAULT_AI_SETTINGS } from '../utils/aiConstants';
+import { getApiBase } from '../utils/apiBase';
 import styles from '../styles/PlanAnalyzerModal.module.css';
+
+const API_BASE = getApiBase();
 
 const PlanAnalyzerModal = ({ isOpen, onClose, onApply }) => {
     const { aiSettings } = useCompanyProfile();
@@ -12,7 +15,6 @@ const PlanAnalyzerModal = ({ isOpen, onClose, onApply }) => {
     const [progress, setProgress] = useState('');
     const [results, setResults] = useState(null);
     const [error, setError] = useState(null);
-    const [hasAutoApplied, setHasAutoApplied] = useState(false);
 
     // Only reset state on initial open/close
     useEffect(() => {
@@ -22,7 +24,6 @@ const PlanAnalyzerModal = ({ isOpen, onClose, onApply }) => {
             setResults(null);
             setError(null);
             setUploadProgress(0);
-            setHasAutoApplied(false);
         }
     }, [isOpen]);
 
@@ -69,12 +70,12 @@ const PlanAnalyzerModal = ({ isOpen, onClose, onApply }) => {
                 setProgress(`${fileLabel}Initializing AI Engine for ${file.name}...`);
 
                 const formData = new FormData();
-                formData.append('file', file);
+                formData.append('files', file);
                 formData.append('includeFitout', includeFitout);
                 formData.append('provider', aiSettings?.engine || 'google');
                 formData.append('providerModel', aiSettings?.model || '');
 
-                const response = await fetch('/api/analyze-plan', {
+                const response = await fetch(`${API_BASE}/api/analyze-plan`, {
                     method: 'POST',
                     body: formData
                 });
@@ -102,10 +103,6 @@ const PlanAnalyzerModal = ({ isOpen, onClose, onApply }) => {
                     roomCount: new Set(allItems.map(i => i.location)).size
                 };
                 setResults(extractedResults);
-                if (!hasAutoApplied && typeof onApply === 'function') {
-                    onApply(extractedResults.items);
-                    setHasAutoApplied(true);
-                }
                 setStage('results');
             } else {
                 throw new Error('No items detected in the provided drawings.');
@@ -122,11 +119,8 @@ const PlanAnalyzerModal = ({ isOpen, onClose, onApply }) => {
     };
 
     const handleApplyResults = () => {
-        if (results && results.items) {
-            if (!hasAutoApplied && typeof onApply === 'function') {
-                onApply(results.items);
-                setHasAutoApplied(true);
-            }
+        if (results && results.items && typeof onApply === 'function') {
+            onApply(results.items);
         }
         handleClose();
     };
@@ -241,7 +235,31 @@ const PlanAnalyzerModal = ({ isOpen, onClose, onApply }) => {
                         <div className={styles.processingArea}>
                             <div className={styles.blueprintContainer}>
                                 <div className={styles.blueprintGrid} />
-                                <div className={styles.blueprintDrawing} />
+                                <div className={styles.blueprintDrawing}>
+                                    <svg viewBox="0 0 220 148" style={{ width: '100%', height: '100%', display: 'block' }} aria-hidden="true">
+                                        <path d="M16 16 H68 M106 16 H156 M184 16 H204 V50 M204 86 V132 H130 M112 132 H16 V16" fill="none" stroke="#60a5fa" strokeWidth="2.4" />
+                                        <path d="M124 16 V60 M124 76 V80 M16 78 H66 M82 78 H134 M134 78 V104 M134 120 V132" fill="none" stroke="rgba(96,165,250,0.75)" strokeWidth="1.4" />
+                                        <line x1="112" y1="132" x2="112" y2="114" stroke="#93c5fd" strokeWidth="1.3" />
+                                        <path d="M112 114 A18 18 0 0 1 130 132" fill="none" stroke="rgba(147,197,253,0.7)" strokeWidth="1" strokeDasharray="2.5 2" />
+                                        <line x1="66" y1="78" x2="66" y2="62" stroke="#93c5fd" strokeWidth="1.3" />
+                                        <path d="M66 62 A16 16 0 0 1 82 78" fill="none" stroke="rgba(147,197,253,0.7)" strokeWidth="1" strokeDasharray="2.5 2" />
+                                        <line x1="124" y1="60" x2="140" y2="60" stroke="#93c5fd" strokeWidth="1.3" />
+                                        <path d="M140 60 A16 16 0 0 1 124 76" fill="none" stroke="rgba(147,197,253,0.7)" strokeWidth="1" strokeDasharray="2.5 2" />
+                                        <rect x="40" y="34" width="58" height="20" rx="10" fill="rgba(59,130,246,0.2)" stroke="#93c5fd" strokeWidth="1.2" />
+                                        <rect x="48" y="26" width="9" height="5" rx="2" fill="rgba(96,165,250,0.35)" stroke="#93c5fd" strokeWidth="0.9" />
+                                        <rect x="64" y="26" width="9" height="5" rx="2" fill="rgba(96,165,250,0.35)" stroke="#93c5fd" strokeWidth="0.9" />
+                                        <rect x="80" y="26" width="9" height="5" rx="2" fill="rgba(96,165,250,0.35)" stroke="#93c5fd" strokeWidth="0.9" />
+                                        <rect x="48" y="57" width="9" height="5" rx="2" fill="rgba(96,165,250,0.35)" stroke="#93c5fd" strokeWidth="0.9" />
+                                        <rect x="64" y="57" width="9" height="5" rx="2" fill="rgba(96,165,250,0.35)" stroke="#93c5fd" strokeWidth="0.9" />
+                                        <rect x="80" y="57" width="9" height="5" rx="2" fill="rgba(96,165,250,0.35)" stroke="#93c5fd" strokeWidth="0.9" />
+                                        <path d="M150 30 H188 V58 H178 V41 H150 Z" fill="rgba(59,130,246,0.2)" stroke="#93c5fd" strokeWidth="1.2" />
+                                        <circle cx="165" cy="50" r="5" fill="rgba(96,165,250,0.35)" stroke="#93c5fd" strokeWidth="0.9" />
+                                        <rect x="30" y="94" width="62" height="24" rx="2" fill="rgba(59,130,246,0.2)" stroke="#93c5fd" strokeWidth="1.2" />
+                                        <line x1="30" y1="106" x2="92" y2="106" stroke="rgba(147,197,253,0.6)" strokeWidth="0.9" strokeDasharray="2 1.5" />
+                                        <path d="M154 92 H192 V122 H182 V101 H154 Z" fill="rgba(59,130,246,0.2)" stroke="#93c5fd" strokeWidth="1.2" />
+                                        <circle cx="166" cy="114" r="7.5" fill="rgba(59,130,246,0.2)" stroke="#93c5fd" strokeWidth="1.2" />
+                                    </svg>
+                                </div>
                                 <div className={styles.scanLine} />
                             </div>
                             <div className={styles.processingInfo}>
@@ -324,7 +342,7 @@ const PlanAnalyzerModal = ({ isOpen, onClose, onApply }) => {
                     
                     {stage === 'results' && (
                         <button className={styles.applyBtn} onClick={handleApplyResults}>
-                            {hasAutoApplied ? 'Done' : 'Apply to Project BOQ '}
+                            Apply to Project BOQ
                         </button>
                     )}
                 </div>

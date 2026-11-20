@@ -1,10 +1,10 @@
 /**
- * Simple Arabic Reshaper and Bidi support for jsPDF
+ * Arabic Reshaper (with Lam-Alif ligatures), Bidi visual ordering (preserving LTR numbers),
+ * and cached Almarai font loader for jsPDF.
  */
 
-// Basic mapping for Arabic characters joining forms
+// Basic mapping for Arabic characters joining forms: [Isolated, Initial, Medial, Final]
 const ArabicForms = {
-    // Isolated, Initial, Medial, Final
     "\u0627": ["\uFE8D", "\uFE8D", "\uFE8E", "\uFE8E"], // Alif
     "\u0628": ["\uFE8F", "\uFE91", "\uFE92", "\uFE90"], // Ba
     "\u062A": ["\uFE95", "\uFE97", "\uFE98", "\uFE96"], // Ta
@@ -40,142 +40,174 @@ const ArabicForms = {
     "\u0625": ["\uFE87", "\uFE87", "\uFE88", "\uFE88"], // Alif Hamza Below
     "\u0629": ["\uFE93", "\uFE93", "\uFE94", "\uFE94"], // Ta Marbuta
     "\u0649": ["\uFEEF", "\uFEEF", "\uFEF0", "\uFEF0"], // Alif Maqsura
+    "\u0621": ["\uFE80", "\uFE80", "\uFE80", "\uFE80"], // Standalone Hamza
+};
+
+// Lam-Alif ligatures: [Isolated, Final]
+const LamAlifLigatures = {
+    "\u0622": ["\uFEF5", "\uFEF6"], // Lam + Alif Mada (لآ)
+    "\u0623": ["\uFEF7", "\uFEF8"], // Lam + Alif Hamza Above (لأ)
+    "\u0625": ["\uFEF9", "\uFEFA"], // Lam + Alif Hamza Below (لإ)
+    "\u0627": ["\uFEFB", "\uFEFC"], // Lam + Alif (لا)
 };
 
 // Characters that don't join with the following character
-const NonJoiningFollowing = ["\u0627", "\u062F", "\u0630", "\u0631", "\u0632", "\u0648", "\u0622", "\u0623", "\u0625", "\u0629", "\u0649"];
+const NonJoiningFollowing = new Set([
+    "\u0621", "\u0622", "\u0623", "\u0624", "\u0625", "\u0627",
+    "\u0629", "\u062F", "\u0630", "\u0631", "\u0632", "\u0648", "\u0649"
+]);
 
-export const fixArabic = (text) => {
-    if (!text) return "";
-    const hasAr = /[\u0600-\u06FF]/.test(text);
-    if (!hasAr) return text;
+const ARABIC_CHAR_RE = /[\u0600-\u06FF\uFE70-\uFEFF]/;
+const LTR_OR_DIGIT_RE = /[A-Za-z0-9\u0660-\u0669\u06F0-\u06F9]/;
 
-    // Reshape logic
+const flipBracket = (char) => {
+    switch (char) {
+        case "(": return ")";
+        case ")": return "(";
+        case "[": return "]";
+        case "]": return "[";
+        case "{": return "}";
+        case "}": return "{";
+        case "<": return ">";
+        case ">": return "<";
+        default: return char;
+    }
+};
+
+function reshapeArabic(text) {
     let reshaped = "";
-    const originalChars = text.split("");
-    for (let i = 0; i < originalChars.length; i++) {
-        const char = originalChars[i];
-        if (ArabicForms[char]) {
-            const prev = i > 0 ? originalChars[i - 1] : null;
-            const next = i < originalChars.length - 1 ? originalChars[i + 1] : null;
-            const prevJoins = prev && ArabicForms[prev] && !NonJoiningFollowing.includes(prev);
-            const nextJoins = next && ArabicForms[next];
+    const chars = Array.from(text);
+    for (let i = 0; i < chars.length; i++) {
+        const char = chars[i];
+        const prev = i > 0 ? chars[i - 1] : null;
+        const next = i < chars.length - 1 ? chars[i + 1] : null;
+        const prevJoins = Boolean(prev && ArabicForms[prev] && !NonJoiningFollowing.has(prev));
 
+        // Handle Lam-Alif ligatures (لا، لأ، لإ، لآ)
+        if (char === "\u0644" && next && LamAlifLigatures[next]) {
+            reshaped += LamAlifLigatures[next][prevJoins ? 1 : 0];
+            i++; // Consume the following Alif
+            continue;
+        }
+
+        if (ArabicForms[char]) {
+            const nextJoins = Boolean(next && ArabicForms[next] && !NonJoiningFollowing.has(char));
             let formIdx = 0; // Isolated
             if (prevJoins && nextJoins) formIdx = 2; // Medial
             else if (prevJoins) formIdx = 3; // Final
             else if (nextJoins) formIdx = 1; // Initial
-
             reshaped += ArabicForms[char][formIdx];
         } else {
             reshaped += char;
         }
     }
+    return reshaped;
+}
 
-    // Bidi segments logic
+export const fixArabic = (text) => {
+    if (!text) return "";
+    const str = String(text);
+    if (!/[\u0600-\u06FF]/.test(str)) return str;
+
+    const reshaped = reshapeArabic(str);
+
+    // Determine overall base direction from the first strong character
+    let isPrimarilyRtl = true;
+    for (const ch of reshaped) {
+        if (ARABIC_CHAR_RE.test(ch)) { isPrimarilyRtl = true; break; }
+        if (/[A-Za-z]/.test(ch)) { isPrimarilyRtl = false; break; }
+    }
+
+    // Tokenize into three run classes: 'ar' (Arabic), 'ltr' (Latin/digits/numeric tokens), 'sep' (whitespace/punctuation)
+    // Keeping digits in 'ltr' runs guarantees numbers like "1200" or "2026" are NEVER reversed inside Arabic sentences.
+    const rawTokens = [];
+    const chars = Array.from(reshaped);
+    for (let i = 0; i < chars.length; i++) {
+        const ch = chars[i];
+        let type = 'sep';
+        if (ARABIC_CHAR_RE.test(ch)) {
+            type = 'ar';
+        } else if (LTR_OR_DIGIT_RE.test(ch)) {
+            type = 'ltr';
+        } else if (/[.,:/%+-]/.test(ch)) {
+            // Keep numeric punctuation (e.g., 12.50, 160x80, 100%, 10-20) attached to surrounding LTR/number runs
+            const prevType = rawTokens.length > 0 ? rawTokens[rawTokens.length - 1].type : null;
+            const nextCh = chars[i + 1] || '';
+            if (prevType === 'ltr' && (LTR_OR_DIGIT_RE.test(nextCh) || ch === '%')) {
+                type = 'ltr';
+            }
+        }
+
+        if (rawTokens.length > 0 && rawTokens[rawTokens.length - 1].type === type) {
+            rawTokens[rawTokens.length - 1].text += ch;
+        } else {
+            rawTokens.push({ type, text: ch });
+        }
+    }
+
+    // Merge consecutive 'ar' runs separated only by spaces/punctuation into a single RTL span
     const segments = [];
-    let current = "";
-    let isAr = false;
-
-    // Helper to flip brackets
-    const flipBracket = (char) => {
-        if (char === "(") return ")";
-        if (char === ")") return "(";
-        if (char === "[") return "]";
-        if (char === "]") return "[";
-        if (char === "{") return "}";
-        if (char === "}") return "{";
-        return char;
-    };
-
-    for (let i = 0; i < reshaped.length; i++) {
-        const char = reshaped[i];
-        // Arabic block or reshaped block (including neutral characters that should stay with Arabic)
-        const isCharAr = /[\u0600-\u06FF\uFE70-\uFEFF]/.test(char);
-        const isNeutral = /[\s\d\(\)\[\]\{\}\.\,:\-\+_]/.test(char);
-
-        // If it's the first character, establish base direction
-        if (i === 0) {
-            isAr = isCharAr;
-            current = char;
+    for (let i = 0; i < rawTokens.length; i++) {
+        const tok = rawTokens[i];
+        const prev = segments[segments.length - 1];
+        const next = rawTokens[i + 1];
+        if (tok.type === 'sep' && prev && prev.type === 'ar' && next && next.type === 'ar') {
+            prev.text += tok.text + next.text;
+            i++; // Consumed next 'ar'
+        } else if (tok.type === 'sep' && prev && prev.type === 'ltr' && next && next.type === 'ltr') {
+            prev.text += tok.text + next.text;
+            i++; // Consumed next 'ltr'
         } else {
-            // If it's neutral, it tends to follow the current direction unless we hit a strong opposite
-            if (isNeutral) {
-                current += char;
-            } else if (isCharAr === isAr) {
-                current += char;
-            } else {
-                segments.push({ text: current, isArabic: isAr });
-                isAr = isCharAr;
-                current = char;
-            }
+            segments.push({ ...tok });
         }
     }
-    segments.push({ text: current, isArabic: isAr });
 
-    // Determine if the string should be treated as RTL overall for segment ordering.
-    let isPrimarilyRtl = false;
-    for (const char of reshaped) {
-        const isStrongAr = /[\u0600-\u06FF\uFE70-\uFEFF]/.test(char);
-        const isStrongEn = /[a-zA-Z]/.test(char);
-        if (isStrongAr) { isPrimarilyRtl = true; break; }
-        if (isStrongEn) { isPrimarilyRtl = false; break; }
-    }
-
-    // Refined segmentation: Neutrals shouldn't always stick to Arabic
-    const finalSegments = [];
-    let currentText = "";
-    let currentIsAr = false;
-
-    for (let i = 0; i < reshaped.length; i++) {
-        const char = reshaped[i];
-        const isCharAr = /[\u0600-\u06FF\uFE70-\uFEFF]/.test(char);
-        const isNeutral = /[\s\d\(\)\[\]\{\}\.\,:\-\+_]/.test(char);
-
-        if (i === 0) {
-            currentIsAr = isCharAr;
-            currentText = char;
-        } else {
-            // A neutral character joins the current segment ONLY if it doesn't break a strong run
-            if (isNeutral) {
-                currentText += char;
-            } else if (isCharAr === currentIsAr) {
-                currentText += char;
-            } else {
-                finalSegments.push({ text: currentText, isArabic: currentIsAr });
-                currentIsAr = isCharAr;
-                currentText = char;
-            }
+    const processed = segments.map((seg) => {
+        if (seg.type === 'ar') {
+            return Array.from(seg.text).reverse().map(flipBracket).join("");
         }
-    }
-    finalSegments.push({ text: currentText, isArabic: currentIsAr });
-
-    const processedSegments = finalSegments.map(s => {
-        if (s.isArabic) {
-            return s.text.split("").reverse().map(flipBracket).join("");
+        if (seg.type === 'sep' && isPrimarilyRtl) {
+            return Array.from(seg.text).reverse().map(flipBracket).join("");
         }
-        return s.text;
+        return seg.text;
     });
 
-    if (isPrimarilyRtl) {
-        return processedSegments.reverse().join("");
-    } else {
-        return processedSegments.join("");
-    }
+    return isPrimarilyRtl ? processed.reverse().join("") : processed.join("");
 };
 
-export const hasArabic = (text) => /[\u0600-\u06FF]/.test(text);
+export const hasArabic = (text) => /[\u0600-\u06FF]/.test(String(text || ""));
+
+// Module-level cache so Almarai-Regular.ttf is fetched & encoded only once per session
+let cachedAlmaraiBase64Promise = null;
+
+async function fetchAlmaraiBase64() {
+    if (!cachedAlmaraiBase64Promise) {
+        const fontUrl = "https://cdn.jsdelivr.net/gh/googlefonts/almarai@master/fonts/ttf/Almarai-Regular.ttf";
+        cachedAlmaraiBase64Promise = fetch(fontUrl)
+            .then((response) => {
+                if (!response.ok) throw new Error(`HTTP ${response.status} loading Arabic font`);
+                return response.arrayBuffer();
+            })
+            .then((arrayBuffer) => {
+                const bytes = new Uint8Array(arrayBuffer);
+                let binary = "";
+                const chunkSize = 0x8000;
+                for (let i = 0; i < bytes.length; i += chunkSize) {
+                    binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunkSize));
+                }
+                return btoa(binary);
+            })
+            .catch((err) => {
+                cachedAlmaraiBase64Promise = null;
+                throw err;
+            });
+    }
+    return cachedAlmaraiBase64Promise;
+}
 
 export const loadArabicFont = async (doc) => {
     try {
-        // Use a lightweight Almarai font from CDN
-        const fontUrl = "https://cdn.jsdelivr.net/gh/googlefonts/almarai@master/fonts/ttf/Almarai-Regular.ttf";
-        const response = await fetch(fontUrl);
-        const arrayBuffer = await response.arrayBuffer();
-
-        // Convert arrayBuffer to Base64
-        const base64 = btoa(new Uint8Array(arrayBuffer).reduce((data, byte) => data + String.fromCharCode(byte), ''));
-
+        const base64 = await fetchAlmaraiBase64();
         doc.addFileToVFS("Almarai-Regular.ttf", base64);
         doc.addFont("Almarai-Regular.ttf", "Almarai", "normal");
         doc.addFont("Almarai-Regular.ttf", "Almarai", "bold");

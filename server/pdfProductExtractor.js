@@ -8,7 +8,7 @@ import { promises as fs } from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { callGoogleMultimodalFallback } from './utils/llmPDFTable.js';
-import { safeParseJSON, callUniversalMultimodalAI, getProviderForModel } from './utils/llmUtils.js';
+import { safeParseJSON, callUniversalMultimodalAI, getProviderForModel, VISION_MODEL } from './utils/llmUtils.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -49,9 +49,11 @@ export async function extractProductBoqFromPdf(filePath, progressCallback = () =
         // cell data because the in-memory tempImageStore is not shared across
         // invocations — /api/temp-image/:id requests hit a fresh instance.
         const imageRefs = [];
+        let mupdf = null;
+        let doc = null;
         try {
-            const mupdf = await import('mupdf');
-            const doc = mupdf.Document.openDocument(new Uint8Array(data), 'application/pdf');
+            mupdf = await import('mupdf');
+            doc = mupdf.Document.openDocument(new Uint8Array(data), 'application/pdf');
 
             // Track SN to Image mapping: Map<sn_string, dataUri>
             const snImageMap = new Map();
@@ -187,7 +189,7 @@ export async function extractProductBoqFromPdf(filePath, progressCallback = () =
         progressCallback({ percent: 20, message: `Sending PDF to ${modelName || 'Gemma'} AI...` });
 
         // ── STEP 2: Extract BOQ data using universal model ────────
-        const provider = getProviderForModel(modelName || 'gemma-4-26b-a4b-it');
+        const provider = getProviderForModel(modelName || VISION_MODEL);
 
         let assets = [];
         if (provider === 'google') {
@@ -195,6 +197,8 @@ export async function extractProductBoqFromPdf(filePath, progressCallback = () =
         } else {
             console.log(`🖼️ [Vercel] AI Provider ${provider} does not support PDF natively. Rendering first 15 pages as images...`);
             try {
+                if (!mupdf) mupdf = await import('mupdf');
+                if (!doc) doc = mupdf.Document.openDocument(new Uint8Array(data), 'application/pdf');
                 for (let i = 0; i < Math.min(doc.countPages(), 15); i++) {
                     const page = doc.loadPage(i);
                     const pixmap = page.toPixmap(mupdf.Matrix.scale(1.2, 1.2), mupdf.ColorSpace.DeviceRGB, false);
@@ -241,8 +245,9 @@ Instructions:
             "You are a Furniture Procurement Specialist and Data Extraction Engine.",
             prompt + '\nIMPORTANT: Do NOT repeat the schema above. Start your response immediately with the { character.',
             assets,
-            modelName || 'gemma-4-26b-a4b-it',
-            true // jsonMode
+            modelName || VISION_MODEL,
+            true, // jsonMode
+            'pdf_boq'
         );
 
         console.log(`🤖 AI Response Received (${modelName || 'Gemma'}):`, JSON.stringify(aiResponse).substring(0, 200));

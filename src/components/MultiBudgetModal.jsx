@@ -14,6 +14,21 @@ import BrandDropdown from './BrandDropdown';
 import MultiImageCell from './MultiImageCell';
 import ImageGalleryModal from './ImageGalleryModal';
 import { findDescColumn, cellImageUrls } from '../utils/boqUtils';
+import {
+    recategorizeBoqRows,
+    resolveSectionDividerMeta,
+    drawPdfCategoryDividerPage,
+    addPptxCategoryDividerSlide
+} from '../utils/boqGroupingUtils';
+import {
+    FURNITURE_SET_TYPES,
+    detectFurnitureSetType,
+    parseSetComponentsFromDescription,
+    createEmptySetComponent,
+    computeSetParentRollup,
+    getSetTypeMeta,
+    buildSetComponentMatchQuery
+} from '../utils/furnitureSetUtils';
 
 import { useCompanyProfile } from '../context/CompanyContext';
 import { useTheme } from '../context/ThemeContext';
@@ -123,6 +138,30 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
 
     const [isPlanAnalyzerOpen, setIsPlanAnalyzerOpen] = useState(false);
     const [isConsolidated, setIsConsolidated] = useState(false);
+    const [recategorizeMode, setRecategorizeMode] = useState('original');
+    const [matchingSetRowId, setMatchingSetRowId] = useState(null);
+    const [setExportMode, setSetExportMode] = useState('lump_sum');
+
+    const attachAutoSetMeta = (baseRow) => {
+        const detectedType = detectFurnitureSetType(baseRow.description, baseRow.unit);
+        if (detectedType) {
+            const parsedItems = parseSetComponentsFromDescription(baseRow.description, detectedType, baseRow.id);
+            return {
+                ...baseRow,
+                setType: detectedType,
+                setItems: parsedItems,
+                setExpanded: false,
+                brandImages: []
+            };
+        }
+        return {
+            ...baseRow,
+            setType: 'single',
+            setItems: [],
+            setExpanded: false,
+            brandImages: []
+        };
+    };
     const [specialistData, setSpecialistData] = useState(null);
     const [enrichingRowId, setEnrichingRowId] = useState(null);
     const [lastAISettings, setLastAISettings] = useState({ brands: [], engine: 'OpenAI', providerModel: null, selectionMode: 'standard', brandsMap: null });
@@ -174,32 +213,33 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
     useEffect(() => {
         if (seededItems && seededItems.length > 0) {
             const newRows = seededItems.map((item, i) => {
-                const desc = item.description || item.Description || '';
+                const rawDesc = String(item.description || item.Description || '').replace(/^(\s*\[[^\]]+\]\s*)+/, '').trim();
                 const loc = item.location || item.Location || 'General';
                 const code = item.code || '';
-                const displayDesc = code ? `[${code}] ${desc}` : `[${loc}] ${desc}`;
 
-                return {
+                return attachAutoSetMeta({
                     id: Date.now() + i,
                     sn: i + 1,
                     imageRef: null,
                     brandImage: '', brandDesc: '',
-                    description: displayDesc,
+                    description: rawDesc,
                     code: code,
                     location: loc,
                     scope: item.scope || item.Scope || '',
+                    categoryHint: item.categoryHint || '',
                     qty: item.qty || item.QTY,
                     unit: item.unit || item.Unit || 'Nos',
                     rate: '',
                     amount: '',
                     selectedBrand: '', selectedMainCat: '', selectedSubCat: '', selectedFamily: '', selectedModel: ''
-                };
+                });
             });
 
+            setRecategorizeMode('item');
             setTierData({
-                budgetary: { rows: newRows.map(r => ({ ...r, id: r.id + 0 })), mode: 'boq' },
-                mid: { rows: newRows.map(r => ({ ...r, id: r.id + 100000 })), mode: 'boq' },
-                high: { rows: newRows.map(r => ({ ...r, id: r.id + 200000 })), mode: 'boq' }
+                budgetary: { rows: newRows.map(r => ({ ...r, id: r.id + 0, setItems: (r.setItems || []).map((s, si) => ({ ...s, id: `${r.id + 0}_sub_${si}` })) })), mode: 'boq' },
+                mid: { rows: newRows.map(r => ({ ...r, id: r.id + 100000, setItems: (r.setItems || []).map((s, si) => ({ ...s, id: `${r.id + 100000}_sub_${si}` })) })), mode: 'boq' },
+                high: { rows: newRows.map(r => ({ ...r, id: r.id + 200000, setItems: (r.setItems || []).map((s, si) => ({ ...s, id: `${r.id + 200000}_sub_${si}` })) })), mode: 'boq' }
             });
         }
     }, [seededItems]);
@@ -207,6 +247,7 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
     useEffect(() => {
         if (pendingSeedTier && originalTables && originalTables.length > 0) {
             const rows = buildBoqRows(originalTables);
+            setRecategorizeMode(originalTables[0]?.recategorizeMode || 'original');
             setTierData(prev => ({
                 ...prev,
                 [pendingSeedTier]: { rows, mode: 'boq' }
@@ -316,7 +357,9 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
         if (idxQty === -1) idxQty = findCol(header, /qty|quantity/i);
         const idxUnit = findCol(header, /unit|uom/i);
         const idxRate = findCol(header, /rate|price/i);
-        const idxScope = findCol(header, /scope|zone|area|location/i);
+        let idxScope = findCol(header, /^scope$/i);
+        if (idxScope === -1) idxScope = findCol(header, /scope|category|trade/i);
+        const idxLoc = findCol(header, /^(location|room|zone|area)$/i);
         let idxTotal = findCol(header, /^(?!.*(qty|quantity)).*(total|amount)/i);
         if (idxTotal === -1) idxTotal = findCol(header, /amount|total/i);
 
@@ -335,20 +378,25 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                 return String(v).trim();
             };
             const imageRefs = cellImageUrls(row);
-            return {
+            const rawDesc = String(getVal(idxDesc) || (idxDesc === -1 ? row.cells[1]?.value : '') || '')
+                .replace(/^(\s*\[[^\]]+\]\s*)+/, '')
+                .trim();
+            const locVal = getVal(idxLoc);
+            return attachAutoSetMeta({
                 id: Date.now() + i,
                 sn: i + 1,
                 imageRef: imageRefs[0] || null,
                 imageRefs,
                 brandImage: '', brandDesc: '',
                 scope: getVal(idxScope) || 'Furniture',
-                description: getVal(idxDesc) || (idxDesc === -1 ? row.cells[1]?.value : ''),
+                location: locVal || '',
+                description: rawDesc,
                 qty: getVal(idxQty),
                 unit: getVal(idxUnit),
                 rate: getVal(idxRate),
                 amount: getVal(idxTotal),
                 selectedBrand: '', selectedMainCat: '', selectedSubCat: '', selectedFamily: '', selectedModel: ''
-            };
+            });
         });
     };
 
@@ -357,6 +405,7 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
             alert("No extracted BOQ data found. Please Upload BOQ first.");
             return;
         }
+        setRecategorizeMode(originalTables[0]?.recategorizeMode || 'original');
         setTierData(prev => ({ ...prev, [activeTier]: { rows: buildBoqRows(originalTables), mode: 'boq' } }));
     };
 
@@ -365,9 +414,11 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
 
     const handleCreateNewBoq = () => {
         const emptyRows = Array(10).fill().map((_, i) => ({
-            id: Date.now() + i, sn: i + 1, imageRef: null, brandImage: '', brandDesc: '', description: '', qty: '', unit: '', rate: '', amount: '',
-            selectedBrand: '', selectedMainCat: '', selectedSubCat: '', selectedFamily: '', selectedModel: ''
+            id: Date.now() + i, sn: i + 1, imageRef: null, brandImage: '', brandImages: [], brandDesc: '', description: '', qty: '', unit: '', rate: '', amount: '',
+            selectedBrand: '', selectedMainCat: '', selectedSubCat: '', selectedFamily: '', selectedModel: '',
+            setType: 'single', setItems: [], setExpanded: false
         }));
+        setRecategorizeMode('original');
         setTierData(prev => ({ ...prev, [activeTier]: { rows: emptyRows, mode: 'new' } }));
     };
 
@@ -376,15 +427,66 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
 
     const handlePlanApplied = (planItems) => {
         if (!planItems || planItems.length === 0) return;
-        const newRows = planItems.map((item, i) => ({
+        const newRows = planItems.map((item, i) => attachAutoSetMeta({
             id: Date.now() + i, sn: i + 1, imageRef: null, brandImage: '', brandDesc: '',
-            description: `[${item.location}] ${item.description.replace(/^(\[.*?\]\s*)+/, '').trim()}`, location: item.location, scope: item.scope, qty: item.qty, unit: item.unit || 'Nos', rate: '', amount: '', selectedBrand: '', selectedMainCat: '', selectedSubCat: '', selectedFamily: '', selectedModel: ''
+            description: String(item.description || '').replace(/^(\s*\[[^\]]+\]\s*)+/, '').trim(), location: item.location || '', code: item.code || '', scope: item.scope || '', qty: item.qty, unit: item.unit || 'Nos', rate: '', amount: '', selectedBrand: '', selectedMainCat: '', selectedSubCat: '', selectedFamily: '', selectedModel: ''
         }));
+        setRecategorizeMode('item');
         setTierData({
-            budgetary: { rows: newRows.map(r => ({ ...r, id: r.id + 0 })), mode: 'boq' },
-            mid: { rows: newRows.map(r => ({ ...r, id: r.id + 100000 })), mode: 'boq' },
-            high: { rows: newRows.map(r => ({ ...r, id: r.id + 200000 })), mode: 'boq' }
+            budgetary: { rows: newRows.map(r => ({ ...r, id: r.id + 0, setItems: (r.setItems || []).map((s, si) => ({ ...s, id: `${r.id + 0}_sub_${si}` })) })), mode: 'boq' },
+            mid: { rows: newRows.map(r => ({ ...r, id: r.id + 100000, setItems: (r.setItems || []).map((s, si) => ({ ...s, id: `${r.id + 100000}_sub_${si}` })) })), mode: 'boq' },
+            high: { rows: newRows.map(r => ({ ...r, id: r.id + 200000, setItems: (r.setItems || []).map((s, si) => ({ ...s, id: `${r.id + 200000}_sub_${si}` })) })), mode: 'boq' }
         });
+    };
+
+    const handleManualEnrich = async (row, index, tierKey = activeTier) => {
+        const targetTier = tierKey || activeTier;
+        const brandName = prompt("Enter Brand Name (e.g., Herman Miller):", row.selectedBrand || "");
+        if (!brandName) return;
+        const modelName = prompt("Enter Model Name (e.g., Aeron):", row.selectedModel || "");
+        if (!modelName) return;
+
+        setEnrichingRowId(row.id);
+        try {
+            const response = await fetch(`${API_BASE}/api/models/enrich`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ brandName, modelName, budgetTier: targetTier })
+            });
+            const data = await response.json();
+
+            if (data.status === 'success' && data.product) {
+                const p = data.product;
+                setTierData(prev => {
+                    const tier = prev[targetTier];
+                    if (!tier || !tier.rows) return prev;
+                    const newRows = tier.rows.map((r, i) => i === index ? {
+                        ...r,
+                        selectedBrand: p.brand || brandName,
+                        selectedModel: p.model || modelName,
+                        selectedModelUrl: p.productUrl || r.selectedModelUrl || '',
+                        brandImage: p.imageUrl || r.brandImage || '',
+                        brandLogo: p.brandLogo || r.brandLogo || '',
+                        brandDesc: p.description || r.brandDesc || '',
+                        rate: p.price > 0 ? Number(p.price).toFixed(2) : r.rate,
+                        basePrice: p.price > 0 ? Number(p.price) : r.basePrice,
+                        selectedMainCat: p.mainCategory || r.selectedMainCat || '',
+                        selectedSubCat: p.subCategory || r.selectedSubCat || '',
+                        aiStatus: 'success',
+                        aiResult: { product: p, status: 'success', brand: p.brand || brandName }
+                    } : r);
+                    return { ...prev, [targetTier]: { ...tier, rows: newRows } };
+                });
+                fetchBrands();
+                alert(`Successfully enriched and saved ${p.model || modelName} to ${p.brand || brandName} database!`);
+            } else {
+                alert(`Enrichment failed: ${data.message || 'Product not found.'}`);
+            }
+        } catch (err) {
+            alert(`Enrichment Error: ${err.message}`);
+        } finally {
+            setEnrichingRowId(null);
+        }
     };
 
     const getUniqueValues = (items, keyPath) => {
@@ -396,6 +498,15 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
             return val;
         }).filter(Boolean))];
         return results;
+    };
+
+    // Map displayed table order (under active Recategorize mode: Item wise or Room wise) back to raw tier row indices
+    const getDisplayOrderedIndices = (tierRows, predicate) => {
+        const ordered = recategorizeBoqRows(tierRows || [], recategorizeMode);
+        const idToIndex = new Map((tierRows || []).map((r, i) => [String(r.id), i]));
+        return ordered
+            .map(r => idToIndex.get(String(r.id)))
+            .filter(i => i !== undefined && predicate(tierRows[i], i));
     };
 
     const handleAutoFillAI = () => {
@@ -513,9 +624,12 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
         const processTier = async (tierKey) => {
             updateFitoutStatus(tierKey, { active: true, minimized: false });
             const rows = tierDataRef.current[tierKey].rows || [];
-            const workableIndices = rows.map((r, i) => i).filter(i => rows[i].scope?.toUpperCase().includes('FITOUT') && !isHeaderRow(rows[i].description, rows[i]) && !rows[i].selectedBrand);
+            const workableIndices = getDisplayOrderedIndices(
+                rows,
+                (r) => r.scope?.toUpperCase().includes('FITOUT') && !isHeaderRow(r.description, r) && !r.selectedBrand
+            );
             setFitoutProgress(prev => ({ ...prev, [tierKey]: { current: 0, total: workableIndices.length } }));
-            await batch(workableIndices, 5, (idx) => processRow(tierKey, idx));
+            await batch(workableIndices, 3, (idx) => processRow(tierKey, idx));
             updateFitoutStatus(tierKey, { active: false });
         };
 
@@ -528,6 +642,111 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
             setIsFitoutAutoFilling(false);
             setTimeout(() => setFitoutBatchResult(null), 8000);
         }
+    };
+
+    /**
+     * Merges a backend /api/auto-match-ai product match with any richer local catalog fields
+     * without letting unverified or shorter local stubs clobber live website images/descriptions.
+     */
+    const hydrateMatchedProduct = (result, row) => {
+        const match = result.product;
+        const matchedBrandName = match.brand || '';
+        const localBrandEntry = brands.find(b => b.name && b.name.toLowerCase().trim() === matchedBrandName.toLowerCase().trim());
+        const resolvedLogo = match.brandLogo || localBrandEntry?.logo || '';
+
+        let finalBrandDesc = match.description || (match.model ? `Model: ${match.model}` : row.description);
+        let finalMainCat = match.mainCategory || 'Office Seating';
+        let finalSubCat = String(match.subCategory || 'Staff Chairs');
+        let finalFamily = String(match.family || '');
+        let finalModel = match.model || '';
+        let finalImageUrl = match.imageUrl || '';
+        let finalRate = parseFloat(match.price) > 0 ? parseFloat(match.price).toFixed(2) : (row.rate || '0.00');
+        let resolvedModelUrl = match.bestModelUrl || match.productUrl || match.websiteUrl || finalImageUrl || '';
+
+        if (localBrandEntry && localBrandEntry.products) {
+            const products = localBrandEntry.products;
+            const normalize = (s) => String(s || '').toLowerCase().replace(/#\d+/g, '').replace(/[^a-z0-9]/g, ' ').replace(/\s+/g, ' ').trim();
+            const target = normalize(finalModel);
+            const isSeatTarget = /\b(chair|seating|stool|sofa|armchair)\b/i.test(`${finalMainCat} ${finalSubCat} ${finalModel} ${row.description}`);
+            const isDeskTarget = /\b(desk|table|workstation)\b/i.test(`${finalMainCat} ${finalSubCat} ${finalModel} ${row.description}`) && !isSeatTarget;
+
+            const exactMatches = products.filter(p => normalize(p.model) === target);
+            const fallbackMatches = exactMatches.length > 0 ? exactMatches : products.filter(p => {
+                const nm = normalize(p.model);
+                if (!nm || !target) return false;
+                if (!(nm.includes(target) || target.includes(nm))) return false;
+                const pText = `${p.model || ''} ${p.subCategory || ''} ${p.mainCategory || ''}`.toLowerCase();
+                if (isSeatTarget && /\b(desk|table)\b/i.test(pText) && !/\bchair\b/i.test(pText)) return false;
+                if (isDeskTarget && /\b(chair|seating|stool)\b/i.test(pText) && !/\b(desk|table)\b/i.test(pText)) return false;
+                return true;
+            });
+
+            if (fallbackMatches.length > 0) {
+                const ranked = fallbackMatches.sort((a, b) => ((b.verified ? 1 : 0) - (a.verified ? 1 : 0)) || ((parseFloat(b.price) || 0) - (parseFloat(a.price) || 0)));
+                const bestP = ranked[0];
+                finalMainCat = bestP.mainCategory || bestP.category || finalMainCat;
+                finalSubCat = bestP.subCategory || finalSubCat;
+                finalFamily = finalFamily || bestP.family || '';
+                finalModel = bestP.model;
+                if (!finalImageUrl && bestP.imageUrl) finalImageUrl = bestP.imageUrl;
+                if (parseFloat(finalRate) <= 0 && parseFloat(bestP.price) > 0) finalRate = parseFloat(bestP.price).toFixed(2);
+                if (bestP.description && (!finalBrandDesc || bestP.description.length > finalBrandDesc.length)) {
+                    finalBrandDesc = bestP.description;
+                }
+                resolvedModelUrl = bestP.productUrl || bestP.websiteUrl || bestP.imageUrl || resolvedModelUrl || `id_${bestP.id}`;
+            }
+        }
+
+        if (matchedBrandName && finalModel) {
+            setBrands(prev => prev.map(b => {
+                if (!b || !b.name || b.name.toLowerCase().trim() !== matchedBrandName.toLowerCase().trim()) return b;
+                const existing = b.products || [];
+                const mLow = finalModel.toLowerCase().trim();
+                const idx = existing.findIndex(p => p && p.model && p.model.toLowerCase().trim() === mLow);
+                const nextProd = {
+                    model: finalModel,
+                    family: finalFamily || 'Collection',
+                    mainCategory: finalMainCat,
+                    subCategory: finalSubCat,
+                    imageUrl: finalImageUrl,
+                    productUrl: resolvedModelUrl,
+                    price: parseFloat(finalRate) || 0,
+                    description: finalBrandDesc
+                };
+                const updatedProds = idx === -1
+                    ? [...existing, nextProd]
+                    : existing.map((p, k) => k !== idx ? p : {
+                        ...p,
+                        imageUrl: finalImageUrl || p.imageUrl || '',
+                        productUrl: resolvedModelUrl || p.productUrl || '',
+                        price: (parseFloat(finalRate) > 0) ? parseFloat(finalRate) : (p.price || 0),
+                        description: finalBrandDesc || p.description || ''
+                    });
+                return { ...b, logo: resolvedLogo || b.logo || '', products: updatedProds };
+            }));
+        }
+
+        const basePrice = parseFloat(finalRate) || 0;
+        const updatedRow = {
+            ...row,
+            selectedBrand: matchedBrandName,
+            selectedMainCat: finalMainCat,
+            selectedSubCat: finalSubCat,
+            selectedFamily: finalFamily,
+            selectedModel: finalModel,
+            selectedModelUrl: resolvedModelUrl,
+            brandDesc: finalBrandDesc,
+            brandImage: finalImageUrl,
+            brandLogo: resolvedLogo,
+            type: 'furniture',
+            rate: finalRate,
+            basePrice,
+            amount: (basePrice * (parseFloat(row.qty) || 0)).toFixed(2),
+            aiStatus: 'success',
+            aiResult: result
+        };
+
+        return { updatedRow, matchedBrandName, resolvedLogo, finalModel, finalImageUrl };
     };
 
     const executeAutoFillAI = async (selectedBrandsOrMap, selectedEngine, providerModel = null, selectionMode = 'standard') => {
@@ -639,6 +858,122 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                         return { ...prev, [tierKey]: { ...prev[tierKey], rows: updatedRows } };
                     });
 
+                    // ── FURNITURE SET / WORKSTATION / MODULAR SEATING DECOMPOSED MATCHING ──
+                    if (row.setType && row.setType !== 'single' && Array.isArray(row.setItems) && row.setItems.length > 0) {
+                        const setMeta = getSetTypeMeta(row.setType);
+                        const subIndices = row.setItems.map((_, idx) => idx);
+                        let subMatched = 0;
+                        let lastBrand = '';
+                        let lastLogo = '';
+                        let lastModel = '';
+                        let lastImage = '';
+
+                        setTierData(prev => {
+                            const updatedRows = [...prev[tierKey].rows];
+                            updatedRows[rowIndex] = {
+                                ...updatedRows[rowIndex],
+                                aiStatus: 'processing',
+                                setItems: (updatedRows[rowIndex].setItems || []).map(it => ({ ...it, aiStatus: 'processing' }))
+                            };
+                            return { ...prev, [tierKey]: { ...prev[tierKey], rows: updatedRows } };
+                        });
+
+                        await batch(subIndices, 3, async (sIdx) => {
+                            const liveParent = tierDataRef.current[tierKey]?.rows?.[rowIndex];
+                            const sub = liveParent?.setItems?.[sIdx];
+                            if (!sub || !isMounted?.current) return;
+                            const queryDesc = buildSetComponentMatchQuery(sub, liveParent, setMeta);
+                            if (!queryDesc) return;
+                            const subSizeCtx = [sub.qty && `Qty: ${sub.qty}`, sub.unit && `Unit: ${sub.unit}`].filter(Boolean).join(', ');
+                            const subEnrichedDesc = subSizeCtx ? `${queryDesc} | ${subSizeCtx}` : queryDesc;
+                            const hasInheritedBrand = /\b(?:supplier|brand)\s*:/i.test(queryDesc);
+
+                            try {
+                                const subRes = await fetch(`${API_BASE}${hasInheritedBrand ? '/api/ve-match-auto' : '/api/auto-match-ai'}`, {
+                                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify(hasInheritedBrand ? {
+                                        description: subEnrichedDesc,
+                                        qty: sub.qty || '1',
+                                        unit: sub.unit || 'Nos',
+                                        tier: tierKey,
+                                        providerModel
+                                    } : {
+                                        description: subEnrichedDesc,
+                                        tier: tierKey,
+                                        availableBrands: activeBrandsForCall,
+                                        brandCategoryRules: selectionMode === 'categorized' ? selectedBrandsOrMap : null,
+                                        provider: selectedEngine,
+                                        providerModel,
+                                        scope: row.scope,
+                                        type: 'furniture'
+                                    })
+                                });
+                                const subData = await subRes.json();
+                                if (!isMounted?.current) return;
+
+                                if (subData.status === 'success' && subData.product) {
+                                    if (subData.source === 'ai-discovery-hardened') globalStats.newlyAdded++;
+                                    const { updatedRow: hydratedSub, matchedBrandName, resolvedLogo, finalModel, finalImageUrl } = hydrateMatchedProduct(subData, sub);
+                                    subMatched++;
+                                    lastBrand = matchedBrandName;
+                                    lastLogo = resolvedLogo;
+                                    lastModel = finalModel;
+                                    lastImage = finalImageUrl;
+
+                                    setTierData(prev => {
+                                        const curTier = prev[tierKey];
+                                        if (!curTier) return prev;
+                                        const nextRows = curTier.rows.map(r => {
+                                            if (String(r.id) !== String(row.id)) return r;
+                                            const nextItems = (r.setItems || []).map((it, idx) => idx === sIdx ? { ...it, ...hydratedSub, aiStatus: 'success' } : it);
+                                            return computeSetParentRollup(r, nextItems);
+                                        });
+                                        return { ...prev, [tierKey]: { ...curTier, rows: nextRows } };
+                                    });
+                                } else {
+                                    setTierData(prev => {
+                                        const curTier = prev[tierKey];
+                                        if (!curTier) return prev;
+                                        const nextRows = curTier.rows.map(r => {
+                                            if (String(r.id) !== String(row.id)) return r;
+                                            const nextItems = (r.setItems || []).map((it, idx) => idx === sIdx ? { ...it, aiStatus: subData.status === 'no_match' ? 'no_match' : 'error' } : it);
+                                            return computeSetParentRollup(r, nextItems);
+                                        });
+                                        return { ...prev, [tierKey]: { ...curTier, rows: nextRows } };
+                                    });
+                                }
+                            } catch {
+                                setTierData(prev => {
+                                    const curTier = prev[tierKey];
+                                    if (!curTier) return prev;
+                                    const nextRows = curTier.rows.map(r => {
+                                        if (String(r.id) !== String(row.id)) return r;
+                                        const nextItems = (r.setItems || []).map((it, idx) => idx === sIdx ? { ...it, aiStatus: 'error' } : it);
+                                        return computeSetParentRollup(r, nextItems);
+                                    });
+                                    return { ...prev, [tierKey]: { ...curTier, rows: nextRows } };
+                                });
+                            }
+                        });
+
+                        if (subMatched > 0) {
+                            updateFurnitureStatus(tierKey, { status: 'success', brand: lastBrand || setMeta.label, model: `${setMeta.shortLabel} (${subMatched}/${subIndices.length})`, image: lastImage || null });
+                            if (laneId) {
+                                setSwarm(prev => {
+                                    const lane = prev?.lanes?.[laneId];
+                                    if (!lane) return prev;
+                                    const newCurrent = (lane.current || 0) + 1;
+                                    return { ...prev, lanes: { ...prev?.lanes, [laneId]: { ...lane, status: 'ready', brand: lastBrand || setMeta.label, brandLogo: lastLogo ? getFullUrl(lastLogo) : '', model: `${setMeta.shortLabel} (${subMatched}/${subIndices.length})`, image: lastImage, progress: lane.total > 0 ? Math.min(100, Math.round((newCurrent / lane.total) * 100)) : 100, current: newCurrent } } };
+                                });
+                            }
+                            globalStats.success++;
+                        } else {
+                            updateFurnitureStatus(tierKey, { status: 'error' });
+                            globalStats.error++;
+                        }
+                        return;
+                    }
+
                     const sizeContext = [row.qty && `Qty: ${row.qty}`, row.unit && `Unit: ${row.unit}`].filter(Boolean).join(', ');
                     const enrichedDesc = sizeContext ? `${row.description} | ${sizeContext}` : row.description;
 
@@ -651,42 +986,9 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                     if (!isMounted?.current) return;
 
                     if (result.status === 'success' && result.product) {
-                        const match = result.product;
-                        const matchedBrandName = match.brand || '';
-                        updateFurnitureStatus(tierKey, { status: 'success', brand: matchedBrandName, model: match.model || '', image: match.imageUrl || null });
-
-                        const localBrandEntry = brands.find(b => b.name.toLowerCase().trim() === matchedBrandName.toLowerCase().trim());
-                        const resolvedLogo = localBrandEntry?.logo || '';
                         if (result.source === 'ai-discovery-hardened') globalStats.newlyAdded++;
-
-                        let finalBrandDesc = match.description || (match.model ? `Model: ${match.model}` : row.description);
-                        let finalMainCat = match.mainCategory || 'Office Seating';
-                        let finalSubCat = String(match.subCategory || 'Staff Chairs');
-                        let finalFamily = String(match.family || '');
-                        let finalModel = match.model || '';
-                        let finalImageUrl = match.imageUrl || '';
-                        let finalRate = parseFloat(match.price) > 0 ? parseFloat(match.price).toFixed(2) : (row.rate || '0.00');
-
-                        if (localBrandEntry && localBrandEntry.products) {
-                            const products = localBrandEntry.products;
-                            const normalize = (s) => String(s || '').toLowerCase().replace(/#\d+/g, '').replace(/[^a-z0-9]/g, ' ').replace(/\s+/g, ' ').trim();
-                            const target = normalize(finalModel);
-                            const matches = products.filter(p => normalize(p.model).includes(target) || target.includes(normalize(p.model)));
-                            if (matches.length > 0) {
-                                const ranked = matches.sort((a, b) => (parseFloat(b.price) || 0) - (parseFloat(a.price) || 0));
-                                const bestP = ranked[0];
-                                finalMainCat = bestP.mainCategory || bestP.category || finalMainCat;
-                                finalSubCat = bestP.subCategory || finalSubCat;
-                                finalFamily = bestP.family || '';
-                                finalModel = bestP.model;
-                                finalImageUrl = bestP.imageUrl || finalImageUrl;
-                                if (parseFloat(bestP.price) > 0) finalRate = parseFloat(bestP.price).toFixed(2);
-                                if (bestP.description) finalBrandDesc = bestP.description;
-                                match.bestModelUrl = bestP.productUrl || bestP.imageUrl || `id_${bestP.id}`;
-                            }
-                        }
-
-                        const updatedRow = { ...row, selectedBrand: matchedBrandName, selectedMainCat: finalMainCat, selectedSubCat: finalSubCat, selectedFamily: finalFamily, selectedModel: finalModel, selectedModelUrl: match.bestModelUrl || match.productUrl || finalImageUrl, brandDesc: finalBrandDesc, brandImage: finalImageUrl, brandLogo: resolvedLogo, type: 'furniture', rate: finalRate, amount: (parseFloat(finalRate) * (parseFloat(row.qty) || 0)).toFixed(2), aiStatus: 'success', aiResult: result };
+                        const { updatedRow, matchedBrandName, resolvedLogo, finalModel, finalImageUrl } = hydrateMatchedProduct(result, row);
+                        updateFurnitureStatus(tierKey, { status: 'success', brand: matchedBrandName, model: finalModel, image: finalImageUrl || null });
                         setTierData(prev => ({ ...prev, [tierKey]: { ...prev[tierKey], rows: prev[tierKey].rows.map(r => String(r.id) === String(row.id) ? updatedRow : r) } }));
 
                         if (laneId) {
@@ -728,7 +1030,7 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                 } finally {
                     releaseSemaphore();
                     setFurnitureProgress(prev => ({ ...prev, [tierKey]: { ...prev[tierKey], current: prev[tierKey].current + 1 } }));
-                    await sleep(400);
+                    await sleep(25);
                 }
             });
         };
@@ -776,11 +1078,14 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                     updateFurnitureStatus(tierKey, { active: true, minimized: false });
                     const tierRows = tierDataRef.current[tierKey].rows;
 
-                    const catWorkableIndices = tierRows.map((r, i) => i).filter(i => !isHeaderRow(tierRows[i].description, tierRows[i]) && tierRows[i].aiStatus !== 'success' && (!tierRows[i].scope || !tierRows[i].scope.toUpperCase().includes('FITOUT')) && stringItemIds.includes(String(tierRows[i].id)));
+                    const catWorkableIndices = getDisplayOrderedIndices(
+                        tierRows,
+                        (r) => !isHeaderRow(r.description, r) && r.aiStatus !== 'success' && (!r.scope || !r.scope.toUpperCase().includes('FITOUT')) && stringItemIds.includes(String(r.id))
+                    );
 
                     if (catWorkableIndices.length > 0 && brandsByTier[tierKey].includes(targetBrand)) {
                         setFurnitureProgress(prev => ({ ...prev, [tierKey]: { current: 0, total: (prev[tierKey].total || 0) + catWorkableIndices.length } }));
-                        const processCategoryBatch = async () => { await Promise.all(catWorkableIndices.map(async (idx) => { await processSingleRow(tierKey, idx, [targetBrand], catKey); })); };
+                        const processCategoryBatch = async () => { await batch(catWorkableIndices, 3, async (idx) => { await processSingleRow(tierKey, idx, [targetBrand], catKey); }); };
                         swarmPromises.push(processCategoryBatch());
                     }
                 });
@@ -790,11 +1095,14 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
             tierKeys.forEach(tierKey => {
                 updateFurnitureStatus(tierKey, { active: true, minimized: false });
                 const rows = tierDataRef.current[tierKey].rows || [];
-                const workableIndices = rows.map((r, i) => i).filter(i => !isHeaderRow(rows[i].description, rows[i]) && rows[i].aiStatus !== 'success' && (!rows[i].scope || !rows[i].scope.toUpperCase().includes('FITOUT')));
+                const workableIndices = getDisplayOrderedIndices(
+                    rows,
+                    (r) => !isHeaderRow(r.description, r) && r.aiStatus !== 'success' && (!r.scope || !r.scope.toUpperCase().includes('FITOUT'))
+                );
 
                 setFurnitureProgress(prev => ({ ...prev, [tierKey]: { current: 0, total: workableIndices.length } }));
 
-                const processTierFallback = async () => { await Promise.all(workableIndices.map(async (idx) => { await processSingleRow(tierKey, idx, brandsByTier[tierKey], null); })); };
+                const processTierFallback = async () => { await batch(workableIndices, 3, async (idx) => { await processSingleRow(tierKey, idx, brandsByTier[tierKey], null); }); };
                 swarmPromises.push(processTierFallback());
             });
         }
@@ -890,43 +1198,8 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
 
                 const result = await response.json();
                 if (result.status === 'success' && result.product) {
-                    const match = result.product;
-                    const matchedBrandName = match.brand || '';
-
-                    updateFurnitureStatus(tierKey, { status: 'success', brand: matchedBrandName, model: match.model || '', image: match.imageUrl || null });
-
-                    const localBrandEntry = brands.find(b => b.name.toLowerCase().trim() === matchedBrandName.toLowerCase().trim());
-                    const resolvedLogo = localBrandEntry?.logo || '';
-
-                    let finalBrandDesc = match.description || (match.model ? `Model: ${match.model}` : row.description);
-                    let finalMainCat = match.mainCategory || 'Office Seating';
-                    let finalSubCat = String(match.subCategory || 'Staff Chairs');
-                    let finalFamily = String(match.family || '');
-                    let finalModel = match.model || '';
-                    let finalImageUrl = match.imageUrl || '';
-                    let finalRate = parseFloat(match.price) > 0 ? parseFloat(match.price).toFixed(2) : (row.rate || '0.00');
-
-                    if (localBrandEntry && localBrandEntry.products) {
-                        const products = localBrandEntry.products;
-                        const normalize = (s) => String(s || '').toLowerCase().replace(/#\d+/g, '').replace(/[^a-z0-9]/g, ' ').replace(/\s+/g, ' ').trim();
-                        const target = normalize(finalModel);
-                        const matches = products.filter(p => normalize(p.model).includes(target) || target.includes(normalize(p.model)));
-
-                        if (matches.length > 0) {
-                            const ranked = matches.sort((a, b) => (parseFloat(b.price) || 0) - (parseFloat(a.price) || 0));
-                            const bestP = ranked[0];
-                            finalMainCat = bestP.mainCategory || bestP.category || finalMainCat;
-                            finalSubCat = bestP.subCategory || finalSubCat;
-                            finalFamily = bestP.family || '';
-                            finalModel = bestP.model;
-                            finalImageUrl = bestP.imageUrl || finalImageUrl;
-                            if (parseFloat(bestP.price) > 0) finalRate = parseFloat(bestP.price).toFixed(2);
-                            if (bestP.description) finalBrandDesc = bestP.description;
-                            match.bestModelUrl = bestP.productUrl || bestP.imageUrl || `id_${bestP.id}`;
-                        }
-                    }
-
-                    const updatedRow = { ...row, selectedBrand: matchedBrandName, selectedMainCat: finalMainCat, selectedSubCat: finalSubCat, selectedFamily: finalFamily, selectedModel: finalModel, selectedModelUrl: match.bestModelUrl || match.productUrl || finalImageUrl, brandDesc: finalBrandDesc, brandImage: finalImageUrl, brandLogo: resolvedLogo, type: 'furniture', rate: finalRate, amount: (parseFloat(finalRate) * (parseFloat(row.qty) || 0)).toFixed(2), aiStatus: 'success', aiResult: result };
+                    const { updatedRow, matchedBrandName, finalModel, finalImageUrl } = hydrateMatchedProduct(result, row);
+                    updateFurnitureStatus(tierKey, { status: 'success', brand: matchedBrandName, model: finalModel, image: finalImageUrl || null });
                     setTierData(prev => ({ ...prev, [tierKey]: { ...prev[tierKey], rows: prev[tierKey].rows.map(r => String(r.id) === String(row.id) ? updatedRow : r) } }));
                 } else {
                     const newStatus = result.status === 'no_match' ? 'no_match' : 'error';
@@ -941,188 +1214,358 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
         }
     };
 
+    const applyProductFieldChange = (target, field, value) => {
+        const row = { ...target };
+
+        if (field === 'selectedBrand') {
+            row.selectedBrand = value;
+            row.selectedMainCat = '';
+            row.selectedSubCat = '';
+            row.selectedFamily = '';
+            row.selectedModel = '';
+            row.brandImage = '';
+            row.brandDesc = '';
+            const brand = brands.find(b => b.name === value);
+            row.brandLogo = brand?.logo || '';
+        }
+        else if (field === 'selectedMainCat') {
+            row.selectedMainCat = value;
+            row.selectedSubCat = '';
+            row.selectedFamily = '';
+            row.selectedModel = '';
+        }
+        else if (field === 'selectedSubCat') {
+            row.selectedSubCat = value;
+            row.selectedFamily = '';
+            row.selectedModel = '';
+        }
+        else if (field === 'selectedFamily') {
+            row.selectedFamily = value;
+            row.selectedModel = '';
+        }
+        else if (field === 'selectedModel') {
+            const { model, url, rawUrl } = value;
+            const lookupUrl = rawUrl !== undefined ? rawUrl : url;
+            row.selectedModel = model;
+            row.selectedModelUrl = lookupUrl || url;
+
+            const brand = brands.find(b => b.name === row.selectedBrand);
+            if (brand && brand.products) {
+                let product = brand.products.find(p =>
+                    p.model === model &&
+                    ((p.productUrl && p.productUrl === lookupUrl) || (p.imageUrl && p.imageUrl === lookupUrl))
+                ) || brand.products.find(p =>
+                    lookupUrl && ((p.productUrl && p.productUrl === lookupUrl) || (p.imageUrl && p.imageUrl === lookupUrl))
+                );
+
+                if (!product) {
+                    const candidates = brand.products.filter(p =>
+                        (p.normalization?.category || p.mainCategory) === row.selectedMainCat &&
+                        (!row.selectedSubCat || (p.normalization?.subCategory || p.subCategory) === row.selectedSubCat) &&
+                        (!row.selectedFamily || !p.family || p.family === row.selectedFamily) &&
+                        p.model === model
+                    );
+                    const fallbackCandidates = candidates.length > 0 ? candidates : brand.products.filter(p => p.model === model);
+                    if (fallbackCandidates.length > 0) {
+                        if (url && url.startsWith('model_')) {
+                            const parts = url.split('_');
+                            const possibleIndex = parts.length >= 3 ? parseInt(parts[parts.length - 1]) : NaN;
+                            product = (!isNaN(possibleIndex) && fallbackCandidates[possibleIndex]) ? fallbackCandidates[possibleIndex] : fallbackCandidates[0];
+                        } else {
+                            product = fallbackCandidates[0];
+                        }
+                    }
+                }
+
+                if (product) {
+                    row.brandDesc = product.description || product.model;
+                    row.brandImage = product.imageUrl || '';
+                    row.selectedModelUrl = product.productUrl || product.imageUrl || row.selectedModelUrl;
+                    const basePrice = parseFloat(product.price) || 0;
+                    row.rate = basePrice > 0 ? basePrice.toFixed(2) : row.rate;
+                    row.basePrice = basePrice;
+
+                    const currentQty = parseFloat(row.qty) || 0;
+                    if (currentQty > 0 && basePrice > 0) {
+                        row.amount = (currentQty * basePrice).toFixed(2);
+                    }
+
+                    if (!row.unit) row.unit = 'Nos';
+                }
+            }
+        }
+
+        const autoSelectNextLevel = (currentRow) => {
+            const activeBrand = brands.find(b => b.name === currentRow.selectedBrand);
+            if (!activeBrand || !activeBrand.products) return;
+
+            const brandProducts = activeBrand.products;
+
+            if (currentRow.selectedBrand && !currentRow.selectedMainCat) {
+                const mainCats = Array.from(new Set(brandProducts.flatMap(p => [p.normalization?.category, p.mainCategory]).filter(Boolean))).filter(v => v !== 'null' && v !== 'undefined');
+                if (mainCats && mainCats.length === 1) {
+                    currentRow.selectedMainCat = mainCats[0];
+                    autoSelectNextLevel(currentRow);
+                    return;
+                }
+            }
+
+            if (currentRow.selectedMainCat && !currentRow.selectedSubCat) {
+                const matchingByMain = brandProducts.filter(p => (p.normalization?.category || p.mainCategory) === currentRow.selectedMainCat);
+                const subCats = Array.from(new Set(matchingByMain.flatMap(p => [p.normalization?.subCategory, p.subCategory]).filter(Boolean))).filter(v => v !== 'null' && v !== 'undefined');
+                if (subCats && subCats.length === 1) {
+                    currentRow.selectedSubCat = subCats[0];
+                    autoSelectNextLevel(currentRow);
+                    return;
+                }
+            }
+
+            if (currentRow.selectedSubCat && !currentRow.selectedFamily) {
+                const matchingBySub = brandProducts.filter(p =>
+                    (p.normalization?.category || p.mainCategory) === currentRow.selectedMainCat &&
+                    (p.normalization?.subCategory || p.subCategory) === currentRow.selectedSubCat
+                );
+                const families = getUniqueValues(matchingBySub, 'family');
+                if (families && families.length === 1) {
+                    currentRow.selectedFamily = families[0];
+                    autoSelectNextLevel(currentRow);
+                    return;
+                }
+            }
+
+            if (currentRow.selectedFamily && !currentRow.selectedModel) {
+                const allRawModels = brandProducts.filter(p =>
+                    (p.normalization?.category || p.mainCategory) === currentRow.selectedMainCat &&
+                    (p.normalization?.subCategory || p.subCategory) === currentRow.selectedSubCat &&
+                    p.family === currentRow.selectedFamily
+                );
+
+                const variants = [];
+                const seenUids = new Set();
+                allRawModels.forEach(p => {
+                    const uid = p.productUrl || p.imageUrl || `id_${p.id || Math.random()}`;
+                    if (!seenUids.has(uid)) {
+                        seenUids.add(uid);
+                        variants.push(p);
+                    }
+                });
+
+                if (variants.length === 1) {
+                    const product = variants[0];
+                    const uniqueVal = product.productUrl || product.imageUrl || `model_${product.model}_0`;
+
+                    currentRow.selectedModel = product.model;
+                    currentRow.selectedModelUrl = uniqueVal;
+                    currentRow.brandDesc = product.description || product.model;
+                    currentRow.brandImage = product.imageUrl || '';
+                    const basePrice = parseFloat(product.price) || 0;
+                    currentRow.rate = basePrice > 0 ? basePrice.toFixed(2) : currentRow.rate;
+                    currentRow.basePrice = basePrice;
+                    if (parseFloat(currentRow.qty) > 0 && basePrice > 0) {
+                        currentRow.amount = (parseFloat(currentRow.qty) * basePrice).toFixed(2);
+                    }
+                    if (!currentRow.unit) currentRow.unit = 'Nos';
+                }
+            }
+        };
+
+        if (['selectedBrand', 'selectedMainCat', 'selectedSubCat', 'selectedFamily'].includes(field)) {
+            autoSelectNextLevel(row);
+        }
+        else if (field === 'selectedModel') {
+            // handled above
+        }
+        else {
+            row[field] = value;
+            if (field === 'qty' || field === 'rate') {
+                const q = field === 'qty' ? parseFloat(value) : parseFloat(row.qty);
+                const r = field === 'rate' ? parseFloat(value) : parseFloat(row.rate);
+                if (!isNaN(q) && !isNaN(r)) {
+                    row.amount = (q * r).toFixed(2);
+                }
+                if (field === 'rate' && !isNaN(r)) {
+                    row.basePrice = r;
+                }
+            }
+        }
+
+        return row;
+    };
+
     const handleCellChange = (rowIndex, field, value) => {
         setTierData(prev => {
             const tier = prev[activeTier];
             if (!tier) return prev;
             const newRows = [...tier.rows];
-            const row = { ...newRows[rowIndex] };
-
-            if (field === 'selectedBrand') {
-                row.selectedBrand = value;
-                row.selectedMainCat = '';
-                row.selectedSubCat = '';
-                row.selectedFamily = '';
-                row.selectedModel = '';
-                row.brandImage = '';
-                row.brandDesc = '';
-                const brand = brands.find(b => b.name === value);
-                row.brandLogo = brand?.logo || '';
+            const updatedRow = applyProductFieldChange(newRows[rowIndex], field, value);
+            if (field === 'qty' && updatedRow.setType && updatedRow.setType !== 'single' && updatedRow.setItems?.length > 0) {
+                newRows[rowIndex] = computeSetParentRollup(updatedRow, updatedRow.setItems);
+            } else {
+                newRows[rowIndex] = updatedRow;
             }
-            else if (field === 'selectedMainCat') {
-                row.selectedMainCat = value;
-                row.selectedSubCat = '';
-                row.selectedFamily = '';
-                row.selectedModel = '';
-            }
-            else if (field === 'selectedSubCat') {
-                row.selectedSubCat = value;
-                row.selectedFamily = '';
-                row.selectedModel = '';
-            }
-            else if (field === 'selectedFamily') {
-                row.selectedFamily = value;
-                row.selectedModel = '';
-            }
-            else if (field === 'selectedModel') {
-                const { model, url } = value;
-                row.selectedModel = model;
-                row.selectedModelUrl = url;
-
-                const brand = brands.find(b => b.name === row.selectedBrand);
-                if (brand && brand.products) {
-                    let product = brand.products.find(p =>
-                        (p.productUrl && p.productUrl === url) ||
-                        (p.imageUrl && p.imageUrl === url)
-                    );
-
-                    if (!product) {
-                        const candidates = brand.products.filter(p =>
-                            (p.normalization?.category || p.mainCategory) === row.selectedMainCat &&
-                            (p.normalization?.subCategory || p.subCategory) === row.selectedSubCat &&
-                            p.family === row.selectedFamily &&
-                            p.model === model
-                        );
-
-                        if (candidates.length > 0) {
-                            if (url && url.startsWith('model_')) {
-                                const parts = url.split('_');
-                                if (parts.length >= 3) {
-                                    const possibleIndex = parseInt(parts[parts.length - 1]);
-                                    if (!isNaN(possibleIndex) && candidates[possibleIndex]) {
-                                        product = candidates[possibleIndex];
-                                    } else {
-                                        product = candidates[0];
-                                    }
-                                } else {
-                                    product = candidates[0];
-                                }
-                            } else {
-                                product = candidates[0];
-                            }
-                        }
-                    }
-
-                    if (product) {
-                        row.brandDesc = product.description || product.model;
-                        row.brandImage = product.imageUrl || '';
-                        const basePrice = parseFloat(product.price) || 0;
-                        row.rate = basePrice > 0 ? basePrice.toFixed(2) : row.rate;
-                        row.basePrice = basePrice;
-
-                        const currentQty = parseFloat(row.qty) || 0;
-                        if (currentQty > 0 && basePrice > 0) {
-                            row.amount = (currentQty * basePrice).toFixed(2);
-                        }
-
-                        if (!row.unit) row.unit = 'Nos';
-                    }
-                }
-            }
-
-            const autoSelectNextLevel = (currentRow) => {
-                const activeBrand = brands.find(b => b.name === currentRow.selectedBrand);
-                if (!activeBrand || !activeBrand.products) return;
-
-                const brandProducts = activeBrand.products;
-
-                if (currentRow.selectedBrand && !currentRow.selectedMainCat) {
-                    const mainCats = Array.from(new Set(brandProducts.flatMap(p => [p.normalization?.category, p.mainCategory]).filter(Boolean))).filter(v => v !== 'null' && v !== 'undefined');
-                    if (mainCats && mainCats.length === 1) {
-                        currentRow.selectedMainCat = mainCats[0];
-                        autoSelectNextLevel(currentRow);
-                        return;
-                    }
-                }
-
-                if (currentRow.selectedMainCat && !currentRow.selectedSubCat) {
-                    const matchingByMain = brandProducts.filter(p => (p.normalization?.category || p.mainCategory) === currentRow.selectedMainCat);
-                    const subCats = Array.from(new Set(matchingByMain.flatMap(p => [p.normalization?.subCategory, p.subCategory]).filter(Boolean))).filter(v => v !== 'null' && v !== 'undefined');
-                    if (subCats && subCats.length === 1) {
-                        currentRow.selectedSubCat = subCats[0];
-                        autoSelectNextLevel(currentRow);
-                        return;
-                    }
-                }
-
-                if (currentRow.selectedSubCat && !currentRow.selectedFamily) {
-                    const matchingBySub = brandProducts.filter(p =>
-                        (p.normalization?.category || p.mainCategory) === currentRow.selectedMainCat &&
-                        (p.normalization?.subCategory || p.subCategory) === currentRow.selectedSubCat
-                    );
-                    const families = getUniqueValues(matchingBySub, 'family');
-                    if (families && families.length === 1) {
-                        currentRow.selectedFamily = families[0];
-                        autoSelectNextLevel(currentRow);
-                        return;
-                    }
-                }
-
-                if (currentRow.selectedFamily && !currentRow.selectedModel) {
-                    const allRawModels = brandProducts.filter(p =>
-                        (p.normalization?.category || p.mainCategory) === currentRow.selectedMainCat &&
-                        (p.normalization?.subCategory || p.subCategory) === currentRow.selectedSubCat &&
-                        p.family === currentRow.selectedFamily
-                    );
-
-                    const variants = [];
-                    const seenUids = new Set();
-                    allRawModels.forEach(p => {
-                        const uid = p.productUrl || p.imageUrl || `id_${p.id || Math.random()}`;
-                        if (!seenUids.has(uid)) {
-                            seenUids.add(uid);
-                            variants.push(p);
-                        }
-                    });
-
-                    if (variants.length === 1) {
-                        const product = variants[0];
-                        const uniqueVal = product.productUrl || product.imageUrl || `model_${product.model}_0`;
-
-                        currentRow.selectedModel = product.model;
-                        currentRow.selectedModelUrl = uniqueVal;
-                        currentRow.brandDesc = product.description || product.model;
-                        currentRow.brandImage = product.imageUrl || '';
-                        const basePrice = parseFloat(product.price) || 0;
-                        currentRow.rate = basePrice > 0 ? basePrice.toFixed(2) : currentRow.rate;
-                        currentRow.basePrice = basePrice;
-                        if (parseFloat(currentRow.qty) > 0 && basePrice > 0) {
-                            currentRow.amount = (parseFloat(currentRow.qty) * basePrice).toFixed(2);
-                        }
-                        if (!currentRow.unit) currentRow.unit = 'Nos';
-                    }
-                }
-            };
-
-            if (['selectedBrand', 'selectedMainCat', 'selectedSubCat', 'selectedFamily'].includes(field)) {
-                autoSelectNextLevel(row);
-            }
-            else if (field === 'selectedModel') {
-            }
-            else {
-                row[field] = value;
-                if (field === 'qty' || field === 'rate') {
-                    const q = field === 'qty' ? parseFloat(value) : parseFloat(row.qty);
-                    const r = field === 'rate' ? parseFloat(value) : parseFloat(row.rate);
-                    if (!isNaN(q) && !isNaN(r)) {
-                        row.amount = (q * r).toFixed(2);
-                    }
-                }
-            }
-
-            newRows[rowIndex] = row;
             return { ...prev, [activeTier]: { ...tier, rows: newRows } };
         });
+    };
+
+    const handleSetTypeChange = (rowIndex, newSetType) => {
+        setTierData(prev => {
+            const tier = prev[activeTier];
+            if (!tier || !tier.rows?.[rowIndex]) return prev;
+            const newRows = [...tier.rows];
+            const row = { ...newRows[rowIndex] };
+
+            if (newSetType === 'single') {
+                newRows[rowIndex] = { ...row, setType: 'single', setItems: [], setExpanded: false, brandImages: [] };
+                return { ...prev, [activeTier]: { ...tier, rows: newRows } };
+            }
+
+            const existingItems = Array.isArray(row.setItems) ? row.setItems : [];
+            const hasMatchedOrEdited = existingItems.some(it => it.selectedBrand || it.selectedModel || it.brandImage || parseFloat(it.rate) > 0);
+            const nextItems = (existingItems.length > 0 && hasMatchedOrEdited)
+                ? existingItems
+                : parseSetComponentsFromDescription(row.description, newSetType, row.id);
+
+            newRows[rowIndex] = computeSetParentRollup({ ...row, setType: newSetType, setExpanded: true }, nextItems);
+            return { ...prev, [activeTier]: { ...tier, rows: newRows } };
+        });
+    };
+
+    const handleToggleSetExpand = (rowIndex) => {
+        setTierData(prev => {
+            const tier = prev[activeTier];
+            if (!tier || !tier.rows?.[rowIndex]) return prev;
+            const newRows = tier.rows.map((r, i) => i === rowIndex ? { ...r, setExpanded: !r.setExpanded } : r);
+            return { ...prev, [activeTier]: { ...tier, rows: newRows } };
+        });
+    };
+
+    const handleSetSubItemChange = (rowIndex, subIndex, field, value) => {
+        setTierData(prev => {
+            const tier = prev[activeTier];
+            if (!tier || !tier.rows?.[rowIndex]) return prev;
+            const newRows = [...tier.rows];
+            const parent = { ...newRows[rowIndex] };
+            const currentItems = Array.isArray(parent.setItems) ? [...parent.setItems] : [];
+            if (!currentItems[subIndex]) return prev;
+
+            const updatedSub = applyProductFieldChange(currentItems[subIndex], field, value);
+            if (field === 'description') updatedSub.label = value;
+            currentItems[subIndex] = updatedSub;
+            newRows[rowIndex] = computeSetParentRollup(parent, currentItems);
+            return { ...prev, [activeTier]: { ...tier, rows: newRows } };
+        });
+    };
+
+    const handleAddSetSubItem = (rowIndex, afterSubIndex = null) => {
+        setTierData(prev => {
+            const tier = prev[activeTier];
+            if (!tier || !tier.rows?.[rowIndex]) return prev;
+            const newRows = [...tier.rows];
+            const parent = { ...newRows[rowIndex] };
+            const currentItems = Array.isArray(parent.setItems) ? [...parent.setItems] : [];
+            const insertAt = afterSubIndex !== null ? afterSubIndex + 1 : currentItems.length;
+            currentItems.splice(insertAt, 0, createEmptySetComponent(parent.id, currentItems.length, {
+                label: `Component ${currentItems.length + 1}`,
+                description: '',
+                qty: '1',
+                unit: 'Nos'
+            }));
+            newRows[rowIndex] = computeSetParentRollup({ ...parent, setExpanded: true }, currentItems);
+            return { ...prev, [activeTier]: { ...tier, rows: newRows } };
+        });
+    };
+
+    const handleRemoveSetSubItem = (rowIndex, subIndex) => {
+        setTierData(prev => {
+            const tier = prev[activeTier];
+            if (!tier || !tier.rows?.[rowIndex]) return prev;
+            const newRows = [...tier.rows];
+            const parent = { ...newRows[rowIndex] };
+            const nextItems = (parent.setItems || []).filter((_, i) => i !== subIndex);
+            newRows[rowIndex] = nextItems.length === 0
+                ? { ...parent, setType: 'single', setItems: [], setExpanded: false, brandImages: [] }
+                : computeSetParentRollup(parent, nextItems);
+            return { ...prev, [activeTier]: { ...tier, rows: newRows } };
+        });
+    };
+
+    const handleMatchSingleSet = async (rowIndex, onlySubIndex = null) => {
+        const tierKey = activeTier;
+        const parent = tierDataRef.current[tierKey]?.rows?.[rowIndex];
+        if (!parent || !Array.isArray(parent.setItems) || parent.setItems.length === 0) return;
+
+        const targetIndices = onlySubIndex !== null ? [onlySubIndex] : parent.setItems.map((_, idx) => idx);
+        const setMeta = getSetTypeMeta(parent.setType);
+
+        setMatchingSetRowId(parent.id);
+        setTierData(prev => {
+            const curTier = prev[tierKey];
+            if (!curTier || !curTier.rows?.[rowIndex]) return prev;
+            const nextRows = [...curTier.rows];
+            const cur = nextRows[rowIndex];
+            const marked = (cur.setItems || []).map((it, idx) => targetIndices.includes(idx) ? { ...it, aiStatus: 'processing' } : it);
+            nextRows[rowIndex] = computeSetParentRollup({ ...cur, setExpanded: true }, marked);
+            return { ...prev, [tierKey]: { ...curTier, rows: nextRows } };
+        });
+
+        try {
+            await batch(targetIndices, 3, async (sIdx) => {
+                const liveParent = tierDataRef.current[tierKey]?.rows?.[rowIndex];
+                const sub = liveParent?.setItems?.[sIdx];
+                if (!sub) return;
+                const queryDesc = buildSetComponentMatchQuery(sub, liveParent, setMeta);
+                if (!queryDesc) return;
+
+                try {
+                    const res = await fetch(`${API_BASE}/api/ve-match-auto`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            description: queryDesc,
+                            qty: sub.qty || '1',
+                            unit: sub.unit || 'Nos',
+                            tier: tierKey,
+                            providerModel: aiSettings?.model
+                        })
+                    });
+                    const data = await res.json();
+                    if (data.status === 'success' && data.product) {
+                        const { updatedRow: hydratedSub } = hydrateMatchedProduct(data, sub);
+                        setTierData(prev => {
+                            const curTier = prev[tierKey];
+                            if (!curTier || !curTier.rows?.[rowIndex]) return prev;
+                            const nextRows = [...curTier.rows];
+                            const cur = nextRows[rowIndex];
+                            const nextItems = (cur.setItems || []).map((it, idx) => idx === sIdx ? { ...it, ...hydratedSub, aiStatus: 'success' } : it);
+                            nextRows[rowIndex] = computeSetParentRollup(cur, nextItems);
+                            return { ...prev, [tierKey]: { ...curTier, rows: nextRows } };
+                        });
+                    } else {
+                        setTierData(prev => {
+                            const curTier = prev[tierKey];
+                            if (!curTier || !curTier.rows?.[rowIndex]) return prev;
+                            const nextRows = [...curTier.rows];
+                            const cur = nextRows[rowIndex];
+                            const nextItems = (cur.setItems || []).map((it, idx) => idx === sIdx ? { ...it, aiStatus: data.status === 'no_match' ? 'no_match' : 'error' } : it);
+                            nextRows[rowIndex] = computeSetParentRollup(cur, nextItems);
+                            return { ...prev, [tierKey]: { ...curTier, rows: nextRows } };
+                        });
+                    }
+                } catch {
+                    setTierData(prev => {
+                        const curTier = prev[tierKey];
+                        if (!curTier || !curTier.rows?.[rowIndex]) return prev;
+                        const nextRows = [...curTier.rows];
+                        const cur = nextRows[rowIndex];
+                        const nextItems = (cur.setItems || []).map((it, idx) => idx === sIdx ? { ...it, aiStatus: 'error' } : it);
+                        nextRows[rowIndex] = computeSetParentRollup(cur, nextItems);
+                        return { ...prev, [tierKey]: { ...curTier, rows: nextRows } };
+                    });
+                }
+            });
+        } finally {
+            setMatchingSetRowId(null);
+        }
     };
 
     const handleAddRow = (index) => {
@@ -1134,8 +1577,9 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                 id: Date.now(),
                 sn: newRows.length + 2,
                 imageRef: null,
-                brandImage: '', brandDesc: '', description: '', qty: '', unit: '', rate: '', amount: '',
-                selectedBrand: '', selectedMainCat: '', selectedSubCat: '', selectedFamily: '', selectedModel: ''
+                brandImage: '', brandImages: [], brandDesc: '', description: '', qty: '', unit: '', rate: '', amount: '',
+                selectedBrand: '', selectedMainCat: '', selectedSubCat: '', selectedFamily: '', selectedModel: '',
+                setType: 'single', setItems: [], setExpanded: false
             });
             newRows.forEach((r, i) => r.sn = i + 1);
             return { ...prev, [activeTier]: { ...tier, rows: newRows } };
@@ -1176,9 +1620,27 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
         const activeTierData = tierData[activeTier];
         if (!activeTierData) return;
 
+        const markup = 1 + (factors.profit + factors.freight + factors.customs + factors.installation) / 100;
+
         const updatedRows = activeTierData.rows.map(row => {
+            if (row.setType && row.setType !== 'single' && Array.isArray(row.setItems) && row.setItems.length > 0) {
+                const costedSubs = row.setItems.map(sub => {
+                    const subBase = parseFloat(sub.basePrice) || 0;
+                    if (subBase > 0) {
+                        const costedSubRate = subBase * markup * factors.exchangeRate;
+                        const subQty = parseFloat(sub.qty) || 0;
+                        return { ...sub, rate: costedSubRate.toFixed(2), amount: (costedSubRate * subQty).toFixed(2) };
+                    }
+                    return sub;
+                });
+                const rolled = computeSetParentRollup(row, costedSubs);
+                if (rolled.basePrice && rolled.basePrice > 0 && !costedSubs.some(s => parseFloat(s.basePrice) > 0)) {
+                    const costedPrice = rolled.basePrice * markup * factors.exchangeRate;
+                    return { ...rolled, rate: costedPrice.toFixed(2), amount: (costedPrice * (parseFloat(rolled.qty) || 1)).toFixed(2) };
+                }
+                return rolled;
+            }
             if (row.basePrice && row.basePrice > 0) {
-                const markup = 1 + (factors.profit + factors.freight + factors.customs + factors.installation) / 100;
                 const costedPrice = row.basePrice * markup * factors.exchangeRate;
                 return { ...row, rate: costedPrice.toFixed(2) };
             }
@@ -1191,30 +1653,91 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
         }));
 
         if (onApplyFlow) {
+            const exportRows = recategorizeBoqRows(updatedRows, recategorizeMode);
+            const formattedRows = exportRows.flatMap((row, idx) => {
+                const parentSn = String(row.sn || idx + 1);
+                const amount = row.amount || (parseFloat(row.qty || 0) * parseFloat(row.rate || 0)).toFixed(2);
+                const isSetRow = row.setType && row.setType !== 'single' && Array.isArray(row.setItems) && row.setItems.length > 0;
+                const parentImages = (isSetRow && row.brandImages?.length)
+                    ? row.brandImages.map(u => ({ url: u }))
+                    : (row.brandImage
+                        ? [{ url: row.brandImage }]
+                        : (row.imageRefs?.length ? row.imageRefs : (row.imageRef ? [row.imageRef] : [])).map(u => ({ url: u })));
+
+                const parentExport = {
+                    location: row.location || '',
+                    scope: row.scope || '',
+                    code: row.code || '',
+                    categoryHint: row.categoryHint || '',
+                    selectedBrand: row.selectedBrand || '',
+                    selectedMainCat: row.selectedMainCat || '',
+                    selectedSubCat: row.selectedSubCat || '',
+                    sectionLabel: row.sectionLabel || '',
+                    sectionCategory: row.sectionCategory || '',
+                    sectionSubheader: row.sectionSubheader || '',
+                    submissionTitle: row.submissionTitle || '',
+                    setType: row.setType || 'single',
+                    setItems: isSetRow ? row.setItems : undefined,
+                    cells: [
+                        { value: parentSn },
+                        {
+                            value: '',
+                            image: (isSetRow && row.brandImages?.[0]) || row.brandImage || row.imageRef,
+                            images: parentImages
+                        },
+                        { value: row.brandDesc || row.description || 'N/A' },
+                        { value: row.qty || '0' },
+                        { value: row.unit || 'Nos' },
+                        { value: row.rate || '0' },
+                        { value: isNaN(parseFloat(amount)) ? '0' : amount }
+                    ]
+                };
+
+                if (!isSetRow || setExportMode !== 'include_sub_items') {
+                    return [parentExport];
+                }
+
+                const subExports = row.setItems.map((sub, sIdx) => ({
+                    location: row.location || '',
+                    scope: row.scope || '',
+                    code: row.code || '',
+                    categoryHint: row.categoryHint || '',
+                    selectedBrand: sub.selectedBrand || '',
+                    selectedMainCat: sub.selectedMainCat || '',
+                    selectedSubCat: sub.selectedSubCat || '',
+                    sectionLabel: row.sectionLabel || '',
+                    sectionCategory: row.sectionCategory || '',
+                    sectionSubheader: row.sectionSubheader || '',
+                    submissionTitle: row.submissionTitle || '',
+                    isSetSubItem: true,
+                    cells: [
+                        { value: `${parentSn}.${sIdx + 1}` },
+                        {
+                            value: '',
+                            image: sub.brandImage || null,
+                            images: sub.brandImage ? [{ url: sub.brandImage }] : []
+                        },
+                        { value: `↳ ${sub.label || sub.description}${sub.brandDesc ? ` — ${sub.brandDesc}` : ''}` },
+                        { value: sub.qty || '1' },
+                        { value: sub.unit || 'Nos' },
+                        { value: sub.rate || '0' },
+                        { value: 'Included' }
+                    ]
+                }));
+
+                return [parentExport, ...subExports];
+            });
+
             const formattedData = {
                 costingFactors: factors,
+                recategorizeMode,
+                setExportMode,
                 tables: [{
                     sheetName: `New BOQ - ${activeTier.charAt(0).toUpperCase() + activeTier.slice(1)} Tier`,
                     header: ['Sr.', 'Image', 'Description', 'Qty', 'Unit', 'Rate', 'Amount'],
                     columnCount: 7,
-                    rows: updatedRows.map(row => {
-                        const amount = row.amount || (parseFloat(row.qty || 0) * parseFloat(row.rate || 0)).toFixed(2);
-                        return {
-                            cells: [
-                                { value: row.sn },
-                                {
-                                    value: '',
-                                    image: row.brandImage || row.imageRef,
-                                    images: row.brandImage ? [{ url: row.brandImage }] : (row.imageRefs?.length ? row.imageRefs : (row.imageRef ? [row.imageRef] : [])).map(u => ({ url: u }))
-                                },
-                                { value: row.brandDesc || row.description || 'N/A' },
-                                { value: row.qty || '0' },
-                                { value: row.unit || 'Nos' },
-                                { value: row.rate || '0' },
-                                { value: isNaN(parseFloat(amount)) ? '0' : amount }
-                            ]
-                        };
-                    })
+                    recategorizeMode,
+                    rows: formattedRows
                 }]
             };
             onApplyFlow(formattedData);
@@ -1334,9 +1857,10 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
 
         const processedHeader = header.map(h => processText(h));
 
+        const exportRows = recategorizeBoqRows(tier.rows, recategorizeMode);
         const imageDataMap = {};
-        for (let i = 0; i < tier.rows.length; i++) {
-            const row = tier.rows[i];
+        for (let i = 0; i < exportRows.length; i++) {
+            const row = exportRows[i];
             if (row.imageRef) {
                 try {
                     const url = getFullUrl(row.imageRef);
@@ -1358,10 +1882,30 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
             }
         }
 
-        const body = tier.rows.map((row, i) => {
+        const body = [];
+        const bodyMeta = [];
+        let lastSection = '';
+        exportRows.forEach((row, i) => {
+            if (row.sectionLabel && row.sectionLabel !== lastSection) {
+                lastSection = row.sectionLabel;
+                body.push([{
+                    content: processText(row.sectionLabel),
+                    colSpan: header.length,
+                    styles: {
+                        fillColor: [254, 243, 199],
+                        textColor: [15, 62, 103],
+                        fontStyle: 'bold',
+                        fontSize: 7.5,
+                        halign: 'left',
+                        cellPadding: 2
+                    }
+                }]);
+                bodyMeta.push({ isSubheader: true, rowIdx: -1 });
+            }
+
             const amount = row.amount || (parseFloat(row.qty || 0) * parseFloat(row.rate || 0)).toFixed(2);
             if (isBoqMode) {
-                return [
+                body.push([
                     row.sn,
                     processText(row.location || '-'),
                     processText(row.scope || '-'),
@@ -1373,9 +1917,9 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                     row.unit || '',
                     row.rate || '',
                     amount
-                ];
+                ]);
             } else {
-                return [
+                body.push([
                     row.sn,
                     processText(row.location || '-'),
                     processText(row.scope || '-'),
@@ -1385,8 +1929,9 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                     row.unit || '',
                     row.rate || '',
                     amount
-                ];
+                ]);
             }
+            bodyMeta.push({ isSubheader: false, rowIdx: i });
         });
 
         autoTable(doc, {
@@ -1440,7 +1985,9 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
             },
             didDrawCell: (data) => {
                 if (data.section === 'body') {
-                    const rowIdx = data.row.index;
+                    const meta = bodyMeta[data.row.index];
+                    if (!meta || meta.isSubheader) return;
+                    const rowIdx = meta.rowIdx;
                     const refImgCol = isBoqMode ? 3 : -1;
                     const brandImgCol = isBoqMode ? 5 : 3;
 
@@ -1484,6 +2031,11 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
             },
             didParseCell: (data) => {
                 if (data.section === 'body') {
+                    const meta = bodyMeta[data.row.index];
+                    if (!meta || meta.isSubheader) {
+                        data.cell.styles.minCellHeight = 8;
+                        return;
+                    }
                     const refImgCol = isBoqMode ? 3 : -1;
                     const brandImgCol = isBoqMode ? 5 : 3;
                     if (data.column.index === brandImgCol) {
@@ -1678,8 +2230,28 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
         const amountColNum = isBoqMode ? 11 : 9;
         const amountLetter = isBoqMode ? 'K' : 'I';
 
-        for (let i = 0; i < tier.rows.length; i++) {
-            const row = tier.rows[i];
+        const exportExcelRows = recategorizeBoqRows(tier.rows, recategorizeMode);
+        const firstDataRow = headerRow.number + 1;
+        let lastExcelSection = '';
+
+        for (let i = 0; i < exportExcelRows.length; i++) {
+            const row = exportExcelRows[i];
+
+            if (row.sectionLabel && row.sectionLabel !== lastExcelSection) {
+                lastExcelSection = row.sectionLabel;
+                const secRow = ws.addRow([row.sectionLabel]);
+                secRow.height = 24;
+                ws.mergeCells(secRow.number, 1, secRow.number, header.length);
+                const secCell = secRow.getCell(1);
+                secCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FEF3C7' } };
+                secCell.font = { bold: true, size: 11, color: { argb: '0F3E67' } };
+                secCell.alignment = { vertical: 'middle', horizontal: 'left' };
+                secCell.border = {
+                    top: { style: 'thin', color: { argb: 'F59E0B' } },
+                    bottom: { style: 'thin', color: { argb: 'F59E0B' } }
+                };
+            }
+
             const brandName = (row.selectedBrand || '').replace(/Explore collections by/i, '').trim();
 
             const qtyStr = String(row.qty || '').trim();
@@ -1808,7 +2380,7 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
             }
         }
 
-        const subtotal = tier.rows.reduce((sum, row) => {
+        const subtotal = exportExcelRows.reduce((sum, row) => {
             const qtyStr = String(row.qty || '').trim();
             const cleanQty = qtyStr.replace(/[^0-9.-]/g, '');
             const parsedQty = parseFloat(cleanQty);
@@ -1824,15 +2396,15 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
         const vatAmount = subtotal * ((costingFactors.vat || 0) / 100);
         const grandTotal = subtotal + vatAmount;
 
+        const lastDataRow = ws.lastRow ? ws.lastRow.number : firstDataRow;
         ws.addRow([]);
         const valColNum = amountColNum;
         const labelColNum = rateColNum;
-        const lastDataRow = 5 + tier.rows.length;
 
         const stRow = ws.addRow([]);
         stRow.getCell(labelColNum).value = 'Subtotal';
         stRow.getCell(valColNum).value = {
-            formula: `SUM(${amountLetter}6:${amountLetter}${lastDataRow})`,
+            formula: `SUM(${amountLetter}${firstDataRow}:${amountLetter}${lastDataRow})`,
             result: subtotal
         };
         stRow.getCell(valColNum).numFmt = '#,##0.00 " ' + costingFactors.toCurrency + '"';
@@ -1949,9 +2521,38 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
             } catch (e) { }
         }
 
+        let coverLogoImg = null;
+        if (titleSlideLogo) {
+            try {
+                coverLogoImg = await getImageData(titleSlideLogo, { format: 'image/png', maxWidth: 400 });
+            } catch (e) { }
+        }
+
+        const pptxRows = recategorizeBoqRows(
+            tier.rows.filter(r => r.brandImage || r.brandDesc),
+            recategorizeMode
+        );
         let itemNum = 1;
-        for (const row of tier.rows) {
-            if (!row.brandImage && !row.brandDesc) continue;
+        let lastPptxSection = '';
+        for (let rIdx = 0; rIdx < pptxRows.length; rIdx++) {
+            const row = pptxRows[rIdx];
+            if (row.sectionLabel && row.sectionLabel !== lastPptxSection) {
+                lastPptxSection = row.sectionLabel;
+                const secRows = pptxRows.filter(x => x.sectionLabel === lastPptxSection);
+                const divMeta = resolveSectionDividerMeta(secRows, lastPptxSection);
+                addPptxCategoryDividerSlide(pres, {
+                    masterName: 'PREMIUM_MASTER',
+                    categoryTitle: divMeta.categoryTitle,
+                    subheaderTitle: divMeta.subheaderTitle,
+                    itemCount: divMeta.itemCount,
+                    colors,
+                    drawSlideDecorations,
+                    logoData: coverLogoImg,
+                    calcFitSize,
+                    projectName: projName
+                });
+            }
+
             const slide = pres.addSlide({ masterName: 'PREMIUM_MASTER' });
             drawSlideDecorations(slide);
             const brandName = (row.selectedBrand || '').replace(/Explore collections by/i, '').trim();
@@ -1961,8 +2562,13 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
             const headerTitle = firstLineHeader.length > 45 ? firstLineHeader.substring(0, 42) + '...' : firstLineHeader;
 
             slide.addText(`Item ${itemNum}: ${headerTitle}`, {
-                x: 0.3, y: 0.15, w: 7.5, h: 0.4, fontSize: 12, bold: true, color: colors.white, valign: 'middle'
+                x: 0.3, y: 0.1, w: 7.5, h: 0.38, fontSize: 12, bold: true, color: colors.white, valign: 'middle'
             });
+            if (row.submissionTitle) {
+                slide.addText(row.submissionTitle, {
+                    x: 0.3, y: 0.46, w: 7.5, h: 0.22, fontSize: 8.5, bold: true, color: colors.accent
+                });
+            }
 
             const slideLogo = logoWhite || logoOriginal || logoBlue;
             if (slideLogo) {
@@ -2185,11 +2791,43 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
             border: [226, 232, 240]
         };
 
-        let itemNum = 1;
+        const presPdfRows = recategorizeBoqRows(
+            tier.rows.filter(r => r.brandImage || r.brandDesc),
+            recategorizeMode
+        );
+        const presPdfLogoUrl = logoWhite || logoOriginal || logoBlue;
+        let presPdfLogoData = null;
+        if (presPdfLogoUrl) {
+            try { presPdfLogoData = await getImageData(presPdfLogoUrl, { format: 'image/png', maxWidth: 400 }); } catch { }
+        }
 
-        for (const row of tier.rows) {
-            if (!row.brandImage && !row.brandDesc) continue;
-            if (itemNum > 1) doc.addPage();
+        let itemNum = 1;
+        let pdfPageStarted = false;
+        let lastPresSection = '';
+
+        for (const row of presPdfRows) {
+            if (row.sectionLabel && row.sectionLabel !== lastPresSection) {
+                lastPresSection = row.sectionLabel;
+                const secRows = presPdfRows.filter(x => x.sectionLabel === lastPresSection);
+                const divMeta = resolveSectionDividerMeta(secRows, lastPresSection);
+                if (pdfPageStarted) doc.addPage();
+                pdfPageStarted = true;
+                drawPdfCategoryDividerPage(doc, {
+                    categoryTitle: divMeta.categoryTitle,
+                    subheaderTitle: divMeta.subheaderTitle,
+                    itemCount: divMeta.itemCount,
+                    submissionType: 'PRODUCT PRESENTATION',
+                    project: { projectName: planPreviewName || '' },
+                    companyName: profile?.companyName || '',
+                    colors,
+                    headerLogoData: presPdfLogoData,
+                    calcFitSize,
+                    processText
+                });
+            }
+
+            if (pdfPageStarted) doc.addPage();
+            pdfPageStarted = true;
             const brandName = (row.selectedBrand || '').replace(/Explore collections by/i, '').trim();
 
             doc.setFillColor(...colors.primary);
@@ -2202,11 +2840,16 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
             doc.setFont(arabicLoaded ? 'Almarai' : 'helvetica', 'bold');
             const fullTitle = `Item ${itemNum}: ${row.brandDesc || ''}`;
             const titleLines = doc.splitTextToSize(processText(fullTitle), pageWidth - 90);
-            let currentTitleY = 25;
+            let currentTitleY = 22;
             titleLines.slice(0, 2).forEach(tl => {
                 doc.text(tl, 10, currentTitleY);
                 currentTitleY += 8;
             });
+            if (row.submissionTitle) {
+                doc.setTextColor(...colors.accent);
+                doc.setFontSize(9);
+                doc.text(processText(row.submissionTitle), 10, 48);
+            }
 
             const presentationLogo = logoWhite || logoOriginal || logoBlue;
             if (presentationLogo) {
@@ -2403,11 +3046,43 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
             success: [16, 185, 129]
         };
 
-        let itemNum = 1;
+        const masRows = recategorizeBoqRows(
+            tier.rows.filter(r => r.brandImage || r.brandDesc),
+            recategorizeMode
+        );
+        const masHeaderLogoUrl = logoOriginal || logoBlue || logoWhite;
+        let masHeaderLogoData = null;
+        if (masHeaderLogoUrl) {
+            try { masHeaderLogoData = await getImageData(masHeaderLogoUrl, { format: 'image/png', maxWidth: 400 }); } catch { }
+        }
 
-        for (const row of tier.rows) {
-            if (!row.brandImage && !row.brandDesc) continue;
-            if (itemNum > 1) doc.addPage();
+        let itemNum = 1;
+        let masPageStarted = false;
+        let lastMasSection = '';
+
+        for (const row of masRows) {
+            if (row.sectionLabel && row.sectionLabel !== lastMasSection) {
+                lastMasSection = row.sectionLabel;
+                const secRows = masRows.filter(x => x.sectionLabel === lastMasSection);
+                const divMeta = resolveSectionDividerMeta(secRows, lastMasSection);
+                if (masPageStarted) doc.addPage();
+                masPageStarted = true;
+                drawPdfCategoryDividerPage(doc, {
+                    categoryTitle: divMeta.categoryTitle,
+                    subheaderTitle: divMeta.subheaderTitle,
+                    itemCount: divMeta.itemCount,
+                    submissionType: 'MATERIAL APPROVAL SHEET (MAS)',
+                    project: { projectName: planPreviewName || '' },
+                    companyName: profile?.companyName || '',
+                    colors,
+                    headerLogoData: masHeaderLogoData,
+                    calcFitSize,
+                    processText
+                });
+            }
+
+            if (masPageStarted) doc.addPage();
+            masPageStarted = true;
             const brandName = (row.selectedBrand || '').replace(/Explore collections by/i, '').trim();
 
             doc.setFillColor(...colors.primary);
@@ -2638,7 +3313,7 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                     {(() => {
                         let displayRows = [...rows];
 
-                        if (isConsolidated) {
+                        if (isConsolidated && recategorizeMode === 'item') {
                             const consolidated = {};
                             displayRows.forEach(row => {
                                 const scopeValue = (row.scope || 'Furniture').trim().toLowerCase();
@@ -2651,47 +3326,35 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                             displayRows = Object.values(consolidated);
                         }
 
-                        const allScopesSet = new Set(displayRows.map(r => r.scope || 'Furniture'));
-                        let scopes = Array.from(allScopesSet);
+                        const groupedRows = recategorizeBoqRows(displayRows, recategorizeMode);
 
-                        scopes.sort((a, b) => {
-                            const aUpper = a.toUpperCase();
-                            const bUpper = b.toUpperCase();
-                            if (aUpper.includes('FITOUT') && bUpper.includes('FURNITURE')) return -1;
-                            if (aUpper.includes('FURNITURE') && bUpper.includes('FITOUT')) return 1;
-                            return a.localeCompare(b);
-                        });
-
-                        let globalSn = 1;
-
-                        return scopes.map(scopeLabel => {
-                            const scopeRows = displayRows.filter(r => (r.scope || 'Furniture') === scopeLabel);
-
-                            if (scopeRows.length === 0) return null;
+                        return groupedRows.map((row, gIdx) => {
+                            const prevRow = gIdx > 0 ? groupedRows[gIdx - 1] : null;
+                            const showSubheader = row.sectionLabel && (!prevRow || prevRow.sectionLabel !== row.sectionLabel);
+                            let originalIndex = -1;
+                            if (isConsolidated && recategorizeMode === 'item' && String(row.id).startsWith('cons_')) {
+                                const displayKey = String(row.id).replace('cons_', '');
+                                originalIndex = rows.findIndex(r => {
+                                    const rScope = (r.scope || 'Furniture').trim().toLowerCase();
+                                    const rKey = (r.brandDesc || r.description || 'N/A').trim().toLowerCase() + '::' + rScope;
+                                    return rKey === displayKey;
+                                });
+                            } else {
+                                originalIndex = rows.findIndex(r => String(r.id) === String(row.id));
+                            }
 
                             return (
-                                <Fragment key={scopeLabel}>
-                                    <tr className={styles.locationDivider}>
-                                        <td colSpan={isBoqMode ? 12 : 10}>
-                                            <div className={styles.locationDividerText} style={{ textTransform: 'uppercase', fontSize: '1.2em' }}>
-                                                {scopeLabel} WORKS
-                                            </div>
-                                        </td>
-                                    </tr>
-                                    {scopeRows.map((row) => {
-                                        let originalIndex = -1;
-                                        if (isConsolidated && String(row.id).startsWith('cons_')) {
-                                            const displayKey = String(row.id).replace('cons_', '');
-                                            originalIndex = rows.findIndex(r => {
-                                                const rScope = (r.scope || 'Furniture').trim().toLowerCase();
-                                                const rKey = (r.brandDesc || r.description || 'N/A').trim().toLowerCase() + '::' + rScope;
-                                                return rKey === displayKey;
-                                            });
-                                        } else {
-                                            originalIndex = rows.findIndex(r => String(r.id) === String(row.id));
-                                        }
-                                        return renderRow(row, globalSn++, isBoqMode, originalIndex);
-                                    })}
+                                <Fragment key={row.id || gIdx}>
+                                    {showSubheader && (
+                                        <tr className={styles.locationDivider}>
+                                            <td colSpan={isBoqMode ? 12 : 10}>
+                                                <div className={styles.locationDividerText} style={{ textTransform: 'uppercase', fontSize: '0.92rem' }}>
+                                                    {row.sectionLabel}
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    )}
+                                    {renderRow(row, row.sn || gIdx + 1, isBoqMode, originalIndex)}
                                 </Fragment>
                             );
                         });
@@ -2718,28 +3381,27 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
         );
     };
 
-    const renderRow = (row, sn, isBoqMode, index) => {
+    const buildBrandSelectorData = (item) => {
         const activeBrand = brands.find(b => {
             if (b.type === 'fitout' || b.name === 'FitOut V2') {
-                return b.name === row.selectedBrand && (b.budgetTier === activeTier || !b.budgetTier);
+                return b.name === item.selectedBrand && (b.budgetTier === activeTier || !b.budgetTier);
             }
-            return b.name === row.selectedBrand;
-        }) || brands.find(b => b.name === row.selectedBrand);
+            return b.name === item.selectedBrand;
+        }) || brands.find(b => b.name === item.selectedBrand);
         let brandProducts = activeBrand?.products ? [...activeBrand.products] : [];
 
-        //  Ensure that whatever the row was matched with (model, categories, url) is always present in brandProducts:
-        if (row.selectedModel) {
-            const hasModel = brandProducts.some(p => p && p.model && p.model.toLowerCase().trim() === String(row.selectedModel).toLowerCase().trim());
+        if (item.selectedModel) {
+            const hasModel = brandProducts.some(p => p && p.model && p.model.toLowerCase().trim() === String(item.selectedModel).toLowerCase().trim());
             if (!hasModel) {
                 brandProducts.unshift({
-                    model: row.selectedModel,
-                    mainCategory: row.selectedMainCat || 'Furniture',
-                    subCategory: row.selectedSubCat || 'General',
-                    family: row.selectedFamily || 'Standard',
-                    productUrl: row.selectedModelUrl || row.brandImage || '',
-                    imageUrl: row.brandImage || '',
-                    description: row.brandDesc || row.selectedModel,
-                    price: row.rate || 0
+                    model: item.selectedModel,
+                    mainCategory: item.selectedMainCat || 'Furniture',
+                    subCategory: item.selectedSubCat || 'General',
+                    family: item.selectedFamily || 'Standard',
+                    productUrl: item.selectedModelUrl || item.brandImage || '',
+                    imageUrl: item.brandImage || '',
+                    description: item.brandDesc || item.selectedModel,
+                    price: item.rate || 0
                 });
             }
         }
@@ -2756,27 +3418,27 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
         };
 
         const mainCats = mergeUnique(brandProducts, 'mainCategory', 'category');
-        if (row.selectedMainCat && !mainCats.some(c => c.toLowerCase().trim() === String(row.selectedMainCat).toLowerCase().trim())) {
-            mainCats.push(row.selectedMainCat);
+        if (item.selectedMainCat && !mainCats.some(c => c.toLowerCase().trim() === String(item.selectedMainCat).toLowerCase().trim())) {
+            mainCats.push(item.selectedMainCat);
         }
 
         const matchingByMain = brandProducts.filter(p => {
-            if (!row.selectedMainCat) return true;
+            if (!item.selectedMainCat) return true;
             const pCat = String(p.mainCategory || p.category || p.normalization?.category || '').toLowerCase().trim();
-            const rowCat = String(row.selectedMainCat).toLowerCase().trim();
+            const rowCat = String(item.selectedMainCat).toLowerCase().trim();
             return pCat === rowCat || pCat.includes(rowCat) || rowCat.includes(pCat);
         });
 
         const subCats = mergeUnique(matchingByMain, 'subCategory', 'normalization.subCategory');
-        if (row.selectedSubCat && !subCats.some(s => s.toLowerCase().trim() === String(row.selectedSubCat).toLowerCase().trim())) {
-            subCats.push(row.selectedSubCat);
+        if (item.selectedSubCat && !subCats.some(s => s.toLowerCase().trim() === String(item.selectedSubCat).toLowerCase().trim())) {
+            subCats.push(item.selectedSubCat);
         }
 
         const families = Array.from(new Set(brandProducts.filter(p => {
             const pCat = String(p.mainCategory || p.category || '').toLowerCase().trim();
-            const rowCat = String(row.selectedMainCat || '').toLowerCase().trim();
+            const rowCat = String(item.selectedMainCat || '').toLowerCase().trim();
             const pSub = String(p.subCategory || '').toLowerCase().trim();
-            const rowSub = String(row.selectedSubCat || '').toLowerCase().trim();
+            const rowSub = String(item.selectedSubCat || '').toLowerCase().trim();
             const catMatch = !rowCat || pCat === rowCat || pCat.includes(rowCat) || rowCat.includes(pCat);
             const subMatch = !rowSub || pSub === rowSub || pSub.includes(rowSub) || rowSub.includes(pSub);
             return catMatch && subMatch;
@@ -2784,9 +3446,9 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
 
         let allRawModels = brandProducts.filter(p => {
             const pCat = String(p.mainCategory || p.category || '').toLowerCase().trim();
-            const rowCat = String(row.selectedMainCat || '').toLowerCase().trim();
+            const rowCat = String(item.selectedMainCat || '').toLowerCase().trim();
             const pSub = String(p.subCategory || '').toLowerCase().trim();
-            const rowSub = String(row.selectedSubCat || '').toLowerCase().trim();
+            const rowSub = String(item.selectedSubCat || '').toLowerCase().trim();
             const catMatch = !rowCat || pCat === rowCat || pCat.includes(rowCat) || rowCat.includes(pCat);
             const subMatch = !rowSub || pSub === rowSub || pSub.includes(rowSub) || rowSub.includes(pSub);
             return catMatch && subMatch;
@@ -2799,7 +3461,8 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
         const rawModels = [];
         const seenUids = new Set();
         allRawModels.forEach(p => {
-            const uid = p.productUrl || p.imageUrl || `id_${p.id || p.model || Math.random()}`;
+            const mKey = String(p.model || '').toLowerCase().trim();
+            const uid = `${p.productUrl || p.imageUrl || `id_${p.id || ''}`}::${mKey}`;
             if (!seenUids.has(uid)) {
                 seenUids.add(uid);
                 rawModels.push(p);
@@ -2815,62 +3478,302 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
 
         const modelOptions = [];
         Object.entries(modelGroups).forEach(([modelName, items]) => {
-            items.forEach((item, i) => {
-                const catSnippet = item.subCategory || item.mainCategory || 'Misc';
-                const snippet = item.description ? item.description.substring(0, 25) + '...' : `Variant ${i + 1}`;
-                const uniqueVal = item.productUrl || item.imageUrl || `model_${modelName}_${i}`;
+            items.forEach((entry, i) => {
+                const catSnippet = entry.subCategory || entry.mainCategory || 'Misc';
+                const snippet = entry.description ? entry.description.substring(0, 25) + '...' : `Variant ${i + 1}`;
+                const rawUrl = entry.productUrl || entry.imageUrl || '';
+                const uniqueVal = rawUrl ? `${rawUrl}::${modelName}::${i}` : `model_${modelName}_${i}`;
                 modelOptions.push({
                     value: uniqueVal,
+                    rawUrl,
                     label: items.length > 1 ? `[${catSnippet}] ${modelName} (${snippet})` : `[${catSnippet}] ${modelName}`,
                     rawModel: modelName
                 });
             });
         });
 
-        if (row.selectedModel && !modelOptions.some(o => o.rawModel && o.rawModel.toLowerCase().trim() === String(row.selectedModel).toLowerCase().trim())) {
-            const uid = row.selectedModelUrl || row.brandImage || `model_${row.selectedModel}`;
-            modelOptions.unshift({ value: uid, label: row.selectedModel, rawModel: row.selectedModel });
+        if (item.selectedModel && !modelOptions.some(o => o.rawModel && o.rawModel.toLowerCase().trim() === String(item.selectedModel).toLowerCase().trim())) {
+            const rawUrl = item.selectedModelUrl || item.brandImage || '';
+            const uid = rawUrl ? `${rawUrl}::${item.selectedModel}::0` : `model_${item.selectedModel}`;
+            modelOptions.unshift({ value: uid, rawUrl, label: item.selectedModel, rawModel: item.selectedModel });
         }
+
+        return { mainCats, subCats, families, modelOptions };
+    };
+
+    const renderSetSubRow = (parentRow, parentIndex, sub, subIndex, parentSn, isBoqMode) => {
+        const { mainCats, subCats, families, modelOptions } = buildBrandSelectorData(sub);
+        const subStatusClass = sub.aiStatus === 'processing' ? styles.aiPulse : sub.aiStatus === 'success' ? styles.aiGlow : sub.aiStatus === 'error' ? styles.aiErrorBorder : '';
+        const subAmount = sub.rate && parseFloat(sub.rate) > 0
+            ? (parseFloat(sub.qty || 0) * parseFloat(sub.rate || 0)).toFixed(2)
+            : (sub.amount || '');
+
+        return (
+            <tr key={sub.id} className={`${styles.setSubRow} ${subStatusClass}`}>
+                <td style={{ textAlign: 'center', verticalAlign: 'middle', minWidth: 40 }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+                        <span className={styles.setSubSn}>{parentSn}.{subIndex + 1}</span>
+                        {sub.aiStatus === 'success' && sub.aiResult && (
+                            <button className={styles.specialistBtn} onClick={() => setSpecialistData(sub.aiResult)} title="Component AI Detail">AI</button>
+                        )}
+                    </div>
+                </td>
+                {isBoqMode && (
+                    <td style={{ verticalAlign: 'middle', minWidth: 80, textAlign: 'center' }}>
+                        <div className={styles.setSubSlotBadge} title="Set Component">Item {subIndex + 1}</div>
+                    </td>
+                )}
+                {isBoqMode && (
+                    <td style={{ verticalAlign: 'middle', minWidth: 220 }}>
+                        <textarea
+                            className={styles.cellInput}
+                            value={sub.description}
+                            onChange={(e) => handleSetSubItemChange(parentIndex, subIndex, 'description', e.target.value)}
+                            style={{ minHeight: '54px', resize: 'vertical', width: '100%' }}
+                            placeholder="Component spec (e.g. Workstation Screen / Corner Module)..."
+                        />
+                    </td>
+                )}
+                <td style={{ verticalAlign: 'middle', textAlign: 'center', minWidth: 60 }}>
+                    <span className={`${styles.rowScopeTag} ${styles.furnitureTag}`} style={{ opacity: 0.75, fontSize: '0.62rem' }}>Part</span>
+                </td>
+                <td style={{ verticalAlign: 'middle', minWidth: 80, textAlign: 'center' }}>
+                    <MultiImageCell
+                        images={sub.brandImage ? [sub.brandImage] : []}
+                        singleMode={true}
+                        cellId={`mb_${activeTier}_sub_brand_${sub.id}`}
+                        brandLogo={sub.brandLogo}
+                        altPrefix={sub.selectedModel || sub.label || 'Component'}
+                        itemTitle={`${sub.selectedBrand || 'Brand'} ${sub.selectedModel || ''}`}
+                        size={58}
+                        onImagesChange={(newImgs) => handleSetSubItemChange(parentIndex, subIndex, 'brandImage', newImgs[0] || '')}
+                        onPreview={(imgs, targetIdx) => {
+                            setGalleryModal({
+                                isOpen: true,
+                                images: imgs,
+                                initialIndex: targetIdx,
+                                title: sub.selectedModel || sub.label || 'Set Component',
+                                subtitle: sub.brandDesc || sub.description,
+                                tierName: activeTier,
+                                brandLogo: sub.brandLogo,
+                                brandName: sub.selectedBrand
+                            });
+                        }}
+                    />
+                </td>
+                <td style={{ verticalAlign: 'middle', minWidth: 160 }}>
+                    <textarea
+                        className={styles.cellInput}
+                        value={sub.brandDesc}
+                        onChange={(e) => handleSetSubItemChange(parentIndex, subIndex, 'brandDesc', e.target.value)}
+                        style={{ minHeight: '54px', resize: 'vertical', width: '100%' }}
+                        placeholder="Component product details..."
+                    />
+                </td>
+                <td style={{ verticalAlign: 'middle', minWidth: 60 }}>
+                    <input className={styles.cellInput} value={sub.qty} onChange={(e) => handleSetSubItemChange(parentIndex, subIndex, 'qty', e.target.value)} style={{ textAlign: 'center' }} />
+                </td>
+                <td style={{ verticalAlign: 'middle', minWidth: 60 }}>
+                    <input className={styles.cellInput} value={sub.unit} onChange={(e) => handleSetSubItemChange(parentIndex, subIndex, 'unit', e.target.value)} />
+                </td>
+                <td style={{ verticalAlign: 'middle', minWidth: 80 }}>
+                    <input className={styles.cellInput} value={sub.rate} onChange={(e) => handleSetSubItemChange(parentIndex, subIndex, 'rate', e.target.value)} style={{ textAlign: 'right' }} placeholder="0.00" />
+                </td>
+                <td style={{ verticalAlign: 'middle', minWidth: 90 }}>
+                    <input
+                        type="text"
+                        value={subAmount}
+                        onChange={(e) => handleSetSubItemChange(parentIndex, subIndex, 'amount', e.target.value)}
+                        className={styles.cellInput}
+                        style={{ textAlign: 'right', opacity: sub.rate && parseFloat(sub.rate) > 0 ? 0.7 : 1 }}
+                        disabled={!!(sub.rate && parseFloat(sub.rate) > 0)}
+                        placeholder="0.00"
+                    />
+                </td>
+                <td style={{ verticalAlign: 'middle', minWidth: 215 }}>
+                    <div className={styles.dropdownStack}>
+                        <div className={styles.brandDropdownContainer}>
+                            {sub.aiStatus === 'processing' ? (
+                                <div className={styles.aiLoadingCell}><div className={styles.tinySpinner} /><span style={{ fontSize: '0.72rem' }}>Matching…</span></div>
+                            ) : (
+                                <BrandDropdown
+                                    brands={brands.map(b => ({ ...b, logo: getFullUrl(b.logo || b.imageUrl) }))}
+                                    selectedBrands={sub.selectedBrand}
+                                    onSelect={(brand) => handleSetSubItemChange(parentIndex, subIndex, 'selectedBrand', brand.name)}
+                                    placeholder="Select Brand..."
+                                />
+                            )}
+                        </div>
+                        {sub.selectedBrand && (
+                            <select className={styles.productSelect} value={sub.selectedMainCat || ''} onChange={(e) => handleSetSubItemChange(parentIndex, subIndex, 'selectedMainCat', e.target.value)}>
+                                <option value="">Category...</option>
+                                {(mainCats || []).map(c => <option key={c} value={c}>{c}</option>)}
+                            </select>
+                        )}
+                        {(sub.selectedMainCat || (subCats || []).length > 0) && (
+                            <select className={styles.productSelect} value={sub.selectedSubCat || ''} onChange={(e) => handleSetSubItemChange(parentIndex, subIndex, 'selectedSubCat', e.target.value)}>
+                                <option value="">Sub-Category...</option>
+                                {(subCats || []).map(c => <option key={c} value={c}>{c}</option>)}
+                            </select>
+                        )}
+                        {(families || []).length > 0 && (
+                            <select className={styles.productSelect} value={sub.selectedFamily || ''} onChange={(e) => handleSetSubItemChange(parentIndex, subIndex, 'selectedFamily', e.target.value)}>
+                                <option value="">Family...</option>
+                                {(families || []).map(c => <option key={c} value={c}>{c}</option>)}
+                            </select>
+                        )}
+                        {(sub.selectedSubCat || (modelOptions || []).length > 0) && (
+                            <select
+                                className={styles.productSelect}
+                                value={
+                                    (modelOptions.find(o => o.rawModel === sub.selectedModel && (!sub.selectedModelUrl || o.rawUrl === sub.selectedModelUrl))?.value) ||
+                                    (modelOptions.find(o => o.rawModel === sub.selectedModel)?.value) ||
+                                    (modelOptions.find(o => o.value === sub.selectedModelUrl || (o.rawUrl && o.rawUrl === sub.selectedModelUrl))?.value) ||
+                                    ''
+                                }
+                                onChange={(e) => {
+                                    const opt = modelOptions.find(o => o.value === e.target.value);
+                                    handleSetSubItemChange(parentIndex, subIndex, 'selectedModel', { model: opt?.rawModel || '', url: e.target.value, rawUrl: opt?.rawUrl || '' });
+                                }}
+                            >
+                                <option value="">Model Variant...</option>
+                                {modelOptions.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+                            </select>
+                        )}
+                    </div>
+                </td>
+                <td style={{ verticalAlign: 'middle', textAlign: 'center', minWidth: 40 }}>
+                    <div className={styles.actionCell}>
+                        <button
+                            className={styles.setActionMiniBtn}
+                            onClick={() => handleMatchSingleSet(parentIndex, subIndex)}
+                            disabled={isFurnitureAutoFilling || matchingSetRowId === parentRow.id}
+                            title="AI Match this component"
+                        >
+                            ⚡
+                        </button>
+                        <button className={`${styles.actionBtn} ${styles.addBtn}`} onClick={() => handleAddSetSubItem(parentIndex, subIndex)} title="Add component below">+</button>
+                        <button className={`${styles.actionBtn} ${styles.removeBtn}`} onClick={() => handleRemoveSetSubItem(parentIndex, subIndex)} title="Remove component">×</button>
+                    </div>
+                </td>
+            </tr>
+        );
+    };
+
+    const renderRow = (row, sn, isBoqMode, index) => {
+        const isSetRow = Boolean(row.setType && row.setType !== 'single');
+        const setItems = Array.isArray(row.setItems) ? row.setItems : [];
+        const matchedSetCount = setItems.filter(it => it.selectedBrand || it.selectedModel).length;
+
+        const { mainCats, subCats, families, modelOptions } = !isSetRow
+            ? buildBrandSelectorData(row)
+            : { mainCats: [], subCats: [], families: [], modelOptions: [] };
 
         const rowStatusClass = row.aiStatus === 'processing' ? styles.aiPulse :
             row.aiStatus === 'success' ? styles.aiGlow :
                 row.aiStatus === 'error' ? styles.aiErrorBorder : '';
+        const displayBrandImages = isSetRow
+            ? (row.brandImages?.length ? row.brandImages : (row.brandImage ? [row.brandImage] : []))
+            : (row.brandImage ? [row.brandImage] : []);
 
         return (
-            <tr key={row.id} className={`${rowStatusClass} ${row.aiStatus === 'skipped' ? styles.skippedRow : ''}`}>
-                <td style={{ textAlign: 'center', verticalAlign: 'middle', minWidth: 40, fontSize: '0.78rem', color: 'var(--text-muted,#94a3b8)', fontWeight: 600 }}>
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
-                        {sn}
-                        {row.aiStatus === 'success' && row.aiResult && (
-                            <button
-                                className={styles.specialistBtn}
-                                onClick={() => setSpecialistData(row.aiResult)}
-                                title="AI Detail"
-                            >
-                                AI
-                            </button>
-                        )}
-                        {row.aiStatus === 'no_match' && (
-                            <button
-                                className={styles.specialistBtn}
-                                style={{ backgroundColor: '#2ba4e0' }}
-                                onClick={() => handleManualEnrich(row, index, activeTier)}
-                                disabled={enrichingRowId === row.id}
-                                title="Discover Online & Harden DB"
-                            >
-                                {enrichingRowId === row.id ? '...' : 'Search Online'}
-                            </button>
-                        )}
-                    </div>
-                </td>
+            <Fragment key={row.id}>
+                <tr className={`${rowStatusClass} ${row.aiStatus === 'skipped' ? styles.skippedRow : ''}`}>
+                    <td style={{ textAlign: 'center', verticalAlign: 'middle', minWidth: 40, fontSize: '0.78rem', color: 'var(--text-muted,#94a3b8)', fontWeight: 600 }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+                            {sn}
+                            {isSetRow && (
+                                <span className={styles.setBadge} title={getSetTypeMeta(row.setType).label}>SET</span>
+                            )}
+                            {!isSetRow && row.aiStatus === 'success' && row.aiResult && (
+                                <button
+                                    className={styles.specialistBtn}
+                                    onClick={() => setSpecialistData(row.aiResult)}
+                                    title="AI Detail"
+                                >
+                                    AI
+                                </button>
+                            )}
+                            {!isSetRow && row.aiStatus === 'no_match' && (
+                                <button
+                                    className={styles.specialistBtn}
+                                    style={{ backgroundColor: '#2ba4e0' }}
+                                    onClick={() => handleManualEnrich(row, index, activeTier)}
+                                    disabled={enrichingRowId === row.id}
+                                    title="Discover Online & Harden DB"
+                                >
+                                    {enrichingRowId === row.id ? '...' : 'Search Online'}
+                                </button>
+                            )}
+                        </div>
+                    </td>
 
-                {isBoqMode && (
+                    {isBoqMode && (
+                        <td style={{ verticalAlign: 'middle', minWidth: 80, textAlign: 'center' }}>
+                            <MultiImageCell
+                                images={row.imageRefs?.length ? row.imageRefs : (row.imageRef ? [row.imageRef] : [])}
+                                cellId={`mb_${activeTier}_ref_${row.id || index}`}
+                                altPrefix="Ref"
+                                itemTitle={row.description || `Item #${row.sn}`}
+                                size={68}
+                                onImagesChange={(newImgs) => {
+                                    setTierData(prev => {
+                                        const newState = { ...prev };
+                                        const tier = newState[activeTier];
+                                        if (!tier || !tier.rows) return prev;
+                                        const newRows = [...tier.rows];
+                                        newRows[index] = {
+                                            ...newRows[index],
+                                            imageRefs: newImgs,
+                                            imageRef: newImgs[0] || null
+                                        };
+                                        newState[activeTier] = { ...tier, rows: newRows };
+                                        return newState;
+                                    });
+                                }}
+                                onPreview={(imgs, targetIdx) => {
+                                    setGalleryModal({
+                                        isOpen: true,
+                                        images: imgs,
+                                        initialIndex: targetIdx,
+                                        title: `Reference Images (${targetIdx + 1}/${imgs.length})`,
+                                        subtitle: row.description || `Item #${row.sn}`,
+                                        tierName: activeTier,
+                                        rowIndex: index,
+                                        targetField: 'ref',
+                                        brandLogo: null,
+                                        brandName: 'Original Specification'
+                                    });
+                                }}
+                            />
+                        </td>
+                    )}
+
+                    {isBoqMode && (
+                        <td style={{ verticalAlign: 'middle', minWidth: 220 }}>
+                            <textarea
+                                className={styles.cellInput}
+                                value={row.description}
+                                onChange={(e) => handleCellChange(index, 'description', e.target.value)}
+                                style={{ minHeight: '72px', resize: 'vertical', width: '100%' }}
+                            />
+                        </td>
+                    )}
+
+                    <td style={{ verticalAlign: 'middle', textAlign: 'center', minWidth: 60 }}>
+                        <span className={`${styles.rowScopeTag} ${row.scope?.toLowerCase().includes('fitout') ? styles.fitoutTag : styles.furnitureTag}`}>
+                            {row.scope || 'Furniture'}
+                        </span>
+                    </td>
+
                     <td style={{ verticalAlign: 'middle', minWidth: 80, textAlign: 'center' }}>
                         <MultiImageCell
-                            images={row.imageRefs?.length ? row.imageRefs : (row.imageRef ? [row.imageRef] : [])}
-                            cellId={`mb_${activeTier}_ref_${row.id || index}`}
-                            altPrefix="Ref"
-                            itemTitle={row.description || `Item #${row.sn}`}
+                            images={displayBrandImages}
+                            singleMode={!isSetRow}
+                            cellId={`mb_${activeTier}_brand_${row.id || index}`}
+                            brandLogo={row.brandLogo}
+                            altPrefix={row.selectedModel || "Product"}
+                            itemTitle={`${row.selectedBrand || 'Brand'} ${row.selectedModel || ''}`}
                             size={68}
                             onImagesChange={(newImgs) => {
                                 setTierData(prev => {
@@ -2880,8 +3783,8 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                                     const newRows = [...tier.rows];
                                     newRows[index] = {
                                         ...newRows[index],
-                                        imageRefs: newImgs,
-                                        imageRef: newImgs[0] || null
+                                        brandImage: newImgs[0] || '',
+                                        brandImages: newImgs
                                     };
                                     newState[activeTier] = { ...tier, rows: newRows };
                                     return newState;
@@ -2892,175 +3795,180 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                                     isOpen: true,
                                     images: imgs,
                                     initialIndex: targetIdx,
-                                    title: `Reference Images (${targetIdx + 1}/${imgs.length})`,
-                                    subtitle: row.description || `Item #${row.sn}`,
+                                    title: isSetRow ? `${getSetTypeMeta(row.setType).label} (${targetIdx + 1}/${imgs.length})` : (row.selectedModel || 'Matched Product'),
+                                    subtitle: row.brandDesc || row.description,
                                     tierName: activeTier,
                                     rowIndex: index,
-                                    targetField: 'ref',
-                                    brandLogo: null,
-                                    brandName: 'Original Specification'
+                                    targetField: 'brand',
+                                    brandLogo: row.brandLogo,
+                                    brandName: row.selectedBrand
                                 });
                             }}
                         />
                     </td>
-                )}
 
-                {isBoqMode && (
-                    <td style={{ verticalAlign: 'middle', minWidth: 220 }}>
+                    <td style={{ verticalAlign: 'middle', minWidth: 160 }}>
                         <textarea
                             className={styles.cellInput}
-                            value={row.description}
-                            onChange={(e) => handleCellChange(index, 'description', e.target.value)}
+                            value={row.brandDesc}
+                            onChange={(e) => handleCellChange(index, 'brandDesc', e.target.value)}
                             style={{ minHeight: '72px', resize: 'vertical', width: '100%' }}
+                            placeholder={isSetRow ? 'Itemized set rollup summary…' : 'Product details...'}
                         />
                     </td>
-                )}
 
-                <td style={{ verticalAlign: 'middle', textAlign: 'center', minWidth: 60 }}>
-                    <span className={`${styles.rowScopeTag} ${row.scope?.toLowerCase().includes('fitout') ? styles.fitoutTag : styles.furnitureTag}`}>
-                        {row.scope || 'Furniture'}
-                    </span>
-                </td>
+                    <td style={{ verticalAlign: 'middle', minWidth: 60 }}>
+                        <input className={styles.cellInput} value={row.qty} onChange={(e) => handleCellChange(index, 'qty', e.target.value)} style={{ textAlign: 'center' }} />
+                    </td>
+                    <td style={{ verticalAlign: 'middle', minWidth: 60 }}>
+                        <input className={styles.cellInput} value={row.unit} onChange={(e) => handleCellChange(index, 'unit', e.target.value)} />
+                    </td>
+                    <td style={{ verticalAlign: 'middle', minWidth: 80 }}>
+                        <input className={styles.cellInput} value={row.rate} onChange={(e) => handleCellChange(index, 'rate', e.target.value)} style={{ textAlign: 'right' }} />
+                    </td>
+                    <td style={{ verticalAlign: 'middle', minWidth: 90 }}>
+                        <input
+                            type="text"
+                            value={row.rate && parseFloat(row.rate) > 0
+                                ? (parseFloat(row.qty || 0) * parseFloat(row.rate || 0)).toFixed(2)
+                                : (row.amount || '')}
+                            onChange={(e) => handleCellChange(index, 'amount', e.target.value)}
+                            className={styles.cellInput}
+                            style={{ textAlign: 'right', opacity: row.rate && parseFloat(row.rate) > 0 ? 0.7 : 1 }}
+                            disabled={!!(row.rate && parseFloat(row.rate) > 0)}
+                            placeholder="0.00"
+                        />
+                    </td>
 
-                <td style={{ verticalAlign: 'middle', minWidth: 80, textAlign: 'center' }}>
-                    <MultiImageCell
-                        images={row.brandImage ? [row.brandImage] : []}
-                        singleMode={true}
-                        cellId={`mb_${activeTier}_brand_${row.id || index}`}
-                        brandLogo={row.brandLogo}
-                        altPrefix={row.selectedModel || "Product"}
-                        itemTitle={`${row.selectedBrand || 'Brand'} ${row.selectedModel || ''}`}
-                        size={68}
-                        onImagesChange={(newImgs) => {
-                            setTierData(prev => {
-                                const newState = { ...prev };
-                                const tier = newState[activeTier];
-                                if (!tier || !tier.rows) return prev;
-                                const newRows = [...tier.rows];
-                                newRows[index] = {
-                                    ...newRows[index],
-                                    brandImage: newImgs[0] || ''
-                                };
-                                newState[activeTier] = { ...tier, rows: newRows };
-                                return newState;
-                            });
-                        }}
-                        onPreview={(imgs, targetIdx) => {
-                            setGalleryModal({
-                                isOpen: true,
-                                images: imgs,
-                                initialIndex: targetIdx,
-                                title: row.selectedModel || 'Matched Product',
-                                subtitle: row.brandDesc || row.description,
-                                tierName: activeTier,
-                                rowIndex: index,
-                                targetField: 'brand',
-                                brandLogo: row.brandLogo,
-                                brandName: row.selectedBrand
-                            });
-                        }}
-                    />
-                </td>
-
-                <td style={{ verticalAlign: 'middle', minWidth: 160 }}>
-                    <textarea
-                        className={styles.cellInput}
-                        value={row.brandDesc}
-                        onChange={(e) => handleCellChange(index, 'brandDesc', e.target.value)}
-                        style={{ minHeight: '72px', resize: 'vertical', width: '100%' }}
-                        placeholder="Product details..."
-                    />
-                </td>
-
-                <td style={{ verticalAlign: 'middle', minWidth: 60 }}>
-                    <input className={styles.cellInput} value={row.qty} onChange={(e) => handleCellChange(index, 'qty', e.target.value)} style={{ textAlign: 'center' }} />
-                </td>
-                <td style={{ verticalAlign: 'middle', minWidth: 60 }}>
-                    <input className={styles.cellInput} value={row.unit} onChange={(e) => handleCellChange(index, 'unit', e.target.value)} />
-                </td>
-                <td style={{ verticalAlign: 'middle', minWidth: 80 }}>
-                    <input className={styles.cellInput} value={row.rate} onChange={(e) => handleCellChange(index, 'rate', e.target.value)} style={{ textAlign: 'right' }} />
-                </td>
-                <td style={{ verticalAlign: 'middle', minWidth: 90 }}>
-                    <input
-                        type="text"
-                        value={row.rate && parseFloat(row.rate) > 0
-                            ? (parseFloat(row.qty || 0) * parseFloat(row.rate || 0)).toFixed(2)
-                            : (row.amount || '')}
-                        onChange={(e) => handleCellChange(index, 'amount', e.target.value)}
-                        className={styles.cellInput}
-                        style={{ textAlign: 'right', opacity: row.rate && parseFloat(row.rate) > 0 ? 0.7 : 1 }}
-                        disabled={!!(row.rate && parseFloat(row.rate) > 0)}
-                        placeholder="0.00"
-                    />
-                </td>
-
-                <td style={{ verticalAlign: 'middle', minWidth: 200 }}>
-                    <div className={styles.dropdownStack}>
-                        <div className={styles.brandDropdownContainer}>
-                            {row.aiStatus === 'processing' ? (
-                                <div className={styles.aiLoadingCell}>
-                                    <div className={styles.tinySpinner} />
-                                    <span style={{ fontSize: '0.72rem' }}>AI Matching…</span>
-                                </div>
-                            ) : (
-                                <BrandDropdown
-                                    brands={brands.map(b => ({
-                                        ...b,
-                                        logo: getFullUrl(b.logo || b.imageUrl)
-                                    }))}
-                                    selectedBrands={row.selectedBrand}
-                                    onSelect={(brand) => handleCellChange(index, 'selectedBrand', brand.name)}
-                                    placeholder="Select Brand..."
-                                />
-                            )}
-                        </div>
-                        {row.selectedBrand && (
-                            <select className={styles.productSelect} value={row.selectedMainCat || ''} onChange={(e) => handleCellChange(index, 'selectedMainCat', e.target.value)}>
-                                <option value="">Category...</option>
-                                {(mainCats || []).map(c => <option key={c} value={c}>{c}</option>)}
-                            </select>
-                        )}
-                        {(row.selectedMainCat || (subCats || []).length > 0) && (
-                            <select className={styles.productSelect} value={row.selectedSubCat || ''} onChange={(e) => handleCellChange(index, 'selectedSubCat', e.target.value)}>
-                                <option value="">Sub-Category...</option>
-                                {(subCats || []).map(c => <option key={c} value={c}>{c}</option>)}
-                            </select>
-                        )}
-                        {(families || []).length > 0 && (
-                            <select className={styles.productSelect} value={row.selectedFamily || ''} onChange={(e) => handleCellChange(index, 'selectedFamily', e.target.value)}>
-                                <option value="">Family...</option>
-                                {(families || []).map(c => <option key={c} value={c}>{c}</option>)}
-                            </select>
-                        )}
-                        {(row.selectedSubCat || (modelOptions || []).length > 0) && (
+                    <td style={{ verticalAlign: 'middle', minWidth: 215 }}>
+                        <div className={styles.dropdownStack}>
+                            {/* Dedicated Set Type Dropdown: Workstations, Modular Seating, Desking, Lounge, Library, Outdoor, Cafeteria, LUM Sets */}
                             <select
-                                className={styles.productSelect}
-                                value={row.selectedModelUrl || (modelOptions.find(o => o.rawModel === row.selectedModel)?.value || '')}
-                                onChange={(e) => {
-                                    const opt = modelOptions.find(o => o.value === e.target.value);
-                                    handleCellChange(index, 'selectedModel', {
-                                        model: opt?.rawModel || '',
-                                        url: e.target.value
-                                    });
-                                }}
+                                className={`${styles.setTypeSelect} ${isSetRow ? styles.setTypeSelectActive : ''}`}
+                                value={row.setType || 'single'}
+                                onChange={(e) => handleSetTypeChange(index, e.target.value)}
+                                title="Switch between Single Item and dedicated Multi-Component Set (Workstation, Modular Seating, LUM Set)"
                             >
-                                <option value="">Model Variant...</option>
-                                {modelOptions.map(opt => (
-                                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                {FURNITURE_SET_TYPES.map(st => (
+                                    <option key={st.id} value={st.id}>
+                                        {st.id === 'single' ? 'Item Mode: Single Item' : `Set: ${st.label}`}
+                                    </option>
                                 ))}
                             </select>
-                        )}
-                    </div>
-                </td>
 
-                <td style={{ verticalAlign: 'middle', textAlign: 'center', minWidth: 40 }}>
-                    <div className={styles.actionCell}>
-                        <button className={`${styles.actionBtn} ${styles.addBtn}`} onClick={() => handleAddRow(index)}>+</button>
-                        <button className={`${styles.actionBtn} ${styles.removeBtn}`} onClick={() => handleRemoveRow(index)}>×</button>
-                    </div>
-                </td>
-            </tr>
+                            {isSetRow ? (
+                                <>
+                                    <div className={styles.setControlBar}>
+                                        <button
+                                            type="button"
+                                            className={styles.setToggleBtn}
+                                            onClick={() => handleToggleSetExpand(index)}
+                                        >
+                                            <span>{row.setExpanded ? '▾' : '▸'} {setItems.length} Items</span>
+                                            <span style={{ opacity: 0.85, fontSize: '0.67rem' }}>{matchedSetCount}/{setItems.length}</span>
+                                        </button>
+                                        <button
+                                            type="button"
+                                            className={styles.setActionMiniBtn}
+                                            onClick={() => handleMatchSingleSet(index)}
+                                            disabled={isFurnitureAutoFilling || matchingSetRowId === row.id}
+                                            title="AI Match all components in this set"
+                                        >
+                                            {matchingSetRowId === row.id ? 'Matching…' : '⚡ Match Set'}
+                                        </button>
+                                        <button
+                                            type="button"
+                                            className={styles.setActionMiniBtn}
+                                            onClick={() => handleAddSetSubItem(index)}
+                                            title="Add a component slot"
+                                        >
+                                            + Item
+                                        </button>
+                                    </div>
+                                    {row.selectedBrand && (
+                                        <div className={styles.setRollupMeta} title={`${row.selectedBrand} — ${row.selectedModel}`}>
+                                            {row.selectedBrand}
+                                        </div>
+                                    )}
+                                </>
+                            ) : (
+                                <>
+                                    <div className={styles.brandDropdownContainer}>
+                                        {row.aiStatus === 'processing' ? (
+                                            <div className={styles.aiLoadingCell}>
+                                                <div className={styles.tinySpinner} />
+                                                <span style={{ fontSize: '0.72rem' }}>AI Matching…</span>
+                                            </div>
+                                        ) : (
+                                            <BrandDropdown
+                                                brands={brands.map(b => ({
+                                                    ...b,
+                                                    logo: getFullUrl(b.logo || b.imageUrl)
+                                                }))}
+                                                selectedBrands={row.selectedBrand}
+                                                onSelect={(brand) => handleCellChange(index, 'selectedBrand', brand.name)}
+                                                placeholder="Select Brand..."
+                                            />
+                                        )}
+                                    </div>
+                                    {row.selectedBrand && (
+                                        <select className={styles.productSelect} value={row.selectedMainCat || ''} onChange={(e) => handleCellChange(index, 'selectedMainCat', e.target.value)}>
+                                            <option value="">Category...</option>
+                                            {(mainCats || []).map(c => <option key={c} value={c}>{c}</option>)}
+                                        </select>
+                                    )}
+                                    {(row.selectedMainCat || (subCats || []).length > 0) && (
+                                        <select className={styles.productSelect} value={row.selectedSubCat || ''} onChange={(e) => handleCellChange(index, 'selectedSubCat', e.target.value)}>
+                                            <option value="">Sub-Category...</option>
+                                            {(subCats || []).map(c => <option key={c} value={c}>{c}</option>)}
+                                        </select>
+                                    )}
+                                    {(families || []).length > 0 && (
+                                        <select className={styles.productSelect} value={row.selectedFamily || ''} onChange={(e) => handleCellChange(index, 'selectedFamily', e.target.value)}>
+                                            <option value="">Family...</option>
+                                            {(families || []).map(c => <option key={c} value={c}>{c}</option>)}
+                                        </select>
+                                    )}
+                                    {(row.selectedSubCat || (modelOptions || []).length > 0) && (
+                                        <select
+                                            className={styles.productSelect}
+                                            value={
+                                                (modelOptions.find(o => o.rawModel === row.selectedModel && (!row.selectedModelUrl || o.rawUrl === row.selectedModelUrl))?.value) ||
+                                                (modelOptions.find(o => o.rawModel === row.selectedModel)?.value) ||
+                                                (modelOptions.find(o => o.value === row.selectedModelUrl || (o.rawUrl && o.rawUrl === row.selectedModelUrl))?.value) ||
+                                                ''
+                                            }
+                                            onChange={(e) => {
+                                                const opt = modelOptions.find(o => o.value === e.target.value);
+                                                handleCellChange(index, 'selectedModel', {
+                                                    model: opt?.rawModel || '',
+                                                    url: e.target.value,
+                                                    rawUrl: opt?.rawUrl || ''
+                                                });
+                                            }}
+                                        >
+                                            <option value="">Model Variant...</option>
+                                            {modelOptions.map(opt => (
+                                                <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                            ))}
+                                        </select>
+                                    )}
+                                </>
+                            )}
+                        </div>
+                    </td>
+
+                    <td style={{ verticalAlign: 'middle', textAlign: 'center', minWidth: 40 }}>
+                        <div className={styles.actionCell}>
+                            <button className={`${styles.actionBtn} ${styles.addBtn}`} onClick={() => handleAddRow(index)}>+</button>
+                            <button className={`${styles.actionBtn} ${styles.removeBtn}`} onClick={() => handleRemoveRow(index)}>×</button>
+                        </div>
+                    </td>
+                </tr>
+                {isSetRow && row.setExpanded && setItems.map((sub, sIdx) =>
+                    renderSetSubRow(row, index, sub, sIdx, sn, isBoqMode)
+                )}
+            </Fragment>
         );
     };
 
@@ -3089,70 +3997,93 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                     </tr>
                 </thead>
                 <tbody>
-                    {sampleRows.map((row, i) => (
-                        <tr key={row.sn || i}>
-                            <td className={styles.compName}>
-                                <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
-                                    {row.imageRef && (
-                                        <img
-                                            src={getFullUrl(row.imageRef)}
-                                            className={styles.compImg}
-                                            style={{ height: '50px', width: '50px', minWidth: '50px', objectFit: 'cover', borderRadius: '4px', cursor: 'zoom-in' }}
-                                            onClick={() => {
-                                                setPreviewImage(getFullUrl(row.imageRef));
-                                                setPreviewLogo(null);
-                                                setPreviewBrand('Original Reference');
-                                                setPreviewModel(row.description);
-                                            }}
-                                        />
+                    {(() => {
+                        const groupedCompRows = recategorizeBoqRows(sampleRows, recategorizeMode);
+                        return groupedCompRows.map((row, i) => {
+                            const prevRow = i > 0 ? groupedCompRows[i - 1] : null;
+                            const showSubheader = row.sectionLabel && (!prevRow || prevRow.sectionLabel !== row.sectionLabel);
+                            const origIndex = sampleRows.findIndex(sr => String(sr.id) === String(row.id));
+                            return (
+                                <Fragment key={row.id || row.sn || i}>
+                                    {showSubheader && (
+                                        <tr className={styles.locationDivider}>
+                                            <td colSpan={4}>
+                                                <div className={styles.locationDividerText} style={{ textTransform: 'uppercase', fontSize: '0.9rem' }}>
+                                                    {row.sectionLabel}
+                                                </div>
+                                            </td>
+                                        </tr>
                                     )}
-                                    <div style={{ flex: 1 }}>
-                                        <strong>#{row.sn}</strong>
-                                        <p style={{ marginTop: '3px', fontSize: '0.65rem', color: 'var(--text-secondary)' }}>{row.description}</p>
-                                    </div>
-                                </div>
-                            </td>
-                            {['budgetary', 'mid', 'high'].map(tierKey => {
-                                const match = tierData[tierKey]?.rows[i];
-                                return (
-                                    <td key={tierKey}>
-                                        {match && match.aiStatus === 'processing' ? (
-                                            <div className={styles.aiLoadingCell} style={{ padding: '20px' }}>
-                                                <div className={styles.tinySpinner}></div>
-                                                <span style={{ fontSize: '0.7rem' }}>AI Searching...</span>
-                                            </div>
-                                        ) : match && match.selectedBrand ? (
-                                            <div className={styles.comparisonCell}>
-                                                {match.brandImage && (
+                                    <tr>
+                                        <td className={styles.compName}>
+                                            <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
+                                                {row.imageRef && (
                                                     <img
-                                                        src={getFullUrl(match.brandImage)}
-                                                        alt=""
+                                                        src={getFullUrl(row.imageRef)}
                                                         className={styles.compImg}
+                                                        style={{ height: '50px', width: '50px', minWidth: '50px', objectFit: 'cover', borderRadius: '4px', cursor: 'zoom-in' }}
                                                         onClick={() => {
-                                                            setPreviewImage(getFullUrl(match.brandImage));
-                                                            setPreviewLogo(getFullUrl(match.brandLogo));
-                                                            setPreviewBrand(match.selectedBrand);
-                                                            setPreviewModel(match.selectedModel);
+                                                            setPreviewImage(getFullUrl(row.imageRef));
+                                                            setPreviewLogo(null);
+                                                            setPreviewBrand('Original Reference');
+                                                            setPreviewModel(row.description);
                                                         }}
-                                                        style={{ cursor: 'zoom-in' }}
                                                     />
                                                 )}
-                                                <div className={styles.compName}>
-                                                    {match.selectedBrand} - {match.selectedModel}
-                                                </div>
-                                                <div className={styles.compPrice}>
-                                                    <span>{match.rate}</span>
-                                                    <span>{costingFactors.toCurrency}</span>
+                                                <div style={{ flex: 1 }}>
+                                                    <strong>#{row.sn}</strong>
+                                                    <p style={{ marginTop: '3px', fontSize: '0.65rem', color: 'var(--text-secondary)' }}>{row.description}</p>
                                                 </div>
                                             </div>
-                                        ) : (
-                                            <div className={styles.compNoMatch}>No match selected</div>
-                                        )}
-                                    </td>
-                                );
-                            })}
-                        </tr>
-                    ))}
+                                        </td>
+                                        {['budgetary', 'mid', 'high'].map(tierKey => {
+                                            const tierRowsList = tierData[tierKey]?.rows || [];
+                                            const match = (origIndex !== -1 && tierRowsList[origIndex])
+                                                ? tierRowsList[origIndex]
+                                                : tierRowsList.find(tr => String(tr.sn) === String(row.sn));
+                                            return (
+                                                <td key={tierKey}>
+                                                    {match && match.aiStatus === 'processing' ? (
+                                                        <div className={styles.aiLoadingCell} style={{ padding: '20px' }}>
+                                                            <div className={styles.tinySpinner}></div>
+                                                            <span style={{ fontSize: '0.7rem' }}>AI Searching...</span>
+                                                        </div>
+                                                    ) : match && match.selectedBrand ? (
+                                                        <div className={styles.comparisonCell}>
+                                                            {match.brandImage && (
+                                                                <img
+                                                                    src={getFullUrl(match.brandImage)}
+                                                                    alt={match.selectedModel || ''}
+                                                                    className={styles.compImg}
+                                                                    onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                                                                    onClick={() => {
+                                                                        setPreviewImage(getFullUrl(match.brandImage));
+                                                                        setPreviewLogo(getFullUrl(match.brandLogo));
+                                                                        setPreviewBrand(match.selectedBrand);
+                                                                        setPreviewModel(match.selectedModel);
+                                                                    }}
+                                                                    style={{ cursor: 'zoom-in' }}
+                                                                />
+                                                            )}
+                                                            <div className={styles.compName}>
+                                                                {match.selectedBrand} - {match.selectedModel}
+                                                            </div>
+                                                            <div className={styles.compPrice}>
+                                                                <span>{match.rate}</span>
+                                                                <span>{costingFactors.toCurrency}</span>
+                                                            </div>
+                                                        </div>
+                                                    ) : (
+                                                        <div className={styles.compNoMatch}>No match selected</div>
+                                                    )}
+                                                </td>
+                                            );
+                                        })}
+                                    </tr>
+                                </Fragment>
+                            );
+                        });
+                    })()}
                 </tbody>
             </table>
         );
@@ -3217,10 +4148,27 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                                         <span>Preview Plan</span>
                                     </button>
                                 )}
-                                <button className={`${styles.actionCard} ${styles.consolidateBtn} ${isConsolidated ? styles.consolidateBtnActive : ''}`} onClick={() => setIsConsolidated(!isConsolidated)}>
+                                <button className={`${styles.actionCard} ${styles.consolidateBtn} ${isConsolidated ? styles.consolidateBtnActive : ''}`} onClick={() => { const next = !isConsolidated; setIsConsolidated(next); if (next) setRecategorizeMode('item'); }}>
                                     <span style={{ fontSize: '1.4rem' }}>{isConsolidated ? '' : ''}</span>
-                                    <span>{isConsolidated ? 'Room Wise' : 'Consolidate Items'}</span>
+                                    <span>{isConsolidated ? 'Consolidated' : 'Consolidate Items'}</span>
                                 </button>
+                                <div className={styles.recatControlCard} title="Keep uploaded BOQ order as-is or group by Item wise / Room wise">
+                                    <span className={styles.recatLabel}>Recategorize</span>
+                                    <select
+                                        className={styles.recatSelect}
+                                        value={recategorizeMode}
+                                        onChange={(e) => {
+                                            const mode = e.target.value;
+                                            setRecategorizeMode(mode);
+                                            if (mode !== 'item') setIsConsolidated(false);
+                                        }}
+                                        aria-label="Recategorize BOQ"
+                                    >
+                                        <option value="original">Original Order (As Is)</option>
+                                        <option value="item">Item wise</option>
+                                        <option value="room">Room wise</option>
+                                    </select>
+                                </div>
                                 <button className={`${styles.actionCard} ${styles.addBrandBtn}`} onClick={handleAddBrand}>
                                     <span style={{ fontSize: '1.4rem' }}></span>
                                     <span>Add Brand</span>
@@ -3327,9 +4275,25 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                     </div>
 
                     <div className={styles.footer}>
-                        <button className={styles.applyCostingBtn} onClick={() => setIsCostingOpen(true)}>
-                            Apply Costing & Review
-                        </button>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', gap: '0.75rem', flexWrap: 'wrap' }}>
+                            {(tierData[activeTier]?.rows || []).some(r => r.setType && r.setType !== 'single') ? (
+                                <div className={styles.setExportControl}>
+                                    <span>Multi-Component Sets ({(tierData[activeTier]?.rows || []).filter(r => r.setType && r.setType !== 'single').length}):</span>
+                                    <select
+                                        className={styles.setExportSelect}
+                                        value={setExportMode}
+                                        onChange={e => setSetExportMode(e.target.value)}
+                                        title="Choose how Multi-Component Set rows export into Offer / Excel / PDF"
+                                    >
+                                        <option value="lump_sum">Export as Lump-Sum Rollup (Preserve BOQ Rows)</option>
+                                        <option value="include_sub_items">Include Sub-Items (12.1, 12.2…)</option>
+                                    </select>
+                                </div>
+                            ) : <div />}
+                            <button className={styles.applyCostingBtn} onClick={() => setIsCostingOpen(true)}>
+                                Apply Costing & Review
+                            </button>
+                        </div>
 
                         <div style={{ width: '100%', borderTop: '1px solid rgba(255,255,255,0.1)' }} />
 

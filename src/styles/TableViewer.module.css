@@ -4,6 +4,11 @@
 }
 
 .header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
     margin-bottom: 2rem;
 }
 
@@ -703,4 +708,35 @@
     border-radius: 6px;
     white-space: nowrap;
     user-select: none;
-}
+}
+
+.recatBar {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+    margin-left: auto;
+    padding: 0.35rem 0.75rem;
+    border-radius: 10px;
+    background: var(--bg-secondary, rgba(15, 23, 42, 0.5));
+    border: 1px solid var(--border-color, rgba(255, 255, 255, 0.14));
+}
+
+.recatBarLabel {
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--warning, #f59e0b);
+}
+
+.recatBarSelect {
+    background: var(--bg-tertiary, #0f172a);
+    color: var(--text-primary, #f8fafc);
+    border: 1px solid var(--border-color, rgba(255, 255, 255, 0.18));
+    border-radius: 6px;
+    padding: 0.3rem 0.65rem;
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    outline: none;
+}

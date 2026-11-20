@@ -12,12 +12,14 @@ import { useTheme } from './context/ThemeContext';
 import PdfModelModal from './components/PdfModelModal';
 import ValueEngineeredModal from './components/ValueEngineeredModal';
 import CostingModal from './components/CostingModal';
+import LandingShowcase from './components/LandingShowcase';
 import { MODEL_OPTIONS } from './utils/aiConstants';
 
 import { createClient } from '@supabase/supabase-js';
 
 import { getApiBase } from './utils/apiBase';
 import { getBrandLogo, getBrandLogoFallback } from './utils/urlUtils';
+import { recategorizeTables } from './utils/boqGroupingUtils';
 
 const FEATURED_PARTNER_BRANDS = [
   { name: 'NARBUTAS', origin: 'Lithuania • Workstations', aliases: ['narbutas'] },
@@ -190,10 +192,10 @@ const AiModelSelector = ({ defaultGoogleModels }) => {
   const models = currentEngine === 'google'
     ? (aiSettings?.verifiedModels && aiSettings.verifiedModels.length > 0 ? aiSettings.verifiedModels : defaultGoogleModels)
     : currentEngine === 'openrouter' && aiSettings?.verifiedOpenRouterModels && aiSettings.verifiedOpenRouterModels.length > 0
-    ? aiSettings.verifiedOpenRouterModels
-    : currentEngine === 'nvidia' && aiSettings?.verifiedNvidiaModels && aiSettings.verifiedNvidiaModels.length > 0
-    ? aiSettings.verifiedNvidiaModels
-    : (MODEL_OPTIONS[currentEngine] || []);
+      ? aiSettings.verifiedOpenRouterModels
+      : currentEngine === 'nvidia' && aiSettings?.verifiedNvidiaModels && aiSettings.verifiedNvidiaModels.length > 0
+        ? aiSettings.verifiedNvidiaModels
+        : (MODEL_OPTIONS[currentEngine] || []);
 
   const currentModel = aiSettings?.model || '';
 
@@ -263,12 +265,12 @@ const AiModelSelector = ({ defaultGoogleModels }) => {
 };
 
 function AppContent({ onOpenSettings }) {
-  const { 
-    logoOriginal, 
-    logoWhite, 
-    companyName, 
-    aiSettings, 
-    accentColor, 
+  const {
+    logoOriginal,
+    logoWhite,
+    companyName,
+    aiSettings,
+    accentColor,
     secondaryColor,
     updateAiSettings
   } = useCompanyProfile();
@@ -332,16 +334,16 @@ function AppContent({ onOpenSettings }) {
   useEffect(() => {
     const oldSessionId = sessionStorage.getItem('boq_session_id');
     const newSessionId = `sess_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-    
+
     setSessionId(newSessionId);
     sessionStorage.setItem('boq_session_id', newSessionId);
-    
+
     console.log(' Initializing session:', newSessionId);
 
     // 1. Cleanup previous session if it existed (from a previous refresh or crash)
     if (oldSessionId && oldSessionId !== newSessionId) {
       console.log(' Requesting cleanup for previous session:', oldSessionId);
-      fetch(apiUrl('/api/cleanup/session'), { 
+      fetch(apiUrl('/api/cleanup/session'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ sessionId: oldSessionId })
@@ -403,47 +405,47 @@ function AppContent({ onOpenSettings }) {
     };
   }, [uploadedPlanFile]);
 
-// Helper for XHR-based upload to Supabase Storage with real-time byte-level progress
-function uploadToSupabaseWithProgress({ sbUrl, anonKey, bucket, filePath, file, onProgress }) {
-  return new Promise((resolve, reject) => {
-    const xhr = new XMLHttpRequest();
-    const cleanSbUrl = sbUrl.replace(/\/$/, '');
-    const uploadEndpoint = `${cleanSbUrl}/storage/v1/object/${bucket}/${filePath}`;
+  // Helper for XHR-based upload to Supabase Storage with real-time byte-level progress
+  function uploadToSupabaseWithProgress({ sbUrl, anonKey, bucket, filePath, file, onProgress }) {
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      const cleanSbUrl = sbUrl.replace(/\/$/, '');
+      const uploadEndpoint = `${cleanSbUrl}/storage/v1/object/${bucket}/${filePath}`;
 
-    xhr.open('POST', uploadEndpoint);
-    xhr.setRequestHeader('Authorization', `Bearer ${anonKey}`);
-    xhr.setRequestHeader('apikey', anonKey);
-    xhr.setRequestHeader('x-upsert', 'true');
-    if (file.type) {
-      xhr.setRequestHeader('Content-Type', file.type);
-    }
-
-    xhr.upload.onprogress = (e) => {
-      if (e.lengthComputable) {
-        onProgress(e.loaded, e.total);
+      xhr.open('POST', uploadEndpoint);
+      xhr.setRequestHeader('Authorization', `Bearer ${anonKey}`);
+      xhr.setRequestHeader('apikey', anonKey);
+      xhr.setRequestHeader('x-upsert', 'true');
+      if (file.type) {
+        xhr.setRequestHeader('Content-Type', file.type);
       }
-    };
 
-    xhr.onload = () => {
-      if (xhr.status >= 200 && xhr.status < 300) {
-        const publicUrl = `${cleanSbUrl}/storage/v1/object/public/${bucket}/${filePath}`;
-        resolve(publicUrl);
-      } else {
-        let errMessage = 'Storage upload failed';
-        try {
-          const res = JSON.parse(xhr.responseText);
-          errMessage = res.message || res.error || errMessage;
-        } catch (e) {}
-        reject(new Error(errMessage));
-      }
-    };
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable) {
+          onProgress(e.loaded, e.total);
+        }
+      };
 
-    xhr.onerror = () => reject(new Error('Network error during cloud upload'));
-    xhr.ontimeout = () => reject(new Error('Cloud upload timed out'));
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          const publicUrl = `${cleanSbUrl}/storage/v1/object/public/${bucket}/${filePath}`;
+          resolve(publicUrl);
+        } else {
+          let errMessage = 'Storage upload failed';
+          try {
+            const res = JSON.parse(xhr.responseText);
+            errMessage = res.message || res.error || errMessage;
+          } catch (e) { }
+          reject(new Error(errMessage));
+        }
+      };
 
-    xhr.send(file);
-  });
-}
+      xhr.onerror = () => reject(new Error('Network error during cloud upload'));
+      xhr.ontimeout = () => reject(new Error('Cloud upload timed out'));
+
+      xhr.send(file);
+    });
+  }
 
   // Global drag-and-drop support for multi-file PDF / Excel BOQ ingestion
   useEffect(() => {
@@ -572,12 +574,12 @@ function uploadToSupabaseWithProgress({ sbUrl, anonKey, bucket, filePath, file, 
 
           const extractionModeHeader =
             pipeline === 'docling' ? 'docling' :
-            pipeline === 'paddle'  ? 'paddle'  :
-            pipeline === 'opendataloader' ? 'opendataloader' :
-            pipeline === 'wordcom_vercel' ? 'wordcom_vercel' :
-            pipeline === 'wordcom_v22' ? 'wordcom_v22' :
-            pipeline === 'wordcom' ? 'wordcom' :
-            'parallel';
+              pipeline === 'paddle' ? 'paddle' :
+                pipeline === 'opendataloader' ? 'opendataloader' :
+                  pipeline === 'wordcom_vercel' ? 'wordcom_vercel' :
+                    pipeline === 'wordcom_v22' ? 'wordcom_v22' :
+                      pipeline === 'wordcom' ? 'wordcom' :
+                        'parallel';
 
           const blobHeaders = {
             'Content-Type': 'application/json',
@@ -604,7 +606,7 @@ function uploadToSupabaseWithProgress({ sbUrl, anonKey, bucket, filePath, file, 
                 blobHeaders['x-nvidia-key'] = aiSettings.nvidiaApiKey || '';
                 blobHeaders['x-nvidia-model'] = aiSettings.model || '';
               }
-            } catch (e) {}
+            } catch (e) { }
           }
 
           const res = await fetch(apiUrl('/api/process-blob'), {
@@ -665,12 +667,12 @@ function uploadToSupabaseWithProgress({ sbUrl, anonKey, bucket, filePath, file, 
 
             const extractionModeHeader =
               pipeline === 'docling' ? 'docling' :
-              pipeline === 'paddle'  ? 'paddle'  :
-              pipeline === 'opendataloader' ? 'opendataloader' :
-              pipeline === 'wordcom_vercel' ? 'wordcom_vercel' :
-              pipeline === 'wordcom_v22' ? 'wordcom_v22' :
-              pipeline === 'wordcom' ? 'wordcom' :
-              'wordcom_v22';
+                pipeline === 'paddle' ? 'paddle' :
+                  pipeline === 'opendataloader' ? 'opendataloader' :
+                    pipeline === 'wordcom_vercel' ? 'wordcom_vercel' :
+                      pipeline === 'wordcom_v22' ? 'wordcom_v22' :
+                        pipeline === 'wordcom' ? 'wordcom' :
+                          'wordcom_v22';
 
             xhr.open('POST', apiUrl('/api/upload'));
             xhr.setRequestHeader('x-session-id', sessionId);
@@ -698,7 +700,7 @@ function uploadToSupabaseWithProgress({ sbUrl, anonKey, bucket, filePath, file, 
                   xhr.setRequestHeader('x-nvidia-key', aiSettings.nvidiaApiKey || '');
                   xhr.setRequestHeader('x-nvidia-model', aiSettings.model || '');
                 }
-              } catch (e) {}
+              } catch (e) { }
             }
 
             xhr.send(formData);
@@ -709,10 +711,10 @@ function uploadToSupabaseWithProgress({ sbUrl, anonKey, bucket, filePath, file, 
         if (singleFileData?.tables && Array.isArray(singleFileData.tables)) {
           singleFileData.tables.forEach((t, tIdx) => {
             const cleanFileName = file.name.replace(/\.[^/.]+$/, '');
-            const sheetLabel = t.sheetName 
+            const sheetLabel = t.sheetName
               ? (totalFiles > 1 ? `[${cleanFileName}] ${t.sheetName}` : t.sheetName)
               : (totalFiles > 1 ? `[${cleanFileName}] Section ${tIdx + 1}` : `Section ${tIdx + 1}`);
-            
+
             allExtractedTables.push({
               ...t,
               sourceFileName: file.name,
@@ -797,17 +799,25 @@ function uploadToSupabaseWithProgress({ sbUrl, anonKey, bucket, filePath, file, 
       const data = await response.json();
       if (data && data.items) {
         setSeededPlanItems(data.items);
-        
+
         // Format the extracted items into a table so TableViewer can display them directly
+        // Format the extracted items into a table so TableViewer can display them directly (Item wise by default with subheaders)
         const planTable = {
           sheetName: "Plan Analysis",
-          columnCount: 4,
-          header: ["Location", "Code", "Description", "QTY"],
+          columnCount: 6,
+          header: ["Location", "Scope", "Code", "Description", "Unit", "QTY"],
           rows: data.items.map(item => ({
+            location: item.location || item.Location || "General",
+            scope: item.scope || item.Scope || "Furniture",
+            code: item.code || "",
+            categoryHint: item.categoryHint || "",
+            description: item.description || item.Description || "",
             cells: [
               { value: item.location || item.Location || "General" },
+              { value: item.scope || item.Scope || "Furniture" },
               { value: item.code || "" },
               { value: item.description || item.Description || "" },
+              { value: item.unit || item.Unit || "Nos" },
               { value: item.qty || item.QTY || "1" }
             ]
           })),
@@ -817,9 +827,11 @@ function uploadToSupabaseWithProgress({ sbUrl, anonKey, bucket, filePath, file, 
         };
 
         setExtractedData({ tables: [planTable] });
+        const groupedPlanTables = recategorizeTables([planTable], 'item');
+        setExtractedData({ tables: groupedPlanTables, recategorizeMode: 'item' });
         setProgress(100);
         setStage('Extraction Complete');
-        
+
         setTimeout(() => {
           setUploading(false);
           // Removed automatic setMultiBudgetOpen(true) to allow user-controlled routing
@@ -839,126 +851,6 @@ function uploadToSupabaseWithProgress({ sbUrl, anonKey, bucket, filePath, file, 
   const handleStartNewBOQ = () => {
     setShowLanding(false);
     setMultiBudgetOpen(true);
-  };
-
-  const handleLoadSampleBoq = () => {
-    const sampleTable = {
-      sheetName: 'Corporate Office Furniture Schedule (Sample)',
-      columnCount: 9,
-      header: ['Item No', 'Code', 'Image', 'Description', 'Brand', 'Qty', 'Unit', 'Rate', 'Amount'],
-      rows: [
-        {
-          cells: [
-            { value: '1' },
-            { value: 'WS-01' },
-            {
-              value: '',
-              image: 'https://media.architonic.com/m-on/10001981/product/20727055/narbutas_zedo-desk_b19f7496.jpeg?format=webp&quality=75',
-              images: ['https://media.architonic.com/m-on/10001981/product/20727055/narbutas_zedo-desk_b19f7496.jpeg?format=webp&quality=75']
-            },
-            { value: 'Executive L-Shape Desk with Integrated Return Credenza & Cable Tray | Size: 2000x1800x750mm | Finish: Natural Oak Veneer & Matte Anthracite Base' },
-            { value: 'LAS / Narbutas' },
-            { value: '4' },
-            { value: 'Nos' },
-            { value: '1450.00' },
-            { value: '5800.00' }
-          ]
-        },
-        {
-          cells: [
-            { value: '2' },
-            { value: 'CH-01' },
-            {
-              value: '',
-              image: 'https://media.architonic.com/m-on/3100165/product/20088118/sedus-stoll_black-dot-air_d69097f7.jpeg?format=webp&quality=75',
-              images: ['https://media.architonic.com/m-on/3100165/product/20088118/sedus-stoll_black-dot-air_d69097f7.jpeg?format=webp&quality=75']
-            },
-            { value: 'Ergonomic High-Back Task Chair with Synchronized Mechanism, 4D Armrests, Lumbar Support & Breathable Black Mesh Back | 5-Star Aluminum Base' },
-            { value: 'Sedus / Interstuhl' },
-            { value: '36' },
-            { value: 'Nos' },
-            { value: '420.00' },
-            { value: '15120.00' }
-          ]
-        },
-        {
-          cells: [
-            { value: '3' },
-            { value: 'WS-02' },
-            {
-              value: '',
-              image: 'https://media.architonic.com/m-on/10001981/product/20264116/narbutas_nova-u-desks_602d9b06.jpeg?format=webp&quality=75',
-              images: ['https://media.architonic.com/m-on/10001981/product/20264116/narbutas_nova-u-desks_602d9b06.jpeg?format=webp&quality=75']
-            },
-            { value: '4-Person Cluster Bench Workstation with Fabric Acoustic Divider Screens & Flip-Top Power/Data Access | Size: 2800x1400x750mm' },
-            { value: 'Narbutas' },
-            { value: '8' },
-            { value: 'Cluster' },
-            { value: '1890.00' },
-            { value: '15120.00' }
-          ]
-        },
-        {
-          cells: [
-            { value: '4' },
-            { value: 'MT-01' },
-            {
-              value: '',
-              image: 'https://media.architonic.com/m-on/10001981/product/20732677/narbutas_arqus-meeting-table_7de65d9c.jpeg?format=webp&quality=75',
-              images: ['https://media.architonic.com/m-on/10001981/product/20732677/narbutas_arqus-meeting-table_7de65d9c.jpeg?format=webp&quality=75']
-            },
-            { value: 'Boardroom Conference Table for 12 Pax with Concealed Wire Management & Dual Flip-Up Media Connectivity Boxes | Size: 3800x1400x750mm' },
-            { value: 'LAS / Frezza' },
-            { value: '2' },
-            { value: 'Nos' },
-            { value: '2650.00' },
-            { value: '5300.00' }
-          ]
-        },
-        {
-          cells: [
-            { value: '5' },
-            { value: 'LS-01' },
-            {
-              value: '',
-              image: 'https://media.architonic.com/m-on/3100165/product/1215599/sedus-stoll_sweetspot_7973a795.jpeg?format=webp&quality=75',
-              images: ['https://media.architonic.com/m-on/3100165/product/1215599/sedus-stoll_sweetspot_7973a795.jpeg?format=webp&quality=75']
-            },
-            { value: 'Reception & Breakout Upholstered Lounge Armchair on Sled Base | Commercial Grade Cat-B Bouclé Fabric | Size: 740x680x780mm' },
-            { value: 'Arper / B&T Design' },
-            { value: '12' },
-            { value: 'Nos' },
-            { value: '580.00' },
-            { value: '6960.00' }
-          ]
-        },
-        {
-          cells: [
-            { value: '6' },
-            { value: 'ST-01' },
-            {
-              value: '',
-              image: 'https://media.architonic.com/m-on/10001981/product/20727035/narbutas_combus-shelving-system_b877ef07.jpeg?format=webp&quality=75',
-              images: ['https://media.architonic.com/m-on/10001981/product/20727035/narbutas_combus-shelving-system_b877ef07.jpeg?format=webp&quality=75']
-            },
-            { value: 'Medium Height Hinged-Door Storage Cabinet with Soft-Close Hinges, Lock & 3 Adjustable Melamine Shelves | Size: 800x420x1100mm' },
-            { value: 'LAS / Ottimo' },
-            { value: '14' },
-            { value: 'Nos' },
-            { value: '390.00' },
-            { value: '5460.00' }
-          ]
-        }
-      ],
-      extractedSummary: {
-        totalRate: 7380,
-        totalAmount: 53760,
-        totalQty: 76,
-        itemCount: 6
-      }
-    };
-    setExtractedData({ tables: [sampleTable] });
-    setShowLanding(false);
   };
 
   const handleMultiBudgetApply = (data) => {
@@ -1022,9 +914,9 @@ function uploadToSupabaseWithProgress({ sbUrl, anonKey, bucket, filePath, file, 
                 title="Download the Auto Browser Extension to enable silent Google Lens matching, Tender Board autofill, and portal automation"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                  <polyline points="7 10 12 15 17 10"/>
-                  <line x1="12" y1="15" x2="12" y2="3"/>
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="7 10 12 15 17 10" />
+                  <line x1="12" y1="15" x2="12" y2="3" />
                 </svg>
                 <span>Extension</span>
               </a>
@@ -1088,8 +980,8 @@ function uploadToSupabaseWithProgress({ sbUrl, anonKey, bucket, filePath, file, 
           )}
 
           {extractedData && (
-            <TableViewer 
-              data={extractedData} 
+            <TableViewer
+              data={extractedData}
               allBrands={allBrands}
               seededItems={seededPlanItems}
               onUploadBoq={handleFileUpload}
@@ -1125,7 +1017,7 @@ function uploadToSupabaseWithProgress({ sbUrl, anonKey, bucket, filePath, file, 
             }}
             onSelect={handlePlanAnalyze}
           />
-          
+
           <PdfModelModal
             isOpen={isPdfModalOpen}
             fileName={
@@ -1149,21 +1041,21 @@ function uploadToSupabaseWithProgress({ sbUrl, anonKey, bucket, filePath, file, 
         </div>
 
         <ValueEngineeredModal
-            isOpen={isValueEngineeredOpen}
-            onClose={() => setValueEngineeredOpen(false)}
-            allBrands={allBrands}
-            originalTables={extractedData?.tables || []}
-            seededItems={seededPlanItems}
-            onUploadBoq={handleFileUpload}
-            onUploadPlan={handlePlanUpload}
-            planPreviewUrl={planPreviewUrl}
-            planPreviewType={planPreviewType}
-            planPreviewName={planPreviewName}
-            onApply={(data) => {
-                setExtractedData(data);
-                setValueEngineeredOpen(false);
-                setShowLanding(false);
-            }}
+          isOpen={isValueEngineeredOpen}
+          onClose={() => setValueEngineeredOpen(false)}
+          allBrands={allBrands}
+          originalTables={extractedData?.tables || []}
+          seededItems={seededPlanItems}
+          onUploadBoq={handleFileUpload}
+          onUploadPlan={handlePlanUpload}
+          planPreviewUrl={planPreviewUrl}
+          planPreviewType={planPreviewType}
+          planPreviewName={planPreviewName}
+          onApply={(data) => {
+            setExtractedData(data);
+            setValueEngineeredOpen(false);
+            setShowLanding(false);
+          }}
         />
 
         <CostingModal
@@ -1243,9 +1135,9 @@ function uploadToSupabaseWithProgress({ sbUrl, anonKey, bucket, filePath, file, 
               title="Download the Auto Browser Extension to enable silent Google Lens matching, Tender Board autofill, and portal automation"
             >
               <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                <polyline points="7 10 12 15 17 10"/>
-                <line x1="12" y1="15" x2="12" y2="3"/>
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="7 10 12 15 17 10" />
+                <line x1="12" y1="15" x2="12" y2="3" />
               </svg>
               <span>Extension</span>
             </a>
@@ -1255,406 +1147,29 @@ function uploadToSupabaseWithProgress({ sbUrl, anonKey, bucket, filePath, file, 
         </div>
       </header>
 
-      {/* Hero Section */}
-      <section className={styles.hero}>
-        {/* Eyebrow Badge */}
-        <div className={styles.heroBadge}>
-          <i className="ri-sparkling-2-fill" />
-          <span>AI FURNITURE &amp; FITOUT ESTIMATION WORKSPACE</span>
-        </div>
-
-        {/* Company Logo / Brand Identity */}
-        <div className={styles.logoContainer} onClick={() => window.location.reload()} style={{ cursor: 'pointer' }}>
-          {theme === 'dark' && logoWhite ? (
-            <img src={logoWhite} alt={companyName} className={styles.landingLogo} />
-          ) : logoOriginal ? (
-            <img src={logoOriginal} alt={companyName} className={styles.landingLogo} />
-          ) : (
-            <div className={styles.heroWordmark}>
-              <span className={styles.heroWordmarkIcon}><i className="ri-layout-masonry-fill" /></span>
-              <span className={styles.logoTextBlue}>BOQ</span>
-              <span className={styles.logoTextGold}>FLOW</span>
-            </div>
-          )}
-        </div>
-
-        {/* Main Headline */}
-        <h1 className={styles.headline}>
-          Turn Layout Drawings &amp; Tender BOQs Into{' '}
-          <span className={styles.headlineAccent}>Branded Offers</span> in Minutes
-        </h1>
-        <p className={styles.subheadline}>
-          Purpose-built for corporate furniture suppliers and fitout estimators. Read layout drawings,
-          match tender specifications to your partner brands, and export live-formula Excel BOQs,
-          PPTX showcases, and MAS/MIR submittals in one click.
-        </p>
-
-        {/* Estimator Pillar Pills */}
-        <div className={styles.estimatorPills}>
-          <span className={styles.estimatorPill}>
-            <i className="ri-checkbox-circle-fill" /> AI Drawing &amp; PDF Schedule Takeoff
-          </span>
-          <span className={styles.estimatorPill}>
-            <i className="ri-checkbox-circle-fill" /> Live-Formula Excel, PPTX &amp; MAS
-          </span>
-          <span className={styles.estimatorPill}>
-            <i className="ri-checkbox-circle-fill" /> Instant VE &amp; 3-Tier Brand Matching
-          </span>
-        </div>
-
-        {/* Above-the-Fold CTA Buttons */}
-        <div className={styles.ctaGroup}>
-          <label className={styles.ctaPrimary}>
-            <input
-              ref={landingBoqInputRef}
-              type="file"
-              accept=".xlsx,.xls,.xlsb,.pdf,.png,.jpg,.jpeg"
-              style={{ display: 'none' }}
-              multiple
-              onChange={(e) => {
-                const files = Array.from(e.target.files || []).filter(Boolean);
-                if (files.length > 0) {
-                  handleFileUpload(files);
-                }
-                e.target.value = '';
-              }}
-            />
-            <i className="ri-file-upload-line" />
-            <span>
-              <strong>Upload BOQ</strong>
-              <small className={styles.ctaSub}>Excel • PDF • Spec Schedule</small>
-            </span>
-          </label>
-
-          <label className={styles.ctaPlan}>
-            <input
-              ref={landingPlanInputRef}
-              type="file"
-              accept=".pdf,.png,.jpg,.jpeg"
-              style={{ display: 'none' }}
-              multiple
-              onChange={(e) => {
-                const files = Array.from(e.target.files || []).filter(Boolean);
-                if (files.length > 0) {
-                  setCurrentPlanFiles(files);
-                  setUploadedPlanFile(files[0]);
-                  setIsPlanScopeOpen(true);
-                }
-                e.target.value = '';
-              }}
-            />
-            <i className="ri-draft-line" />
-            <span>
-              <strong>Upload Floor Plan</strong>
-              <small className={styles.ctaSub}>CAD PDF • Layout Image</small>
-            </span>
-          </label>
-
-          <button type="button" className={styles.ctaSecondary} onClick={handleStartNewBOQ}>
-            <i className="ri-equalizer-line" />
-            <span>
-              <strong>3-Tier / New BOQ</strong>
-              <small className={styles.ctaSub}>Budget • Mid • High Offers</small>
-            </span>
-          </button>
-
-          <button type="button" className={styles.ctaDemo} onClick={handleLoadSampleBoq}>
-            <i className="ri-play-circle-fill" />
-            <span>
-              <strong>Try Sample Office Tender</strong>
-              <small className={styles.ctaSub}>Instant 1-Click Live Demo</small>
-            </span>
-          </button>
-        </div>
-
-        {/* 3-Step Interactive Workflow Showcase */}
-        <div className={styles.pipelineShowcase}>
-          <div
-            className={styles.pipelineCard}
-            onClick={() => landingBoqInputRef.current?.click()}
-            role="button"
-            tabIndex={0}
-            onKeyDown={(e) => e.key === 'Enter' && landingBoqInputRef.current?.click()}
-          >
-            <div className={styles.pipelineCardTop}>
-              <span className={styles.pipelineStepBadge}>STEP 01 • INGEST</span>
-              <span className={styles.pipelineIcon}><i className="ri-file-search-line" /></span>
-            </div>
-            <h3 className={styles.pipelineTitle}>PDF Schedules, Spec Cards &amp; Drawings</h3>
-            <p className={styles.pipelineDesc}>
-              Extracts multi-page BOQs, LF-code specification sheets, dimensions, finishes, and
-              embedded reference images—or counts furniture directly from floor plans.
-            </p>
-            <div className={styles.pipelineTags}>
-              <span className={styles.pipelineTag}>PDF V22 Spatial</span>
-              <span className={styles.pipelineTag}>Excel (.xlsx/.xls/.xlsb)</span>
-              <span className={styles.pipelineTag}>Floor Plans</span>
-            </div>
-          </div>
-
-          <div className={styles.pipelineConnector} aria-hidden="true">
-            <i className="ri-arrow-right-line" />
-          </div>
-
-          <div
-            className={styles.pipelineCard}
-            onClick={() => setValueEngineeredOpen(true)}
-            role="button"
-            tabIndex={0}
-            onKeyDown={(e) => e.key === 'Enter' && setValueEngineeredOpen(true)}
-          >
-            <div className={styles.pipelineCardTop}>
-              <span className={styles.pipelineStepBadge}>STEP 02 • AI MATCH &amp; COST</span>
-              <span className={styles.pipelineIcon}><i className="ri-cpu-line" /></span>
-            </div>
-            <h3 className={styles.pipelineTitle}>Partner Catalogs, VE &amp; 3-Tier Pricing</h3>
-            <p className={styles.pipelineDesc}>
-              Matches generic or specified items against 50+ contract brands (or via Google Lens
-              1:1 visual search) with live Profit, Freight, Customs, and Currency conversion.
-            </p>
-            <div className={styles.pipelineTags}>
-              <span className={styles.pipelineTag}>Budget / Mid / High</span>
-              <span className={styles.pipelineTag}>Google Lens 1:1</span>
-              <span className={styles.pipelineTag}>EUR/USD → AED/OMR</span>
-            </div>
-          </div>
-
-          <div className={styles.pipelineConnector} aria-hidden="true">
-            <i className="ri-arrow-right-line" />
-          </div>
-
-          <div
-            className={styles.pipelineCard}
-            onClick={handleLoadSampleBoq}
-            role="button"
-            tabIndex={0}
-            onKeyDown={(e) => e.key === 'Enter' && handleLoadSampleBoq()}
-          >
-            <div className={styles.pipelineCardTop}>
-              <span className={styles.pipelineStepBadge}>STEP 03 • SUBMITTALS</span>
-              <span className={styles.pipelineIcon}><i className="ri-slideshow-3-line" /></span>
-            </div>
-            <h3 className={styles.pipelineTitle}>Branded Excel, PPTX &amp; MAS Submittals</h3>
-            <p className={styles.pipelineDesc}>
-              Exports client-ready Excel offers with live formulas, 16:9 widescreen PowerPoint
-              product showcases, Material Approval Sheets (MAS), MIR, WIR, and Delivery Notes.
-            </p>
-            <div className={styles.pipelineTags}>
-              <span className={styles.pipelineTag}>Live Excel Formulas</span>
-              <span className={styles.pipelineTag}>5 PPTX Themes</span>
-              <span className={styles.pipelineTag}>MAS / MIR / WIR</span>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Pre-Integrated Contract Catalogs Logo Grid */}
-      <section className={styles.brandTrustSection}>
-        <div className={styles.brandSectionHeader}>
-          <span className={styles.brandSectionEyebrow}>PRE-INTEGRATED COMMERCIAL FURNITURE ECOSYSTEM</span>
-          <h2 className={styles.brandSectionTitle}>50+ Partner Contract Brands &amp; Live Web Harvester</h2>
-          <p className={styles.brandSectionSub}>
-            Match tender specifications directly against verified European, Turkish, and North American catalogs — or harvest any manufacturer URL on demand.
-          </p>
-        </div>
-
-        <div className={styles.brandLogoGrid}>
-          {FEATURED_PARTNER_BRANDS.map((brandItem) => {
-            const count = findBrandCatalogCount(brandItem, allBrands);
-            return (
-              <div
-                key={brandItem.name}
-                className={styles.brandLogoCard}
-                onClick={onOpenSettings}
-                role="button"
-                tabIndex={0}
-                onKeyDown={(e) => e.key === 'Enter' && onOpenSettings()}
-                title={`${brandItem.name} — ${brandItem.origin}${count > 0 ? ` (${count} catalog items)` : ''}`}
-              >
-                <div className={styles.brandLogoWell}>
-                  <img
-                    src={getBrandLogo(brandItem)}
-                    alt={brandItem.name}
-                    className={styles.brandLogoImg}
-                    loading="lazy"
-                    onError={(e) => {
-                      e.currentTarget.onerror = null;
-                      e.currentTarget.src = getBrandLogoFallback(brandItem.name);
-                    }}
-                  />
-                </div>
-                <div className={styles.brandCardInfo}>
-                  <span className={styles.brandCardName}>{brandItem.name}</span>
-                  <span className={styles.brandCardMeta}>
-                    {count > 0 ? `${count} items • ` : ''}{brandItem.origin}
-                  </span>
-                </div>
-              </div>
-            );
-          })}
-
-          <button
-            type="button"
-            className={styles.brandLogoCardAction}
-            onClick={onOpenSettings}
-          >
-            <span className={styles.brandActionIcon}><i className="ri-add-circle-line" /></span>
-            <span className={styles.brandCardName}>+ Add Any Brand URL</span>
-            <span className={styles.brandCardMeta}>Live AI Catalog Harvester</span>
-          </button>
-        </div>
-      </section>
-
-      {/* Stats Section */}
-      <section className={styles.statsSection}>
-        <div className={styles.stat}>
-          <div className={styles.statIcon}><i className="ri-flashlight-fill" /></div>
-          <div className={styles.statValue}>10x</div>
-          <div className={styles.statLabel}>Faster Tender Turnaround</div>
-        </div>
-        <div className={styles.statDivider} />
-        <div className={styles.stat}>
-          <div className={styles.statIcon}><i className="ri-award-line" /></div>
-          <div className={styles.statValue}>50+</div>
-          <div className={styles.statLabel}>Integrated Contract Brands</div>
-        </div>
-        <div className={styles.statDivider} />
-        <div className={styles.stat}>
-          <div className={styles.statIcon}><i className="ri-file-list-3-line" /></div>
-          <div className={styles.statValue}>7-in-1</div>
-          <div className={styles.statLabel}>Excel, PPTX, Offer, MAS, MIR, WIR &amp; DN</div>
-        </div>
-        <div className={styles.statDivider} />
-        <div className={styles.stat}>
-          <div className={styles.statIcon}><i className="ri-palette-line" /></div>
-          <div className={styles.statValue}>100%</div>
-          <div className={styles.statLabel}>White-Label Your Company Logo</div>
-        </div>
-      </section>
-
-      {/* Features Section */}
-      <section className={styles.featuresSection}>
-        <h2 className={styles.sectionTitle}>Everything Your Estimation Team Needs</h2>
-        <div className={styles.featuresGrid}>
-          <div
-            className={`${styles.featureCard} ${styles.featureCardFeatured}`}
-            onClick={() => setValueEngineeredOpen(true)}
-            role="button"
-            tabIndex={0}
-            onKeyDown={(e) => e.key === 'Enter' && setValueEngineeredOpen(true)}
-            title="Launch Value Engineered Offer"
-          >
-            <div className={styles.featureIconWrap}>
-              <i className="ri-vip-diamond-line" />
-            </div>
-            <h3 className={styles.featureTitle}>VALUE ENGINEERED OFFER</h3>
-            <p className={styles.featureDesc}>
-              Upload your BOQ (Excel/PDF) or Plan drawings, configure category-specific brand preferences, and let the AI produce a single, optimized value-engineered offer — one best-fit product per line item, ready in minutes.
-            </p>
-            <span className={styles.featureActionHint}>
-              Launch AI Value Engineer <i className="ri-arrow-right-line" />
-            </span>
-          </div>
-
-          <div
-            className={styles.featureCard}
-            onClick={() => landingPlanInputRef.current?.click()}
-            role="button"
-            tabIndex={0}
-            onKeyDown={(e) => e.key === 'Enter' && landingPlanInputRef.current?.click()}
-          >
-            <div className={styles.featureIconWrap}><i className="ri-compasses-2-line" /></div>
-            <h3 className={styles.featureTitle}>Plan to BOQ (Drawing Takeoff)</h3>
-            <p className={styles.featureDesc}>
-              Instantly extract furniture and fitout quantities room-by-room from layout drawings using specialized AI geometric analysis.
-            </p>
-            <span className={styles.featureActionHint}>Upload Floor Plan <i className="ri-arrow-right-line" /></span>
-          </div>
-
-          <div
-            className={styles.featureCard}
-            onClick={() => setMultiBudgetOpen(true)}
-            role="button"
-            tabIndex={0}
-            onKeyDown={(e) => e.key === 'Enter' && setMultiBudgetOpen(true)}
-          >
-            <div className={styles.featureIconWrap}><i className="ri-layers-line" /></div>
-            <h3 className={styles.featureTitle}>Multi-Budget (3-Tier Offers)</h3>
-            <p className={styles.featureDesc}>
-              Create Budgetary, Mid-Range, and High-End alternatives side-by-side instantly with automated brand matching.
-            </p>
-            <span className={styles.featureActionHint}>Open 3-Tier Workspace <i className="ri-arrow-right-line" /></span>
-          </div>
-
-          <div
-            className={styles.featureCard}
-            onClick={handleLoadSampleBoq}
-            role="button"
-            tabIndex={0}
-            onKeyDown={(e) => e.key === 'Enter' && handleLoadSampleBoq()}
-          >
-            <div className={styles.featureIconWrap}><i className="ri-slideshow-line" /></div>
-            <h3 className={styles.featureTitle}>Visual PPTX &amp; PDF Catalogs</h3>
-            <p className={styles.featureDesc}>
-              Generate 5-theme widescreen PowerPoint presentations and client-ready commercial offers featuring high-resolution product images.
-            </p>
-            <span className={styles.featureActionHint}>Try Sample Export <i className="ri-arrow-right-line" /></span>
-          </div>
-
-          <div
-            className={styles.featureCard}
-            onClick={handleLoadSampleBoq}
-            role="button"
-            tabIndex={0}
-            onKeyDown={(e) => e.key === 'Enter' && handleLoadSampleBoq()}
-          >
-            <div className={styles.featureIconWrap}><i className="ri-file-shield-2-line" /></div>
-            <h3 className={styles.featureTitle}>PM Submittals (MAS, MIR, WIR)</h3>
-            <p className={styles.featureDesc}>
-              Complete project management submittal bundle: Export MAS, MIR, WIR, Delivery Notes, and live-formula Excel sheets in one click.
-            </p>
-            <span className={styles.featureActionHint}>Preview Submittals <i className="ri-arrow-right-line" /></span>
-          </div>
-
-          <div
-            className={styles.featureCard}
-            onClick={() => setMultiBudgetOpen(true)}
-            role="button"
-            tabIndex={0}
-            onKeyDown={(e) => e.key === 'Enter' && setMultiBudgetOpen(true)}
-          >
-            <div className={styles.featureIconWrap}><i className="ri-building-4-line" /></div>
-            <h3 className={styles.featureTitle}>Fitout &amp; Joinery Estimation</h3>
-            <p className={styles.featureDesc}>
-              Specialized module for partitions, acoustic walls, flooring, and ceiling works with internal catalog database synchronization.
-            </p>
-            <span className={styles.featureActionHint}>Open Fitout Builder <i className="ri-arrow-right-line" /></span>
-          </div>
-
-          <div
-            className={styles.featureCard}
-            onClick={onOpenSettings}
-            role="button"
-            tabIndex={0}
-            onKeyDown={(e) => e.key === 'Enter' && onOpenSettings()}
-          >
-            <div className={styles.featureIconWrap}><i className="ri-global-line" /></div>
-            <h3 className={styles.featureTitle}>White-Label &amp; AI Brand Scraper</h3>
-            <p className={styles.featureDesc}>
-              Upload your company logo and harvest live product catalogs, images, and technical specs from any manufacturer website.
-            </p>
-            <span className={styles.featureActionHint}>Configure Branding &amp; Brands <i className="ri-arrow-right-line" /></span>
-          </div>
-        </div>
-      </section>
-
-      {/* Footer */}
-      <footer className={styles.footer}>
-        <div className={styles.footerLogo}>BOQ FLOW</div>
-        <p className={styles.footerText}>
-          Intelligent BOQ Extraction, Costing & Proposal Engine
-        </p>
-      </footer>
+      <LandingShowcase
+        theme={theme}
+        logoWhite={logoWhite}
+        logoOriginal={logoOriginal}
+        companyName={companyName}
+        boqInputRef={landingBoqInputRef}
+        planInputRef={landingPlanInputRef}
+        onBoqFiles={(files) => handleFileUpload(files)}
+        onPlanFiles={(files) => {
+          setCurrentPlanFiles(files);
+          setUploadedPlanFile(files[0]);
+          setIsPlanScopeOpen(true);
+        }}
+        onStartNew={handleStartNewBOQ}
+        onOpenValueEngineer={() => setValueEngineeredOpen(true)}
+        onOpenMultiBudget={() => setMultiBudgetOpen(true)}
+        onOpenSettings={onOpenSettings}
+        brands={FEATURED_PARTNER_BRANDS}
+        allBrands={allBrands}
+        brandTotalCount={allBrands?.length || 0}
+        getBrandLogo={getBrandLogo}
+        getBrandLogoFallback={getBrandLogoFallback}
+      />
 
       <MultiBudgetModal
         isOpen={isMultiBudgetOpen}
@@ -1741,16 +1256,18 @@ function uploadToSupabaseWithProgress({ sbUrl, anonKey, bucket, filePath, file, 
         planPreviewName={planPreviewName}
       />
 
-      {isGlobalDragging && (
-        <div className={styles.dragDropOverlay}>
-          <div className={styles.dragDropIcon}></div>
-          <h2 className={styles.dragDropTitle}>Drop BOQ Files Here</h2>
-          <p className={styles.dragDropSub}>
-            Drop one or multiple PDF / Excel BOQ documents to process and consolidate
-          </p>
-        </div>
-      )}
-    </div>
+  {
+    isGlobalDragging && (
+      <div className={styles.dragDropOverlay}>
+        <div className={styles.dragDropIcon}></div>
+        <h2 className={styles.dragDropTitle}>Drop BOQ Files Here</h2>
+        <p className={styles.dragDropSub}>
+          Drop one or multiple PDF / Excel BOQ documents to process and consolidate
+        </p>
+      </div>
+    )
+  }
+    </div >
   );
 }
 

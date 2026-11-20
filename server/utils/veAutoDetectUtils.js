@@ -6,9 +6,9 @@
 
 import { callUniversalMultimodalAI, withRetry, GOOGLE_MODEL, VISION_MODEL } from './llmUtils.js';
 import { TAXONOMY } from './normalizer.js';
-import { BRAND_ALIASES, KNOWN_CONTRACT_BRANDS, NON_BRAND_MODEL_WORDS, VE_CATEGORY_CONFIG, classifyFurnishingCategory } from './veCategoryPriority.js';
+import { BRAND_ALIASES, KNOWN_CONTRACT_BRANDS, NON_BRAND_MODEL_WORDS, VE_CATEGORY_CONFIG, classifyFurnishingCategory, findBrandInCatalog } from './veCategoryPriority.js';
 import { detectSpecArchetype, DOMAIN_EXCLUSIONS } from './veBrandSpecialties.js';
-import { getCanonicalBrandLogo, classifyContractCategory } from './brandLogos.js';
+import { getCanonicalBrandLogo, getCanonicalBrandWebsite, resolveBrandLogo, classifyContractCategory } from './brandLogos.js';
 import { computeTokenOverlapScore } from '../embeddingService.js';
 import { discoverLiveWebAndArchitonicAlternatives } from './liveAlternativesDiscovery.js';
 import { fetchLiveProductImage } from './veImageEnricher.js';
@@ -24,13 +24,13 @@ const ALLOWED_SUB_CATEGORIES = Object.values(TAXONOMY).flatMap(cat => Object.key
 
 export const VE_BRANDED_MATCH_SYSTEM = (hasImage = false) => `You are an expert FF&E Commercial Furniture & Architectural Specification Specialist with live web knowledge.
 The user is providing an architectural schedule item that explicitly specifies a manufacturer and/or model code.
-Task: Identify the exact specified product from that manufacturer with 100% fidelity.
+Task: Deterministically identify the exact specified product from that manufacturer with 100% fidelity.
 
-### 🎯 CRITICAL RULES FOR BRANDED ITEMS:
-1. Extract the canonical Manufacturer / Brand name. DO NOT SUBSTITUTE WITH ANOTHER BRAND. DO NOT LIMIT TO ANY PRESET LIST.
-2. Identify the exact specified Model / Collection name.
-3. Determine authentic product family, category, dimensions, and official manufacturer website URL.
-4. If an image is provided, verify that the visual product matches this model.
+### 🎯 DETERMINISTIC RESOLUTION RULES FOR BRANDED ITEMS:
+1. PROPOSED OVERRIDE PRECEDENCE: If the text lists both a reference item and an explicit "Proposed Brand" / "Proposed Model" / "BRAND:" + "MODEL:" specification, ALWAYS honor the explicitly proposed manufacturer and model.
+2. CANONICAL FIDELITY: Extract the canonical Manufacturer / Brand name and exact Model / Collection name. DO NOT SUBSTITUTE WITH ANOTHER BRAND or collapse distinct named series into another model.
+3. ARCHETYPE & STRUCTURAL PRECISION: Verify functional typology, seating/table capacity, base geometry (e.g. 4-leg/cantilever/star-base visitor chair vs 5-star swivel task chair; folding/flip-top table vs static desk; high stool vs dining chair), dimensions, and official manufacturer URL.
+4. ${hasImage ? 'VISUAL VERIFICATION: Cross-check the attached reference image silhouette, base, and armrest geometry against the identified model.' : 'TEXT PRECISION: Prioritize exact model codes, series tokens, dimensions, and material specifications.'}
 
 ### 🌍 GLOBAL CATEGORY MAPPING:
 You MUST map to one of these Main Categories: ${ALLOWED_CATEGORIES}
@@ -51,32 +51,27 @@ Return ONLY valid JSON:
 }`;
 
 const VE_MATCH_AUTO_SYSTEM = (hasImage = false, brandList = []) => `You are an expert FF&E Commercial Furniture Matcher & Value Engineering Specialist.
-Task: Match the specification description${hasImage ? ' and image' : ''} to the exact Brand, Model, Main Category, and Sub-Category.
+Task: Deterministically match the specification description${hasImage ? ' and image' : ''} to the single best-fit real Brand, Model, Main Category, and Sub-Category.
 
-### 🏢 CORE CONTRACT BRANDS CATALOG:
-${brandList && brandList.length > 0 ? `Available Primary Contract Brands: ${brandList.join(', ')}` : 'Available Primary Contract Brands: Narbutas, Sedus Stoll, B&T Design, True Design, Pedrali, Nurus, Frezza, LAS, Ofifran, Sokoa, Rim, TMA, Leadcom, Figueras, Dauphin, AMARA, Arper, Ottimo Furniture, FitOut V2'}
+### 🏢 AVAILABLE CONTRACT BRANDS:
+${brandList && brandList.length > 0 ? `Preferred Contract Catalog Brands: ${brandList.join(', ')}` : 'Preferred Contract Catalog Brands: Narbutas, Sedus Stoll, B&T Design, True Design, Pedrali, Nurus, Frezza, LAS, Ofifran, Sokoa, Rim, TMA, Leadcom, Figueras, Dauphin, AMARA, Arper, Ottimo Furniture, FitOut V2'}
 
-### 🎯 CRITICAL MATCHING RULES FOR NON-BRANDED & GENERIC SPECIFICATIONS:
-
-1. 🚫 NEVER CREATE OR RETURN FAKE BRANDS:
-If the specification has origin indicators (e.g. "LOCAL-UAE", "FAR EAST", "LOCAL", "CUSTOM", "UNBRANDED", "GENERIC") or generic trade model words (e.g. "ROMA", "RACER", "TERMINAL", "APP", "WIND", "NOVA", "EVA", "OPTIMA", "CHOICE", "EASY", "L-SHAPE", "HIGH CABINET", "COFFEE TABLE", "RECEPTION COUNTER"):
-- 🚫 NEVER CREATE FAKE BRANDS like "Roma", "Racer", "Terminal", "App", "Wind", "Local", "Far East"!
-- Match to a prioritized premier contract partner from our category priority matrix by selecting an **EXACT PRODUCT MODEL NAME FROM THAT BRAND'S REAL CATALOG**.
-
-2. 🏢 CONTRACT CATEGORY PRIORITY MATRIX (IN STRICT ORDER):
-• Desking & Workstations: NARBUTAS (e.g. Nova Wood, Nova U, Motion Sit-Stand), Nurus (e.g. U Too, Ash), FREZZA, LAS, Ofifran, Ottimo Furniture, MW Structure Test.
-• Task & Office Seating: NARBUTAS (e.g. Sonus M, Sonus S, North Cape), Sedus Stoll (e.g. se:motion net, se:flex, Black Dot, se:spot), Sokoa (e.g. M4, Wi-Max), Rim, Dauphin, Nurus, Ottimo Furniture.
-• Soft & Lounge Seating: B&T Design (e.g. Noda Sofa, Boom Sofa, Alek Lounge, Durgu), True Design, Arper (e.g. Zinta, Loop, Aston), AMARA, Divani, FREZZA, NARBUTAS.
-• Outdoor & Landscape Seating: Pedrali (e.g. Tribeca, Nolita, Passport), Vondom, Dedon, Emu, Slide Design, Escofet.
-• Auditorium & Theatre Seating: TMA, Leadcom, Figueras, Ferco Seating.
-• Folding & Portable Stools: Ottimo Furniture (e.g. Portable Round Foldable Stool with Handle), Pedrali (e.g. Passport Folding Chair), AMARA (e.g. Round Foldable Stool X-Frame).
-• Custom Landscape, Terrazzo & Precast: ATTF (Automatic Terrazzo Tiles Factory), Assarain Concrete Products, Escofet, FitOut V2 (Custom Joinery).
-• Meeting & Coffee Tables: B&T Design, Pedrali, Ottimo Furniture, NARBUTAS, Nurus, Arper, FREZZA, Sedus Stoll.
-• Storage & Credenzas: NARBUTAS (e.g. Choice Cabinets, Nova Storage), Nurus, Ottimo Furniture, FREZZA, LAS.
-
-3. 🛒 GENERIC RETAIL ACCESSORIES & MINOR ITEMS:
-Match to "Amazon", "IKEA", or "Home Centre" ONLY for non-furniture accessories (cable grommets, monitor arms, power boxes, craft carts, trash bins, pillows).
-🚫 NEVER match commercial office furniture, workstations, executive chairs, or sofas to Amazon or IKEA!
+### 🎯 DETERMINISTIC SELECTION RUBRIC (IN STRICT ORDER):
+1. EXPLICIT SPECIFICATION FIRST: If a genuine contract manufacturer or explicit "BRAND:" / "MODEL:" / "Proposed Model:" is written in the specification, extract that exact manufacturer and exact model—never replace a specified model with an unrelated series.
+2. NO FAKE OR DEALER BRANDS: If the specification only contains origin/trade markers ("LOCAL-UAE", "FAR EAST", "LOCAL", "CUSTOM", "UNBRANDED", "GENERIC") or generic product words, NEVER invent fake brands; instead select the strongest authentic contract brand from the available catalog for that exact product category.
+3. STRICT ARCHETYPE & SCALE LOCK:
+   - Never substitute across incompatible product archetypes: Visitor / Cantilever / 4-Leg Chair ≠ 5-Star Swivel Task Chair; High Chair / Bar Stool ≠ Standard Dining/Meeting Chair; Coffee / Side Table ≠ Boardroom / Conference Table; Folding / Flip-Top Training Table ≠ Fixed Executive Desk; Multi-Seat / Modular Sofa ≠ Single Armchair; Acoustic Divider / Movable Board ≠ Seating.
+   - Match seating capacity, base geometry, backrest height, and dimensions (mm) closely.
+4. DYNAMIC CATEGORY ROUTING (CHOOSE BEST AUTHENTIC REAL CATALOG MODEL):
+   - Desking, Workstations & Executive Tables: match from premier desking/systems brands in the available list (e.g. NARBUTAS, Nurus, FREZZA, LAS, Ofifran, Ottimo Furniture, Teknion, Steelcase).
+   - Task, Executive, Visitor & Conference Seating: match from premier commercial seating brands in the available list (e.g. NARBUTAS, Sedus Stoll, Sokoa, Rim, Dauphin, Interstuhl, Nurus, Arper, Ottimo Furniture).
+   - Acoustic Pods, Booths & Dividers: match from acoustic/architectural brands (e.g. NARBUTAS, Framery, BuzziSpace, Workspace.ae).
+   - Lounge, Soft Seating, Coffee & Café Tables: match from soft-seating/hospitality brands (e.g. B&T Design, Arper, Pedrali, True Design, FREZZA, NARBUTAS, Andreu World).
+   - Auditorium, Theatre & Lecture Seating: match from specialist auditorium brands (e.g. Sedia Systems, Ferco Seating, Figueras, Leadcom, TMA).
+   - Outdoor & Landscape Seating: match from outdoor contract brands (e.g. Pedrali, Vondom, Dedon, Emu, Slide Design, Escofet).
+   - Architectural Fitout, Joinery & Custom Works: route to FitOut V2.
+   - Generic non-furniture accessories ONLY (cable grommets, monitor arms, power boxes, trash bins, pillows): may match Amazon / IKEA. NEVER match commercial furniture to Amazon or IKEA.
+5. DETERMINISTIC TIE-BREAKING: When multiple real models from the best-fit brand satisfy the specification equally, pick the flagship exact-archetype model consistently (break exact ties alphabetically by official model name).
 
 ### 🌍 GLOBAL CATEGORY MAPPING:
 You MUST map to one of these Main Categories: ${ALLOWED_CATEGORIES}
@@ -86,12 +81,12 @@ Return ONLY valid JSON:
 {
   "status": "success",
   "brand": "Contract Brand Name",
-  "model": "Matched Catalog Model Name",
+  "model": "Matched Real Catalog Model Name",
   "mainCategory": "Matched Main Category",
   "subCategory": "Matched Sub-Category",
   "estimatedPrice": 0,
   "productUrl": "https://...",
-  "logic": "Brief reasoning"
+  "logic": "Brief deterministic reasoning"
 }`;
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -231,7 +226,7 @@ export function cleanDomainToBrand(urlStr) {
                 domain: hostname
             };
         }
-    } catch (e) {}
+    } catch (e) { }
     return null;
 }
 
@@ -295,18 +290,82 @@ export function isMarketplaceUrl(urlStr) {
     } catch { return false; }
 }
 
+const IDENTITY_STOP_WORDS = new Set([
+    'chair', 'chairs', 'table', 'tables', 'desk', 'desks', 'sofa', 'sofas', 'lounge', 'armchair', 'armchairs',
+    'stool', 'stools', 'bench', 'benches', 'cabinet', 'cabinets', 'storage', 'office', 'meeting', 'conference',
+    'visitor', 'guest', 'task', 'swivel', 'executive', 'manager', 'staff', 'medium', 'high', 'low', 'back',
+    'black', 'white', 'grey', 'gray', 'blue', 'red', 'green', 'mesh', 'fabric', 'leather', 'wood', 'wooden',
+    'metal', 'base', 'star', 'legs', 'leg', 'castors', 'castor', 'armrest', 'armrests', 'series', 'model',
+    'collection', 'furniture', 'system', 'systems', 'modular', 'ergonomic', 'performance', 'commercial',
+    'with', 'and', 'for', 'the', 'plus', 'pro', 'new', 'lite', 'mini', 'max', 'set', 'unit', 'item', 'bar',
+    'coffee', 'side', 'double', 'single', 'round', 'rectangular', 'folding', 'nesting', 'training', 'auditorium'
+]);
+
+const GARBAGE_DESC_RE = /(?:unfortunately,?\s*i\s+was\s+unable\s+to\s+find|product\s+not\s+found|unable\s+to\s+retrieve\s+description|information\s+not\s+publicly\s+available|no\s+official\s+product\s+details|products,\s*collections\s+and\s+more\s*[—-]\s*discover\s+the\s+world)/i;
+
 /**
- * Deterministically checks for specified brand/manufacturer in description or reference URLs.
- * Manufacturer-domain URLs win over dealer-alias URLs (e.g. moonako.fr beats moodie.com.au
- * even when the dealer link appears first). Raw dealer URLs are preserved as supplierUrls.
+ * Returns true if a stored or live-fetched description is an LLM refusal / error / generic brand blurb.
  */
-export function detectSpecifiedBrandInText(text) {
+export function isGarbageProductDesc(desc) {
+    if (!desc || typeof desc !== 'string') return false;
+    return GARBAGE_DESC_RE.test(desc.trim());
+}
+
+/**
+ * Extract distinctive series/model name tokens (alphabetic words >= 3 chars, ignoring generic furniture nouns and pure SKU codes).
+ */
+function extractDistinctiveSeriesTokens(modelName) {
+    const clean = String(modelName || '')
+        .toLowerCase()
+        .replace(/\s*#\d+\b/g, '')
+        .replace(/[^a-z0-9\s\-]/g, ' ')
+        .trim();
+    if (!clean) return [];
+    // If the entire model is an alphanumeric SKU code (e.g. WS-FD-Y01, M50, E10), don't force alphabetic word matching
+    const rawTokens = clean.split(/[\s\-_]+/).filter(Boolean);
+    const alphaSeries = rawTokens.filter(t => /^[a-z]{3,}$/.test(t) && !IDENTITY_STOP_WORDS.has(t));
+    return alphaSeries;
+}
+
+/**
+ * Verify that a candidate catalog entry or live-web enrichment actually refers to the requested model series,
+ * preventing cross-model poisoning (e.g. saving "SANDIE visitor chair" under "MOON G5A0342" or "Yukon" under "WAVE-C").
+ */
+export function isProductIdentityAligned(requestedModel, candidateModel = '', candidateDesc = '', candidateUrl = '') {
+    if (isGarbageProductDesc(candidateDesc)) return false;
+    const reqSeries = extractDistinctiveSeriesTokens(requestedModel);
+    if (reqSeries.length === 0) return true; // SKU-only or generic model name — cannot detect cross-series mismatch reliably
+
+    const haystack = [
+        String(candidateModel || ''),
+        String(candidateDesc || '').slice(0, 140),
+        String(candidateUrl || '')
+    ].join(' ').toLowerCase();
+
+    if (!haystack.trim()) return true;
+
+    // Direct token or 4-char stem match (handles minor plural/spelling variants like polyton <-> polytone)
+    const aligned = reqSeries.some(tok => {
+        if (haystack.includes(tok)) return true;
+        if (tok.length >= 5 && haystack.includes(tok.slice(0, 5))) return true;
+        return false;
+    });
+    if (aligned) return true;
+
+    // Only reject when the candidate explicitly leads with a DIFFERENT product title / slug
+    const descHead = String(candidateDesc || '').trim();
+    const looksLikeNamedProduct = descHead.length >= 20 || Boolean(candidateModel) || /\/products?\/|thickbox_default|\/uploads\//i.test(String(candidateUrl || ''));
+    return !looksLikeNamedProduct;
+}
+
+/**
+ * Dynamically detects if a specification text explicitly mentions a contract manufacturer/brand or URL.
+ * Checks URLs -> explicit BRAND:/Proposed Brand: labels -> ALL live localCatalogs brand names -> aliases.
+ */
+export function detectSpecifiedBrandInText(text, localCatalogs = []) {
     if (!text || typeof text !== 'string') return null;
 
     // 1. Direct URL check with line-wrap healing — manufacturer domains preferred.
-    // Collect every brand-mapped URL first; a raw manufacturer-domain URL (host matches
-    // the canonical brand host) wins. Otherwise the first mapped URL wins but links
-    // canonically, with raw dealer URLs kept as supplier references.
     const urlMatches = repairAndExtractUrls(text);
     const mapped = [];
     for (const urlStr of urlMatches) {
@@ -332,40 +391,79 @@ export function detectSpecifiedBrandInText(text) {
         return { brand: first.brand, url: first.canonical, sourceUrl: first.sourceUrl, domain: firstHost, supplierUrls: suppliers };
     }
 
-    // 2. Explicit Maker / Manufacturer / Brand key labels in specification
-    const explicitBrandMatch = 
+    // 2. Explicit Proposed Brand / Maker / Manufacturer / Brand / Supplier key labels (highest text precedence)
+    const explicitBrandMatch =
+        text.match(/Proposed\s*Brand\s*:\s*([^|\n;\r]+)/i) ||
         text.match(/(?:Supplier\s*\/\s*)?Maker\s*:\s*([^|\n;\r]+)/i) ||
         text.match(/Manufacturer\s*:\s*([^|\n;\r]+)/i) ||
-        text.match(/Brand\s*:\s*([^|\n;\r]+)/i);
+        text.match(/(?:^|[\n|;,\s])Brand\s*:\s*([^|\n;\r]+)/i) ||
+        text.match(/(?:^|[\n|;,\s])Supplier\s*:\s*([^|\n;\r]+)/i);
 
     if (explicitBrandMatch) {
         let rawBrand = explicitBrandMatch[1].trim().replace(/\.$/, '');
         rawBrand = rawBrand.replace(/\s*(?:or\s+approved\s+equal|or\s+similar|or\s+equal)\b/i, '').trim();
         const rawLower = rawBrand.toLowerCase();
-        const FORBIDDEN = /^(fahmy|kr furniture|al jassar|gear4music|homedepot|timeout|attf|assarain|acp|automatic terrazzo|amazon|noon|desertcart|ubuy|marketplace|ikea|generic|unknown|dealer|trader|supplier|distributor|local|far east)/i;
+        const FORBIDDEN = /^(fahmy|kr furniture|al jassar|gear4music|homedepot|timeout|attf|assarain|acp|automatic terrazzo|amazon|noon|desertcart|ubuy|marketplace|ikea|generic|unknown|dealer|trader|supplier|distributor|local|far east|tbd|n\/a|none|various)$/i;
         if (rawBrand.length >= 2 && !FORBIDDEN.test(rawLower) && !NON_BRAND_MODEL_WORDS.has(rawLower)) {
-            const canonical = BRAND_ALIASES[rawLower] || rawBrand;
-            return { brand: canonical, url: '' };
+            const catalogHit = Array.isArray(localCatalogs) && localCatalogs.length > 0
+                ? findBrandInCatalog(rawBrand, localCatalogs)
+                : null;
+            const canonical = catalogHit?.name || BRAND_ALIASES[rawLower] || rawBrand;
+            return { brand: canonical, url: '', matchedText: rawBrand, isExplicitLabel: true };
         }
     }
 
-    // 3. Direct Brand Name Mentions in text (case-insensitive word boundary)
+    // 3. Dynamic scan across ALL loaded localCatalogs brand names + aliases (picks earliest mention in text, longest on tie)
     const textLower = text.toLowerCase();
+    const candidates = [];
+    const escapeRx = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const seenTerms = new Set();
+
+    const registerCandidate = (term, canonicalName) => {
+        const cleanTerm = String(term || '').trim();
+        const termLower = cleanTerm.toLowerCase();
+        if (cleanTerm.length < 3 || NON_BRAND_MODEL_WORDS.has(termLower) || seenTerms.has(`${termLower}=>${canonicalName}`)) return;
+        if (/^(fitout|local|generic|custom|other|furniture|seating|office|desk|table|chair|amazon|noon|ikea)$/i.test(termLower)) return;
+        seenTerms.add(`${termLower}=>${canonicalName}`);
+        const rx = new RegExp(`\\b${escapeRx(cleanTerm)}\\b`, 'i');
+        const m = rx.exec(text);
+        if (m) {
+            candidates.push({ index: m.index, length: m[0].length, brand: canonicalName, matchedText: m[0] });
+        }
+    };
+
+    if (Array.isArray(localCatalogs) && localCatalogs.length > 0) {
+        for (const b of localCatalogs) {
+            const name = String(b?.name || '').trim();
+            if (!name || name.toLowerCase().includes('fitout')) continue;
+            registerCandidate(name, name);
+            // Strip TLD / suffix variants dynamically (e.g. "Workspace.ae" -> "Workspace", "Sedia Systems" -> "Sedia System")
+            const noTld = name.replace(/\.(com|ae|eu|it|de|co\.uk|net|org)$/i, '').trim();
+            if (noTld !== name && noTld.length >= 4) registerCandidate(noTld, name);
+            if (/s$/i.test(noTld) && noTld.length >= 6) registerCandidate(noTld.slice(0, -1), name);
+            // Short base before "products, collections..."
+            const beforeComma = noTld.split(',')[0].replace(/\s+products?$/i, '').trim();
+            if (beforeComma.length >= 4 && beforeComma !== noTld) registerCandidate(beforeComma, name);
+        }
+    }
+
     for (const [aliasKey, canonicalName] of Object.entries(BRAND_ALIASES)) {
         if (aliasKey.length < 3) continue;
-        const regex = new RegExp(`\\b${aliasKey.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
-        if (regex.test(textLower) && !NON_BRAND_MODEL_WORDS.has(aliasKey)) {
-            return { brand: canonicalName, url: '' };
-        }
+        registerCandidate(aliasKey, canonicalName);
+        if (/s$/i.test(aliasKey) && aliasKey.length >= 6) registerCandidate(aliasKey.slice(0, -1), canonicalName);
     }
 
     for (const brandKey of KNOWN_CONTRACT_BRANDS) {
         if (brandKey.length < 3) continue;
-        const regex = new RegExp(`\\b${brandKey.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
-        if (regex.test(textLower) && !NON_BRAND_MODEL_WORDS.has(brandKey)) {
-            const prettyName = brandKey.charAt(0).toUpperCase() + brandKey.slice(1);
-            return { brand: prettyName, url: '' };
-        }
+        const prettyName = brandKey.charAt(0).toUpperCase() + brandKey.slice(1);
+        registerCandidate(brandKey, prettyName);
+    }
+
+    if (candidates.length > 0) {
+        // Earliest mention wins (e.g. lead-line "Workspace - Yukon..."), longest term wins at same position
+        candidates.sort((a, b) => (a.index !== b.index ? a.index - b.index : b.length - a.length));
+        const top = candidates[0];
+        return { brand: top.brand, url: '', matchedText: top.matchedText };
     }
 
     return null;
@@ -373,39 +471,104 @@ export function detectSpecifiedBrandInText(text) {
 
 /**
  * Extracts complete specified product details (brand, model, size, finish, type, URL)
- * from consolidated specification descriptions.
+ * dynamically from BOQ specification descriptions, including "Brand - Model;" lead lines
+ * and Model-Only reverse lookups across all loaded catalogs.
  */
-export function extractSpecifiedProductDetails(text) {
+export function extractSpecifiedProductDetails(text, localCatalogs = []) {
     if (!text || typeof text !== 'string') return null;
 
-    const brandInfo = detectSpecifiedBrandInText(text);
-    if (!brandInfo) return null;
+    let brandInfo = detectSpecifiedBrandInText(text, localCatalogs);
 
     let candidateModel = '';
     const textLower = text.toLowerCase();
 
-    // 1. Explicit Product Code / Model / Spec Description key extraction (highest precision)
-    const explicitCodeMatch = 
+    // 1. Explicit Proposed Model / Model / Product Code key extraction (Proposed Model & Model beat generic Code)
+    const explicitModelMatch =
+        text.match(/Proposed\s*Model\s*:\s*([^|\n;\r]+)/i) ||
+        text.match(/(?:^|[\n|;,\s])(?:Item\s*)?Model\s*:\s*([^|\n;\r]+)/i) ||
         text.match(/(?:Product\s*)?Code\s*:\s*([^|\n;\r]+)/i) ||
-        text.match(/Item\s*Code\s*:\s*([^|\n;\r]+)/i) ||
-        text.match(/(?:Item\s*)?Model\s*:\s*([^|\n;\r]+)/i);
+        text.match(/Item\s*Code\s*:\s*([^|\n;\r]+)/i);
 
-    const explicitDescMatch = 
+    const explicitDescMatch =
         text.match(/Spec\s*(?:Item\s*)?Description\s*:\s*([^|\n;\r]+)/i) ||
-        text.match(/Type\s*:\s*([^|\n;\r]+)/i);
+        text.match(/(?:^|[\n|;])\s*Type\s*:\s*([^|\n;\r]+)/i);
 
-    if (explicitCodeMatch) {
-        const codeVal = explicitCodeMatch[1].trim();
+    if (explicitModelMatch) {
+        const codeVal = explicitModelMatch[1].trim();
         const descVal = explicitDescMatch ? explicitDescMatch[1].trim() : '';
-        if (codeVal && descVal && !descVal.toLowerCase().includes(codeVal.toLowerCase())) {
+        if (codeVal && descVal && !descVal.toLowerCase().includes(codeVal.toLowerCase()) && !explicitModelMatch[0].toLowerCase().includes('model')) {
             candidateModel = `${codeVal} (${descVal})`;
         } else if (codeVal) {
             candidateModel = codeVal;
         }
     }
 
+    // 1a. Dynamic Model-Only Reverse Catalog Lookup (e.g. "MODEL: PRIMERA" without an explicit BRAND line)
+    if (!brandInfo && candidateModel && Array.isArray(localCatalogs) && localCatalogs.length > 0) {
+        const cleanTarget = candidateModel.toLowerCase().replace(/\s*#\d+\b/g, '').replace(/[^\w\s-]/g, ' ').replace(/\s+/g, ' ').trim();
+        if (cleanTarget.length >= 3 && !IDENTITY_STOP_WORDS.has(cleanTarget)) {
+            let bestBrandHit = null;
+            let bestRevScore = 0;
+            for (const b of localCatalogs) {
+                if (!b?.name || !Array.isArray(b.products) || b.name.toLowerCase().includes('fitout')) continue;
+                for (const p of b.products) {
+                    const pm = String(p?.model || '').toLowerCase().replace(/\s*#\d+\b/g, '').replace(/[^\w\s-]/g, ' ').replace(/\s+/g, ' ').trim();
+                    if (!pm) continue;
+                    let s = 0;
+                    if (pm === cleanTarget) s = 100;
+                    else if (cleanTarget.length >= 5 && pm.startsWith(cleanTarget + ' ')) s = 85;
+                    if (s > bestRevScore) {
+                        bestRevScore = s;
+                        bestBrandHit = { brand: b.name, url: p.websiteUrl || p.productUrl || b.websiteUrl || '' };
+                    }
+                }
+            }
+            if (bestBrandHit) {
+                brandInfo = bestBrandHit;
+            }
+        }
+    }
+
+    if (!brandInfo) return null;
+
+    // 1b. Dynamic "<Brand> - <Model Name>" lead-line parser (e.g. "Workspace - Yukon Black Chair Medium Back;", "Sedia System - E10 Auditorium Chair;")
+    if (!candidateModel && brandInfo.matchedText && !brandInfo.isExplicitLabel) {
+        const escBrand = brandInfo.matchedText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const leadRx = new RegExp(`${escBrand}(?:\\s*[®™])?\\s*[-–—:]\\s*([^\\n;|]{2,75})`, 'i');
+        const leadMatch = text.match(leadRx);
+        if (leadMatch && leadMatch[1]) {
+            let parsedLead = leadMatch[1]
+                .replace(/\s*\b(?:ref\.?|qty|unit)\b.*$/i, '')
+                .replace(/\s*\([^)]{10,}\)\s*$/g, '')
+                .trim()
+                .replace(/[,:\-]+$/, '')
+                .trim();
+            if (parsedLead.length >= 2 && parsedLead.length <= 70) {
+                candidateModel = parsedLead;
+            }
+        } else {
+            // Handle "<Brand>® <Model>" without dash (e.g. "ThinkingWall® AV Divider; Ref. SC-01")
+            const tmRx = new RegExp(`${escBrand}\\s*[®™]\\s+([^\\n;|]{2,60})`, 'i');
+            const tmMatch = text.match(tmRx);
+            if (tmMatch && tmMatch[1]) {
+                const parsedTm = tmMatch[1].replace(/\s*\b(?:ref\.?|qty|unit)\b.*$/i, '').trim();
+                if (parsedTm.length >= 2) candidateModel = parsedTm;
+            }
+        }
+    }
+
     if (!candidateModel && explicitDescMatch) {
         candidateModel = explicitDescMatch[1].trim();
+    }
+
+    // 1b. Pipe-delimited standalone alphanumeric SKU/model code (e.g. "1.01 | WS-FD-Y01 | Y-Series ...")
+    if (!candidateModel) {
+        const pipeSegs = text.split(/\s*\|\s*/).map(s => s.trim()).filter(Boolean);
+        const skuSeg = pipeSegs.find(seg =>
+            /^(?=.*\d)[A-Za-z]{1,8}[-_:][A-Za-z0-9\-_:]+$/.test(seg) &&
+            !/^\d+(?:[wWdDhHxX*]|mm|cm|kg|nos|pcs)$/i.test(seg)
+        );
+        if (skuSeg) candidateModel = skuSeg;
     }
 
     // 2. Direct model extraction from description keywords
@@ -442,30 +605,30 @@ export function extractSpecifiedProductDetails(text) {
     // 3. URL Path/Query model extraction — mine EVERY raw URL (dealer ?product=
     // params often carry the model even when linking goes canonical manufacturer)
     if (!candidateModel) {
-      const urlsToMine = [brandInfo.sourceUrl, ...(brandInfo.supplierUrls || []), brandInfo.url].filter(Boolean);
-      for (const mineUrl of urlsToMine) {
-        try {
-            const u = new URL(mineUrl);
-            const productParam = u.searchParams.get('product') || '';
-            if (productParam) {
-                const cleanParam = productParam.replace(/^\d+-moonako-?/i, '').replace(/[-_]/g, ' ').trim();
-                if (cleanParam) candidateModel = cleanParam;
-            }
-            if (!candidateModel) {
-                const pathParts = u.pathname.split('/').filter(Boolean);
-                const lastPart = pathParts[pathParts.length - 1] || '';
-                const cleanPath = lastPart
-                    .replace(/\.(html?|php|aspx?)$/i, '')
-                    .replace(/^(foldable-chair-|chair-|table-|desk-|seating-)/i, '')
-                    .replace(/[-_]/g, ' ')
-                    .trim();
-                if (cleanPath && cleanPath.length > 2 && !cleanPath.includes('index') && !cleanPath.includes('product') && !cleanPath.includes('products')) {
-                    candidateModel = cleanPath.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+        const urlsToMine = [brandInfo.sourceUrl, ...(brandInfo.supplierUrls || []), brandInfo.url].filter(Boolean);
+        for (const mineUrl of urlsToMine) {
+            try {
+                const u = new URL(mineUrl);
+                const productParam = u.searchParams.get('product') || '';
+                if (productParam) {
+                    const cleanParam = productParam.replace(/^\d+-moonako-?/i, '').replace(/[-_]/g, ' ').trim();
+                    if (cleanParam) candidateModel = cleanParam;
                 }
-            }
-            if (candidateModel) break; // mined from this URL — stop
-        } catch (e) {}
-      }
+                if (!candidateModel) {
+                    const pathParts = u.pathname.split('/').filter(Boolean);
+                    const lastPart = pathParts[pathParts.length - 1] || '';
+                    const cleanPath = lastPart
+                        .replace(/\.(html?|php|aspx?)$/i, '')
+                        .replace(/^(foldable-chair-|chair-|table-|desk-|seating-)/i, '')
+                        .replace(/[-_]/g, ' ')
+                        .trim();
+                    if (cleanPath && cleanPath.length > 2 && !cleanPath.includes('index') && !cleanPath.includes('product') && !cleanPath.includes('products')) {
+                        candidateModel = cleanPath.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+                    }
+                }
+                if (candidateModel) break; // mined from this URL — stop
+            } catch (e) { }
+        }
     }
 
     // 4. Extract dimensions, finishes, and type
@@ -501,12 +664,12 @@ export async function vePrescanBrands(items = [], providerModel = null) {
         const brandMap = new Map(); // Canonical Name -> Brand Object
         const FORBIDDEN_SUPPLIERS = /^(fahmy|kr furniture|al jassar|gear4music|homedepot|timeout|attf|assarain|acp|automatic terrazzo|amazon|noon|desertcart|ubuy|marketplace|ikea|generic|unknown|dealer|trader|supplier|distributor|roma|racer|terminal|app|wind|nova|eva|optima|choice|easy|single seater|two seater|three seater|l-shape|high cabinet)/i;
 
-        // ── STEP 1: Fast Deterministic URL Extraction (Manufacturers Only) ──
+        // ── STEP 1: Fast Deterministic URL + Label Extraction (Zero-LLM) ──
         for (const item of items) {
             const desc = item.description || item.desc || (typeof item === 'string' ? item : '');
             if (!desc) continue;
 
-            // Extract URLs
+            // 1A: Extract URLs
             const urlMatches = desc.match(/https?:\/\/[^\s\)\],]+/gi) || [];
             for (const urlStr of urlMatches) {
                 const brandInfo = cleanDomainToBrand(urlStr);
@@ -521,43 +684,73 @@ export async function vePrescanBrands(items = [], providerModel = null) {
                     }
                 }
             }
-        }
 
-        // ── STEP 2: Deep LLM Manufacturer Discovery ──
-        const batchSize = 60;
-        const effectiveModel = providerModel || GOOGLE_MODEL;
-
-        for (let i = 0; i < items.length; i += batchSize) {
-            const chunk = items.slice(i, i + batchSize);
-            const textSnippets = chunk.map((item, idx) => `[Item ${i + idx + 1}] ${item.description || item.desc || (typeof item === 'string' ? item : '')}`).filter(Boolean).join('\n');
-            const userPrompt = `Project Schedule Items:\n${textSnippets}`;
-
-            try {
-                const parsed = await callUniversalMultimodalAI(VE_PRESCAN_SYSTEM, userPrompt, [], effectiveModel, true);
-                if (parsed && Array.isArray(parsed.brands)) {
-                    for (const b of parsed.brands) {
-                        const bName = (b.name || '').trim();
-                        const bNameLower = bName.toLowerCase();
-                        if (!bNameLower || FORBIDDEN_SUPPLIERS.test(bNameLower)) continue;
-
-                        if (brandMap.has(bNameLower)) {
-                            const existing = brandMap.get(bNameLower);
-                            const mergedModels = Array.from(new Set([...existing.models, ...(b.models || [])]));
-                            existing.models = mergedModels;
-                            if (b.websiteUrl && !existing.websiteUrl) existing.websiteUrl = b.websiteUrl;
-                            if (b.categoryHint && existing.categoryHint === 'Furniture') existing.categoryHint = b.categoryHint;
-                        } else {
-                            brandMap.set(bNameLower, {
-                                name: bName,
-                                models: b.models || [],
-                                websiteUrl: b.websiteUrl || '',
-                                categoryHint: b.categoryHint || 'Furniture'
-                            });
-                        }
+            // 1B: Extract explicit Brand / Manufacturer / Supplier / Model labels deterministically (works even when LLM quota is capped)
+            const det = extractSpecifiedProductDetails(desc, []);
+            if (det && det.brand && !FORBIDDEN_SUPPLIERS.test(det.brand.toLowerCase())) {
+                const key = det.brand.toLowerCase();
+                if (!brandMap.has(key)) {
+                    brandMap.set(key, {
+                        name: det.brand,
+                        models: det.model ? [det.model] : [],
+                        websiteUrl: det.url || '',
+                        categoryHint: /carpet|floor/i.test(desc) ? 'Flooring & Carpet' : 'Furniture'
+                    });
+                } else if (det.model) {
+                    const existing = brandMap.get(key);
+                    if (!existing.models.includes(det.model) && existing.models.length < 25) {
+                        existing.models.push(det.model);
                     }
                 }
-            } catch (llmErr) {
-                console.warn(`  ⚠️ [VE Pre-Scan LLM Warning]:`, llmErr.message);
+            }
+        }
+
+        // ── STEP 2: Parallel Fast LLM Manufacturer Extraction (JSON mode over schedule text) ──
+        const batchSize = 60;
+        const effectiveModel = providerModel || GOOGLE_MODEL;
+        const chunks = [];
+        for (let i = 0; i < items.length; i += batchSize) {
+            chunks.push({ startIndex: i, rows: items.slice(i, i + batchSize) });
+        }
+
+        const concurrency = 3;
+        for (let c = 0; c < chunks.length; c += concurrency) {
+            const slice = chunks.slice(c, c + concurrency);
+            const batchResults = await Promise.all(slice.map(async ({ startIndex, rows }) => {
+                const textSnippets = rows
+                    .map((item, idx) => `[Item ${startIndex + idx + 1}] ${item.description || item.desc || (typeof item === 'string' ? item : '')}`)
+                    .filter(Boolean)
+                    .join('\n');
+                const userPrompt = `Project Schedule Items:\n${textSnippets}`;
+                try {
+                    return await callUniversalMultimodalAI(VE_PRESCAN_SYSTEM, userPrompt, [], effectiveModel, false);
+                } catch (llmErr) {
+                    console.warn(`  ⚠️ [VE Pre-Scan LLM Warning]:`, llmErr.message);
+                    return null;
+                }
+            }));
+
+            for (const parsed of batchResults) {
+                if (!parsed || !Array.isArray(parsed.brands)) continue;
+                for (const b of parsed.brands) {
+                    const bName = (b.name || '').trim();
+                    const bNameLower = bName.toLowerCase();
+                    if (!bNameLower || FORBIDDEN_SUPPLIERS.test(bNameLower)) continue;
+
+                    if (brandMap.has(bNameLower)) {
+                        const existing = brandMap.get(bNameLower);
+                        existing.models = Array.from(new Set([...existing.models, ...(b.models || [])]));
+                        if (b.websiteUrl && !existing.websiteUrl) existing.websiteUrl = b.websiteUrl;
+                        if (b.categoryHint && existing.categoryHint === 'Furniture') existing.categoryHint = b.categoryHint;
+                    } else {
+                        brandMap.set(bNameLower, {
+                            name: bName,
+                            models: b.models || [],
+                            websiteUrl: b.websiteUrl || '',
+                            categoryHint: b.categoryHint || 'Furniture'
+                        });
+                    }
+                }
             }
         }
 
@@ -578,74 +771,155 @@ const randomJitter = () => Promise.resolve();
 export async function veMatchAuto(description, providerModel = null, assets = [], brandList = [], localCatalogs = []) {
     return withRetry(async () => {
         // ── 1. DETERMINISTIC EXACTMATCH SHORT-CIRCUIT (< 5ms) ────────────────
-        const specifiedDetails = extractSpecifiedProductDetails(description);
-        
+        const specifiedDetails = extractSpecifiedProductDetails(description, localCatalogs);
+        const GENERIC_CATEGORY_MODEL_RE = /^(?:acoustic\s+furniture|office\s+furniture|commercial\s+furniture|furniture|seating|office\s+seating|chair|chairs|desk|desks|table|tables|stool|stools|sofa|sofas|lounge|cabinet|storage|workstation|partition|divider|general)$/i;
+
         if (specifiedDetails && specifiedDetails.brand && (specifiedDetails.model || specifiedDetails.url)) {
-            const brandNorm = specifiedDetails.brand.toLowerCase().trim();
-            const modelNorm = (specifiedDetails.model || '').toLowerCase().trim();
-            
-            // Check against loaded local partner catalogs first
-            const matchedCatalogBrand = (localCatalogs || []).find(b => 
-                b.name && b.name.toLowerCase().trim() === brandNorm
-            );
-            
-            if (matchedCatalogBrand && matchedCatalogBrand.products && matchedCatalogBrand.products.length > 0) {
-                const exactProduct = matchedCatalogBrand.products.find(p => {
-                    const pModel = (p.model || '').toLowerCase().trim();
-                    return pModel === modelNorm || (modelNorm && pModel.includes(modelNorm)) || (pModel && modelNorm.includes(pModel));
-                });
-                
+            const rawModelNorm = (specifiedDetails.model || '').toLowerCase().trim();
+            const isGenericModelName = !rawModelNorm || GENERIC_CATEGORY_MODEL_RE.test(rawModelNorm);
+            const cleanModelBase = (str) => String(str || '')
+                .toLowerCase()
+                .replace(/\s*#\d+\b/g, '')
+                .replace(/[^\w\s-]/g, ' ')
+                .replace(/\s+/g, ' ')
+                .trim();
+            const STOP_SPEC_WORDS = new Set(['chair', 'chairs', 'table', 'tables', 'coffee', 'low', 'side', 'desk', 'desks', 'sofa', 'sofas', 'double', 'single', 'lounge', 'armchair', 'bar', 'stool', 'stools', 'high', 'medium', 'back', 'office', 'meeting', 'conference', 'visitor', 'task', 'swivel', 'furniture', 'system', 'systems', 'series', 'model', 'with', 'and', 'for', 'the']);
+            const extractSeriesTokens = (str) => cleanModelBase(str).split(/[\s\-_]+/).filter(t => t.length >= 2 && !STOP_SPEC_WORDS.has(t));
+
+            const modelNorm = cleanModelBase(rawModelNorm);
+            const targetSeriesTokens = extractSeriesTokens(rawModelNorm);
+
+            // Check against loaded local partner catalogs using dynamic alias/origin/TLD root resolution
+            const matchedCatalogBrand = findBrandInCatalog(specifiedDetails.brand, localCatalogs, specifiedDetails.model || '');
+
+            if (!isGenericModelName && matchedCatalogBrand && matchedCatalogBrand.products && matchedCatalogBrand.products.length > 0) {
+                const fullSpecLower = String(description || '').toLowerCase();
+                const wantTable = /\b(table|desk|coffee|low|conference\s+table|meeting\s+table)\b/i.test(rawModelNorm);
+                const wantChair = /\b(chair|seating|stool|bar|sofa|lounge|armchair)\b/i.test(rawModelNorm);
+                const wantBar = /\b(bar\s*stool|barstool|bar\b|high\s*chair)\b/i.test(`${rawModelNorm} ${fullSpecLower}`);
+                const specFeatureTokens = ['castor', 'wheel', '4-leg', '4 leg', 'star base', 'cantilever', 'wooden', 'wood', 'mesh', 'swivel', 'outdoor', 'stackable', 'folding', 'auditorium', 'tablet', 'armrest']
+                    .filter(kw => fullSpecLower.includes(kw));
+
+                let bestProd = null;
+                let bestScore = -1;
+
+                for (const p of matchedCatalogBrand.products) {
+                    const pClean = cleanModelBase(p.model || '');
+                    if (!pClean) continue;
+                    const pSeries = extractSeriesTokens(pClean);
+                    const pSubAndModel = `${pClean} ${String(p.subCategory || '').toLowerCase()}`;
+                    const pTextAll = `${pSubAndModel} ${String(p.description || '').toLowerCase()}`;
+
+                    // Prevent cross-archetype short-circuit (e.g. matching a chair when a coffee table is specified, or a bar stool for a standard chair)
+                    const pIsTable = /\b(table|desk|workstation)\b/i.test(pSubAndModel);
+                    const pIsChair = /\b(chair|seating|stool|sofa|lounge|armchair|pouf|bench)\b/i.test(pSubAndModel);
+                    const pIsBar = /\b(bar\s*stool|barstool|high\s*chair)\b/i.test(pSubAndModel);
+                    if (wantTable && !wantChair && pIsChair && !pIsTable) continue;
+                    if (wantChair && !wantTable && pIsTable && !pIsChair) continue;
+                    if (wantBar && !pIsBar && !/\bbar\b/i.test(pClean)) continue;
+                    if (!wantBar && pIsBar) continue;
+
+                    let score = 0;
+                    if (pClean === modelNorm) {
+                        score = 100;
+                    } else if (modelNorm.length >= 3 && (pClean.includes(modelNorm) || modelNorm.includes(pClean))) {
+                        score = 88;
+                    } else if (targetSeriesTokens.length > 0 && pSeries.length > 0) {
+                        const shared = targetSeriesTokens.filter(t => pSeries.includes(t) || (t.length >= 5 && pSeries.some(pt => pt.startsWith(t.slice(0, 5)))));
+                        if (shared.length === targetSeriesTokens.length) {
+                            score = 85;
+                        } else if (shared.length > 0 && shared[0].length >= 4) {
+                            score = 76;
+                        }
+                    }
+
+                    if (score <= 0) continue;
+
+                    // Spec feature affinity bonus (e.g. castors, 4-leg, wooden, mesh, outdoor)
+                    for (const kw of specFeatureTokens) {
+                        if (pTextAll.includes(kw)) score += 3;
+                    }
+                    // Penalize poisoned/garbage catalog descriptions so clean verified variants always win
+                    const entryAligned = isProductIdentityAligned(p.model, '', p.description, p.imageUrl || p.websiteUrl);
+                    if (!entryAligned) {
+                        score -= 12;
+                    } else {
+                        if (p.imageUrl && !String(p.imageUrl).includes('logo') && !String(p.imageUrl).includes('/header/')) score += 4;
+                        if (p.description && String(p.description).trim().length >= 25) score += 2;
+                    }
+                    if (parseFloat(p.price) > 0) score += 1;
+
+                    if (score > bestScore || (score === bestScore && bestProd && String(p.model).localeCompare(String(bestProd.model)) < 0)) {
+                        bestScore = score;
+                        bestProd = p;
+                    }
+                }
+
+                const exactProduct = bestProd;
                 if (exactProduct) {
-                    console.log(`  ⚡ [ExactMatch Short-Circuit] Direct catalog hit for "${matchedCatalogBrand.name} - ${exactProduct.model}" (Bypassing LLM)`);
+                    const entryAligned = isProductIdentityAligned(exactProduct.model, '', exactProduct.description, exactProduct.imageUrl || exactProduct.websiteUrl);
+                    console.log(`  ⚡ [ExactMatch Short-Circuit] Direct catalog hit for "${matchedCatalogBrand.name} - ${exactProduct.model}" (score=${bestScore}, aligned=${entryAligned}, Bypassing LLM)`);
+                    const resolvedSiteUrl = specifiedDetails.url
+                        || (entryAligned ? (exactProduct.officialProductUrl || exactProduct.productUrl || exactProduct.websiteUrl) : '')
+                        || getCanonicalBrandWebsite(matchedCatalogBrand.name) || '';
+                    const resolvedImgUrl = entryAligned ? (exactProduct.imageUrl || (exactProduct.images && exactProduct.images[0]) || '') : '';
+                    const cleanStoredDesc = (entryAligned && !isGarbageProductDesc(exactProduct.description)) ? (exactProduct.description || '') : '';
+                    const hasRealDesc = Boolean(cleanStoredDesc.trim().length >= 25 && !cleanStoredDesc.startsWith('Specified Manufacturer:'));
                     return {
                         status: 'success',
                         matchTier: 'EXACT_MATCH',
                         confidenceScore: 100,
                         brand: matchedCatalogBrand.name,
+                        brandLogo: matchedCatalogBrand.logo || getCanonicalBrandLogo(matchedCatalogBrand.name, resolvedSiteUrl) || '',
                         model: exactProduct.model,
                         mainCategory: exactProduct.mainCategory || exactProduct.category || 'Office Furniture',
                         subCategory: exactProduct.subCategory || '',
                         family: exactProduct.family || '',
-                        imageUrl: exactProduct.imageUrl || (exactProduct.images && exactProduct.images[0]) || '',
-                        websiteUrl: specifiedDetails.url || exactProduct.productUrl || '',
-                        productUrl: specifiedDetails.url || exactProduct.productUrl || '',
+                        imageUrl: resolvedImgUrl,
+                        websiteUrl: resolvedSiteUrl,
+                        productUrl: resolvedSiteUrl,
                         supplierReferences: specifiedDetails.supplierUrls || [],
                         price: exactProduct.price || 0,
                         currency: exactProduct.currency || 'USD',
-                        description: exactProduct.description || '',
+                        description: cleanStoredDesc,
+                        needsWebEnrichment: !resolvedImgUrl || !hasRealDesc || !(parseFloat(exactProduct.price) > 0),
                         evidence: {
                             matchType: 'DETERMINISTIC_CATALOG_EXACT',
                             matchedTokens: [specifiedDetails.brand, specifiedDetails.model].filter(Boolean),
-                            manufacturerUrl: specifiedDetails.url || exactProduct.productUrl || '',
+                            manufacturerUrl: resolvedSiteUrl,
                             catalogId: exactProduct.id || `${matchedCatalogBrand.name}-${exactProduct.model}`,
-                            imageCdn: exactProduct.imageUrl || ''
+                            imageCdn: resolvedImgUrl
                         }
                     };
                 }
             }
 
-            // Direct Deterministic Specification Hit (Specified Maker + Product Code / Model)
-            if (specifiedDetails.model && specifiedDetails.model.length >= 2) {
-                console.log(`  ⚡ [ExactMatch Short-Circuit] Direct specification hit for "${specifiedDetails.brand} - ${specifiedDetails.model}"`);
+            // Direct Deterministic Specification Hit (Specified Maker + Specific Product Code / Model, excluding generic category words)
+            if (!isGenericModelName && specifiedDetails.model && specifiedDetails.model.length >= 2) {
+                const resolvedBrandName = matchedCatalogBrand?.name || specifiedDetails.brand;
+                console.log(`  ⚡ [ExactMatch Short-Circuit] Direct specification hit for "${resolvedBrandName} - ${specifiedDetails.model}"`);
+                const canonicalBrandUrl = specifiedDetails.url || matchedCatalogBrand?.websiteUrl || getCanonicalBrandWebsite(resolvedBrandName) || '';
                 return {
                     status: 'success',
                     matchTier: 'EXACT_MATCH',
                     confidenceScore: 98,
-                    brand: specifiedDetails.brand,
+                    brand: resolvedBrandName,
+                    brandLogo: resolveBrandLogo(matchedCatalogBrand || { name: resolvedBrandName, websiteUrl: canonicalBrandUrl }, canonicalBrandUrl) || '',
                     model: specifiedDetails.model,
                     mainCategory: specifiedDetails.type ? 'Office Furniture' : 'Furniture',
                     subCategory: specifiedDetails.type || '',
                     family: specifiedDetails.model.split(/[\s\-_]/)[0] || '',
-                    websiteUrl: specifiedDetails.url || '',
-                    productUrl: specifiedDetails.url || '',
+                    websiteUrl: canonicalBrandUrl,
+                    productUrl: canonicalBrandUrl,
                     supplierReferences: specifiedDetails.supplierUrls || [],
                     price: 0,
                     currency: 'USD',
+                    needsWebEnrichment: true,
                     description: `Specified Manufacturer: ${specifiedDetails.brand} | Model: ${specifiedDetails.model}${specifiedDetails.size ? ` | Size: ${specifiedDetails.size}` : ''}${specifiedDetails.finish ? ` | Finish: ${specifiedDetails.finish}` : ''}`,
                     evidence: {
                         matchType: 'DETERMINISTIC_SPECIFICATION_EXACT',
-                        matchedTokens: [specifiedDetails.brand, specifiedDetails.model, specifiedDetails.url].filter(Boolean),
-                        manufacturerUrl: specifiedDetails.url || '',
+                        matchedTokens: [specifiedDetails.brand, specifiedDetails.model, canonicalBrandUrl].filter(Boolean),
+                        manufacturerUrl: canonicalBrandUrl,
                         catalogId: `SPEC-${specifiedDetails.brand}-${specifiedDetails.model}`,
                         dimensions: specifiedDetails.size || '',
                         finish: specifiedDetails.finish || ''
@@ -714,16 +988,19 @@ export async function veMatchAuto(description, providerModel = null, assets = []
 
         if (hasValidImage) {
             try {
-                // 1. Attempt using the user's selected model first
-                parsed = await callUniversalMultimodalAI(system, user, validAssets, effectiveModel, true);
+                // 1. Attempt using the pipeline-optimal model (with automatic Free-Tier routing & failover)
+                parsed = await callUniversalMultimodalAI(system, user, validAssets, effectiveModel, true, 'matching');
             } catch (visionErr) {
                 const errMsg = visionErr.message || '';
+                if (/exceeded its monthly spending cap|RESOURCE_EXHAUSTED/i.test(errMsg) || visionErr?.allModelsExhausted) {
+                    throw visionErr;
+                }
                 console.warn(`  ⚠️ [VE Match Auto] Vision matching failed with "${effectiveModel}": ${errMsg}. Rescuing with text AI...`);
-                parsed = await callUniversalMultimodalAI(system, user, [], effectiveModel, true);
+                parsed = await callUniversalMultimodalAI(system, user, [], effectiveModel, true, 'matching');
             }
         } else {
             // Robust text matching
-            parsed = await callUniversalMultimodalAI(system, user, [], effectiveModel, true);
+            parsed = await callUniversalMultimodalAI(system, user, [], effectiveModel, true, 'matching');
         }
 
         if (!parsed || parsed.model === 'FAILED') throw new Error('AI failed to match specification');
@@ -795,7 +1072,7 @@ export function generateCrossBrandAlternatives(primaryBrand, primaryModel, descr
         if (seenBrands.has(brandNorm)) continue;
 
         const brandObj = allLocalBrands.find(b => b.name && b.name.toLowerCase().trim() === brandNorm) ||
-                         allLocalBrands.find(b => b.name && b.name.toLowerCase().includes(brandNorm));
+            allLocalBrands.find(b => b.name && b.name.toLowerCase().includes(brandNorm));
         if (!brandObj || !brandObj.products || brandObj.products.length === 0) continue;
 
         // Check if brand is excluded for this archetype
@@ -879,9 +1156,7 @@ export function generateCrossBrandAlternatives(primaryBrand, primaryModel, descr
             if (chosenImg) seenImages.add(chosenImg);
 
             const fitScore = Math.round(Math.min(99, Math.max(85, (bestScore * 35) + 65)));
-            const logo = (brandObj.logo && !brandObj.logo.includes('clearbit.com'))
-                ? brandObj.logo
-                : (getCanonicalBrandLogo(brandObj.name, brandObj.websiteUrl) || '');
+            const logo = resolveBrandLogo(brandObj) || brandObj.logo || '';
 
             const catNorm = classifyContractCategory(
                 bestProd.mainCategory || bestProd.category,
@@ -967,7 +1242,7 @@ export async function generateCrossBrandAlternativesAsync(primaryBrand, primaryM
             try {
                 const fetched = await fetchLiveProductImage(alt.brand, alt.model, alt.officialProductUrl || alt.architonicUrl || alt.websiteUrl);
                 if (fetched) alt.imageUrl = fetched;
-            } catch (e) {}
+            } catch (e) { }
         }
     }));
 

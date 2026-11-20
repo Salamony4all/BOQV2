@@ -33,6 +33,8 @@ export default function AISemanticMatchModal({
   // Catalog Semantic Matches State
   const [matches, setMatches] = useState([]);
   const [error, setError] = useState(null);
+  const primaryAbortRef = React.useRef(null);
+  const liveAltsAbortRef = React.useRef(null);
 
   // Google Lens visual match state (via Chrome extension)
   const [lensResults, setLensResults] = useState(null);
@@ -386,7 +388,12 @@ export default function AISemanticMatchModal({
     if (isOpen && item) {
       const initialDesc = item.description || item.specifications || item.model || '';
       setTestDescription(initialDesc);
+      setActiveTab('auto_detect');
       setSelectedBrand('All');
+      setAutoDetectResult(null);
+      setSpecBreakdown(null);
+      setMatches([]);
+      setError(null);
 
       // Reset lens state for new item
       setLensResults(null);
@@ -438,6 +445,9 @@ export default function AISemanticMatchModal({
         }, 400);
       }
     } else {
+      primaryAbortRef.current?.abort();
+      liveAltsAbortRef.current?.abort();
+      setLoading(false);
       setAutoDetectResult(null);
       setSpecBreakdown(null);
       setMatches([]);
@@ -454,7 +464,47 @@ export default function AISemanticMatchModal({
       makerVerifyRef.current = '';
       setMakerLive(null);
     }
+    return () => {
+      primaryAbortRef.current?.abort();
+      liveAltsAbortRef.current?.abort();
+    };
   }, [isOpen, item]);
+
+  const enrichAlternativesInBackground = (descToTest, headers, primaryBrand = '', mainCategory = '') => {
+    liveAltsAbortRef.current?.abort();
+    const bgCtrl = new AbortController();
+    liveAltsAbortRef.current = bgCtrl;
+    const apiBase = getApiBase();
+
+    fetch(`${apiBase}/api/ai/live-alternatives`, {
+      method: 'POST',
+      headers,
+      signal: bgCtrl.signal,
+      body: JSON.stringify({
+        description: descToTest,
+        category: mainCategory || item?.category || item?.mainCategory || null,
+        currentBrand: primaryBrand,
+        topK: 4
+      })
+    })
+      .then(r => (r.ok ? r.json() : null))
+      .then(data => {
+        if (bgCtrl.signal.aborted || !data?.alternatives?.length) return;
+        setMatches(prev => {
+          const seen = new Set(prev.map(m => `${(m.brand || '').toLowerCase()}::${(m.model || '').toLowerCase()}`));
+          const merged = [...prev];
+          for (const alt of data.alternatives) {
+            const key = `${(alt.brand || '').toLowerCase()}::${(alt.model || '').toLowerCase()}`;
+            if (!seen.has(key)) {
+              seen.add(key);
+              merged.push(alt);
+            }
+          }
+          return merged;
+        });
+      })
+      .catch(() => { /* ignore background abort/timeout */ });
+  };
 
   // Fast Progressive Pipeline Execution
   const runFullTestSimulation = async (descToTest) => {
@@ -462,6 +512,9 @@ export default function AISemanticMatchModal({
       setError('Item has no specification text to test.');
       return;
     }
+
+    primaryAbortRef.current?.abort();
+    liveAltsAbortRef.current?.abort();
 
     setLoading(true);
     setError(null);
@@ -475,15 +528,16 @@ export default function AISemanticMatchModal({
       if (aiSettings.model) headers['x-model-name'] = aiSettings.model;
     }
 
+    const controller = new AbortController();
+    primaryAbortRef.current = controller;
+    const timeoutId = setTimeout(() => controller.abort(), 45000);
+
     try {
       const normalizedImages = (item?.images && Array.isArray(item.images) && item.images.length > 0)
         ? item.images.map(img => typeof img === 'string' ? { url: img } : img)
         : (item?.imageUrl ? [{ url: item.imageUrl }] : []);
 
-      // Call /api/ve-match-auto with rich multimodal context and live alternatives discovery
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 50000);
-
+      // Fast primary resolution + local partner alternatives (live web alternatives load in background)
       const veRes = await fetch(`${apiBase}/api/ve-match-auto`, {
         method: 'POST',
         headers,
@@ -498,13 +552,24 @@ export default function AISemanticMatchModal({
           rowBoundingBox: item?.rowBoundingBox || null,
           category: item?.category || item?.mainCategory || null,
           providerModel: aiSettings?.model,
-          tier: item?.tier || 'mid'
+          tier: item?.tier || 'mid',
+          includeLiveAlternatives: false
         })
       })
-        .then(res => res.json())
-        .catch(err => ({ status: 'error', message: err.message }));
+        .then(async res => {
+          const body = await res.json().catch(() => ({}));
+          if (!res.ok) {
+            return { status: 'error', error_message: body.error_message || body.message || `HTTP ${res.status}` };
+          }
+          return body;
+        })
+        .catch(err => ({ status: 'error', message: err.name === 'AbortError' ? 'Request timed out waiting for AI match.' : err.message }));
 
       clearTimeout(timeoutId);
+      if (controller.signal.aborted && veRes.status !== 'success') {
+        setError(veRes.error_message || veRes.message || 'Auto-match request timed out.');
+        return;
+      }
 
       // Evaluate primary result
       if (veRes.status === 'success' && veRes.product) {
@@ -525,19 +590,12 @@ export default function AISemanticMatchModal({
           evidence: veRes.evidence || null
         });
 
-        // ── Google Lens auto-trigger DISABLED ──────────────────────────────
-        // Lens matching now runs ONLY via manual button click.
-        // Re-enable this block if you want silent background Lens on every match:
-        // const imgForLens = item?.imageUrl || (normalizedImages[0]?.url) || prod.imageUrl || null;
-        // if (imgForLens && extensionInstalled) {
-        //   triggerLensMatch(imgForLens, item?.id || item?.item_code || 'unknown');
-        // }
-
         if (veRes.alternatives && Array.isArray(veRes.alternatives) && veRes.alternatives.length > 0) {
           setMatches(veRes.alternatives);
         }
+        enrichAlternativesInBackground(descToTest, headers, prod.brand || '', prod.mainCategory || '');
       } else {
-        // Fallback: Check local catalog directly
+        // Fallback: Check alternatives endpoint if primary identification yielded no direct hit
         const fallbackRes = await fetch(`${apiBase}/api/ai/live-alternatives`, {
           method: 'POST',
           headers,
@@ -566,14 +624,16 @@ export default function AISemanticMatchModal({
             websiteUrl: topMatch.websiteUrl || topMatch.productUrl || ''
           });
         } else {
-          setError(veRes.message || 'No automatic match found. You can refine the test query above.');
+          setError(veRes.error_message || veRes.message || 'No automatic match found. You can refine the test query above.');
         }
       }
 
     } catch (err) {
+      if (err.name === 'AbortError') return;
       console.error('Test simulation error:', err);
       setError(err.message || 'Error executing match simulation.');
     } finally {
+      clearTimeout(timeoutId);
       setLoading(false);
     }
   };

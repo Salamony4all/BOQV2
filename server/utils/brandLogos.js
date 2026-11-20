@@ -61,7 +61,99 @@ export const CONTRACT_BRAND_LOGOS = {
 };
 
 /**
- * Returns a high-definition logo URL for a brand, falling back to Clearbit/Favicon or SVG monogram.
+ * Official website registry for contract & prescan-discovered brands, ensuring
+ * non-.com TLDs (.ae, .it, .fr, .nl, .de, .eu, .co.uk, .dk, .design, .space)
+ * never get mangled into invalid .com favicon guesses.
+ */
+export const KNOWN_BRAND_WEBSITES = {
+    'workspace': 'https://workspace.ae',
+    'workspace.ae': 'https://workspace.ae',
+    'narbutas': 'https://www.narbutas.com',
+    'nurus': 'https://www.nurus.com',
+    'ottimo': 'https://ottimouae.com',
+    'ottimo furniture': 'https://ottimouae.com',
+    'b&t': 'https://bt.design',
+    'bt': 'https://bt.design',
+    'bt design': 'https://bt.design',
+    'b&t design': 'https://bt.design',
+    'pedrali': 'https://www.pedrali.com',
+    'sedus': 'https://www.sedus.com',
+    'sedus stoll': 'https://www.sedus.com',
+    'sokoa': 'https://www.sokoa.com',
+    'las': 'https://www.las.it',
+    'las mobili': 'https://www.las.it',
+    'ofifran': 'https://www.ofifran.com',
+    'arper': 'https://www.arper.com',
+    'frezza': 'https://www.frezza.com',
+    'ismobil': 'https://www.ismobil.com',
+    'dedon': 'https://www.dedon.de',
+    'emu': 'https://www.emu.it',
+    'freifrau': 'https://www.freifrau.com',
+    'figueras': 'https://figueras.com',
+    'magis': 'https://www.magisdesign.com',
+    'magis spa': 'https://www.magisdesign.com',
+    'encore seating': 'https://encoreseating.com',
+    'kirkhouse': 'https://www.kirkhouse.co.uk',
+    'studiodesk': 'https://www.studiodesk.net',
+    "bree's new world": 'https://www.breesnewworld.nl',
+    'brees new world': 'https://www.breesnewworld.nl',
+    'sprout': 'https://sprout-kids.com',
+    'sprout kids': 'https://sprout-kids.com',
+    'scandinavian designs': 'https://scandinaviandesigns.com',
+    'west elm': 'https://www.westelm.com',
+    'meeden': 'https://meedenart.com',
+    'milimetry': 'https://milimetry.com',
+    'ciment studio': 'https://www.cimentstudio.com',
+    'sui generis': 'https://www.suigeneris.co.uk',
+    'infabbrica': 'https://www.infabbrica.com',
+    'wiesner hager': 'https://www.wiesner-hager.com',
+    'wiesner-hager': 'https://www.wiesner-hager.com',
+    'herman miller': 'https://www.hermanmiller.com',
+    'moodie': 'https://www.moonako.fr',
+    'moonako': 'https://www.moonako.fr',
+    'planurban': 'https://www.planurban.it',
+    'ton': 'https://www.ton.eu',
+    'framery': 'https://www.frameryacoustics.com',
+    'buzzi': 'https://www.buzzi.space',
+    'buzzispace': 'https://www.buzzi.space',
+    'buzzi space': 'https://www.buzzi.space',
+    'please wait to be seated': 'https://www.pleasewaittobeseated.com',
+    'andreu world': 'https://www.andreuworld.com',
+    'vitra': 'https://www.vitra.com',
+    'hay': 'https://hay.dk',
+    'muuto': 'https://www.muuto.com',
+    'knoll': 'https://www.knoll.com',
+    'steelcase': 'https://www.steelcase.com'
+};
+
+function extractHostname(urlOrHost) {
+    if (!urlOrHost || typeof urlOrHost !== 'string') return '';
+    const trimmed = urlOrHost.trim();
+    if (!trimmed) return '';
+    try {
+        const normalized = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+        const host = new URL(normalized).hostname.replace(/^www\./i, '').toLowerCase();
+        return (host && host.includes('.') && !host.includes('localhost')) ? host : '';
+    } catch {
+        return '';
+    }
+}
+
+/**
+ * Resolves the canonical official website URL for a brand when known.
+ */
+export function getCanonicalBrandWebsite(brandName = '') {
+    if (!brandName || typeof brandName !== 'string') return '';
+    const nameLower = brandName.toLowerCase().trim();
+    if (KNOWN_BRAND_WEBSITES[nameLower]) return KNOWN_BRAND_WEBSITES[nameLower];
+    if (/^[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(nameLower)) {
+        return `https://${nameLower.replace(/^www\./, '')}`;
+    }
+    return '';
+}
+
+/**
+ * Returns a high-definition logo URL for a brand, falling back to Favicon or SVG monogram.
  */
 export function getCanonicalBrandLogo(brandName, websiteUrl = '') {
     if (!brandName || typeof brandName !== 'string') return '';
@@ -72,25 +164,39 @@ export function getCanonicalBrandLogo(brandName, websiteUrl = '') {
         return CONTRACT_BRAND_LOGOS[nameLower];
     }
 
-    // 2. Check partial/substring match in registry
+    // 2. Check whole-token / word-boundary match in registry (avoids 3-char keys like 'las', 'rim', 'ton', 'emu', 'hay' matching inside unrelated words like 'plastics', 'primary', 'hilton')
+    const escapeRegExp = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const matchesWholeToken = (haystack, needle) => {
+        if (!haystack || !needle) return false;
+        const re = new RegExp(`(?:^|[^a-z0-9])${escapeRegExp(needle)}(?:$|[^a-z0-9])`, 'i');
+        return re.test(haystack);
+    };
     for (const [key, logoUrl] of Object.entries(CONTRACT_BRAND_LOGOS)) {
-        if (nameLower.includes(key) || key.includes(nameLower)) {
+        if (matchesWholeToken(nameLower, key)) {
+            return logoUrl;
+        }
+        if (nameLower.length >= 4 && matchesWholeToken(key, nameLower)) {
             return logoUrl;
         }
     }
 
-    // 3. If website URL is available, extract domain for favicon/logo
-    if (websiteUrl && websiteUrl.startsWith('http')) {
-        try {
-            const urlObj = new URL(websiteUrl);
-            const domain = urlObj.hostname.replace(/^www\./, '');
-            if (domain && domain.length > 3 && !domain.includes('localhost')) {
-                return `https://www.google.com/s2/favicons?domain=${domain}&sz=128`;
-            }
-        } catch (_) {}
+    // 3. Extract hostname from explicit websiteUrl or canonical website registry
+    const explicitHost = extractHostname(websiteUrl);
+    if (explicitHost) {
+        return `https://www.google.com/s2/favicons?domain=${explicitHost}&sz=128`;
     }
 
-    // 4. Default clean fallback domain
+    const knownHost = extractHostname(getCanonicalBrandWebsite(brandName));
+    if (knownHost) {
+        return `https://www.google.com/s2/favicons?domain=${knownHost}&sz=128`;
+    }
+
+    // 4. Preserve domain-shaped names (e.g. "workspace.ae"), else default to .com
+    const domainShaped = nameLower.replace(/\s+/g, '');
+    if (/^[a-z0-9-]+(\.[a-z]{2,})+$/.test(domainShaped)) {
+        return `https://www.google.com/s2/favicons?domain=${domainShaped}&sz=128`;
+    }
+
     const cleanDomain = nameLower.replace(/[^a-z0-9]/g, '');
     if (cleanDomain.length >= 3) {
         return `https://www.google.com/s2/favicons?domain=${cleanDomain}.com&sz=128`;
@@ -100,10 +206,56 @@ export function getCanonicalBrandLogo(brandName, websiteUrl = '') {
 }
 
 /**
+ * Heals missing, Clearbit-dead, or naive `.com`-mangled favicon URLs on brand records.
+ */
+export function resolveBrandLogo(brandOrName, fallbackWebsiteUrl = '') {
+    const brandObj = (brandOrName && typeof brandOrName === 'object') ? brandOrName : null;
+    const brandName = brandObj ? brandObj.name : String(brandOrName || '');
+    const currentLogo = brandObj?.logo ? String(brandObj.logo).trim() : '';
+
+    const prodSite = brandObj?.products?.find(p => p?.officialProductUrl || (p?.websiteUrl && String(p.websiteUrl).startsWith('http')));
+    const bestWebsite = brandObj?.websiteUrl || brandObj?.url || brandObj?.registry?.officialDomain || prodSite?.officialProductUrl || prodSite?.websiteUrl || fallbackWebsiteUrl || '';
+
+    const canonical = getCanonicalBrandLogo(brandName, bestWebsite);
+    if (!currentLogo || currentLogo.includes('clearbit.com') || currentLogo.includes('via.placeholder')) {
+        return canonical || currentLogo;
+    }
+
+    // Replace broken `<stripped>.com` favicon guesses when a static registry logo or non-.com official domain exists
+    const favMatch = currentLogo.match(/google\.com\/s2\/favicons\?domain=([^&]+)/i);
+    if (favMatch && canonical && favMatch[1].toLowerCase() !== (extractHostname(bestWebsite) || extractHostname(getCanonicalBrandWebsite(brandName)))) {
+        const expectedHost = extractHostname(canonical) || extractHostname(bestWebsite) || extractHostname(getCanonicalBrandWebsite(brandName));
+        if (CONTRACT_BRAND_LOGOS[String(brandName || '').toLowerCase().trim()] || (expectedHost && favMatch[1].toLowerCase() !== expectedHost)) {
+            return canonical;
+        }
+    }
+
+    return currentLogo;
+}
+
+/**
  * Classifies any FF&E item into the standard 4-tier contract taxonomy.
  */
 export function classifyContractCategory(mainHint, subHint, model, description) {
     const combined = `${mainHint || ''} ${subHint || ''} ${model || ''} ${description || ''}`.toLowerCase();
+
+    // ── 0. FLOORING, CARPET & WINDOW TREATMENTS (Never fall through to Seating) ──
+    if (/\b(carpet\s*tiles?|broadloom|tufted\s*nylon\s*carpet|carpet\s*flooring|wall[\s-]?to[\s-]?wall\s*carpet|prayer\s*room\s*carpet|tuntex|solution\s*dyed\s*nylon|luxcushion|duraback|pile\s*height|multi\s*hi\s*\/\s*lo\s*loop|carpet)\b/i.test(combined)
+        && !/\b(chair|sofa|desk|table|cabinet)\b/i.test(`${mainHint || ''} ${subHint || ''} ${model || ''}`.toLowerCase())) {
+        if (/\b(broadloom|wall[\s-]?to[\s-]?wall|roll\s*carpet|prayer\s*room)\b/i.test(combined)) {
+            return { mainCategory: 'Flooring', subCategory: 'Broadloom' };
+        }
+        return { mainCategory: 'Flooring', subCategory: 'Carpet Tiles' };
+    }
+    if (/\b(luxury\s*vinyl|vinyl\s*tiles?|lvt|spc\s*flooring|vinyl\s*flooring)\b/i.test(combined)) {
+        return { mainCategory: 'Flooring', subCategory: 'Luxury Vinyl Tiles' };
+    }
+    if (/\b(porcelain\s*(?:floor\s*)?tiles?|ceramic\s*(?:floor\s*)?tiles?|marble\s*flooring|stone\s*flooring)\b/i.test(combined)) {
+        return { mainCategory: 'Flooring', subCategory: 'Ceramic/Porcelain' };
+    }
+    if (/\b(electric\s*curtain|motorized\s*curtain|window\s*curtain|roller\s*blinds?|blackout\s*blinds?|sunscreen\s*blinds?|venetian\s*blinds?|vertical\s*blinds?|window\s*blinds?|window\s*treatments?|drapery)\b/i.test(combined)) {
+        return { mainCategory: 'Doors & Windows', subCategory: 'Window Treatments' };
+    }
 
     // ── 1. AUDITORIUM & SPECIALIST SEATING (Highest Priority) ──
     if (/\b(auditorium|theatre|theater|cinema|stadium|fixed seat|scala|tip-up|lecture hall|specialist chair|auditorium tip-up)\b/i.test(combined)) {
@@ -115,9 +267,16 @@ export function classifyContractCategory(mainHint, subHint, model, description) 
         return { mainCategory: 'Furniture', subCategory: 'Planters' };
     }
 
-    // ── 3. FOLDING & STACKING CHAIRS ──
-    if (/\b(foldable chair|folding chair|piper|pila|stackable chair|stacking chair|seminar chair|round chair \(foldable\))\b/i.test(combined)) {
+    const titleOnly = `${mainHint || ''} ${subHint || ''} ${model || ''}`.toLowerCase();
+
+    // ── 3. FOLDING, NESTING, TRAINING & STACKING CHAIRS ──
+    if (/\b(foldable chair|folding chair|training chair|nesting chair|nesting training chair|educational chair|piper|pila|stackable chair|stacking chair|seminar chair|round chair \(foldable\))\b/i.test(combined)) {
         return { mainCategory: 'Office Seating', subCategory: 'Training Chairs' };
+    }
+    if (/\b(desks?|conference tables?|meeting tables?|workstations?)\b/i.test(titleOnly) && !/\b(chair|sofa|couch|armchair|lounge|stool)\b/i.test(titleOnly)) {
+        if (/\b(conference|meeting)\b/i.test(titleOnly)) return { mainCategory: 'Desk & Table', subCategory: 'Conference Tables' };
+        if (/\b(height adjustable|sit.stand)\b/i.test(titleOnly)) return { mainCategory: 'Desk & Table', subCategory: 'Height Adjustable Desks' };
+        return { mainCategory: 'Desk & Table', subCategory: 'Single Desks' };
     }
 
     // ── 4. SOFAS, BENCHES & LOUNGE SEATING ──
@@ -137,6 +296,9 @@ export function classifyContractCategory(mainHint, subHint, model, description) 
     }
     if (/\b(stool|bar stool|counter stool|drafting stool|high stool|barstool|p\.o\.v\.|se:café|se:cafe)\b/i.test(combined)) {
         return { mainCategory: 'Office Seating', subCategory: 'Stools' };
+    }
+    if (/\bchair\b/i.test(titleOnly) && !/\b(table|desk|cabinet|rack|trolley|caddy)\b/i.test(titleOnly)) {
+        return { mainCategory: 'Office Seating', subCategory: 'Conference Chairs' };
     }
     if (/\b(chair|dining chair|side chair|meeting chair|conference chair|visitor chair|carousel|plastic chair|multipurpose|multi-use|seating)\b/i.test(combined) && !/\b(table|desk|storage|cabinet)\b/i.test(combined)) {
         return { mainCategory: 'Office Seating', subCategory: 'Conference Chairs' };
@@ -177,8 +339,11 @@ export function classifyContractCategory(mainHint, subHint, model, description) 
     if (/\b(dining table|mesa cuvier|skill|bistro table|restaurant table|cafe table|lounge table|display table|fixture table)\b/i.test(combined)) {
         return { mainCategory: 'Desk & Table', subCategory: 'Lounge Tables' };
     }
-    if (/\b(desk|single desk|freestanding desk|individual desk|executive desk|computer desk|training desk)\b/i.test(combined)) {
+    if (/\b(folding tables?|foldable tables?|flip-top tables?|flip top tables?|desks?|single desks?|freestanding desks?|individual desks?|executive desks?|computer desks?|training desks?)\b/i.test(combined)) {
         return { mainCategory: 'Desk & Table', subCategory: 'Single Desks' };
+    }
+    if (/\btables?\b/i.test(titleOnly) && !/\b(chair|stool|cabinet|shelf)\b/i.test(titleOnly)) {
+        return { mainCategory: 'Desk & Table', subCategory: 'Conference Tables' };
     }
 
     // ── 8. STORAGE & DISPLAY RACKS ──

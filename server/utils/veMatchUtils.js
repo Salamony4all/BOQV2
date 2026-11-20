@@ -70,13 +70,19 @@ const VE_DETAIL_SCHEMA = {
 // ──────────────────────────────────────────────────────────────────────────────
 
 const VE_MATCH_SIMPLE_SYSTEM = (brand, modelList = []) => `You are an expert FF&E Product Matcher.
-Your task is to identify the EXACT product model from the brand "${brand}" that best matches the provided description and image metadata.
+Your task is to deterministically select the single best-matching product model from "${brand}" for the provided specification and image metadata.
 
 ### 🏢 BRAND: ${brand}
 
 ${modelList.length > 0 ? `### 📦 KNOWN PRODUCT CATALOG:
-The following models ARE available for this brand. You MUST prioritize matching to one of these if the description fits:
-- ${modelList.slice(0, 500).join('\n- ')}` : ''}
+The following models ARE available for this brand. When a valid match exists, return the EXACT full model string copied verbatim from this list (without the [Category / SubCategory] bracket), never a shortened family word:
+- ${modelList.slice(0, 500).join('\n- ')}
+
+### 🛡️ DETERMINISTIC RANKING & ANTI-COLLAPSE RULES (STRICT ORDER):
+1. EXACT SERIES / MODEL MATCH: If the specification names a model/series from "${brand}" that exists in the list, select it directly.
+2. ANTI-COLLAPSE GUARD: If the specification explicitly names a distinct model/series from "${brand}" (e.g. a specific chair/table collection name) that is genuinely NOT in this catalog list, return "status": "no_match" and "model": "NO_CATALOG_MATCH" so live discovery can fetch the exact model—DO NOT force an unrelated catalog model!
+3. STRICT TYPOLOGY & SCALE LOCK: NEVER select [High Chairs / Bar Stools] for standard meeting, task, visitor, or dining chairs; NEVER select [Task / Swivel Staff Chairs] for cantilever/4-leg/visitor chairs; NEVER select [Coffee Tables] for conference tables; NEVER select [Armchairs] for multi-seat/modular sofas; for multi-person boardroom tables (8-16 pax, 2800+ mm), prefer full conference/boardroom table series over small café tables.
+4. DETERMINISTIC TIE-BREAK: Among equally aligned candidates, pick the closest dimension/material match and break exact ties alphabetically by verbatim model name.` : ''}
 
 ### 🌍 GLOBAL CATEGORY MAPPING:
 You MUST map to one of these Main Categories: ${ALLOWED_CATEGORIES}
@@ -86,12 +92,12 @@ Return ONLY valid JSON strictly matching the schema:
 { 
   "status": "success",
   "brand": "${brand}", 
-  "model": "Exact Model Name",
+  "model": "Exact Model Name (or NO_CATALOG_MATCH if a distinct named model is absent from catalog)",
   "family": "Collection Name",
   "mainCategory": "Main Category",
   "subCategory": "Sub-Category",
   "confidenceScore": 95,
-  "logic": "Brief reasoning",
+  "logic": "Brief deterministic reasoning",
   "evidence": {
     "matchedKeywords": ["keyword1", "keyword2"],
     "source": "SPECIFICATION_TEXT"
@@ -99,14 +105,20 @@ Return ONLY valid JSON strictly matching the schema:
 }`;
 
 const VE_MATCH_ADVANCED_SYSTEM = (brand, category, modelList = []) => `You are an expert FF&E Product Matcher specialized in "${category}".
-Your task is to identify the EXACT product model from the brand "${brand}" within the "${category}" scope.
+Your task is to deterministically select the single best-matching product model from "${brand}" within "${category}".
 
 ### 🏢 BRAND: ${brand}
 ### 🏷️ CATEGORY SCOPE: ${category}
 
 ${modelList.length > 0 ? `### 📦 KNOWN PRODUCT CATALOG:
-The following models ARE available for this brand. You MUST prioritize matching to one of these if the description fits:
-- ${modelList.slice(0, 500).join('\n- ')}` : ''}
+The following models ARE available for this brand. When a valid match exists, return the EXACT full model string copied verbatim from this list (without the [Category / SubCategory] bracket), never a shortened family word:
+- ${modelList.slice(0, 500).join('\n- ')}
+
+### 🛡️ DETERMINISTIC RANKING & ANTI-COLLAPSE RULES (STRICT ORDER):
+1. EXACT SERIES / MODEL MATCH: If the specification names a model/series from "${brand}" that exists in the list, select it directly.
+2. ANTI-COLLAPSE GUARD: If the specification explicitly names a distinct model/series from "${brand}" that is genuinely NOT in this catalog list, return "status": "no_match" and "model": "NO_CATALOG_MATCH" so live web discovery can fetch the authentic model—DO NOT substitute an unrelated model!
+3. STRICT TYPOLOGY & SCALE LOCK: NEVER select [High Chairs / Bar Stools] for standard meeting, task, visitor, or dining chairs; NEVER select [Task / Swivel Staff Chairs] for cantilever/4-leg/visitor chairs; NEVER select [Coffee Tables] for conference tables; NEVER select [Armchairs] for multi-seat/modular sofas; for multi-person boardroom tables (8-16 pax, 2800+ mm), prefer full conference/boardroom table series over small café tables.
+4. DETERMINISTIC TIE-BREAK: Among equally aligned candidates, pick the closest dimension/material match and break exact ties alphabetically by verbatim model name.` : ''}
 
 ### 🌍 GLOBAL CATEGORY MAPPING:
 You MUST map to one of these Main Categories: ${ALLOWED_CATEGORIES}
@@ -116,12 +128,12 @@ Return ONLY valid JSON strictly matching the schema:
 { 
   "status": "success",
   "brand": "${brand}", 
-  "model": "Exact Model Name",
+  "model": "Exact Model Name (or NO_CATALOG_MATCH if a distinct named model is absent from catalog)",
   "family": "Collection Name",
   "mainCategory": "Main Category",
   "subCategory": "Sub-Category",
   "confidenceScore": 95,
-  "logic": "Brief reasoning",
+  "logic": "Brief deterministic reasoning",
   "evidence": {
     "matchedKeywords": ["keyword1", "keyword2"],
     "source": "SPECIFICATION_TEXT"
@@ -142,8 +154,11 @@ export async function veMatchSimple(description, brand, modelList = [], provider
         console.log(`  🤖 [VE Match Simple] Matching: ${description.substring(0, 50)}...`);
 
         try {
-            const parsed = await callWithSchemaRetry(system, user, VE_MATCH_SCHEMA, 2, providerModel);
+            const parsed = await callWithSchemaRetry(system, user, VE_MATCH_SCHEMA, 2, providerModel, 'matching', false);
             if (!parsed || parsed.model === 'FAILED') throw new Error('AI failed to match');
+            if (parsed.status === 'no_match' || parsed.model === 'NO_CATALOG_MATCH') {
+                return { status: 'no_match', ...parsed };
+            }
             return { status: 'success', ...parsed };
         } catch (err) {
             console.error(`  ❌ [VE Match Simple] Failed for ${description}:`, err.message);
@@ -166,8 +181,11 @@ export async function veMatchAdvanced(description, brand, category, modelList = 
         console.log(`  🤖 [VE Match Advanced] Matching: ${description.substring(0, 50)}... in ${category}`);
 
         try {
-            const parsed = await callWithSchemaRetry(system, user, VE_MATCH_SCHEMA, 2, providerModel);
+            const parsed = await callWithSchemaRetry(system, user, VE_MATCH_SCHEMA, 2, providerModel, 'matching', false);
             if (!parsed || parsed.model === 'FAILED') throw new Error('AI failed to match');
+            if (parsed.status === 'no_match' || parsed.model === 'NO_CATALOG_MATCH') {
+                return { status: 'no_match', ...parsed };
+            }
             return { status: 'success', ...parsed };
         } catch (err) {
             console.error(`  ❌ [VE Match Advanced] Failed for ${description}:`, err.message);
@@ -230,7 +248,7 @@ export async function veGetProductDetails(brand, model, providerModel = null, di
         console.log(`  🌐 [VE Details] Fetching live details & taxonomy for: ${brand} ${model}${directUrl ? ` (${directUrl})` : ''}`);
 
         try {
-            const parsed = await callWithSchemaRetry(system, user, VE_DETAIL_SCHEMA, 2, providerModel);
+            const parsed = await callWithSchemaRetry(system, user, VE_DETAIL_SCHEMA, 2, providerModel, 'grounding', true);
 
             if (!parsed) throw new Error('Empty response from AI');
 
@@ -268,7 +286,7 @@ CRITICAL: Output ONLY valid JSON exactly matching this structure, with no markdo
         const user = `Categorize these items:\n${itemsList}`;
 
         console.log(`  🚀 [VE Route] Sending ${items.length} items to AI Router...`);
-        const result = await callGoogle(system, user, false, providerModel);
+        const result = await callGoogle(system, user, false, providerModel, 'matching');
 
         if (!result || typeof result !== 'object') throw new Error("Router returned non-object");
         if (result.desking === undefined && result.seating === undefined && result.softSeating === undefined && result.accessories === undefined) {

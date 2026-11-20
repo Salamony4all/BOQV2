@@ -1,0 +1,37 @@
+{
+  "id": 1795008814288,
+  "name": "DuuFun",
+  "logo": "https://www.google.com/s2/favicons?domain=duufun.com&sz=128",
+  "websiteUrl": "",
+  "budgetTier": "mid",
+  "origin": "VE-Prescan-Discovery",
+  "gatewayVersion": 1,
+  "registry": {
+    "name": "DuuFun",
+    "officialDomain": "",
+    "budgetTier": "mid",
+    "origin": "VE-Prescan-Discovery"
+  },
+  "discovery": {
+    "discoveredAt": "2026-11-18T13:33:33.996Z",
+    "ttlDays": 30,
+    "verified": false,
+    "quarantine": true
+  },
+  "products": [
+    {
+      "brand": "DuuFun",
+      "model": "FU05 Outdoor table tennis unit",
+      "mainCategory": "Outdoor Recreation & Furniture",
+      "subCategory": "",
+      "imageUrl": "",
+      "websiteUrl": "",
+      "lastUpdated": "2026-11-18T13:33:33.996Z",
+      "source": "VE-Prescan-Discovery",
+      "verified": false,
+      "discoveredAt": "2026-11-18T13:33:33.996Z",
+      "ttlDays": 30
+    }
+  ],
+  "createdAt": "2026-11-18T13:33:33.996Z"
+}

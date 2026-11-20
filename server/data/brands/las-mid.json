@@ -1,10 +1,6 @@
 {
-  "id": 1766044962937,
+  "id": "1766044962937",
   "name": "LAS",
-  "url": "https://www.las.it/en/",
-  "origin": "ITALY",
-  "budgetTier": "mid",
-  "logo": "https://www.las.it/wp-content/themes/las/assets/images/logo-menu.svg",
   "products": [
     {
       "mainCategory": "PRODUCTS",
@@ -1675,10 +1671,77 @@
       "imageUrl": "https://www.las.it/wp-content/uploads/2023/06/Antonio-Lanzillo-Partners-700x700.jpg",
       "productUrl": "https://www.las.it/en/designer/antonio-lanzillo-partners/",
       "price": 0
+    },
+    {
+      "model": "I-MEET",
+      "price": 0,
+      "family": "LAS",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/08/imeet-thumb-01-scaled.jpg",
+      "productUrl": "https://www.las.it/en/products/i-meet/",
+      "description": "I-MEET",
+      "subCategory": "Furniture",
+      "mainCategory": "PRODUCTS"
     }
   ],
-  "createdAt": "2025-12-18T08:02:42.937Z",
-  "scrapedWith": "Structure-Harvest",
-  "websiteUrl": "https://www.las.it/en/",
-  "budget_tier": "mid"
+  "source": "ITALY",
+  "budget_tier": "mid",
+  "logo": "https://www.las.it/wp-content/themes/las/assets/images/logo-menu.svg",
+  "updated_at": "2026-05-01T08:11:09.815+00:00",
+  "budgetTier": "mid",
+  "origin": "ITALY",
+  "categoryTree": {
+    "PRODUCTS": [
+      "PRODUCTS",
+      "Furniture",
+      "Seating",
+      "Whistleblowing",
+      "IULIO",
+      "E.O.S.",
+      "DELTA",
+      "5TH ELEMENT",
+      "SHARE",
+      "CHIUDO",
+      "PIEGO",
+      "JERA CHAIR",
+      "LEAD",
+      "SEGUO",
+      "PRONTO",
+      "NEO CHAIR",
+      "I-MEET",
+      "NICE",
+      "JAVA",
+      "PAUSA",
+      "CONVIVIO",
+      "FUNGO",
+      "SEGUO COFFEE",
+      "FUNGO COFFEE",
+      "SEGNO",
+      "ICARO",
+      "REGOLO",
+      "KYOTO",
+      "PODIO",
+      "SELLO",
+      "FESTIVAL",
+      "JETSET",
+      "JERA24",
+      "JERA 22",
+      "SET 22",
+      "DRIVE IN",
+      "DIVO",
+      "FLAGS",
+      "TRAILER",
+      "WORKLAND"
+    ],
+    "Find out more": [
+      "Find out more"
+    ],
+    "Office Seating": [
+      "Training Chairs"
+    ]
+  },
+  "categoryList": [
+    "PRODUCTS",
+    "Find out more",
+    "Office Seating"
+  ]
 }

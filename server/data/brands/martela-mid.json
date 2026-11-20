@@ -1,0 +1,119 @@
+{
+  "id": "1795008813587",
+  "name": "Martela",
+  "products": [
+    {
+      "brand": "Martela",
+      "model": "Podworks Focus Pods",
+      "mainCategory": "Acoustic Pods & Office Furniture",
+      "subCategory": "",
+      "imageUrl": "",
+      "websiteUrl": "https://www.martela.com",
+      "lastUpdated": "2026-11-18T13:33:33.491Z",
+      "source": "VE-Prescan-Discovery",
+      "verified": false,
+      "discoveredAt": "2026-11-18T13:33:33.491Z",
+      "ttlDays": 30
+    },
+    {
+      "brand": "Martela",
+      "model": "Pinta S&S Sit and stand desk with electrical height adjustment",
+      "family": "",
+      "mainCategory": "Furniture",
+      "subCategory": "Single Desks",
+      "description": "Pinta S&SPinta S&S - Sit and stand desk with electrical height-adjustmentThe electrically adjustable Pinta S&S table is quiet and carefree to use. The table's anti-collision system effectively prevents dangerous situations. Several tabletop options are available.",
+      "price": 0,
+      "currency": "USD",
+      "imageUrl": "https://www.martela.com/sites/default/files/styles/metaproduct/public/pim2022_files/Pinta_sit_and_stand_001_fullHD.jpg?itok=wcDnB698",
+      "websiteUrl": "https://www.martela.com/furniture/tables/desks/pinta-ss-sit-and-stand-desk-with-electrical-height-adjustment",
+      "officialProductUrl": "https://www.martela.com/furniture/tables/desks/pinta-ss-sit-and-stand-desk-with-electrical-height-adjustment",
+      "source": "og:martela.com",
+      "verified": true,
+      "lastUpdated": "2026-11-18T13:39:15.162Z"
+    },
+    {
+      "brand": "Martela",
+      "model": "Flow Sit and stand desk with electrical height adjustment",
+      "family": "",
+      "mainCategory": "Furniture",
+      "subCategory": "Single Desks",
+      "description": "FlowFlow - Sit and stand desk with electrical height-adjustmentThe electrically height-adjustable Flow desk encourages movement throughout the day while supporting ergonomic working. Its compact, sleek design makes it an excellent choice for even smaller workspaces.",
+      "price": 0,
+      "currency": "USD",
+      "imageUrl": "https://www.martela.com/sites/default/files/styles/metaproduct/public/pim2022_files/Flow_01_fullHD.jpg?itok=ubZDEoC7",
+      "websiteUrl": "https://www.martela.com/furniture/tables/desks/flow-sit-and-stand-desk-with-electrical-height-adjustment",
+      "officialProductUrl": "https://www.martela.com/furniture/tables/desks/flow-sit-and-stand-desk-with-electrical-height-adjustment",
+      "source": "og:martela.com",
+      "verified": true,
+      "lastUpdated": "2026-11-18T13:39:16.926Z"
+    },
+    {
+      "brand": "Martela",
+      "model": "Anne Mari Vehmo",
+      "family": "",
+      "mainCategory": "Interior Designers",
+      "subCategory": "Conference Chairs",
+      "description": "Anne-Mari Vehmo has broad and varied experience in designing multifaceted workplaces and public spaces.",
+      "price": 0,
+      "currency": "USD",
+      "imageUrl": "https://www.martela.com/sites/default/files/styles/portrait/public/images/anne-maria-juutilainen-768px.jpg?itok=nU48pyem",
+      "websiteUrl": "https://www.martela.com/services/design/interior-designers/anne-mari-vehmo",
+      "officialProductUrl": "https://www.martela.com/services/design/interior-designers/anne-mari-vehmo",
+      "source": "og:martela.com",
+      "verified": true,
+      "lastUpdated": "2026-11-18T13:39:17.895Z"
+    },
+    {
+      "brand": "Martela",
+      "model": "Riikka Kyllönen",
+      "family": "",
+      "mainCategory": "Interior Designers",
+      "subCategory": "Conference Chairs",
+      "description": "Riikka Kyllönen is particularly interested in the transformation of the working culture and the ensuing opportunities.",
+      "price": 0,
+      "currency": "USD",
+      "imageUrl": "https://www.martela.com/sites/default/files/styles/portrait/public/images/riikka-kyllonen-02-768px.jpg?itok=NnhjqwVz",
+      "websiteUrl": "https://www.martela.com/services/interior-and-space-design/interior-designers/riikka-kyllonen",
+      "officialProductUrl": "https://www.martela.com/services/interior-and-space-design/interior-designers/riikka-kyllonen",
+      "source": "og:martela.com",
+      "verified": true,
+      "lastUpdated": "2026-11-18T13:39:18.674Z"
+    },
+    {
+      "brand": "Martela",
+      "model": "Tiina Myller",
+      "family": "",
+      "mainCategory": "Interior Designers",
+      "subCategory": "Conference Chairs",
+      "description": "Tiina Myller has an excellent ability to understand the purpose of changes and the needs of the users and integrate these into a seamless whole.",
+      "price": 0,
+      "currency": "USD",
+      "imageUrl": "https://www.martela.com/sites/default/files/styles/portrait/public/images/tiina-myller-768px.jpg?itok=5DOsvuGx",
+      "websiteUrl": "https://www.martela.com/services/interior-and-space-design/interior-designers/tiina-myller",
+      "officialProductUrl": "https://www.martela.com/services/interior-and-space-design/interior-designers/tiina-myller",
+      "source": "og:martela.com",
+      "verified": true,
+      "lastUpdated": "2026-11-18T13:39:19.474Z"
+    }
+  ],
+  "source": "VE-Prescan-Discovery",
+  "budget_tier": "mid",
+  "logo": "https://www.google.com/s2/favicons?domain=martela.com&sz=128",
+  "updated_at": "2026-11-18T13:33:33.719807+00:00",
+  "budgetTier": "mid",
+  "origin": "VE-Prescan-Discovery",
+  "categoryTree": {
+    "Acoustic Pods & Office Furniture": [],
+    "Furniture": [
+      "Single Desks"
+    ],
+    "Interior Designers": [
+      "Conference Chairs"
+    ]
+  },
+  "categoryList": [
+    "Acoustic Pods & Office Furniture",
+    "Furniture",
+    "Interior Designers"
+  ]
+}

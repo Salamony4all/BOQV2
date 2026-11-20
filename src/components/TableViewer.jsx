@@ -19,6 +19,12 @@ import { fixArabic, hasArabic, loadArabicFont } from '../utils/arabicPdfUtils';
 
 import { getApiBase } from '../utils/apiBase';
 import { getFullUrl } from '../utils/urlUtils';
+import {
+    recategorizeTables,
+    resolveSectionDividerMeta,
+    drawPdfCategoryDividerPage,
+    addPptxCategoryDividerSlide
+} from '../utils/boqGroupingUtils';
 
 const API_BASE = getApiBase();
 import { getBrandColors, UI_COLORS } from '../utils/themeConfig';
@@ -39,6 +45,7 @@ function TableViewer({
     const { project, updateProject } = useProject();
     const [selectedImage, setSelectedImage] = useState(null);
     const [tables, setTables] = useState([]); // Base Data
+    const [recategorizeMode, setRecategorizeMode] = useState('original');
     const [costingFactors, setCostingFactors] = useState(null);
     const [isCostingOpen, setCostingOpen] = useState(false);
     const [isMultiBudgetOpen, setMultiBudgetOpen] = useState(false);
@@ -79,7 +86,13 @@ function TableViewer({
     // Load Data
     useEffect(() => {
         if (data && data.tables) {
-            setTables(JSON.parse(JSON.stringify(data.tables)));
+            const rawTables = JSON.parse(JSON.stringify(data.tables));
+            // Keep uploaded BOQs / offers in their exact original sequence by default;
+            // only auto-recategorize when explicitly marked (e.g. extracted Plan Drawings -> 'item').
+            const initMode = data.recategorizeMode || rawTables[0]?.recategorizeMode || 'original';
+            setRecategorizeMode(initMode);
+            const shouldRecat = initMode === 'item' || initMode === 'room';
+            setTables(shouldRecat ? recategorizeTables(rawTables, initMode) : rawTables);
             setVatRates({}); // Reset VAT selections on new upload (defaults back to 5%)
 
             // Allow pre-initialized costing factors from parent (e.g. from MultiBudgetModal)
@@ -88,6 +101,11 @@ function TableViewer({
             }
         }
     }, [data]);
+
+    const handleRecategorizeChange = (nextMode) => {
+        setRecategorizeMode(nextMode);
+        setTables(prev => recategorizeTables(prev, nextMode));
+    };
 
     const firstTable = tables.find(t => t.uploadId);
     const uploadId = firstTable?.uploadId;
@@ -759,10 +777,11 @@ function TableViewer({
 
         // ===== COVER PAGE =====
         // Premium Header Section
+        const coverHeaderHeight = 108;
         doc.setFillColor(...colors.primary);
-        doc.rect(0, 0, pageWidth, 90, 'F');
+        doc.rect(0, 0, pageWidth, coverHeaderHeight, 'F');
         doc.setFillColor(...colors.secondary);
-        doc.rect(0, 90, pageWidth, 1.5, 'F');
+        doc.rect(0, coverHeaderHeight, pageWidth, 1.5, 'F');
 
         // Add Company Logo to Header if available
         const coverLogo = logoWhite || logoOriginal;
@@ -770,8 +789,8 @@ function TableViewer({
             try {
                 const docLogo = await getImageData(coverLogo, { format: 'image/png', maxWidth: 1200 });
                 if (docLogo) {
-                    // Refined size
-                    const fit = calcFitSize(docLogo.width, docLogo.height, 80, 40);
+                    // Refined size inside upper portion of banner
+                    const fit = calcFitSize(docLogo.width, docLogo.height, 76, 34);
                     doc.addImage(docLogo.dataUrl, 'PNG', (pageWidth - fit.w) / 2, 12, fit.w, fit.h);
                 }
             } catch (e) { }
@@ -779,35 +798,36 @@ function TableViewer({
             // Company Name as fallback in Header
             const cName = companyName || 'COMMERCIAL OFFER';
             doc.setTextColor(...colors.white);
-            doc.setFontSize(24);
+            doc.setFontSize(22);
             const isArabicCName = hasArabic(cName);
             doc.setFont(isArabicCName && arabicLoaded ? 'Almarai' : 'helvetica', 'bold');
-            doc.text(isArabicCName ? fixArabic(cName) : cName, pageWidth / 2, 40, { align: 'center' });
+            doc.text(isArabicCName ? fixArabic(cName) : cName, pageWidth / 2, 36, { align: 'center' });
         }
 
-        // Title
+        // Title (placed cleanly inside dark header banner)
         doc.setTextColor(...colors.white);
-        doc.setFontSize(30);
+        doc.setFontSize(26);
         doc.setFont('helvetica', 'bold');
-        doc.text('COMMERCIAL OFFER', pageWidth / 2, 110, { align: 'center' });
+        doc.text('COMMERCIAL OFFER', pageWidth / 2, 66, { align: 'center' });
 
         // Subtitle
-        doc.setFontSize(14);
+        doc.setFontSize(12);
         doc.setFont('helvetica', 'normal');
-        doc.text('Bill of Quantities & Pricing Schedule', pageWidth / 2, 120, { align: 'center' });
+        doc.text('Bill of Quantities & Pricing Schedule', pageWidth / 2, 78, { align: 'center' });
 
-        // Date Badge - Moved down to Y=80 to prevent overlaps
+        // Date Badge inside lower portion of dark banner
         doc.setFillColor(...colors.secondary);
-        doc.roundedRect(pageWidth / 2 - 20, 80, 40, 8, 1.5, 1.5, 'F');
+        doc.roundedRect(pageWidth / 2 - 22, 88, 44, 8, 1.5, 1.5, 'F');
         doc.setFontSize(9);
+        doc.setFont('helvetica', 'bold');
         doc.setTextColor(...colors.primary);
         const today = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-        doc.text(today, pageWidth / 2, 85.5, { align: 'center' });
+        doc.text(today, pageWidth / 2, 93.5, { align: 'center' });
 
         // Document Info Section
         doc.setTextColor(...colors.text);
         doc.setFontSize(10);
-        let infoY = 105;
+        let infoY = 124;
         doc.setFont('helvetica', 'bold');
         doc.text('Document Reference:', 20, infoY);
         doc.setFont('helvetica', 'normal');
@@ -833,14 +853,14 @@ function TableViewer({
                 if (cLogoData) {
                     const cFit = calcFitSize(cLogoData.width, cLogoData.height, 50, 20);
                     // Draw in top right of cover page next to info
-                    doc.addImage(cLogoData.dataUrl, 'PNG', pageWidth - 20 - cFit.w, 105, cFit.w, cFit.h);
+                    doc.addImage(cLogoData.dataUrl, 'PNG', pageWidth - 20 - cFit.w, 120, cFit.w, cFit.h);
                 }
             } catch (e) { }
         }
 
         // Draw Project Details Box on Cover Page if settings exist
         if (project.projectName || project.clientName) {
-            let projY = infoY + 20; // Around 155
+            let projY = infoY + 18; // Around 162
             doc.setFillColor(...colors.lightBg);
             doc.setDrawColor(...colors.secondary);
             doc.setLineWidth(0.5);
@@ -1041,13 +1061,37 @@ function TableViewer({
                 currency: detectedCurrency
             } : null);
 
-            // Prepare table data
+            // Prepare table data with Offer subheaders (Item wise / Room wise)
             const head = [header.map((h, i) => i === imgColIdx ? 'Image' : h)];
-            const body = table.rows.map(row => row.cells.map((c, i) => {
-                if (i === imgColIdx) return '';
-                const val = String(c.value || '');
-                return (arabicLoaded && hasArabic(val)) ? fixArabic(val) : val;
-            }));
+            const body = [];
+            const bodyRowMeta = [];
+            let lastPdfSection = '';
+
+            table.rows.forEach((row, idx) => {
+                if (row.sectionLabel && row.sectionLabel !== lastPdfSection && !row.isHeader && !row.isSummary) {
+                    lastPdfSection = row.sectionLabel;
+                    body.push([{
+                        content: (arabicLoaded && hasArabic(row.sectionLabel)) ? fixArabic(row.sectionLabel) : row.sectionLabel,
+                        colSpan: header.length || 1,
+                        styles: {
+                            fillColor: [254, 243, 199],
+                            textColor: colors.primary,
+                            fontStyle: 'bold',
+                            fontSize: 8.5,
+                            halign: 'left',
+                            cellPadding: 2.2
+                        }
+                    }]);
+                    bodyRowMeta.push({ isSubheader: true, origIdx: -1, rowHeight: 8 });
+                }
+
+                body.push(row.cells.map((c, i) => {
+                    if (i === imgColIdx) return '';
+                    const val = String(c.value || '');
+                    return (arabicLoaded && hasArabic(val)) ? fixArabic(val) : val;
+                }));
+                bodyRowMeta.push({ isSubheader: false, origIdx: idx, rowHeight: rowHeights[idx] || 10 });
+            });
 
             // Append summary rows directly to body
             if (tableSummary) {
@@ -1182,21 +1226,22 @@ function TableViewer({
                     // Set dynamic row height based on image count
                     if (data.section === 'body') {
                         const isSummaryRow = tableSummary && data.row.index >= body.length - 3;
-                        if (isSummaryRow) {
+                        const rowMeta = bodyRowMeta[data.row.index];
+                        if (isSummaryRow || !rowMeta || rowMeta.isSubheader) {
                             data.cell.styles.minCellHeight = 8;
                             return;
                         }
-                        const customHeight = rowHeights[data.row.index] || 10;
-                        data.cell.styles.minCellHeight = customHeight;
+                        data.cell.styles.minCellHeight = rowMeta.rowHeight || 10;
                     }
                 },
                 didDrawCell: (data) => {
                     const isSummaryRow = tableSummary && data.row.index >= body.length - 3;
-                    if (isSummaryRow) return;
+                    const rowMeta = bodyRowMeta[data.row.index];
+                    if (isSummaryRow || !rowMeta || rowMeta.isSubheader) return;
 
                     // Draw multiple images in a grid layout
                     if (imgColIdx >= 0 && data.column.index === imgColIdx && data.section === 'body') {
-                        const images = imageDataMap[data.row.index];
+                        const images = imageDataMap[rowMeta.origIdx];
                         if (images && images.length > 0) {
                             const cellW = data.cell.width - 2;
                             const cellH = data.cell.height - 2;
@@ -1558,7 +1603,26 @@ function TableViewer({
             }
 
             const maxImages = Math.max(...Object.values(imageDataByRow).map(arr => arr?.length || 0), 1);
+            let lastExcelSection = '';
+            let firstDataExcelRow = null;
+            let lastDataExcelRow = null;
+
             table.rows.forEach((row, rowIndex) => {
+                if (row.sectionLabel && row.sectionLabel !== lastExcelSection && !row.isHeader && !row.isSummary) {
+                    lastExcelSection = row.sectionLabel;
+                    const secRow = ws.addRow([row.sectionLabel]);
+                    secRow.height = 22;
+                    ws.mergeCells(secRow.number, 1, secRow.number, Math.max(header.length, 1));
+                    const secCell = secRow.getCell(1);
+                    secCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FEF3C7' } };
+                    secCell.font = { bold: true, size: 11, color: { argb: primaryArgb } };
+                    secCell.alignment = { vertical: 'middle', horizontal: 'left' };
+                    secCell.border = {
+                        top: { style: 'thin', color: { argb: secondaryArgb } },
+                        bottom: { style: 'thin', color: { argb: secondaryArgb } }
+                    };
+                }
+
                 const rowData = row.cells.map((c, i) => {
                     if (i === imgColIdx) return ''; // Clear image column text
                     const valStr = String(c && c.value !== undefined ? c.value : '').trim();
@@ -1570,6 +1634,8 @@ function TableViewer({
                     return c ? c.value : '';
                 });
                 const dataRow = ws.addRow(rowData);
+                if (firstDataExcelRow === null) firstDataExcelRow = dataRow.number;
+                lastDataExcelRow = dataRow.number;
 
                 // Calculate row height based on number of images
                 const imgCount = imageDataByRow[rowIndex]?.length || 0;
@@ -1597,7 +1663,7 @@ function TableViewer({
                     }
                 });
 
-                const excelRow = rowIndex + startRowOffset + 2; // +1 for header, +1 for 1-indexed, offset by project info rows
+                const excelRow = dataRow.number; // Exact Excel row number accounting for inserted subheaders
 
                 const hasQtyCol = qtyColIdx !== -1;
                 const hasRateCol = rateColIdx !== -1;
@@ -1727,8 +1793,8 @@ function TableViewer({
                 currency: detectedCurrency
             } : null);
 
-            const firstDataRow = startRowOffset + 2;
-            const lastDataRow = startRowOffset + 1 + table.rows.length;
+            const firstDataRow = firstDataExcelRow || (startRowOffset + 2);
+            const lastDataRow = lastDataExcelRow || (startRowOffset + 1 + table.rows.length);
 
             if (tableSummary) {
                 ws.addRow([]); // Gap row at lastDataRow + 1
@@ -1821,6 +1887,57 @@ function TableViewer({
         saveAs(blob, `${filename}.xlsx`);
     };
 
+    const loadSubmissionLogos = async () => {
+        const headerLogo = logoWhite || logoOriginal;
+        const [headerLogoData, clientLogoData] = await Promise.all([
+            headerLogo ? getImageData(headerLogo, { format: 'image/png', maxWidth: 600 }).catch(() => null) : Promise.resolve(null),
+            project.clientLogo ? getImageData(project.clientLogo, { format: 'image/png', maxWidth: 600 }).catch(() => null) : Promise.resolve(null)
+        ]);
+        return { headerLogoData, clientLogoData };
+    };
+
+    const collectActiveTableRows = (table) =>
+        (table?.rows || []).filter(r => r && !r.isHeader && !r.isSummary && (r.cells || []).some(c => c?.value));
+
+    const maybeInsertSubmissionDividerPage = (doc, {
+        row,
+        tableRows,
+        rowIdx,
+        lastSectionRef,
+        pageAddedRef,
+        submissionType,
+        colors,
+        headerLogoData,
+        clientLogoData,
+        processText
+    }) => {
+        const currentSection = row?.sectionLabel || '';
+        if (!currentSection || currentSection === lastSectionRef.value) return;
+        lastSectionRef.value = currentSection;
+        const groupRows = [];
+        for (let i = rowIdx; i < tableRows.length; i++) {
+            const candidate = tableRows[i];
+            if ((candidate?.sectionLabel || '') !== currentSection) break;
+            groupRows.push(candidate);
+        }
+        const divMeta = resolveSectionDividerMeta(groupRows, currentSection);
+        if (pageAddedRef.value) doc.addPage();
+        pageAddedRef.value = true;
+        drawPdfCategoryDividerPage(doc, {
+            categoryTitle: divMeta.categoryTitle,
+            subheaderTitle: divMeta.subheaderTitle,
+            itemCount: divMeta.itemCount,
+            submissionType,
+            project,
+            companyName,
+            colors,
+            headerLogoData,
+            clientLogoData,
+            calcFitSize,
+            processText
+        });
+    };
+
     // ===================== PREMIUM MAS (MATERIAL APPROVAL SHEET) =====================
     const handleGenerateMas = async (sourceTables) => {
         const doc = new jsPDF();
@@ -1830,7 +1947,8 @@ function TableViewer({
         const arabicLoaded = await loadArabicFont(doc);
         const processText = (txt) => (arabicLoaded && hasArabic(txt)) ? fixArabic(txt) : String(txt || '');
 
-        let pageAdded = false;
+        const pageAddedRef = { value: false };
+        const lastSectionRef = { value: '' };
         let itemNumber = 1;
 
         const brandColors = getBrandColors(accentColor, secondaryColor);
@@ -1843,16 +1961,32 @@ function TableViewer({
             white: [255, 255, 255]
         };
 
+        const { headerLogoData, clientLogoData } = await loadSubmissionLogos();
+
         for (const table of sourceTables) {
             const header = table.header || [];
             const descIdx = header.findIndex(h => /description|desc/i.test(h));
             const brandIdx = header.findIndex(h => /brand|maker|origin/i.test(h));
             const qtyIdx = header.findIndex(h => /qty|quantity/i.test(h));
+            const activeRows = collectActiveTableRows(table);
 
-            for (const row of table.rows) {
-                if (!row.cells.some(c => c.value)) continue;
-                if (pageAdded) doc.addPage();
-                pageAdded = true;
+            for (let rIdx = 0; rIdx < activeRows.length; rIdx++) {
+                const row = activeRows[rIdx];
+                maybeInsertSubmissionDividerPage(doc, {
+                    row,
+                    tableRows: activeRows,
+                    rowIdx: rIdx,
+                    lastSectionRef,
+                    pageAddedRef,
+                    submissionType: 'MATERIAL APPROVAL SHEET',
+                    colors,
+                    headerLogoData,
+                    clientLogoData,
+                    processText
+                });
+
+                if (pageAddedRef.value) doc.addPage();
+                pageAddedRef.value = true;
 
                 // ===== COMPACT HEADER =====
                 doc.setFillColor(...colors.primary);
@@ -1864,6 +1998,11 @@ function TableViewer({
                 doc.setFontSize(14);
                 doc.setFont('helvetica', 'bold');
                 doc.text('MATERIAL APPROVAL SHEET', pageWidth / 2, 13, { align: 'center' });
+                if (row.submissionTitle || row.sectionLabel) {
+                    doc.setFontSize(7.5);
+                    doc.setFont('helvetica', 'normal');
+                    doc.text(processText(String(row.submissionTitle || row.sectionLabel)), pageWidth / 2, 25, { align: 'center' });
+                }
 
                 // Company Logo in Header
                 const masHeaderLogo = logoWhite || logoOriginal;
@@ -2112,7 +2251,8 @@ function TableViewer({
         const pageWidth = doc.internal.pageSize.getWidth();
         const pageHeight = doc.internal.pageSize.getHeight();
         const arabicLoaded = await loadArabicFont(doc);
-        let pageAdded = false;
+        const pageAddedRef = { value: false };
+        const lastSectionRef = { value: '' };
         let itemNumber = 1;
 
         const brandColors = getBrandColors(accentColor, secondaryColor);
@@ -2130,6 +2270,7 @@ function TableViewer({
         const processText = (txt) => (arabicLoaded && hasArabic(txt)) ? fixArabic(txt) : String(txt || '');
         const today = new Date().toLocaleDateString('en-GB');
         const mirRef = project.mirReference || `MIR-${Date.now().toString().slice(-6)}`;
+        const { headerLogoData, clientLogoData } = await loadSubmissionLogos();
 
         for (const table of sourceTables) {
             const header = table.header || [];
@@ -2140,11 +2281,25 @@ function TableViewer({
             const uomIdx = header.findIndex(h => /uom|unit/i.test(h));
             const snIdx = header.findIndex(h => /s\.?n|no\.|#|sr|item|sl/i.test(h));
             const codeIdx = header.findIndex(h => /code|item.*code|ref/i.test(h));
+            const activeRows = collectActiveTableRows(table);
 
-            for (const row of table.rows) {
-                if (!row.cells.some(c => c.value)) continue;
-                if (pageAdded) doc.addPage();
-                pageAdded = true;
+            for (let rIdx = 0; rIdx < activeRows.length; rIdx++) {
+                const row = activeRows[rIdx];
+                maybeInsertSubmissionDividerPage(doc, {
+                    row,
+                    tableRows: activeRows,
+                    rowIdx: rIdx,
+                    lastSectionRef,
+                    pageAddedRef,
+                    submissionType: 'MATERIAL INSPECTION REQUEST',
+                    colors,
+                    headerLogoData,
+                    clientLogoData,
+                    processText
+                });
+
+                if (pageAddedRef.value) doc.addPage();
+                pageAddedRef.value = true;
 
                 let codeRaw = codeIdx > -1 ? String(row.cells[codeIdx].value || '') : '';
                 let snRaw = snIdx > -1 ? String(row.cells[snIdx].value || '') : '';
@@ -2189,6 +2344,10 @@ function TableViewer({
                 doc.setFontSize(7.5);
                 doc.setFont('helvetica', 'normal');
                 doc.text(`Ref: ${rowMirRef}   |   Item ${displayTitle}   |   Date: ${today}`, pageWidth / 2, 22, { align: 'center' });
+                if (row.submissionTitle || row.sectionLabel) {
+                    doc.setFontSize(7);
+                    doc.text(processText(String(row.submissionTitle || row.sectionLabel)), pageWidth / 2, 27, { align: 'center' });
+                }
 
                 // ── PROJECT INFO ──
                 const pY = 32;
@@ -2416,7 +2575,8 @@ function TableViewer({
         const pageWidth = doc.internal.pageSize.getWidth();
         const pageHeight = doc.internal.pageSize.getHeight();
         const arabicLoaded = await loadArabicFont(doc);
-        let pageAdded = false;
+        const pageAddedRef = { value: false };
+        const lastSectionRef = { value: '' };
         let itemNumber = 1;
 
         const brandColors = getBrandColors(accentColor, secondaryColor);
@@ -2433,6 +2593,7 @@ function TableViewer({
         const processText = (txt) => (arabicLoaded && hasArabic(txt)) ? fixArabic(txt) : String(txt || '');
         const today = new Date().toLocaleDateString('en-GB');
         const wirRef = project.wirReference || `WIR-${Date.now().toString().slice(-6)}`;
+        const { headerLogoData, clientLogoData } = await loadSubmissionLogos();
 
         for (const table of sourceTables) {
             const header = table.header || [];
@@ -2443,11 +2604,25 @@ function TableViewer({
             const uomIdx = header.findIndex(h => /uom|unit/i.test(h));
             const snIdx = header.findIndex(h => /s\.?n|no\.|#|sr|item|sl/i.test(h));
             const codeIdx = header.findIndex(h => /code|item.*code|ref/i.test(h));
+            const activeRows = collectActiveTableRows(table);
 
-            for (const row of table.rows) {
-                if (!row.cells.some(c => c.value)) continue;
-                if (pageAdded) doc.addPage();
-                pageAdded = true;
+            for (let rIdx = 0; rIdx < activeRows.length; rIdx++) {
+                const row = activeRows[rIdx];
+                maybeInsertSubmissionDividerPage(doc, {
+                    row,
+                    tableRows: activeRows,
+                    rowIdx: rIdx,
+                    lastSectionRef,
+                    pageAddedRef,
+                    submissionType: 'WORK INSPECTION REQUEST',
+                    colors,
+                    headerLogoData,
+                    clientLogoData,
+                    processText
+                });
+
+                if (pageAddedRef.value) doc.addPage();
+                pageAddedRef.value = true;
 
                 let codeRaw = codeIdx > -1 ? String(row.cells[codeIdx].value || '') : '';
                 let snRaw = snIdx > -1 ? String(row.cells[snIdx].value || '') : '';
@@ -2492,6 +2667,10 @@ function TableViewer({
                 doc.setFontSize(7.5);
                 doc.setFont('helvetica', 'normal');
                 doc.text(`Ref: ${rowWirRef}   |   Item ${displayTitle}   |   Date: ${today}`, pageWidth / 2, 22, { align: 'center' });
+                if (row.submissionTitle || row.sectionLabel) {
+                    doc.setFontSize(7);
+                    doc.text(processText(String(row.submissionTitle || row.sectionLabel)), pageWidth / 2, 27, { align: 'center' });
+                }
 
                 // ── PROJECT INFO ──
                 const pY = 32;
@@ -2735,10 +2914,12 @@ function TableViewer({
         const dnRef = project.dnReference || `DN-${Date.now().toString().slice(-6)}`;
 
         // Pre-load logos
-        const [whiteLogoInfo, colorLogoInfo] = await Promise.all([
+        const [whiteLogoInfo, colorLogoInfo, clientLogoInfo] = await Promise.all([
             logoWhite ? getImageData(logoWhite, { format: 'image/png', maxWidth: 400 }).catch(() => null) : Promise.resolve(null),
-            logoOriginal ? getImageData(logoOriginal, { format: 'image/png', maxWidth: 400 }).catch(() => null) : Promise.resolve(null)
+            logoOriginal ? getImageData(logoOriginal, { format: 'image/png', maxWidth: 400 }).catch(() => null) : Promise.resolve(null),
+            project.clientLogo ? getImageData(project.clientLogo, { format: 'image/png', maxWidth: 400 }).catch(() => null) : Promise.resolve(null)
         ]);
+        const dividerHeaderLogo = whiteLogoInfo || colorLogoInfo;
 
         // Header Helper - Shrunk to height 30 and symmetric logo
         const drawHeader = () => {
@@ -2764,31 +2945,28 @@ function TableViewer({
             doc.text(`Date: ${today}`, pageWidth - 10, 24, { align: 'right' });
         };
 
-        drawHeader();
+        const drawProjectCard = (startY) => {
+            doc.setFillColor(...colors.lightBg);
+            doc.setDrawColor(...colors.border);
+            doc.roundedRect(10, startY, pageWidth - 20, 35, 2, 2, 'FD');
 
-        // Project Info - Card starting at Y=35 to fix overlaps
-        let currentY = 35;
-        doc.setFillColor(...colors.lightBg);
-        doc.setDrawColor(...colors.border);
-        doc.roundedRect(10, currentY, pageWidth - 20, 35, 2, 2, 'FD');
+            const pRows = [
+                ['Project:', project.projectName || '—', 'Client:', project.clientName || '—'],
+                ['Location:', project.locationZone || '—', 'Project No:', project.projectNumber || '—'],
+                ['Contractor:', project.contractor || '—', 'Consultant:', project.consultant || '—'],
+                ['Delivery Mode:', 'Road Transport', 'Status:', 'Good Condition'],
+            ];
 
-        const pRows = [
-            ['Project:', project.projectName || '—', 'Client:', project.clientName || '—'],
-            ['Location:', project.locationZone || '—', 'Project No:', project.projectNumber || '—'],
-            ['Contractor:', project.contractor || '—', 'Consultant:', project.consultant || '—'],
-            ['Delivery Mode:', 'Road Transport', 'Status:', 'Good Condition'],
-        ];
-
-        pRows.forEach((r, i) => {
-            const y = currentY + 8 + i * 7;
-            doc.setFontSize(9);
-            doc.setFont('helvetica', 'bold'); doc.setTextColor(...colors.primary); doc.text(r[0], 15, y);
-            doc.setFont('helvetica', 'normal'); doc.setTextColor(...colors.text); doc.text(processText(r[1]), 42, y);
-            doc.setFont('helvetica', 'bold'); doc.setTextColor(...colors.primary); doc.text(r[2], pageWidth / 2 + 5, y);
-            doc.setFont('helvetica', 'normal'); doc.setTextColor(...colors.text); doc.text(processText(r[3]), pageWidth / 2 + 38, y);
-        });
-
-        currentY += 45;
+            pRows.forEach((r, i) => {
+                const y = startY + 8 + i * 7;
+                doc.setFontSize(9);
+                doc.setFont('helvetica', 'bold'); doc.setTextColor(...colors.primary); doc.text(r[0], 15, y);
+                doc.setFont('helvetica', 'normal'); doc.setTextColor(...colors.text); doc.text(processText(r[1]), 42, y);
+                doc.setFont('helvetica', 'bold'); doc.setTextColor(...colors.primary); doc.text(r[2], pageWidth / 2 + 5, y);
+                doc.setFont('helvetica', 'normal'); doc.setTextColor(...colors.text); doc.text(processText(r[3]), pageWidth / 2 + 38, y);
+            });
+            return startY + 42;
+        };
 
         // Collect Items
         const allItems = [];
@@ -2808,59 +2986,121 @@ function TableViewer({
                     description: descIdx > -1 ? String(row.cells[descIdx]?.value || '') : 'N/A',
                     brand: brandIdx > -1 ? String(row.cells[brandIdx]?.value || '') : '—',
                     qty: qtyVal,
-                    unit: unitIdx > -1 ? String(row.cells[unitIdx]?.value || '') : 'No.'
+                    unit: unitIdx > -1 ? String(row.cells[unitIdx]?.value || '') : 'No.',
+                    sectionLabel: row.sectionLabel || '',
+                    sectionCategory: row.sectionCategory || '',
+                    sectionSubheader: row.sectionSubheader || '',
+                    submissionTitle: row.submissionTitle || ''
                 });
             });
         });
 
-        autoTable(doc, {
-            startY: currentY,
-            margin: { top: 30, left: 10, right: 10 },
-            head: [['S.N', 'Material Description', 'Brand / Origin', 'Unit', 'Delivered Qty', 'Remarks']],
-            body: allItems.map((item, i) => [
-                i + 1,
-                processText(item.description),
-                processText(item.brand),
-                processText(item.unit),
-                item.qty,
-                ''
-            ]),
-            theme: 'grid',
-            styles: {
-                fontSize: 8,
-                cellPadding: 3,
-                font: arabicLoaded ? 'Almarai' : 'helvetica',
-                valign: 'middle'
-            },
-            headStyles: {
-                fillColor: colors.primary,
-                textColor: colors.white,
-                fontStyle: 'bold',
-                halign: 'center'
-            },
-            columnStyles: {
-                0: { cellWidth: 10, halign: 'center' },
-                1: { cellWidth: 'auto' },
-                2: { cellWidth: 35 },
-                3: { cellWidth: 15, halign: 'center' },
-                4: { cellWidth: 25, halign: 'center' },
-                5: { cellWidth: 25 }
-            },
-            didDrawPage: (data) => {
-                // For pages > 1, add the colored logo on white background
-                if (doc.internal.getNumberOfPages() > 1) {
-                    const dlCol = colorLogoInfo || whiteLogoInfo;
-                    if (dlCol) {
-                        const fit = calcFitSize(dlCol.width, dlCol.height, 105, 36);
-                        doc.addImage(dlCol.dataUrl, 'PNG', 10, 8, fit.w, fit.h);
-                    }
+        const hasCategorizedSections = allItems.some(item => item.sectionLabel);
+        const sections = [];
+        if (hasCategorizedSections) {
+            allItems.forEach(item => {
+                const label = item.sectionLabel || 'GENERAL ITEMS';
+                const lastSec = sections[sections.length - 1];
+                if (!lastSec || lastSec.label !== label) {
+                    sections.push({ label, items: [item] });
+                } else {
+                    lastSec.items.push(item);
                 }
+            });
+        } else {
+            sections.push({ label: '', items: allItems });
+        }
 
-                doc.setFontSize(8);
-                doc.setTextColor(150, 150, 150);
-                doc.text(`Reference: ${dnRef} | Page ${doc.internal.getNumberOfPages()}`, pageWidth / 2, pageHeight - 10, { align: 'center' });
+        let globalSn = 1;
+        for (let sIdx = 0; sIdx < sections.length; sIdx++) {
+            const sec = sections[sIdx];
+            let tableStartY = 80;
+
+            if (hasCategorizedSections) {
+                const divMeta = resolveSectionDividerMeta(sec.items, sec.label);
+                if (sIdx > 0) doc.addPage();
+                drawPdfCategoryDividerPage(doc, {
+                    categoryTitle: divMeta.categoryTitle,
+                    subheaderTitle: divMeta.subheaderTitle,
+                    itemCount: divMeta.itemCount,
+                    submissionType: 'DELIVERY NOTE',
+                    project,
+                    companyName,
+                    colors,
+                    headerLogoData: dividerHeaderLogo,
+                    clientLogoData: clientLogoInfo,
+                    calcFitSize,
+                    processText
+                });
+
+                doc.addPage();
+                drawHeader();
+                let currentY = sIdx === 0 ? drawProjectCard(35) : 35;
+
+                // Compact section banner right above the section Delivery Note table
+                doc.setFillColor(...colors.lightBg);
+                doc.setDrawColor(...colors.accent);
+                doc.setLineWidth(0.4);
+                doc.roundedRect(10, currentY, pageWidth - 20, 9, 1.5, 1.5, 'FD');
+                doc.setFontSize(9);
+                doc.setFont('helvetica', 'bold');
+                doc.setTextColor(...colors.primary);
+                doc.text(processText(divMeta.fullTitle), 14, currentY + 6);
+                tableStartY = currentY + 13;
+            } else {
+                drawHeader();
+                tableStartY = drawProjectCard(35);
             }
-        });
+
+            autoTable(doc, {
+                startY: tableStartY,
+                margin: { top: 30, left: 10, right: 10 },
+                head: [['S.N', 'Material Description', 'Brand / Origin', 'Unit', 'Delivered Qty', 'Remarks']],
+                body: sec.items.map(item => [
+                    globalSn++,
+                    processText(item.description),
+                    processText(item.brand),
+                    processText(item.unit),
+                    item.qty,
+                    ''
+                ]),
+                theme: 'grid',
+                styles: {
+                    fontSize: 8,
+                    cellPadding: 3,
+                    font: arabicLoaded ? 'Almarai' : 'helvetica',
+                    valign: 'middle'
+                },
+                headStyles: {
+                    fillColor: colors.primary,
+                    textColor: colors.white,
+                    fontStyle: 'bold',
+                    halign: 'center'
+                },
+                columnStyles: {
+                    0: { cellWidth: 10, halign: 'center' },
+                    1: { cellWidth: 'auto' },
+                    2: { cellWidth: 35 },
+                    3: { cellWidth: 15, halign: 'center' },
+                    4: { cellWidth: 25, halign: 'center' },
+                    5: { cellWidth: 25 }
+                },
+                didDrawPage: (data) => {
+                    // For overflow pages within a table, add colored logo in white margin
+                    if (data.pageNumber > 1) {
+                        const dlCol = colorLogoInfo || whiteLogoInfo;
+                        if (dlCol) {
+                            const fit = calcFitSize(dlCol.width, dlCol.height, 105, 36);
+                            doc.addImage(dlCol.dataUrl, 'PNG', 10, 8, fit.w, fit.h);
+                        }
+                    }
+
+                    doc.setFontSize(8);
+                    doc.setTextColor(150, 150, 150);
+                    doc.text(`Reference: ${dnRef} | Page ${doc.internal.getNumberOfPages()}`, pageWidth / 2, pageHeight - 10, { align: 'center' });
+                }
+            });
+        }
 
         let lastY = doc.lastAutoTable.finalY + 20;
         if (lastY > pageHeight - 40) {
@@ -3149,6 +3389,8 @@ function TableViewer({
         }
 
         let itemNum = 1;
+        let lastSection = '';
+        const headerSubColor = layoutStyle === 'minimalist' ? '64748B' : 'E2E8F0';
 
         for (const table of sourceTables) {
             const header = table.header || [];
@@ -3159,9 +3401,37 @@ function TableViewer({
             const brandIdx = header.findIndex(h => !/image|photo/i.test(h) && /brand|maker|origin|country/i.test(h));
             const qtyIdx = header.findIndex(h => /qty|quantity|qt/i.test(h));
             const finishIdx = header.findIndex(h => /finish|color|material/i.test(h));
+            const activeRows = collectActiveTableRows(table);
 
-            for (const row of table.rows) {
-                if (row.isHeader || row.isSummary || !row.cells?.some(c => c?.value)) continue;
+            for (let rIdx = 0; rIdx < activeRows.length; rIdx++) {
+                const row = activeRows[rIdx];
+                const currentSection = row.sectionLabel || '';
+                if (currentSection && currentSection !== lastSection) {
+                    lastSection = currentSection;
+                    const groupRows = [];
+                    for (let k = rIdx; k < activeRows.length; k++) {
+                        if ((activeRows[k]?.sectionLabel || '') !== currentSection) break;
+                        groupRows.push(activeRows[k]);
+                    }
+                    const divMeta = resolveSectionDividerMeta(groupRows, currentSection);
+                    addPptxCategoryDividerSlide(pres, {
+                        masterName: 'BOQ_MASTER',
+                        categoryTitle: divMeta.categoryTitle,
+                        subheaderTitle: divMeta.subheaderTitle,
+                        itemCount: divMeta.itemCount,
+                        colors: {
+                            primary: brandColors.primary,
+                            accent: brandColors.accent,
+                            text: brandColors.text,
+                            lightText: brandColors.lightText,
+                            lightBg: brandColors.lightBg
+                        },
+                        drawSlideDecorations,
+                        logoData: companyLogoData,
+                        calcFitSize,
+                        projectName: project.projectName || ''
+                    });
+                }
 
                 const slide = pres.addSlide({ masterName: 'BOQ_MASTER' });
                 drawSlideDecorations(slide);
@@ -3235,11 +3505,18 @@ function TableViewer({
                 // Dynamically offset titleX and titleW based on logos width to prevent any overlapping
                 const titleX = clientLogoData ? (0.2 + clientLogoW + 0.15) : 0.2;
                 const titleW = 10 - titleX - (companyLogoData ? (companyLogoW + 0.15) : 0.2);
+                const titleSub = row.submissionTitle || row.sectionLabel;
 
                 slide.addText(`Item ${itemNum}: ${headerTitle}`, {
-                    x: titleX, y: 0.15, w: titleW, h: 0.4,
+                    x: titleX, y: titleSub ? 0.08 : 0.15, w: titleW, h: titleSub ? 0.36 : 0.4,
                     fontSize: 14, color: headerTextColor, bold: true, fontFace: fontFace, valign: 'middle'
                 });
+                if (titleSub) {
+                    slide.addText(String(titleSub), {
+                        x: titleX, y: 0.45, w: titleW, h: 0.24,
+                        fontSize: 9.5, color: headerSubColor, fontFace: fontFace, valign: 'middle'
+                    });
+                }
 
                 // ===== LEFT SIDE: IMAGE(S) - Pre-load and calculate exact dimensions =====
                 const imgAreaX = 0.25;
@@ -3549,8 +3826,14 @@ function TableViewer({
             border: brandColors.borderRgb
         };
 
+        const arabicLoaded = await loadArabicFont(doc);
+        const processText = (txt) => (arabicLoaded && hasArabic(txt)) ? fixArabic(txt) : String(txt || '');
+        const { headerLogoData, clientLogoData } = await loadSubmissionLogos();
+
         let itemNumber = 1;
-        const totalItems = sourceTables.reduce((acc, t) => acc + t.rows.length, 0);
+        const pageAddedRef = { value: true };
+        const lastSectionRef = { value: '' };
+        const totalItems = sourceTables.reduce((acc, t) => acc + collectActiveTableRows(t).length, 0);
 
         // ===== TITLE PAGE =====
         doc.setFillColor(...colors.bg);
@@ -3582,9 +3865,23 @@ function TableViewer({
             const brandIdx = header.findIndex(h => /brand|maker|origin/i.test(h));
             const qtyIdx = header.findIndex(h => /qty|quantity/i.test(h));
             const finishIdx = header.findIndex(h => /finish|color|material/i.test(h));
+            const activeRows = collectActiveTableRows(table);
 
-            for (const row of table.rows) {
-                if (!row.cells.some(c => c.value)) continue;
+            for (let rIdx = 0; rIdx < activeRows.length; rIdx++) {
+                const row = activeRows[rIdx];
+                maybeInsertSubmissionDividerPage(doc, {
+                    row,
+                    tableRows: activeRows,
+                    rowIdx: rIdx,
+                    lastSectionRef,
+                    pageAddedRef,
+                    submissionType: 'PRODUCT PRESENTATION',
+                    colors,
+                    headerLogoData,
+                    clientLogoData,
+                    processText
+                });
+
                 doc.addPage();
 
                 // Background
@@ -3610,10 +3907,6 @@ function TableViewer({
                 doc.setFillColor(...colors.accent);
                 doc.rect(0, 55, pageWidth, 2, 'F');
 
-                // Item title in header - handle multi-line if needed
-                const arabicLoaded = await loadArabicFont(doc);
-                const processText = (txt) => (arabicLoaded && hasArabic(txt)) ? fixArabic(txt) : String(txt || '');
-
                 doc.setTextColor(...colors.bg);
                 doc.setFontSize(14);
                 doc.setFont(arabicLoaded ? 'Almarai' : 'helvetica', 'bold');
@@ -3625,6 +3918,11 @@ function TableViewer({
                     doc.text(tl, 8, currentTitleY);
                     currentTitleY += 8;
                 });
+                if (row.submissionTitle || row.sectionLabel) {
+                    doc.setFontSize(9);
+                    doc.setFont('helvetica', 'normal');
+                    doc.text(processText(String(row.submissionTitle || row.sectionLabel)), 8, 48);
+                }
 
                 // Company logo area (top right)
                 // This PDF version has a white background in the header area, so prefer original logo
@@ -4091,6 +4389,22 @@ function TableViewer({
         ))
     );
 
+    const renderRecategorizeControl = (suffix = 'main') => (
+        <div className={styles.recatBar} title="Group extracted BOQ items via subheaders & categorized submissions">
+            <label className={styles.recatBarLabel} htmlFor={`table-viewer-recat-${suffix}`}>Recategorize</label>
+            <select
+                id={`table-viewer-recat-${suffix}`}
+                className={styles.recatBarSelect}
+                value={recategorizeMode}
+                onChange={(e) => handleRecategorizeChange(e.target.value)}
+            >
+                <option value="original">Original Order (As Is)</option>
+                <option value="item">Item wise</option>
+                <option value="room">Room wise</option>
+            </select>
+        </div>
+    );
+
     if (!tables || tables.length === 0) return <div className={styles.noData}>No tables found in the uploaded file</div>;
 
     return (
@@ -4099,10 +4413,11 @@ function TableViewer({
             {/* 1. Original Data Top Header */}
             <div className={styles.header}>
                 <h2 className={styles.title}> Extracted Data ({tables.length} {tables.length === 1 ? 'Table' : 'Tables'})</h2>
+                {renderRecategorizeControl('original')}
             </div>
 
             {/* Render Original Tables */}
-            {renderTableList(tables, false)}
+            {renderTableList(tablesWithSummary, false)}
 
             {/* Project Settings Panel */}
             <ProjectSettingsPanel isOpen={isProjectPanelOpen} onClose={() => setProjectPanelOpen(false)} />
@@ -4125,8 +4440,8 @@ function TableViewer({
                     </button>
                 </div>
                 <div className={actionStyles.buttonGroup}>
-                    <button className={actionStyles.actionBtn} onClick={() => handleDownloadPDF(tables, 'Original_Offer')}> Download Offer PDF</button>
-                    <button className={actionStyles.actionBtn} onClick={() => handleDownloadExcel(tables, 'Original_Offer')}> Download Offer Excel</button>
+                    <button className={actionStyles.actionBtn} onClick={() => handleDownloadPDF(tablesWithSummary, 'Original_Offer')}> Download Offer PDF</button>
+                    <button className={actionStyles.actionBtn} onClick={() => handleDownloadExcel(tablesWithSummary, 'Original_Offer')}> Download Offer Excel</button>
                     <button
                         className={`${actionStyles.actionBtn} ${generatingType === 'pptx_original' ? actionStyles.loading : ''}`}
                         onClick={() => triggerPptxExport(tables, false, false)}
@@ -4195,6 +4510,7 @@ function TableViewer({
                 <div id="costed-results" style={{ animation: 'fadeInUp 0.5s ease' }}>
                     <div className={styles.header}>
                         <h2 className={styles.title} style={{ color: UI_COLORS.costing }}> Cost Simulation Results</h2>
+                        {renderRecategorizeControl('costed')}
                     </div>
                     {renderTableList(costedTables, true)}
 

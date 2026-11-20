@@ -1,0 +1,110 @@
+{
+  "id": "1795099699138",
+  "name": "Tuntex",
+  "products": [
+    {
+      "brand": "Tuntex",
+      "model": "LA09 Piazza Navona",
+      "family": "LA09",
+      "mainCategory": "Flooring",
+      "subCategory": "Carpet Tiles",
+      "description": "LA09 Piazza Navona draws inspiration from Rome’s iconic Piazza Navona, capturing the timeless beauty of its weathered limestone facades. The design recreates the mottled textures and sun-warmed tones of aged stone, juxtaposing organic irregularities with precise geometric patterns. This interplay of rough, natural aesthetics and structured lines evokes the piazza’s dynamic energy, translating centuries of architectural heritage into a contemporary floorscape.",
+      "imageUrl": "https://tuntex-s3-staticfiles.s3.ap-southeast-1.amazonaws.com/s3fs-public/2025-05/LA0901%201_0.jpg",
+      "websiteUrl": "https://www.tuntex-carpet.com/en/product/la09-piazza-navona",
+      "productUrl": "https://www.tuntex-carpet.com/en/product/la09-piazza-navona",
+      "officialProductUrl": "https://www.tuntex-carpet.com/en/product/la09-piazza-navona",
+      "price": 0,
+      "currency": "USD",
+      "verified": true,
+      "source": "og:tuntex-carpet.com",
+      "category": "Flooring"
+    },
+    {
+      "brand": "Tuntex",
+      "model": "T102 Linen",
+      "family": "T102",
+      "mainCategory": "Flooring",
+      "subCategory": "Carpet Tiles",
+      "description": "Linen fabrics are commonly used for clothing, bedding and other residential purposes and always create a cozy and comfortable feeling. Inspired by the texture of linen fabric, T102 Linen brings more warmth and comfort to commercial spaces.",
+      "imageUrl": "https://tuntex-s3-staticfiles.s3.ap-southeast-1.amazonaws.com/s3fs-public/2024-02/2-t10201.jpg",
+      "websiteUrl": "https://www.tuntex-carpet.com/en/product/t102-linen",
+      "productUrl": "https://www.tuntex-carpet.com/en/product/t102-linen",
+      "officialProductUrl": "https://www.tuntex-carpet.com/en/product/t102-linen",
+      "price": 0,
+      "currency": "USD",
+      "verified": true,
+      "source": "og:tuntex-carpet.com",
+      "lastUpdated": "2026-11-19T14:48:14.056Z",
+      "category": "Flooring"
+    },
+    {
+      "brand": "Tuntex",
+      "model": "Homeward Collection",
+      "family": "",
+      "mainCategory": "Flooring",
+      "subCategory": "Carpet Tiles",
+      "description": "Homeward Collection is a visual narrative exploring the relationships between people, space, and scale.",
+      "price": 0,
+      "currency": "USD",
+      "imageUrl": "https://tuntex-s3-staticfiles.s3.ap-southeast-1.amazonaws.com/s3fs-public/2026-10/cover.jpg",
+      "websiteUrl": "https://www.tuntex-carpet.com/en/design/homeward-collection",
+      "officialProductUrl": "https://www.tuntex-carpet.com/en/design/homeward-collection",
+      "source": "og:tuntex-carpet.com",
+      "verified": true,
+      "lastUpdated": "2026-11-19T14:48:24.174Z",
+      "category": "Flooring"
+    },
+    {
+      "brand": "Tuntex",
+      "model": "After Rain Collection",
+      "family": "",
+      "mainCategory": "Flooring",
+      "subCategory": "Carpet Tiles",
+      "description": "After-Rain Collection traces the atmospheric shifts of a rain shower through texture and tone.",
+      "price": 0,
+      "currency": "USD",
+      "imageUrl": "https://tuntex-s3-staticfiles.s3.ap-southeast-1.amazonaws.com/s3fs-public/2026-07/%E5%B0%81%E9%9D%A2%20%E6%8B%B7%E8%B4%9D.jpg",
+      "websiteUrl": "https://www.tuntex-carpet.com/en/design/after-rain-collection",
+      "officialProductUrl": "https://www.tuntex-carpet.com/en/design/after-rain-collection",
+      "source": "og:tuntex-carpet.com",
+      "verified": true,
+      "lastUpdated": "2026-11-19T14:48:26.564Z",
+      "category": "Flooring"
+    }
+  ],
+  "source": "VE-Live-Scrape-Discovery",
+  "budget_tier": "mid",
+  "logo": "https://www.google.com/s2/favicons?domain=tuntex-carpet.com&sz=128",
+  "updated_at": "2026-11-19T14:48:11.706372+00:00",
+  "budgetTier": "mid",
+  "origin": "VE-Live-Scrape-Discovery",
+  "categoryTree": {
+    "Office Seating": [
+      "Conference Chairs"
+    ],
+    "Homeward Collection": [
+      "Conference Chairs"
+    ],
+    "After-Rain Collection": [
+      "Conference Chairs"
+    ],
+    "LA15 First Sprout": [
+      "Conference Chairs"
+    ],
+    "T695 Granite Play": [
+      "Conference Chairs"
+    ],
+    "Product": [
+      "Conference Chairs"
+    ]
+  },
+  "categoryList": [
+    "Office Seating",
+    "Homeward Collection",
+    "After-Rain Collection",
+    "LA15 First Sprout",
+    "T695 Granite Play",
+    "Product"
+  ],
+  "updatedAt": "2026-11-19T15:21:55.570Z"
+}

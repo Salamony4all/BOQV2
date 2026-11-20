@@ -1,19 +1,10 @@
 import axios from 'axios';
 import 'dotenv/config';
 import { callUniversalMultimodalAI } from './llmUtils.js';
+import { buildDynamicPipelineChain } from './freeModelRouter.js';
 
-const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY;
-const GOOGLE_FREE_KEY = process.env.GOOGLE_FREE_KEY || process.env.GEMINI_FREE_KEY || process.env.GEMINI_API_KEY_FREE;
-const FORCE_FREE_GOOGLE = process.env.FORCE_FREE_GOOGLE_KEY === 'true';
-
-// Tier lists are imported from llmUtils.js for consistency
-
-export const GEMMA4_FAMILY_MODELS = [
-    'gemma-4-26b-a4b-it',
-    'gemma-4-31b-it',
-    'gemma-4-e4b-it',
-    'gemma-4-e2b-it'
-];
+// Dynamic PDF/Vision BOQ extraction candidates (kept as export for backward compatibility)
+export const GEMMA4_FAMILY_MODELS = buildDynamicPipelineChain('pdf_boq', { freeTier: true });
 
 /** Strip markdown fences, then parse JSON with surgical precision. */
 export function safeParseJSON(text) {
@@ -82,25 +73,12 @@ export function safeParseJSON(text) {
     throw finalErr;
 }
 
-/** Call universal model with Vision capabilities. */
+/** Call universal model with Vision/PDF capabilities routed through the `pdf_boq` pipeline chain. */
 export async function callGoogleMultimodal(systemPrompt, userPrompt, assets = [], modelName = null, jsonMode = false) {
-    return callUniversalMultimodalAI(systemPrompt, userPrompt, assets, modelName, jsonMode);
+    return callUniversalMultimodalAI(systemPrompt, userPrompt, assets, modelName, jsonMode, 'pdf_boq');
 }
 
 export async function callGoogleMultimodalFallback(systemPrompt, userPrompt, assets = [], modelName = null, jsonMode = false) {
-    const candidateModels = modelName ? [modelName] : GEMMA4_FAMILY_MODELS;
-    let lastError = null;
-
-    for (const candidate of candidateModels) {
-        try {
-            console.log(`🚀 [llmPDFTable] Trying model: ${candidate}`);
-            return await callGoogleMultimodal(systemPrompt, userPrompt, assets, candidate, jsonMode);
-        } catch (err) {
-            lastError = err;
-            console.warn(`❌ [llmPDFTable] Model ${candidate} failed: ${err.message}`);
-        }
-    }
-
-    if (lastError) throw lastError;
-    throw new Error('No valid response returned from Gemma 4 family');
+    // callUniversalMultimodalAI now manages pipeline-aware Free-Tier routing + circuit-breaker failover across the full pdf_boq chain
+    return callUniversalMultimodalAI(systemPrompt, userPrompt, assets, modelName, jsonMode, 'pdf_boq');
 }

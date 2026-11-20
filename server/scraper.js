@@ -812,6 +812,18 @@ class ScraperService {
                     await page.waitForTimeout(3000);
 
                     // NEW: Detect pagination (e.g., page 2, 3...)
+                    let collectionName = await page.$eval('h1', el => el.innerText).catch(() => '');
+                    if (!collectionName || collectionName.includes('Collections by')) {
+                        try {
+                            const parts = request.url.split('/');
+                            const idx = parts.indexOf('collection');
+                            if (idx !== -1 && parts[idx + 1]) {
+                                collectionName = parts[idx + 1].replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+                            }
+                        } catch (e) { collectionName = 'Collection'; }
+                    }
+                    if (!collectionName) collectionName = 'Collection';
+
                     // Some collections like "Table" have explicit pagination at the bottom
                     const paginationLinks = await page.evaluate(() => {
                         const links = [];
@@ -833,18 +845,6 @@ class ScraperService {
                             }]);
                         }
                     }
-
-                    let collectionName = await page.$eval('h1', el => el.innerText).catch(() => '');
-                    if (!collectionName || collectionName.includes('Collections by')) {
-                        try {
-                            const parts = request.url.split('/');
-                            const idx = parts.indexOf('collection');
-                            if (idx !== -1 && parts[idx + 1]) {
-                                collectionName = parts[idx + 1].replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-                            }
-                        } catch (e) { collectionName = 'Collection'; }
-                    }
-                    if (!collectionName) collectionName = 'Collection';
 
                     if (onProgress) {
                         const prog = Math.min(80, 25 + (allProducts.length * 0.5));
