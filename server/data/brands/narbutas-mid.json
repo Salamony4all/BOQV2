@@ -344,7 +344,10 @@
       "description": "Sound absorbing table systems. The DESK 760 acoustic panel system improves visual and sound comfort of the workplace without separating team members from one another thus allows them to",
       "imageUrl": "https://media.architonic.com/m-on/10001981/product/20264050/narbutas_desk-760-acoustic-screens_aeff9f14.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/narbutas-desk-760-acoustic-screens-20264050/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "screen"
+      ]
     },
     {
       "mainCategory": "Furniture",
@@ -364,7 +367,10 @@
       "description": "Sound absorbing table systems. MODUS acoustic panels will improve your working environment and workplace well-being by absorbing background noise and by creating acoustically private",
       "imageUrl": "https://media.architonic.com/m-on/10001981/product/20264083/narbutas_modus-acoustic-screens_2b4a1233.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/narbutas-modus-acoustic-screens-20264083/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "screen"
+      ]
     },
     {
       "mainCategory": "Furniture",
@@ -374,7 +380,10 @@
       "description": "Sound absorbing table systems. TOP 530 acoustic desk screens add privacy to your workplace and absorb background office noise. This solution enable employees to better focus on their",
       "imageUrl": "https://media.architonic.com/m-on/10001981/product/20264144/narbutas_top-530-acoustic-screens_9d831c85.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/narbutas-top-530-acoustic-screens-20264144/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "screen"
+      ]
     },
     {
       "mainCategory": "Furniture",
@@ -384,17 +393,28 @@
       "description": "Desks. ARQUS is a collection of executive furniture with a modern luxury feel. Every part of this furniture emphasises a flawless image and a distinctive",
       "imageUrl": "https://media.architonic.com/m-on/10001981/product/20732677/narbutas_arqus-meeting-table_7de65d9c.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/narbutas-arqus-meeting-table-20732677/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "conference_table"
+      ]
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Desks",
-      "family": "Narbutas",
+      "mainCategory": "Desk & Table",
+      "subCategory": "Conference Tables",
+      "family": "AIR conference and meeting tables",
       "model": "Air Desks #20264032",
-      "description": "Desks. An exceptional feature of AIR desks is thin metal legs that convey a sense of lightness and at the same time ensure their durability and stability.",
-      "imageUrl": "https://media.architonic.com/m-on/10001981/product/20264032/narbutas_air-desks_d7174e57.jpeg?format=webp&quality=75",
-      "productUrl": "https://www.architonic.com/en/p/narbutas-air-desks-20264032/",
-      "price": 0
+      "description": "AIR conference and meeting tables — Minimalist meeting tables with thin metal legs convey a sense of lightness and at the same time ensure their durability and stability.",
+      "imageUrl": "https://www.narbutas.com/wp-content/uploads/2018/11/Conference-tables-AIR-Narbutas-1920x864.jpg",
+      "productUrl": "https://www.narbutas.com/products/desks-tables/conference-meeting/air-conference",
+      "price": 0,
+      "brand": "NARBUTAS",
+      "websiteUrl": "https://www.narbutas.com/products/desks-tables/conference-meeting/air-conference",
+      "officialProductUrl": "https://www.narbutas.com/products/desks-tables/conference-meeting/air-conference",
+      "currency": "USD",
+      "verified": true,
+      "officialRefreshedAt": "2026-11-20T18:13:16.637Z",
+      "source": "og:narbutas.com",
+      "lastUpdated": "2026-11-20T18:13:16.637Z"
     },
     {
       "mainCategory": "Furniture",
@@ -405,7 +425,10 @@
       "imageUrl": "https://media.architonic.com/m-on/10001981/product/20264116/narbutas_nova-u-desks_602d9b06.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/narbutas-nova-u-desks-20264116/",
       "price": 0,
-      "officialRefreshedAt": "2026-11-20T07:16:06.438Z"
+      "officialRefreshedAt": "2026-11-20T07:16:06.438Z",
+      "setRoles": [
+        "workstation_desk"
+      ]
     },
     {
       "mainCategory": "Furniture",
@@ -415,7 +438,10 @@
       "description": "Desks. NOVA is a broad-ranging office furniture system, which comprises not only desks but also storage, meeting and reception furniture solutions which are",
       "imageUrl": "https://media.architonic.com/m-on/10001981/product/20264111/narbutas_nova-h-desks_82842bad.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/narbutas-nova-h-desks-20264111/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "workstation_desk"
+      ]
     },
     {
       "mainCategory": "Furniture",
@@ -435,7 +461,10 @@
       "description": "Desks. NOVA is a broad-ranging office furniture system, which comprises not only desks but also storage, meeting and reception furniture solutions which are",
       "imageUrl": "https://media.architonic.com/m-on/10001981/product/20264107/narbutas_nova-a-desks_046cc7a0.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/narbutas-nova-a-desks-20264107/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "workstation_desk"
+      ]
     },
     {
       "mainCategory": "Furniture",
@@ -465,7 +494,10 @@
       "description": "Desks. NOVA is a broad-ranging office furniture system, which comprises not only desks but also storage, meeting and reception furniture solutions which are",
       "imageUrl": "https://media.architonic.com/m-on/10001981/product/20264113/narbutas_nova-o-desks_f7f16a48.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/narbutas-nova-o-desks-20264113/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "workstation_desk"
+      ]
     },
     {
       "mainCategory": "Furniture",
@@ -475,7 +507,10 @@
       "description": "Desks. NOVA Wood is a desking system comprised of different types of desks: work desks, bench desks, meeting tables, multipurpose tables, high tables, and coffee",
       "imageUrl": "https://media.architonic.com/m-on/10001981/product/20264120/narbutas_nova-wood-desks_751231e3.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/narbutas-nova-wood-desks-20264120/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "workstation_desk"
+      ]
     },
     {
       "mainCategory": "Furniture",
@@ -485,7 +520,10 @@
       "description": "Desks. Select from a wide range of desks that are ideal for creating a dynamic work environment in which, depending on the nature of work performed, the office",
       "imageUrl": "https://media.architonic.com/m-on/10001981/product/20276566/narbutas_t-easy-desks_df27b221.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/narbutas-t-easy-desks-20276566/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "workstation_desk"
+      ]
     },
     {
       "mainCategory": "Furniture",
@@ -495,7 +533,10 @@
       "description": "Desks. ZEDO is an inspiring and flexible desk system featuring distinctive design with carefully selected and colourful accessories that will help you create",
       "imageUrl": "https://media.architonic.com/m-on/10001981/product/20727054/narbutas_zedo-bench-desk_82414ca9.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/narbutas-zedo-bench-desk-20727054/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "workstation_desk"
+      ]
     },
     {
       "mainCategory": "Furniture",
@@ -505,7 +546,10 @@
       "description": "Desks. ZEDO is an inspiring and flexible desk system featuring distinctive design with carefully selected and colourful accessories that will help you create",
       "imageUrl": "https://media.architonic.com/m-on/10001981/product/20727055/narbutas_zedo-desk_b19f7496.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/narbutas-zedo-desk-20727055/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "workstation_desk"
+      ]
     },
     {
       "mainCategory": "Furniture",
@@ -555,7 +599,10 @@
       "description": "Desks. An exceptional feature of AIR desks is thin metal legs that convey a sense of lightness and at the same time ensure their durability and stability.",
       "imageUrl": "https://media.architonic.com/m-on/10001981/product/20264033/narbutas_air-executive-furniture_6ebc0d61.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/narbutas-air-executive-furniture-20264033/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "executive_desk"
+      ]
     },
     {
       "mainCategory": "Furniture",
@@ -565,7 +612,10 @@
       "description": "Desks. PLANA is created for those who appreciate modern luxury and high quality. A wide range allows to satisfy various demands offering different furniture",
       "imageUrl": "https://media.architonic.com/m-on/10001981/product/20264127/narbutas_plana-executive-furniture_dc41bc26.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/narbutas-plana-executive-furniture-20264127/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "executive_desk"
+      ]
     },
     {
       "mainCategory": "Furniture",
@@ -575,17 +625,31 @@
       "description": "Desks. NOVA is a broad-ranging office furniture system, which comprises not only desks but also storage, meeting and reception furniture solutions which are",
       "imageUrl": "https://media.architonic.com/m-on/10001981/product/20264110/narbutas_nova-executive-furniture_c91e5b70.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/narbutas-nova-executive-furniture-20264110/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "executive_desk"
+      ]
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Executive Furniture",
-      "family": "Narbutas",
+      "mainCategory": "Desk & Table",
+      "subCategory": "Single Desks",
+      "family": "MOVE&ampLEAD executive furniture",
       "model": "Move & Lead Executive Furniture #20264096",
-      "description": "Desks. Today’s work environment is changing and evolving rapidly. Some of these changes occur in the form of workplace design trends or management styles. Being",
-      "imageUrl": "https://media.architonic.com/m-on/10001981/product/20264096/narbutas_move---lead-executive-furniture_fd374060.jpeg?format=webp&quality=75",
-      "productUrl": "https://www.architonic.com/en/p/narbutas-move-and-lead-executive-furniture-20264096/",
-      "price": 0
+      "description": "MOVE&ampLEAD executive furniture — A minimalist, elegant and functional executive office furniture system for a modern leader. Stay on the move and be active even at a work desk.",
+      "imageUrl": "https://www.narbutas.com/wp-content/uploads/2021/06/executive-furniture-MOVELEAD-Narbutas.jpg",
+      "productUrl": "https://www.narbutas.com/products/executive-furniture/executive-furniture-1/move-and-lead",
+      "price": 0,
+      "brand": "NARBUTAS",
+      "websiteUrl": "https://www.narbutas.com/products/executive-furniture/executive-furniture-1/move-and-lead",
+      "officialProductUrl": "https://www.narbutas.com/products/executive-furniture/executive-furniture-1/move-and-lead",
+      "currency": "USD",
+      "verified": true,
+      "officialRefreshedAt": "2026-11-20T18:54:49.607Z",
+      "source": "og:narbutas.com",
+      "lastUpdated": "2026-11-20T18:54:49.607Z",
+      "setRoles": [
+        "executive_desk"
+      ]
     },
     {
       "mainCategory": "Furniture",
@@ -595,7 +659,10 @@
       "description": "Desks. MOTION is an electric height adjustable desking system designed for a dynamic working style. A regular change of posture improves your well-being and",
       "imageUrl": "https://media.architonic.com/m-on/10001981/product/20264094/narbutas_motion-executive-furniture_5ea584ec.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/narbutas-motion-executive-furniture-20264094/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "executive_desk"
+      ]
     },
     {
       "mainCategory": "Furniture",
@@ -1325,17 +1392,31 @@
       "description": "Desks. An exceptional feature of AIR desks is thin metal legs that convey a sense of lightness and at the same time ensure their durability and stability.",
       "imageUrl": "https://media.architonic.com/m-on/10001981/product/20264034/narbutas_air-meeting-tables_fc62a9e9.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/narbutas-air-meeting-tables-20264034/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "conference_table"
+      ]
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Meeting Tables",
-      "family": "Narbutas",
+      "mainCategory": "Desk & Table",
+      "subCategory": "Conference Tables",
+      "family": "FLIPTOP",
       "model": "Flip Top Conference Tables #20264061",
-      "description": "Desks. Modern office spaces require flexible solutions. A FLIP-TOP desk has a desktop that can be flipped up in a vertical position and comes with casters. This",
-      "imageUrl": "https://media.architonic.com/m-on/10001981/product/20264061/narbutas_flip-top-conference-tables_67b3a2bb.jpeg?format=webp&quality=75",
-      "productUrl": "https://www.architonic.com/en/p/narbutas-flip-top-conference-tables-20264061/",
-      "price": 0
+      "description": "FLIPTOP conference tables – a flexible and mobile solution for meeting, training and workspaces. Easy reconfiguration and efficient space saving.",
+      "imageUrl": "https://www.narbutas.com/wp-content/uploads/2026/05/FLIPTOP_NARBUTAS_2026_P3.jpg",
+      "productUrl": "https://www.narbutas.com/products/desks-tables/conference-meeting/fliptop",
+      "price": 0,
+      "brand": "NARBUTAS",
+      "websiteUrl": "https://www.narbutas.com/products/desks-tables/conference-meeting/fliptop",
+      "officialProductUrl": "https://www.narbutas.com/products/desks-tables/conference-meeting/fliptop",
+      "currency": "USD",
+      "verified": true,
+      "officialRefreshedAt": "2026-11-20T18:12:46.214Z",
+      "source": "og:narbutas.com",
+      "lastUpdated": "2026-11-20T18:12:46.214Z",
+      "setRoles": [
+        "folding_table"
+      ]
     },
     {
       "mainCategory": "Desk & Table",
@@ -1353,7 +1434,10 @@
       "verified": true,
       "source": "og:narbutas.com",
       "lastUpdated": "2026-11-20T07:21:10.585Z",
-      "officialRefreshedAt": "2026-11-20T07:21:10.585Z"
+      "officialRefreshedAt": "2026-11-20T07:21:10.585Z",
+      "setRoles": [
+        "folding_table"
+      ]
     },
     {
       "mainCategory": "Furniture",
@@ -1363,7 +1447,10 @@
       "description": "Contract tables. FORUM meeting and cofee tables feature classic design and add a sense of style and elegance to the space. Round tabletops and bases ensure efficient use",
       "imageUrl": "https://media.architonic.com/m-on/10001981/product/20264064/narbutas_forum-meeting-tables_d84eae55.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/narbutas-forum-meeting-tables-20264064/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "conference_table"
+      ]
     },
     {
       "mainCategory": "Furniture",
@@ -1383,7 +1470,10 @@
       "description": "Contract tables. NOVA is a broad-ranging office furniture system, which comprises not only desks but also storage, meeting and reception furniture solutions which are",
       "imageUrl": "https://media.architonic.com/m-on/10001981/product/20264117/narbutas_nova-u-meeting-tables_acc575d9.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/narbutas-nova-u-meeting-tables-20264117/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "conference_table"
+      ]
     },
     {
       "mainCategory": "Furniture",
@@ -1393,7 +1483,10 @@
       "description": "Contract tables. NOVA Wood is a desking system comprised of different types of desks: work desks, bench desks, meeting tables, multipurpose tables, high tables, and coffee",
       "imageUrl": "https://media.architonic.com/m-on/10001981/product/20264122/narbutas_nova-wood-meeting-tables_e6043987.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/narbutas-nova-wood-meeting-tables-20264122/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "conference_table"
+      ]
     },
     {
       "mainCategory": "Furniture",
@@ -1403,7 +1496,10 @@
       "description": "Contract tables. PLANA is created for those who appreciate modern luxury and high quality. A wide range allows to satisfy various demands offering different furniture",
       "imageUrl": "https://media.architonic.com/m-on/10001981/product/20264128/narbutas_plana-meeting-tables_8170f103.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/narbutas-plana-meeting-tables-20264128/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "conference_table"
+      ]
     },
     {
       "mainCategory": "Furniture",
@@ -1413,7 +1509,10 @@
       "description": "Desks. Select from a wide range of desks that are ideal for creating a dynamic work environment in which, depending on the nature of work performed, the office",
       "imageUrl": "https://media.architonic.com/m-on/10001981/product/20276567/narbutas_t-easy-meeting-tables_a2bf4cd7.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/narbutas-t-easy-meeting-tables-20276567/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "conference_table"
+      ]
     },
     {
       "mainCategory": "Furniture",
@@ -1423,7 +1522,10 @@
       "description": "Contract tables. The PARTHOS table collection is characterised by its stylish, elegant design, with well-thought-out shapes that spark collaboration. Whether in meeting",
       "imageUrl": "https://media.architonic.com/m-on/10001981/product/20745315/narbutas_parthos-meeting-table_46670cbd.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/narbutas-parthos-meeting-table-20745315/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "conference_table"
+      ]
     },
     {
       "mainCategory": "Furniture",
@@ -1433,7 +1535,10 @@
       "description": "Contract tables. PLANA is created for those who appreciate modern luxury and high quality. A wide range allows to satisfy various demands offering different furniture",
       "imageUrl": "https://media.architonic.com/m-on/10001981/product/20264129/narbutas_plana-meeting-tables_6e8ac132.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/narbutas-plana-meeting-tables-20264129/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "conference_table"
+      ]
     },
     {
       "mainCategory": "Furniture",
@@ -1443,7 +1548,10 @@
       "description": "Contract tables. The PARTHOS table collection is characterised by its stylish, elegant design, with well-thought-out shapes that spark collaboration. Whether in meeting",
       "imageUrl": "https://media.architonic.com/m-on/10001981/product/20745314/narbutas_parthos-meeting-table_0dcfadc1.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/narbutas-parthos-meeting-table-20745314/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "conference_table"
+      ]
     },
     {
       "mainCategory": "Furniture",
@@ -1453,7 +1561,10 @@
       "description": "Desks. ZEDO meeting tables are part of an inspiring and flexible desk collection featuring original design.\nDownload the latest NARBUTAS product files from",
       "imageUrl": "https://media.architonic.com/m-on/10001981/product/20727056/narbutas_zedo-meeting-table_afc78022.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/narbutas-zedo-meeting-table-20727056/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "conference_table"
+      ]
     },
     {
       "mainCategory": "Furniture",
@@ -1606,14 +1717,22 @@
       "price": 0
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Reception Furniture",
-      "family": "Narbutas",
+      "mainCategory": "Desk & Table",
+      "subCategory": "Single Desks",
+      "family": "DOMINO reception furniture",
       "model": "Domino Reception Funiture #20264053",
-      "description": "Counters. Strict and formal interior design has given way to creativity, freedom and individuality when it comes to modern office environments. Reception furniture",
-      "imageUrl": "https://media.architonic.com/m-on/10001981/product/20264053/narbutas_domino-reception-funiture_83170f7c.jpeg?format=webp&quality=75",
-      "productUrl": "https://www.architonic.com/en/p/narbutas-domino-reception-funiture-20264053/",
-      "price": 0
+      "description": "DOMINO reception furniture — DOMINO is a unique piece of furniture that will enable you to create workplace solutions tailored to your needs. A large choice of fabrics, colours and sizes offers an endless range of combinations.",
+      "imageUrl": "https://www.narbutas.com/wp-content/uploads/2021/04/Pagrindine_1920x864.jpg",
+      "productUrl": "https://www.narbutas.com/products/reception-furniture/reception-furniture-1/domino",
+      "price": 0,
+      "brand": "NARBUTAS",
+      "websiteUrl": "https://www.narbutas.com/products/reception-furniture/reception-furniture-1/domino",
+      "officialProductUrl": "https://www.narbutas.com/products/reception-furniture/reception-furniture-1/domino",
+      "currency": "USD",
+      "verified": true,
+      "officialRefreshedAt": "2026-11-20T19:53:36.114Z",
+      "source": "og:narbutas.com",
+      "lastUpdated": "2026-11-20T19:53:36.114Z"
     },
     {
       "mainCategory": "Furniture",
@@ -1696,14 +1815,22 @@
       "price": 0
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Storage",
-      "family": "Narbutas",
+      "mainCategory": "Storage",
+      "subCategory": "cabinets",
+      "family": "CHOICE cabinets",
       "model": "Choice Cabinets #20264046",
-      "description": "Cabinets. CHOICE modular storage system will help you create a well-organized and modern work environment. NARBUTAS offers a wide range of storage solutions and",
-      "imageUrl": "https://media.architonic.com/m-on/10001981/product/20264046/narbutas_choice-cabinets_3d8c9367.jpeg?format=webp&quality=75",
-      "productUrl": "https://www.architonic.com/en/p/narbutas-choice-cabinets-20264046/",
-      "price": 0
+      "description": "CHOICE cabinets — A modular storage system will help you create a well-organized and modern work environment. Create cabinets that are best suited for your office space.",
+      "imageUrl": "https://www.narbutas.com/wp-content/uploads/2018/11/Storage-cabinets-CHOICE-Narbutas-1920x864.jpg",
+      "productUrl": "https://www.narbutas.com/products/storage/cabinets-and-shelving/choice-cabinets",
+      "price": 0,
+      "brand": "NARBUTAS",
+      "websiteUrl": "https://www.narbutas.com/products/storage/cabinets-and-shelving/choice-cabinets",
+      "officialProductUrl": "https://www.narbutas.com/products/storage/cabinets-and-shelving/choice-cabinets",
+      "currency": "USD",
+      "verified": true,
+      "officialRefreshedAt": "2026-11-21T05:49:20.412Z",
+      "source": "og:narbutas.com",
+      "lastUpdated": "2026-11-21T05:49:20.412Z"
     },
     {
       "mainCategory": "Furniture",
@@ -1716,14 +1843,22 @@
       "price": 0
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Storage",
-      "family": "Narbutas",
+      "mainCategory": "Storage",
+      "subCategory": "cabinets",
+      "family": "CHOICE cabinets",
       "model": "Choice Lockers #20264047",
-      "description": "Lockers. CHOICE modular storage system will help you create a well-organized and modern work environment. NARBUTAS offers a wide range of storage solutions and",
-      "imageUrl": "https://media.architonic.com/m-on/10001981/product/20264047/narbutas_choice-lockers_f389c1e1.jpeg?format=webp&quality=75",
-      "productUrl": "https://www.architonic.com/en/p/narbutas-choice-lockers-20264047/",
-      "price": 0
+      "description": "CHOICE cabinets — A modular storage system will help you create a well-organized and modern work environment. Create cabinets that are best suited for your office space.",
+      "imageUrl": "https://www.narbutas.com/wp-content/uploads/2018/11/Storage-cabinets-CHOICE-Narbutas-1920x864.jpg",
+      "productUrl": "https://www.narbutas.com/products/storage/cabinets-and-shelving/choice-cabinets",
+      "price": 0,
+      "brand": "NARBUTAS",
+      "websiteUrl": "https://www.narbutas.com/products/storage/cabinets-and-shelving/choice-cabinets",
+      "officialProductUrl": "https://www.narbutas.com/products/storage/cabinets-and-shelving/choice-cabinets",
+      "currency": "USD",
+      "verified": true,
+      "officialRefreshedAt": "2026-11-21T05:38:45.556Z",
+      "source": "og:narbutas.com",
+      "lastUpdated": "2026-11-21T05:38:47.190Z"
     },
     {
       "mainCategory": "Furniture",
@@ -1733,7 +1868,10 @@
       "description": "Pedestals. NOVA is a broad-ranging office furniture system, which comprises not only desks but also storage, meeting and reception furniture solutions which are",
       "imageUrl": "https://media.architonic.com/m-on/10001981/product/20264114/narbutas_nova-pedestals_76577801.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/narbutas-nova-pedestals-20264114/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "pedestal"
+      ]
     },
     {
       "mainCategory": "Furniture",
@@ -1796,14 +1934,22 @@
       "price": 0
     },
     {
-      "mainCategory": "Furniture",
-      "subCategory": "Discovery",
-      "family": "narbutas",
+      "mainCategory": "Office Seating",
+      "subCategory": "Conference Chairs",
+      "family": "WIND visitor and conference chairs",
       "model": "Wind",
-      "description": "Task chair family featuring ergonomic mesh backrest, adjustable lumbar support, and multiple base options. Signature X-shaped lumbar support.",
-      "imageUrl": "https://www.narbutas.com/wp-content/uploads/2021/11/WIND_task-chair_narbutas-scaled.jpg",
+      "description": "WIND visitor and conference chairs — WIND visitor chairs are extremely versatile and perfectly suited for meeting, conference or reception areas. Create comfort in your workspace!",
+      "imageUrl": "https://www.narbutas.com/wp-content/uploads/2022/10/NARBUTAS-visitor-chairs-WIND-features.jpg",
       "productUrl": "https://www.narbutas.com/products/chairs/task-chairs/wind/",
-      "price": 0
+      "price": 0,
+      "brand": "NARBUTAS",
+      "websiteUrl": "https://www.narbutas.com/products/chairs/task-chairs/wind/",
+      "officialProductUrl": "https://www.narbutas.com/products/chairs/task-chairs/wind/",
+      "currency": "USD",
+      "verified": true,
+      "officialRefreshedAt": "2026-11-21T05:49:32.700Z",
+      "source": "og:narbutas.com",
+      "lastUpdated": "2026-11-21T05:49:32.700Z"
     },
     {
       "mainCategory": "Office Seating",
@@ -2008,7 +2154,10 @@
       "officialProductUrl": "https://www.narbutas.com/products/desks-tables/desks/optima-plus-desks",
       "currency": "USD",
       "verified": true,
-      "officialRefreshedAt": "2026-11-20T07:15:48.906Z"
+      "officialRefreshedAt": "2026-11-20T07:15:48.906Z",
+      "setRoles": [
+        "workstation_desk"
+      ]
     },
     {
       "brand": "NARBUTAS",
@@ -2372,16 +2521,21 @@
     },
     {
       "brand": "NARBUTAS",
-      "mainCategory": "Furniture",
-      "subCategory": "Lounge Chair",
-      "family": "TWIST&SIT Soft",
+      "mainCategory": "Office Seating",
+      "subCategory": "Lounge Chairs",
+      "family": "TWIST&SIT armchairs",
       "model": "Twist & Sit Lounge Chair (Low Backrest, Wooden Legs)",
       "description": "The NARBUTAS TWIST&SIT Soft lounge chair, designed by Christina Strand and Niels Hvass, is part of a Red Dot Product Design Award-winning collection. This low-back armchair features a distinctive design with well-rounded shapes and a unique connection between the lower and upper parts of the backrest. Crafted with increased polyurethane padding for enhanced comfort, it is ideal for creating a relaxing atmosphere in office reception areas, open-plan relaxation spaces, or informal meeting zones. The model specified has solid ash wooden legs, with dimensions of W 725mm × D 710mm × H 820mm × SH 395mm.",
-      "imageUrl": "https://www.narbutas.com/uploads/images/products/soft-seating/twist-sit-soft-lounge-chairs/twist-sit-soft-lounge-chairs-1.jpg",
-      "productUrl": "https://www.narbutas.com/products/soft-seating/twist-sit-soft-lounge-chairs/",
+      "imageUrl": "https://www.narbutas.com/wp-content/uploads/2021/04/Lounge-soft-furniture-TWISTSIT-Narbutas.jpg",
+      "productUrl": "https://www.narbutas.com/products/lounge-soft-furniture/armchairs/twist-and-sit-2",
       "price": 0,
-      "lastUpdated": "2026-04-06T20:07:53.998Z",
-      "source": "AI-Specialist-Discovery"
+      "lastUpdated": "2026-11-20T19:53:25.522Z",
+      "source": "og:narbutas.com",
+      "websiteUrl": "https://www.narbutas.com/products/lounge-soft-furniture/armchairs/twist-and-sit-2",
+      "officialProductUrl": "https://www.narbutas.com/products/lounge-soft-furniture/armchairs/twist-and-sit-2",
+      "currency": "USD",
+      "verified": true,
+      "officialRefreshedAt": "2026-11-20T19:53:25.522Z"
     },
     {
       "brand": "NARBUTAS",
@@ -2437,14 +2591,22 @@
     {
       "brand": "NARBUTAS",
       "model": "OFY",
-      "imageUrl": "https://www.narbutas.com/wp-content/uploads/2023/05/OFY_task_chair_01-1.jpg",
+      "imageUrl": "https://www.narbutas.com/wp-content/uploads/2024/02/Task_chairs_OFY_by_NARBUTAS.jpg",
       "websiteUrl": "https://www.narbutas.com/products/chairs/task-chairs/ofy-task-chair/",
       "category": "Office Seating",
-      "subCategory": "Task Chairs",
+      "subCategory": "Staff Chairs",
       "logic": "The NARBUTAS OFY is a collection of office chairs, including task, executive, and visitor chairs. The official Narbutas website provides a dedicated page for the OFY task chair, which also describes the broader collection. This page is used as the websiteUrl. The category is 'Office Seating' as it's a chair collection for office environments. 'Task Chairs' is chosen as the sub-category because the provided websiteUrl specifically highlights the task chair variant, which is a central part of the OFY collection. The imageUrl was found by searching for high-resolution images of 'NARBUTAS OFY task chair' on the Narbutas domain, leading to a direct image file from their website.",
       "mainCategory": "Office Seating",
-      "lastUpdated": "2026-04-06T20:50:28.596Z",
-      "source": "AI-Specialist-Discovery"
+      "lastUpdated": "2026-11-21T05:49:29.150Z",
+      "source": "og:narbutas.com",
+      "family": "OFY task chair",
+      "description": "OFY task chair — OFY is a wide collection of chairs with an exceptionally cosy design that meets the needs of a modern employee in different office spaces.",
+      "productUrl": "https://www.narbutas.com/products/chairs/task-chairs/ofy-task-chair/",
+      "officialProductUrl": "https://www.narbutas.com/products/chairs/task-chairs/ofy-task-chair/",
+      "price": 0,
+      "currency": "USD",
+      "verified": true,
+      "officialRefreshedAt": "2026-11-21T05:49:29.150Z"
     },
     {
       "brand": "NARBUTAS",
@@ -2455,7 +2617,7 @@
       "subCategory": "Conference Chairs",
       "logic": "The official NARBUTAS website was identified as the primary source. The product page for 'NORTH CAPE executive chairs' was located, providing the websiteUrl. A direct image URL for a high-resolution executive chair image was found on the Narbutas website. The categories were determined based on the product description, which consistently refers to it as an executive office chair.",
       "mainCategory": "Office Seating",
-      "lastUpdated": "2026-11-20T11:11:55.736Z",
+      "lastUpdated": "2026-11-20T19:53:00.120Z",
       "source": "og:narbutas.com",
       "family": "NORTH CAPE executive chairs",
       "description": "NORTH CAPE executive chairs are characterised by exclusive sophistication and modern elegance.",
@@ -2464,7 +2626,7 @@
       "price": 0,
       "currency": "USD",
       "verified": true,
-      "officialRefreshedAt": "2026-11-20T11:11:55.736Z"
+      "officialRefreshedAt": "2026-11-20T19:53:00.118Z"
     },
     {
       "brand": "NARBUTAS",
@@ -2526,7 +2688,10 @@
       "productUrl": "https://www.architonic.com/en/p/narbutas-t-easy-desks-20276566/",
       "description": "Desks. Select from a wide range of desks that are ideal for creating a dynamic work environment in which, depending on the nature of work performed, the office",
       "subCategory": "Desks",
-      "mainCategory": "Furniture"
+      "mainCategory": "Furniture",
+      "setRoles": [
+        "workstation_desk"
+      ]
     },
     {
       "model": "D-Chair Executive Chair #20793292",
@@ -2611,12 +2776,23 @@
     {
       "model": "Flip-Top Conference Tables #20264061",
       "price": 0,
-      "family": "Narbutas",
-      "imageUrl": "https://media.architonic.com/m-on/10001981/product/20264061/narbutas_flip-top-conference-tables_67b3a2bb.jpeg?format=webp&quality=75",
-      "productUrl": "https://www.architonic.com/en/p/narbutas-flip-top-conference-tables-20264061/",
-      "description": "Desks. Modern office spaces require flexible solutions. A FLIP-TOP desk has a desktop that can be flipped up in a vertical position and comes with casters. This",
-      "subCategory": "Meeting Tables",
-      "mainCategory": "Furniture"
+      "family": "FLIPTOP",
+      "imageUrl": "https://www.narbutas.com/wp-content/uploads/2026/05/FLIPTOP_NARBUTAS_2026_P3.jpg",
+      "productUrl": "https://www.narbutas.com/products/desks-tables/conference-meeting/fliptop",
+      "description": "FLIPTOP conference tables – a flexible and mobile solution for meeting, training and workspaces. Easy reconfiguration and efficient space saving.",
+      "subCategory": "Conference Tables",
+      "mainCategory": "Desk & Table",
+      "brand": "NARBUTAS",
+      "websiteUrl": "https://www.narbutas.com/products/desks-tables/conference-meeting/fliptop",
+      "officialProductUrl": "https://www.narbutas.com/products/desks-tables/conference-meeting/fliptop",
+      "currency": "USD",
+      "verified": true,
+      "officialRefreshedAt": "2026-11-20T18:14:55.694Z",
+      "source": "og:narbutas.com",
+      "lastUpdated": "2026-11-20T18:14:55.695Z",
+      "setRoles": [
+        "folding_table"
+      ]
     },
     {
       "model": "Flip-Top II Conference Tables #20264062",
@@ -2626,7 +2802,10 @@
       "productUrl": "https://www.architonic.com/en/p/narbutas-flip-top-ii-conference-tables-20264062/",
       "description": "Desks. Modern office spaces require flexible solutions. A FLIP-TOP desk has a desktop that can be flipped up in a vertical position and comes with casters. This",
       "subCategory": "Meeting Tables",
-      "mainCategory": "Furniture"
+      "mainCategory": "Furniture",
+      "setRoles": [
+        "folding_table"
+      ]
     },
     {
       "model": "T-easy Meeting Tables #20276567",
@@ -2636,7 +2815,10 @@
       "productUrl": "https://www.architonic.com/en/p/narbutas-t-easy-meeting-tables-20276567/",
       "description": "Desks. Select from a wide range of desks that are ideal for creating a dynamic work environment in which, depending on the nature of work performed, the office",
       "subCategory": "Meeting Tables",
-      "mainCategory": "Furniture"
+      "mainCategory": "Furniture",
+      "setRoles": [
+        "conference_table"
+      ]
     },
     {
       "model": "ZooZoo Coffee Table #20772955",
@@ -2963,15 +3145,15 @@
       "subCategory": "Conference Chairs",
       "description": "POLYTONE-L visitor, conference and dining chairs — The chairs boast a subtle minimalist design. With a range of different base options, they will ideally meet the needs of large office spaces.",
       "imageUrl": "https://www.narbutas.com/wp-content/uploads/2022/01/visitor-chairs-POLYTONE-L-features-8.jpg",
-      "websiteUrl": "https://www.narbutas.com/products/chairs/visitor-and-conference-chairs/polytone-l/",
-      "productUrl": "https://www.narbutas.com/products/chairs/visitor-and-conference-chairs/polytone-l/",
-      "officialProductUrl": "https://www.narbutas.com/products/chairs/visitor-and-conference-chairs/polytone-l/",
+      "websiteUrl": "https://www.narbutas.com/products/chairs/visitor-conference-and-dining-chairs/polytone-l",
+      "productUrl": "https://www.narbutas.com/products/chairs/visitor-conference-and-dining-chairs/polytone-l",
+      "officialProductUrl": "https://www.narbutas.com/products/chairs/visitor-conference-and-dining-chairs/polytone-l",
       "price": 0,
       "currency": "USD",
       "verified": true,
       "source": "og:narbutas.com",
-      "lastUpdated": "2026-11-20T11:10:58.626Z",
-      "officialRefreshedAt": "2026-11-20T11:10:58.626Z"
+      "lastUpdated": "2026-11-20T19:53:09.363Z",
+      "officialRefreshedAt": "2026-11-20T19:53:09.363Z"
     },
     {
       "brand": "NARBUTAS",
@@ -2989,6 +3171,392 @@
       "verified": false,
       "source": "grounded-search",
       "lastUpdated": "2026-11-20T11:30:08.919Z"
+    },
+    {
+      "brand": "NARBUTAS",
+      "model": "MODUS acoustic desk screens",
+      "family": "MODUS acoustic desk screens",
+      "mainCategory": "Desk & Table",
+      "subCategory": "Single Desks",
+      "description": "The MODUS acoustic panel system includes wall panels, horizontal ceiling panels, and vertical ceiling (double-sided) panels. They offer Class C sound absorption and are designed to minimize reverberation and noise, improving acoustic comfort. Panels can be customized with various sizes, depths (40 or 70 mm), and fabric color combinations. The system is lightweight and easy to install, suitable for open-plan offices to create defined spaces and enhance interior design.",
+      "imageUrl": "https://www.narbutas.com/wp-content/uploads/2018/12/MODUS_screen_NARBUTAS_H_1.jpg",
+      "websiteUrl": "https://www.narbutas.com/products/acoustic-solutions/acoustic-desk-screens/modus-screen",
+      "productUrl": "https://www.narbutas.com/products/acoustic-solutions/acoustic-desk-screens/modus-screen",
+      "officialProductUrl": "https://www.narbutas.com/products/acoustic-solutions/acoustic-desk-screens/modus-screen",
+      "price": 450,
+      "currency": "USD",
+      "verified": true,
+      "officialRefreshedAt": "2026-11-20T18:32:37.482Z",
+      "source": "og:narbutas.com",
+      "lastUpdated": "2026-11-20T18:32:39.242Z",
+      "setRoles": [
+        "screen"
+      ]
+    },
+    {
+      "brand": "NARBUTAS",
+      "model": "TUTTI meeting tables",
+      "family": "TUTTI meeting tables",
+      "mainCategory": "Desk & Table",
+      "subCategory": "Conference Tables",
+      "description": "TUTTI meeting and conference tables by NARBUTAS. Designed for collaborative spaces, boardrooms, and modern offices. Features a sturdy metal frame construction, cable management integration options, and a durable melamine or veneer top finish. Available in various dimensions (WxDxH) to accommodate small to large team gatherings.",
+      "imageUrl": "",
+      "websiteUrl": "https://www.narbutas.com/products/meeting-tables/tutti/",
+      "productUrl": "https://www.narbutas.com/products/meeting-tables/tutti/",
+      "officialProductUrl": "https://www.narbutas.com/products/meeting-tables/tutti/",
+      "price": 1250,
+      "currency": "EUR",
+      "verified": false,
+      "source": "grounded-search",
+      "lastUpdated": "2026-11-20T18:51:27.397Z",
+      "setRoles": [
+        "conference_table"
+      ]
+    },
+    {
+      "model": "NOVA U Bench Workstation System",
+      "family": "Nova",
+      "mainCategory": "Desk & Table",
+      "subCategory": "Workstations",
+      "imageUrl": "https://www.narbutas.com/wp-content/uploads/2018/11/Bench-desks-NOVA-U-Narbutas-1920x864.jpg",
+      "productUrl": "https://www.narbutas.com/products/desks-tables/bench-desks/nova-u-bench/",
+      "websiteUrl": "https://www.narbutas.com/products/desks-tables/bench-desks/nova-u-bench/",
+      "price": 0,
+      "currency": "USD",
+      "description": "NOVA U bench desks: benches of 2 or 4 desks, extendable with supplementary units up to 6 back-to-back positions. Desk length 1200–1800 mm, back-to-back width 1440 / 1640 mm, 25 mm MFC tops with wire-management cut-outs. Options: NOVA fabric or Plexiglas screens, TOP 530 acoustic screens, horizontal cable trays.",
+      "officialRefreshedAt": "2026-11-20T19:40:00.197Z",
+      "verified": true,
+      "source": "official-site",
+      "lastUpdated": "2026-11-21",
+      "officialProductUrl": "https://www.narbutas.com/products/desks-tables/bench-desks/nova-u-bench/",
+      "setRoles": [
+        "workstation_desk"
+      ]
+    },
+    {
+      "model": "NOVA Executive L-Shaped Desk with Side Return",
+      "family": "Nova",
+      "mainCategory": "Desk & Table",
+      "subCategory": "Executive Desks",
+      "imageUrl": "https://media.architonic.com/m-on/10001981/product/20264110/narbutas_nova-executive-furniture_c91e5b70.jpeg?format=webp&quality=75",
+      "productUrl": "https://www.architonic.com/en/p/narbutas-nova-executive-furniture-20264110/",
+      "websiteUrl": "https://www.architonic.com/en/p/narbutas-nova-executive-furniture-20264110/",
+      "price": 0,
+      "currency": "USD",
+      "description": "NOVA executive desk configured as an L-shape with a side return unit. Technical information: NARBUTAS \"NOVA Executive desks\" data sheet.",
+      "officialRefreshedAt": "2026-11-20T19:40:04.472Z",
+      "officialProductUrl": "https://www.narbutas.com/wp-content/uploads/2018/11/Technical-information_NOVA-Executive-desks_EN-1.pdf",
+      "verified": false,
+      "source": "catalog-repair",
+      "lastUpdated": "2026-11-21",
+      "setRoles": [
+        "executive_desk"
+      ],
+      "includesRoles": [
+        "side_return"
+      ]
+    },
+    {
+      "model": "FLIP TOP II Modular Folding Conference Table",
+      "family": "Flip Top",
+      "mainCategory": "Desk & Table",
+      "subCategory": "Folding & Multi-Purpose Conference Tables",
+      "imageUrl": "https://www.narbutas.com/wp-content/uploads/2026/05/FLIPTOP_NARBUTAS_2026_P3.jpg",
+      "productUrl": "https://www.narbutas.com/products/desks-tables/conference-meeting/fliptop",
+      "websiteUrl": "https://www.narbutas.com/products/desks-tables/conference-meeting/fliptop",
+      "price": 487,
+      "currency": "USD",
+      "description": "FLIPTOP mobile conference table for meeting, training and multi-purpose rooms: flip-top modules L 1400 / 1600 × W 700 / 800 × H 735 mm on lockable castors that nest for storage; a folding-leg version is also available.",
+      "officialRefreshedAt": "2026-11-20T19:40:10.387Z",
+      "verified": true,
+      "source": "official-site",
+      "lastUpdated": "2026-11-21",
+      "officialProductUrl": "https://www.narbutas.com/products/desks-tables/conference-meeting/fliptop",
+      "setRoles": [
+        "folding_table"
+      ]
+    },
+    {
+      "model": "NARBUTAS Metal Cable Management Tray",
+      "family": "Nova",
+      "mainCategory": "Accessories",
+      "subCategory": "Cable Management",
+      "imageUrl": "",
+      "productUrl": "https://www.narbutas.com/products/desks-tables/bench-desks/nova-u-bench/",
+      "websiteUrl": "https://www.narbutas.com/products/desks-tables/bench-desks/nova-u-bench/",
+      "price": 0,
+      "currency": "USD",
+      "description": "Horizontal cable tray for NOVA desks and benches — a price-list accessory of the desk system (no product page of its own).",
+      "officialRefreshedAt": "2026-11-20T19:40:14.444Z",
+      "verified": false,
+      "source": "system-accessory",
+      "lastUpdated": "2026-11-21",
+      "setRoles": [
+        "cable_management"
+      ]
+    },
+    {
+      "model": "NARBUTAS Power & Data Socket Block",
+      "family": "Plana",
+      "mainCategory": "Accessories",
+      "subCategory": "Power & Electrification",
+      "imageUrl": "",
+      "productUrl": "https://www.narbutas.com/products/executive-furniture/executive-furniture-1/plana-executive/",
+      "websiteUrl": "https://www.narbutas.com/products/executive-furniture/executive-furniture-1/plana-executive/",
+      "price": 0,
+      "currency": "USD",
+      "description": "Desktop grommet with power socket box, offered as a price-list accessory of NARBUTAS desk systems (listed with the PLANA executive desks; no product page of its own).",
+      "officialRefreshedAt": "2026-11-20T19:40:18.308Z",
+      "verified": false,
+      "source": "system-accessory",
+      "lastUpdated": "2026-11-21",
+      "setRoles": [
+        "power_box"
+      ]
+    },
+    {
+      "model": "NARBUTAS Workstation Modesty Panel",
+      "family": "Plana",
+      "mainCategory": "Accessories",
+      "subCategory": "Modesty Panels",
+      "imageUrl": "",
+      "productUrl": "https://www.narbutas.com/products/executive-furniture/executive-furniture-1/plana-executive/",
+      "websiteUrl": "https://www.narbutas.com/products/executive-furniture/executive-furniture-1/plana-executive/",
+      "price": 0,
+      "currency": "USD",
+      "description": "Modesty panel offered as a price-list accessory of NARBUTAS desks (listed with the PLANA executive desks; no product page of its own).",
+      "officialRefreshedAt": "2026-11-20T19:40:24.277Z",
+      "verified": false,
+      "source": "system-accessory",
+      "lastUpdated": "2026-11-21",
+      "setRoles": [
+        "modesty_panel"
+      ]
+    },
+    {
+      "model": "NOVA Side Return Storage Credenza",
+      "family": "Nova",
+      "mainCategory": "Storage",
+      "subCategory": "Return Credenzas & Pedestals",
+      "imageUrl": "https://www.narbutas.com/wp-content/uploads/2018/11/Storage-cabinets-NOVA-Narbutas-1-1920x864.jpg",
+      "productUrl": "https://www.narbutas.com/products/storage/cabinets-and-shelving/nova/",
+      "websiteUrl": "https://www.narbutas.com/products/storage/cabinets-and-shelving/nova/",
+      "price": 0,
+      "currency": "USD",
+      "description": "NOVA storage units (cabinets and shelving) used beside the desk as a side return or credenza.",
+      "officialRefreshedAt": "2026-11-20T19:40:28.918Z",
+      "verified": true,
+      "source": "official-site",
+      "lastUpdated": "2026-11-21",
+      "officialProductUrl": "https://www.narbutas.com/products/storage/cabinets-and-shelving/nova/",
+      "setRoles": [
+        "side_return"
+      ]
+    },
+    {
+      "price": 0,
+      "currency": "USD",
+      "verified": true,
+      "source": "official-site",
+      "lastUpdated": "2026-11-21",
+      "websiteUrl": "https://www.narbutas.com/products/desks-tables/desks/nova-u/",
+      "officialProductUrl": "https://www.narbutas.com/products/desks-tables/desks/nova-u/",
+      "model": "NOVA U Desk",
+      "family": "Nova",
+      "mainCategory": "Desk & Table",
+      "subCategory": "Workstations",
+      "productUrl": "https://www.narbutas.com/products/desks-tables/desks/nova-u/",
+      "imageUrl": "https://www.narbutas.com/wp-content/uploads/2018/11/Single-desks-NOVA-U-Narbutas-1920x864.jpg",
+      "description": "NOVA U single desk on a U-shaped metal frame — the single-position version of the NOVA U bench system.",
+      "setRoles": [
+        "workstation_desk"
+      ]
+    },
+    {
+      "price": 0,
+      "currency": "USD",
+      "verified": true,
+      "source": "official-site",
+      "lastUpdated": "2026-11-21",
+      "websiteUrl": "https://www.narbutas.com/products/executive-furniture/executive-furniture-1/plana-executive/",
+      "officialProductUrl": "https://www.narbutas.com/products/executive-furniture/executive-furniture-1/plana-executive/",
+      "model": "PLANA Executive Desk with Side Return",
+      "family": "Plana",
+      "mainCategory": "Desk & Table",
+      "subCategory": "Executive Desks",
+      "productUrl": "https://www.narbutas.com/products/executive-furniture/executive-furniture-1/plana-executive/",
+      "imageUrl": "https://www.narbutas.com/wp-content/uploads/2018/11/Executive-furniture-PLANA-Narbutas-1920x864.jpg",
+      "description": "PLANA executive desk 1800 × 900 or 2200 × 900 mm with a right- or left-hand supplementary unit 1400 × 800 mm (side return), modesty panel, fixed pedestal 900 × 600 mm, grommet and power socket box.",
+      "setRoles": [
+        "executive_desk"
+      ],
+      "includesRoles": [
+        "side_return"
+      ]
+    },
+    {
+      "price": 0,
+      "currency": "USD",
+      "verified": true,
+      "source": "official-site",
+      "lastUpdated": "2026-11-21",
+      "websiteUrl": "https://www.narbutas.com/products/desks-tables/conference-meeting/nova-u-conference/",
+      "officialProductUrl": "https://www.narbutas.com/products/desks-tables/conference-meeting/nova-u-conference/",
+      "model": "NOVA Conference & Meeting Tables",
+      "family": "Nova",
+      "mainCategory": "Desk & Table",
+      "subCategory": "Conference Tables",
+      "productUrl": "https://www.narbutas.com/products/desks-tables/conference-meeting/nova-u-conference/",
+      "description": "NOVA conference and meeting tables on the NOVA U frame, matching the NOVA desk and bench range.",
+      "setRoles": [
+        "conference_table"
+      ],
+      "imageUrl": "https://media.architonic.com/m-on/10001981/product/20264117/narbutas_nova-u-meeting-tables_acc575d9.jpeg?format=webp&quality=75"
+    },
+    {
+      "price": 0,
+      "currency": "USD",
+      "verified": true,
+      "source": "official-site",
+      "lastUpdated": "2026-11-21",
+      "websiteUrl": "https://www.narbutas.com/products/storage/pedestals/nova-pedestals/",
+      "officialProductUrl": "https://www.narbutas.com/products/storage/pedestals/nova-pedestals/",
+      "model": "NOVA Pedestals",
+      "family": "Nova",
+      "mainCategory": "Storage",
+      "subCategory": "Pedestals",
+      "productUrl": "https://www.narbutas.com/products/storage/pedestals/nova-pedestals/",
+      "imageUrl": "https://www.narbutas.com/wp-content/uploads/2021/01/pedestals-NOVA-features-1920x1080-2.jpg",
+      "description": "NOVA pedestals — mobile and fixed drawer units for NOVA desks and benches.",
+      "setRoles": [
+        "pedestal"
+      ]
+    },
+    {
+      "price": 0,
+      "currency": "USD",
+      "verified": true,
+      "source": "official-site",
+      "lastUpdated": "2026-11-21",
+      "websiteUrl": "https://www.narbutas.com/products/acoustic-solutions/acoustic-desk-screens/fono/",
+      "officialProductUrl": "https://www.narbutas.com/products/acoustic-solutions/acoustic-desk-screens/fono/",
+      "model": "FONO Acoustic Desk Screens",
+      "family": "Fono",
+      "mainCategory": "Accessories",
+      "subCategory": "Desk Screens",
+      "productUrl": "https://www.narbutas.com/products/acoustic-solutions/acoustic-desk-screens/fono/",
+      "imageUrl": "https://www.narbutas.com/wp-content/uploads/2025/11/FONO_featured-image.jpg",
+      "description": "FONO acoustic desk screens (sound-absorption class A) for desks and benches.",
+      "setRoles": [
+        "screen"
+      ]
+    },
+    {
+      "mainCategory": "Desk & Table",
+      "subCategory": "Workstations",
+      "family": "Nova",
+      "model": "NOVA O Corner Desk L-Shape #20264113-L",
+      "description": "Basic (non-executive) L-shaped corner desk from the NOVA O desk series: 1400x800 left + 1200x800 right desktops, H=740 mm, MFC desktop with ABS edging, metal frame. Modesty panel and under-desk pedestal optional.",
+      "imageUrl": "https://static01.galaxus.com/productimages/4/4/7/5/4/4/0/6/5/9/5/6/5/8/6/0/1/1/1/01a0ce86-ef69-78fd-8d66-c756caa99567_720.jpeg",
+      "productUrl": "https://www.narbutas.com/products/desks-tables/desks/nova-o-single-desks/",
+      "websiteUrl": "https://www.narbutas.com/products/desks-tables/desks/nova-o-single-desks/",
+      "officialProductUrl": "https://www.narbutas.com/products/desks-tables/desks/nova-o-single-desks/",
+      "price": 0,
+      "currency": "USD",
+      "verified": true,
+      "source": "official-site+retailer-listing",
+      "lastUpdated": "2026-11-21",
+      "setRoles": [
+        "executive_desk"
+      ],
+      "includesRoles": [
+        "side_return"
+      ],
+      "seatsPerUnit": 1,
+      "notes": "L-shape confirmed by retailer listing (digitec: Narbutas Nova O corner desk, 1400x1200x740). Official NOVA O page does not show the L-shape.",
+      "imageSource": "digitec/galaxus listing"
+    },
+    {
+      "brand": "NARBUTAS",
+      "family": "Narbutas",
+      "currency": "USD",
+      "price": 0,
+      "verified": true,
+      "lastUpdated": "2026-11-21",
+      "mainCategory": "Furniture",
+      "subCategory": "Pedestals",
+      "model": "NOVA Pedestal (Mobile, 3-drawer) for L-Shape Desk",
+      "description": "NOVA mobile pedestal under the L-shape desk return. Official NOVA pedestal range; drawer configuration per Narbutas price list.",
+      "productUrl": "https://www.narbutas.com/products/storage/pedestals/nova-pedestals/",
+      "websiteUrl": "https://www.narbutas.com/products/storage/pedestals/nova-pedestals/",
+      "officialProductUrl": "https://www.narbutas.com/products/storage/pedestals/nova-pedestals/",
+      "source": "official-site",
+      "setRoles": [
+        "pedestal"
+      ],
+      "notes": "Official NOVA pedestal page confirmed; individual model list and product photo not extracted. Image pending.",
+      "imageUrl": "https://media.architonic.com/m-on/10001981/product/20264114/narbutas_nova-pedestals_76577801.jpeg?width=1200&height=630&format=webp",
+      "imageSource": "architonic"
+    },
+    {
+      "brand": "NARBUTAS",
+      "family": "Narbutas",
+      "currency": "USD",
+      "price": 0,
+      "verified": true,
+      "lastUpdated": "2026-11-21",
+      "mainCategory": "Desk & Table",
+      "subCategory": "Workstations",
+      "model": "NOVA O Side Return Desk 1200x800",
+      "description": "Side return (supplementary) desktop 1200x800 mm, H=740 mm, for NOVA O L-shape corner desk. Matches right-hand return.",
+      "productUrl": "https://www.narbutas.com/products/desks-tables/desks/nova-o-single-desks/",
+      "websiteUrl": "https://www.narbutas.com/products/desks-tables/desks/nova-o-single-desks/",
+      "officialProductUrl": "https://www.narbutas.com/products/desks-tables/desks/nova-o-single-desks/",
+      "source": "official-site+retailer-listing",
+      "setRoles": [
+        "side_return"
+      ],
+      "notes": "Dimensions from retailer listing (digitec). Image pending."
+    },
+    {
+      "brand": "NARBUTAS",
+      "family": "Narbutas",
+      "currency": "USD",
+      "price": 0,
+      "verified": true,
+      "lastUpdated": "2026-11-21",
+      "mainCategory": "Accessories",
+      "subCategory": "Power Boxes",
+      "model": "NARBUTAS Power Socket Box for Desk Grommet",
+      "description": "Power socket box mounted under the desktop cut-out with metal grommet frame; inside 420x145 mm, H=115 mm. Cable port D60 mm at long side.",
+      "productUrl": "https://www.narbutas.com/wp-content/uploads/2022/07/PLANA-executive-desks_Technical-information_EN.pdf",
+      "websiteUrl": "https://www.narbutas.com/wp-content/uploads/2022/07/PLANA-executive-desks_Technical-information_EN.pdf",
+      "officialProductUrl": "https://www.narbutas.com/wp-content/uploads/2022/07/PLANA-executive-desks_Technical-information_EN.pdf",
+      "source": "official-pdf",
+      "setRoles": [
+        "power_box"
+      ],
+      "notes": "Spec from Narbutas technical PDF (PLANA). Image pending."
+    },
+    {
+      "brand": "NARBUTAS",
+      "family": "Narbutas",
+      "currency": "USD",
+      "price": 0,
+      "verified": true,
+      "lastUpdated": "2026-11-21",
+      "mainCategory": "Accessories",
+      "subCategory": "Cable Management",
+      "model": "NARBUTAS Metal Cable Tray for Desks",
+      "description": "Metal cable tray for desk underside, suitable for all NARBUTAS desks listed in the price list. Length must be 200 mm shorter than sloping desktops.",
+      "productUrl": "https://www.narbutas.com/wp-content/uploads/2023/02/NOVA-Wood-desks_Technical-information_EN.pdf",
+      "websiteUrl": "https://www.narbutas.com/wp-content/uploads/2023/02/NOVA-Wood-desks_Technical-information_EN.pdf",
+      "officialProductUrl": "https://www.narbutas.com/wp-content/uploads/2023/02/NOVA-Wood-desks_Technical-information_EN.pdf",
+      "source": "official-pdf",
+      "setRoles": [
+        "cable_management"
+      ],
+      "notes": "Generic tray from Narbutas technical PDF; exact tray code/price from price list. Image pending."
     }
   ],
   "source": "LITHUANIA",
@@ -3003,8 +3571,7 @@
       "Sofas",
       "Lounge Chairs",
       "Staff Chairs",
-      "Executive Chairs",
-      "Task Chairs"
+      "Executive Chairs"
     ],
     "Furniture": [
       "Acoustic Furniture",
@@ -3027,7 +3594,6 @@
       "Sit Stand Desks",
       "Storage",
       "Task Chairs",
-      "Discovery",
       "Surfaces",
       "Seating",
       "Generic",
@@ -3047,18 +3613,34 @@
     ],
     "Desk & Table": [
       "Conference Tables",
-      "Single Desks"
+      "Single Desks",
+      "Workstations",
+      "Executive Desks",
+      "Folding & Multi-Purpose Conference Tables"
+    ],
+    "Storage": [
+      "cabinets",
+      "Return Credenzas & Pedestals",
+      "Pedestals"
     ],
     "General": [],
     "N/A": [
       "N/A"
+    ],
+    "Accessories": [
+      "Cable Management",
+      "Power & Electrification",
+      "Modesty Panels",
+      "Desk Screens"
     ]
   },
   "categoryList": [
     "Office Seating",
     "Furniture",
     "Desk & Table",
+    "Storage",
     "General",
-    "N/A"
+    "N/A",
+    "Accessories"
   ]
 }

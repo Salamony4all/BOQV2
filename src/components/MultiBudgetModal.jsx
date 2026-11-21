@@ -22,12 +22,25 @@ import {
 } from '../utils/boqGroupingUtils';
 import {
     FURNITURE_SET_TYPES,
-    detectFurnitureSetType,
-    parseSetComponentsFromDescription,
     createEmptySetComponent,
     computeSetParentRollup,
     getSetTypeMeta,
-    buildSetComponentMatchQuery
+    buildSetComponentMatchQuery,
+    convertRowToSet,
+    isSystemSetType,
+    isMatchedSetItem,
+    describeSetItemPrice,
+    hasSingleAlternative,
+    applySetPlanToRow,
+    refreshRowSetPlan,
+    summarizeSetOption,
+    activateSetOption,
+    revertSetToSingle,
+    dismissSetOption,
+    changeRowSetType,
+    withSetOptionItems,
+    applyCostingToRowAlternates,
+    reidRowSetState
 } from '../utils/furnitureSetUtils';
 
 import { useCompanyProfile } from '../context/CompanyContext';
@@ -35,6 +48,8 @@ import { useTheme } from '../context/ThemeContext';
 import { fixArabic, hasArabic, loadArabicFont } from '../utils/arabicPdfUtils';
 import { getApiBase } from '../utils/apiBase';
 import { getFullUrl, loadExportImageData } from '../utils/urlUtils';
+import { exportRfqByBrandFromTierRows } from '../utils/rfqExportUtils';
+import { getBrandColors } from '../utils/themeConfig';
 
 const API_BASE = getApiBase();
 
@@ -103,7 +118,7 @@ const releaseSemaphore = () => {
 export default function MultiBudgetModal({ isOpen, onClose, originalTables, onApplyFlow, seededItems = null, onUploadBoq, onUploadPlan, planPreviewUrl = null, planPreviewType = null, planPreviewName = null, onOpenValueEngineer }) {
     const profile = useCompanyProfile();
     const { theme } = useTheme();
-    const { companyName, logoWhite, logoOriginal, logoBlue, website, updateProfile, processLogoFile } = profile;
+    const { companyName, logoWhite, logoOriginal, logoBlue, website, updateProfile, processLogoFile, accentColor, secondaryColor, aiSettings } = profile;
     const [activeTier, setActiveTier] = useState('mid');
     const [previewImage, setPreviewImage] = useState(null);
     const [previewLogo, setPreviewLogo] = useState(null);
@@ -141,27 +156,18 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
     const [recategorizeMode, setRecategorizeMode] = useState('original');
     const [matchingSetRowId, setMatchingSetRowId] = useState(null);
     const [setExportMode, setSetExportMode] = useState('lump_sum');
+    const [exportSetOptions, setExportSetOptions] = useState(false);
+    const [matchingOptionRowId, setMatchingOptionRowId] = useState(null);
 
-    const attachAutoSetMeta = (baseRow) => {
-        const detectedType = detectFurnitureSetType(baseRow.description, baseRow.unit);
-        if (detectedType) {
-            const parsedItems = parseSetComponentsFromDescription(baseRow.description, detectedType, baseRow.id);
-            return {
-                ...baseRow,
-                setType: detectedType,
-                setItems: parsedItems,
-                setExpanded: false,
-                brandImages: []
-            };
-        }
-        return {
-            ...baseRow,
-            setType: 'single',
-            setItems: [],
-            setExpanded: false,
-            brandImages: []
-        };
-    };
+    // Applies the set plan to a loaded row: workstations / L-shape desks / folding-table groups become
+    // active sets, a single conference / meeting table gets its "set of folding tables" option.
+    const attachAutoSetMeta = (baseRow) => applySetPlanToRow(baseRow);
+    // One copy of the loaded rows per budget tier, each with its own row / component ids
+    const buildTierCopies = (rowsToCopy) => ({
+        budgetary: { rows: rowsToCopy.map(r => reidRowSetState(r, r.id + 0)), mode: 'boq' },
+        mid: { rows: rowsToCopy.map(r => reidRowSetState(r, r.id + 100000)), mode: 'boq' },
+        high: { rows: rowsToCopy.map(r => reidRowSetState(r, r.id + 200000)), mode: 'boq' }
+    });
     const [specialistData, setSpecialistData] = useState(null);
     const [enrichingRowId, setEnrichingRowId] = useState(null);
     const [lastAISettings, setLastAISettings] = useState({ brands: [], engine: 'OpenAI', providerModel: null, selectionMode: 'standard', brandsMap: null });
@@ -236,11 +242,7 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
             });
 
             setRecategorizeMode('item');
-            setTierData({
-                budgetary: { rows: newRows.map(r => ({ ...r, id: r.id + 0, setItems: (r.setItems || []).map((s, si) => ({ ...s, id: `${r.id + 0}_sub_${si}` })) })), mode: 'boq' },
-                mid: { rows: newRows.map(r => ({ ...r, id: r.id + 100000, setItems: (r.setItems || []).map((s, si) => ({ ...s, id: `${r.id + 100000}_sub_${si}` })) })), mode: 'boq' },
-                high: { rows: newRows.map(r => ({ ...r, id: r.id + 200000, setItems: (r.setItems || []).map((s, si) => ({ ...s, id: `${r.id + 200000}_sub_${si}` })) })), mode: 'boq' }
-            });
+            setTierData(buildTierCopies(newRows));
         }
     }, [seededItems]);
 
@@ -432,11 +434,7 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
             description: String(item.description || '').replace(/^(\s*\[[^\]]+\]\s*)+/, '').trim(), location: item.location || '', code: item.code || '', scope: item.scope || '', qty: item.qty, unit: item.unit || 'Nos', rate: '', amount: '', selectedBrand: '', selectedMainCat: '', selectedSubCat: '', selectedFamily: '', selectedModel: ''
         }));
         setRecategorizeMode('item');
-        setTierData({
-            budgetary: { rows: newRows.map(r => ({ ...r, id: r.id + 0, setItems: (r.setItems || []).map((s, si) => ({ ...s, id: `${r.id + 0}_sub_${si}` })) })), mode: 'boq' },
-            mid: { rows: newRows.map(r => ({ ...r, id: r.id + 100000, setItems: (r.setItems || []).map((s, si) => ({ ...s, id: `${r.id + 100000}_sub_${si}` })) })), mode: 'boq' },
-            high: { rows: newRows.map(r => ({ ...r, id: r.id + 200000, setItems: (r.setItems || []).map((s, si) => ({ ...s, id: `${r.id + 200000}_sub_${si}` })) })), mode: 'boq' }
-        });
+        setTierData(buildTierCopies(newRows));
     };
 
     const handleManualEnrich = async (row, index, tierKey = activeTier) => {
@@ -749,6 +747,145 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
         return { updatedRow, matchedBrandName, resolvedLogo, finalModel, finalImageUrl };
     };
 
+    // Brands a tier may use: the last AI selection for that tier, otherwise every furniture brand of the tier
+    const getTierBrandNames = (tierKey) => {
+        const map = lastAISettings.brandsMap;
+        if (lastAISettings.selectionMode === 'standard' && map && !Array.isArray(map) && map[tierKey]) {
+            return [map[tierKey]];
+        }
+        const tierOf = (b) => {
+            const t = String(b?.budgetTier || 'mid').toLowerCase();
+            return (t === 'high' || t === 'premium') ? 'high' : t === 'budgetary' ? 'budgetary' : 'mid';
+        };
+        const tierBrands = brands
+            .filter(b => b && b.name && b.type !== 'fitout' && !/fitout/i.test(b.name) && tierOf(b) === tierKey)
+            .map(b => b.name);
+        const selected = (lastAISettings.brands || []).filter(name => tierBrands.includes(name));
+        return selected.length > 0 ? selected : tierBrands;
+    };
+
+    // Turns one component returned by the system set matcher into a set item
+    const buildSetItemFromSystemMatch = (product, sub) => {
+        if (product.includedInSystem) {
+            // Accessory included in the anchor system: no price of its own (never double-counted), no duplicate photo
+            return {
+                ...sub,
+                selectedBrand: product.brand || '',
+                selectedMainCat: product.mainCategory || '',
+                selectedSubCat: product.subCategory || '',
+                selectedFamily: product.family || '',
+                selectedModel: product.model || '',
+                selectedModelUrl: product.productUrl || product.websiteUrl || '',
+                brandDesc: product.description || product.model || '',
+                brandImage: '',
+                brandLogo: product.brandLogo || '',
+                type: 'furniture',
+                rate: '0.00',
+                basePrice: 0,
+                amount: '0.00',
+                aiStatus: 'success',
+                aiResult: { status: 'success', product, source: product.matchSource }
+            };
+        }
+        const { updatedRow } = hydrateMatchedProduct({ status: 'success', product, source: product.matchSource }, sub);
+        // A cluster product ("Cluster of 4") covers several positions: use the unit count the matcher suggests
+        const suggestedQty = parseFloat(product.suggestedQty);
+        if (suggestedQty > 0) {
+            updatedRow.qty = String(suggestedQty);
+            updatedRow.amount = ((parseFloat(updatedRow.basePrice) || 0) * suggestedQty).toFixed(2);
+        }
+        return { ...updatedRow, aiStatus: 'success' };
+    };
+
+    // Resolves a system set (workstation / L-shape desk / folding-table set / conference set) as ONE
+    // same-manufacturer system through the backend matcher. Runs OUTSIDE React state updaters and returns
+    // the matched components plus the indices that still need a per-component match.
+    const resolveSystemSetItems = async ({ parentDescription, items, targetBrand = '', preferredBrand = '', isAuto = true, availableBrands = null, providerModel = null, catalogOnly = false }) => {
+        try {
+            const res = await fetch(`${API_BASE}/api/ve-match-workstation-set`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    parentDescription,
+                    components: items.map(it => ({
+                        label: it.label,
+                        description: it.description,
+                        componentRole: it.componentRole,
+                        seatCount: it.seatCount,
+                        qty: it.qty,
+                        unit: it.unit
+                    })),
+                    targetBrand,
+                    preferredBrand,
+                    isAuto,
+                    availableBrands,
+                    providerModel,
+                    catalogOnly
+                })
+            });
+            const data = await res.json();
+            if (data.status !== 'success' || !Array.isArray(data.components)) return null;
+            const resolvedMap = new Map();
+            const unresolvedIndices = [];
+            items.forEach((it, idx) => {
+                const entry = data.components[idx];
+                if (entry && entry.status === 'success' && entry.product) {
+                    resolvedMap.set(idx, buildSetItemFromSystemMatch(entry.product, it));
+                } else {
+                    unresolvedIndices.push(idx);
+                }
+            });
+            return { anchorBrand: data.anchorBrand || '', resolvedMap, unresolvedIndices };
+        } catch (err) {
+            console.warn('[MultiBudget] System set matcher fallback:', err.message);
+            return null;
+        }
+    };
+
+    // Matches the set alternative of a single-item row ("set of N folding tables" below a conference table)
+    // from the tier's brand catalogs. The single-item match of the row is left untouched.
+    const matchSetOptionForTier = async (tierKey, rowId, { option = null, description = '', targetBrand = '', preferredBrand = '', isAuto = true, availableBrands = null, providerModel = null } = {}) => {
+        const liveRow = tierDataRef.current[tierKey]?.rows?.find(r => String(r.id) === String(rowId));
+        const workingOption = option || liveRow?.setOption;
+        if (!workingOption || !Array.isArray(workingOption.items) || workingOption.items.length === 0) return false;
+
+        const isSetNow = (r) => Boolean(r.setType && r.setType !== 'single');
+        const patchRow = (updater) => setTierData(prev => {
+            const curTier = prev[tierKey];
+            if (!curTier) return prev;
+            return { ...prev, [tierKey]: { ...curTier, rows: curTier.rows.map(r => (String(r.id) === String(rowId) ? updater(r) : r)) } };
+        });
+
+        patchRow(r => (isSetNow(r) ? r : withSetOptionItems(
+            { ...r, setOption: r.setOption || workingOption },
+            (r.setOption || workingOption).items.map(it => ({ ...it, aiStatus: 'processing' }))
+        )));
+
+        const resolved = await resolveSystemSetItems({
+            parentDescription: description || liveRow?.description || '',
+            items: workingOption.items,
+            targetBrand,
+            preferredBrand: preferredBrand || liveRow?.selectedBrand || '',
+            isAuto,
+            availableBrands,
+            providerModel,
+            catalogOnly: true
+        });
+        if (!isMounted?.current) return false;
+
+        patchRow(r => {
+            if (isSetNow(r)) return r; // the user switched to the set while it was being matched
+            const base = r.setOption || workingOption;
+            const nextItems = base.items.map((it, idx) => (
+                resolved && resolved.resolvedMap.has(idx)
+                    ? { ...resolved.resolvedMap.get(idx), id: it.id }
+                    : { ...it, aiStatus: isMatchedSetItem(it) ? 'success' : 'no_match' }
+            ));
+            return withSetOptionItems({ ...r, setOption: base }, nextItems);
+        });
+        return Boolean(resolved && resolved.resolvedMap.size > 0);
+    };
+
     const executeAutoFillAI = async (selectedBrandsOrMap, selectedEngine, providerModel = null, selectionMode = 'standard') => {
         setIsAutoFillSelectOpen(false);
         setIsFurnitureAutoFilling(true);
@@ -858,10 +995,18 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                         return { ...prev, [tierKey]: { ...prev[tierKey], rows: updatedRows } };
                     });
 
-                    // ── FURNITURE SET / WORKSTATION / MODULAR SEATING DECOMPOSED MATCHING ──
-                    if (row.setType && row.setType !== 'single' && Array.isArray(row.setItems) && row.setItems.length > 0) {
-                        const setMeta = getSetTypeMeta(row.setType);
-                        const subIndices = row.setItems.map((_, idx) => idx);
+                    // ── FURNITURE SET / WORKSTATION / L-SHAPE DESK / FOLDING CONFERENCE DECOMPOSED MATCHING ──
+                    // Re-evaluate the set plan so descriptions typed or edited after loading are recognised:
+                    // active sets are matched as sets, single conference tables keep their folding-set option.
+                    const plannedRow = refreshRowSetPlan(row);
+                    const workingSetType = plannedRow.setType || 'single';
+                    const workingSetItems = Array.isArray(plannedRow.setItems) ? plannedRow.setItems : [];
+                    const plannedOption = (workingSetType === 'single' && plannedRow.setOption?.items?.length > 0) ? plannedRow.setOption : null;
+                    const singleBrandTarget = selectionMode === 'single' && Array.isArray(activeBrandsForCall) && activeBrandsForCall.length === 1 ? activeBrandsForCall[0] : '';
+
+                    if (workingSetType && workingSetType !== 'single' && workingSetItems.length > 0) {
+                        const setMeta = getSetTypeMeta(workingSetType);
+                        const subIndices = workingSetItems.map((_, idx) => idx);
                         let subMatched = 0;
                         let lastBrand = '';
                         let lastLogo = '';
@@ -871,15 +1016,56 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                         setTierData(prev => {
                             const updatedRows = [...prev[tierKey].rows];
                             updatedRows[rowIndex] = {
-                                ...updatedRows[rowIndex],
+                                ...plannedRow,
                                 aiStatus: 'processing',
-                                setItems: (updatedRows[rowIndex].setItems || []).map(it => ({ ...it, aiStatus: 'processing' }))
+                                setItems: workingSetItems.map(it => ({ ...it, aiStatus: 'processing' }))
                             };
                             return { ...prev, [tierKey]: { ...prev[tierKey], rows: updatedRows } };
                         });
 
-                        await batch(subIndices, 3, async (sIdx) => {
-                            const liveParent = tierDataRef.current[tierKey]?.rows?.[rowIndex];
+                        let remainingIndices = [...subIndices];
+                        if (isSystemSetType(workingSetType)) {
+                            // Resolved OUTSIDE the state updater so the unresolved components and the
+                            // anchor brand are known before the per-component fallback starts.
+                            const sysResolved = await resolveSystemSetItems({
+                                parentDescription: row.description,
+                                items: workingSetItems,
+                                targetBrand: singleBrandTarget,
+                                isAuto: selectionMode !== 'single',
+                                availableBrands: activeBrandsForCall,
+                                providerModel
+                            });
+                            if (sysResolved && isMounted?.current) {
+                                sysResolved.resolvedMap.forEach((item) => {
+                                    subMatched++;
+                                    lastBrand = item.selectedBrand || lastBrand;
+                                    lastLogo = item.brandLogo || lastLogo;
+                                    lastModel = item.selectedModel || lastModel;
+                                    lastImage = item.brandImage || lastImage;
+                                });
+                                if (sysResolved.anchorBrand) lastBrand = sysResolved.anchorBrand;
+                                setTierData(prev => {
+                                    const curTier = prev[tierKey];
+                                    if (!curTier) return prev;
+                                    const nextRows = curTier.rows.map(r => {
+                                        if (String(r.id) !== String(row.id)) return r;
+                                        const baseItems = (r.setItems && r.setItems.length > 0) ? r.setItems : workingSetItems;
+                                        const nextItems = baseItems.map((it, idx) => (sysResolved.resolvedMap.has(idx) ? sysResolved.resolvedMap.get(idx) : it));
+                                        return computeSetParentRollup({ ...r, setType: workingSetType }, nextItems);
+                                    });
+                                    return { ...prev, [tierKey]: { ...curTier, rows: nextRows } };
+                                });
+                                remainingIndices = sysResolved.unresolvedIndices;
+                            }
+                        }
+
+                        // Lock ONE single manufacturer across all components of this set (Anchor Brand from workstation or first matched component)
+                        let lockedSetBrand = lastBrand || singleBrandTarget;
+
+                        const runMultiBudgetSubMatch = async (sIdx) => {
+                            // The ref can lag one render behind the state update above: fall back to the planned components
+                            const liveRow = tierDataRef.current[tierKey]?.rows?.[rowIndex];
+                            const liveParent = liveRow?.setItems?.[sIdx] ? liveRow : { ...plannedRow, setItems: workingSetItems };
                             const sub = liveParent?.setItems?.[sIdx];
                             if (!sub || !isMounted?.current) return;
                             const queryDesc = buildSetComponentMatchQuery(sub, liveParent, setMeta);
@@ -887,11 +1073,19 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                             const subSizeCtx = [sub.qty && `Qty: ${sub.qty}`, sub.unit && `Unit: ${sub.unit}`].filter(Boolean).join(', ');
                             const subEnrichedDesc = subSizeCtx ? `${queryDesc} | ${subSizeCtx}` : queryDesc;
                             const hasInheritedBrand = /\b(?:supplier|brand)\s*:/i.test(queryDesc);
+                            const scopedBrands = lockedSetBrand ? [lockedSetBrand] : activeBrandsForCall;
 
                             try {
-                                const subRes = await fetch(`${API_BASE}${hasInheritedBrand ? '/api/ve-match-auto' : '/api/auto-match-ai'}`, {
+                                const subRes = await fetch(`${API_BASE}${lockedSetBrand ? '/api/ve-match' : (hasInheritedBrand ? '/api/ve-match-auto' : '/api/auto-match-ai')}`, {
                                     method: 'POST', headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify(hasInheritedBrand ? {
+                                    body: JSON.stringify(lockedSetBrand ? {
+                                        description: subEnrichedDesc,
+                                        qty: sub.qty || '1',
+                                        unit: sub.unit || 'Nos',
+                                        brand: lockedSetBrand,
+                                        tier: tierKey,
+                                        providerModel
+                                    } : hasInheritedBrand ? {
                                         description: subEnrichedDesc,
                                         qty: sub.qty || '1',
                                         unit: sub.unit || 'Nos',
@@ -900,7 +1094,7 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                                     } : {
                                         description: subEnrichedDesc,
                                         tier: tierKey,
-                                        availableBrands: activeBrandsForCall,
+                                        availableBrands: scopedBrands,
                                         brandCategoryRules: selectionMode === 'categorized' ? selectedBrandsOrMap : null,
                                         provider: selectedEngine,
                                         providerModel,
@@ -915,6 +1109,7 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                                     if (subData.source === 'ai-discovery-hardened') globalStats.newlyAdded++;
                                     const { updatedRow: hydratedSub, matchedBrandName, resolvedLogo, finalModel, finalImageUrl } = hydrateMatchedProduct(subData, sub);
                                     subMatched++;
+                                    if (!lockedSetBrand && matchedBrandName) lockedSetBrand = matchedBrandName;
                                     lastBrand = matchedBrandName;
                                     lastLogo = resolvedLogo;
                                     lastModel = finalModel;
@@ -954,7 +1149,14 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                                     return { ...prev, [tierKey]: { ...curTier, rows: nextRows } };
                                 });
                             }
-                        });
+                        };
+
+                        // Match Component 0 first when brand isn't locked yet so remaining components stay strictly from the SAME manufacturer
+                        if (!lockedSetBrand && remainingIndices.length > 1) {
+                            const firstIdx = remainingIndices.shift();
+                            await runMultiBudgetSubMatch(firstIdx);
+                        }
+                        await batch(remainingIndices, 3, runMultiBudgetSubMatch);
 
                         if (subMatched > 0) {
                             updateFurnitureStatus(tierKey, { status: 'success', brand: lastBrand || setMeta.label, model: `${setMeta.shortLabel} (${subMatched}/${subIndices.length})`, image: lastImage || null });
@@ -974,6 +1176,28 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                         return;
                     }
 
+                    // Single item with a set alternative detected just now: show its option below the row
+                    if (plannedOption && plannedOption !== row.setOption) {
+                        setTierData(prev => ({ ...prev, [tierKey]: { ...prev[tierKey], rows: prev[tierKey].rows.map(r => String(r.id) === String(row.id) ? { ...r, setOption: plannedOption } : r) } }));
+                    }
+                    // Additional option below the single item (e.g. set of folding tables), same manufacturer preferred
+                    const runOptionMatch = async (preferredBrand = '') => {
+                        if (!plannedOption) return;
+                        try {
+                            await matchSetOptionForTier(tierKey, row.id, {
+                                option: plannedOption,
+                                description: row.description,
+                                targetBrand: singleBrandTarget,
+                                preferredBrand,
+                                isAuto: selectionMode !== 'single',
+                                availableBrands: activeBrandsForCall,
+                                providerModel
+                            });
+                        } catch (optErr) {
+                            console.warn('[MultiBudget] Set option match skipped:', optErr.message);
+                        }
+                    };
+
                     const sizeContext = [row.qty && `Qty: ${row.qty}`, row.unit && `Unit: ${row.unit}`].filter(Boolean).join(', ');
                     const enrichedDesc = sizeContext ? `${row.description} | ${sizeContext}` : row.description;
 
@@ -987,7 +1211,7 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
 
                     if (result.status === 'success' && result.product) {
                         if (result.source === 'ai-discovery-hardened') globalStats.newlyAdded++;
-                        const { updatedRow, matchedBrandName, resolvedLogo, finalModel, finalImageUrl } = hydrateMatchedProduct(result, row);
+                        const { updatedRow, matchedBrandName, resolvedLogo, finalModel, finalImageUrl } = hydrateMatchedProduct(result, plannedRow);
                         updateFurnitureStatus(tierKey, { status: 'success', brand: matchedBrandName, model: finalModel, image: finalImageUrl || null });
                         setTierData(prev => ({ ...prev, [tierKey]: { ...prev[tierKey], rows: prev[tierKey].rows.map(r => String(r.id) === String(row.id) ? updatedRow : r) } }));
 
@@ -1000,6 +1224,7 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                             });
                         }
                         globalStats.success++;
+                        await runOptionMatch(matchedBrandName);
                     } else {
                         const newStatus = result.status === 'no_match' ? 'no_match' : 'error';
                         updateFurnitureStatus(tierKey, { status: newStatus });
@@ -1013,6 +1238,7 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                             });
                         }
                         globalStats.error++;
+                        await runOptionMatch();
                     }
                 } catch (error) {
                     console.error("Row processing error:", error);
@@ -1407,27 +1633,41 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
         });
     };
 
-    const handleSetTypeChange = (rowIndex, newSetType) => {
+    const updateActiveTierRow = (rowIndex, updater) => {
         setTierData(prev => {
             const tier = prev[activeTier];
             if (!tier || !tier.rows?.[rowIndex]) return prev;
-            const newRows = [...tier.rows];
-            const row = { ...newRows[rowIndex] };
-
-            if (newSetType === 'single') {
-                newRows[rowIndex] = { ...row, setType: 'single', setItems: [], setExpanded: false, brandImages: [] };
-                return { ...prev, [activeTier]: { ...tier, rows: newRows } };
-            }
-
-            const existingItems = Array.isArray(row.setItems) ? row.setItems : [];
-            const hasMatchedOrEdited = existingItems.some(it => it.selectedBrand || it.selectedModel || it.brandImage || parseFloat(it.rate) > 0);
-            const nextItems = (existingItems.length > 0 && hasMatchedOrEdited)
-                ? existingItems
-                : parseSetComponentsFromDescription(row.description, newSetType, row.id);
-
-            newRows[rowIndex] = computeSetParentRollup({ ...row, setType: newSetType, setExpanded: true }, nextItems);
+            const newRows = tier.rows.map((r, i) => (i === rowIndex ? updater(r) : r));
             return { ...prev, [activeTier]: { ...tier, rows: newRows } };
         });
+    };
+
+    // 'single' keeps the set as the option below the row; any other type (re)builds the components
+    const handleSetTypeChange = (rowIndex, newSetType) => updateActiveTierRow(rowIndex, r => changeRowSetType(r, newSetType));
+
+    // Single item ⇄ set alternative (both matches are kept, so switching is lossless)
+    const handleUseSetOption = (rowIndex) => updateActiveTierRow(rowIndex, r => activateSetOption(r));
+    const handleUseSingleItem = (rowIndex) => updateActiveTierRow(rowIndex, r => revertSetToSingle(r));
+    const handleDismissSetOption = (rowIndex) => updateActiveTierRow(rowIndex, r => dismissSetOption(r));
+    const handleToggleOptionExpand = (rowIndex) => updateActiveTierRow(rowIndex, r => (
+        r.setOption ? { ...r, setOption: { ...r.setOption, expanded: !r.setOption.expanded } } : r
+    ));
+    const handleConvertToSet = (rowIndex) => updateActiveTierRow(rowIndex, r => convertRowToSet(r));
+
+    const handleMatchSetOption = async (rowIndex) => {
+        const tierKey = activeTier;
+        const row = tierDataRef.current[tierKey]?.rows?.[rowIndex];
+        if (!row || !row.setOption || matchingOptionRowId) return;
+        setMatchingOptionRowId(row.id);
+        try {
+            await matchSetOptionForTier(tierKey, row.id, {
+                description: row.description,
+                availableBrands: getTierBrandNames(tierKey),
+                providerModel: lastAISettings.providerModel || aiSettings?.model
+            });
+        } finally {
+            setMatchingOptionRowId(null);
+        }
     };
 
     const handleToggleSetExpand = (rowIndex) => {
@@ -1450,6 +1690,8 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
 
             const updatedSub = applyProductFieldChange(currentItems[subIndex], field, value);
             if (field === 'description') updatedSub.label = value;
+            // A manually edited quantity replaces the parsed seat count used for cluster-size matching
+            if (field === 'qty') updatedSub.seatCount = undefined;
             currentItems[subIndex] = updatedSub;
             newRows[rowIndex] = computeSetParentRollup(parent, currentItems);
             return { ...prev, [activeTier]: { ...tier, rows: newRows } };
@@ -1483,7 +1725,7 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
             const parent = { ...newRows[rowIndex] };
             const nextItems = (parent.setItems || []).filter((_, i) => i !== subIndex);
             newRows[rowIndex] = nextItems.length === 0
-                ? { ...parent, setType: 'single', setItems: [], setExpanded: false, brandImages: [] }
+                ? { ...revertSetToSingle(parent), setOption: null }
                 : computeSetParentRollup(parent, nextItems);
             return { ...prev, [activeTier]: { ...tier, rows: newRows } };
         });
@@ -1496,6 +1738,8 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
 
         const targetIndices = onlySubIndex !== null ? [onlySubIndex] : parent.setItems.map((_, idx) => idx);
         const setMeta = getSetTypeMeta(parent.setType);
+        const tierBrandNames = getTierBrandNames(tierKey);
+        const matchProviderModel = lastAISettings.providerModel || aiSettings?.model;
 
         setMatchingSetRowId(parent.id);
         setTierData(prev => {
@@ -1509,23 +1753,66 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
         });
 
         try {
-            await batch(targetIndices, 3, async (sIdx) => {
-                const liveParent = tierDataRef.current[tierKey]?.rows?.[rowIndex];
+            let remainingIndices = [...targetIndices];
+
+            // The whole set is first resolved as ONE same-manufacturer system from the tier's brands
+            let lockedSetBrand = '';
+            if (onlySubIndex === null && isSystemSetType(parent.setType)) {
+                const sysResolved = await resolveSystemSetItems({
+                    parentDescription: parent.description,
+                    items: parent.setItems,
+                    isAuto: true,
+                    availableBrands: tierBrandNames,
+                    providerModel: matchProviderModel
+                });
+                if (sysResolved) {
+                    lockedSetBrand = sysResolved.anchorBrand || '';
+                    setTierData(prev => {
+                        const curTier = prev[tierKey];
+                        if (!curTier || !curTier.rows?.[rowIndex]) return prev;
+                        const nextRows = [...curTier.rows];
+                        const cur = nextRows[rowIndex];
+                        const nextItems = (cur.setItems || []).map((it, idx) => (
+                            sysResolved.resolvedMap.has(idx) ? { ...sysResolved.resolvedMap.get(idx), id: it.id } : it
+                        ));
+                        nextRows[rowIndex] = computeSetParentRollup(cur, nextItems);
+                        return { ...prev, [tierKey]: { ...curTier, rows: nextRows } };
+                    });
+                    remainingIndices = sysResolved.unresolvedIndices;
+                }
+            } else if (onlySubIndex !== null) {
+                // Re-matching one component keeps the manufacturer already used by the rest of the set
+                lockedSetBrand = (parent.setItems.find((it, idx) => idx !== onlySubIndex && it.selectedBrand)?.selectedBrand) || '';
+            }
+
+            await batch(remainingIndices, 3, async (sIdx) => {
+                const liveRow = tierDataRef.current[tierKey]?.rows?.[rowIndex];
+                const liveParent = liveRow?.setItems?.[sIdx] ? liveRow : parent;
                 const sub = liveParent?.setItems?.[sIdx];
                 if (!sub) return;
                 const queryDesc = buildSetComponentMatchQuery(sub, liveParent, setMeta);
                 if (!queryDesc) return;
 
                 try {
-                    const res = await fetch(`${API_BASE}/api/ve-match-auto`, {
+                    // Same manufacturer as the rest of the set when known, otherwise the tier's own brands
+                    const res = await fetch(`${API_BASE}${lockedSetBrand ? '/api/ve-match' : '/api/auto-match-ai'}`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
+                        body: JSON.stringify(lockedSetBrand ? {
                             description: queryDesc,
                             qty: sub.qty || '1',
                             unit: sub.unit || 'Nos',
+                            brand: lockedSetBrand,
                             tier: tierKey,
-                            providerModel: aiSettings?.model
+                            providerModel: matchProviderModel
+                        } : {
+                            description: queryDesc,
+                            tier: tierKey,
+                            availableBrands: tierBrandNames,
+                            provider: lastAISettings.engine || 'OpenAI',
+                            providerModel: matchProviderModel,
+                            scope: liveParent.scope,
+                            type: 'furniture'
                         })
                     });
                     const data = await res.json();
@@ -1621,8 +1908,11 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
         if (!activeTierData) return;
 
         const markup = 1 + (factors.profit + factors.freight + factors.customs + factors.installation) / 100;
+        const costMultiplier = markup * factors.exchangeRate;
 
-        const updatedRows = activeTierData.rows.map(row => {
+        const updatedRows = activeTierData.rows.map(sourceRow => {
+            // Inactive alternates (set option / single-item snapshot) are costed with the same factors
+            const row = applyCostingToRowAlternates(sourceRow, costMultiplier);
             if (row.setType && row.setType !== 'single' && Array.isArray(row.setItems) && row.setItems.length > 0) {
                 const costedSubs = row.setItems.map(sub => {
                     const subBase = parseFloat(sub.basePrice) || 0;
@@ -1693,8 +1983,63 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                     ]
                 };
 
+                // Optional line for the row's inactive alternative (set option below a single item,
+                // or the single item kept beside an active set). Never counted in totals.
+                const optionExports = [];
+                if (exportSetOptions) {
+                    const rowMeta = {
+                        location: row.location || '',
+                        scope: row.scope || '',
+                        code: row.code || '',
+                        categoryHint: row.categoryHint || '',
+                        sectionLabel: row.sectionLabel || '',
+                        sectionCategory: row.sectionCategory || '',
+                        sectionSubheader: row.sectionSubheader || '',
+                        submissionTitle: row.submissionTitle || '',
+                        isOptionRow: true
+                    };
+                    const optionSummary = !isSetRow && row.setOption ? summarizeSetOption(row.setOption, row.qty) : null;
+                    if (optionSummary && optionSummary.matchedCount > 0) {
+                        const optionLines = row.setOption.items.map(it =>
+                            `• ${it.qty || 1} ${it.unit || 'Nos'} × ${[it.selectedBrand, it.selectedModel].filter(Boolean).join(' — ') || it.label}`
+                        );
+                        optionExports.push({
+                            ...rowMeta,
+                            selectedBrand: optionSummary.brands[0] || '',
+                            selectedMainCat: optionSummary.typeLabel,
+                            selectedSubCat: `${optionSummary.itemCount} Components`,
+                            cells: [
+                                { value: `${parentSn} (Option)` },
+                                { value: '', image: optionSummary.images[0] || null, images: optionSummary.images.map(u => ({ url: u })) },
+                                { value: [`OPTION for item ${parentSn} — ${optionSummary.label}`, ...optionLines].join('\n') },
+                                { value: row.qty || '1' },
+                                { value: 'Set' },
+                                { value: optionSummary.hasPrice ? optionSummary.ratePerSet.toFixed(2) : '0' },
+                                { value: 'Optional' }
+                            ]
+                        });
+                    } else if (isSetRow && hasSingleAlternative(row)) {
+                        const alt = row.singleAlt;
+                        optionExports.push({
+                            ...rowMeta,
+                            selectedBrand: alt.selectedBrand || '',
+                            selectedMainCat: alt.selectedMainCat || '',
+                            selectedSubCat: alt.selectedSubCat || '',
+                            cells: [
+                                { value: `${parentSn} (Option)` },
+                                { value: '', image: alt.brandImage || null, images: alt.brandImage ? [{ url: alt.brandImage }] : [] },
+                                { value: `OPTION for item ${parentSn} — Single item: ${alt.brandDesc || [alt.selectedBrand, alt.selectedModel].filter(Boolean).join(' — ')}` },
+                                { value: row.qty || '1' },
+                                { value: row.unit || 'Nos' },
+                                { value: alt.rate || '0' },
+                                { value: 'Optional' }
+                            ]
+                        });
+                    }
+                }
+
                 if (!isSetRow || setExportMode !== 'include_sub_items') {
-                    return [parentExport];
+                    return [parentExport, ...optionExports];
                 }
 
                 const subExports = row.setItems.map((sub, sIdx) => ({
@@ -1725,13 +2070,14 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                     ]
                 }));
 
-                return [parentExport, ...subExports];
+                return [parentExport, ...subExports, ...optionExports];
             });
 
             const formattedData = {
                 costingFactors: factors,
                 recategorizeMode,
                 setExportMode,
+                exportSetOptions,
                 tables: [{
                     sheetName: `New BOQ - ${activeTier.charAt(0).toUpperCase() + activeTier.slice(1)} Tier`,
                     header: ['Sr.', 'Image', 'Description', 'Qty', 'Unit', 'Rate', 'Amount'],
@@ -1746,6 +2092,25 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
 
     const getImageData = async (url, options = {}) => {
         return loadExportImageData(url, options);
+    };
+
+    const handleExportRFQ = async () => {
+        const tier = tierData[activeTier];
+        if (!tier || !tier.rows.length) return alert('No data to export');
+        try {
+            await exportRfqByBrandFromTierRows(tier.rows, {
+                allBrands: brands,
+                project: { projectName: `${activeTier.toUpperCase()} Tier Offer` },
+                companyName,
+                logoUrl: logoOriginal || logoBlue || logoWhite || '',
+                accentColor,
+                secondaryColor,
+                filenamePrefix: `RFQ_${activeTier.toUpperCase()}_By_Brand`
+            });
+        } catch (err) {
+            console.error('[MultiBudget RFQ Export] Failed:', err);
+            alert(`Failed to generate Brand RFQ pack: ${err?.message || 'Unknown error'}`);
+        }
     };
 
     const calcFitSize = (imgW, imgH, maxW, maxH) => {
@@ -1764,14 +2129,15 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
         const arabicLoaded = await loadArabicFont(doc);
         const processText = (txt) => (arabicLoaded && hasArabic(txt)) ? fixArabic(txt) : String(txt || '');
 
+        const brandPalette = getBrandColors(accentColor, secondaryColor);
         const colors = {
-            primary: [30, 95, 168],
-            accent: [245, 166, 35],
-            text: [51, 51, 51],
-            lightText: [100, 116, 139],
+            primary: brandPalette.primaryRgb,
+            accent: brandPalette.accentRgb,
+            text: brandPalette.textRgb,
+            lightText: brandPalette.lightTextRgb,
             white: [255, 255, 255],
-            lightBg: [248, 250, 252],
-            border: [226, 232, 240]
+            lightBg: brandPalette.lightBgRgb,
+            border: brandPalette.borderRgb
         };
 
         doc.setFillColor(...colors.primary);
@@ -1857,7 +2223,15 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                 bodyMeta.push({ isSubheader: true, rowIdx: -1 });
             }
 
-            const amount = row.amount || (parseFloat(row.qty || 0) * parseFloat(row.rate || 0)).toFixed(2);
+            const fmtCellMoney = (v) => {
+                const n = parseFloat(String(v ?? '').replace(/,/g, ''));
+                return Number.isFinite(n)
+                    ? n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                    : String(v || '');
+            };
+            const rawAmt = row.amount || (parseFloat(row.qty || 0) * parseFloat(row.rate || 0));
+            const amount = fmtCellMoney(rawAmt);
+            const rateDisplay = row.rate ? fmtCellMoney(row.rate) : '';
             if (isBoqMode) {
                 body.push([
                     row.sn,
@@ -1869,7 +2243,7 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                     processText(row.brandDesc),
                     row.qty || '',
                     row.unit || '',
-                    row.rate || '',
+                    rateDisplay,
                     amount
                 ]);
             } else {
@@ -1881,7 +2255,7 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                     processText(row.brandDesc),
                     row.qty || '',
                     row.unit || '',
-                    row.rate || '',
+                    rateDisplay,
                     amount
                 ]);
             }
@@ -1999,11 +2373,8 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                     }
                 }
             },
-            didDrawPage: (data) => {
-                const str = "Page " + doc.internal.getNumberOfPages();
-                doc.setFontSize(8);
-                doc.setTextColor(...colors.lightText);
-                doc.text(str, pageWidth / 2, pageHeight - 10, { align: 'center' });
+            didDrawPage: () => {
+                // Footer + "Page X of Y" stamped cleanly across all pages after table completes
             }
         });
 
@@ -2075,12 +2446,20 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
         doc.text(processText('1. This offer is valid for 15 days from the date of issue.'), 15, sigY + 30);
         doc.text(processText('2. Prices are subject to final site measurement and confirmation.'), 15, sigY + 34);
 
-        doc.setFontSize(8);
-        doc.setTextColor(...colors.lightText);
-        doc.setFont('helvetica', 'normal');
-        if (arabicLoaded) doc.setFont('Almarai', 'normal');
-        const footerText = website ? `${companyName} | ${website}` : companyName;
-        doc.text(processText(footerText), pageWidth / 2, pageHeight - 10, { align: 'center' });
+        const totalPages = doc.internal.getNumberOfPages();
+        const footerText = [companyName, website].filter(Boolean).join('  |  ') || 'BOQ FLOW';
+        for (let p = 1; p <= totalPages; p++) {
+            doc.setPage(p);
+            doc.setDrawColor(...colors.accent);
+            doc.setLineWidth(0.4);
+            doc.line(15, pageHeight - 13, pageWidth - 15, pageHeight - 13);
+            doc.setFontSize(7.5);
+            doc.setTextColor(...colors.lightText);
+            doc.setFont(arabicLoaded && hasArabic(footerText) ? 'Almarai' : 'helvetica', 'normal');
+            doc.text(processText(footerText), 15, pageHeight - 7.5);
+            doc.setFont('helvetica', 'normal');
+            doc.text(`Page ${p} of ${totalPages}`, pageWidth - 15, pageHeight - 7.5, { align: 'right' });
+        }
 
         doc.save(`MultiBudget_${activeTier}_Offer.pdf`);
     };
@@ -2094,21 +2473,32 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
         workbook.creator = 'BOQFlow';
         workbook.created = new Date();
 
+        const brandPalette = getBrandColors(accentColor, secondaryColor);
+        const primaryArgb = brandPalette.primary || '0F3E67';
+        const accentArgb = brandPalette.accent || 'F5A623';
+
         const ws = workbook.addWorksheet(`${activeTier} Tier`, {
-            properties: { tabColor: { argb: 'F5A623' } }
+            properties: { tabColor: { argb: accentArgb } },
+            pageSetup: {
+                orientation: 'landscape',
+                paperSize: 9,
+                fitToPage: true,
+                fitToWidth: 1,
+                fitToHeight: 0
+            }
         });
         const isBoqMode = tier.mode === 'boq';
 
         ws.addRow(['']);
         ws.addRow(['', '', '', '', '', '', '', '', '']);
         ws.addRow(['', '', '', '', '', '', '', '', '']);
-        ws.mergeCells('A2:C2');
+        ws.mergeCells('A2:E2');
         const titleCell = ws.getCell('A2');
-        titleCell.value = `${activeTier.toUpperCase()} TIER OFFER`;
-        titleCell.font = { bold: true, size: 14, color: { argb: '0F3E67' } };
+        titleCell.value = `${activeTier.toUpperCase()} TIER COMMERCIAL OFFER`;
+        titleCell.font = { name: 'Calibri', bold: true, size: 15, color: { argb: primaryArgb } };
 
-        ws.getCell('A3').value = `Generated on: ${new Date().toLocaleDateString()}`;
-        ws.getCell('A3').font = { italic: true, size: 10, color: { argb: '64748B' } };
+        ws.getCell('A3').value = `${companyName || 'BOQFLOW'}  |  Generated: ${new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}`;
+        ws.getCell('A3').font = { name: 'Calibri', italic: true, size: 10, color: { argb: '64748B' } };
 
         const excelLogo = logoOriginal || logoBlue || logoWhite;
         if (excelLogo) {
@@ -2163,21 +2553,21 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
             ];
 
         const hasAr = header.some(h => hasArabic(h)) || tier.rows.some(r => hasArabic(r.description) || hasArabic(r.brandDesc));
-        if (hasAr) {
-            ws.views = [{ rightToLeft: true }];
-        }
 
         const headerRow = ws.addRow(header);
-        headerRow.height = 25;
+        headerRow.height = 26;
         headerRow.eachCell(cell => {
-            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '0F3E67' } };
-            cell.font = { color: { argb: 'FFFFFF' }, bold: true, size: 11 };
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: primaryArgb } };
+            cell.font = { name: 'Calibri', color: { argb: 'FFFFFF' }, bold: true, size: 10.5 };
             cell.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
             cell.border = {
-                top: { style: 'thin', color: { argb: '0F3E67' } },
-                bottom: { style: 'medium', color: { argb: 'F5A623' } }
+                top: { style: 'thin', color: { argb: primaryArgb } },
+                bottom: { style: 'medium', color: { argb: accentArgb } },
+                left: { style: 'thin', color: { argb: '334155' } },
+                right: { style: 'thin', color: { argb: '334155' } }
             };
         });
+        ws.views = [{ state: 'frozen', ySplit: headerRow.number, rightToLeft: hasAr }];
 
         const qtyColNum = isBoqMode ? 8 : 6;
         const rateColNum = isBoqMode ? 10 : 8;
@@ -2246,7 +2636,10 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
 
             const excelRow = ws.addRow(dataRow);
             const rowNumber = excelRow.number;
-            excelRow.height = 75;
+            const longestText = Math.max(String(row.description || '').length, String(row.brandDesc || '').length);
+            const estLines = Math.max(2, Math.ceil(longestText / (isBoqMode ? 36 : 52)));
+            const rowH = Math.max(76, Math.min(200, estLines * 14.5 + 10));
+            excelRow.height = rowH;
 
             const qtyColLetter = isBoqMode ? 'H' : 'F';
             const rateColLetter = isBoqMode ? 'J' : 'H';
@@ -2255,10 +2648,16 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                 result: (typeof qtyVal === 'number' && typeof rateVal === 'number') ? qtyVal * rateVal : 0
             };
 
+            const zebraBg = i % 2 === 1 ? 'F8FAFC' : 'FFFFFF';
             excelRow.eachCell((cell, colNumber) => {
+                cell.font = { name: 'Calibri', size: 10, color: { argb: '1E293B' } };
+                cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: zebraBg } };
                 cell.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
                 cell.border = {
-                    bottom: { style: 'thin', color: { argb: 'E2E8F0' } }
+                    top: { style: 'thin', color: { argb: 'E2E8F0' } },
+                    bottom: { style: 'thin', color: { argb: 'E2E8F0' } },
+                    left: { style: 'thin', color: { argb: 'E2E8F0' } },
+                    right: { style: 'thin', color: { argb: 'E2E8F0' } }
                 };
                 if (colNumber === qtyColNum) {
                     cell.alignment = { vertical: 'middle', horizontal: 'center' };
@@ -2387,14 +2786,14 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
         gtRow.height = 30;
 
         [gtRow.getCell(labelColNum), gtRow.getCell(valColNum)].forEach(cell => {
-            cell.font = { bold: true, size: 14, color: { argb: 'FFFFFF' } };
-            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '0F3E67' } };
+            cell.font = { name: 'Calibri', bold: true, size: 13, color: { argb: 'FFFFFF' } };
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: primaryArgb } };
             cell.alignment = { vertical: 'middle', horizontal: 'right' };
             cell.border = {
-                top: { style: 'medium', color: { argb: 'F5A623' } },
-                bottom: { style: 'medium', color: { argb: 'F5A623' } },
-                left: { style: 'medium', color: { argb: 'F5A623' } },
-                right: { style: 'medium', color: { argb: 'F5A623' } }
+                top: { style: 'medium', color: { argb: accentArgb } },
+                bottom: { style: 'medium', color: { argb: accentArgb } },
+                left: { style: 'medium', color: { argb: accentArgb } },
+                right: { style: 'medium', color: { argb: accentArgb } }
             };
         });
 
@@ -2412,14 +2811,15 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
         const pres = new PptxGenJS();
         const isBoqMode = tier.mode === 'boq';
 
+        const brandPalette = getBrandColors(accentColor, secondaryColor);
         const colors = {
-            primary: '0F3E67',
-            accent: 'F5A623',
-            text: '2D3748',
-            lightText: '718096',
-            lightBg: 'F7FAFC',
+            primary: brandPalette.primary || '0F3E67',
+            accent: brandPalette.accent || 'F5A623',
+            text: brandPalette.text || '2D3748',
+            lightText: brandPalette.lightText || '718096',
+            lightBg: brandPalette.lightBg || 'F7FAFC',
             white: 'FFFFFF',
-            border: 'E2E8F0'
+            border: brandPalette.border || 'E2E8F0'
         };
 
         pres.defineSlideMaster({
@@ -2989,14 +3389,15 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
         const isBoqMode = tier.mode === 'boq';
         const totalItems = tier.rows.filter(r => r.brandImage || r.brandDesc).length;
 
+        const brandPalette = getBrandColors(accentColor, secondaryColor);
         const colors = {
-            primary: [43, 164, 224],
-            accent: [245, 158, 11],
-            text: [51, 65, 85],
-            lightText: [100, 116, 139],
-            lightBg: [248, 250, 252],
+            primary: brandPalette.primaryRgb,
+            accent: brandPalette.accentRgb,
+            text: brandPalette.textRgb,
+            lightText: brandPalette.lightTextRgb,
+            lightBg: brandPalette.lightBgRgb,
             white: [255, 255, 255],
-            border: [203, 213, 225],
+            border: brandPalette.borderRgb,
             success: [16, 185, 129]
         };
 
@@ -3102,31 +3503,33 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
             const imgContainerH = 65;
             const imgContainerX = (pageWidth - imgContainerW) / 2 - (isBoqMode ? 15 : 0);
 
-            if (brandName) {
-                const badgeW = 65;
-                const badgeX = imgContainerX + (imgContainerW - badgeW) / 2;
-                doc.setFillColor(...colors.lightBg);
-                doc.setDrawColor(...colors.primary);
-                doc.setLineWidth(0.4);
-                doc.roundedRect(badgeX, imgY, badgeW, 10, 2, 2, 'FD');
-
-                doc.setTextColor(...colors.primary);
-                doc.setFontSize(8);
-                doc.setFont('helvetica', 'bold');
-                doc.text(brandName.substring(0, 35), badgeX + badgeW / 2, imgY + 6.5, { align: 'center' });
-                imgY += 12;
-            }
-
+            let loadedBrandLogo = null;
             if (row.brandLogo) {
                 try {
-                    const brandLogoImg = await getImageData(row.brandLogo);
-                    if (brandLogoImg) {
-
-                        const fit = calcFitSize(brandLogoImg.width, brandLogoImg.height, 30, 8);
-                        const logoX = imgContainerX + (imgContainerW - fit.w) / 2;
-                        doc.addImage(brandLogoImg.dataUrl, 'JPEG', logoX, imgY - 10, fit.w, fit.h);
-                    }
+                    loadedBrandLogo = await getImageData(row.brandLogo, { format: 'image/png', maxWidth: 400 });
                 } catch (e) { }
+            }
+
+            if (loadedBrandLogo || brandName) {
+                const badgeW = 68;
+                const badgeX = imgContainerX + (imgContainerW - badgeW) / 2;
+                doc.setFillColor(...colors.white);
+                doc.setDrawColor(...colors.primary);
+                doc.setLineWidth(0.35);
+                doc.roundedRect(badgeX, imgY, badgeW, 11, 2, 2, 'FD');
+
+                if (loadedBrandLogo) {
+                    const fit = calcFitSize(loadedBrandLogo.width, loadedBrandLogo.height, 44, 8);
+                    const logoX = badgeX + (badgeW - fit.w) / 2;
+                    const logoY = imgY + (11 - fit.h) / 2;
+                    doc.addImage(loadedBrandLogo.dataUrl, 'PNG', logoX, logoY, fit.w, fit.h);
+                } else {
+                    doc.setTextColor(...colors.primary);
+                    doc.setFontSize(8.5);
+                    doc.setFont('helvetica', 'bold');
+                    doc.text(brandName.substring(0, 35), badgeX + badgeW / 2, imgY + 7, { align: 'center' });
+                }
+                imgY += 13;
             }
 
             doc.setFillColor(...colors.white);
@@ -3190,7 +3593,11 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                 }
             });
 
-            const approvalY = doc.lastAutoTable.finalY + 10;
+            let approvalY = doc.lastAutoTable.finalY + 10;
+            if (approvalY + 32 > pageHeight - 12) {
+                doc.addPage();
+                approvalY = 24;
+            }
 
             doc.setFillColor(...colors.lightBg);
             doc.rect(15, approvalY, pageWidth - 30, 30, 'F');
@@ -3614,11 +4021,146 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
         );
     };
 
+    // Strip shown directly BELOW a row: the additional set option of a single item
+    // ("set of N folding tables"), or the controls of an active set with its single-item alternative.
+    const renderSetStrip = (row, index, isSetRow, isBoqMode) => {
+        const setItems = Array.isArray(row.setItems) ? row.setItems : [];
+        const stripColSpan = isBoqMode ? 12 : 10;
+
+        if (isSetRow) {
+            const matchedSetCount = setItems.filter(isMatchedSetItem).length;
+            const alt = hasSingleAlternative(row) ? row.singleAlt : null;
+            const altRate = parseFloat(alt?.rate) || 0;
+            return (
+                <tr className={`${styles.setOptionRow} ${styles.setOptionRowActive}`}>
+                    <td colSpan={stripColSpan}>
+                        <div className={styles.setOptionStrip}>
+                            <span className={`${styles.setOptionBadge} ${styles.setOptionBadgeActive}`}>Set</span>
+                            <select
+                                className={`${styles.setTypeSelect} ${styles.setTypeSelectActive} ${styles.setStripSelect}`}
+                                value={row.setType}
+                                onChange={(e) => handleSetTypeChange(index, e.target.value)}
+                                title="Set type — choose Single Item to match this row as one product"
+                            >
+                                {FURNITURE_SET_TYPES.map(st => (
+                                    <option key={st.id} value={st.id}>{st.id === 'single' ? 'Single Item' : st.label}</option>
+                                ))}
+                            </select>
+                            <button type="button" className={styles.setToggleBtn} onClick={() => handleToggleSetExpand(index)}>
+                                <span>{row.setExpanded ? '▾' : '▸'} {setItems.length} item{setItems.length === 1 ? '' : 's'}</span>
+                                <span style={{ opacity: 0.85, fontSize: '0.67rem' }}>{matchedSetCount}/{setItems.length} matched</span>
+                            </button>
+                            <button
+                                type="button"
+                                className={styles.setActionMiniBtn}
+                                onClick={() => handleMatchSingleSet(index)}
+                                disabled={isFurnitureAutoFilling || matchingSetRowId === row.id}
+                                title="AI match all components of this set from one manufacturer of this tier"
+                            >
+                                {matchingSetRowId === row.id ? 'Matching…' : '⚡ Match set'}
+                            </button>
+                            <button type="button" className={styles.setActionMiniBtn} onClick={() => handleAddSetSubItem(index)} title="Add a component to this set">
+                                + Item
+                            </button>
+                            <span className={styles.setOptionSpacer} />
+                            <span className={styles.setOptionMeta} title="Alternative: match this row as one single product">
+                                {alt
+                                    ? `Option: single item — ${[alt.selectedBrand, alt.selectedModel].filter(Boolean).join(' ')}${altRate > 0 ? ` · ${altRate.toFixed(2)}` : ''}`
+                                    : 'Option: single item'}
+                            </span>
+                            <button type="button" className={styles.setActionMiniBtn} onClick={() => handleUseSingleItem(index)} disabled={isFurnitureAutoFilling} title="Match this row as a single item (the set stays available as an option)">
+                                Use single item
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            );
+        }
+
+        const option = row.setOption;
+        const summary = summarizeSetOption(option, row.qty);
+        const singleAmount = (parseFloat(row.rate) || 0) * (parseFloat(row.qty) || 0);
+        const isMatchingOption = matchingOptionRowId === row.id || summary.status === 'processing';
+        const statusText = isMatchingOption
+            ? 'Matching…'
+            : summary.matchedCount > 0
+                ? `${summary.brands.join(' / ')} — ${summary.models.slice(0, 2).join(' + ')}${summary.models.length > 2 ? ` +${summary.models.length - 2}` : ''}`
+                : summary.status === 'error'
+                    ? 'No catalog match in this tier\u2019s brands'
+                    : 'Not matched yet';
+        return (
+            <tr className={styles.setOptionRow}>
+                <td colSpan={stripColSpan}>
+                    <div className={styles.setOptionStrip}>
+                        <span className={styles.setOptionBadge}>+ Option</span>
+                        <span className={styles.setOptionTitle}>{summary.label}</span>
+                        <span className={styles.setOptionMeta} title={statusText}>{statusText}</span>
+                        {summary.hasPrice && (
+                            <span className={styles.setOptionPrice} title="Rate of one set · amount for the row quantity">
+                                {summary.ratePerSet.toFixed(2)} / set · {summary.amount.toFixed(2)}
+                                {singleAmount > 0 ? ` (${summary.amount >= singleAmount ? '+' : '−'}${Math.abs(summary.amount - singleAmount).toFixed(2)} vs single)` : ''}
+                            </span>
+                        )}
+                        {summary.unpricedCount > 0 && !isMatchingOption && (
+                            <span className={styles.setOptionMeta} title="Matched components without a catalog price are not part of the set rate">
+                                {summary.hasPrice ? `excl. ${summary.unpricedCount} unpriced` : 'no catalog price'}
+                            </span>
+                        )}
+                        <span className={styles.setOptionSpacer} />
+                        <button type="button" className={styles.setActionMiniBtn} onClick={() => handleToggleOptionExpand(index)}>
+                            {option.expanded ? '▾' : '▸'} {summary.itemCount} item{summary.itemCount === 1 ? '' : 's'}
+                        </button>
+                        <button
+                            type="button"
+                            className={styles.setActionMiniBtn}
+                            onClick={() => handleMatchSetOption(index)}
+                            disabled={isFurnitureAutoFilling || isMatchingOption || Boolean(matchingOptionRowId)}
+                            title="Match this option from this tier's brand catalogs"
+                        >
+                            ⚡ Match option
+                        </button>
+                        <button
+                            type="button"
+                            className={styles.setOptionPrimaryBtn}
+                            onClick={() => handleUseSetOption(index)}
+                            disabled={isFurnitureAutoFilling || isMatchingOption}
+                            title="Price this row as the set (the single item stays available as an option)"
+                        >
+                            Use this set
+                        </button>
+                        <button type="button" className={styles.setOptionDismissBtn} onClick={() => handleDismissSetOption(index)} title="Remove this option">×</button>
+                    </div>
+                    {option.expanded && (
+                        <div className={styles.setOptionDetails}>
+                            {option.items.map((it, itIdx) => {
+                                return (
+                                    <div key={it.id || itIdx} className={styles.setOptionItem}>
+                                        {it.brandImage
+                                            ? <img className={styles.setOptionItemThumb} src={getFullUrl(it.brandImage)} alt="" onError={(e) => { e.target.style.visibility = 'hidden'; }} />
+                                            : <span className={styles.setOptionItemThumb} />}
+                                        <span className={styles.setOptionItemQty}>{it.qty} {it.unit || 'Nos'}</span>
+                                        <span className={styles.setOptionItemText}>
+                                            <strong>{it.label || it.description}</strong>
+                                            <span>{isMatchedSetItem(it) ? [it.selectedBrand, it.selectedModel].filter(Boolean).join(' — ') : (it.aiStatus === 'processing' ? 'Matching…' : 'Not matched')}</span>
+                                        </span>
+                                        <span className={styles.setOptionItemPrice}>{describeSetItemPrice(it)}</span>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
+                </td>
+            </tr>
+        );
+    };
+
     const renderRow = (row, sn, isBoqMode, index) => {
         const isSetRow = Boolean(row.setType && row.setType !== 'single');
         const setItems = Array.isArray(row.setItems) ? row.setItems : [];
-        const matchedSetCount = setItems.filter(it => it.selectedBrand || it.selectedModel).length;
-
+        const hasSetOption = !isSetRow && Boolean(row.setOption && row.setOption.items?.length > 0);
+        const isFurnitureRow = !String(row.scope || '').toUpperCase().includes('FITOUT');
+        // Consolidated display rows are aggregates of several BOQ rows: set controls only apply to real rows
+        const isRealRow = index !== -1 && !String(row.id).startsWith('cons_');
         const { mainCats, subCats, families, modelOptions } = !isSetRow
             ? buildBrandSelectorData(row)
             : { mainCats: [], subCats: [], families: [], modelOptions: [] };
@@ -3626,8 +4168,8 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
         const rowStatusClass = row.aiStatus === 'processing' ? styles.aiPulse :
             row.aiStatus === 'success' ? styles.aiGlow :
                 row.aiStatus === 'error' ? styles.aiErrorBorder : '';
-        const displayBrandImages = isSetRow
-            ? (row.brandImages?.length ? row.brandImages : (row.brandImage ? [row.brandImage] : []))
+        const displayBrandImages = row.brandImages?.length
+            ? row.brandImages
             : (row.brandImage ? [row.brandImage] : []);
 
         return (
@@ -3639,7 +4181,7 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                             {isSetRow && (
                                 <span className={styles.setBadge} title={getSetTypeMeta(row.setType).label}>SET</span>
                             )}
-                            {!isSetRow && row.aiStatus === 'success' && row.aiResult && (
+                            {row.aiStatus === 'success' && row.aiResult && (
                                 <button
                                     className={styles.specialistBtn}
                                     onClick={() => setSpecialistData(row.aiResult)}
@@ -3648,7 +4190,7 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                                     AI
                                 </button>
                             )}
-                            {!isSetRow && row.aiStatus === 'no_match' && (
+                            {row.aiStatus === 'no_match' && (
                                 <button
                                     className={styles.specialistBtn}
                                     style={{ backgroundColor: '#2ba4e0' }}
@@ -3723,7 +4265,7 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                     <td style={{ verticalAlign: 'middle', minWidth: 80, textAlign: 'center' }}>
                         <MultiImageCell
                             images={displayBrandImages}
-                            singleMode={!isSetRow}
+                            singleMode={false}
                             cellId={`mb_${activeTier}_brand_${row.id || index}`}
                             brandLogo={row.brandLogo}
                             altPrefix={row.selectedModel || "Product"}
@@ -3796,54 +4338,21 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
 
                     <td style={{ verticalAlign: 'middle', minWidth: 215 }}>
                         <div className={styles.dropdownStack}>
-                            {/* Dedicated Set Type Dropdown: Workstations, Modular Seating, Desking, Lounge, Library, Outdoor, Cafeteria, LUM Sets */}
-                            <select
-                                className={`${styles.setTypeSelect} ${isSetRow ? styles.setTypeSelectActive : ''}`}
-                                value={row.setType || 'single'}
-                                onChange={(e) => handleSetTypeChange(index, e.target.value)}
-                                title="Switch between Single Item and dedicated Multi-Component Set (Workstation, Modular Seating, LUM Set)"
-                            >
-                                {FURNITURE_SET_TYPES.map(st => (
-                                    <option key={st.id} value={st.id}>
-                                        {st.id === 'single' ? 'Item Mode: Single Item' : `Set: ${st.label}`}
-                                    </option>
-                                ))}
-                            </select>
-
                             {isSetRow ? (
                                 <>
-                                    <div className={styles.setControlBar}>
-                                        <button
-                                            type="button"
-                                            className={styles.setToggleBtn}
-                                            onClick={() => handleToggleSetExpand(index)}
-                                        >
-                                            <span>{row.setExpanded ? '▾' : '▸'} {setItems.length} Items</span>
-                                            <span style={{ opacity: 0.85, fontSize: '0.67rem' }}>{matchedSetCount}/{setItems.length}</span>
-                                        </button>
-                                        <button
-                                            type="button"
-                                            className={styles.setActionMiniBtn}
-                                            onClick={() => handleMatchSingleSet(index)}
-                                            disabled={isFurnitureAutoFilling || matchingSetRowId === row.id}
-                                            title="AI Match all components in this set"
-                                        >
-                                            {matchingSetRowId === row.id ? 'Matching…' : '⚡ Match Set'}
-                                        </button>
-                                        <button
-                                            type="button"
-                                            className={styles.setActionMiniBtn}
-                                            onClick={() => handleAddSetSubItem(index)}
-                                            title="Add a component slot"
-                                        >
-                                            + Item
-                                        </button>
-                                    </div>
-                                    {row.selectedBrand && (
-                                        <div className={styles.setRollupMeta} title={`${row.selectedBrand} — ${row.selectedModel}`}>
-                                            {row.selectedBrand}
+                                    {row.aiStatus === 'processing' ? (
+                                        <div className={styles.aiLoadingCell}>
+                                            <div className={styles.tinySpinner} />
+                                            <span style={{ fontSize: '0.72rem' }}>Matching set…</span>
+                                        </div>
+                                    ) : (
+                                        <div className={styles.setRollupMeta} title={[row.selectedBrand, row.selectedModel].filter(Boolean).join(' — ')}>
+                                            {row.selectedBrand || 'Set not matched yet'}
                                         </div>
                                     )}
+                                    <div className={styles.setRollupHint}>
+                                        {getSetTypeMeta(row.setType).shortLabel} · {setItems.filter(isMatchedSetItem).length}/{setItems.length} components — see the set bar below
+                                    </div>
                                 </>
                             ) : (
                                 <>
@@ -3917,9 +4426,23 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                             <button className={`${styles.actionBtn} ${styles.addBtn}`} onClick={() => handleAddRow(index)}>+</button>
                             <button className={`${styles.actionBtn} ${styles.removeBtn}`} onClick={() => handleRemoveRow(index)}>×</button>
                         </div>
+                        {isRealRow && !isSetRow && !hasSetOption && isFurnitureRow && String(row.description || '').trim() && (
+                            <div className={styles.setConvertWrap}>
+                                <button
+                                    type="button"
+                                    className={styles.setConvertBtn}
+                                    onClick={() => handleConvertToSet(index)}
+                                    disabled={isFurnitureAutoFilling}
+                                    title="Match this row as a furniture set (several components) instead of a single item"
+                                >
+                                    Set
+                                </button>
+                            </div>
+                        )}
                     </td>
                 </tr>
-                {isSetRow && row.setExpanded && setItems.map((sub, sIdx) =>
+                {isRealRow && (isSetRow || hasSetOption) && renderSetStrip(row, index, isSetRow, isBoqMode)}
+                {isRealRow && isSetRow && row.setExpanded && setItems.map((sub, sIdx) =>
                     renderSetSubRow(row, index, sub, sIdx, sn, isBoqMode)
                 )}
             </Fragment>
@@ -4230,18 +4753,22 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
 
                     <div className={styles.footer}>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', gap: '0.75rem', flexWrap: 'wrap' }}>
-                            {(tierData[activeTier]?.rows || []).some(r => r.setType && r.setType !== 'single') ? (
+                            {(tierData[activeTier]?.rows || []).some(r => (r.setType && r.setType !== 'single') || r.setOption) ? (
                                 <div className={styles.setExportControl}>
-                                    <span>Multi-Component Sets ({(tierData[activeTier]?.rows || []).filter(r => r.setType && r.setType !== 'single').length}):</span>
+                                    <span>Sets ({(tierData[activeTier]?.rows || []).filter(r => r.setType && r.setType !== 'single').length}):</span>
                                     <select
                                         className={styles.setExportSelect}
                                         value={setExportMode}
                                         onChange={e => setSetExportMode(e.target.value)}
-                                        title="Choose how Multi-Component Set rows export into Offer / Excel / PDF"
+                                        title="How set rows are written into the offer"
                                     >
-                                        <option value="lump_sum">Export as Lump-Sum Rollup (Preserve BOQ Rows)</option>
-                                        <option value="include_sub_items">Include Sub-Items (12.1, 12.2…)</option>
+                                        <option value="lump_sum">One line per set (keeps BOQ rows)</option>
+                                        <option value="include_sub_items">Set line + components (12.1, 12.2…)</option>
                                     </select>
+                                    <label className={styles.setExportCheck} title="Adds each matched alternative (e.g. set of folding tables) as an extra line marked Optional — not counted in totals">
+                                        <input type="checkbox" checked={exportSetOptions} onChange={e => setExportSetOptions(e.target.checked)} />
+                                        Include options as optional lines
+                                    </label>
                                 </div>
                             ) : <div />}
                             <button className={styles.applyCostingBtn} onClick={() => setIsCostingOpen(true)}>
@@ -4257,6 +4784,14 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                             <button className={styles.exportBtn} onClick={handleExportPPTX}>Presentation</button>
                             <button className={styles.exportBtn} onClick={handleExportPresentationPDF}>PDF</button>
                             <button className={styles.exportBtn} onClick={handleExportMAS}>MAS</button>
+                            <button
+                                className={styles.exportBtn}
+                                onClick={handleExportRFQ}
+                                style={{ background: 'linear-gradient(135deg, #92400e 0%, #d97706 100%)', color: '#fff', borderColor: '#f59e0b' }}
+                                title="Split active tier BOQ by Brand into ready-to-send Supplier RFQ Excel sheets (ZIP pack)"
+                            >
+                                RFQ by Brand
+                            </button>
                         </div>
                     </div>
                 </div>

@@ -16,12 +16,24 @@ import { findDescColumn, cellImageUrls } from '../utils/boqUtils';
 import { recategorizeBoqRows } from '../utils/boqGroupingUtils';
 import {
     FURNITURE_SET_TYPES,
-    detectFurnitureSetType,
-    parseSetComponentsFromDescription,
     createEmptySetComponent,
     computeSetParentRollup,
     getSetTypeMeta,
-    buildSetComponentMatchQuery
+    buildSetComponentMatchQuery,
+    convertRowToSet,
+    isSystemSetType,
+    isMatchedSetItem,
+    describeSetItemPrice,
+    hasSingleAlternative,
+    applySetPlanToRow,
+    refreshRowSetPlan,
+    summarizeSetOption,
+    activateSetOption,
+    revertSetToSingle,
+    dismissSetOption,
+    changeRowSetType,
+    withSetOptionItems,
+    applyCostingToRowAlternates
 } from '../utils/furnitureSetUtils';
 
 const API_BASE = getApiBase();
@@ -70,6 +82,10 @@ export default function ValueEngineeredModal({
     const [rows, setRows] = useState([]);
     const [recategorizeMode, setRecategorizeMode] = useState('original');
     const groupedRows = useMemo(() => recategorizeBoqRows(rows, recategorizeMode), [rows, recategorizeMode]);
+    const workableRowCount = useMemo(
+        () => rows.filter(r => !isHeaderRow(r.description, r) && !r.isTotalRow).length,
+        [rows]
+    );
     const rowsRef = useRef(rows);
     useEffect(() => { rowsRef.current = rows; }, [rows]);
     const lastLoadedTablesRef = useRef(null);
@@ -101,11 +117,13 @@ export default function ValueEngineeredModal({
     const [lensMatchingRowId, setLensMatchingRowId] = useState(null);
     const [matchingSetRowId, setMatchingSetRowId] = useState(null);
     const [setExportMode, setSetExportMode] = useState('lump_sum');
+    const [exportSetOptions, setExportSetOptions] = useState(false);
+    const [matchingOptionRowId, setMatchingOptionRowId] = useState(null);
     const [isCostingOpen, setIsCostingOpen] = useState(false);
     const [costingFactors, setCostingFactors] = useState(null);
 
     const [isConfigOpen, setIsConfigOpen] = useState(false);
-    const [brandMode, setBrandMode] = useState('simple');
+    const [brandMode, setBrandMode] = useState('auto_detect');
     const [globalBrand, setGlobalBrand] = useState('');
     const [categoryBrands, setCategoryBrands] = useState({
         desking: '', seating: '', softSeating: '', accessories: ''
@@ -116,6 +134,7 @@ export default function ValueEngineeredModal({
     const planInputRef = useRef(null);
 
     const [isRunning, setIsRunning] = useState(false);
+    const [activeRunMode, setActiveRunMode] = useState(null);
     const [aiStatus, setAiStatus] = useState({ active: false, status: 'idle', currentItem: null, brand: '', model: '', image: null, minimized: false });
     const [batchResult, setBatchResult] = useState(null);
     const [progress, setProgress] = useState({ current: 0, total: 0 });
@@ -150,26 +169,9 @@ export default function ValueEngineeredModal({
         }
     }, [originalTables, seededItems, pendingSeed]);
 
-    const attachAutoSetMeta = (baseRow) => {
-        const detectedType = detectFurnitureSetType(baseRow.description, baseRow.unit);
-        if (detectedType) {
-            const parsedItems = parseSetComponentsFromDescription(baseRow.description, detectedType, baseRow.id);
-            return {
-                ...baseRow,
-                setType: detectedType,
-                setItems: parsedItems,
-                setExpanded: false,
-                brandImages: []
-            };
-        }
-        return {
-            ...baseRow,
-            setType: 'single',
-            setItems: [],
-            setExpanded: false,
-            brandImages: []
-        };
-    };
+    // Applies the set plan to a loaded row: workstations / L-shape desks / folding-table groups become
+    // active sets, a single conference / meeting table gets its "set of folding tables" option.
+    const attachAutoSetMeta = (baseRow) => applySetPlanToRow(baseRow);
 
     const buildBoqRows = (tables) => {
         if (!tables || tables.length === 0) return [];
@@ -325,8 +327,11 @@ export default function ValueEngineeredModal({
         setIsCostingOpen(false);
 
         const markup = 1 + (factors.profit + factors.freight + factors.customs + factors.installation) / 100;
+        const costMultiplier = markup * factors.exchangeRate;
 
-        const updatedRows = rows.map(row => {
+        const updatedRows = rows.map(sourceRow => {
+            // Inactive alternates (set option / single-item snapshot) are costed with the same factors
+            const row = applyCostingToRowAlternates(sourceRow, costMultiplier);
             if (row.setType && row.setType !== 'single' && Array.isArray(row.setItems) && row.setItems.length > 0) {
                 const costedSubItems = row.setItems.map(sub => {
                     const subBase = parseFloat(sub.basePrice) || 0;
@@ -402,8 +407,67 @@ export default function ValueEngineeredModal({
                     ]
                 };
 
+                // Optional line for the row's inactive alternative (set option below a single item,
+                // or the single item kept beside an active set). Never counted in totals.
+                const optionExports = [];
+                if (exportSetOptions) {
+                    const rowMeta = {
+                        location: row.location || '',
+                        scope: row.scope || '',
+                        code: row.code || '',
+                        categoryHint: row.categoryHint || '',
+                        sectionLabel: row.sectionLabel || '',
+                        sectionCategory: row.sectionCategory || '',
+                        sectionSubheader: row.sectionSubheader || '',
+                        submissionTitle: row.submissionTitle || '',
+                        isOptionRow: true
+                    };
+                    const optionSummary = !isSetRow && row.setOption ? summarizeSetOption(row.setOption, row.qty) : null;
+                    if (optionSummary && optionSummary.matchedCount > 0) {
+                        const optionLines = row.setOption.items.map(it =>
+                            `• ${it.qty || 1} ${it.unit || 'Nos'} × ${[it.selectedBrand, it.selectedModel].filter(Boolean).join(' — ') || it.label}`
+                        );
+                        optionExports.push({
+                            ...rowMeta,
+                            selectedBrand: optionSummary.brands[0] || '',
+                            selectedMainCat: optionSummary.typeLabel,
+                            selectedSubCat: `${optionSummary.itemCount} Components`,
+                            cells: [
+                                { value: `${parentSn} (Option)` },
+                                { value: '', image: optionSummary.images[0] || null, images: optionSummary.images.map(u => ({ url: u })) },
+                                { value: [`OPTION for item ${parentSn} — ${optionSummary.label}`, ...optionLines].join('\n') },
+                                { value: optionSummary.brands.join(' / ') },
+                                { value: optionSummary.models.join(' + ') },
+                                { value: String(row.qty || '1') },
+                                { value: 'Set' },
+                                { value: optionSummary.hasPrice ? optionSummary.ratePerSet.toFixed(2) : '0' },
+                                { value: 'Optional' }
+                            ]
+                        });
+                    } else if (isSetRow && hasSingleAlternative(row)) {
+                        const alt = row.singleAlt;
+                        optionExports.push({
+                            ...rowMeta,
+                            selectedBrand: alt.selectedBrand || '',
+                            selectedMainCat: alt.selectedMainCat || '',
+                            selectedSubCat: alt.selectedSubCat || '',
+                            cells: [
+                                { value: `${parentSn} (Option)` },
+                                { value: '', image: alt.brandImage || null, images: alt.brandImage ? [{ url: alt.brandImage }] : [] },
+                                { value: `OPTION for item ${parentSn} — Single item: ${alt.brandDesc || [alt.selectedBrand, alt.selectedModel].filter(Boolean).join(' — ')}` },
+                                { value: alt.selectedBrand || '' },
+                                { value: alt.selectedModel || '' },
+                                { value: String(row.qty || '1') },
+                                { value: String(row.unit || 'Nos') },
+                                { value: String(alt.rate || '0') },
+                                { value: 'Optional' }
+                            ]
+                        });
+                    }
+                }
+
                 if (!isSetRow || setExportMode !== 'include_sub_items') {
-                    return [parentExport];
+                    return [parentExport, ...optionExports];
                 }
 
                 const subExports = row.setItems.map((sub, sIdx) => ({
@@ -436,13 +500,14 @@ export default function ValueEngineeredModal({
                     ]
                 }));
 
-                return [parentExport, ...subExports];
+                return [parentExport, ...subExports, ...optionExports];
             });
 
             const formattedData = {
                 costingFactors: factors,
                 recategorizeMode,
                 setExportMode,
+                exportSetOptions,
                 tables: [{
                     sheetName: `Value Engineered Offer`,
                     header: VE_TABLE_HEADER,
@@ -467,6 +532,7 @@ export default function ValueEngineeredModal({
             setCostingFactors(null);
             setIsConfigOpen(false);
             setIsRunning(false);
+            setActiveRunMode(null);
             setAiStatus({ active: false, status: 'idle', currentItem: null, brand: '', model: '', image: null, minimized: false });
             setBatchResult(null);
             setProgress({ current: 0, total: 0 });
@@ -591,37 +657,21 @@ export default function ValueEngineeredModal({
         });
     };
 
-    const handleSetTypeChange = (rowIndex, newSetType) => {
-        setRows(prev => {
-            const newRows = [...prev];
-            const row = { ...newRows[rowIndex] };
-
-            if (newSetType === 'single') {
-                newRows[rowIndex] = {
-                    ...row,
-                    setType: 'single',
-                    setItems: [],
-                    setExpanded: false,
-                    brandImages: []
-                };
-                return newRows;
-            }
-
-            const existingItems = Array.isArray(row.setItems) ? row.setItems : [];
-            const hasMatchedOrEdited = existingItems.some(it => it.selectedBrand || it.selectedModel || it.brandImage || parseFloat(it.rate) > 0);
-            const nextItems = (existingItems.length > 0 && hasMatchedOrEdited)
-                ? existingItems
-                : parseSetComponentsFromDescription(row.description, newSetType, row.id);
-
-            const updatedParent = {
-                ...row,
-                setType: newSetType,
-                setExpanded: true
-            };
-            newRows[rowIndex] = computeSetParentRollup(updatedParent, nextItems);
-            return newRows;
-        });
+    const updateRowAt = (rowIndex, updater) => {
+        setRows(prev => prev.map((r, i) => (i === rowIndex ? updater(r) : r)));
     };
+
+    // 'single' keeps the set as the option below the row; any other type (re)builds the components
+    const handleSetTypeChange = (rowIndex, newSetType) => updateRowAt(rowIndex, r => changeRowSetType(r, newSetType));
+
+    // Single item ⇄ set alternative (both matches are kept, so switching is lossless)
+    const handleUseSetOption = (rowIndex) => updateRowAt(rowIndex, r => activateSetOption(r));
+    const handleUseSingleItem = (rowIndex) => updateRowAt(rowIndex, r => revertSetToSingle(r));
+    const handleDismissSetOption = (rowIndex) => updateRowAt(rowIndex, r => dismissSetOption(r));
+    const handleToggleOptionExpand = (rowIndex) => updateRowAt(rowIndex, r => (
+        r.setOption ? { ...r, setOption: { ...r.setOption, expanded: !r.setOption.expanded } } : r
+    ));
+    const handleConvertToSet = (rowIndex) => updateRowAt(rowIndex, r => convertRowToSet(r));
 
     const handleToggleSetExpand = (rowIndex) => {
         setRows(prev => prev.map((r, i) => i === rowIndex ? { ...r, setExpanded: !r.setExpanded } : r));
@@ -637,6 +687,10 @@ export default function ValueEngineeredModal({
             const updatedSub = applyProductFieldChange(currentItems[subIndex], field, value);
             if (field === 'description') {
                 updatedSub.label = value;
+            }
+            // A manually edited quantity replaces the parsed seat count used for cluster-size matching
+            if (field === 'qty') {
+                updatedSub.seatCount = undefined;
             }
             currentItems[subIndex] = updatedSub;
             newRows[rowIndex] = computeSetParentRollup(parent, currentItems);
@@ -668,7 +722,7 @@ export default function ValueEngineeredModal({
             const parent = { ...newRows[rowIndex] };
             const nextItems = (parent.setItems || []).filter((_, i) => i !== subIndex);
             if (nextItems.length === 0) {
-                newRows[rowIndex] = { ...parent, setType: 'single', setItems: [], setExpanded: false, brandImages: [] };
+                newRows[rowIndex] = { ...revertSetToSingle(parent), setOption: null };
             } else {
                 newRows[rowIndex] = computeSetParentRollup(parent, nextItems);
             }
@@ -820,6 +874,92 @@ export default function ValueEngineeredModal({
         };
     };
 
+    // Resolves a system set (workstation / L-shape desk / folding-table set / conference set) as ONE
+    // same-manufacturer system. preferredBrand softly prefers a brand in auto mode; catalogOnly skips AI fallbacks.
+    const resolveWorkstationSetSystem = async ({ parentRow, setItems, targetBrand, isAuto, preferredBrand = '', catalogOnly = false }) => {
+        try {
+            const response = await fetch(`${API_BASE}/api/ve-match-workstation-set`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    parentDescription: parentRow.description || '',
+                    components: setItems.map(it => ({
+                        label: it.label,
+                        description: it.description,
+                        componentRole: it.componentRole,
+                        seatCount: it.seatCount,
+                        qty: it.qty,
+                        unit: it.unit
+                    })),
+                    targetBrand: !isAuto && targetBrand && targetBrand !== 'Auto' && targetBrand !== 'Auto Detected' ? targetBrand : '',
+                    preferredBrand,
+                    catalogOnly,
+                    isAuto,
+                    providerModel: aiSettings?.model
+                })
+            });
+            const data = await response.json();
+            if (data.status !== 'success' || !Array.isArray(data.components)) {
+                return null;
+            }
+            const resolvedMap = new Map();
+            const unresolvedIndices = [];
+            data.components.forEach((entry, idx) => {
+                const sub = setItems[idx];
+                if (!sub) return;
+                if (entry && entry.status === 'success' && entry.product) {
+                    const match = entry.product;
+                    const localBrand = localBrands.find(b => b.name && b.name.toLowerCase().trim() === String(match.brand || '').toLowerCase().trim());
+                    const matchedBrand = localBrand ? localBrand.name : (match.brand || targetBrand || '');
+                    const finalModel = match.model || '';
+                    const finalImageUrl = match.imageUrl || '';
+                    const finalBrandDesc = match.description || finalModel;
+                    const finalBasePrice = parseFloat(match.price) || 0;
+                    // Accessories included in the anchor system carry no price of their own (never double-counted)
+                    const finalRate = match.includedInSystem
+                        ? '0.00'
+                        : (finalBasePrice > 0 ? finalBasePrice.toFixed(2) : (sub.rate || '0.00'));
+                    // A cluster product ("Cluster of 4") covers several positions: use the unit count the matcher suggests
+                    const suggestedQty = parseFloat(match.suggestedQty);
+                    const qtyNum = suggestedQty > 0 ? suggestedQty : (parseFloat(sub.qty) || 1);
+                    const rateNum = parseFloat(finalRate) || 0;
+
+                    // "Included in system" accessories share the anchor product and are not separate catalog models
+                    if (!match.includedInSystem) {
+                        hydrateMatchedBrandIntoCatalog(
+                            matchedBrand, finalModel, match.mainCategory || '', match.subCategory || '', match.family || '',
+                            finalImageUrl, match.productUrl || match.websiteUrl || finalImageUrl, finalBasePrice, finalBrandDesc, { status: 'success', product: match }, match
+                        );
+                    }
+
+                    resolvedMap.set(idx, {
+                        ...(suggestedQty > 0 ? { qty: String(suggestedQty) } : {}),
+                        selectedBrand: matchedBrand,
+                        selectedMainCat: match.mainCategory || '',
+                        selectedSubCat: match.subCategory || '',
+                        selectedFamily: match.family || '',
+                        selectedModel: finalModel,
+                        selectedModelUrl: match.productUrl || match.websiteUrl || finalImageUrl || '',
+                        brandImage: finalImageUrl,
+                        brandLogo: match.brandLogo || localBrand?.logo || '',
+                        brandDesc: finalBrandDesc,
+                        rate: finalRate,
+                        basePrice: finalBasePrice,
+                        amount: rateNum > 0 ? (qtyNum * rateNum).toFixed(2) : '',
+                        aiStatus: 'success',
+                        aiResult: { status: 'success', product: match, source: match.matchSource, boqDescription: sub.description, brand: matchedBrand }
+                    });
+                } else {
+                    unresolvedIndices.push(idx);
+                }
+            });
+            return { anchorBrand: data.anchorBrand || '', resolvedMap, unresolvedIndices };
+        } catch (err) {
+            console.warn('[VE Workstation Set] Dynamic system fetch fallback:', err.message);
+            return null;
+        }
+    };
+
     const handleMatchSingleSet = async (rowIndex, onlySubIndex = null, overrideMode = null) => {
         const parent = rowsRef.current[rowIndex];
         if (!parent || !Array.isArray(parent.setItems) || parent.setItems.length === 0) return;
@@ -842,7 +982,33 @@ export default function ValueEngineeredModal({
         });
 
         try {
-            await batch(targetIndices, 3, async (sIdx) => {
+            let remainingIndices = [...targetIndices];
+            let effectiveFallbackBrand = targetBrand;
+
+            if (onlySubIndex === null && isSystemSetType(parent.setType)) {
+                const wsResolved = await resolveWorkstationSetSystem({
+                    parentRow: parent,
+                    setItems: parent.setItems,
+                    targetBrand,
+                    isAuto: useAuto
+                });
+                if (wsResolved) {
+                    if (wsResolved.anchorBrand) effectiveFallbackBrand = wsResolved.anchorBrand;
+                    setRows(prev => {
+                        const next = [...prev];
+                        const cur = next[rowIndex];
+                        if (!cur) return prev;
+                        const updatedItems = (cur.setItems || []).map((it, idx) =>
+                            wsResolved.resolvedMap.has(idx) ? { ...it, ...wsResolved.resolvedMap.get(idx) } : it
+                        );
+                        next[rowIndex] = computeSetParentRollup({ ...cur, setExpanded: true }, updatedItems);
+                        return next;
+                    });
+                    remainingIndices = wsResolved.unresolvedIndices;
+                }
+            }
+
+            await batch(remainingIndices, 3, async (sIdx) => {
                 const liveParent = rowsRef.current[rowIndex];
                 const sub = liveParent?.setItems?.[sIdx];
                 if (!sub) return;
@@ -884,6 +1050,56 @@ export default function ValueEngineeredModal({
             });
         } finally {
             setMatchingSetRowId(null);
+        }
+    };
+
+    // Matches the set alternative of a single-item row ("set of N folding tables" below a conference table)
+    // from the catalogs. The single-item match of the row is left untouched.
+    const matchSetOption = async (rowIndex, { option = null, targetBrand = 'Auto', isAuto = true, preferredBrand = '' } = {}) => {
+        const liveRow = rowsRef.current[rowIndex];
+        const workingOption = option || liveRow?.setOption;
+        if (!liveRow || !workingOption || !Array.isArray(workingOption.items) || workingOption.items.length === 0) return false;
+
+        const isSetNow = (r) => Boolean(r.setType && r.setType !== 'single');
+        updateRowAt(rowIndex, r => (isSetNow(r) ? r : withSetOptionItems(
+            { ...r, setOption: r.setOption || workingOption },
+            (r.setOption || workingOption).items.map(it => ({ ...it, aiStatus: 'processing' }))
+        )));
+
+        const resolved = await resolveWorkstationSetSystem({
+            parentRow: { ...liveRow, setType: workingOption.type },
+            setItems: workingOption.items,
+            targetBrand,
+            isAuto,
+            preferredBrand: preferredBrand || liveRow.selectedBrand || '',
+            catalogOnly: true
+        });
+
+        updateRowAt(rowIndex, r => {
+            if (isSetNow(r)) return r; // the user switched to the set while it was being matched
+            const base = r.setOption || workingOption;
+            const nextItems = base.items.map((it, idx) => (
+                resolved && resolved.resolvedMap.has(idx)
+                    ? { ...it, ...resolved.resolvedMap.get(idx) }
+                    : { ...it, aiStatus: isMatchedSetItem(it) ? 'success' : 'no_match' }
+            ));
+            return withSetOptionItems({ ...r, setOption: base }, nextItems);
+        });
+        return Boolean(resolved && resolved.resolvedMap.size > 0);
+    };
+
+    const handleMatchSetOption = async (rowIndex) => {
+        const row = rowsRef.current[rowIndex];
+        if (!row || !row.setOption || matchingOptionRowId) return;
+        const useAuto = brandMode === 'auto_detect' || !globalBrand;
+        setMatchingOptionRowId(row.id);
+        try {
+            await matchSetOption(rowIndex, {
+                targetBrand: (!useAuto && brandMode === 'simple' && globalBrand) ? globalBrand : 'Auto',
+                isAuto: useAuto
+            });
+        } finally {
+            setMatchingOptionRowId(null);
         }
     };
 
@@ -1261,10 +1477,143 @@ export default function ValueEngineeredModal({
         );
     };
 
+    // Strip shown directly BELOW a row: the additional set option of a single item
+    // ("set of N folding tables"), or the controls of an active set with its single-item alternative.
+    const renderSetStrip = (row, index, isSetRow) => {
+        const setItems = Array.isArray(row.setItems) ? row.setItems : [];
+
+        if (isSetRow) {
+            const matchedSetCount = setItems.filter(isMatchedSetItem).length;
+            const alt = hasSingleAlternative(row) ? row.singleAlt : null;
+            const altRate = parseFloat(alt?.rate) || 0;
+            return (
+                <tr className={`${mbs.setOptionRow} ${mbs.setOptionRowActive}`}>
+                    <td colSpan={11}>
+                        <div className={mbs.setOptionStrip}>
+                            <span className={`${mbs.setOptionBadge} ${mbs.setOptionBadgeActive}`}>Set</span>
+                            <select
+                                className={`${mbs.setTypeSelect} ${mbs.setTypeSelectActive} ${mbs.setStripSelect}`}
+                                value={row.setType}
+                                onChange={e => handleSetTypeChange(index, e.target.value)}
+                                title="Set type — choose Single Item to match this row as one product"
+                            >
+                                {FURNITURE_SET_TYPES.map(st => (
+                                    <option key={st.id} value={st.id}>{st.id === 'single' ? 'Single Item' : st.label}</option>
+                                ))}
+                            </select>
+                            <button type="button" className={mbs.setToggleBtn} onClick={() => handleToggleSetExpand(index)}>
+                                <span>{row.setExpanded ? '▾' : '▸'} {setItems.length} item{setItems.length === 1 ? '' : 's'}</span>
+                                <span style={{ opacity: 0.85, fontSize: '0.67rem' }}>{matchedSetCount}/{setItems.length} matched</span>
+                            </button>
+                            <button
+                                type="button"
+                                className={mbs.setActionMiniBtn}
+                                onClick={() => handleMatchSingleSet(index)}
+                                disabled={isRunning || matchingSetRowId === row.id}
+                                title="AI match all components of this set from one manufacturer"
+                            >
+                                {matchingSetRowId === row.id ? 'Matching…' : '⚡ Match set'}
+                            </button>
+                            <button type="button" className={mbs.setActionMiniBtn} onClick={() => handleAddSetSubItem(index)} title="Add a component to this set">
+                                + Item
+                            </button>
+                            <span className={mbs.setOptionSpacer} />
+                            <span className={mbs.setOptionMeta} title="Alternative: match this row as one single product">
+                                {alt
+                                    ? `Option: single item — ${[alt.selectedBrand, alt.selectedModel].filter(Boolean).join(' ')}${altRate > 0 ? ` · ${altRate.toFixed(2)}` : ''}`
+                                    : 'Option: single item'}
+                            </span>
+                            <button type="button" className={mbs.setActionMiniBtn} onClick={() => handleUseSingleItem(index)} disabled={isRunning} title="Match this row as a single item (the set stays available as an option)">
+                                Use single item
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            );
+        }
+
+        const option = row.setOption;
+        const summary = summarizeSetOption(option, row.qty);
+        const singleAmount = (parseFloat(row.rate) || 0) * (parseFloat(row.qty) || 0);
+        const isMatchingOption = matchingOptionRowId === row.id || summary.status === 'processing';
+        const statusText = isMatchingOption
+            ? 'Matching…'
+            : summary.matchedCount > 0
+                ? `${summary.brands.join(' / ')} — ${summary.models.slice(0, 2).join(' + ')}${summary.models.length > 2 ? ` +${summary.models.length - 2}` : ''}`
+                : summary.status === 'error'
+                    ? 'No catalog match in the selected brands'
+                    : 'Not matched yet';
+        return (
+            <tr className={mbs.setOptionRow}>
+                <td colSpan={11}>
+                    <div className={mbs.setOptionStrip}>
+                        <span className={mbs.setOptionBadge}>+ Option</span>
+                        <span className={mbs.setOptionTitle}>{summary.label}</span>
+                        <span className={mbs.setOptionMeta} title={statusText}>{statusText}</span>
+                        {summary.hasPrice && (
+                            <span className={mbs.setOptionPrice} title="Rate of one set · amount for the row quantity">
+                                {summary.ratePerSet.toFixed(2)} / set · {summary.amount.toFixed(2)}
+                                {singleAmount > 0 ? ` (${summary.amount >= singleAmount ? '+' : '−'}${Math.abs(summary.amount - singleAmount).toFixed(2)} vs single)` : ''}
+                            </span>
+                        )}
+                        {summary.unpricedCount > 0 && !isMatchingOption && (
+                            <span className={mbs.setOptionMeta} title="Matched components without a catalog price are not part of the set rate">
+                                {summary.hasPrice ? `excl. ${summary.unpricedCount} unpriced` : 'no catalog price'}
+                            </span>
+                        )}
+                        <span className={mbs.setOptionSpacer} />
+                        <button type="button" className={mbs.setActionMiniBtn} onClick={() => handleToggleOptionExpand(index)}>
+                            {option.expanded ? '▾' : '▸'} {summary.itemCount} item{summary.itemCount === 1 ? '' : 's'}
+                        </button>
+                        <button
+                            type="button"
+                            className={mbs.setActionMiniBtn}
+                            onClick={() => handleMatchSetOption(index)}
+                            disabled={isRunning || isMatchingOption || Boolean(matchingOptionRowId)}
+                            title="Match this option from the brand catalogs"
+                        >
+                            ⚡ Match option
+                        </button>
+                        <button
+                            type="button"
+                            className={mbs.setOptionPrimaryBtn}
+                            onClick={() => handleUseSetOption(index)}
+                            disabled={isRunning || isMatchingOption}
+                            title="Price this row as the set (the single item stays available as an option)"
+                        >
+                            Use this set
+                        </button>
+                        <button type="button" className={mbs.setOptionDismissBtn} onClick={() => handleDismissSetOption(index)} title="Remove this option">×</button>
+                    </div>
+                    {option.expanded && (
+                        <div className={mbs.setOptionDetails}>
+                            {option.items.map((it, itIdx) => {
+                                return (
+                                    <div key={it.id || itIdx} className={mbs.setOptionItem}>
+                                        {it.brandImage
+                                            ? <img className={mbs.setOptionItemThumb} src={getFullUrl(it.brandImage)} alt="" onError={(e) => { e.target.style.visibility = 'hidden'; }} />
+                                            : <span className={mbs.setOptionItemThumb} />}
+                                        <span className={mbs.setOptionItemQty}>{it.qty} {it.unit || 'Nos'}</span>
+                                        <span className={mbs.setOptionItemText}>
+                                            <strong>{it.label || it.description}</strong>
+                                            <span>{isMatchedSetItem(it) ? [it.selectedBrand, it.selectedModel].filter(Boolean).join(' — ') : (it.aiStatus === 'processing' ? 'Matching…' : 'Not matched')}</span>
+                                        </span>
+                                        <span className={mbs.setOptionItemPrice}>{describeSetItemPrice(it)}</span>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
+                </td>
+            </tr>
+        );
+    };
+
     const renderVeRow = (row, index, displaySn = null) => {
         const isSetRow = Boolean(row.setType && row.setType !== 'single');
         const setItems = Array.isArray(row.setItems) ? row.setItems : [];
-        const matchedSetCount = setItems.filter(it => it.selectedBrand || it.selectedModel).length;
+        const hasSetOption = !isSetRow && Boolean(row.setOption && row.setOption.items?.length > 0);
+        const isFurnitureRow = !String(row.scope || '').toUpperCase().includes('FITOUT');
         const effectiveSn = displaySn ?? row.sn;
 
         const { mainCats, subCats, modelOptions, matchedMainCat, matchedSubCat, currentModelSelectValue } = !isSetRow
@@ -1273,8 +1622,8 @@ export default function ValueEngineeredModal({
 
         const rowStatusClass = row.aiStatus === 'processing' ? mbs.aiPulse : row.aiStatus === 'success' ? mbs.aiGlow : row.aiStatus === 'error' ? mbs.aiErrorBorder : '';
         const refImages = row.imageRefs?.length ? row.imageRefs : (row.imageRef ? [row.imageRef] : []);
-        const displayBrandImages = isSetRow
-            ? (row.brandImages?.length ? row.brandImages : (row.brandImage ? [row.brandImage] : []))
+        const displayBrandImages = row.brandImages?.length
+            ? row.brandImages
             : (row.brandImage ? [row.brandImage] : []);
 
         return (
@@ -1286,7 +1635,7 @@ export default function ValueEngineeredModal({
                             {isSetRow && (
                                 <span className={mbs.setBadge} title={getSetTypeMeta(row.setType).label}>SET</span>
                             )}
-                            {!isSetRow && row.aiStatus === 'success' && row.aiResult && (
+                            {row.aiStatus === 'success' && row.aiResult && (
                                 <button
                                     className={mbs.specialistBtn}
                                     onClick={() => setSpecialistData(row.aiResult)}
@@ -1295,7 +1644,7 @@ export default function ValueEngineeredModal({
                                     AI
                                 </button>
                             )}
-                            {!isSetRow && row.aiStatus === 'no_match' && (
+                            {row.aiStatus === 'no_match' && (
                                 <button
                                     className={mbs.specialistBtn}
                                     style={{ backgroundColor: '#2ba4e0' }}
@@ -1340,7 +1689,7 @@ export default function ValueEngineeredModal({
                                 });
                             }}
                         />
-                        {!isSetRow && refImages.length > 0 && (
+                        {refImages.length > 0 && (
                             <button
                                 type="button"
                                 className={mbs.specialistBtn}
@@ -1359,7 +1708,7 @@ export default function ValueEngineeredModal({
                     <td style={{ verticalAlign: 'middle', minWidth: 80, textAlign: 'center' }}>
                         <MultiImageCell
                             images={displayBrandImages}
-                            singleMode={!isSetRow}
+                            singleMode={false}
                             cellId={`ve_brand_${row.id || index}`}
                             brandLogo={row.brandLogo}
                             altPrefix={row.selectedModel || "Product"}
@@ -1402,54 +1751,18 @@ export default function ValueEngineeredModal({
                     </td>
                     <td style={{ verticalAlign: 'middle', minWidth: 215 }}>
                         <div className={mbs.dropdownStack}>
-                            {/* Dedicated Set Type Dropdown (Single Item vs Desking / Lounge / Outdoor / Cafeteria / Library / Meeting / Clinic / Custom Set) */}
-                            <select
-                                className={`${mbs.setTypeSelect} ${isSetRow ? mbs.setTypeSelectActive : ''}`}
-                                value={row.setType || 'single'}
-                                onChange={e => handleSetTypeChange(index, e.target.value)}
-                                title="Switch between Single Item and dedicated Furniture Set breakdown"
-                            >
-                                {FURNITURE_SET_TYPES.map(st => (
-                                    <option key={st.id} value={st.id}>
-                                        {st.id === 'single' ? 'Item Mode: Single Item' : `Set: ${st.label}`}
-                                    </option>
-                                ))}
-                            </select>
-
                             {isSetRow ? (
                                 <>
-                                    <div className={mbs.setControlBar}>
-                                        <button
-                                            type="button"
-                                            className={mbs.setToggleBtn}
-                                            onClick={() => handleToggleSetExpand(index)}
-                                        >
-                                            <span>{row.setExpanded ? '▾' : '▸'} {setItems.length} Items</span>
-                                            <span style={{ opacity: 0.85, fontSize: '0.67rem' }}>{matchedSetCount}/{setItems.length}</span>
-                                        </button>
-                                        <button
-                                            type="button"
-                                            className={mbs.setActionMiniBtn}
-                                            onClick={() => handleMatchSingleSet(index)}
-                                            disabled={isRunning || matchingSetRowId === row.id}
-                                            title="AI Match all components in this set"
-                                        >
-                                            {matchingSetRowId === row.id ? 'Matching…' : '⚡ Match Set'}
-                                        </button>
-                                        <button
-                                            type="button"
-                                            className={mbs.setActionMiniBtn}
-                                            onClick={() => handleAddSetSubItem(index)}
-                                            title="Add a component slot to this set"
-                                        >
-                                            + Item
-                                        </button>
-                                    </div>
-                                    {row.selectedBrand && (
-                                        <div className={mbs.setRollupMeta} title={`${row.selectedBrand} — ${row.selectedModel}`}>
-                                            {row.selectedBrand}
+                                    {row.aiStatus === 'processing' ? (
+                                        <div className={mbs.aiLoadingCell}><div className={mbs.tinySpinner} /><span style={{ fontSize: '0.72rem' }}>Matching set…</span></div>
+                                    ) : (
+                                        <div className={mbs.setRollupMeta} title={[row.selectedBrand, row.selectedModel].filter(Boolean).join(' — ')}>
+                                            {row.selectedBrand || 'Set not matched yet'}
                                         </div>
                                     )}
+                                    <div className={mbs.setRollupHint}>
+                                        {getSetTypeMeta(row.setType).shortLabel} · {setItems.filter(isMatchedSetItem).length}/{setItems.length} components — see the set bar below
+                                    </div>
                                 </>
                             ) : (
                                 <>
@@ -1496,8 +1809,22 @@ export default function ValueEngineeredModal({
                             <button className={`${mbs.actionBtn} ${mbs.addBtn}`} onClick={() => handleVeAddRow(index)}>+</button>
                             <button className={`${mbs.actionBtn} ${mbs.removeBtn}`} onClick={() => handleVeRemoveRow(index)}>×</button>
                         </div>
+                        {!isSetRow && !hasSetOption && isFurnitureRow && String(row.description || '').trim() && (
+                            <div className={mbs.setConvertWrap}>
+                                <button
+                                    type="button"
+                                    className={mbs.setConvertBtn}
+                                    onClick={() => handleConvertToSet(index)}
+                                    disabled={isRunning}
+                                    title="Match this row as a furniture set (several components) instead of a single item"
+                                >
+                                    Set
+                                </button>
+                            </div>
+                        )}
                     </td>
                 </tr>
+                {(isSetRow || hasSetOption) && renderSetStrip(row, index, isSetRow)}
                 {isSetRow && row.setExpanded && setItems.map((sub, sIdx) =>
                     renderSetSubRow(row, index, sub, sIdx, effectiveSn)
                 )}
@@ -1510,14 +1837,21 @@ export default function ValueEngineeredModal({
     // ─────────────────────────────────────────────────────────────
     // MAIN EXECUTION LOGIC (Router + Swarm Parallelization)
     // ─────────────────────────────────────────────────────────────
-    const executeValueEngineeredAI = async () => {
+    const executeValueEngineeredAI = async (modeOverride = null) => {
         if (isRunning) return;
+        const effectiveMode = typeof modeOverride === 'string' ? modeOverride : brandMode;
         setIsConfigOpen(false);
         setIsRunning(true);
+        setActiveRunMode(effectiveMode);
         setBatchResult(null);
         setAiStatus(prev => ({ ...prev, active: true, status: 'routing', currentItem: null, minimized: false }));
 
-        if (rows.length === 0) { setIsRunning(false); setAiStatus(prev => ({ ...prev, active: false })); return; }
+        if (rows.length === 0) {
+            setIsRunning(false);
+            setActiveRunMode(null);
+            setAiStatus(prev => ({ ...prev, active: false }));
+            return;
+        }
 
         const currentData = rows.map(r => ({
             ...r,
@@ -1531,13 +1865,20 @@ export default function ValueEngineeredModal({
         const orderedDisplayRows = recategorizeBoqRows(currentData, recategorizeMode);
         const workableRows = orderedDisplayRows.filter(r => !isHeaderRow(r.description, r) && !r.isTotalRow);
         setProgress({ current: 0, total: workableRows.length });
+
+        if (workableRows.length === 0) {
+            setIsRunning(false);
+            setActiveRunMode(null);
+            setAiStatus(prev => ({ ...prev, active: false }));
+            return;
+        }
         
         // Initialize Swarm Lanes
-        const categoryKeys = brandMode === 'auto_detect' ? ['specifications'] : ['desking', 'seating', 'softSeating', 'accessories'];
+        const categoryKeys = effectiveMode === 'auto_detect' ? ['specifications'] : ['desking', 'seating', 'softSeating', 'accessories'];
         const initialLanes = {};
         for (const catKey of categoryKeys) {
             const label = catKey === 'specifications' ? 'Specification Matcher' : VE_UI_CONFIG.labels[catKey];
-            const targetBrand = brandMode === 'simple' ? globalBrand : (brandMode === 'auto_detect' ? 'Auto Detected' : categoryBrands[catKey]);
+            const targetBrand = effectiveMode === 'simple' ? globalBrand : (effectiveMode === 'auto_detect' ? 'Auto Detected' : categoryBrands[catKey]);
             const localBrand = localBrands.find(b => b.name === targetBrand);
             initialLanes[catKey] = {
                 id: catKey,
@@ -1556,7 +1897,7 @@ export default function ValueEngineeredModal({
         let categoryMap = null;
 
         // --- PHASE 1: ROUTING ---
-        if (brandMode === 'advanced') {
+        if (effectiveMode === 'advanced') {
             console.log(' [VE AI] Routing items via AI Router...');
             const routingPayload = workableRows.map(r => ({ id: String(r.id), desc: r.description }));
 
@@ -1579,6 +1920,7 @@ export default function ValueEngineeredModal({
                     if (categoryMap && categoryMap.status === 'error') {
                         alert("AI Routing failed: " + categoryMap.error_message);
                         setIsRunning(false);
+                        setActiveRunMode(null);
                         setAiStatus(prev => ({ ...prev, active: false }));
                         return;
                     }
@@ -1598,10 +1940,11 @@ export default function ValueEngineeredModal({
                 console.error(' [VE AI] Routing failed:', err);
                 alert("Network error during AI Routing.");
                 setIsRunning(false);
+                setActiveRunMode(null);
                 setAiStatus(prev => ({ ...prev, active: false }));
                 return;
             }
-        } else if (brandMode === 'auto_detect') {
+        } else if (effectiveMode === 'auto_detect') {
             console.log(' [VE AI] Auto Detect mode active: running Global Brand & Model Pre-Scan...');
             setAiStatus(prev => ({
                 ...prev,
@@ -1678,7 +2021,7 @@ export default function ValueEngineeredModal({
             if (!row || row.aiStatus === 'success') return;
 
             // If we don't have a laneId (simple mode), default to accessories for initial visualization
-            const effectiveLaneId = laneId || (brandMode === 'auto_detect' ? 'specifications' : 'accessories');
+            const effectiveLaneId = laneId || (effectiveMode === 'auto_detect' ? 'specifications' : 'accessories');
 
             setSwarm(prev => ({
                 ...prev,
@@ -1704,26 +2047,118 @@ export default function ValueEngineeredModal({
             const sizeContext = [row.qty && `Qty: ${row.qty}`, row.unit && `Unit: ${row.unit}`].filter(Boolean).join(', ');
             const enrichedDesc = sizeContext ? `${row.description} | ${sizeContext}` : row.description;
 
-            const isAuto = brandMode === 'auto_detect';
+            const isAuto = effectiveMode === 'auto_detect';
             const isFitoutRow = row.scope?.toUpperCase().includes('FITOUT');
             const effectiveBrand = (!isAuto && isFitoutRow) ? 'FitOut V2' : targetBrand;
 
-            // ── FURNITURE SET DECOMPOSED MATCHING ──
-            if (row.setType && row.setType !== 'single' && Array.isArray(row.setItems) && row.setItems.length > 0) {
-                const setMeta = getSetTypeMeta(row.setType);
-                const subIndices = row.setItems.map((_, idx) => idx);
+            // ── FURNITURE SET / WORKSTATION / L-SHAPE DESK / FOLDING CONFERENCE MATCHING (SAME-MANUFACTURER LOCK) ──
+            // Re-evaluate the set plan so descriptions typed or edited after loading are recognised:
+            // active sets are matched as sets, single conference tables keep their folding-set option.
+            const plannedRow = refreshRowSetPlan(row);
+            const workingSetType = plannedRow.setType || 'single';
+            const workingSetItems = Array.isArray(plannedRow.setItems) ? plannedRow.setItems : [];
+            const plannedOption = (workingSetType === 'single' && plannedRow.setOption?.items?.length > 0) ? plannedRow.setOption : null;
+            const runOptionMatch = async (preferredBrand = '') => {
+                if (!plannedOption) return;
+                try {
+                    await matchSetOption(rowIndex, { option: plannedOption, targetBrand: effectiveBrand, isAuto, preferredBrand });
+                } catch (optErr) {
+                    console.warn('[VE Set Option] Option match skipped:', optErr.message);
+                }
+            };
+
+            if (workingSetType && workingSetType !== 'single' && workingSetItems.length > 0) {
+                const setMeta = getSetTypeMeta(workingSetType);
+                const subIndices = workingSetItems.map((_, idx) => idx);
                 let subMatched = 0;
                 let lastBrand = '';
                 let lastModel = '';
                 let lastImage = '';
 
                 setRows(prev => prev.map((r, i) => i === rowIndex ? {
-                    ...r,
+                    ...plannedRow,
                     aiStatus: 'processing',
-                    setItems: (r.setItems || []).map(it => ({ ...it, aiStatus: 'processing' }))
+                    setItems: workingSetItems.map(it => ({ ...it, aiStatus: 'processing' }))
                 } : r));
 
-                await batch(subIndices, 3, async (sIdx) => {
+                let remainingIndices = [...subIndices];
+                let lockedSetBrand = (!isAuto && effectiveBrand && effectiveBrand !== 'Auto' && effectiveBrand !== 'Auto Detected') ? effectiveBrand : '';
+                const isDynamicSystemSet = isSystemSetType(workingSetType);
+
+                if (isDynamicSystemSet) {
+                    const wsResolved = await resolveWorkstationSetSystem({
+                        parentRow: { ...row, setType: workingSetType },
+                        setItems: workingSetItems,
+                        targetBrand: effectiveBrand,
+                        isAuto
+                    });
+                    if (wsResolved) {
+                        if (wsResolved.anchorBrand) lockedSetBrand = wsResolved.anchorBrand;
+                        wsResolved.resolvedMap.forEach((fields) => {
+                            subMatched++;
+                            lastBrand = fields.selectedBrand;
+                            lastModel = fields.selectedModel;
+                            lastImage = fields.brandImage;
+                        });
+                        setRows(prev => {
+                            const next = [...prev];
+                            const cur = next[rowIndex];
+                            if (!cur) return prev;
+                            const baseItems = (cur.setItems && cur.setItems.length > 0) ? cur.setItems : workingSetItems;
+                            const updatedItems = baseItems.map((it, idx) =>
+                                wsResolved.resolvedMap.has(idx) ? { ...it, ...wsResolved.resolvedMap.get(idx) } : it
+                            );
+                            next[rowIndex] = computeSetParentRollup({ ...cur, setType: workingSetType }, updatedItems);
+                            return next;
+                        });
+                        remainingIndices = wsResolved.unresolvedIndices;
+                    }
+                } else if (remainingIndices.length > 1 && !lockedSetBrand) {
+                    // For non-workstation sets in Auto Detect mode, resolve Component 0 FIRST to lock ONE single manufacturer
+                    const firstIdx = remainingIndices.shift();
+                    const firstSub = workingSetItems[firstIdx];
+                    const firstQuery = firstSub ? buildSetComponentMatchQuery(firstSub, { ...row, setType: workingSetType }, setMeta) : '';
+                    if (firstSub && firstQuery) {
+                        try {
+                            const firstResolved = await fetchAndResolveComponentMatch({
+                                description: firstQuery,
+                                qty: firstSub.qty || '1',
+                                unit: firstSub.unit || 'Nos',
+                                existingRate: firstSub.rate || '',
+                                targetBrand: effectiveBrand,
+                                isAuto
+                            });
+                            if (firstResolved.ok) {
+                                subMatched++;
+                                lockedSetBrand = firstResolved.fields.selectedBrand || '';
+                                lastBrand = lockedSetBrand;
+                                lastModel = firstResolved.fields.selectedModel;
+                                lastImage = firstResolved.fields.brandImage;
+                            }
+                            setRows(prev => {
+                                const next = [...prev];
+                                const cur = next[rowIndex];
+                                if (!cur || !cur.setItems?.[firstIdx]) return prev;
+                                const updatedItems = cur.setItems.map((it, idx) => idx !== firstIdx ? it : (
+                                    firstResolved.ok ? { ...it, ...firstResolved.fields } : { ...it, aiStatus: firstResolved.status }
+                                ));
+                                next[rowIndex] = computeSetParentRollup(cur, updatedItems);
+                                return next;
+                            });
+                        } catch {
+                            setRows(prev => {
+                                const next = [...prev];
+                                const cur = next[rowIndex];
+                                if (!cur || !cur.setItems?.[firstIdx]) return prev;
+                                const updatedItems = cur.setItems.map((it, idx) => idx !== firstIdx ? it : { ...it, aiStatus: 'error' });
+                                next[rowIndex] = computeSetParentRollup(cur, updatedItems);
+                                return next;
+                            });
+                        }
+                    }
+                }
+
+                await batch(remainingIndices, 3, async (sIdx) => {
                     const liveParent = rowsRef.current[rowIndex];
                     const sub = liveParent?.setItems?.[sIdx];
                     if (!sub) return;
@@ -1736,8 +2171,8 @@ export default function ValueEngineeredModal({
                             qty: sub.qty || '1',
                             unit: sub.unit || 'Nos',
                             existingRate: sub.rate || '',
-                            targetBrand: effectiveBrand,
-                            isAuto
+                            targetBrand: lockedSetBrand || effectiveBrand,
+                            isAuto: lockedSetBrand ? false : isAuto
                         });
 
                         if (resolved.ok) {
@@ -1799,6 +2234,11 @@ export default function ValueEngineeredModal({
                 }
                 setProgress(p => ({ ...p, current: p.current + 1 }));
                 return;
+            }
+
+            // Single item with a set alternative detected just now: show its option below the row
+            if (plannedOption && plannedOption !== row.setOption) {
+                setRows(prev => prev.map((r, i) => i === rowIndex ? { ...r, setOption: plannedOption } : r));
             }
 
             const payload = {
@@ -1961,6 +2401,8 @@ export default function ValueEngineeredModal({
                         aiResult: { ...result, boqDescription: r.description, brand: matchedBrand }
                     } : r));
                     successCount++;
+                    // Additional option below the single item (e.g. set of folding tables), same manufacturer preferred
+                    await runOptionMatch(matchedBrand);
 
                 } else {
                     const resolvedLaneId = effectiveLaneId;
@@ -1982,6 +2424,7 @@ export default function ValueEngineeredModal({
                     });
                     setRows(prev => prev.map((r, i) => i === rowIndex ? { ...r, aiStatus: result.status === 'no_match' ? 'no_match' : 'error' } : r));
                     errorCount++;
+                    await runOptionMatch();
                 }
             } catch (err) {
                 const resolvedLaneId = effectiveLaneId;
@@ -2010,14 +2453,14 @@ export default function ValueEngineeredModal({
 
         // --- PHASE 2: SWARM EXECUTION ---
         const rowIdToIndex = new Map(currentData.map((r, i) => [String(r.id), i]));
-        if ((brandMode === 'advanced' || brandMode === 'auto_detect') && categoryMap && categoryMap.status !== 'error') {
+        if ((effectiveMode === 'advanced' || effectiveMode === 'auto_detect') && categoryMap && categoryMap.status !== 'error') {
             const swarmPromises = [];
             for (const catKey of categoryKeys) {
                 const itemIds = categoryMap[catKey] || [];
                 if (!itemIds || itemIds.length === 0) continue;
 
-                const targetBrand = brandMode === 'auto_detect' ? 'Auto Detected' : categoryBrands[catKey];
-                if (!targetBrand && brandMode !== 'auto_detect') continue;
+                const targetBrand = effectiveMode === 'auto_detect' ? 'Auto Detected' : categoryBrands[catKey];
+                if (!targetBrand && effectiveMode !== 'auto_detect') continue;
                 if (!targetBrand) continue;
 
                 const stringItemIds = itemIds.map(String);
@@ -2062,11 +2505,22 @@ export default function ValueEngineeredModal({
 
         setBatchResult({ success: successCount, error: errorCount });
         setIsRunning(false);
+        setActiveRunMode(null);
         setAiStatus(prev => ({ ...prev, active: false }));
         setTimeout(() => setBatchResult(null), 8000);
     };
 
-    const canStartAI = brandMode === 'auto_detect' ? true : (brandMode === 'simple' ? globalBrand !== '' : Object.values(categoryBrands).some(b => b !== ''));
+    const handleQuickAutoDetect = () => {
+        if (isRunning || workableRowCount === 0) return;
+        setBrandMode('auto_detect');
+        executeValueEngineeredAI('auto_detect');
+    };
+
+    const canStartAI = workableRowCount > 0 && (
+        brandMode === 'auto_detect'
+            ? true
+            : (brandMode === 'simple' ? globalBrand !== '' : Object.values(categoryBrands).some(b => b !== ''))
+    );
 
     return (
         <>
@@ -2102,17 +2556,50 @@ export default function ValueEngineeredModal({
                                 </button>
 
                                 <button
-                                    className={`${mbs.actionCard} ${mbs.aiAutoFillBtn} ${isRunning ? mbs.aiAutoFilling : ''}`}
-                                    onClick={() => setIsConfigOpen(true)}
-                                    disabled={isRunning}
+                                    className={`${mbs.actionCard} ${mbs.quickAutoDetectBtn} ${isRunning && activeRunMode === 'auto_detect' ? mbs.aiAutoFilling : ''}`}
+                                    onClick={handleQuickAutoDetect}
+                                    disabled={isRunning || workableRowCount === 0}
+                                    title={workableRowCount === 0
+                                        ? 'Upload or generate a BOQ first to run Auto Detect'
+                                        : `Immediately auto-detect brands & models for all ${workableRowCount} BOQ item${workableRowCount === 1 ? '' : 's'}`}
                                 >
-                                    <span style={{ fontSize: '1.4rem' }}></span>
-                                    <span>
-                                        {isRunning
-                                            ? `AI RUNNING${progress.total > 0 ? ` (${progress.current}/${progress.total})` : '...'}`
-                                            : 'AI VALUE ENGINEER'
+                                    <span className={mbs.quickAutoDetectBadge}>1-Click</span>
+                                    <span className={mbs.quickAutoDetectTitle}>
+                                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                                            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+                                        </svg>
+                                        {isRunning && activeRunMode === 'auto_detect'
+                                            ? `DETECTING${progress.total > 0 ? ` (${progress.current}/${progress.total})` : '...'}`
+                                            : 'AUTO DETECT AI'
                                         }
                                     </span>
+                                    <span className={mbs.quickAutoDetectSub}>
+                                        {isRunning && activeRunMode === 'auto_detect'
+                                            ? 'Scanning specs & catalogs'
+                                            : 'Instant Brand & Model'
+                                        }
+                                    </span>
+                                </button>
+
+                                <button
+                                    className={`${mbs.actionCard} ${mbs.aiAutoFillBtn} ${isRunning && activeRunMode !== 'auto_detect' ? mbs.aiAutoFilling : ''}`}
+                                    onClick={() => setIsConfigOpen(true)}
+                                    disabled={isRunning}
+                                    title="Configure AI strategy: Auto Detect, One Brand Match, or Categorized Match"
+                                >
+                                    <span className={mbs.aiBtnTitleRow}>
+                                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                                            <circle cx="12" cy="12" r="3" />
+                                            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9c.26.6.85 1 1.51 1H21a2 2 0 0 1 0 4h-.09c-.66 0-1.25.4-1.51 1z" />
+                                        </svg>
+                                        <span>
+                                            {isRunning && activeRunMode !== 'auto_detect'
+                                                ? `AI RUNNING${progress.total > 0 ? ` (${progress.current}/${progress.total})` : '...'}`
+                                                : 'AI VALUE ENGINEER'
+                                            }
+                                        </span>
+                                    </span>
+                                    <span className={mbs.aiConfigSub}>Brands &amp; Strategy</span>
                                 </button>
 
                                 <div className={mbs.recatControlCard} title="Keep uploaded BOQ order as-is or group by Item wise / Room wise">
@@ -2223,18 +2710,22 @@ export default function ValueEngineeredModal({
                     </div>
 
                     <div className={mbs.footer} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}>
-                        {rows.some(r => r.setType && r.setType !== 'single') ? (
+                        {rows.some(r => (r.setType && r.setType !== 'single') || r.setOption) ? (
                             <div className={mbs.setExportControl}>
-                                <span>Furniture Sets ({rows.filter(r => r.setType && r.setType !== 'single').length}):</span>
+                                <span>Sets ({rows.filter(r => r.setType && r.setType !== 'single').length}):</span>
                                 <select
                                     className={mbs.setExportSelect}
                                     value={setExportMode}
                                     onChange={e => setSetExportMode(e.target.value)}
-                                    title="Choose how Furniture Set rows export into Offer / Excel / PDF"
+                                    title="How set rows are written into the offer"
                                 >
-                                    <option value="lump_sum">Export as Lump-Sum Rollup (Preserve BOQ Rows)</option>
-                                    <option value="include_sub_items">Include Sub-Items (12.1, 12.2…)</option>
+                                    <option value="lump_sum">One line per set (keeps BOQ rows)</option>
+                                    <option value="include_sub_items">Set line + components (12.1, 12.2…)</option>
                                 </select>
+                                <label className={mbs.setExportCheck} title="Adds each matched alternative (e.g. set of folding tables) as an extra line marked Optional — not counted in totals">
+                                    <input type="checkbox" checked={exportSetOptions} onChange={e => setExportSetOptions(e.target.checked)} />
+                                    Include options as optional lines
+                                </label>
                             </div>
                         ) : <div />}
                         <button
@@ -2328,95 +2819,163 @@ export default function ValueEngineeredModal({
 
             {isConfigOpen && (
                 <div className={afStyles.overlay} style={{ zIndex: 99999 }} onClick={() => setIsConfigOpen(false)}>
-                    <div className={afStyles.modal} onClick={e => e.stopPropagation()}>
+                    <div className={`${afStyles.modal} ${afStyles.veModal} ${theme === 'light' ? afStyles.light : ''}`} onClick={e => e.stopPropagation()}>
                         <div className={afStyles.header}>
-                            <h2> AI Value Engineer Config</h2>
+                            <div className={afStyles.veHeaderTitleGroup}>
+                                <div className={afStyles.veHeaderIcon} aria-hidden="true">
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                                        <path d="M12 2L14.8 8.6L22 9.3L16.5 14L18.2 21L12 17.3L5.8 21L7.5 14L2 9.3L9.2 8.6L12 2Z" />
+                                    </svg>
+                                </div>
+                                <div>
+                                    <h2>AI Value Engineer Config</h2>
+                                    <p className={afStyles.veHeaderSubtitle}>Choose how AI matches your BOQ items to contract brands &amp; catalogs</p>
+                                </div>
+                            </div>
                             <button className={afStyles.closeBtn} onClick={() => setIsConfigOpen(false)}>×</button>
                         </div>
 
                         <div className={afStyles.content}>
-                            <div className={afStyles.section}>
-                                <div className={afStyles.brandSectionHeader} style={{ marginBottom: '1rem' }}>
-                                    <span className={afStyles.sectionTitle}>Select Target Strategy</span>
+                            <div className={afStyles.section} style={{ marginBottom: '0.5rem' }}>
+                                <div className={afStyles.brandSectionHeader} style={{ marginBottom: '0.85rem' }}>
+                                    <span className={afStyles.sectionTitle} style={{ marginBottom: 0 }}>Select Target Strategy</span>
                                 </div>
 
-                                {/* Premium Auto Detect Toggle */}
-                                <div style={{
-                                    display: 'flex',
-                                    justifyContent: 'space-between',
-                                    alignItems: 'center',
-                                    padding: '1rem 1.2rem',
-                                    borderRadius: '12px',
-                                    background: brandMode === 'auto_detect' ? 'linear-gradient(135deg, rgba(99, 102, 241, 0.15) 0%, rgba(168, 85, 247, 0.15) 100%)' : 'rgba(255,255,255,0.02)',
-                                    border: brandMode === 'auto_detect' ? '2px solid #8b5cf6' : '1px solid rgba(255,255,255,0.1)',
-                                    marginBottom: '1.5rem',
-                                    cursor: 'pointer',
-                                    transition: 'all 0.3s ease'
-                                }} onClick={() => setBrandMode(brandMode === 'auto_detect' ? 'simple' : 'auto_detect')}>
-                                    <div style={{ flex: 1, paddingRight: '1rem' }}>
-                                        <div style={{ fontWeight: 700, color: brandMode === 'auto_detect' ? '#a855f7' : '#e2e8f0', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '1rem' }}>
-                                             Auto Detect Brand & Model
-                                            {brandMode === 'auto_detect' && <span style={{ background: 'linear-gradient(135deg, #6366f1, #a855f7)', color: 'white', fontSize: '0.7rem', padding: '2px 8px', borderRadius: '20px', fontWeight: 600 }}>ACTIVE</span>}
+                                {/* High-Visibility Auto Detect Hero Card */}
+                                <div
+                                    className={`${afStyles.autoDetectCard} ${brandMode === 'auto_detect' ? afStyles.autoDetectCardActive : ''}`}
+                                    onClick={() => setBrandMode(brandMode === 'auto_detect' ? 'simple' : 'auto_detect')}
+                                    role="button"
+                                    tabIndex={0}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter' || e.key === ' ') {
+                                            e.preventDefault();
+                                            setBrandMode(brandMode === 'auto_detect' ? 'simple' : 'auto_detect');
+                                        }
+                                    }}
+                                >
+                                    <div className={afStyles.autoDetectMain}>
+                                        <div className={afStyles.autoDetectIconBox} aria-hidden="true">
+                                            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                                                <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+                                            </svg>
                                         </div>
-                                        <div style={{ fontSize: '0.8rem', color: '#94a3b8', marginTop: '0.2rem' }}>
-                                            Specification/Model driven Matching: AI will dynamically extract the model and brand from the description.
+                                        <div className={afStyles.autoDetectBody}>
+                                            <div className={afStyles.autoDetectTitleRow}>
+                                                <span className={afStyles.autoDetectTitle}>Auto Detect Brand &amp; Model</span>
+                                                <span className={afStyles.recommendedBadge}>Recommended</span>
+                                                {brandMode === 'auto_detect' && (
+                                                    <span className={afStyles.activeBadge}>Active</span>
+                                                )}
+                                            </div>
+                                            <div className={afStyles.autoDetectDesc}>
+                                                Specification &amp; model-driven matching: AI dynamically extracts each item&apos;s brand and model from the BOQ description and matches live catalogs automatically.
+                                            </div>
+                                            <div className={afStyles.autoDetectChips}>
+                                                <span className={afStyles.autoDetectChip}>Zero Manual Setup</span>
+                                                <span className={afStyles.autoDetectChip}>Multi-Brand BOQ</span>
+                                                <span className={afStyles.autoDetectChip}>Smart SKU Pre-Scan</span>
+                                            </div>
                                         </div>
                                     </div>
-                                    <div style={{
-                                        position: 'relative',
-                                        width: '48px',
-                                        height: '24px',
-                                        background: brandMode === 'auto_detect' ? '#8b5cf6' : 'rgba(255,255,255,0.1)',
-                                        borderRadius: '12px',
-                                        transition: 'all 0.3s'
-                                    }}>
-                                        <div style={{
-                                            position: 'absolute',
-                                            top: '2px',
-                                            left: brandMode === 'auto_detect' ? '26px' : '2px',
-                                            width: '20px',
-                                            height: '20px',
-                                            background: '#ffffff',
-                                            borderRadius: '50%',
-                                            boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
-                                            transition: 'all 0.3s'
-                                        }} />
+
+                                    <div className={afStyles.autoDetectRight}>
+                                        <div
+                                            className={`${afStyles.toggleSwitch} ${brandMode === 'auto_detect' ? afStyles.toggleSwitchOn : ''}`}
+                                            role="switch"
+                                            aria-checked={brandMode === 'auto_detect'}
+                                            aria-label="Toggle Auto Detect Brand & Model"
+                                        >
+                                            <div className={afStyles.toggleKnob} />
+                                        </div>
+                                        <button
+                                            type="button"
+                                            className={afStyles.quickRunInlineBtn}
+                                            disabled={isRunning || workableRowCount === 0}
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleQuickAutoDetect();
+                                            }}
+                                            title={workableRowCount === 0 ? 'Upload or generate a BOQ first' : 'Run Auto Detect immediately'}
+                                        >
+                                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                                                <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+                                            </svg>
+                                            Run Now
+                                        </button>
                                     </div>
                                 </div>
 
-                                <div style={{ 
-                                    display: 'flex', 
-                                    gap: '1rem', 
-                                    marginBottom: '1.5rem',
-                                    opacity: brandMode === 'auto_detect' ? 0.4 : 1,
-                                    pointerEvents: brandMode === 'auto_detect' ? 'none' : 'auto',
-                                    transition: 'all 0.3s'
-                                }}>
-                                    <div
+                                <div className={afStyles.strategyDivider}>Or Select Manual Brand Override</div>
+
+                                <div className={afStyles.strategyGrid}>
+                                    <button
+                                        type="button"
                                         onClick={() => setBrandMode('simple')}
-                                        style={{ flex: 1, padding: '1.2rem', borderRadius: '12px', border: brandMode === 'simple' ? '2px solid #3b82f6' : '1px solid rgba(255,255,255,0.1)', background: brandMode === 'simple' ? 'rgba(59,130,246,0.1)' : 'rgba(255,255,255,0.02)', cursor: 'pointer', transition: 'all 0.2s' }}
+                                        className={`${afStyles.strategyCard} ${brandMode === 'simple' ? afStyles.strategyCardSimpleActive : ''}`}
                                     >
-                                        <div style={{ fontWeight: 600, color: brandMode === 'simple' ? '#3b82f6' : '#e2e8f0', marginBottom: '0.4rem' }}>One Brand Match</div>
-                                        <div style={{ fontSize: '0.8rem', color: '#94a3b8' }}>Apply a single brand globally to match all items.</div>
-                                    </div>
-                                    <div
+                                        <div className={afStyles.strategyCardTop}>
+                                            <span className={afStyles.strategyCardTitle}>One Brand Match</span>
+                                            <span className={`${afStyles.strategyRadio} ${brandMode === 'simple' ? afStyles.strategyRadioSimple : ''}`} />
+                                        </div>
+                                        <div className={afStyles.strategyCardDesc}>
+                                            Apply a single contract brand globally to match all furniture items.
+                                        </div>
+                                    </button>
+
+                                    <button
+                                        type="button"
                                         onClick={() => setBrandMode('advanced')}
-                                        style={{ flex: 1, padding: '1.2rem', borderRadius: '12px', border: brandMode === 'advanced' ? '2px solid #8b5cf6' : '1px solid rgba(255,255,255,0.1)', background: brandMode === 'advanced' ? 'rgba(139,92,246,0.1)' : 'rgba(255,255,255,0.02)', cursor: 'pointer', transition: 'all 0.2s' }}
+                                        className={`${afStyles.strategyCard} ${brandMode === 'advanced' ? afStyles.strategyCardAdvancedActive : ''}`}
                                     >
-                                        <div style={{ fontWeight: 600, color: brandMode === 'advanced' ? '#8b5cf6' : '#e2e8f0', marginBottom: '0.4rem' }}>Categorized Match</div>
-                                        <div style={{ fontSize: '0.8rem', color: '#94a3b8' }}>Assign a different brand per furniture category.</div>
-                                    </div>
+                                        <div className={afStyles.strategyCardTop}>
+                                            <span className={afStyles.strategyCardTitle}>Categorized Match</span>
+                                            <span className={`${afStyles.strategyRadio} ${brandMode === 'advanced' ? afStyles.strategyRadioAdvanced : ''}`} />
+                                        </div>
+                                        <div className={afStyles.strategyCardDesc}>
+                                            Assign a dedicated brand per category (Desking, Seating, Soft Seating, Accessories).
+                                        </div>
+                                    </button>
                                 </div>
+
+                                {brandMode === 'auto_detect' && (
+                                    <div className={`${afStyles.autoDetectReadyBanner} ${workableRowCount === 0 ? afStyles.autoDetectReadyBannerWarn : ''}`}>
+                                        <div className={afStyles.autoDetectReadyIcon} aria-hidden="true">
+                                            {workableRowCount > 0 ? (
+                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                                    <polyline points="20 6 9 17 4 12" />
+                                                </svg>
+                                            ) : (
+                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round">
+                                                    <circle cx="12" cy="12" r="10" />
+                                                    <line x1="12" y1="8" x2="12" y2="12" />
+                                                    <line x1="12" y1="16" x2="12.01" y2="16" />
+                                                </svg>
+                                            )}
+                                        </div>
+                                        <div>
+                                            {workableRowCount > 0 ? (
+                                                <>
+                                                    <strong>Ready to Auto Detect {workableRowCount} BOQ item{workableRowCount === 1 ? '' : 's'}.</strong> No brand selection needed — AI will pre-scan descriptions, identify brands &amp; models, and fetch verified pricing &amp; images.
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <strong>No BOQ items loaded yet.</strong> Upload a BOQ, generate from BOQ/Plan, or add rows first to launch AI matching.
+                                                </>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
 
                                 {brandMode === 'simple' && (
-                                    <div className={afStyles.tierGroup} style={{ borderColor: '#3b82f660' }}>
+                                    <div className={afStyles.tierGroup} style={{ borderColor: '#3b82f660', marginBottom: 0 }}>
                                         <div className={afStyles.tierHeader}>
                                             <div className={afStyles.tierLabel}>
                                                 <span className={afStyles.tierDot} style={{ background: '#3b82f6' }} />
                                                 <span style={{ color: '#3b82f6' }}>Global Brand Selection</span>
                                             </div>
                                         </div>
-                                        <div style={{ padding: '0 1rem 1rem' }}>
+                                        <div style={{ padding: '0 0.25rem 0.25rem' }}>
                                             <BrandDropdown
                                                 brands={furnitureBrands}
                                                 selectedBrands={globalBrand}
@@ -2428,15 +2987,15 @@ export default function ValueEngineeredModal({
                                 )}
 
                                 {brandMode === 'advanced' && Object.keys(VE_UI_CONFIG.labels).map(cat => (
-                                    <div key={cat} className={afStyles.tierGroup} style={{ borderColor: '#8b5cf660', marginBottom: '1rem' }}>
+                                    <div key={cat} className={afStyles.tierGroup} style={{ borderColor: '#8b5cf660', marginBottom: '0.85rem' }}>
                                         <div className={afStyles.tierHeader}>
                                             <div className={afStyles.tierLabel}>
                                                 <span className={afStyles.tierDot} style={{ background: '#8b5cf6' }} />
                                                 <span style={{ color: '#8b5cf6' }}>{VE_UI_CONFIG.labels[cat]}</span>
-                                                <span style={{ marginLeft: '10px', fontSize: '0.75rem', color: '#94a3b8' }}>{VE_UI_CONFIG.hints[cat]}</span>
+                                                <span style={{ marginLeft: '10px', fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: 500 }}>{VE_UI_CONFIG.hints[cat]}</span>
                                             </div>
                                         </div>
-                                        <div style={{ padding: '0 1rem 1rem' }}>
+                                        <div style={{ padding: '0 0.25rem 0.25rem' }}>
                                             <BrandDropdown
                                                 brands={furnitureBrands}
                                                 selectedBrands={categoryBrands[cat]}
@@ -2452,8 +3011,23 @@ export default function ValueEngineeredModal({
 
                         <div className={afStyles.footer}>
                             <button className={afStyles.btnCancel} onClick={() => setIsConfigOpen(false)}>Cancel</button>
-                            <button className={afStyles.btnConfirm} disabled={!canStartAI} onClick={executeValueEngineeredAI}>
-                                Start AI Match
+                            <button
+                                className={`${afStyles.btnConfirm} ${brandMode === 'auto_detect' ? afStyles.btnConfirmAuto : ''}`}
+                                disabled={!canStartAI || isRunning}
+                                onClick={() => executeValueEngineeredAI()}
+                            >
+                                {brandMode === 'auto_detect' ? (
+                                    <>
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                                            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+                                        </svg>
+                                        Start Auto Detect AI
+                                    </>
+                                ) : brandMode === 'simple' ? (
+                                    'Start One-Brand Match'
+                                ) : (
+                                    'Start Categorized Match'
+                                )}
                             </button>
                         </div>
                     </div>
@@ -2514,7 +3088,7 @@ export default function ValueEngineeredModal({
                             isMinimized={status.minimized}
                             onToggleMinimize={() => setAiStatus(prev => ({ ...prev, minimized: !prev.minimized }))}
                             minimizedOffset={minimizedOffset}
-                            title={brandMode === 'auto_detect' ? "Value Engineer - Auto Detect AI Active" : "Value Engineer - Category Based AI Active"}
+                            title={(activeRunMode || brandMode) === 'auto_detect' ? "Value Engineer - Auto Detect AI Active" : "Value Engineer - Category Based AI Active"}
                         />
                     );
                 });
