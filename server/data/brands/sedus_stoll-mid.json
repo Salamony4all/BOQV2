@@ -175,12 +175,24 @@
     {
       "model": "se:vision desk & storage",
       "price": 0,
-      "family": "Sedus Stoll",
-      "imageUrl": "https://media.architonic.com/m-on/3100165/product/20799263/sedus-stoll_se-vision-desk---storage_06ab52c7.jpeg?format=webp&quality=75",
-      "productUrl": "https://www.architonic.com/en/p/sedus-stoll-se:vision-desk-and-storage-20799263/",
-      "description": "Desks. se:vision desk & se:vision storage combine both representativeness and individuality. With a harmonious appearance that perfectly integrates the table and",
-      "subCategory": "Executive Meeting Conference",
-      "mainCategory": "Furniture"
+      "family": "se:vision",
+      "imageUrl": "https://www.sedus.com/fileadmin/_processed_/c/5/csm_sedus_banner-produkte-sevision_50b6ba7c61.jpg",
+      "productUrl": "https://www.sedus.com/en/products/tables/sevision-desk",
+      "description": "se:vision desk with optional adjacent storage (beside or under the table, or as a sideboard) — the Sedus desk-with-return solution.",
+      "subCategory": "Executive Desks",
+      "mainCategory": "Desk & Table",
+      "currency": "USD",
+      "verified": true,
+      "source": "official-site",
+      "lastUpdated": "2026-11-21",
+      "websiteUrl": "https://www.sedus.com/en/products/tables/sevision-desk",
+      "officialProductUrl": "https://www.sedus.com/en/products/tables/sevision-desk",
+      "setRoles": [
+        "executive_desk"
+      ],
+      "includesRoles": [
+        "side_return"
+      ]
     },
     {
       "model": "black dot air",
@@ -935,12 +947,21 @@
     {
       "model": "easy screen",
       "price": 0,
-      "family": "Sedus Stoll",
-      "imageUrl": "https://media.architonic.com/m-on/3100165/product/20088125/sedus-stoll_easy-screen_c2478816.jpeg?format=webp&quality=75",
-      "productUrl": "https://www.architonic.com/en/p/sedus-stoll-easy-screen-20088125/",
-      "description": "Sound absorbing table systems. With Sedus easy screen the name says it all. The screen elements can be easily integrated into any workstation. Whether on an individual table or a bench,",
-      "subCategory": "Room In Room Screens And Acoustic",
-      "mainCategory": "Furniture"
+      "family": "easy screen",
+      "imageUrl": "https://www.sedus.com/fileadmin/_processed_/5/8/csm_header_tem_high_Milieu_Bench_2f876da0c5.jpg",
+      "productUrl": "https://www.sedus.com/en/products/room-elements-screens-acoustics/easy-screen-4",
+      "description": "easy screen: desk-mounted privacy screen in two heights.",
+      "subCategory": "Desk Screens",
+      "mainCategory": "Accessories",
+      "currency": "USD",
+      "verified": true,
+      "source": "official-site",
+      "lastUpdated": "2026-11-21",
+      "websiteUrl": "https://www.sedus.com/en/products/room-elements-screens-acoustics/easy-screen-4",
+      "officialProductUrl": "https://www.sedus.com/en/products/room-elements-screens-acoustics/easy-screen-4",
+      "setRoles": [
+        "screen"
+      ]
     },
     {
       "model": "se:café wooden lounge chair",
@@ -2111,6 +2132,222 @@
       "verified": false,
       "source": "grounded-search",
       "lastUpdated": "2026-11-20T11:29:57.499Z"
+    },
+    {
+      "model": "mastermind fold",
+      "family": "mastermind",
+      "mainCategory": "Desk & Table",
+      "subCategory": "Folding & Multi-Purpose Conference Tables",
+      "imageUrl": "https://www.sedus.com/fileadmin/_processed_/b/a/csm_header_mastermind_fold_turn_around_Milieu_2_Hi-Res_JPG_13005_aef677303a.jpg",
+      "productUrl": "https://www.sedus.com/en/products/tables/mastermind-fold",
+      "websiteUrl": "https://www.sedus.com/en/products/tables/mastermind-fold",
+      "price": 0,
+      "currency": "USD",
+      "description": "mastermind fold: folding conference table for up to 8 people, on castors and linkable, rectangular or boat-shaped top; only 400 mm wide when folded.",
+      "officialRefreshedAt": "2026-11-20T19:40:33.832Z",
+      "verified": true,
+      "source": "official-site",
+      "lastUpdated": "2026-11-21",
+      "officialProductUrl": "https://www.sedus.com/en/products/tables/mastermind-fold",
+      "setRoles": [
+        "folding_table"
+      ]
+    },
+    {
+      "model": "temptation four Bench Workstation",
+      "family": "temptation",
+      "mainCategory": "Desk & Table",
+      "subCategory": "Workstations",
+      "imageUrl": "https://www.sedus.com/fileadmin/_processed_/9/9/csm_sedus_banner-produkte-temptationfour_714b2afd44.jpg",
+      "productUrl": "https://www.sedus.com/en/products/tables/temptation-four-1",
+      "websiteUrl": "https://www.sedus.com/en/products/tables/temptation-four-1",
+      "price": 0,
+      "currency": "USD",
+      "description": "temptation four table system as team bench (also single workstation and meeting versions): cable outlets, cable trays, CPU holders and vertical cable management on the beam.",
+      "officialRefreshedAt": "2026-11-20T19:40:36.147Z",
+      "verified": true,
+      "source": "official-site",
+      "lastUpdated": "2026-11-21",
+      "officialProductUrl": "https://www.sedus.com/en/products/tables/temptation-four-1",
+      "setRoles": [
+        "workstation_desk"
+      ]
+    },
+    {
+      "model": "temptation prime Executive L-Shape Desk",
+      "family": "temptation",
+      "mainCategory": "Desk & Table",
+      "subCategory": "Executive Desks",
+      "imageUrl": "https://www.sedus.com/fileadmin/_processed_/0/3/csm_sedus_banner-produkte-temptationprime_a53ffd7dd4.jpg",
+      "productUrl": "https://www.sedus.com/en/products/tables/temptation-prime-1",
+      "websiteUrl": "https://www.sedus.com/en/products/tables/temptation-prime-1",
+      "price": 0,
+      "currency": "USD",
+      "description": "temptation prime single desk (fixed height) from the temptation prime range of executive desks, team tables and conference tables. Not an L-shape product: pair it with se:vision storage or a sideboard for a return.",
+      "officialRefreshedAt": "2026-11-20T19:40:38.257Z",
+      "verified": true,
+      "source": "official-site",
+      "lastUpdated": "2026-11-21",
+      "officialProductUrl": "https://www.sedus.com/en/products/tables/temptation-prime-1",
+      "setRoles": [
+        "executive_desk"
+      ]
+    },
+    {
+      "model": "get together Modular Workstation & Meeting Table",
+      "family": "get together",
+      "mainCategory": "Desk & Table",
+      "subCategory": "Conference Tables",
+      "imageUrl": "https://www.sedus.com/fileadmin/_processed_/b/3/csm_sedus_banner-produkte-gettogether_97ba86e3e3.jpg",
+      "productUrl": "https://www.sedus.com/en/products/tables/get-together",
+      "websiteUrl": "https://www.sedus.com/en/products/tables/get-together",
+      "price": 0,
+      "currency": "USD",
+      "description": "get together: team table for concentrated work and open exchange.",
+      "officialRefreshedAt": "2026-11-20T19:40:40.721Z",
+      "verified": true,
+      "source": "official-site",
+      "lastUpdated": "2026-11-21",
+      "officialProductUrl": "https://www.sedus.com/en/products/tables/get-together",
+      "setRoles": [
+        "conference_table",
+        "workstation_desk"
+      ]
+    },
+    {
+      "model": "Sedus Cable Tray & Electrification Module",
+      "family": "temptation",
+      "mainCategory": "Accessories",
+      "subCategory": "Cable Management & Power",
+      "imageUrl": "",
+      "productUrl": "https://www.sedus.com/en/products/tables/temptation-four-1",
+      "websiteUrl": "https://www.sedus.com/en/products/tables/temptation-four-1",
+      "price": 0,
+      "currency": "USD",
+      "description": "Cable outlets, cable trays and vertical cable management of the temptation four table system — part of the system (no product page of its own).",
+      "officialRefreshedAt": "2026-11-20T19:40:41.977Z",
+      "verified": false,
+      "source": "system-accessory",
+      "lastUpdated": "2026-11-21",
+      "setRoles": [
+        "cable_management",
+        "power_box"
+      ]
+    },
+    {
+      "price": 0,
+      "currency": "USD",
+      "verified": true,
+      "source": "official-site",
+      "lastUpdated": "2026-11-21",
+      "websiteUrl": "https://www.sedus.com/en/products/tables/selab-flip",
+      "officialProductUrl": "https://www.sedus.com/en/products/tables/selab-flip",
+      "model": "se:lab flip",
+      "family": "se:lab",
+      "mainCategory": "Desk & Table",
+      "subCategory": "Folding & Multi-Purpose Conference Tables",
+      "productUrl": "https://www.sedus.com/en/products/tables/selab-flip",
+      "imageUrl": "https://www.sedus.com/fileadmin/_processed_/8/6/csm_se_lab_flip_Header_32419df8b4.jpg",
+      "description": "se:lab flip: mobile table on lockable castors whose top flips up in the centre so tables nest; linkable; widths 700–1000 mm, lengths 1200–2000 mm.",
+      "setRoles": [
+        "folding_table"
+      ]
+    },
+    {
+      "price": 0,
+      "currency": "USD",
+      "verified": true,
+      "source": "official-site",
+      "lastUpdated": "2026-11-21",
+      "websiteUrl": "https://www.sedus.com/en/products/tables/selab-fold",
+      "officialProductUrl": "https://www.sedus.com/en/products/tables/selab-fold",
+      "model": "se:lab fold",
+      "family": "se:lab",
+      "mainCategory": "Desk & Table",
+      "subCategory": "Folding & Multi-Purpose Conference Tables",
+      "productUrl": "https://www.sedus.com/en/products/tables/selab-fold",
+      "imageUrl": "https://www.sedus.com/fileadmin/_processed_/b/8/csm_sedus_banner-produkte-selabfold_1_06e8d073c7.jpg",
+      "description": "se:lab fold: space-saving folding table with optional castors; a stacking trolley holds 12 tables.",
+      "setRoles": [
+        "folding_table"
+      ]
+    },
+    {
+      "price": 0,
+      "currency": "USD",
+      "verified": true,
+      "source": "official-site",
+      "lastUpdated": "2026-11-21",
+      "websiteUrl": "https://www.sedus.com/en/products/tables/selab-bench",
+      "officialProductUrl": "https://www.sedus.com/en/products/tables/selab-bench",
+      "model": "se:lab bench",
+      "family": "se:lab",
+      "mainCategory": "Desk & Table",
+      "subCategory": "Workstations",
+      "productUrl": "https://www.sedus.com/en/products/tables/selab-bench",
+      "imageUrl": "https://www.sedus.com/fileadmin/_processed_/e/0/csm_sedus_banner-produkte-selabbench_66544e7f72.jpg",
+      "description": "se:lab bench: team bench with optional se:lab screen and se:lab tray drawer.",
+      "setRoles": [
+        "workstation_desk"
+      ]
+    },
+    {
+      "price": 0,
+      "currency": "USD",
+      "verified": true,
+      "source": "official-site",
+      "lastUpdated": "2026-11-21",
+      "websiteUrl": "https://www.sedus.com/en/products/tables/temptation-smart-twin",
+      "officialProductUrl": "https://www.sedus.com/en/products/tables/temptation-smart-twin",
+      "model": "temptation smart twin",
+      "family": "temptation",
+      "mainCategory": "Desk & Table",
+      "subCategory": "Workstations",
+      "productUrl": "https://www.sedus.com/en/products/tables/temptation-smart-twin",
+      "imageUrl": "https://www.sedus.com/fileadmin/_processed_/2/a/csm_sedus_temptation_tmart_twin-banner_ba719e7473.jpg",
+      "description": "temptation smart twin: electrically height-adjustable double bench for two users, with electrification.",
+      "setRoles": [
+        "workstation_desk"
+      ],
+      "seatsPerUnit": 2
+    },
+    {
+      "price": 0,
+      "currency": "USD",
+      "verified": true,
+      "source": "official-site",
+      "lastUpdated": "2026-11-21",
+      "websiteUrl": "https://www.sedus.com/en/products/tables/temptation-prime",
+      "officialProductUrl": "https://www.sedus.com/en/products/tables/temptation-prime",
+      "model": "temptation prime Conference Table",
+      "family": "temptation",
+      "mainCategory": "Desk & Table",
+      "subCategory": "Conference Tables",
+      "productUrl": "https://www.sedus.com/en/products/tables/temptation-prime",
+      "description": "temptation prime conference tables in fine materials for boardrooms and conference rooms.",
+      "setRoles": [
+        "conference_table"
+      ],
+      "imageUrl": "https://www.sedus.com/fileadmin/_processed_/0/3/csm_sedus_banner-produkte-temptationprime_a53ffd7dd4.jpg"
+    },
+    {
+      "price": 0,
+      "currency": "USD",
+      "verified": true,
+      "source": "official-site",
+      "lastUpdated": "2026-11-21",
+      "websiteUrl": "https://www.sedus.com/en/products/storage-space/desk-pedestals/container-multifunctional-or-personal-storage-space",
+      "officialProductUrl": "https://www.sedus.com/en/products/storage-space/desk-pedestals/container-multifunctional-or-personal-storage-space",
+      "model": "Container Desk Pedestals",
+      "family": "Container",
+      "mainCategory": "Storage",
+      "subCategory": "Pedestals",
+      "productUrl": "https://www.sedus.com/en/products/storage-space/desk-pedestals/container-multifunctional-or-personal-storage-space",
+      "imageUrl": "https://www.sedus.com/fileadmin/_processed_/6/f/csm_sedus_banner-produkte-container_14213f9b64.jpg",
+      "description": "Sedus Container: fixed and mobile desk pedestals for multifunctional or personal storage.",
+      "setRoles": [
+        "pedestal"
+      ]
     }
   ],
   "source": "Cloud-Restore",

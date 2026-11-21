@@ -1,9 +1,6 @@
 {
   "id": "pedrali_mid",
   "name": "Pedrali",
-  "budgetTier": "mid",
-  "websiteUrl": "https://www.pedrali.com",
-  "logo": "https://media.architonic.com/m-on/3100412/logo/pedrali_logo.jpg",
   "products": [
     {
       "model": "Volt 670 Stackable Chair",
@@ -31,15 +28,22 @@
     },
     {
       "model": "Babila 2700 Chair",
-      "family": "Babila",
+      "family": "babila 2700/A",
       "mainCategory": "Office Seating",
-      "subCategory": "Visitor Chairs",
+      "subCategory": "Conference Chairs",
       "category": "Office Seating",
       "price": 165,
       "currency": "USD",
-      "description": "Multi-purpose chair with polypropylene shell and steel rod 4-leg frame, stackable and lightweight.",
-      "imageUrl": "https://images.unsplash.com/photo-1567538096630-e0c55bd6374c?w=800&auto=format&fit=crop&q=80",
-      "websiteUrl": "https://www.pedrali.com/en-us/products/chairs/babila-2700"
+      "description": "babila 2700/A — Babila collection is able to move along tradition and innovation with great agility. The strenght of this collection is its simplicity and directness, to recall a timeless shape. Chair with ash plywood shell in variable thickness with upholstered seat and solid ash wood legs.",
+      "imageUrl": "https://cdn-assets.pedrali.com/media/pedrali/media/assets/previews/prodotti/b/babila-2700-a-still-01.jpg",
+      "websiteUrl": "https://www.pedrali.com/en-us/products/chairs-design/babila-2700-a",
+      "brand": "Pedrali",
+      "productUrl": "https://www.pedrali.com/en-us/products/chairs-design/babila-2700-a",
+      "officialProductUrl": "https://www.pedrali.com/en-us/products/chairs-design/babila-2700-a",
+      "verified": true,
+      "officialRefreshedAt": "2026-11-20T18:51:01.761Z",
+      "source": "jsonld:pedrali.com",
+      "lastUpdated": "2026-11-20T18:51:03.027Z"
     },
     {
       "model": "Passport Folding Chair",
@@ -69,19 +73,160 @@
       "verified": true,
       "source": "AI-Specialist-Discovery",
       "lastUpdated": "2026-11-19T11:47:14.005Z"
+    },
+    {
+      "brand": "Pedrali",
+      "model": "arki-table ark",
+      "family": "arki-table ark",
+      "mainCategory": "Desk & Table",
+      "subCategory": "Conference Tables",
+      "description": "The Arki-Table features a minimalist design with a slim 6mm solid laminate top, extruded aluminium frame, and steel trestle legs. Dimensions vary by configuration, with standard heights of 740mm. Materials include solid laminate or MDF top, extruded aluminium frame, and steel legs. Suitable for office, meeting rooms, and contract environments.",
+      "imageUrl": "https://cdn-assets.pedrali.com/media/pedrali/media/assets/previews/prodotti/a/arki-table-ark-still-04.jpg",
+      "websiteUrl": "https://www.pedrali.com/en-us/products/tables-design/arki-table-ark",
+      "productUrl": "https://www.pedrali.com/en-us/products/tables-design/arki-table-ark",
+      "officialProductUrl": "https://www.pedrali.com/en-us/products/tables-design/arki-table-ark",
+      "price": 1250,
+      "currency": "EUR",
+      "verified": true,
+      "officialRefreshedAt": "2026-11-20T18:55:35.822Z",
+      "source": "jsonld:pedrali.com",
+      "lastUpdated": "2026-11-20T18:55:35.822Z",
+      "setRoles": [
+        "conference_table"
+      ]
+    },
+    {
+      "brand": "Pedrali",
+      "model": "bold 4750",
+      "family": "bold 4750",
+      "mainCategory": "Desk & Table",
+      "subCategory": "Conference Tables",
+      "description": "bold 4750 — Linearity and minimalism together with an immediate graphic touch, these are the key elements that define Bold table collection. Table with X-shaped sand-blasted cast-iron base and steel tube column, available with tops of different sizes and finishes.",
+      "imageUrl": "https://cdn-assets.pedrali.com/media/pedrali/media/assets/previews/prodotti/b/bold-4750-still-01.jpg",
+      "websiteUrl": "https://www.pedrali.com/ru-ru/products/central-base-tables/bold-4750",
+      "productUrl": "https://www.pedrali.com/ru-ru/products/central-base-tables/bold-4750",
+      "officialProductUrl": "https://www.pedrali.com/ru-ru/products/central-base-tables/bold-4750",
+      "price": 1250,
+      "currency": "EUR",
+      "verified": true,
+      "officialRefreshedAt": "2026-11-20T18:56:10.985Z",
+      "source": "jsonld:pedrali.com",
+      "lastUpdated": "2026-11-20T18:56:12.271Z"
+    },
+    {
+      "brand": "Pedrali",
+      "model": "babila 2730",
+      "family": "Babila",
+      "mainCategory": "Office Seating",
+      "subCategory": "Lounge Chairs",
+      "description": "Babila armchair with plywood shell, ash wood legs, and steel frame reinforcement. Dimensions: Width 590 mm, Depth 555 mm, Height 765 mm, Seat Height 460 mm. Designed to combine the warmth of wood with contemporary ergonomics.",
+      "imageUrl": "https://cdn-assets.pedrali.com/media/pedrali/media/assets/previews/prodotti/b/babila-2730-still-01.jpg",
+      "websiteUrl": "https://www.pedrali.com/en-us/products/chairs-design/babila-2730",
+      "productUrl": "https://www.pedrali.com/en-us/products/chairs-design/babila-2730",
+      "officialProductUrl": "https://www.pedrali.com/en-us/products/chairs-design/babila-2730",
+      "price": 450,
+      "currency": "EUR",
+      "verified": true,
+      "officialRefreshedAt": "2026-11-20T19:15:57.557Z",
+      "source": "jsonld:pedrali.com",
+      "lastUpdated": "2026-11-20T19:15:57.557Z"
+    },
+    {
+      "model": "Ypsilon Tilting Folding Conference Table",
+      "family": "Ypsilon",
+      "mainCategory": "Desk & Table",
+      "subCategory": "Folding & Multi-Purpose Conference Tables",
+      "imageUrl": "https://pedraliitprodkenticosa.blob.core.windows.net/media/pedrali/media/assets/thumbnails/prodotti/y/ypsilon-tilting-tyt-listing.png",
+      "productUrl": "https://www.pedrali.com/en-us/products/tables-design/ypsilon-tilting",
+      "websiteUrl": "https://www.pedrali.com/en-us/products/tables-design/ypsilon-tilting",
+      "price": 0,
+      "currency": "USD",
+      "description": "Ypsilon tilting: table with tilting top that nests when stacked, used as workstation or meeting table.",
+      "officialRefreshedAt": "2026-11-20T19:40:45.256Z",
+      "verified": true,
+      "source": "official-site",
+      "lastUpdated": "2026-11-21",
+      "officialProductUrl": "https://www.pedrali.com/en-us/products/tables-design/ypsilon-tilting",
+      "setRoles": [
+        "folding_table"
+      ]
+    },
+    {
+      "model": "Arki-Table Modular Conference Table",
+      "family": "Arki-Table",
+      "mainCategory": "Desk & Table",
+      "subCategory": "Conference Tables",
+      "imageUrl": "https://cdn-assets.pedrali.com/media/pedrali/media/assets/previews/prodotti/a/arki-table-ark-still-04.jpg",
+      "productUrl": "https://www.pedrali.com/en-us/products/tables-design/arki-table-ark",
+      "websiteUrl": "https://www.pedrali.com/en-us/products/tables-design/arki-table-ark",
+      "price": 1250,
+      "currency": "USD",
+      "description": "Arki-Table ARK: table collection with slim top and trestle legs, used as meeting and conference table.",
+      "officialRefreshedAt": "2026-11-20T19:40:45.731Z",
+      "verified": true,
+      "source": "official-site",
+      "lastUpdated": "2026-11-21",
+      "setRoles": [
+        "conference_table"
+      ]
+    },
+    {
+      "model": "Arki-Table Adjustable Workstation Desk",
+      "family": "Arki-Table",
+      "mainCategory": "Desk & Table",
+      "subCategory": "Workstations",
+      "imageUrl": "https://pedraliitprodkenticosa.blob.core.windows.net/media/pedrali/media/assets/thumbnails/prodotti/a/arki-table-adj-desk-listing.png",
+      "productUrl": "https://www.pedrali.com/en-us/products/tables-design/arki-table-ark-adj-desk",
+      "websiteUrl": "https://www.pedrali.com/en-us/products/tables-design/arki-table-ark-adj-desk",
+      "price": 0,
+      "currency": "USD",
+      "description": "Arki-Table ARK ADJ DESK: height-adjustable desk of the Arki-Table collection.",
+      "officialRefreshedAt": "2026-11-20T19:40:46.068Z",
+      "verified": true,
+      "source": "official-site",
+      "lastUpdated": "2026-11-21",
+      "officialProductUrl": "https://www.pedrali.com/en-us/products/tables-design/arki-table-ark-adj-desk",
+      "setRoles": [
+        "workstation_desk"
+      ]
+    },
+    {
+      "model": "Elliot Meeting Table",
+      "family": "Elliot",
+      "mainCategory": "Desk & Table",
+      "subCategory": "Conference Tables",
+      "imageUrl": "",
+      "productUrl": "https://www.pedrali.com/en-us",
+      "websiteUrl": "https://www.pedrali.com/en-us",
+      "price": 0,
+      "currency": "USD",
+      "description": "Unverified catalog entry: no official Pedrali product page was found for an \"Elliot\" meeting table. Confirm with the supplier before quoting.",
+      "officialRefreshedAt": "2026-11-20T19:40:46.402Z",
+      "verified": false,
+      "source": "catalog-repair",
+      "lastUpdated": "2026-11-21",
+      "excludeFromSets": true
     }
   ],
-  "url": "https://www.pedrali.com",
+  "source": "App",
   "budget_tier": "mid",
+  "logo": "https://media.architonic.com/m-on/3100412/logo/pedrali_logo.jpg",
+  "updated_at": "2026-11-19T11:47:14.644746+00:00",
+  "budgetTier": "mid",
+  "origin": "App",
   "categoryTree": {
     "Office Seating": [
       "Conference Chairs",
       "Training Chairs",
-      "Visitor Chairs",
       "Folding Chairs & Stools"
+    ],
+    "Desk & Table": [
+      "Single Desks",
+      "Conference Tables"
     ]
   },
   "categoryList": [
-    "Office Seating"
+    "Office Seating",
+    "Desk & Table"
   ]
 }

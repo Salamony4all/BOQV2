@@ -19,6 +19,7 @@ import { fixArabic, hasArabic, loadArabicFont } from '../utils/arabicPdfUtils';
 
 import { getApiBase } from '../utils/apiBase';
 import { getFullUrl, loadExportImageData, extractImageUrl } from '../utils/urlUtils';
+import { exportRfqByBrandFromTables } from '../utils/rfqExportUtils';
 import {
     recategorizeTables,
     resolveSectionDividerMeta,
@@ -656,6 +657,30 @@ function TableViewer({
         return loadExportImageData(url, options, imageCache);
     };
 
+    // ===================== RFQ GROUPING BY BRAND (ZIP / PER-BRAND XLSX) =====================
+    const handleGenerateRfqByBrand = async (sourceTables, labelKey = 'original') => {
+        const genKey = `rfq_${labelKey}`;
+        if (generatingType) return;
+        setGeneratingType(genKey);
+        try {
+            await exportRfqByBrandFromTables(sourceTables, {
+                allBrands,
+                project,
+                companyName,
+                logoUrl: logoOriginal || logoWhite || '',
+                accentColor,
+                secondaryColor,
+                filenamePrefix: labelKey === 'costed' ? 'RFQ_By_Brand_Costed' : 'RFQ_By_Brand',
+                imageCache
+            });
+        } catch (err) {
+            console.error('[RFQ Export] Failed:', err);
+            alert(`Failed to generate Brand RFQ pack: ${err?.message || 'Unknown error'}`);
+        } finally {
+            setGeneratingType(null);
+        }
+    };
+
     // Helper: Calculate fit dimensions maintaining aspect ratio (contain)
     const calcFitSize = (imgW, imgH, maxW, maxH) => {
         const ratio = Math.min(maxW / imgW, maxH / imgH);
@@ -752,61 +777,62 @@ function TableViewer({
         const today = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
         doc.text(today, pageWidth / 2, 93.5, { align: 'center' });
 
-        // Document Info Section
+        // Document Info Card
+        doc.setFillColor(...colors.lightBg);
+        doc.setDrawColor(...colors.border);
+        doc.setLineWidth(0.4);
+        doc.roundedRect(20, 118, pageWidth - 40, 34, 2, 2, 'FD');
+
         doc.setTextColor(...colors.text);
-        doc.setFontSize(10);
-        let infoY = 124;
-        doc.setFont('helvetica', 'bold');
-        doc.text('Document Reference:', 20, infoY);
-        doc.setFont('helvetica', 'normal');
-        doc.text(`OFF-${Date.now().toString().slice(-6)}`, 70, infoY);
+        doc.setFontSize(9.5);
+        const activeTotalItems = sourceTables.reduce((acc, t) => acc + collectActiveTableRows(t).length, 0);
+        const docRefCode = `OFF-${Date.now().toString().slice(-6)}`;
 
-        infoY += 10;
-        doc.setFont('helvetica', 'bold');
-        doc.text('Validity:', 20, infoY);
-        doc.setFont('helvetica', 'normal');
-        doc.text('30 Days from Issue Date', 70, infoY);
+        let infoY = 127;
+        doc.setFont('helvetica', 'bold'); doc.text('Document Reference:', 26, infoY);
+        doc.setFont('helvetica', 'normal'); doc.text(docRefCode, 72, infoY);
 
-        infoY += 10;
-        doc.setFont('helvetica', 'bold');
-        doc.text('Total Items:', 20, infoY);
-        doc.setFont('helvetica', 'normal');
-        const totalItems = sourceTables.reduce((acc, t) => acc + t.rows.length, 0);
-        doc.text(`${totalItems} Line Items`, 70, infoY);
+        infoY += 9;
+        doc.setFont('helvetica', 'bold'); doc.text('Offer Validity:', 26, infoY);
+        doc.setFont('helvetica', 'normal'); doc.text('30 Days from Issue Date', 72, infoY);
 
-        // Add Client Logo on Cover Page if available
+        infoY += 9;
+        doc.setFont('helvetica', 'bold'); doc.text('Scope Summary:', 26, infoY);
+        doc.setFont('helvetica', 'normal'); doc.text(`${activeTotalItems} Active Line Items`, 72, infoY);
+
+        // Add Client Logo on Cover Page inside right side of Document Info card if available
         if (project.clientLogo) {
             try {
                 const cLogoData = await getImageData(project.clientLogo, { format: 'image/png', maxWidth: 600 });
                 if (cLogoData) {
-                    const cFit = calcFitSize(cLogoData.width, cLogoData.height, 50, 20);
-                    // Draw in top right of cover page next to info
-                    doc.addImage(cLogoData.dataUrl, 'PNG', pageWidth - 20 - cFit.w, 120, cFit.w, cFit.h);
+                    const cFit = calcFitSize(cLogoData.width, cLogoData.height, 44, 22);
+                    doc.addImage(cLogoData.dataUrl, 'PNG', pageWidth - 26 - cFit.w, 124 + (22 - cFit.h) / 2, cFit.w, cFit.h);
                 }
             } catch (e) { }
         }
+        infoY = 152;
 
         // Draw Project Details Box on Cover Page if settings exist
         if (project.projectName || project.clientName) {
-            let projY = infoY + 18; // Around 162
+            let projY = infoY + 8;
             doc.setFillColor(...colors.lightBg);
             doc.setDrawColor(...colors.secondary);
             doc.setLineWidth(0.5);
             doc.roundedRect(20, projY, pageWidth - 40, 48, 2, 2, 'FD');
 
             doc.setFillColor(...colors.primary);
-            doc.roundedRect(20, projY, pageWidth - 40, 7, 1, 1, 'F');
+            doc.roundedRect(20, projY, pageWidth - 40, 7.5, 1, 1, 'F');
             doc.setTextColor(...colors.white);
             doc.setFontSize(9.5);
             doc.setFont('helvetica', 'bold');
-            doc.text('PROJECT INFORMATION', pageWidth / 2, projY + 5, { align: 'center' });
+            doc.text('PROJECT INFORMATION', pageWidth / 2, projY + 5.2, { align: 'center' });
 
             doc.setTextColor(...colors.text);
             doc.setFontSize(8.5);
-            let rowY = projY + 12;
+            let rowY = projY + 13;
             const leftX = 25;
             const rightX = pageWidth / 2 + 5;
-            const rHeight = 6;
+            const rHeight = 6.2;
 
             const processText = (txt) => (arabicLoaded && hasArabic(txt)) ? fixArabic(txt) : String(txt || '');
 
@@ -824,11 +850,13 @@ function TableViewer({
             projRows.forEach((r, idx) => {
                 const y = rowY + idx * rHeight;
                 doc.setFont('helvetica', 'bold'); doc.text(r[0], leftX, y);
-                doc.setFont('helvetica', 'normal'); doc.text(processText(r[1]), leftX + 24, y);
+                doc.setFont(arabicLoaded && hasArabic(r[1]) ? 'Almarai' : 'helvetica', 'normal');
+                doc.text(processText(r[1]), leftX + 24, y, { maxWidth: 56 });
 
                 if (r[2]) {
                     doc.setFont('helvetica', 'bold'); doc.text(r[2], rightX, y);
-                    doc.setFont('helvetica', 'normal'); doc.text(processText(r[3]), rightX + 24, y);
+                    doc.setFont(arabicLoaded && hasArabic(r[3]) ? 'Almarai' : 'helvetica', 'normal');
+                    doc.text(processText(r[3]), rightX + 24, y, { maxWidth: 56 });
                 }
             });
 
@@ -837,45 +865,49 @@ function TableViewer({
 
         // Decorative Line
         doc.setDrawColor(...colors.secondary);
-        doc.setLineWidth(2);
-        doc.line(20, infoY + 12, pageWidth - 20, infoY + 12);
+        doc.setLineWidth(1.5);
+        doc.line(20, infoY + 10, pageWidth - 20, infoY + 10);
 
         // Footer on Cover
-        doc.setFontSize(9);
-        doc.setTextColor(150, 150, 150);
-        const footerText = profile.website || profile.companyName || 'BOQ FLOW - Intelligent Estimation System';
+        doc.setFontSize(8.5);
+        doc.setTextColor(120, 130, 145);
+        const footerText = [profile.companyName, profile.website].filter(Boolean).join('  |  ') || 'BOQ FLOW — Commercial Estimation Suite';
         const isArabicFooter = hasArabic(footerText);
         doc.setFont(isArabicFooter && arabicLoaded ? 'Almarai' : 'helvetica', 'normal');
-        doc.text(isArabicFooter ? fixArabic(footerText) : footerText, pageWidth / 2, pageHeight - 15, { align: 'center' });
+        doc.text(isArabicFooter ? fixArabic(footerText) : footerText, pageWidth / 2, pageHeight - 14, { align: 'center' });
+
+        // Pre-load logos once for all data pages (headers + project info strips)
+        const { headerLogoData: pdfHeaderLogoData, clientLogoData: pdfClientLogoData } = await loadSubmissionLogos();
 
         // ===== DATA PAGES =====
         for (let tableIndex = 0; tableIndex < sourceTables.length; tableIndex++) {
             const table = sourceTables[tableIndex];
             doc.addPage();
 
-            // Page Header
-            doc.setFillColor(...colors.primary);
-            doc.rect(0, 0, pageWidth, 25, 'F');
-            doc.setFillColor(...colors.secondary);
-            doc.rect(0, 25, pageWidth, 0.8, 'F');
-
-            doc.setTextColor(...colors.white);
-            doc.setFontSize(10);
             const sheetTitle = (table.sheetName && !table.sheetName.includes("Combined")) ? table.sheetName : (profile.companyName || 'COMMERCIAL OFFER');
-            doc.text(sheetTitle, 10, 15);
 
-            // Company Logo in Header
-            const headerLogo = logoWhite || logoOriginal;
-            if (headerLogo) {
-                try {
-                    const docLogo = await getImageData(headerLogo, { format: 'image/png', maxWidth: 600 });
-                    if (docLogo) {
-                        // Refined size
-                        const fit = calcFitSize(docLogo.width, docLogo.height, 60, 18);
-                        doc.addImage(docLogo.dataUrl, 'PNG', pageWidth - 10 - fit.w, 3, fit.w, fit.h);
-                    }
-                } catch (e) { }
-            }
+            const drawOfferPageHeader = () => {
+                doc.setFillColor(...colors.primary);
+                doc.rect(0, 0, pageWidth, 22, 'F');
+                doc.setFillColor(...colors.secondary);
+                doc.rect(0, 22, pageWidth, 0.9, 'F');
+
+                doc.setTextColor(...colors.white);
+                doc.setFontSize(10);
+                const titleAr = hasArabic(sheetTitle);
+                doc.setFont(titleAr && arabicLoaded ? 'Almarai' : 'helvetica', 'bold');
+                doc.text(titleAr ? fixArabic(sheetTitle) : sheetTitle, 8, 11, { maxWidth: pageWidth - 75 });
+                doc.setFontSize(7.5);
+                doc.setFont('helvetica', 'normal');
+                doc.setTextColor(220, 228, 238);
+                doc.text(`Ref: ${docRefCode}  |  Date: ${today}`, 8, 17.5);
+
+                if (pdfHeaderLogoData) {
+                    const fit = calcFitSize(pdfHeaderLogoData.width, pdfHeaderLogoData.height, 48, 15);
+                    doc.addImage(pdfHeaderLogoData.dataUrl, 'PNG', pageWidth - 8 - fit.w, (22 - fit.h) / 2, fit.w, fit.h);
+                }
+            };
+            drawOfferPageHeader();
 
             // Find column indices
             const header = table.header || [];
@@ -930,15 +962,15 @@ function TableViewer({
 
             pdfHeader.forEach((h, i) => {
                 if (i === snColIdx || (i === 0 && snColIdx === -1)) {
-                    colWidths[i] = { cellWidth: 12, halign: 'center' };
+                    colWidths[i] = { cellWidth: 11, halign: 'center' };
                 } else if (i === imgColIdx) {
                     colWidths[i] = { cellWidth: 32, halign: 'center' };
                 } else if (i === descColIdx) {
                     colWidths[i] = { cellWidth: 'auto', halign: 'left' };
                 } else if (i === qtyColIdx) {
-                    colWidths[i] = { cellWidth: 10, halign: 'center' };
+                    colWidths[i] = { cellWidth: 13, halign: 'center' };
                 } else if (i === uomColIdx) {
-                    colWidths[i] = { cellWidth: 12, halign: 'center' };
+                    colWidths[i] = { cellWidth: 13, halign: 'center' };
                 } else if (i === rateColIdx) {
                     colWidths[i] = { cellWidth: 22, halign: 'right' };
                 } else if (i === amountColIdx) {
@@ -990,8 +1022,16 @@ function TableViewer({
                 currency: detectedCurrency
             } : null);
 
+            // Format money values cleanly with comma separators
+            const fmtMoney = (v) => {
+                const n = parseFloat(String(v ?? '').replace(/,/g, ''));
+                return Number.isFinite(n)
+                    ? n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                    : String(v || '0.00');
+            };
+
             // Prepare table data with Offer subheaders (Item wise / Room wise)
-            const head = [header.map((h, i) => i === imgColIdx ? 'Image' : h)];
+            const head = [pdfHeader.map((h, i) => i === imgColIdx ? 'Image' : h)];
             const body = [];
             const bodyRowMeta = [];
             let lastPdfSection = '';
@@ -1016,7 +1056,11 @@ function TableViewer({
 
                 body.push(row.cells.map((c, i) => {
                     if (i === imgColIdx) return '';
-                    const val = String(c.value || '');
+                    const val = String(c.value ?? '');
+                    if ((i === rateColIdx || i === amountColIdx) && val.trim() !== '') {
+                        const cleanNum = parseFloat(val.replace(/,/g, ''));
+                        if (Number.isFinite(cleanNum)) return fmtMoney(cleanNum);
+                    }
                     return (arabicLoaded && hasArabic(val)) ? fixArabic(val) : val;
                 }));
                 bodyRowMeta.push({ isSubheader: false, origIdx: idx, rowHeight: rowHeights[idx] || 10 });
@@ -1035,7 +1079,7 @@ function TableViewer({
                     styles: { halign: 'right', fontStyle: 'bold', fillColor: [241, 245, 249], textColor: colors.primary }
                 });
                 subtotalRow.push({
-                    content: `${tableSummary.subtotal} ${tableSummary.currency}`,
+                    content: `${fmtMoney(tableSummary.subtotal)} ${tableSummary.currency}`,
                     styles: { halign: 'right', fontStyle: 'bold', fillColor: [241, 245, 249], textColor: colors.primary }
                 });
                 for (let k = targetColIdx + 1; k < header.length; k++) {
@@ -1051,7 +1095,7 @@ function TableViewer({
                     styles: { halign: 'right', fontStyle: 'bold', fillColor: [241, 245, 249], textColor: colors.primary }
                 });
                 vatRow.push({
-                    content: `${tableSummary.vatAmount} ${tableSummary.currency}`,
+                    content: `${fmtMoney(tableSummary.vatAmount)} ${tableSummary.currency}`,
                     styles: { halign: 'right', fontStyle: 'bold', fillColor: [241, 245, 249], textColor: colors.primary }
                 });
                 for (let k = targetColIdx + 1; k < header.length; k++) {
@@ -1067,7 +1111,7 @@ function TableViewer({
                     styles: { halign: 'right', fontStyle: 'bold', fillColor: colors.primary, textColor: [255, 255, 255] }
                 });
                 grandTotalRow.push({
-                    content: `${tableSummary.grandTotal} ${tableSummary.currency}`,
+                    content: `${fmtMoney(tableSummary.grandTotal)} ${tableSummary.currency}`,
                     styles: { halign: 'right', fontStyle: 'bold', fillColor: colors.primary, textColor: [255, 255, 255] }
                 });
                 for (let k = targetColIdx + 1; k < header.length; k++) {
@@ -1077,10 +1121,10 @@ function TableViewer({
             }
 
             // Draw compact Project Info at the top of the sheet (only if project details are filled)
-            let startY = 30; // Default start Y for table if no project info
+            let startY = 27; // Default start Y for table if no project info
 
             if (project.projectName || project.clientName) {
-                const pY = 28;
+                const pY = 26;
                 doc.setFillColor(...colors.lightBg);
                 doc.setDrawColor(...colors.border);
                 doc.setLineWidth(0.3);
@@ -1100,38 +1144,34 @@ function TableViewer({
                 ];
 
                 pRows.forEach((r, i) => {
-                    const y = pY + 4.5 + i * 4.2;
+                    const y = pY + 4.8 + i * 4.4;
                     doc.setFont('helvetica', 'bold'); doc.text(r[0], 8, y);
-                    doc.setFont('helvetica', 'normal'); doc.text(processText(r[1]), 22, y);
-                    doc.setFont('helvetica', 'bold'); doc.text(r[2], pageWidth / 2 + 5, y);
-                    doc.setFont('helvetica', 'normal'); doc.text(processText(r[3]), pageWidth / 2 + 22, y);
+                    doc.setFont(arabicLoaded && hasArabic(r[1]) ? 'Almarai' : 'helvetica', 'normal');
+                    doc.text(processText(r[1]), 24, y, { maxWidth: 68 });
+                    doc.setFont('helvetica', 'bold'); doc.text(r[2], pageWidth / 2 + 2, y);
+                    doc.setFont(arabicLoaded && hasArabic(r[3]) ? 'Almarai' : 'helvetica', 'normal');
+                    doc.text(processText(r[3]), pageWidth / 2 + 20, y, { maxWidth: pdfClientLogoData ? 48 : 72 });
                 });
 
-                // Client Logo in Project Info box if available
-                if (project.clientLogo) {
-                    try {
-                        const cLogo = await getImageData(project.clientLogo, { format: 'image/png', maxWidth: 300 });
-                        if (cLogo) {
-                            const cFit = calcFitSize(cLogo.width, cLogo.height, 25, 12);
-                            doc.addImage(cLogo.dataUrl, 'PNG', pageWidth - 10 - cFit.w - 3, pY + 3, cFit.w, cFit.h);
-                        }
-                    } catch (e) { }
+                if (pdfClientLogoData) {
+                    const cFit = calcFitSize(pdfClientLogoData.width, pdfClientLogoData.height, 24, 12);
+                    doc.addImage(pdfClientLogoData.dataUrl, 'PNG', pageWidth - 8 - cFit.w, pY + 3, cFit.w, cFit.h);
                 }
 
-                startY = 50; // Push table start Y down to clear the project info block
+                startY = 47; // Push table start Y down to clear the project info block
             }
 
             autoTable(doc, {
                 head: head,
                 body: body,
                 startY: startY,
-                margin: { top: 28, left: 5, right: 5 },
+                margin: { top: 27, bottom: 15, left: 5, right: 5 },
                 theme: 'grid',
                 styles: {
-                    fontSize: 7,
+                    fontSize: 7.2,
                     cellPadding: 2,
-                    lineColor: [200, 200, 200],
-                    lineWidth: 0.3,
+                    lineColor: [216, 222, 232],
+                    lineWidth: 0.25,
                     textColor: colors.text,
                     overflow: 'linebreak',
                     font: arabicLoaded ? 'Almarai' : 'helvetica',
@@ -1142,13 +1182,13 @@ function TableViewer({
                     textColor: colors.white,
                     fontStyle: 'bold',
                     halign: 'center',
-                    fontSize: 10,
+                    fontSize: 8,
                     font: arabicLoaded ? 'Almarai' : 'helvetica',
-                    cellPadding: 1.5,
-                    minCellHeight: 7
+                    cellPadding: 2,
+                    minCellHeight: 8
                 },
                 alternateRowStyles: {
-                    fillColor: [250, 250, 250]
+                    fillColor: [248, 250, 252]
                 },
                 columnStyles: colWidths,
                 didParseCell: (data) => {
@@ -1206,22 +1246,77 @@ function TableViewer({
                     }
                 },
                 didDrawPage: (data) => {
-                    doc.setFontSize(8);
-                    doc.setTextColor(150, 150, 150);
-                    doc.setFont('helvetica', 'normal');
-                    doc.text(`Page ${doc.internal.getNumberOfPages()}`, 10, pageHeight - 8);
-
-                    const fText = profile.website || profile.companyName || '';
-                    const isAr = hasArabic(fText);
-                    doc.setFont(isAr && arabicLoaded ? 'Almarai' : 'helvetica', 'normal');
-                    doc.text(isAr ? fixArabic(fText) : fText, pageWidth - 10, pageHeight - 8, { align: 'right' });
-                    doc.setDrawColor(...colors.secondary);
-                    doc.setLineWidth(0.5);
-                    doc.line(0, pageHeight - 4, pageWidth, pageHeight - 4);
+                    // Draw branded header banner on continuation pages too
+                    if (data.pageNumber > 1) {
+                        drawOfferPageHeader();
+                    }
                 }
             });
 
 
+        }
+
+        // Executive Commercial Terms & Sign-Off Block at end of Offer PDF
+        let termsY = (doc.lastAutoTable?.finalY || 120) + 12;
+        if (termsY + 48 > pageHeight - 16) {
+            doc.addPage();
+            doc.setFillColor(...colors.primary);
+            doc.rect(0, 0, pageWidth, 22, 'F');
+            doc.setFillColor(...colors.secondary);
+            doc.rect(0, 22, pageWidth, 0.9, 'F');
+            doc.setTextColor(...colors.white);
+            doc.setFontSize(10);
+            doc.setFont('helvetica', 'bold');
+            doc.text('COMMERCIAL TERMS & ACCEPTANCE', 8, 13.5);
+            if (pdfHeaderLogoData) {
+                const fit = calcFitSize(pdfHeaderLogoData.width, pdfHeaderLogoData.height, 48, 15);
+                doc.addImage(pdfHeaderLogoData.dataUrl, 'PNG', pageWidth - 8 - fit.w, (22 - fit.h) / 2, fit.w, fit.h);
+            }
+            termsY = 32;
+        }
+
+        doc.setFillColor(...colors.lightBg);
+        doc.setDrawColor(...colors.border);
+        doc.setLineWidth(0.3);
+        doc.roundedRect(10, termsY, pageWidth - 20, 22, 1.5, 1.5, 'FD');
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(8);
+        doc.setTextColor(...colors.primary);
+        doc.text('COMMERCIAL NOTES & VALIDITY', 14, termsY + 5.5);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(7.2);
+        doc.setTextColor(...colors.text);
+        doc.text('1. This commercial offer is valid for 30 days from issue date and subject to final site verification and finish confirmation.', 14, termsY + 11);
+        doc.text('2. Manufacturing warranty applies as per manufacturer terms (standard 5 years on commercial contract furniture).', 14, termsY + 16);
+
+        const sigLineY = termsY + 42;
+        doc.setDrawColor(...colors.border);
+        doc.setLineWidth(0.35);
+        doc.line(14, sigLineY, 86, sigLineY);
+        doc.line(pageWidth - 86, sigLineY, pageWidth - 14, sigLineY);
+        doc.setFontSize(7.5);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(...colors.primary);
+        doc.text(`Authorized Signatory — ${companyName || 'Supplier'}`, 14, sigLineY + 4.5);
+        doc.text('Client Acceptance (Signature, Stamp & Date)', pageWidth - 86, sigLineY + 4.5);
+
+        // Stamp crisp "Page X of Y" + branded footer on all data pages (skip Cover Page 1)
+        const totalPdfPages = doc.internal.getNumberOfPages();
+        const fText = [profile.companyName, profile.website].filter(Boolean).join('  |  ');
+        const isArFooter = hasArabic(fText);
+        for (let p = 2; p <= totalPdfPages; p++) {
+            doc.setPage(p);
+            doc.setDrawColor(...colors.secondary);
+            doc.setLineWidth(0.5);
+            doc.line(0, pageHeight - 12, pageWidth, pageHeight - 12);
+            doc.setFontSize(7.5);
+            doc.setTextColor(120, 130, 145);
+            doc.setFont('helvetica', 'normal');
+            doc.text(`Page ${p - 1} of ${totalPdfPages - 1}`, 8, pageHeight - 6.5);
+            if (fText) {
+                doc.setFont(isArFooter && arabicLoaded ? 'Almarai' : 'helvetica', 'normal');
+                doc.text(isArFooter ? fixArabic(fText) : fText, pageWidth - 8, pageHeight - 6.5, { align: 'right' });
+            }
         }
 
         doc.save(`${filename}.pdf`);
@@ -1335,9 +1430,25 @@ function TableViewer({
             return letter;
         };
 
+        const excelCompanyLogo = logoOriginal || logoWhite;
+        const excelCompanyLogoData = excelCompanyLogo
+            ? await getImageData(excelCompanyLogo, { maxWidth: 500, format: 'image/png' }).catch(() => null)
+            : null;
+        const usedSheetNames = new Set();
+
         for (let tableIndex = 0; tableIndex < sourceTables.length; tableIndex++) {
             const table = sourceTables[tableIndex];
-            const ws = workbook.addWorksheet(table.sheetName || 'BOQ Schedule', {
+            let safeSheetName = String(table.sheetName || `BOQ Schedule ${tableIndex + 1}`)
+                .replace(/[\\/*?:[\]]/g, ' ')
+                .replace(/\s+/g, ' ')
+                .trim()
+                .slice(0, 28) || `BOQ_${tableIndex + 1}`;
+            if (usedSheetNames.has(safeSheetName.toLowerCase())) {
+                safeSheetName = `${safeSheetName.slice(0, 24)}_${tableIndex + 1}`;
+            }
+            usedSheetNames.add(safeSheetName.toLowerCase());
+
+            const ws = workbook.addWorksheet(safeSheetName, {
                 properties: { tabColor: { argb: secondaryArgb } }
             });
             let costingRowNum = null;
@@ -1388,28 +1499,29 @@ function TableViewer({
 
             const hasArInHeader = header.some(h => hasArabic(h));
             const hasArInBody = table.rows.some(r => r.cells.some(c => hasArabic(c.value)));
+            const isRtlSheet = hasArInHeader || hasArInBody;
 
-            if (hasArInHeader || hasArInBody) {
-                ws.views = [{ rightToLeft: true }];
-            }
-
-            // Determine offsets and insert details dynamically
+            // Determine offsets and insert branded banner + optional project details dynamically
             let startRowOffset = 0;
             const hasProjectInfo = !!(project.projectName || project.clientName || project.projectNumber);
+            const bannerSpan = Math.max(header.length, 5);
+
+            // Row 1: Always render a clean branded offer banner (with company logo if available)
+            const titleRow = ws.addRow([`COMMERCIAL OFFER — ${table.sheetName || companyName || 'BOQ Schedule'}`]);
+            ws.mergeCells(1, 1, 1, bannerSpan);
+            ws.getRow(1).height = 30;
+            const bannerCell = titleRow.getCell(1);
+            bannerCell.font = { name: 'Calibri', bold: true, size: 14, color: { argb: 'FFFFFF' } };
+            bannerCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: primaryArgb } };
+            bannerCell.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
 
             if (hasProjectInfo) {
-                // Row 1: Document Branding / Title
-                const titleRow = ws.addRow([`COMMERCIAL OFFER - ${table.sheetName || 'BOQ Schedule'}`]);
-                titleRow.getCell(1).font = { bold: true, size: 14, color: { argb: primaryArgb } };
-                ws.mergeCells(1, 1, 1, Math.max(header.length, 5));
-                ws.getRow(1).height = 25;
-
                 // Row 2: Section Header
                 const secRow = ws.addRow(['PROJECT INFORMATION']);
                 secRow.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'F1F5F9' } };
-                secRow.getCell(1).font = { bold: true, color: { argb: '1E293B' }, size: 10 };
+                secRow.getCell(1).font = { bold: true, color: { argb: primaryArgb }, size: 10 };
                 secRow.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
-                ws.mergeCells(2, 1, 2, Math.max(header.length, 5));
+                ws.mergeCells(2, 1, 2, bannerSpan);
                 ws.getRow(2).height = 20;
 
                 // Rows 3-6: Project details
@@ -1420,61 +1532,89 @@ function TableViewer({
                     ['Project:', project.projectName || '—', '', 'Client:', project.clientName || '—'],
                     ['Project No:', project.projectNumber || '—', '', 'Location / Zone:', project.locationZone || '—'],
                     ['Contractor:', contractorText, '', 'Consultant:', consultantText],
-                    ['Site Engineer:', project.siteEngineer || '—', '', 'Issue Date:', project.issueDate || '—']
+                    ['Site Engineer:', project.siteEngineer || '—', '', 'Issue Date:', project.issueDate || new Date().toLocaleDateString('en-GB')]
                 ];
 
                 detailsRows.forEach((rowVals, idx) => {
                     const rNum = idx + 3;
                     const rowObj = ws.getRow(rNum);
                     rowObj.values = rowVals;
-                    rowObj.height = 18;
+                    rowObj.height = 19;
 
                     const cellA = rowObj.getCell(1);
                     const cellB = rowObj.getCell(2);
                     const cellD = rowObj.getCell(4);
                     const cellE = rowObj.getCell(5);
 
-                    cellA.font = { bold: true, size: 10, color: { argb: '475569' } };
-                    cellD.font = { bold: true, size: 10, color: { argb: '475569' } };
-                    cellB.font = { size: 10, color: { argb: '0F172A' } };
-                    cellE.font = { size: 10, color: { argb: '0F172A' } };
+                    cellA.font = { bold: true, size: 9.5, color: { argb: '475569' } };
+                    cellD.font = { bold: true, size: 9.5, color: { argb: '475569' } };
+                    cellB.font = { size: 9.5, color: { argb: '0F172A' } };
+                    cellE.font = { size: 9.5, color: { argb: '0F172A' } };
 
                     [cellA, cellB, cellD, cellE].forEach(c => {
                         c.alignment = { vertical: 'middle' };
                     });
 
                     ws.mergeCells(rNum, 2, rNum, 3);
-                    ws.mergeCells(rNum, 5, rNum, Math.max(header.length, 5));
+                    ws.mergeCells(rNum, 5, rNum, bannerSpan);
+                    for (let col = 1; col <= bannerSpan; col++) {
+                        rowObj.getCell(col).border = {
+                            top: { style: 'thin', color: { argb: 'E2E8F0' } },
+                            bottom: { style: 'thin', color: { argb: 'E2E8F0' } },
+                            left: { style: 'thin', color: { argb: 'E2E8F0' } },
+                            right: { style: 'thin', color: { argb: 'E2E8F0' } }
+                        };
+                    }
                 });
-
-                startRowOffset = 6;
 
                 // Add gap row after project details
                 ws.addRow([]); // Row 7 is gap row
-                ws.getRow(7).height = 15;
+                ws.getRow(7).height = 10;
                 startRowOffset = 7;
 
-                // Add Client Logo if available
-                if (project.clientLogo) {
+                // Add Client Logo if available (or Company Logo)
+                const bannerLogo = project.clientLogo
+                    ? await getImageData(project.clientLogo, { maxWidth: 300, format: 'image/png' }).catch(() => null)
+                    : excelCompanyLogoData;
+                if (bannerLogo) {
                     try {
-                        const cImgResult = await getImageData(project.clientLogo, { maxWidth: 300, format: 'image/png' });
-                        if (cImgResult) {
-                            const cBase64 = cImgResult.dataUrl.split(',')[1];
-                            const cImageId = workbook.addImage({
-                                base64: cBase64,
-                                extension: 'png'
-                            });
-                            const logoCol = Math.max(header.length - 1, 4);
-                            const fit = calcFitSize(cImgResult.width, cImgResult.height, 80, 30);
-                            ws.addImage(cImageId, {
-                                tl: { col: logoCol + 0.1, row: 0.1 },
-                                ext: { width: fit.w, height: fit.h }
-                            });
-                        }
+                        const cImageId = workbook.addImage({
+                            base64: bannerLogo.dataUrl.split(',')[1],
+                            extension: 'png'
+                        });
+                        const logoCol = Math.max(header.length - 1, 4);
+                        const fit = calcFitSize(bannerLogo.width, bannerLogo.height, 90, 32);
+                        ws.addImage(cImageId, {
+                            tl: { col: logoCol + 0.1, row: 0.1 },
+                            ext: { width: fit.w, height: fit.h }
+                        });
                     } catch (e) { }
                 }
             } else {
-                startRowOffset = 0;
+                // Subtitle row with date + gap row
+                const subRow = ws.addRow([`${companyName || 'BOQFLOW'}  |  Generated: ${new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}`]);
+                ws.mergeCells(2, 1, 2, bannerSpan);
+                ws.getRow(2).height = 18;
+                subRow.getCell(1).font = { italic: true, size: 9.5, color: { argb: '64748B' } };
+                subRow.getCell(1).alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
+                ws.addRow([]);
+                ws.getRow(3).height = 8;
+                startRowOffset = 3;
+
+                if (excelCompanyLogoData) {
+                    try {
+                        const logoId = workbook.addImage({
+                            base64: excelCompanyLogoData.dataUrl.split(',')[1],
+                            extension: 'png'
+                        });
+                        const logoCol = Math.max(header.length - 1, 4);
+                        const fit = calcFitSize(excelCompanyLogoData.width, excelCompanyLogoData.height, 90, 32);
+                        ws.addImage(logoId, {
+                            tl: { col: logoCol + 0.1, row: 0.08 },
+                            ext: { width: fit.w, height: fit.h }
+                        });
+                    } catch (e) { }
+                }
             }
 
             // Always write costing factors exactly beside the table columns (1 empty column gap)
@@ -1567,22 +1707,33 @@ function TableViewer({
                 if (firstDataExcelRow === null) firstDataExcelRow = dataRow.number;
                 lastDataExcelRow = dataRow.number;
 
-                // Calculate row height based on number of images
+                // Calculate row height based on BOTH embedded images and wrapped description text (prevents text clipping!)
                 const imgCount = imageDataByRow[rowIndex]?.length || 0;
-                let rowHeight = 20;
-                if (imgCount === 1) rowHeight = 55;
-                else if (imgCount === 2) rowHeight = 55;
-                else if (imgCount <= 4) rowHeight = 110;
-                else if (imgCount > 4) rowHeight = 165;
+                let imgHeight = 22;
+                if (imgCount === 1 || imgCount === 2) imgHeight = 62;
+                else if (imgCount <= 4) imgHeight = 114;
+                else if (imgCount > 4) imgHeight = 165;
+
+                const descValStr = descColIdx >= 0 ? String(rowData[descColIdx] || '') : '';
+                const wrappedLines = descValStr
+                    ? descValStr.split('\n').reduce((acc, line) => acc + Math.max(1, Math.ceil(line.length / 44)), 0)
+                    : 1;
+                const textHeight = Math.min(220, Math.max(22, wrappedLines * 14.5 + 8));
+                const rowHeight = Math.max(imgHeight, textHeight);
                 dataRow.height = rowHeight;
 
                 const isEven = rowIndex % 2 === 0;
                 dataRow.eachCell((cell, colNumber) => {
                     const colIdx = colNumber - 1;
                     cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: isEven ? 'F8FAFC' : 'FFFFFF' } };
-                    cell.font = { color: { argb: '334155' }, size: 10 };
+                    cell.font = { name: 'Calibri', color: { argb: '1E293B' }, size: 10 };
                     cell.alignment = { vertical: 'middle', wrapText: true };
-                    cell.border = { bottom: { style: 'thin', color: { argb: 'E2E8F0' } } };
+                    cell.border = {
+                        top: { style: 'thin', color: { argb: 'E2E8F0' } },
+                        bottom: { style: 'thin', color: { argb: 'E2E8F0' } },
+                        left: { style: 'thin', color: { argb: 'E2E8F0' } },
+                        right: { style: 'thin', color: { argb: 'E2E8F0' } }
+                    };
 
                     if (colIdx === qtyColIdx) {
                         cell.alignment = { horizontal: 'center', vertical: 'middle' };
@@ -1654,7 +1805,7 @@ function TableViewer({
                         const imgData = images[0];
                         const fit = calcFitSize(imgData.width, imgData.height, baseImgSize, baseImgSize);
 
-                        const colWidthChars = maxImages > 1 ? 18 : 12;
+                        const colWidthChars = maxImages > 1 ? 24 : 16;
                         const colWidthPx = colWidthChars * 7.5;
                         const colOffset = Math.max(0, (colWidthPx - fit.w) / 2) / colWidthPx;
                         const fitHPoints = fit.h * 0.75;
@@ -1662,7 +1813,8 @@ function TableViewer({
 
                         ws.addImage(imgData.imageId, {
                             tl: { col: imgColIdx + colOffset, row: excelRow - 1 + rowOffset },
-                            ext: { width: fit.w, height: fit.h }
+                            ext: { width: fit.w, height: fit.h },
+                            editAs: 'oneCell'
                         });
                     } else {
                         // Multiple images - grid layout (2 columns)
@@ -1678,7 +1830,8 @@ function TableViewer({
 
                             ws.addImage(imgData.imageId, {
                                 tl: { col: offsetCol, row: offsetRow },
-                                ext: { width: fit.w, height: fit.h }
+                                ext: { width: fit.w, height: fit.h },
+                                editAs: 'oneCell'
                             });
                         });
                     }
@@ -1690,9 +1843,9 @@ function TableViewer({
                 if (i === imgColIdx) {
                     // Calculate max images in any row to determine column width
                     const maxImages = Math.max(...Object.values(imageDataByRow).map(arr => arr?.length || 0), 1);
-                    column.width = maxImages > 1 ? 18 : 12;
+                    column.width = maxImages > 1 ? 24 : 16;
                 } else if (i === descColIdx) {
-                    column.width = 45; // Wider for descriptions
+                    column.width = 48; // Wider for descriptions
                 } else {
                     let maxLength = 12;
                     column.eachCell({ includeEmpty: true }, (cell) => {
@@ -1712,7 +1865,7 @@ function TableViewer({
                 }
             });
 
-            ws.views = [{ state: 'frozen', ySplit: startRowOffset + 1 }];
+            ws.views = [{ state: 'frozen', ySplit: startRowOffset + 1, rightToLeft: isRtlSheet }];
 
             // Construct tableSummary
             const tableSummary = table.summary || (table.extractedSummary ? {
@@ -1793,7 +1946,8 @@ function TableViewer({
                 // Add Website Footer
                 ws.addRow([]);
                 const footerRow = ws.addRow([]);
-                footerRow.getCell(1).value = `Generated by ${profile.companyName} - ${profile.website}`;
+                const footerParts = [profile.companyName || 'BOQFLOW', profile.website].filter(Boolean);
+                footerRow.getCell(1).value = `Generated by ${footerParts.join('  |  ')}`;
                 footerRow.getCell(1).font = { italic: true, size: 9, color: { argb: '94A3B8' } };
                 ws.mergeCells(footerRow.number, 1, footerRow.number, 5);
             } else {
@@ -1801,11 +1955,16 @@ function TableViewer({
                 summaryRow.getCell(1).font = { bold: true, color: { argb: secondaryArgb } };
             }
 
-            // Set explicit Print Area to hide costing factors on printout
+            // Set explicit Landscape Fit-to-Width Print Area to hide costing factors on printout
             if (header.length > 0) {
                 const lastColLetter = getColLetter(header.length - 1);
                 const lastRowNumber = ws.lastRow ? ws.lastRow.number : 100;
                 ws.pageSetup = {
+                    orientation: 'landscape',
+                    paperSize: 9, // A4
+                    fitToPage: true,
+                    fitToWidth: 1,
+                    fitToHeight: 0,
                     printArea: `A1:${lastColLetter}${lastRowNumber}`
                 };
             }
@@ -1891,6 +2050,7 @@ function TableViewer({
             white: [255, 255, 255]
         };
 
+        const masBatchRef = project.masReference || `MAS-${Date.now().toString().slice(-6)}`;
         const { headerLogoData, clientLogoData } = await loadSubmissionLogos();
 
         for (const table of sourceTables) {
@@ -1918,56 +2078,43 @@ function TableViewer({
                 if (pageAddedRef.value) doc.addPage();
                 pageAddedRef.value = true;
 
-                // ===== COMPACT HEADER =====
+                const rowMasRef = `${masBatchRef}-${String(itemNumber).padStart(3, '0')}`;
+
+                // ===== COMPACT HEADER (Company Logo Left, Client Logo Right, zero title collision) =====
                 doc.setFillColor(...colors.primary);
                 doc.rect(0, 0, pageWidth, 30, 'F');
                 doc.setFillColor(...colors.secondary);
                 doc.rect(0, 30, pageWidth, 1, 'F');
 
+                if (headerLogoData) {
+                    const fit = calcFitSize(headerLogoData.width, headerLogoData.height, 40, 16);
+                    doc.addImage(headerLogoData.dataUrl, 'PNG', 8, (30 - fit.h) / 2, fit.w, fit.h);
+                }
+                if (clientLogoData) {
+                    const cfit = calcFitSize(clientLogoData.width, clientLogoData.height, 40, 16);
+                    doc.addImage(clientLogoData.dataUrl, 'PNG', pageWidth - 8 - cfit.w, (30 - cfit.h) / 2, cfit.w, cfit.h);
+                }
+
                 doc.setTextColor(...colors.white);
-                doc.setFontSize(14);
+                doc.setFontSize(13.5);
                 doc.setFont('helvetica', 'bold');
-                doc.text('MATERIAL APPROVAL SHEET', pageWidth / 2, 13, { align: 'center' });
+                doc.text('MATERIAL APPROVAL SHEET', pageWidth / 2, 14, { align: 'center' });
                 if (row.submissionTitle || row.sectionLabel) {
                     doc.setFontSize(7.5);
                     doc.setFont('helvetica', 'normal');
-                    doc.text(processText(String(row.submissionTitle || row.sectionLabel)), pageWidth / 2, 25, { align: 'center' });
+                    doc.setTextColor(225, 232, 240);
+                    doc.text(processText(String(row.submissionTitle || row.sectionLabel)), pageWidth / 2, 23.5, { align: 'center', maxWidth: 105 });
                 }
 
-                // Company Logo in Header
-                const masHeaderLogo = logoWhite || logoOriginal;
-                if (masHeaderLogo) {
-                    try {
-                        const docLogo = await getImageData(masHeaderLogo, { format: 'image/png', maxWidth: 600 });
-                        if (docLogo) {
-                            // Refined size
-                            const fit = calcFitSize(docLogo.width, docLogo.height, 60, 18);
-                            doc.addImage(docLogo.dataUrl, 'PNG', pageWidth - 10 - fit.w, 4, fit.w, fit.h);
-                        }
-                    } catch (e) { }
-                }
-
-                // Client Logo in Header if available
-                if (project.clientLogo) {
-                    try {
-                        const cdl = await getImageData(project.clientLogo, { format: 'image/png', maxWidth: 600 });
-                        if (cdl) {
-                            // Refined size
-                            const cfit = calcFitSize(cdl.width, cdl.height, 60, 18);
-                            doc.addImage(cdl.dataUrl, 'PNG', 10, 4, cfit.w, cfit.h);
-                        }
-                    } catch (e) { }
-                }
-
-                // Draw Project Info block between header and info bar (Y=32 to Y=50)
-                const pY = 32;
+                // Draw Project Info block between header and info bar (Y=33 to Y=52)
+                const pY = 33;
                 doc.setFillColor(...colors.lightBg);
                 doc.setDrawColor(...colors.border);
                 doc.setLineWidth(0.3);
-                doc.roundedRect(8, pY, pageWidth - 16, 18, 2, 2, 'FD');
+                doc.roundedRect(8, pY, pageWidth - 16, 19, 2, 2, 'FD');
 
                 const leftCol = 12, rightCol = pageWidth / 2 + 4;
-                const rowH = 4.0;
+                const rowH = 4.2;
                 doc.setFontSize(7.5);
                 doc.setTextColor(...colors.text);
 
@@ -1983,27 +2130,31 @@ function TableViewer({
                 ];
 
                 pRows.forEach((r, i) => {
-                    const y = pY + 4 + i * rowH;
+                    const y = pY + 4.4 + i * rowH;
                     doc.setFont('helvetica', 'bold'); doc.text(r[0], leftCol, y);
-                    doc.setFont('helvetica', 'normal'); doc.text(processText(r[1]), leftCol + 26, y);
+                    doc.setFont(arabicLoaded && hasArabic(r[1]) ? 'Almarai' : 'helvetica', 'normal');
+                    doc.text(processText(r[1]), leftCol + 24, y, { maxWidth: 62 });
                     doc.setFont('helvetica', 'bold'); doc.text(r[2], rightCol, y);
-                    doc.setFont('helvetica', 'normal'); doc.text(processText(r[3]), rightCol + 30, y);
+                    doc.setFont(arabicLoaded && hasArabic(r[3]) ? 'Almarai' : 'helvetica', 'normal');
+                    doc.text(processText(r[3]), rightCol + 28, y, { maxWidth: 62 });
                 });
 
-                // Info bar
+                // Info bar (Y=54 to Y=63)
                 doc.setFillColor(...colors.lightBg);
-                doc.rect(0, 52, pageWidth, 12, 'F');
+                doc.setDrawColor(...colors.border);
+                doc.rect(0, 54, pageWidth, 9.5, 'F');
+                doc.line(0, 63.5, pageWidth, 63.5);
                 doc.setTextColor(...colors.text);
                 doc.setFontSize(8);
-                doc.setFont('helvetica', 'normal');
+                doc.setFont('helvetica', 'bold');
                 doc.text(`Date: ${today}`, 10, 60);
                 doc.text(`Item: ${String(itemNumber).padStart(3, '0')}`, pageWidth / 2, 60, { align: 'center' });
-                doc.text(`Ref: MAS-${Date.now().toString().slice(-6)}`, pageWidth - 10, 60, { align: 'right' });
+                doc.text(`Ref: ${rowMasRef}`, pageWidth - 10, 60, { align: 'right' });
 
                 // ===== IMAGE SECTION (with multi-image grid support) =====
                 const imageCell = row.cells.find(c => c.images?.length > 0 || c.image);
                 const allImages = imageCell?.images || (imageCell?.image ? [imageCell.image] : []);
-                let contentY = 75;
+                let contentY = 69;
 
                 // Load all images (JPEG for MAS products)
                 const imageResults = [];
@@ -2025,8 +2176,8 @@ function TableViewer({
 
                     if (imageResults.length === 1) {
                         // Single image - centered
-                        imgAreaH = 60;
-                        const maxW = 90, maxH = 55;
+                        imgAreaH = 58;
+                        const maxW = 92, maxH = 54;
                         const img = imageResults[0];
                         const fit = calcFitSize(img.width, img.height, maxW, maxH);
                         const imgX = (pageWidth - fit.w) / 2;
@@ -2035,8 +2186,8 @@ function TableViewer({
                         doc.setDrawColor(...colors.border);
                         doc.setLineWidth(0.3);
                         doc.roundedRect(imgX - 3, contentY - 2, fit.w + 6, fit.h + 4, 2, 2, 'FD');
-                        doc.addImage(img.dataUrl, 'PNG', imgX, contentY, fit.w, fit.h, '', 'FAST');
-                        contentY += fit.h + 12;
+                        doc.addImage(img.dataUrl, 'JPEG', imgX, contentY, fit.w, fit.h, '', 'FAST');
+                        contentY += fit.h + 9;
                     } else if (imageResults.length === 2) {
                         // Two images - side by side
                         imgAreaH = 55;
@@ -2129,8 +2280,12 @@ function TableViewer({
                 // Get table end Y position
                 const tableEndY = doc.lastAutoTable.finalY;
 
-                // ===== SIGNATURES (dynamic position based on table) =====
-                const sigY = Math.max(tableEndY + 10, 200);
+                // ===== SIGNATURES (guarded against bottom overflow) =====
+                let sigY = Math.max(tableEndY + 8, 224);
+                if (sigY + 40 > pageHeight - 10) {
+                    doc.addPage();
+                    sigY = 24;
+                }
 
                 doc.setFillColor(...colors.primary);
                 doc.rect(15, sigY, pageWidth - 30, 8, 'F');
@@ -2139,8 +2294,8 @@ function TableViewer({
                 doc.setFont('helvetica', 'bold');
                 doc.text('APPROVAL SIGNATURES', pageWidth / 2, sigY + 5.5, { align: 'center' });
 
-                const boxW = 50, boxH = 25;
-                const boxY = sigY + 12;
+                const boxW = 52, boxH = 26;
+                const boxY = sigY + 11;
                 const gap = (pageWidth - 30 - boxW * 3) / 2;
 
                 ['CONTRACTOR', 'CONSULTANT', 'CLIENT'].forEach((name, i) => {
@@ -2155,25 +2310,33 @@ function TableViewer({
                     doc.setTextColor(...colors.primary);
                     doc.setFontSize(7);
                     doc.setFont('helvetica', 'bold');
-                    doc.text(name, x + boxW / 2, boxY + 4, { align: 'center' });
+                    doc.text(name, x + boxW / 2, boxY + 4.2, { align: 'center' });
 
                     doc.setTextColor(...colors.text);
-                    doc.setFontSize(6);
+                    doc.setFontSize(6.5);
                     doc.setFont('helvetica', 'normal');
-                    doc.text('Date: __________', x + boxW / 2, boxY + boxH - 2, { align: 'center' });
+                    doc.text('Date: __________', x + boxW / 2, boxY + boxH - 2.5, { align: 'center' });
                 });
-
-                // Footer
-                doc.setFillColor(...colors.primary);
-                doc.rect(0, pageHeight - 8, pageWidth, 8, 'F');
-                doc.setTextColor(...colors.white);
-                doc.setFontSize(6);
-                doc.text('BOQFlow | Material Approval System', pageWidth / 2, pageHeight - 3, { align: 'center' });
 
                 itemNumber++;
             }
         }
-        doc.save('MAS_export.pdf');
+
+        // Stamp crisp white-label footer with Page X of Y on all MAS pages
+        const totalMasPages = doc.internal.getNumberOfPages();
+        const masBrandFoot = companyName || 'BOQ FLOW';
+        for (let p = 1; p <= totalMasPages; p++) {
+            doc.setPage(p);
+            doc.setFillColor(...colors.primary);
+            doc.rect(0, pageHeight - 8, pageWidth, 8, 'F');
+            doc.setTextColor(...colors.white);
+            doc.setFontSize(6.8);
+            doc.setFont('helvetica', 'normal');
+            doc.text(`${masBrandFoot}  |  Material Approval Sheet (${masBatchRef})`, 10, pageHeight - 2.8);
+            doc.text(`Page ${p} of ${totalMasPages}`, pageWidth - 10, pageHeight - 2.8, { align: 'right' });
+        }
+
+        doc.save(`MAS_${masBatchRef}.pdf`);
     };
 
     // ===================== MATERIAL INSPECTION REPORT (MIR) — 1 PAGE PER ITEM =====================
@@ -2238,57 +2401,44 @@ function TableViewer({
                 let displayTitle = rawTitle.replace(/\n+/g, ', ').replace(/\s{2,}/g, ' ').trim();
                 const rowMirRef = `${mirRef}-${String(itemNumber).padStart(3, '0')}`;
 
-                // ── HEADER BAND ──
+                // ── HEADER BAND (bounded logos to prevent title collision) ──
                 doc.setFillColor(...colors.primary);
                 doc.rect(0, 0, pageWidth, 30, 'F');
                 doc.setFillColor(...colors.accent);
                 doc.rect(0, 30, pageWidth, 1, 'F');
 
-                const mirLogo = logoWhite || logoOriginal;
-                if (mirLogo) {
-                    try {
-                        const dl = await getImageData(mirLogo, { format: 'image/png', maxWidth: 600 });
-                        if (dl) {
-                            // Refined size
-                            const fit = calcFitSize(dl.width, dl.height, 60, 18);
-                            doc.addImage(dl.dataUrl, 'PNG', 10, 5, fit.w, fit.h);
-                        }
-                    } catch (e) { }
+                if (headerLogoData) {
+                    const fit = calcFitSize(headerLogoData.width, headerLogoData.height, 40, 16);
+                    doc.addImage(headerLogoData.dataUrl, 'PNG', 8, (30 - fit.h) / 2, fit.w, fit.h);
                 }
-
-                if (project.clientLogo) {
-                    try {
-                        const cdl = await getImageData(project.clientLogo, { format: 'image/png', maxWidth: 600 });
-                        if (cdl) {
-                            // Refined size
-                            const cfit = calcFitSize(cdl.width, cdl.height, 60, 18);
-                            doc.addImage(cdl.dataUrl, 'PNG', pageWidth - 10 - cfit.w, 5, cfit.w, cfit.h);
-                        }
-                    } catch (e) { }
+                if (clientLogoData) {
+                    const cfit = calcFitSize(clientLogoData.width, clientLogoData.height, 40, 16);
+                    doc.addImage(clientLogoData.dataUrl, 'PNG', pageWidth - 8 - cfit.w, (30 - cfit.h) / 2, cfit.w, cfit.h);
                 }
 
                 doc.setTextColor(...colors.white);
-                doc.setFontSize(14);
+                doc.setFontSize(13);
                 doc.setFont('helvetica', 'bold');
-                doc.text('MATERIAL INSPECTION REQUEST', pageWidth / 2, 16, { align: 'center' });
+                doc.text('MATERIAL INSPECTION REQUEST', pageWidth / 2, 13.5, { align: 'center' });
 
                 doc.setFontSize(7.5);
                 doc.setFont('helvetica', 'normal');
-                doc.text(`Ref: ${rowMirRef}   |   Item ${displayTitle}   |   Date: ${today}`, pageWidth / 2, 22, { align: 'center' });
+                doc.setTextColor(225, 232, 240);
+                doc.text(`Ref: ${rowMirRef}   |   Item ${displayTitle}   |   Date: ${today}`, pageWidth / 2, 20.5, { align: 'center' });
                 if (row.submissionTitle || row.sectionLabel) {
                     doc.setFontSize(7);
-                    doc.text(processText(String(row.submissionTitle || row.sectionLabel)), pageWidth / 2, 27, { align: 'center' });
+                    doc.text(processText(String(row.submissionTitle || row.sectionLabel)), pageWidth / 2, 26.5, { align: 'center', maxWidth: 105 });
                 }
 
-                // ── PROJECT INFO ──
-                const pY = 32;
+                // ── PROJECT INFO (Y=33 to Y=53) ──
+                const pY = 33;
                 doc.setFillColor(...colors.lightBg);
                 doc.setDrawColor(...colors.border);
                 doc.setLineWidth(0.3);
-                doc.roundedRect(8, pY, pageWidth - 16, 21, 2, 2, 'FD');
+                doc.roundedRect(8, pY, pageWidth - 16, 20, 2, 2, 'FD');
 
                 const leftCol = 12, rightCol = pageWidth / 2 + 4;
-                const rowH = 4.5;
+                const rowH = 4.4;
                 doc.setFontSize(7.5);
                 doc.setTextColor(...colors.text);
 
@@ -2305,20 +2455,22 @@ function TableViewer({
                 ];
 
                 pRows.forEach((r, i) => {
-                    const y = pY + 5.5 + i * rowH;
+                    const y = pY + 4.8 + i * rowH;
                     doc.setFont('helvetica', 'bold'); doc.text(r[0], leftCol, y);
-                    doc.setFont('helvetica', 'normal'); doc.text(processText(r[1]), leftCol + 26, y);
+                    doc.setFont(arabicLoaded && hasArabic(r[1]) ? 'Almarai' : 'helvetica', 'normal');
+                    doc.text(processText(r[1]), leftCol + 24, y, { maxWidth: 62 });
                     doc.setFont('helvetica', 'bold'); doc.text(r[2], rightCol, y);
-                    doc.setFont('helvetica', 'normal'); doc.text(processText(r[3]), rightCol + 30, y);
+                    doc.setFont(arabicLoaded && hasArabic(r[3]) ? 'Almarai' : 'helvetica', 'normal');
+                    doc.text(processText(r[3]), rightCol + 28, y, { maxWidth: 62 });
                 });
 
-                // ── ITEM DETAILS ──
+                // ── ITEM DETAILS (starts cleanly below Project Info box at Y=56!) ──
                 const desc = descIdx > -1 ? row.cells[descIdx].value : 'N/A';
                 const brand = project.brand || project.brandOrigin || (brandIdx > -1 ? row.cells[brandIdx].value : '') || companyName || 'N/A';
                 const qty = qtyIdx > -1 ? row.cells[qtyIdx].value : 'As per BOQ';
                 const uom = project.unitOfMeasure ? project.unitOfMeasure : (uomIdx > -1 ? row.cells[uomIdx].value : '');
 
-                let contentY = 49;
+                let contentY = 56;
 
                 doc.setFillColor(...colors.accent);
                 doc.roundedRect(8, contentY, pageWidth - 16, 7, 1, 1, 'F');
@@ -2326,7 +2478,7 @@ function TableViewer({
                 doc.setFontSize(8.5);
                 doc.setFont('helvetica', 'bold');
                 doc.text(`ITEM ${displayTitle} — MATERIAL INSPECTION`, 12, contentY + 4.8);
-                contentY += 10;
+                contentY += 9.5;
 
                 // ── UNIFIED IMAGES GRID ──
                 const allImages = [];
@@ -2345,7 +2497,7 @@ function TableViewer({
 
                 if (allImages.length > 0) {
                     const imgAreaW = pageWidth - 16;
-                    const imgAreaH = 65;
+                    const imgAreaH = 54;
                     const numImgs = allImages.length;
 
                     let cols = numImgs === 1 ? 1 : (numImgs <= 4 ? 2 : 3);
@@ -2447,58 +2599,66 @@ function TableViewer({
                 doc.rect(85, appY + 2, 2, 2); doc.text('B. Approved as Noted', 89, appY + 4);
                 doc.rect(145, appY + 2, 2, 2); doc.text('C. Revise and Resubmit', 149, appY + 4);
 
-                const sigY = appY + 6 + 1.5;
-                if (sigY + 22 < pageHeight - 8) {
-                    doc.setFillColor(...colors.primary);
-                    doc.rect(8, sigY, pageWidth - 16, 5, 'F');
-                    doc.setTextColor(...colors.white);
-                    doc.setFontSize(8);
-                    doc.setFont('helvetica', 'bold');
-                    doc.text('REVIEWED AND APPROVED BY', pageWidth / 2, sigY + 3.8, { align: 'center' });
-
-                    const sigParties = [
-                        { name: 'Submitted By\n(Contractor)', keep: project.includeContractor !== false },
-                        { name: 'Checked By\n(Consultant)', keep: project.includeConsultant !== false },
-                        { name: `Approved By\n(Client)` + (project.clientRepName ? `\n${project.clientRepName}` : '') + (project.clientRepDesignation ? `\n${project.clientRepDesignation}` : ''), keep: true }
-                    ].filter(p => p.keep).map(p => p.name);
-
-                    const boxW = 54, boxH = 21, boxY = sigY + 6.5;
-                    const gap = sigParties.length > 1 ? (pageWidth - 16 - boxW * sigParties.length) / (sigParties.length - 1) : 0;
-
-                    sigParties.forEach((name, i) => {
-                        const x = 8 + i * (boxW + gap);
-                        doc.setFillColor(...colors.white);
-                        doc.setDrawColor(...colors.border);
-                        doc.setLineWidth(0.3);
-                        doc.rect(x, boxY, boxW, boxH, 'FD');
-                        doc.setFillColor(...colors.accent);
-                        doc.rect(x, boxY, boxW, 5.5, 'F');
-                        const parts = name.split('\n');
-                        doc.setTextColor(...colors.white);
-                        doc.setFontSize(6.5);
-                        doc.setFont('helvetica', 'bold');
-                        doc.text(parts[0] || '', x + boxW / 2, boxY + 4, { align: 'center' });
-                        doc.setTextColor(...colors.text);
-                        doc.setFontSize(6);
-                        doc.setFont('helvetica', 'normal');
-                        doc.text(parts[1] || '', x + boxW / 2, boxY + 8.5, { align: 'center' });
-                        if (parts[2]) doc.text(parts[2], x + boxW / 2, boxY + 11.5, { align: 'center' });
-                        if (parts[3]) { doc.setFontSize(5.5); doc.text(parts[3], x + boxW / 2, boxY + 14.5, { align: 'center' }); }
-                        doc.setFontSize(6);
-                        doc.text('Date: __________', x + boxW / 2, boxY + boxH - 2, { align: 'center' });
-                    });
+                let sigY = appY + 7.5;
+                if (sigY + 28 > pageHeight - 10) {
+                    doc.addPage();
+                    sigY = 22;
                 }
-
                 doc.setFillColor(...colors.primary);
-                doc.rect(0, pageHeight - 8, pageWidth, 8, 'F');
+                doc.rect(8, sigY, pageWidth - 16, 5.5, 'F');
                 doc.setTextColor(...colors.white);
-                doc.setFontSize(6);
-                doc.text(`Material Inspection Request | ${rowMirRef}  |  Item ${displayTitle}`, pageWidth / 2, pageHeight - 3, { align: 'center' });
+                doc.setFontSize(8);
+                doc.setFont('helvetica', 'bold');
+                doc.text('REVIEWED AND APPROVED BY', pageWidth / 2, sigY + 4, { align: 'center' });
+
+                const sigParties = [
+                    { name: 'Submitted By\n(Contractor)', keep: project.includeContractor !== false },
+                    { name: 'Checked By\n(Consultant)', keep: project.includeConsultant !== false },
+                    { name: `Approved By\n(Client)` + (project.clientRepName ? `\n${project.clientRepName}` : '') + (project.clientRepDesignation ? `\n${project.clientRepDesignation}` : ''), keep: true }
+                ].filter(p => p.keep).map(p => p.name);
+
+                const boxW = 54, boxH = 22, boxY = sigY + 7;
+                const gap = sigParties.length > 1 ? (pageWidth - 16 - boxW * sigParties.length) / (sigParties.length - 1) : 0;
+
+                sigParties.forEach((name, i) => {
+                    const x = 8 + i * (boxW + gap);
+                    doc.setFillColor(...colors.white);
+                    doc.setDrawColor(...colors.border);
+                    doc.setLineWidth(0.3);
+                    doc.rect(x, boxY, boxW, boxH, 'FD');
+                    doc.setFillColor(...colors.accent);
+                    doc.rect(x, boxY, boxW, 5.5, 'F');
+                    const parts = name.split('\n');
+                    doc.setTextColor(...colors.white);
+                    doc.setFontSize(6.5);
+                    doc.setFont('helvetica', 'bold');
+                    doc.text(parts[0] || '', x + boxW / 2, boxY + 4, { align: 'center' });
+                    doc.setTextColor(...colors.text);
+                    doc.setFontSize(6);
+                    doc.setFont('helvetica', 'normal');
+                    doc.text(parts[1] || '', x + boxW / 2, boxY + 8.5, { align: 'center' });
+                    if (parts[2]) doc.text(parts[2], x + boxW / 2, boxY + 11.5, { align: 'center' });
+                    if (parts[3]) { doc.setFontSize(5.5); doc.text(parts[3], x + boxW / 2, boxY + 14.5, { align: 'center' }); }
+                    doc.setFontSize(6);
+                    doc.text('Date: __________', x + boxW / 2, boxY + boxH - 2, { align: 'center' });
+                });
 
                 itemNumber++;
             }
         }
-        doc.save('MIR_export.pdf');
+        const totalMirPages = doc.internal.getNumberOfPages();
+        const mirFootBrand = companyName || 'BOQ FLOW';
+        for (let p = 1; p <= totalMirPages; p++) {
+            doc.setPage(p);
+            doc.setFillColor(...colors.primary);
+            doc.rect(0, pageHeight - 8, pageWidth, 8, 'F');
+            doc.setTextColor(...colors.white);
+            doc.setFontSize(6.8);
+            doc.setFont('helvetica', 'normal');
+            doc.text(`${mirFootBrand}  |  Material Inspection Request (${mirRef})`, 10, pageHeight - 2.8);
+            doc.text(`Page ${p} of ${totalMirPages}`, pageWidth - 10, pageHeight - 2.8, { align: 'right' });
+        }
+        doc.save(`MIR_${mirRef}.pdf`);
     };
 
     // ===================== WORK INSPECTION REQUEST (WIR) — 1 PAGE PER ITEM =====================
@@ -2562,57 +2722,44 @@ function TableViewer({
                 let displayTitle = rawTitle.replace(/\n+/g, ', ').replace(/\s{2,}/g, ' ').trim();
                 const rowWirRef = `${wirRef}-${String(itemNumber).padStart(3, '0')}`;
 
-                // ── HEADER ──
+                // ── HEADER (bounded logos to prevent title collision) ──
                 doc.setFillColor(...colors.primary);
                 doc.rect(0, 0, pageWidth, 30, 'F');
                 doc.setFillColor(...colors.accent);
                 doc.rect(0, 30, pageWidth, 1, 'F');
 
-                const wirLogo = logoWhite || logoOriginal;
-                if (wirLogo) {
-                    try {
-                        const dl = await getImageData(wirLogo, { format: 'image/png', maxWidth: 600 });
-                        if (dl) {
-                            // Refined size
-                            const fit = calcFitSize(dl.width, dl.height, 60, 18);
-                            doc.addImage(dl.dataUrl, 'PNG', 10, 5, fit.w, fit.h);
-                        }
-                    } catch (e) { }
+                if (headerLogoData) {
+                    const fit = calcFitSize(headerLogoData.width, headerLogoData.height, 40, 16);
+                    doc.addImage(headerLogoData.dataUrl, 'PNG', 8, (30 - fit.h) / 2, fit.w, fit.h);
                 }
-
-                if (project.clientLogo) {
-                    try {
-                        const cdl = await getImageData(project.clientLogo, { format: 'image/png', maxWidth: 600 });
-                        if (cdl) {
-                            // Refined size
-                            const cfit = calcFitSize(cdl.width, cdl.height, 60, 18);
-                            doc.addImage(cdl.dataUrl, 'PNG', pageWidth - 10 - cfit.w, 4, cfit.w, cfit.h);
-                        }
-                    } catch (e) { }
+                if (clientLogoData) {
+                    const cfit = calcFitSize(clientLogoData.width, clientLogoData.height, 40, 16);
+                    doc.addImage(clientLogoData.dataUrl, 'PNG', pageWidth - 8 - cfit.w, (30 - cfit.h) / 2, cfit.w, cfit.h);
                 }
 
                 doc.setTextColor(...colors.white);
-                doc.setFontSize(14);
+                doc.setFontSize(13);
                 doc.setFont('helvetica', 'bold');
-                doc.text('WORK INSPECTION REQUEST', pageWidth / 2, 16, { align: 'center' });
+                doc.text('WORK INSPECTION REQUEST', pageWidth / 2, 13.5, { align: 'center' });
 
                 doc.setFontSize(7.5);
                 doc.setFont('helvetica', 'normal');
-                doc.text(`Ref: ${rowWirRef}   |   Item ${displayTitle}   |   Date: ${today}`, pageWidth / 2, 22, { align: 'center' });
+                doc.setTextColor(225, 232, 240);
+                doc.text(`Ref: ${rowWirRef}   |   Item ${displayTitle}   |   Date: ${today}`, pageWidth / 2, 20.5, { align: 'center' });
                 if (row.submissionTitle || row.sectionLabel) {
                     doc.setFontSize(7);
-                    doc.text(processText(String(row.submissionTitle || row.sectionLabel)), pageWidth / 2, 27, { align: 'center' });
+                    doc.text(processText(String(row.submissionTitle || row.sectionLabel)), pageWidth / 2, 26.5, { align: 'center', maxWidth: 105 });
                 }
 
-                // ── PROJECT INFO ──
-                const pY = 32;
+                // ── PROJECT INFO (Y=33 to Y=53) ──
+                const pY = 33;
                 doc.setFillColor(...colors.lightBg);
                 doc.setDrawColor(...colors.border);
                 doc.setLineWidth(0.3);
-                doc.roundedRect(8, pY, pageWidth - 16, 21, 2, 2, 'FD');
+                doc.roundedRect(8, pY, pageWidth - 16, 20, 2, 2, 'FD');
 
                 const leftCol = 12, rightCol = pageWidth / 2 + 4;
-                const rowH = 4.5;
+                const rowH = 4.4;
                 doc.setFontSize(7.5);
                 doc.setTextColor(...colors.text);
 
@@ -2629,20 +2776,22 @@ function TableViewer({
                 ];
 
                 pRows.forEach((r, i) => {
-                    const y = pY + 5.5 + i * rowH;
+                    const y = pY + 4.8 + i * rowH;
                     doc.setFont('helvetica', 'bold'); doc.text(r[0], leftCol, y);
-                    doc.setFont('helvetica', 'normal'); doc.text(processText(r[1]), leftCol + 26, y);
+                    doc.setFont(arabicLoaded && hasArabic(r[1]) ? 'Almarai' : 'helvetica', 'normal');
+                    doc.text(processText(r[1]), leftCol + 24, y, { maxWidth: 62 });
                     doc.setFont('helvetica', 'bold'); doc.text(r[2], rightCol, y);
-                    doc.setFont('helvetica', 'normal'); doc.text(processText(r[3]), rightCol + 30, y);
+                    doc.setFont(arabicLoaded && hasArabic(r[3]) ? 'Almarai' : 'helvetica', 'normal');
+                    doc.text(processText(r[3]), rightCol + 28, y, { maxWidth: 62 });
                 });
 
-                // ── ITEM DETAILS ──
+                // ── ITEM DETAILS (starts cleanly below Project Info box at Y=56!) ──
                 const desc = descIdx > -1 ? row.cells[descIdx].value : 'N/A';
                 const brand = brandIdx > -1 ? row.cells[brandIdx].value : 'N/A';
                 const qty = qtyIdx > -1 ? row.cells[qtyIdx].value : 'As per BOQ';
                 const uom = uomIdx > -1 ? row.cells[uomIdx].value : 'No.';
 
-                let contentY = 49;
+                let contentY = 56;
 
                 doc.setFillColor(...colors.accent);
                 doc.roundedRect(8, contentY, pageWidth - 16, 7, 1, 1, 'F');
@@ -2650,7 +2799,7 @@ function TableViewer({
                 doc.setFontSize(8.5);
                 doc.setFont('helvetica', 'bold');
                 doc.text(`ITEM ${displayTitle} — WORK INSPECTION`, 12, contentY + 4.8);
-                contentY += 10;
+                contentY += 9.5;
 
                 // ── UNIFIED IMAGES GRID ──
                 const allImages = [];
@@ -2669,7 +2818,7 @@ function TableViewer({
 
                 if (allImages.length > 0) {
                     const imgAreaW = pageWidth - 16;
-                    const imgAreaH = 65;
+                    const imgAreaH = 54;
                     const numImgs = allImages.length;
 
                     let cols = numImgs === 1 ? 1 : (numImgs <= 4 ? 2 : 3);
@@ -2771,58 +2920,66 @@ function TableViewer({
                 doc.rect(85, appY + 2, 2, 2); doc.text('B. Approved as Noted', 89, appY + 4);
                 doc.rect(145, appY + 2, 2, 2); doc.text('C. Revise and Resubmit', 149, appY + 4);
 
-                const sigY = appY + 6 + 1.5;
-                if (sigY + 22 < pageHeight - 8) {
-                    doc.setFillColor(...colors.primary);
-                    doc.rect(8, sigY, pageWidth - 16, 5, 'F');
-                    doc.setTextColor(...colors.white);
-                    doc.setFontSize(8);
-                    doc.setFont('helvetica', 'bold');
-                    doc.text('REVIEWED AND APPROVED BY', pageWidth / 2, sigY + 3.8, { align: 'center' });
-
-                    const sigParties = [
-                        { name: 'Requested By\n(Contractor)', keep: project.includeContractor !== false },
-                        { name: 'Inspected By\n(Consultant)', keep: project.includeConsultant !== false },
-                        { name: `Approved By\n(Client)` + (project.clientRepName ? `\n${project.clientRepName}` : '') + (project.clientRepDesignation ? `\n${project.clientRepDesignation}` : ''), keep: true }
-                    ].filter(p => p.keep).map(p => p.name);
-
-                    const boxW = 54, boxH = 21, boxY = sigY + 6.5;
-                    const gap = sigParties.length > 1 ? (pageWidth - 16 - boxW * sigParties.length) / (sigParties.length - 1) : 0;
-
-                    sigParties.forEach((name, i) => {
-                        const x = 8 + i * (boxW + gap);
-                        doc.setFillColor(...colors.white);
-                        doc.setDrawColor(...colors.border);
-                        doc.setLineWidth(0.3);
-                        doc.rect(x, boxY, boxW, boxH, 'FD');
-                        doc.setFillColor(...colors.accent);
-                        doc.rect(x, boxY, boxW, 5.5, 'F');
-                        const parts = name.split('\n');
-                        doc.setTextColor(...colors.white);
-                        doc.setFontSize(6.5);
-                        doc.setFont('helvetica', 'bold');
-                        doc.text(parts[0] || '', x + boxW / 2, boxY + 4, { align: 'center' });
-                        doc.setTextColor(...colors.text);
-                        doc.setFontSize(6);
-                        doc.setFont('helvetica', 'normal');
-                        doc.text(parts[1] || '', x + boxW / 2, boxY + 8.5, { align: 'center' });
-                        if (parts[2]) doc.text(parts[2], x + boxW / 2, boxY + 11.5, { align: 'center' });
-                        if (parts[3]) { doc.setFontSize(5.5); doc.text(parts[3], x + boxW / 2, boxY + 14.5, { align: 'center' }); }
-                        doc.setFontSize(6);
-                        doc.text('Date: __________', x + boxW / 2, boxY + boxH - 2, { align: 'center' });
-                    });
+                let sigY = appY + 7.5;
+                if (sigY + 28 > pageHeight - 10) {
+                    doc.addPage();
+                    sigY = 22;
                 }
-
                 doc.setFillColor(...colors.primary);
-                doc.rect(0, pageHeight - 8, pageWidth, 8, 'F');
+                doc.rect(8, sigY, pageWidth - 16, 5.5, 'F');
                 doc.setTextColor(...colors.white);
-                doc.setFontSize(6);
-                doc.text(`Work Inspection Request | ${rowWirRef}  |  Item ${displayTitle}`, pageWidth / 2, pageHeight - 3, { align: 'center' });
+                doc.setFontSize(8);
+                doc.setFont('helvetica', 'bold');
+                doc.text('REVIEWED AND APPROVED BY', pageWidth / 2, sigY + 4, { align: 'center' });
+
+                const sigParties = [
+                    { name: 'Requested By\n(Contractor)', keep: project.includeContractor !== false },
+                    { name: 'Inspected By\n(Consultant)', keep: project.includeConsultant !== false },
+                    { name: `Approved By\n(Client)` + (project.clientRepName ? `\n${project.clientRepName}` : '') + (project.clientRepDesignation ? `\n${project.clientRepDesignation}` : ''), keep: true }
+                ].filter(p => p.keep).map(p => p.name);
+
+                const boxW = 54, boxH = 22, boxY = sigY + 7;
+                const gap = sigParties.length > 1 ? (pageWidth - 16 - boxW * sigParties.length) / (sigParties.length - 1) : 0;
+
+                sigParties.forEach((name, i) => {
+                    const x = 8 + i * (boxW + gap);
+                    doc.setFillColor(...colors.white);
+                    doc.setDrawColor(...colors.border);
+                    doc.setLineWidth(0.3);
+                    doc.rect(x, boxY, boxW, boxH, 'FD');
+                    doc.setFillColor(...colors.accent);
+                    doc.rect(x, boxY, boxW, 5.5, 'F');
+                    const parts = name.split('\n');
+                    doc.setTextColor(...colors.white);
+                    doc.setFontSize(6.5);
+                    doc.setFont('helvetica', 'bold');
+                    doc.text(parts[0] || '', x + boxW / 2, boxY + 4, { align: 'center' });
+                    doc.setTextColor(...colors.text);
+                    doc.setFontSize(6);
+                    doc.setFont('helvetica', 'normal');
+                    doc.text(parts[1] || '', x + boxW / 2, boxY + 8.5, { align: 'center' });
+                    if (parts[2]) doc.text(parts[2], x + boxW / 2, boxY + 11.5, { align: 'center' });
+                    if (parts[3]) { doc.setFontSize(5.5); doc.text(parts[3], x + boxW / 2, boxY + 14.5, { align: 'center' }); }
+                    doc.setFontSize(6);
+                    doc.text('Date: __________', x + boxW / 2, boxY + boxH - 2, { align: 'center' });
+                });
 
                 itemNumber++;
             }
         }
-        doc.save('WIR_export.pdf');
+        const totalWirPages = doc.internal.getNumberOfPages();
+        const wirFootBrand = companyName || 'BOQ FLOW';
+        for (let p = 1; p <= totalWirPages; p++) {
+            doc.setPage(p);
+            doc.setFillColor(...colors.primary);
+            doc.rect(0, pageHeight - 8, pageWidth, 8, 'F');
+            doc.setTextColor(...colors.white);
+            doc.setFontSize(6.8);
+            doc.setFont('helvetica', 'normal');
+            doc.text(`${wirFootBrand}  |  Work Inspection Request (${wirRef})`, 10, pageHeight - 2.8);
+            doc.text(`Page ${p} of ${totalWirPages}`, pageWidth - 10, pageHeight - 2.8, { align: 'right' });
+        }
+        doc.save(`WIR_${wirRef}.pdf`);
     };
 
     // ===================== DELIVERY NOTE — 1 PAGE PER ITEM =====================
@@ -2881,27 +3038,31 @@ function TableViewer({
         const drawProjectCard = (startY) => {
             doc.setFillColor(...colors.lightBg);
             doc.setDrawColor(...colors.border);
-            doc.roundedRect(10, startY, pageWidth - 20, 35, 2, 2, 'FD');
+            doc.roundedRect(10, startY, pageWidth - 20, 34, 2, 2, 'FD');
 
+            const contractorText = project.includeContractor !== false ? (project.contractor || '—') : '—';
+            const consultantText = project.includeConsultant !== false ? (project.consultant || '—') : '—';
             const pRows = [
                 ['Project:', project.projectName || '—', 'Client:', project.clientName || '—'],
                 ['Location:', project.locationZone || '—', 'Project No:', project.projectNumber || '—'],
-                ['Contractor:', project.contractor || '—', 'Consultant:', project.consultant || '—'],
-                ['Delivery Mode:', 'Road Transport', 'Status:', 'Good Condition'],
+                ['Contractor:', contractorText, 'Consultant:', consultantText],
+                ['Delivery Mode:', 'Road Transport', 'Condition:', 'Good / Inspected'],
             ];
 
             pRows.forEach((r, i) => {
-                const y = startY + 8 + i * 7;
-                doc.setFontSize(9);
-                doc.setFont('helvetica', 'bold'); doc.setTextColor(...colors.primary); doc.text(r[0], 15, y);
-                doc.setFont('helvetica', 'normal'); doc.setTextColor(...colors.text); doc.text(processText(r[1]), 42, y);
-                doc.setFont('helvetica', 'bold'); doc.setTextColor(...colors.primary); doc.text(r[2], pageWidth / 2 + 5, y);
-                doc.setFont('helvetica', 'normal'); doc.setTextColor(...colors.text); doc.text(processText(r[3]), pageWidth / 2 + 38, y);
+                const y = startY + 7.5 + i * 6.8;
+                doc.setFontSize(8.5);
+                doc.setFont('helvetica', 'bold'); doc.setTextColor(...colors.primary); doc.text(r[0], 14, y);
+                doc.setFont(arabicLoaded && hasArabic(r[1]) ? 'Almarai' : 'helvetica', 'normal'); doc.setTextColor(...colors.text);
+                doc.text(processText(r[1]), 40, y, { maxWidth: 58 });
+                doc.setFont('helvetica', 'bold'); doc.setTextColor(...colors.primary); doc.text(r[2], pageWidth / 2 + 4, y);
+                doc.setFont(arabicLoaded && hasArabic(r[3]) ? 'Almarai' : 'helvetica', 'normal'); doc.setTextColor(...colors.text);
+                doc.text(processText(r[3]), pageWidth / 2 + 32, y, { maxWidth: 62 });
             });
-            return startY + 42;
+            return startY + 40;
         };
 
-        // Collect Items
+        // Collect Items (preserve lump-sum / non-zero items cleanly)
         const allItems = [];
         sourceTables.forEach(table => {
             const header = table.header || [];
@@ -2912,14 +3073,17 @@ function TableViewer({
 
             table.rows.forEach(row => {
                 if (row.isHeader || row.isSummary || !row.cells.some(c => c.value)) return;
-                const qtyVal = qtyIdx > -1 ? parseFloat(String(row.cells[qtyIdx]?.value || '0').replace(/,/g, '')) : 0;
-                if (isNaN(qtyVal) || qtyVal <= 0) return;
+                const rawQtyStr = qtyIdx > -1 ? String(row.cells[qtyIdx]?.value || '').trim() : '';
+                const parsedQty = parseFloat(rawQtyStr.replace(/,/g, ''));
+                const descVal = descIdx > -1 ? String(row.cells[descIdx]?.value || '').trim() : '';
+                if (!descVal && (isNaN(parsedQty) || parsedQty <= 0)) return;
+                const qtyVal = (!isNaN(parsedQty) && parsedQty > 0) ? parsedQty : 1;
 
                 allItems.push({
-                    description: descIdx > -1 ? String(row.cells[descIdx]?.value || '') : 'N/A',
-                    brand: brandIdx > -1 ? String(row.cells[brandIdx]?.value || '') : '—',
+                    description: descVal || 'N/A',
+                    brand: brandIdx > -1 ? (String(row.cells[brandIdx]?.value || '').trim() || '—') : '—',
                     qty: qtyVal,
-                    unit: unitIdx > -1 ? String(row.cells[unitIdx]?.value || '') : 'No.',
+                    unit: unitIdx > -1 ? (String(row.cells[unitIdx]?.value || '').trim() || 'No.') : 'No.',
                     sectionLabel: row.sectionLabel || '',
                     sectionCategory: row.sectionCategory || '',
                     sectionSubheader: row.sectionSubheader || '',
@@ -2985,24 +3149,34 @@ function TableViewer({
                 tableStartY = drawProjectCard(35);
             }
 
+            const secQtyTotal = sec.items.reduce((sum, it) => sum + (parseFloat(it.qty) || 0), 0);
+            const dnBody = sec.items.map(item => [
+                globalSn++,
+                processText(item.description),
+                processText(item.brand),
+                processText(item.unit),
+                item.qty,
+                ''
+            ]);
+            dnBody.push([
+                { content: `TOTAL DELIVERED (${sec.items.length} Items)`, colSpan: 4, styles: { halign: 'right', fontStyle: 'bold', fillColor: [241, 245, 249], textColor: colors.primary } },
+                { content: String(secQtyTotal), styles: { halign: 'center', fontStyle: 'bold', fillColor: [241, 245, 249], textColor: colors.primary } },
+                { content: '', styles: { fillColor: [241, 245, 249] } }
+            ]);
+
             autoTable(doc, {
                 startY: tableStartY,
-                margin: { top: 30, left: 10, right: 10 },
+                margin: { top: 35, bottom: 16, left: 10, right: 10 },
                 head: [['S.N', 'Material Description', 'Brand / Origin', 'Unit', 'Delivered Qty', 'Remarks']],
-                body: sec.items.map(item => [
-                    globalSn++,
-                    processText(item.description),
-                    processText(item.brand),
-                    processText(item.unit),
-                    item.qty,
-                    ''
-                ]),
+                body: dnBody,
                 theme: 'grid',
                 styles: {
                     fontSize: 8,
-                    cellPadding: 3,
+                    cellPadding: 2.8,
                     font: arabicLoaded ? 'Almarai' : 'helvetica',
-                    valign: 'middle'
+                    valign: 'middle',
+                    lineColor: colors.border,
+                    lineWidth: 0.25
                 },
                 headStyles: {
                     fillColor: colors.primary,
@@ -3010,67 +3184,71 @@ function TableViewer({
                     fontStyle: 'bold',
                     halign: 'center'
                 },
+                alternateRowStyles: {
+                    fillColor: [248, 250, 252]
+                },
                 columnStyles: {
                     0: { cellWidth: 10, halign: 'center' },
                     1: { cellWidth: 'auto' },
-                    2: { cellWidth: 35 },
+                    2: { cellWidth: 34 },
                     3: { cellWidth: 15, halign: 'center' },
-                    4: { cellWidth: 25, halign: 'center' },
-                    5: { cellWidth: 25 }
+                    4: { cellWidth: 24, halign: 'center' },
+                    5: { cellWidth: 26 }
                 },
                 didDrawPage: (data) => {
-                    // For overflow pages within a table, add colored logo in white margin
+                    // Draw consistent compact branded header on overflow pages (fixes giant logo overlap!)
                     if (data.pageNumber > 1) {
-                        const dlCol = colorLogoInfo || whiteLogoInfo;
-                        if (dlCol) {
-                            const fit = calcFitSize(dlCol.width, dlCol.height, 105, 36);
-                            doc.addImage(dlCol.dataUrl, 'PNG', 10, 8, fit.w, fit.h);
-                        }
+                        drawHeader();
                     }
-
-                    doc.setFontSize(8);
-                    doc.setTextColor(150, 150, 150);
-                    doc.text(`Reference: ${dnRef} | Page ${doc.internal.getNumberOfPages()}`, pageWidth / 2, pageHeight - 10, { align: 'center' });
                 }
             });
         }
 
-        let lastY = doc.lastAutoTable.finalY + 20;
-        if (lastY > pageHeight - 40) {
+        let lastY = (doc.lastAutoTable?.finalY || 120) + 14;
+        if (lastY + 32 > pageHeight - 14) {
             doc.addPage();
-            lastY = 30; // Start below logo
-
-            // Add Logo to manual page
-            const dlCol = colorLogoInfo || whiteLogoInfo;
-            if (dlCol) {
-                const fit = calcFitSize(dlCol.width, dlCol.height, 35, 12);
-                doc.addImage(dlCol.dataUrl, 'PNG', 10, 8, fit.w, fit.h);
-            }
-
-            // Add Footer to manual page
-            doc.setFontSize(8);
-            doc.setTextColor(150, 150, 150);
-            doc.text(`Reference: ${dnRef} | Page ${doc.internal.getNumberOfPages()}`, pageWidth / 2, pageHeight - 10, { align: 'center' });
+            drawHeader();
+            lastY = 40;
         }
 
         // Signatures
         const sigNames = ['Prepared By', 'Authorized By', 'Customer Signature'];
-        const sigW = 55, sigH = 25;
+        const sigW = 56, sigH = 26;
         const sigGap = (pageWidth - 20 - sigW * 3) / 2;
 
         sigNames.forEach((name, i) => {
             const x = 10 + i * (sigW + sigGap);
+            doc.setFillColor(...colors.white);
             doc.setDrawColor(...colors.border);
-            doc.rect(x, lastY, sigW, sigH);
+            doc.roundedRect(x, lastY, sigW, sigH, 1.5, 1.5, 'FD');
+            doc.setFillColor(...colors.lightBg);
+            doc.rect(x, lastY, sigW, 6.5, 'F');
             doc.setFontSize(8);
             doc.setFont('helvetica', 'bold');
             doc.setTextColor(...colors.primary);
-            doc.text(name, x + sigW / 2, lastY + 5, { align: 'center' });
-            doc.line(x + 5, lastY + sigH - 8, x + sigW - 5, lastY + sigH - 8);
-            doc.setFontSize(7);
+            doc.text(name, x + sigW / 2, lastY + 4.5, { align: 'center' });
+            doc.setDrawColor(...colors.border);
+            doc.line(x + 5, lastY + sigH - 7.5, x + sigW - 5, lastY + sigH - 7.5);
+            doc.setFontSize(6.8);
             doc.setFont('helvetica', 'normal');
-            doc.text('Signature & Date', x + sigW / 2, lastY + sigH - 3, { align: 'center' });
+            doc.setTextColor(...colors.text);
+            doc.text('Signature & Date', x + sigW / 2, lastY + sigH - 2.5, { align: 'center' });
         });
+
+        // Stamp crisp Page X of Y footer across all Delivery Note pages
+        const totalDnPages = doc.internal.getNumberOfPages();
+        const dnBrandFoot = companyName || 'BOQ FLOW';
+        for (let p = 1; p <= totalDnPages; p++) {
+            doc.setPage(p);
+            doc.setDrawColor(...colors.accent);
+            doc.setLineWidth(0.5);
+            doc.line(0, pageHeight - 11, pageWidth, pageHeight - 11);
+            doc.setFontSize(7.5);
+            doc.setFont('helvetica', 'normal');
+            doc.setTextColor(120, 130, 145);
+            doc.text(`${dnBrandFoot}  |  Delivery Note: ${dnRef}`, 10, pageHeight - 5.5);
+            doc.text(`Page ${p} of ${totalDnPages}`, pageWidth - 10, pageHeight - 5.5, { align: 'right' });
+        }
 
         doc.save(`DeliveryNote_${dnRef}.pdf`);
     };
@@ -3079,10 +3257,10 @@ function TableViewer({
     const handleGeneratePresentation = async (sourceTables, returnBase64 = false, templateId = 'corporate') => {
         const PptxGenJS = (await import('pptxgenjs')).default;
         const pres = new PptxGenJS();
-        const totalItems = sourceTables.reduce((acc, t) => acc + t.rows.length, 0);
+        const totalItems = sourceTables.reduce((acc, t) => acc + collectActiveTableRows(t).length, 0);
 
-        pres.author = 'BOQFlow';
-        pres.title = 'Product Presentation';
+        pres.author = companyName || 'BOQFlow';
+        pres.title = project.projectName ? `${project.projectName} — Product Presentation` : 'Product Presentation';
         pres.subject = 'Bill of Quantities - Product Showcase';
 
         const baseColors = getBrandColors(accentColor, secondaryColor);
@@ -3146,10 +3324,10 @@ function TableViewer({
             detailsColor = brandColors.text;
             labelColor = brandColors.accent;
             valueColor = brandColors.text;
-            detailHeaderColor = '#FFFFFF';
+            detailHeaderColor = 'FFFFFF';
             footerLinkColor = brandColors.accent;
             footerTextColor = brandColors.lightText;
-            headerTextColor = '#FFFFFF';
+            headerTextColor = 'FFFFFF';
         } else if (layoutStyle === 'minimalist') {
             mainTitleColor = '111111';
             subtitleColor = '777777';
@@ -3169,7 +3347,7 @@ function TableViewer({
             detailHeaderColor = brandColors.primary;
             footerLinkColor = brandColors.accent;
             footerTextColor = brandColors.lightText;
-            headerTextColor = '#FFFFFF';
+            headerTextColor = 'FFFFFF';
         }
 
         // Pre-load company and client logos for slide header
@@ -3476,7 +3654,12 @@ function TableViewer({
                 const inchesToPx = (inches) => inches * 96;
                 const pxToInches = (px) => px / 96;
 
-                if (loadedImages.length === 1) {
+                if (loadedImages.length === 0) {
+                    slide.addText('No Product Image Available', {
+                        x: imgAreaX, y: imgAreaY + imgAreaH / 2 - 0.25, w: imgAreaW, h: 0.5,
+                        fontSize: 11, italic: true, color: footerTextColor, fontFace: fontFace, align: 'center', valign: 'middle'
+                    });
+                } else if (loadedImages.length === 1) {
                     // Single image - calculate exact fit dimensions
                     const img = loadedImages[0];
                     const maxW = imgAreaW - 0.2;
@@ -3604,63 +3787,113 @@ function TableViewer({
                     wrap: true, shrinkText: true
                 });
 
-                // Brand fallback logic
+                // Brand, Qty & Finish inside a clean architectural metadata card
                 const rowBrand = brandVal.trim();
                 const brand = rowBrand || project.brand || project.brandOrigin || companyName || 'N/A';
+                const cleanFinish = finish.trim();
 
-                // Brand and Qty side-by-side above the footer
-                const footerY = 4.72;
+                const metaCardY = cleanFinish ? 4.46 : 4.64;
+                const metaCardH = cleanFinish ? 0.62 : 0.44;
+                slide.addShape('rect', {
+                    x: detailX, y: metaCardY, w: detailW, h: metaCardH,
+                    fill: { color: brandColors.lightBg },
+                    line: { color: brandColors.border, pt: 0.5 }
+                });
+                slide.addShape('rect', {
+                    x: detailX, y: metaCardY, w: 0.06, h: metaCardH,
+                    fill: { color: brandColors.accent }
+                });
+
                 slide.addText('Brand:', {
-                    x: detailX, y: footerY, w: 0.75, h: 0.35,
-                    fontSize: 10, bold: true, color: labelColor, fontFace: fontFace, valign: 'middle'
+                    x: detailX + 0.14, y: metaCardY + 0.04, w: 0.65, h: 0.34,
+                    fontSize: 9.5, bold: true, color: labelColor, fontFace: fontFace, valign: 'middle'
                 });
                 slide.addText(brand, {
-                    x: detailX + 0.75, y: footerY, w: 1.65, h: 0.35,
-                    fontSize: 9, color: valueColor, fontFace: fontFace, valign: 'middle'
+                    x: detailX + 0.78, y: metaCardY + 0.04, w: 1.9, h: 0.34,
+                    fontSize: 9.5, bold: true, color: valueColor, fontFace: fontFace, valign: 'middle'
                 });
 
-                // Quantity
                 slide.addText('Qty:', {
-                    x: detailX + 2.5, y: footerY, w: 0.5, h: 0.35,
-                    fontSize: 10, bold: true, color: labelColor, fontFace: fontFace, valign: 'middle'
+                    x: detailX + 2.75, y: metaCardY + 0.04, w: 0.45, h: 0.34,
+                    fontSize: 9.5, bold: true, color: labelColor, fontFace: fontFace, valign: 'middle'
                 });
                 slide.addText(qty || 'As per BOQ', {
-                    x: detailX + 3.0, y: footerY, w: 1.7, h: 0.35,
-                    fontSize: 9, color: valueColor, fontFace: fontFace, valign: 'middle'
+                    x: detailX + 3.2, y: metaCardY + 0.04, w: 1.4, h: 0.34,
+                    fontSize: 9.5, bold: true, color: valueColor, fontFace: fontFace, valign: 'middle'
                 });
+
+                if (cleanFinish) {
+                    slide.addText('Finish:', {
+                        x: detailX + 0.14, y: metaCardY + 0.34, w: 0.65, h: 0.24,
+                        fontSize: 8.5, bold: true, color: labelColor, fontFace: fontFace, valign: 'middle'
+                    });
+                    slide.addText(cleanFinish.slice(0, 80), {
+                        x: detailX + 0.78, y: metaCardY + 0.34, w: detailW - 0.9, h: 0.24,
+                        fontSize: 8.5, color: valueColor, fontFace: fontFace, valign: 'middle'
+                    });
+                }
 
                 // ===== FOOTER =====
                 // Warranty notice
-                slide.addText('Warranty', {
-                    x: 0.2, y: 5.08, w: 1, h: 0.18,
-                    fontSize: 8, bold: true, color: labelColor, fontFace: fontFace
-                });
-                slide.addText('As per manufacturer - 5 years', {
-                    x: 0.2, y: 5.24, w: 2.5, h: 0.15,
-                    fontSize: 7, color: footerTextColor, fontFace: fontFace
+                slide.addText('Warranty: As per manufacturer (5 years)', {
+                    x: 0.2, y: 5.31, w: 3.1, h: 0.17,
+                    fontSize: 7.5, color: footerTextColor, fontFace: fontFace, valign: 'middle'
                 });
 
                 // Page URL/reference (only render if company website is configured)
                 if (website) {
                     slide.addText(website, {
-                        x: 3.5, y: 5.32, w: 3, h: 0.15,
-                        fontSize: 7, color: footerLinkColor, fontFace: fontFace, align: 'center'
+                        x: 3.4, y: 5.31, w: 3.2, h: 0.17,
+                        fontSize: 7.5, color: footerLinkColor, fontFace: fontFace, align: 'center', valign: 'middle'
                     });
                 }
 
                 // Page number
                 slide.addText(`${itemNum} / ${totalItems}`, {
-                    x: 8.5, y: 5.32, w: 1, h: 0.15,
-                    fontSize: 7, color: footerTextColor, fontFace: fontFace, align: 'right'
+                    x: 8.5, y: 5.31, w: 1.3, h: 0.17,
+                    fontSize: 7.5, bold: true, color: footerTextColor, fontFace: fontFace, align: 'right', valign: 'middle'
                 });
 
                 itemNum++;
             }
         }
+
+        // Executive Closing Slide
+        const closingSlide = pres.addSlide({ masterName: 'BOQ_MASTER' });
+        drawSlideDecorations(closingSlide);
+        if (companyLogoData) {
+            const fit = calcFitSize(companyLogoData.width, companyLogoData.height, 2.8 * 96, 1.1 * 96);
+            const fitW = fit.w / 96;
+            const fitH = fit.h / 96;
+            closingSlide.addImage({
+                data: companyLogoData.dataUrl,
+                x: (10 - fitW) / 2, y: 1.4, w: fitW, h: fitH
+            });
+        }
+        closingSlide.addText('THANK YOU', {
+            x: 0, y: 2.75, w: '100%', h: 0.65,
+            fontSize: 32, bold: true, color: mainTitleColor, fontFace: fontFace, align: 'center'
+        });
+        closingSlide.addText(
+            `${project.projectName || 'Commercial FF&E Proposal'}  •  ${totalItems} Presented Items`,
+            {
+                x: 0.8, y: 3.45, w: 8.4, h: 0.35,
+                fontSize: 12, color: subtitleColor, fontFace: fontFace, align: 'center'
+            }
+        );
+        const closingContact = [companyName, website].filter(Boolean).join('   |   ');
+        if (closingContact) {
+            closingSlide.addText(closingContact, {
+                x: 0.8, y: 4.1, w: 8.4, h: 0.3,
+                fontSize: 10, bold: true, color: footerLinkColor, fontFace: fontFace, align: 'center'
+            });
+        }
+
         if (returnBase64) {
             return await pres.write({ outputType: 'base64' });
         } else {
-            await pres.writeFile({ fileName: 'presentation_export.pptx' });
+            const safeProj = (project.projectName || 'BOQ').replace(/[^a-zA-Z0-9]+/g, '_').replace(/^_|_$/g, '').slice(0, 32) || 'BOQ';
+            await pres.writeFile({ fileName: `${safeProj}_Presentation_${templateId}.pptx` });
         }
     };
 
@@ -4107,7 +4340,7 @@ function TableViewer({
                 style={isCosted ? { border: '1px solid #f59e0b', background: 'rgba(245, 158, 11, 0.05)' } : {}}>
                 <div className={styles.tableHeader}>
                     <h3 className={styles.sheetName} style={isCosted ? { color: '#f59e0b' } : {}} >
-                        {isCosted ? ' ' : ''}Sheet: {table.sheetName} {isCosted ? '(Simulated Costs)' : ''}
+                        {isCosted ? ' ' : ''}Sheet: {table.sheetName} {isCosted ? '(Costed)' : ''}
                     </h3>
                     <span className={styles.rowCount}>
                         {table.rows.length} rows × {table.columnCount} columns
@@ -4398,6 +4631,14 @@ function TableViewer({
                     <button className={`${actionStyles.actionBtn} ${actionStyles.actionBtnMir}`} onClick={() => handleGenerateMIR(tables)}> Generate MIR</button>
                     <button className={`${actionStyles.actionBtn} ${actionStyles.actionBtnWir}`} onClick={() => handleGenerateWIR(tables)}> Generate WIR</button>
                     <button className={`${actionStyles.actionBtn} ${actionStyles.actionBtnDn}`} onClick={() => handleGenerateDeliveryNote(tables)}> Delivery Note</button>
+                    <button
+                        className={`${actionStyles.actionBtn} ${actionStyles.actionBtnRfq} ${generatingType === 'rfq_original' ? actionStyles.loading : ''}`}
+                        onClick={() => handleGenerateRfqByBrand(tables, 'original')}
+                        disabled={!!generatingType}
+                        title="Split BOQ by Brand into ready-to-send Supplier RFQ Excel sheets (ZIP pack with Master Tracker)"
+                    >
+                        {generatingType === 'rfq_original' ? ' Grouping RFQs...' : ' RFQ by Brand'}
+                    </button>
                     <button className={`${actionStyles.actionBtn} ${actionStyles.actionBtnDn}`} style={{ background: '#10b981', color: '#ffffff', borderColor: '#059669', fontWeight: '500' }} onClick={() => setTenderAutofillOpen(true)}> Autofill on Tender Board</button>
                 </div>
             </div>
@@ -4446,7 +4687,7 @@ function TableViewer({
             {costedTables && (
                 <div id="costed-results" style={{ animation: 'fadeInUp 0.5s ease' }}>
                     <div className={styles.header}>
-                        <h2 className={styles.title} style={{ color: UI_COLORS.costing }}> Cost Simulation Results</h2>
+                        <h2 className={styles.title} style={{ color: UI_COLORS.costing }}>Costed Results</h2>
                         {renderRecategorizeControl('costed')}
                     </div>
                     {renderTableList(costedTables, true)}
@@ -4490,6 +4731,14 @@ function TableViewer({
                             <button className={`${actionStyles.actionBtn} ${actionStyles.actionBtnMir}`} onClick={() => handleGenerateMIR(costedTables)}> Generate Costed MIR</button>
                             <button className={`${actionStyles.actionBtn} ${actionStyles.actionBtnWir}`} onClick={() => handleGenerateWIR(costedTables)}> Generate Costed WIR</button>
                             <button className={`${actionStyles.actionBtn} ${actionStyles.actionBtnDn}`} onClick={() => handleGenerateDeliveryNote(costedTables)}> Costed Delivery Note</button>
+                            <button
+                                className={`${actionStyles.actionBtn} ${actionStyles.actionBtnRfq} ${generatingType === 'rfq_costed' ? actionStyles.loading : ''}`}
+                                onClick={() => handleGenerateRfqByBrand(costedTables, 'costed')}
+                                disabled={!!generatingType}
+                                title="Split BOQ by Brand into ready-to-send Supplier RFQ Excel sheets (excludes client margins)"
+                            >
+                                {generatingType === 'rfq_costed' ? ' Grouping RFQs...' : ' RFQ by Brand'}
+                            </button>
                         </div>
                     </div>
                 </div>

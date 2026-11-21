@@ -740,7 +740,10 @@
       "productUrl": "https://ottimouae.com/product/2-pax-face-to-face/",
       "description": "Modern structure panels for flexible solutions of work spaces available in different sizes and materials of Glass, Wood and Fabric partition. Thickness available: 30mm, 40mm, 60mm & 70mm",
       "subCategory": "Desks",
-      "mainCategory": "Desks"
+      "mainCategory": "Desks",
+      "setRoles": [
+        "workstation_desk"
+      ]
     },
     {
       "model": "2 Pax Single line With Metal Pedestal",
@@ -750,7 +753,10 @@
       "productUrl": "https://ottimouae.com/product/2-pax-single-line-with-metal-pedestal/",
       "description": "Simple, practical and durable desk. Clean design with high adaptability for a wide variety of work environments. The selection of table top finishes and add-on elements make every desk design efficient and functional.",
       "subCategory": "Desks",
-      "mainCategory": "Desks"
+      "mainCategory": "Desks",
+      "setRoles": [
+        "workstation_desk"
+      ]
     },
     {
       "model": "4 Pax Face To Face",
@@ -760,7 +766,10 @@
       "productUrl": "https://ottimouae.com/product/4-pax-face-to-face/",
       "description": "Modern structure panels for flexible solutions of work spaces available in different sizes and materials of Glass, Wood and Fabric partition. Thickness available: 30mm, 40mm, 60mm & 70mm",
       "subCategory": "Desks",
-      "mainCategory": "Desks"
+      "mainCategory": "Desks",
+      "setRoles": [
+        "workstation_desk"
+      ]
     },
     {
       "model": "4 Pax Face to Face with Credenza",
@@ -770,7 +779,10 @@
       "productUrl": "https://ottimouae.com/product/4-pax-face-to-face-with-credenza/",
       "description": "Combines a stylish minimalist look with functionality, characterized by finely designed legs",
       "subCategory": "Desks",
-      "mainCategory": "Desks"
+      "mainCategory": "Desks",
+      "setRoles": [
+        "workstation_desk"
+      ]
     },
     {
       "model": "4 Pax Face To Face With Glass",
@@ -780,7 +792,10 @@
       "productUrl": "https://ottimouae.com/product/4-pax-face-to-face-with-glass/",
       "description": "Modern structure panels for flexible solutions of work spaces available in different sizes and materials of Glass, Wood and Fabric partition. Thickness available: 30mm, 40mm, 60mm & 70mm",
       "subCategory": "Desks",
-      "mainCategory": "Desks"
+      "mainCategory": "Desks",
+      "setRoles": [
+        "workstation_desk"
+      ]
     },
     {
       "model": "Custom Made Modern Reception Desk",
@@ -810,7 +825,10 @@
       "productUrl": "https://ottimouae.com/product/diamond-meeting-table/",
       "description": "– Made by MDF melamine finish surface, – Leg finish metal Black or White powder coated finish,",
       "subCategory": "Desks",
-      "mainCategory": "Desks"
+      "mainCategory": "Desks",
+      "setRoles": [
+        "conference_table"
+      ]
     },
     {
       "model": "L Shape 4 Pax",
@@ -820,7 +838,13 @@
       "productUrl": "https://ottimouae.com/product/l-shape-4-pax/",
       "description": "Modern structure panels for flexible solutions of work spaces available in different sizes and materials of Glass, Wood and Fabric partition. Thickness available: 30mm, 40mm, 60mm & 70mm",
       "subCategory": "Desks",
-      "mainCategory": "Desks"
+      "mainCategory": "Desks",
+      "setRoles": [
+        "workstation_desk"
+      ],
+      "includesRoles": [
+        "side_return"
+      ]
     },
     {
       "model": "L Shape 4 Pax With Border",
@@ -830,7 +854,13 @@
       "productUrl": "https://ottimouae.com/product/l-shape-4-pax-with-border/",
       "description": "Modern structure panels for flexible solutions of work spaces available in different sizes and materials of Glass, Wood and Fabric partition. Thickness available: 30mm, 40mm, 60mm & 70mm",
       "subCategory": "Desks",
-      "mainCategory": "Desks"
+      "mainCategory": "Desks",
+      "setRoles": [
+        "workstation_desk"
+      ],
+      "includesRoles": [
+        "side_return"
+      ]
     },
     {
       "model": "Lshape Single Person With Overhead Cabinet",
@@ -840,7 +870,13 @@
       "productUrl": "https://ottimouae.com/product/lshape-single-person-with-overhead-cabinet/",
       "description": "Modern structure panels for flexible solutions of work spaces available in different sizes and materials of Glass, Wood and Fabric partition. Thickness available: 30mm, 40mm, 60mm & 70mm",
       "subCategory": "Desks",
-      "mainCategory": "Desks"
+      "mainCategory": "Desks",
+      "setRoles": [
+        "workstation_desk"
+      ],
+      "includesRoles": [
+        "side_return"
+      ]
     },
     {
       "model": "Meeting Table With Metal Leg",
@@ -850,7 +886,10 @@
       "productUrl": "https://ottimouae.com/product/meeting-table-with-metal-leg/",
       "description": "Meeting table made by MDF melamine finish top and leg with powder coated white/black finish leg. Size:Customizable",
       "subCategory": "Desks",
-      "mainCategory": "Desks"
+      "mainCategory": "Desks",
+      "setRoles": [
+        "conference_table"
+      ]
     },
     {
       "model": "Oval Shape Meeting Table",
@@ -880,7 +919,10 @@
       "productUrl": "https://ottimouae.com/product/2-pax-face-to-face-2/",
       "description": "Durable Table legs manufactured in powder coated( Can be customized to any size as per requirements ) and the style is unique, making you more eye-catching, From a variety of innovative products used by the brand, flexibility and sharing can break through expectations, and the functionality of the office space, Connectivity and openness blend together",
       "subCategory": "Workstation",
-      "mainCategory": "Desks"
+      "mainCategory": "Desks",
+      "setRoles": [
+        "workstation_desk"
+      ]
     },
     {
       "model": "Cluster 2 Face To Face",
@@ -890,7 +932,10 @@
       "productUrl": "https://ottimouae.com/product/cluster-2-face-to-face/",
       "description": "Durable Table legs manufactured in powder coated( Can be customized to any size as per requirements ) and the style is unique, making you more eye-catching, From a variety of innovative products used by the brand, flexibility and sharing can break through expectations, and the functionality of the office space, Connectivity and openness blend together",
       "subCategory": "Workstation",
-      "mainCategory": "Desks"
+      "mainCategory": "Desks",
+      "setRoles": [
+        "workstation_desk"
+      ]
     },
     {
       "model": "Cluster 2 L Shape Desk T Shape",
@@ -900,7 +945,13 @@
       "productUrl": "https://ottimouae.com/product/cluster-2-l-shape-desk-t-shape-2/",
       "description": "Durable Table legs manufactured in powder coated( Can be customized to any size as per requirements ) and the style is unique, making you more eye-catching, From a variety of innovative products used by the brand, flexibility and sharing can break through expectations, and the functionality of the office space, Connectivity and openness blend together",
       "subCategory": "Workstation",
-      "mainCategory": "Desks"
+      "mainCategory": "Desks",
+      "setRoles": [
+        "workstation_desk"
+      ],
+      "includesRoles": [
+        "side_return"
+      ]
     },
     {
       "model": "Cluster 2 Single Line",
@@ -910,7 +961,10 @@
       "productUrl": "https://ottimouae.com/product/cluster-2-single-line-2/",
       "description": "Durable Table legs manufactured in powder coated( Can be customized to any size as per requirements ) and the style is unique, making you more eye-catching, From a variety of innovative products used by the brand, flexibility and sharing can break through expectations, and the functionality of the office space, Connectivity and openness blend together",
       "subCategory": "Workstation",
-      "mainCategory": "Desks"
+      "mainCategory": "Desks",
+      "setRoles": [
+        "workstation_desk"
+      ]
     },
     {
       "model": "Cluster 4 Face To Face",
@@ -920,7 +974,10 @@
       "productUrl": "https://ottimouae.com/product/cluster-4-face-to-face/",
       "description": "Durable Table legs manufactured in powder coated( Can be customized to any size as per requirements ) and the style is unique, making you more eye-catching, From a variety of innovative products used by the brand, flexibility and sharing can break through expectations, and the functionality of the office space, Connectivity and openness blend together.",
       "subCategory": "Workstation",
-      "mainCategory": "Desks"
+      "mainCategory": "Desks",
+      "setRoles": [
+        "workstation_desk"
+      ]
     },
     {
       "model": "Rectangular Table",
@@ -930,7 +987,10 @@
       "productUrl": "https://ottimouae.com/product/rectangular-table/",
       "description": "Durable Table legs manufactured in powder coated( Can be customized to any size as per requirements ) and the style is unique, making you more eye-catching, From a variety of innovative products used by the brand, flexibility and sharing can break through expectations, and the functionality of the office space, Connectivity and openness blend together.",
       "subCategory": "Workstation",
-      "mainCategory": "Desks"
+      "mainCategory": "Desks",
+      "setRoles": [
+        "workstation_desk"
+      ]
     },
     {
       "model": "Cluster of 2 Face to Face White Leg",
@@ -940,7 +1000,10 @@
       "productUrl": "https://ottimouae.com/product/cluster-of-2-face-to-face-white-leg/",
       "description": "Durable Table legs manufactured in powder coated( Can be customized to any size as per requirements ) and the style is unique, making you more eye-catching, From a variety of innovative products used by the brand, flexibility and sharing can break through expectations, and the functionality of the office space, Connectivity and openness blend together",
       "subCategory": "Workstation",
-      "mainCategory": "Desks"
+      "mainCategory": "Desks",
+      "setRoles": [
+        "workstation_desk"
+      ]
     },
     {
       "model": "Cluster of 2 L shape Desk U shape White Leg",
@@ -950,7 +1013,13 @@
       "productUrl": "https://ottimouae.com/product/cluster-of-2-l-shape-desk-u-shape-white-leg/",
       "description": "Durable Table legs manufactured in powder coated( Can be customized to any size as per requirements ) and the style is unique, making you more eye-catching, From a variety of innovative products used by the brand, flexibility and sharing can break through expectations, and the functionality of the office space, Connectivity and openness blend together.",
       "subCategory": "Workstation",
-      "mainCategory": "Desks"
+      "mainCategory": "Desks",
+      "setRoles": [
+        "workstation_desk"
+      ],
+      "includesRoles": [
+        "side_return"
+      ]
     },
     {
       "model": "Cluster of 2 Single Line White Leg",
@@ -960,7 +1029,10 @@
       "productUrl": "https://ottimouae.com/product/cluster-of-2-single-line-white-leg-2/",
       "description": "Durable Table legs manufactured in powder coated( Can be customized to any size as per requirements ) and the style is unique, making you more eye-catching, From a variety of innovative products used by the brand, flexibility and sharing can break through expectations, and the functionality of the office space, Connectivity and openness blend together",
       "subCategory": "Workstation",
-      "mainCategory": "Desks"
+      "mainCategory": "Desks",
+      "setRoles": [
+        "workstation_desk"
+      ]
     },
     {
       "model": "Cluster of 4 Face to Face White Leg",
@@ -970,7 +1042,10 @@
       "productUrl": "https://ottimouae.com/product/cluster-of-4-face-to-face-white-leg/",
       "description": "Durable Table legs manufactured in powder coated( Can be customized to any size as per requirements ) and the style is unique, making you more eye-catching, From a variety of innovative products used by the brand, flexibility and sharing can break through expectations, and the functionality of the office space, Connectivity and openness blend together.",
       "subCategory": "Workstation",
-      "mainCategory": "Desks"
+      "mainCategory": "Desks",
+      "setRoles": [
+        "workstation_desk"
+      ]
     },
     {
       "model": "Wooden Contemporary Reception Desk",
@@ -1038,7 +1113,10 @@
       "productUrl": "https://ottimouae.com/product/wooden-leg-meeting-table/",
       "description": "Meeting table made by MDF melamine finish top surface with wooden legs",
       "subCategory": "Meeting Table",
-      "mainCategory": "Desks"
+      "mainCategory": "Desks",
+      "setRoles": [
+        "conference_table"
+      ]
     },
     {
       "model": "Modern Meeting Table",
@@ -1048,7 +1126,10 @@
       "productUrl": "https://ottimouae.com/product/modern-meeting-table/",
       "description": "– Finely crafted with simple and smooth lines, and symmetrical structure express a modern feeling. – The legs are Powder Coated with a sleek finish to protect it from scratch, stain and corrosion. – Adjustable and Protective Feet by easy rotation to adjust the height of the desk. – Ideal solution to implement network or electrical connections and extensions.",
       "subCategory": "Meeting Table",
-      "mainCategory": "Desks"
+      "mainCategory": "Desks",
+      "setRoles": [
+        "conference_table"
+      ]
     },
     {
       "model": "Oxo Meeting Table",
@@ -1058,7 +1139,10 @@
       "productUrl": "https://ottimouae.com/product/oxo-meeting-table/",
       "description": "Durable Table legs manufactured in powder coated (Can be customized to any size as per requirements) and the style is unique, making you more eye-catching. From a variety of innovative products used by the brand, flexibility and sharing can break through expectations, and the functionality of the office space, Connectivity and openness blend together",
       "subCategory": "Meeting Table",
-      "mainCategory": "Desks"
+      "mainCategory": "Desks",
+      "setRoles": [
+        "conference_table"
+      ]
     },
     {
       "model": "Versa Meeting Table",
@@ -1068,7 +1152,10 @@
       "productUrl": "https://ottimouae.com/product/versa-meeting-table/",
       "description": "Modern height adjustable table legs manufactured from durable steel. which you can easily make into productive and stylish work space ( can be customized to any size as per requirments. )",
       "subCategory": "Meeting Table",
-      "mainCategory": "Desks"
+      "mainCategory": "Desks",
+      "setRoles": [
+        "conference_table"
+      ]
     },
     {
       "model": "Fine Crafted Meeting Table",
@@ -1078,7 +1165,10 @@
       "productUrl": "https://ottimouae.com/product/fine-crafted-meeting-table/",
       "description": "Simple, modern & minimalist meeting table with built-in rectangular brushed aluminum wire manager.",
       "subCategory": "Meeting Table",
-      "mainCategory": "Desks"
+      "mainCategory": "Desks",
+      "setRoles": [
+        "conference_table"
+      ]
     },
     {
       "model": "Bevel Series Black Sideboard Cabinet",
@@ -1088,7 +1178,10 @@
       "productUrl": "https://ottimouae.com/product/bevel-series-black-sideboard-cabinet/",
       "description": "The Bevel series cabinet with chamfered edge is a premium unique design and is very innovative. Durable high-grade frame that resists scratches, stains and wear. This cabinet has push to open doors with adjustable shelves and drawers. It also offers an option to open-shelves and stylish zinc-alloy leg support.",
       "subCategory": "Storage",
-      "mainCategory": "Storage"
+      "mainCategory": "Storage",
+      "setRoles": [
+        "side_return"
+      ]
     },
     {
       "model": "Bevel Edge White Sideboard Cabinet",
@@ -1098,7 +1191,10 @@
       "productUrl": "https://ottimouae.com/product/bevel-edge-white-sideboard-cabinet/",
       "description": "Premium unique design, very innovative and durable high-grade frame that resists scratches, stains and wear. This cabinet has push to open doors with adjustable shelves and drawers. It also offers an option to open-shelves and stylish zinc-alloy leg support.",
       "subCategory": "Storage",
-      "mainCategory": "Storage"
+      "mainCategory": "Storage",
+      "setRoles": [
+        "side_return"
+      ]
     },
     {
       "model": "Medium Height Storage Cabinet",
@@ -1138,7 +1234,10 @@
       "productUrl": "https://ottimouae.com/product/bevel-edge-black-sideboard-medium-height-cabinet/",
       "description": "Exclusive, intelligent and innovative design with durable commercial grade frame that resists scratches, stains and wear. Offers four push to open doors and two handless drawers.",
       "subCategory": "Storage",
-      "mainCategory": "Storage"
+      "mainCategory": "Storage",
+      "setRoles": [
+        "side_return"
+      ]
     },
     {
       "model": "Bevel Edge Low Height 3 Door Modern Cabinet",
@@ -1148,7 +1247,10 @@
       "productUrl": "https://ottimouae.com/product/bevel-edge-low-height-3-door-modern-cabinet/",
       "description": "Exclusive, intelligent and innovative design with bevel edge that resists scratches, stains and wear. Offers three doors, ideal storage solution for all the files, documents and everyday gadgets you need to have within easy reach",
       "subCategory": "Storage",
-      "mainCategory": "Storage"
+      "mainCategory": "Storage",
+      "setRoles": [
+        "side_return"
+      ]
     },
     {
       "model": "Bevel Edge Low Height 2 Door Cabinet",
@@ -1158,7 +1260,10 @@
       "productUrl": "https://ottimouae.com/product/bevel-edge-low-height-2-door-cabinet/",
       "description": "Exclusive, intelligent and innovative design with bevel edge that resists scratches, stains and wear. Offers two push to open doors, ideal storage solution for all the files, documents and everyday gadgets you need to have within easy reach",
       "subCategory": "Storage",
-      "mainCategory": "Storage"
+      "mainCategory": "Storage",
+      "setRoles": [
+        "side_return"
+      ]
     },
     {
       "model": "Bevel Edge Low Height 2 Door White Cabinet",
@@ -1168,7 +1273,10 @@
       "productUrl": "https://ottimouae.com/product/bevel-edge-low-height-2-door-white-cabinet/",
       "description": "Exclusive, intelligent and innovative design with bevel edge, white finish that resists scratches, stains and wear.",
       "subCategory": "Storage",
-      "mainCategory": "Storage"
+      "mainCategory": "Storage",
+      "setRoles": [
+        "side_return"
+      ]
     },
     {
       "model": "Bevel Grey Edge Low Height 2 Door Cabinet",
@@ -1178,7 +1286,10 @@
       "productUrl": "https://ottimouae.com/product/bevel-grey-edge-low-height-2-door-cabinet/",
       "description": "Exclusive, intelligent and innovative design with bevel grey edge, white finish that resists scratches, stains and wear.",
       "subCategory": "Storage",
-      "mainCategory": "Storage"
+      "mainCategory": "Storage",
+      "setRoles": [
+        "side_return"
+      ]
     },
     {
       "model": "Low Height 2 Swing Door White Cabinet",
@@ -1188,7 +1299,10 @@
       "productUrl": "https://ottimouae.com/product/low-height-2-swing-door-white-cabinet/",
       "description": "Durable commercial grade frame with white finish that resists scratches, stains and wear.",
       "subCategory": "Storage",
-      "mainCategory": "Storage"
+      "mainCategory": "Storage",
+      "setRoles": [
+        "side_return"
+      ]
     },
     {
       "model": "Low Height 3 Swing Door Cabinet",
@@ -1198,7 +1312,10 @@
       "productUrl": "https://ottimouae.com/product/low-height-3-swing-door-cabinet/",
       "description": "Durable commercial grade frame with white finish that resists scratches, stains and wear.",
       "subCategory": "Storage",
-      "mainCategory": "Storage"
+      "mainCategory": "Storage",
+      "setRoles": [
+        "side_return"
+      ]
     },
     {
       "model": "Low Height Open Cabinet",
@@ -1208,7 +1325,10 @@
       "productUrl": "https://ottimouae.com/product/low-height-open-cabinet/",
       "description": "The sleek design is exclusive and innovative with durable commercial grade frame.",
       "subCategory": "Storage",
-      "mainCategory": "Storage"
+      "mainCategory": "Storage",
+      "setRoles": [
+        "side_return"
+      ]
     },
     {
       "model": "Low Height Sliding Door Cabinet",
@@ -1218,7 +1338,10 @@
       "productUrl": "https://ottimouae.com/product/low-height-sliding-door-cabinet/",
       "description": "The sleek design is exclusive and innovative with durable commercial grade frame.",
       "subCategory": "Storage",
-      "mainCategory": "Storage"
+      "mainCategory": "Storage",
+      "setRoles": [
+        "side_return"
+      ]
     },
     {
       "model": "Low Height Swing Door Cabinet",
@@ -1228,7 +1351,10 @@
       "productUrl": "https://ottimouae.com/product/low-height-swing-door-cabinet/",
       "description": "Exclusive, intelligent and innovative design with white finish that resists scratches, stains and wear.",
       "subCategory": "Storage",
-      "mainCategory": "Storage"
+      "mainCategory": "Storage",
+      "setRoles": [
+        "side_return"
+      ]
     },
     {
       "model": "Low Height Swing Door Cabinet With Drawers",
@@ -1238,7 +1364,10 @@
       "productUrl": "https://ottimouae.com/product/low-height-swing-door-cabinet-with-drawers/",
       "description": "Exclusive, intelligent and innovative design which offers swing doors and two drawers.",
       "subCategory": "Storage",
-      "mainCategory": "Storage"
+      "mainCategory": "Storage",
+      "setRoles": [
+        "side_return"
+      ]
     },
     {
       "model": "Full Height 1+2 Wooden Door Filing Cabinet",
@@ -1626,7 +1755,11 @@
       "productUrl": "https://ottimouae.com/product/2x-users-desktop-power-access-and-cable-management-solution/",
       "description": "This pack contains 1x Under-Desk Multi-Functional Cable Tray 1x Power Cable",
       "subCategory": "Accessories",
-      "mainCategory": "Accessories"
+      "mainCategory": "Accessories",
+      "setRoles": [
+        "power_box",
+        "cable_management"
+      ]
     },
     {
       "model": "4x Users Desktop Power Access and Cable Management Solution",
@@ -1636,7 +1769,11 @@
       "productUrl": "https://ottimouae.com/product/4x-users-desktop-power-access-and-cable-management-solution/",
       "description": "This pack contains 1x Under-Desk Multi-Functional Cable Tray 1x Power Cable 1x 4-Way Extended Socket",
       "subCategory": "Accessories",
-      "mainCategory": "Accessories"
+      "mainCategory": "Accessories",
+      "setRoles": [
+        "power_box",
+        "cable_management"
+      ]
     },
     {
       "model": "Brush Cover Socket",
@@ -1646,7 +1783,10 @@
       "productUrl": "https://ottimouae.com/product/brush-cover-socket/",
       "description": "Desk power grommet brush socket / tabletop power outlet with rj45 for conference table.",
       "subCategory": "Accessories",
-      "mainCategory": "Accessories"
+      "mainCategory": "Accessories",
+      "setRoles": [
+        "power_box"
+      ]
     },
     {
       "model": "Clamp On Table Socket",
@@ -1656,7 +1796,10 @@
       "productUrl": "https://ottimouae.com/product/clamp-on-table-socket/",
       "description": "* Material:aluminum alloy * Configurations:s:2*Universal powers + 2*USBcharger. * Color:White * Size : customized * USB output:5V2.1A",
       "subCategory": "Accessories",
-      "mainCategory": "Accessories"
+      "mainCategory": "Accessories",
+      "setRoles": [
+        "power_box"
+      ]
     },
     {
       "model": "Grommet socket",
@@ -1666,7 +1809,10 @@
       "productUrl": "https://ottimouae.com/product/grommet-socket/",
       "description": "Round power grommet socket",
       "subCategory": "Accessories",
-      "mainCategory": "Accessories"
+      "mainCategory": "Accessories",
+      "setRoles": [
+        "power_box"
+      ]
     },
     {
       "model": "Hydraulic Pop Up Socket",
@@ -1676,7 +1822,10 @@
       "productUrl": "https://ottimouae.com/product/hydraulic-pop-up-socket/",
       "description": "Electric automatic conference table power outlet socket",
       "subCategory": "Accessories",
-      "mainCategory": "Accessories"
+      "mainCategory": "Accessories",
+      "setRoles": [
+        "power_box"
+      ]
     },
     {
       "model": "Manual Flip Up Power Socket",
@@ -1686,7 +1835,10 @@
       "productUrl": "https://ottimouae.com/product/manual-flip-up-power-socket/",
       "description": "Tabletop hidden manual flip up rotary power outlet socket",
       "subCategory": "Accessories",
-      "mainCategory": "Accessories"
+      "mainCategory": "Accessories",
+      "setRoles": [
+        "power_box"
+      ]
     },
     {
       "model": "Wireless Charger With Type C",
@@ -1706,7 +1858,10 @@
       "productUrl": "https://ottimouae.com/product/power-pop-up-table-socket/",
       "description": "Water proof automatic power pop up table socket",
       "subCategory": "Accessories",
-      "mainCategory": "Accessories"
+      "mainCategory": "Accessories",
+      "setRoles": [
+        "power_box"
+      ]
     },
     {
       "model": "Brad Chair",
@@ -2364,7 +2519,13 @@
       "productUrl": "https://ottimouae.com/product/pyramid-l-shape-desk-02/",
       "description": "Modern desk in powder coated frame finish. The frame sets a strong visual accent and ensures particularly high stability. Soft close rectangular cable grommet in brushed aluminum finish on tabletop for professional and smart working environment.",
       "subCategory": "Desks",
-      "mainCategory": "Desks"
+      "mainCategory": "Desks",
+      "setRoles": [
+        "executive_desk"
+      ],
+      "includesRoles": [
+        "side_return"
+      ]
     },
     {
       "model": "Pyramid Rectangular Desk",
@@ -2374,7 +2535,10 @@
       "productUrl": "https://ottimouae.com/product/pyramid-rectangular-desk/",
       "description": "Modern desk in powder coated frame finish. The frame sets a strong visual accent and ensures particularly high stability. Soft close rectangular cable grommet in brushed aluminum finish on tabletop for professional and smart working environment.",
       "subCategory": "Desks",
-      "mainCategory": "Desks"
+      "mainCategory": "Desks",
+      "setRoles": [
+        "workstation_desk"
+      ]
     },
     {
       "model": "L Shape Executive Desk",
@@ -2384,7 +2548,13 @@
       "productUrl": "https://ottimouae.com/product/l-shape-executive-desk/",
       "description": "Luxury L-Shape desks with optional side storage.",
       "subCategory": "Desks",
-      "mainCategory": "Desks"
+      "mainCategory": "Desks",
+      "setRoles": [
+        "executive_desk"
+      ],
+      "includesRoles": [
+        "side_return"
+      ]
     },
     {
       "model": "Tida Chair",
@@ -2434,7 +2604,10 @@
       "productUrl": "https://ottimouae.com/product/cluster-of-4-face-to-face-white-leg-2/",
       "description": "Durable Table legs manufactured in powder coated( Can be customized to any size as per requirements ) and the style is unique, making you more eye-catching, From a variety of innovative products used by the brand, flexibility and sharing can break through expectations, and the functionality of the office space, Connectivity and openness blend together",
       "subCategory": "Workstation",
-      "mainCategory": "Desks"
+      "mainCategory": "Desks",
+      "setRoles": [
+        "workstation_desk"
+      ]
     },
     {
       "model": "Cluster of 4 L Shape Desk + Shape White Leg",
@@ -2444,7 +2617,13 @@
       "productUrl": "https://ottimouae.com/product/cluster-of-4-l-shape-desk-shape-white-leg/",
       "description": "Durable Table legs manufactured in powder coated( Can be customized to any size as per requirements ) and the style is unique, making you more eye-catching, From a variety of innovative products used by the brand, flexibility and sharing can break through expectations, and the functionality of the office space, Connectivity and openness blend together.",
       "subCategory": "Workstation",
-      "mainCategory": "Desks"
+      "mainCategory": "Desks",
+      "setRoles": [
+        "workstation_desk"
+      ],
+      "includesRoles": [
+        "side_return"
+      ]
     },
     {
       "model": "Cluster of 4 L Shape Desk , + Shape White Leg",
@@ -2454,7 +2633,13 @@
       "productUrl": "https://ottimouae.com/product/cluster-of-4-l-shape-desk-shape-white-leg-2/",
       "description": "Durable Table legs manufactured in powder coated( Can be customized to any size as per requirements ) and the style is unique, making you more eye-catching, From a variety of innovative products used by the brand, flexibility and sharing can break through expectations, and the functionality of the office space, Connectivity and openness blend together",
       "subCategory": "Workstation",
-      "mainCategory": "Desks"
+      "mainCategory": "Desks",
+      "setRoles": [
+        "workstation_desk"
+      ],
+      "includesRoles": [
+        "side_return"
+      ]
     },
     {
       "model": "Cluster of 6 Face to Face Black Leg",
@@ -2464,7 +2649,10 @@
       "productUrl": "https://ottimouae.com/product/cluster-of-6-face-to-face-black-leg/",
       "description": "Durable Table legs manufactured in powder coated( Can be customized to any size as per requirements ) and the style is unique, making you more eye-catching, From a variety of innovative products used by the brand, flexibility and sharing can break through expectations, and the functionality of the office space, Connectivity and openness blend together.",
       "subCategory": "Workstation",
-      "mainCategory": "Desks"
+      "mainCategory": "Desks",
+      "setRoles": [
+        "workstation_desk"
+      ]
     },
     {
       "model": "Cluster of 8 Face to Face Balck Leg",
@@ -2474,7 +2662,10 @@
       "productUrl": "https://ottimouae.com/product/cluster-of-8-face-to-face-balck-leg/",
       "description": "Durable Table legs manufactured in powder coated( Can be customized to any size as per requirements ) and the style is unique, making you more eye-catching, From a variety of innovative products used by the brand, flexibility and sharing can break through expectations, and the functionality of the office space, Connectivity and openness blend together.",
       "subCategory": "Workstation",
-      "mainCategory": "Desks"
+      "mainCategory": "Desks",
+      "setRoles": [
+        "workstation_desk"
+      ]
     },
     {
       "model": "Rectangular Desk White Leg",
@@ -2484,7 +2675,10 @@
       "productUrl": "https://ottimouae.com/product/rectangular-desk-white-leg/",
       "description": "Durable Table legs manufactured in powder coated( Can be customized to any size as per requirements ) and the style is unique, making you more eye-catching, From a variety of innovative products used by the brand, flexibility and sharing can break through expectations, and the functionality of the office space, Connectivity and openness blend together",
       "subCategory": "Workstation",
-      "mainCategory": "Desks"
+      "mainCategory": "Desks",
+      "setRoles": [
+        "workstation_desk"
+      ]
     },
     {
       "model": "Mix Series Desk",
@@ -2494,7 +2688,10 @@
       "productUrl": "https://ottimouae.com/product/mix-series-desk/",
       "description": "Custom-Made in different color combinations and sizes to keep your office organized and optimized with this contemporary L-shaped executive desk. Crafted of Egger Premium Double Boards.",
       "subCategory": "Desks",
-      "mainCategory": "Desks"
+      "mainCategory": "Desks",
+      "setRoles": [
+        "workstation_desk"
+      ]
     },
     {
       "model": "Onyx Pro Series Desk",
@@ -2504,7 +2701,10 @@
       "productUrl": "https://ottimouae.com/product/onyx-pro-series-desk/",
       "description": "Luxury L-Shape desks with optional side storage, customizable in various sizes and a wide range of high-quality finishes.",
       "subCategory": "Desks",
-      "mainCategory": "Desks"
+      "mainCategory": "Desks",
+      "setRoles": [
+        "workstation_desk"
+      ]
     },
     {
       "model": "Onyx Series Desk",
@@ -2514,7 +2714,10 @@
       "productUrl": "https://ottimouae.com/product/onyx-series-desk/",
       "description": "Elegant executive desk with side storage option Custom-made in premium boards. 36mm double top in two-tone color option 3x Soft close handle less drawers with large filing shelves.",
       "subCategory": "Desks",
-      "mainCategory": "Desks"
+      "mainCategory": "Desks",
+      "setRoles": [
+        "workstation_desk"
+      ]
     },
     {
       "model": "Oxo L Shape Desk",
@@ -2524,7 +2727,13 @@
       "productUrl": "https://ottimouae.com/product/oxo-l-shape-desk/",
       "description": "Modern desk in powder coated frame finish. The frame sets a strong visual accent and ensures particularly high stability. Soft close rectangular cable grommet in brushed aluminum finish on tabletop for professional and smart working environment.",
       "subCategory": "Desks",
-      "mainCategory": "Desks"
+      "mainCategory": "Desks",
+      "setRoles": [
+        "executive_desk"
+      ],
+      "includesRoles": [
+        "side_return"
+      ]
     },
     {
       "model": "Oxo Rectangular Desk",
@@ -2534,7 +2743,10 @@
       "productUrl": "https://ottimouae.com/product/oxo-rectangular-desk/",
       "description": "Modern desk in powder coated frame finish. The frame sets a strong visual accent and ensures particularly high stability. Soft close rectangular cable grommet in brushed aluminum finish on tabletop for professional and smart working environment.",
       "subCategory": "Desks",
-      "mainCategory": "Desks"
+      "mainCategory": "Desks",
+      "setRoles": [
+        "workstation_desk"
+      ]
     },
     {
       "model": "Pyramid L Shape Desk 01",
@@ -2544,7 +2756,13 @@
       "productUrl": "https://ottimouae.com/product/pyramid-l-shape-desk-01/",
       "description": "Modern desk in powder coated frame finish. The frame sets a strong visual accent and ensures particularly high stability. Soft close rectangular cable grommet in brushed aluminum finish on tabletop for professional and smart working environment.",
       "subCategory": "Desks",
-      "mainCategory": "Desks"
+      "mainCategory": "Desks",
+      "setRoles": [
+        "executive_desk"
+      ],
+      "includesRoles": [
+        "side_return"
+      ]
     },
     {
       "model": "Pyramid L Shape Desk 03",
@@ -2554,7 +2772,13 @@
       "productUrl": "https://ottimouae.com/product/pyramid-l-shape-desk-03/",
       "description": "Modern desk in powder coated frame finish. The frame sets a strong visual accent and ensures particularly high stability. Soft close rectangular cable grommet in brushed aluminum finish on tabletop for professional and smart working environment.",
       "subCategory": "Desks",
-      "mainCategory": "Desks"
+      "mainCategory": "Desks",
+      "setRoles": [
+        "executive_desk"
+      ],
+      "includesRoles": [
+        "side_return"
+      ]
     },
     {
       "model": "Crystal Sofa",
@@ -3410,7 +3634,13 @@
       "productUrl": "https://ottimouae.com/product/cluster-2-l-shape-desk-t-shape-2/",
       "description": "Durable Table legs manufactured in powder coated( Can be customized to any size as per requirements ) and the style is unique, making you more eye-catching, From a variety of innovative products used by the brand, flexibility and sharing can break through expectations, and the functionality of the office space, Connectivity and openness blend together",
       "subCategory": "Workstation",
-      "mainCategory": "Desks"
+      "mainCategory": "Desks",
+      "setRoles": [
+        "workstation_desk"
+      ],
+      "includesRoles": [
+        "side_return"
+      ]
     },
     {
       "model": "Cluster of 2 L-shape Desk- U-shape White Leg",
@@ -3420,7 +3650,13 @@
       "productUrl": "https://ottimouae.com/product/cluster-of-2-l-shape-desk-u-shape-white-leg/",
       "description": "Durable Table legs manufactured in powder coated( Can be customized to any size as per requirements ) and the style is unique, making you more eye-catching, From a variety of innovative products used by the brand, flexibility and sharing can break through expectations, and the functionality of the office space, Connectivity and openness blend together.",
       "subCategory": "Workstation",
-      "mainCategory": "Desks"
+      "mainCategory": "Desks",
+      "setRoles": [
+        "workstation_desk"
+      ],
+      "includesRoles": [
+        "side_return"
+      ]
     },
     {
       "model": "Custom-Made Minimalist Reception Desk",
@@ -3580,7 +3816,13 @@
       "productUrl": "https://ottimouae.com/product/cluster-of-4-l-shape-desk-shape-white-leg/",
       "description": "Durable Table legs manufactured in powder coated( Can be customized to any size as per requirements ) and the style is unique, making you more eye-catching, From a variety of innovative products used by the brand, flexibility and sharing can break through expectations, and the functionality of the office space, Connectivity and openness blend together.",
       "subCategory": "Workstation",
-      "mainCategory": "Desks"
+      "mainCategory": "Desks",
+      "setRoles": [
+        "workstation_desk"
+      ],
+      "includesRoles": [
+        "side_return"
+      ]
     },
     {
       "model": "Cluster of 4 L-Shape Desk , + Shape White Leg",
@@ -3590,7 +3832,13 @@
       "productUrl": "https://ottimouae.com/product/cluster-of-4-l-shape-desk-shape-white-leg-2/",
       "description": "Durable Table legs manufactured in powder coated( Can be customized to any size as per requirements ) and the style is unique, making you more eye-catching, From a variety of innovative products used by the brand, flexibility and sharing can break through expectations, and the functionality of the office space, Connectivity and openness blend together",
       "subCategory": "Workstation",
-      "mainCategory": "Desks"
+      "mainCategory": "Desks",
+      "setRoles": [
+        "workstation_desk"
+      ],
+      "includesRoles": [
+        "side_return"
+      ]
     }
   ],
   "source": "UAE",

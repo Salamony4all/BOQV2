@@ -1,10 +1,6 @@
 {
-  "id": 1766328344594,
+  "id": "1766328344594",
   "name": "Nurus",
-  "url": "https://www.architonic.com/en/b/nurus/collections/3100100/",
-  "origin": "TURKEY",
-  "budgetTier": "mid",
-  "logo": "https://media.architonic.com/m-on/3100100/logo/nurus_logo_779d6867.jpeg?width=320&height=120&fit=inside&crop=true&format=webp&quality=90",
   "products": [
     {
       "mainCategory": "Furniture",
@@ -564,7 +560,11 @@
       "description": "Desks. U Too offers comfortable solutions for everyday office life with its components such as armchairs.\nIt permits an office to be equipped professionally",
       "imageUrl": "https://media.architonic.com/m-on/3100100/product/1066821/nurus_u-too-six-fold-desk_6d16fc2f.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/nurus-u-too-six-fold-desk-1066821/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "workstation_desk"
+      ],
+      "seatsPerUnit": 6
     },
     {
       "mainCategory": "Furniture",
@@ -574,7 +574,10 @@
       "description": "Contract tables. U Too offers comfortable solutions for everyday office life with its components such as armchairs.\nIt permits an office to be equipped professionally",
       "imageUrl": "https://media.architonic.com/m-on/3100100/product/1066823/nurus_u-too-meeting-table_2b78594f.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/nurus-u-too-meeting-table-1066823/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "conference_table"
+      ]
     },
     {
       "mainCategory": "Furniture",
@@ -584,7 +587,10 @@
       "description": "Contract tables. U Too offers comfortable solutions for everyday office life with its components such as armchairs.\nIt permits an office to be equipped professionally",
       "imageUrl": "https://media.architonic.com/m-on/3100100/product/1194319/nurus_u-too-meeting-table_301d5566.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/nurus-u-too-meeting-table-1194319/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "conference_table"
+      ]
     },
     {
       "mainCategory": "Furniture",
@@ -594,7 +600,10 @@
       "description": "Contract tables. Silva is designed to provide solutions for the everchanging and developing technologies and new workstyles. It allows you to decorate and plan the office",
       "imageUrl": "https://media.architonic.com/m-on/3100100/product/1194323/nurus_silva-meeting-table_130821b1.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/nurus-silva-meeting-table-1194323/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "conference_table"
+      ]
     },
     {
       "mainCategory": "Furniture",
@@ -604,7 +613,10 @@
       "description": "Contract tables. Silva is designed to provide solutions for the everchanging and developing technologies and new workstyles. It allows you to decorate and plan the office",
       "imageUrl": "https://media.architonic.com/m-on/3100100/product/1194328/nurus_silva-meeting-table_6bc7fb57.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/nurus-silva-meeting-table-1194328/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "conference_table"
+      ]
     },
     {
       "mainCategory": "Furniture",
@@ -614,7 +626,10 @@
       "description": "Contract tables. Silva is designed to provide solutions for the everchanging and developing technologies and new workstyles. It allows you to decorate and plan the office",
       "imageUrl": "https://media.architonic.com/m-on/3100100/product/1194324/nurus_silva-meeting-table_1ad33c79.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/nurus-silva-meeting-table-1194324/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "conference_table"
+      ]
     },
     {
       "mainCategory": "Furniture",
@@ -624,7 +639,10 @@
       "description": "Desks. Pila is a brand new product family derived from consumers’ needs and demands. Pila comes forward with its simplex leg design and functional",
       "imageUrl": "https://media.architonic.com/m-on/3100100/product/1194334/nurus_pila-desk_a156fa89.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/nurus-pila-desk-1194334/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "workstation_desk"
+      ]
     },
     {
       "mainCategory": "Furniture",
@@ -634,7 +652,11 @@
       "description": "Desks. U Too offers comfortable solutions for everyday office life with its components such as armchairs.\nIt permits an office to be equipped professionally",
       "imageUrl": "https://media.architonic.com/m-on/3100100/product/1194358/nurus_u-too-quadro-desk_05ac162b.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/nurus-u-too-quadro-desk-1194358/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "workstation_desk"
+      ],
+      "seatsPerUnit": 4
     },
     {
       "mainCategory": "Furniture",
@@ -644,7 +666,10 @@
       "description": "Contract tables. Silva is designed to provide solutions for the everchanging and developing technologies and new workstyles. It allows you to decorate and plan the office",
       "imageUrl": "https://media.architonic.com/m-on/3100100/product/1194325/nurus_silva-meeting-table_08d9d9de.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/nurus-silva-meeting-table-1194325/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "conference_table"
+      ]
     },
     {
       "mainCategory": "Furniture",
@@ -654,7 +679,11 @@
       "description": "Desks. Silva is designed to provide solutions for the everchanging and developing technologies and new workstyles. It allows you to decorate and plan the office",
       "imageUrl": "https://media.architonic.com/m-on/3100100/product/1194375/nurus_silva-double-working-system_352cba32.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/nurus-silva-double-working-system-1194375/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "workstation_desk"
+      ],
+      "seatsPerUnit": 2
     },
     {
       "mainCategory": "Furniture",
@@ -664,7 +693,11 @@
       "description": "Desks. U Too offers comfortable solutions for everyday office life with its components such as armchairs.\nIt permits an office to be equipped professionally",
       "imageUrl": "https://media.architonic.com/m-on/3100100/product/1194354/nurus_u-too-double-desk_565f5651.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/nurus-u-too-double-desk-1194354/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "workstation_desk"
+      ],
+      "seatsPerUnit": 2
     },
     {
       "mainCategory": "Furniture",
@@ -674,7 +707,10 @@
       "description": "Desks. Pila is a brand new product family derived from consumers’ needs and demands. Pila comes forward with its simplex leg design and functional",
       "imageUrl": "https://media.architonic.com/m-on/3100100/product/1194335/nurus_pila-desk_53a27d73.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/nurus-pila-desk-1194335/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "workstation_desk"
+      ]
     },
     {
       "mainCategory": "Furniture",
@@ -684,7 +720,11 @@
       "description": "Desks. U Too offers comfortable solutions for everyday office life with its components such as armchairs.\nIt permits an office to be equipped professionally",
       "imageUrl": "https://media.architonic.com/m-on/3100100/product/1194360/nurus_u-too-six-fold-desk_230ae9d7.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/nurus-u-too-six-fold-desk-1194360/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "workstation_desk"
+      ],
+      "seatsPerUnit": 6
     },
     {
       "mainCategory": "Furniture",
@@ -694,7 +734,11 @@
       "description": "Desks. Silva is designed to provide solutions for the everchanging and developing technologies and new workstyles. It allows you to decorate and plan the office",
       "imageUrl": "https://media.architonic.com/m-on/3100100/product/1194371/nurus_silva-double-working-system_dbe4db44.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/nurus-silva-double-working-system-1194371/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "workstation_desk"
+      ],
+      "seatsPerUnit": 2
     },
     {
       "mainCategory": "Furniture",
@@ -704,7 +748,10 @@
       "description": "Contract tables. U Too offers comfortable solutions for everyday office life with its components such as armchairs.\nIt permits an office to be equipped professionally",
       "imageUrl": "https://media.architonic.com/m-on/3100100/product/1194321/nurus_u-too-meeting-table_b3774db1.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/nurus-u-too-meeting-table-1194321/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "conference_table"
+      ]
     },
     {
       "mainCategory": "Furniture",
@@ -714,7 +761,11 @@
       "description": "Contract tables. U Too offers comfortable solutions for everyday office life with its components such as armchairs.\nIt permits an office to be equipped professionally",
       "imageUrl": "https://media.architonic.com/m-on/3100100/product/1066820/nurus_u-too-quadro-desk_16f78ed8.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/nurus-u-too-quadro-desk-1066820/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "workstation_desk"
+      ],
+      "seatsPerUnit": 4
     },
     {
       "mainCategory": "Furniture",
@@ -724,7 +775,10 @@
       "description": "Contract tables. Silva is designed to provide solutions for the everchanging and developing technologies and new workstyles. It allows you to decorate and plan the office",
       "imageUrl": "https://media.architonic.com/m-on/3100100/product/1194327/nurus_silva-meeting-table_dbc5b561.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/nurus-silva-meeting-table-1194327/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "conference_table"
+      ]
     },
     {
       "mainCategory": "Furniture",
@@ -734,7 +788,10 @@
       "description": "Desks. Pila is a brand new product family derived from consumers’ needs and demands. Pila comes forward with its simplex leg design and functional",
       "imageUrl": "https://media.architonic.com/m-on/3100100/product/1194332/nurus_pila-desk_8ef60d4f.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/nurus-pila-desk-1194332/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "workstation_desk"
+      ]
     },
     {
       "mainCategory": "Furniture",
@@ -744,7 +801,10 @@
       "description": "Desks. U Too offers comfortable solutions for everyday office life with its components such as armchairs.\nIt permits an office to be equipped professionally",
       "imageUrl": "https://media.architonic.com/m-on/3100100/product/1194347/nurus_u-too-desk_3fa0ee7c.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/nurus-u-too-desk-1194347/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "workstation_desk"
+      ]
     },
     {
       "mainCategory": "Furniture",
@@ -754,7 +814,10 @@
       "description": "Desks. U Too offers comfortable solutions for everyday office life with its components such as armchairs.\nIt permits an office to be equipped professionally",
       "imageUrl": "https://media.architonic.com/m-on/3100100/product/1194350/nurus_u-too-desk_a04c64ee.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/nurus-u-too-desk-1194350/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "workstation_desk"
+      ]
     },
     {
       "mainCategory": "Furniture",
@@ -764,7 +827,11 @@
       "description": "Desks. U Too offers comfortable solutions for everyday office life with its components such as armchairs.\nIt permits an office to be equipped professionally",
       "imageUrl": "https://media.architonic.com/m-on/3100100/product/1194361/nurus_u-too-six-fold-desk_978c70e1.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/nurus-u-too-six-fold-desk-1194361/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "workstation_desk"
+      ],
+      "seatsPerUnit": 6
     },
     {
       "mainCategory": "Furniture",
@@ -774,7 +841,11 @@
       "description": "Desks. U Too offers comfortable solutions for everyday office life with its components such as armchairs.\nIt permits an office to be equipped professionally",
       "imageUrl": "https://media.architonic.com/m-on/3100100/product/1194356/nurus_u-too-quadro-desk_62bb5ec6.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/nurus-u-too-quadro-desk-1194356/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "workstation_desk"
+      ],
+      "seatsPerUnit": 4
     },
     {
       "mainCategory": "Furniture",
@@ -784,7 +855,11 @@
       "description": "Desks. Silva is designed to provide solutions for the everchanging and developing technologies and new workstyles. It allows you to decorate and plan the office",
       "imageUrl": "https://media.architonic.com/m-on/3100100/product/1194372/nurus_silva-double-working-system_86557868.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/nurus-silva-double-working-system-1194372/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "workstation_desk"
+      ],
+      "seatsPerUnit": 2
     },
     {
       "mainCategory": "Furniture",
@@ -794,7 +869,11 @@
       "description": "Desks. Silva is designed to provide solutions for the everchanging and developing technologies and new workstyles. It allows you to decorate and plan the office",
       "imageUrl": "https://media.architonic.com/m-on/3100100/product/1194374/nurus_silva-double-working-system_e9337843.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/nurus-silva-double-working-system-1194374/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "workstation_desk"
+      ],
+      "seatsPerUnit": 2
     },
     {
       "mainCategory": "Furniture",
@@ -804,7 +883,10 @@
       "description": "Desks. Silva is designed to provide solutions for the everchanging and developing technologies and new workstyles. It allows you to decorate and plan the office",
       "imageUrl": "https://media.architonic.com/m-on/3100100/product/1194376/nurus_silva-desk_7f2281e1.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/nurus-silva-desk-1194376/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "workstation_desk"
+      ]
     },
     {
       "mainCategory": "Furniture",
@@ -814,7 +896,10 @@
       "description": "Desks. Silva is designed to provide solutions for the everchanging and developing technologies and new workstyles. It allows you to decorate and plan the office",
       "imageUrl": "https://media.architonic.com/m-on/3100100/product/1194377/nurus_silva-desk_b55f9a0b.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/nurus-silva-desk-1194377/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "workstation_desk"
+      ]
     },
     {
       "mainCategory": "Furniture",
@@ -824,7 +909,10 @@
       "description": "Desks. Silva is designed to provide solutions for the everchanging and developing technologies and new workstyles. It allows you to decorate and plan the office",
       "imageUrl": "https://media.architonic.com/m-on/3100100/product/1194378/nurus_silva-desk_49ba6988.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/nurus-silva-desk-1194378/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "workstation_desk"
+      ]
     },
     {
       "mainCategory": "Furniture",
@@ -834,7 +922,10 @@
       "description": "Desks. Silva is designed to provide solutions for the everchanging and developing technologies and new workstyles. It allows you to decorate and plan the office",
       "imageUrl": "https://media.architonic.com/m-on/3100100/product/1197637/nurus_silva-desk_54c821ed.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/nurus-silva-desk-1197637/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "workstation_desk"
+      ]
     },
     {
       "mainCategory": "Furniture",
@@ -844,7 +935,10 @@
       "description": "Contract tables. Silva is designed to provide solutions for the everchanging and developing technologies and new workstyles. It allows you to decorate and plan the office",
       "imageUrl": "https://media.architonic.com/m-on/3100100/product/1194383/nurus_silva-desk_0541b8f2.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/nurus-silva-desk-1194383/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "workstation_desk"
+      ]
     },
     {
       "mainCategory": "Furniture",
@@ -854,7 +948,10 @@
       "description": "Desks. Silva is designed to provide solutions for the everchanging and developing technologies and new workstyles. It allows you to decorate and plan the office",
       "imageUrl": "https://media.architonic.com/m-on/3100100/product/1197707/nurus_silva-desk_84c5de84.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/nurus-silva-desk-1197707/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "workstation_desk"
+      ]
     },
     {
       "mainCategory": "Furniture",
@@ -864,7 +961,10 @@
       "description": "Contract tables. U Too offers comfortable solutions for everyday office life with its components such as armchairs.\nIt permits an office to be equipped professionally",
       "imageUrl": "https://media.architonic.com/m-on/3100100/product/1194320/nurus_u-too-meeting-table_fec13f43.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/nurus-u-too-meeting-table-1194320/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "conference_table"
+      ]
     },
     {
       "mainCategory": "Furniture",
@@ -874,7 +974,10 @@
       "description": "Contract tables. U Too offers comfortable solutions for everyday office life with its components such as armchairs.\nIt permits an office to be equipped professionally",
       "imageUrl": "https://media.architonic.com/m-on/3100100/product/1194322/nurus_u-too-meeting-table_f50bca11.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/nurus-u-too-meeting-table-1194322/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "conference_table"
+      ]
     },
     {
       "mainCategory": "Furniture",
@@ -884,7 +987,10 @@
       "description": "Desks. U Too offers comfortable solutions for everyday office life with its components such as armchairs.\nIt permits an office to be equipped professionally",
       "imageUrl": "https://media.architonic.com/m-on/3100100/product/1194348/nurus_u-too-desk_8dc1fafe.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/nurus-u-too-desk-1194348/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "workstation_desk"
+      ]
     },
     {
       "mainCategory": "Furniture",
@@ -904,7 +1010,10 @@
       "description": "Contract tables. U Too offers comfortable solutions for everyday office life with its components such as armchairs.\nIt permits an office to be equipped professionally",
       "imageUrl": "https://media.architonic.com/m-on/3100100/product/1194352/nurus_u-too-desk_1d29ab91.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/nurus-u-too-desk-1194352/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "workstation_desk"
+      ]
     },
     {
       "mainCategory": "Furniture",
@@ -914,7 +1023,11 @@
       "description": "Desks. U Too offers comfortable solutions for everyday office life with its components such as armchairs.\nIt permits an office to be equipped professionally",
       "imageUrl": "https://media.architonic.com/m-on/3100100/product/1194359/nurus_u-too-quadro-desk_efda703b.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/nurus-u-too-quadro-desk-1194359/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "workstation_desk"
+      ],
+      "seatsPerUnit": 4
     },
     {
       "mainCategory": "Furniture",
@@ -924,7 +1037,11 @@
       "description": "Desks. U Too offers comfortable solutions for everyday office life with its components such as armchairs.\nIt permits an office to be equipped professionally",
       "imageUrl": "https://media.architonic.com/m-on/3100100/product/1194353/nurus_u-too-double-desk_71d22e49.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/nurus-u-too-double-desk-1194353/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "workstation_desk"
+      ],
+      "seatsPerUnit": 2
     },
     {
       "mainCategory": "Furniture",
@@ -934,7 +1051,11 @@
       "description": "Desks. U Too offers comfortable solutions for everyday office life with its components such as armchairs.\nIt permits an office to be equipped professionally",
       "imageUrl": "https://media.architonic.com/m-on/3100100/product/1194362/nurus_u-too-six-fold-desk_6ddcfc60.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/nurus-u-too-six-fold-desk-1194362/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "workstation_desk"
+      ],
+      "seatsPerUnit": 6
     },
     {
       "mainCategory": "Furniture",
@@ -944,7 +1065,11 @@
       "description": "Desks. Silva is designed to provide solutions for the everchanging and developing technologies and new workstyles. It allows you to decorate and plan the office",
       "imageUrl": "https://media.architonic.com/m-on/3100100/product/1194373/nurus_silva-double-working-system_c0b03bd3.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/nurus-silva-double-working-system-1194373/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "workstation_desk"
+      ],
+      "seatsPerUnit": 2
     },
     {
       "mainCategory": "Furniture",
@@ -954,7 +1079,10 @@
       "description": "Contract tables. Silva is designed to provide solutions for the everchanging and developing technologies and new workstyles. It allows you to decorate and plan the office",
       "imageUrl": "https://media.architonic.com/m-on/3100100/product/1194379/nurus_silva-desk_6e62ec11.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/nurus-silva-desk-1194379/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "workstation_desk"
+      ]
     },
     {
       "mainCategory": "Furniture",
@@ -964,7 +1092,10 @@
       "description": "Desks. Silva is designed to provide solutions for the everchanging and developing technologies and new workstyles. It allows you to decorate and plan the office",
       "imageUrl": "https://media.architonic.com/m-on/3100100/product/1194382/nurus_silva-desk_604f2746.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/nurus-silva-desk-1194382/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "workstation_desk"
+      ]
     },
     {
       "mainCategory": "Furniture",
@@ -974,7 +1105,10 @@
       "description": "Desks. Silva is designed to provide solutions for the everchanging and developing technologies and new workstyles. It allows you to decorate and plan the office",
       "imageUrl": "https://media.architonic.com/m-on/3100100/product/1194380/nurus_silva-desk_c6e58c45.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/nurus-silva-desk-1194380/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "workstation_desk"
+      ]
     },
     {
       "mainCategory": "Furniture",
@@ -984,7 +1118,10 @@
       "description": "Desks. Silva is designed to provide solutions for the everchanging and developing technologies and new workstyles. It allows you to decorate and plan the office",
       "imageUrl": "https://media.architonic.com/m-on/3100100/product/1194384/nurus_silva-desk_3ca5969a.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/nurus-silva-desk-1194384/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "workstation_desk"
+      ]
     },
     {
       "mainCategory": "Furniture",
@@ -994,7 +1131,10 @@
       "description": "Desks. Pila is a brand new product family derived from consumers’ needs and demands. Pila comes forward with its simplex leg design and functional",
       "imageUrl": "https://media.architonic.com/m-on/3100100/product/1278041/nurus_pila-desk_33f1dff4.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/nurus-pila-desk-1278041/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "workstation_desk"
+      ]
     },
     {
       "mainCategory": "Furniture",
@@ -1014,7 +1154,10 @@
       "description": "Desks. U Too offers comfortable solutions for everyday office life with its components such as armchairs.\nIt permits an office to be equipped professionally",
       "imageUrl": "https://media.architonic.com/m-on/3100100/product/1393370/nurus_u-too-desk_89d83606.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/nurus-u-too-desk-1393370/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "workstation_desk"
+      ]
     },
     {
       "mainCategory": "Furniture",
@@ -1024,7 +1167,11 @@
       "description": "Desks. U Too offers comfortable solutions for everyday office life with its components such as armchairs.\nIt permits an office to be equipped professionally",
       "imageUrl": "https://media.architonic.com/m-on/3100100/product/1393369/nurus_u-too-double-desk_198cab8c.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/nurus-u-too-double-desk-1393369/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "workstation_desk"
+      ],
+      "seatsPerUnit": 2
     },
     {
       "mainCategory": "Furniture",
@@ -1274,7 +1421,10 @@
       "description": "Contract tables. I/X has three main themes: Hi-Tech, Natural and White. Each theme has been designed to be a part of executives’ lives that have different taste, system",
       "imageUrl": "https://media.architonic.com/m-on/3100100/product/1193863/nurus_i-x-meeting-table_b353bae5.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/nurus-iorx-meeting-table-1193863/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "conference_table"
+      ]
     },
     {
       "mainCategory": "Furniture",
@@ -1284,7 +1434,10 @@
       "description": "Contract tables. I/X has three main themes: Hi-Tech, Natural and White. Each theme has been designed to be a part of executives’ lives that have different taste, system",
       "imageUrl": "https://media.architonic.com/m-on/3100100/product/1193859/nurus_i-x-meeting-table_8fb41d46.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/nurus-iorx-meeting-table-1193859/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "conference_table"
+      ]
     },
     {
       "mainCategory": "Furniture",
@@ -1354,7 +1507,10 @@
       "description": "Contract tables. I/X has three main themes: Hi-Tech, Natural and White. Each theme has been designed to be a part of executives’ lives that have different taste, system",
       "imageUrl": "https://media.architonic.com/m-on/3100100/product/1193865/nurus_i-x-meeting-table_03d7e22e.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/nurus-iorx-meeting-table-1193865/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "conference_table"
+      ]
     },
     {
       "mainCategory": "Furniture",
@@ -2384,7 +2540,10 @@
       "description": "Sideboards. H60 cm A high-performance workplace must easily and economically adapt to typical organizational and individual alterations, but can also be ready",
       "imageUrl": "https://media.architonic.com/m-on/3100100/product/1199799/nurus_fe2-h60-mobile-pedastal_47249368.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/nurus-fe2-h60-mobile-pedastal-1199799/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "pedestal"
+      ]
     },
     {
       "mainCategory": "Furniture",
@@ -2394,7 +2553,10 @@
       "description": "Sideboards. H72 cm A high-performance workplace must easily and economically adapt to typical organizational and individual alterations, but can also be ready",
       "imageUrl": "https://media.architonic.com/m-on/3100100/product/1199802/nurus_fe2-h72-fixed-pedastal_806106ce.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/nurus-fe2-h72-fixed-pedastal-1199802/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "pedestal"
+      ]
     },
     {
       "mainCategory": "Furniture",
@@ -2404,7 +2566,10 @@
       "description": "Sideboards. H72 cm A high-performance workplace must easily and economically adapt to typical organizational and individual alterations, but can also be ready",
       "imageUrl": "https://media.architonic.com/m-on/3100100/product/1199804/nurus_fe2-h72-fixed-pedastal_51f20552.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/nurus-fe2-h72-fixed-pedastal-1199804/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "pedestal"
+      ]
     },
     {
       "mainCategory": "Furniture",
@@ -2414,7 +2579,10 @@
       "description": "Sideboards. H60 cm A high-performance workplace must easily and economically adapt to typical organizational and individual alterations, but can also be ready",
       "imageUrl": "https://media.architonic.com/m-on/3100100/product/1199807/nurus_fe2-h60-fixed-pedastal_8afac48b.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/nurus-fe2-h60-fixed-pedastal-1199807/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "pedestal"
+      ]
     },
     {
       "mainCategory": "Furniture",
@@ -2424,7 +2592,10 @@
       "description": "Pedestals. 1x Drawer \n1x Filling \nH56.7 cm Today’s office must offer to its users increased productivity, flexibility and comfort, improved health and safety, and",
       "imageUrl": "https://media.architonic.com/m-on/3100100/product/1199901/nurus_cube-h567-movable-pedestal_a23aaade.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/nurus-cube-h56.7-movable-pedestal-1199901/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "pedestal"
+      ]
     },
     {
       "mainCategory": "Furniture",
@@ -2554,7 +2725,10 @@
       "description": "Sideboards. H60 cm A high-performance workplace must easily and economically adapt to typical organizational and individual alterations, but can also be ready",
       "imageUrl": "https://media.architonic.com/m-on/3100100/product/1199797/nurus_fe2-h60-mobile-pedastal_437b4391.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/nurus-fe2-h60-mobile-pedastal-1199797/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "pedestal"
+      ]
     },
     {
       "mainCategory": "Furniture",
@@ -2564,7 +2738,10 @@
       "description": "Pedestals. 3x Draver\nH56.7 cm Today’s office must offer to its users increased productivity, flexibility and comfort, improved health and safety, and aesthetically",
       "imageUrl": "https://media.architonic.com/m-on/3100100/product/1199905/nurus_cube-h567-movable-pedestal_99f07783.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/nurus-cube-h56.7-movable-pedestal-1199905/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "pedestal"
+      ]
     },
     {
       "mainCategory": "Furniture",
@@ -2694,7 +2871,10 @@
       "description": "Sideboards. H60 cm A high-performance workplace must easily and economically adapt to typical organizational and individual alterations, but can also be ready",
       "imageUrl": "https://media.architonic.com/m-on/3100100/product/1199796/nurus_fe2-h60-mobile-pedastal_030d55ac.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/nurus-fe2-h60-mobile-pedastal-1199796/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "pedestal"
+      ]
     },
     {
       "mainCategory": "Furniture",
@@ -2704,7 +2884,10 @@
       "description": "Sideboards. H72 cm A high-performance workplace must easily and economically adapt to typical organizational and individual alterations, but can also be ready",
       "imageUrl": "https://media.architonic.com/m-on/3100100/product/1199801/nurus_fe2-h72-fixed-pedastal_691086e7.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/nurus-fe2-h72-fixed-pedastal-1199801/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "pedestal"
+      ]
     },
     {
       "mainCategory": "Furniture",
@@ -2714,7 +2897,10 @@
       "description": "Sideboards. H72 cm A high-performance workplace must easily and economically adapt to typical organizational and individual alterations, but can also be ready",
       "imageUrl": "https://media.architonic.com/m-on/3100100/product/1199805/nurus_fe2-h72-fixed-pedastal_41cf5ed6.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/nurus-fe2-h72-fixed-pedastal-1199805/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "pedestal"
+      ]
     },
     {
       "mainCategory": "Furniture",
@@ -2724,7 +2910,10 @@
       "description": "Sideboards. H60 cm A high-performance workplace must easily and economically adapt to typical organizational and individual alterations, but can also be ready",
       "imageUrl": "https://media.architonic.com/m-on/3100100/product/1199806/nurus_fe2-h60-fixed-pedastal_5db587bc.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/nurus-fe2-h60-fixed-pedastal-1199806/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "pedestal"
+      ]
     },
     {
       "mainCategory": "Furniture",
@@ -2734,7 +2923,10 @@
       "description": "Pedestals. 3x Draver\nH56.7 cm Today’s office must offer to its users increased productivity, flexibility and comfort, improved health and safety, and aesthetically",
       "imageUrl": "https://media.architonic.com/m-on/3100100/product/1199900/nurus_cube-h567-movable-pedestal_bd272612.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/nurus-cube-h56.7-movable-pedestal-1199900/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "pedestal"
+      ]
     },
     {
       "mainCategory": "Furniture",
@@ -2754,7 +2946,10 @@
       "description": "Pedestals. 3x Draver\nH56.7 cm Today’s office must offer to its users increased productivity, flexibility and comfort, improved health and safety, and aesthetically",
       "imageUrl": "https://media.architonic.com/m-on/3100100/product/1199896/nurus_cube-h567-movable-pedestal_240b8c55.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/nurus-cube-h56.7-movable-pedestal-1199896/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "pedestal"
+      ]
     },
     {
       "brand": "Nurus",
@@ -2768,9 +2963,181 @@
       "description": "Fabric easy chair with armrests, designed by Favaretto&Partners, suitable for various environments with adjustable back options.",
       "lastUpdated": "2026-04-09T09:56:38.318Z",
       "source": "AI-Specialist-Discovery"
+    },
+    {
+      "model": "U Too Modular Folding & Meeting Table System",
+      "family": "U Too",
+      "mainCategory": "Desk & Table",
+      "subCategory": "Conference Tables",
+      "imageUrl": "https://media.architonic.com/m-on/3100100/product/1066823/nurus_u-too-meeting-table_2b78594f.jpeg?format=webp&quality=75",
+      "productUrl": "https://nurus.com/en/product/u-too-family/u-too-meeting-tables/",
+      "websiteUrl": "https://nurus.com/en/product/u-too-family/u-too-meeting-tables/",
+      "price": 0,
+      "currency": "USD",
+      "description": "U Too meeting tables with optional modesty panel, flap electrification cap and integrated cable management. Fixed tables (not folding).",
+      "officialRefreshedAt": "2026-11-20T19:41:07.908Z",
+      "verified": true,
+      "source": "official-site",
+      "lastUpdated": "2026-11-21",
+      "officialProductUrl": "https://nurus.com/en/product/u-too-family/u-too-meeting-tables/",
+      "setRoles": [
+        "conference_table"
+      ]
+    },
+    {
+      "model": "Nurus Next Executive L-Shape Desk with Return Credenza",
+      "family": "U Too",
+      "mainCategory": "Desk & Table",
+      "subCategory": "Executive Desks",
+      "imageUrl": "",
+      "productUrl": "https://nurus.com/en/product/u-too-family/u-too-semi-executive-desks/",
+      "websiteUrl": "https://nurus.com/en/product/u-too-family/u-too-semi-executive-desks/",
+      "price": 0,
+      "currency": "USD",
+      "description": "Nurus semi-executive desk (U Too family) used for L-shape layouts with a return unit. No dedicated \"Next\" product page exists on nurus.com — confirm the exact configuration with the supplier.",
+      "officialRefreshedAt": "2026-11-20T19:41:13.538Z",
+      "verified": false,
+      "source": "catalog-repair",
+      "lastUpdated": "2026-11-21",
+      "setRoles": [
+        "executive_desk"
+      ]
+    },
+    {
+      "model": "Nurus Workstation Cable Tray & Power Module",
+      "family": "U Too",
+      "mainCategory": "Accessories",
+      "subCategory": "Cable Management & Power",
+      "imageUrl": "",
+      "productUrl": "https://nurus.com/en/product/u-too-family/u-too-workstations/",
+      "websiteUrl": "https://nurus.com/en/product/u-too-family/u-too-workstations/",
+      "price": 0,
+      "currency": "USD",
+      "description": "Integrated cable management and power access of the U Too workstations — part of the desk system (no product page of its own).",
+      "officialRefreshedAt": "2026-11-20T19:41:15.916Z",
+      "verified": false,
+      "source": "system-accessory",
+      "lastUpdated": "2026-11-21",
+      "setRoles": [
+        "cable_management",
+        "power_box"
+      ]
+    },
+    {
+      "price": 0,
+      "currency": "USD",
+      "verified": true,
+      "source": "official-site",
+      "lastUpdated": "2026-11-21",
+      "websiteUrl": "https://nurus.com/en/product/u-too-family/u-too-workstations/",
+      "officialProductUrl": "https://nurus.com/en/product/u-too-family/u-too-workstations/",
+      "model": "U Too Workstations",
+      "family": "U Too",
+      "mainCategory": "Desk & Table",
+      "subCategory": "Workstations",
+      "productUrl": "https://nurus.com/en/product/u-too-family/u-too-workstations/",
+      "imageUrl": "https://nurus.com/wp-content/uploads/2025/08/Nurus_Operational-Desks_U-Too_Workstation_Catalogue.jpg",
+      "description": "U Too workstations: single and double desk set-ups with extensions, optional upholstered separators and modesty panel, integrated cable management and power access.",
+      "setRoles": [
+        "workstation_desk"
+      ]
+    },
+    {
+      "price": 0,
+      "currency": "USD",
+      "verified": true,
+      "source": "official-site",
+      "lastUpdated": "2026-11-21",
+      "websiteUrl": "https://nurus.com/en/product/pila-wood-family/pila-wood-workstations/",
+      "officialProductUrl": "https://nurus.com/en/product/pila-wood-family/pila-wood-workstations/",
+      "model": "Pila Wood Workstations",
+      "family": "Pila Wood",
+      "mainCategory": "Desk & Table",
+      "subCategory": "Workstations",
+      "productUrl": "https://nurus.com/en/product/pila-wood-family/pila-wood-workstations/",
+      "imageUrl": "https://nurus.com/wp-content/uploads/2025/09/Pila-Wood_2li_WS.jpg",
+      "description": "Pila Wood workstations for up to six users, with optional upholstered separators and modesty panel and integrated cable management.",
+      "setRoles": [
+        "workstation_desk"
+      ]
+    },
+    {
+      "price": 0,
+      "currency": "USD",
+      "verified": true,
+      "source": "official-site",
+      "lastUpdated": "2026-11-21",
+      "websiteUrl": "https://nurus.com/en/product/u-too-family/u-too-semi-executive-desks/",
+      "officialProductUrl": "https://nurus.com/en/product/u-too-family/u-too-semi-executive-desks/",
+      "model": "U Too Semi-Executive Desks",
+      "family": "U Too",
+      "mainCategory": "Desk & Table",
+      "subCategory": "Executive Desks",
+      "productUrl": "https://nurus.com/en/product/u-too-family/u-too-semi-executive-desks/",
+      "imageUrl": "",
+      "description": "U Too semi-executive desks from the U Too desking family.",
+      "setRoles": [
+        "executive_desk"
+      ]
+    },
+    {
+      "brand": "Nurus",
+      "model": "Luna Single Sofa",
+      "imageUrl": "https://media.architonic.com/m-on/3100100/product/1193657/nurus_luna-single-sofa_9ca1008b.jpeg?width=1200&height=630&format=webp",
+      "websiteUrl": "https://www.architonic.com/en/product/nurus-luna-single-sofa/1193657",
+      "mainCategory": "Office Seating",
+      "subCategory": "Sofas",
+      "family": "Luna",
+      "price": 0,
+      "description": "A versatile single sofa with a simple, classic design, ideal for various interiors from offices to waiting areas.",
+      "currency": "USD",
+      "productUrl": "https://www.architonic.com/en/product/nurus-luna-single-sofa/1193657",
+      "officialProductUrl": "https://www.architonic.com/en/product/nurus-luna-single-sofa/1193657",
+      "verified": true,
+      "lastUpdated": "2026-11-21T05:48:39.971Z",
+      "source": "AI-Discovery-Engine"
     }
   ],
-  "createdAt": "2025-12-21T14:45:44.595Z",
-  "websiteUrl": "https://www.architonic.com/en/b/nurus/collections/3100100/",
-  "budget_tier": "mid"
+  "source": "TURKEY",
+  "budget_tier": "mid",
+  "logo": "https://media.architonic.com/m-on/3100100/logo/nurus_logo_779d6867.jpeg?width=320&height=120&fit=inside&crop=true&format=webp&quality=90",
+  "updated_at": "2026-05-01T08:11:13.883+00:00",
+  "budgetTier": "mid",
+  "origin": "TURKEY",
+  "categoryTree": {
+    "Furniture": [
+      "Acoustic Pods",
+      "Accessories",
+      "Bernhardt Design",
+      "Chairs And Stools",
+      "Coffee Tables",
+      "Desks And Workstations",
+      "Dividers",
+      "Executive",
+      "Meeting And Conference",
+      "Office Chairs",
+      "Pouffes",
+      "Public Seating And Airport",
+      "Public Area And Lounge",
+      "Soft Seating",
+      "Storage And Shelves"
+    ],
+    "Office Seating": [
+      "Lounge Chairs"
+    ],
+    "Desk & Table": [
+      "Conference Tables",
+      "Executive Desks",
+      "Workstations"
+    ],
+    "Accessories": [
+      "Cable Management & Power"
+    ]
+  },
+  "categoryList": [
+    "Furniture",
+    "Office Seating",
+    "Desk & Table",
+    "Accessories"
+  ]
 }

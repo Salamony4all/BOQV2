@@ -43,6 +43,7 @@ import { enrichBrandFromArchitonic } from './utils/architonicAdapter.js';
 import { fetchProductFacts } from './utils/jsonldVerifier.js';
 import { VE_CATEGORY_CONFIG, classifyFurnishingCategory, isGenuineContractBrand, findBrandInCatalog, NON_BRAND_MODEL_WORDS, BRAND_ALIASES } from './utils/veCategoryPriority.js';
 import { getCanonicalBrandLogo, getCanonicalBrandWebsite, resolveBrandLogo, classifyContractCategory, CONTRACT_BRAND_LOGOS } from './utils/brandLogos.js';
+import { matchWorkstationSet } from './utils/workstationSetMatcher.js';
 import { fetchLiveProductImage, cleanTechnicalDescription, verifyImageUrl } from './utils/veImageEnricher.js';
 import { enrichProductFromLiveWeb } from './utils/veLiveEnricher.js';
 import { verifyImagePairing } from './utils/veImageVerification.js';
@@ -4928,9 +4929,39 @@ app.post('/api/ve-match-auto', async (req, res) => {
       }
     }
 
+    // ── CATEGORY-PRIORITY GOVERNANCE FOR UNBRANDED SPECS ──
+    // When the BOQ row has NO explicit manufacturer written in the specification, honor the user's
+    // VE_CATEGORY_CONFIG preferred brand order (e.g. B&T Design for Soft Seating / Coffee Tables,
+    // Pedrali for Dining / Outdoor, Sedus Stoll for Classroom, NARBUTAS for Desking / Task / Storage)
+    // instead of letting the LLM drift every category to a single default brand.
+    const catCfgPre = VE_CATEGORY_CONFIG[furnishingCatPrecheck] || null;
+    let driftedFromCategoryPriority = false;
+    if (
+      catCfgPre &&
+      !explicitDetails?.brand &&
+      !hasExplicitBrandInDesc &&
+      !hasExplicitMarketplaceUrl &&
+      furnishingCatPrecheck !== 'genericAccessories' &&
+      furnishingCatPrecheck !== 'fitoutArchitectural'
+    ) {
+      const availablePreferred = (catCfgPre.priorityBrands || [])
+        .filter(name => !/\bstructure\s*test\b/i.test(name))
+        .map(name => findBrandInCatalog(name, allLocalBrands))
+        .filter(b => b && Array.isArray(b.products) && b.products.length > 0);
+      const topPreferredBrand = availablePreferred[0];
+      if (topPreferredBrand) {
+        const topNameNorm = topPreferredBrand.name.toLowerCase().trim();
+        const chosenNorm = String(canonicalBrand || '').toLowerCase().trim();
+        if (chosenNorm !== topNameNorm) {
+          driftedFromCategoryPriority = true;
+          console.log(`  🧭 [VE Category Priority Guard] Unbranded "${catCfgPre.label}" item drifted to "${canonicalBrand || 'none'}"; enforcing preferred partner sequence starting with "${topPreferredBrand.name}".`);
+        }
+      }
+    }
+
     // ── FALLBACK STRATEGY: IF NO CONTRACT MANUFACTURER IS DETECTED OR SPEC IS EXPLICITLY UNBRANDED ──
     // Auto-categorize into Furnishing Categories & match via User's Priority Brand Sequence
-    if (!isGenuine || isGenericBrand || isUnbrandedSpec) {
+    if (!isGenuine || isGenericBrand || isUnbrandedSpec || driftedFromCategoryPriority) {
       if (hasExplicitMarketplaceUrl) {
         console.log(`🛒 [VE Auto-Detect] Explicit marketplace URL detected in specification. Fetching live product for "${identifiedModel || enrichedDesc}"...`);
         const marketplaceHit = await veGetProductDetails(canonicalBrand || 'Amazon', identifiedModel || enrichedDesc, providerModel, identityResult.productUrl || explicitDetails?.url, 'Accessories');
@@ -5659,6 +5690,60 @@ app.post('/api/lens/scrape', async (req, res) => {
     }
     console.error('[LensHeadless] scrape failed:', err.message);
     return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+/**
+ * POST /api/ve-match-workstation-set
+ * Anchor-first dynamic system set matcher (workstations, L-shape desks, folding-table sets,
+ * conference-table sets): locks the anchor product and fetches the remaining set components
+ * (side returns, screens, modesty panels, cable trays, power boxes, pedestals, monitor arms,
+ * chairs) from the same brand & family; hardware without its own SKU is returned as
+ * "included in system".
+ *   preferredBrand → soft brand preference in auto mode (e.g. the brand of the row's single-table
+ *                    match when resolving its "set of folding tables" option)
+ *   catalogOnly    → skip AI fallbacks (fast, deterministic catalog matching for set options)
+ */
+app.post('/api/ve-match-workstation-set', async (req, res) => {
+  try {
+    const {
+      parentDescription = '',
+      components = [],
+      targetBrand = '',
+      preferredBrand = '',
+      isAuto = true,
+      availableBrands = null,
+      providerModel = null,
+      catalogOnly = false,
+    } = req.body || {};
+
+    if (!parentDescription && (!Array.isArray(components) || components.length === 0)) {
+      return res.status(400).json({ status: 'error', error_message: 'Missing workstation description or components' });
+    }
+
+    const allLocalBrands = await brandStorage.getAllBrands();
+    const proxyBaseUrl = getProxyBase(req);
+
+    const result = await matchWorkstationSet({
+      parentDescription,
+      components,
+      targetBrand,
+      preferredBrand,
+      isAuto: Boolean(isAuto),
+      availableBrands,
+      allLocalBrands,
+      providerModel,
+      veMatchSimple: catalogOnly ? null : veMatchSimple,
+      veMatchAuto: catalogOnly ? null : veMatchAuto,
+      detectSpecifiedBrandInText,
+      resolveBrandLogo,
+      proxyBaseUrl,
+    });
+
+    return res.json(result);
+  } catch (err) {
+    console.error('❌ [Workstation Set Match Error]:', err.message);
+    return res.status(500).json({ status: 'error', error_message: err.message });
   }
 });
 

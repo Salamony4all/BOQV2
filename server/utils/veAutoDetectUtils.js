@@ -976,8 +976,22 @@ export async function veMatchAuto(description, providerModel = null, assets = []
             if (specifiedDetails.url) user += `\nReference Link: ${specifiedDetails.url}`;
             user += `\nTask: What is this exact model from this manufacturer? Identify genuine official model name, canonical manufacturer, and product line.`;
         } else {
+            const detectedCat = classifyFurnishingCategory(description);
+            const catCfg = VE_CATEGORY_CONFIG[detectedCat] || VE_CATEGORY_CONFIG.desking;
+            const availablePriorityBrands = (catCfg.priorityBrands || [])
+                .map(name => {
+                    const hit = Array.isArray(localCatalogs) && localCatalogs.length > 0
+                        ? findBrandInCatalog(name, localCatalogs)
+                        : null;
+                    return hit ? hit.name : null;
+                })
+                .filter(Boolean);
+            const effectivePriority = availablePriorityBrands.length > 0
+                ? Array.from(new Set(availablePriorityBrands)).slice(0, 5)
+                : (catCfg.priorityBrands || []).slice(0, 5);
+
             system = VE_MATCH_AUTO_SYSTEM(hasValidImage, brandList);
-            user = `Specification Item Description: "${description}"\nTask: Classify furnishing category and match with priority contract brand or identify as custom specification.`;
+            user = `Specification Item Description: "${description}"\nDetected Category: ${catCfg.label}\nMANDATORY PREFERRED PARTNER PRIORITY (STRICT ORDER): ${effectivePriority.join(' -> ')}\nTask: Match from the #1 preferred partner ("${effectivePriority[0]}") first if they manufacture this exact product archetype; only step down the priority list if the #1 brand lacks this product type. Do NOT default to Narbutas for soft seating, coffee tables, dining, outdoor, or classroom items when ${effectivePriority[0]} is preferred.`;
         }
 
         console.log(`  🤖 [VE Match Auto] Executing ${isBranded ? '🌟 BRANDED' : '🏢 CATEGORY PRIORITY'} match for: ${description.substring(0, 50)}... (Images: ${validAssets.length})`);

@@ -154,7 +154,10 @@
       "description": "Argos",
       "imageUrl": "https://www.ismobel.com/wp-content/uploads/2021/08/Argos_02-714x1024.jpg",
       "productUrl": "https://www.ismobel.com/en/productos/mobiliario/operativo/argos/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "workstation_desk"
+      ]
     },
     {
       "mainCategory": "Operative",
@@ -164,7 +167,10 @@
       "description": "Delfos",
       "imageUrl": "https://www.ismobel.com/wp-content/uploads/2021/08/delfos-2019-portada.jpg",
       "productUrl": "https://www.ismobel.com/en/productos/mobiliario/operativo/delfos/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "workstation_desk"
+      ]
     },
     {
       "mainCategory": "Operative",
@@ -194,7 +200,10 @@
       "description": "Maya",
       "imageUrl": "https://www.ismobel.com/wp-content/uploads/2021/08/f09-1024x717.jpg",
       "productUrl": "https://www.ismobel.com/en/productos/mobiliario/operativo/maya/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "workstation_desk"
+      ]
     },
     {
       "mainCategory": "Operative",
@@ -204,7 +213,10 @@
       "description": "Teseo",
       "imageUrl": "https://www.ismobel.com/wp-content/uploads/2021/08/Teseo-portada-878x1024.jpg",
       "productUrl": "https://www.ismobel.com/en/productos/mobiliario/operativo/teseo/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "workstation_desk"
+      ]
     },
     {
       "mainCategory": "Operative",
@@ -214,7 +226,10 @@
       "description": "Idra",
       "imageUrl": "https://www.ismobel.com/wp-content/uploads/2023/11/Idra-reg-ambiente-1024x727.jpg",
       "productUrl": "https://www.ismobel.com/en/productos/mobiliario/operativo/idra/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "workstation_desk"
+      ]
     },
     {
       "mainCategory": "Operative",
@@ -224,7 +239,10 @@
       "description": "Eco",
       "imageUrl": "https://www.ismobel.com/wp-content/uploads/2015/09/Eco-ambiente-bench-2025-baja-1024x727.jpg",
       "productUrl": "https://www.ismobel.com/en/productos/mobiliario/operativo/eco/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "workstation_desk"
+      ]
     },
     {
       "mainCategory": "Operative",
@@ -234,7 +252,10 @@
       "description": "Sky",
       "imageUrl": "https://www.ismobel.com/wp-content/uploads/2021/08/Fsky-foto1-mesa-ciclorama-722x1024.jpg",
       "productUrl": "https://www.ismobel.com/en/productos/mobiliario/operativo/sky/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "workstation_desk"
+      ]
     },
     {
       "mainCategory": "Operative",
@@ -244,7 +265,10 @@
       "description": "Fedra",
       "imageUrl": "https://www.ismobel.com/wp-content/uploads/2021/08/1fedra-mesa-abatible-ciclorama-1024x722.jpg",
       "productUrl": "https://www.ismobel.com/en/productos/mobiliario/operativo/fedra/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "workstation_desk"
+      ]
     },
     {
       "mainCategory": "Operative",
@@ -254,7 +278,10 @@
       "description": "Ceres",
       "imageUrl": "https://www.ismobel.com/wp-content/uploads/2021/08/2Ceres-Portada.jpg",
       "productUrl": "https://www.ismobel.com/en/productos/mobiliario/operativo/ceres/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "workstation_desk"
+      ]
     },
     {
       "mainCategory": "Direction",
@@ -264,7 +291,10 @@
       "description": "Zen",
       "imageUrl": "https://www.ismobel.com/wp-content/uploads/2021/08/Zen-foto-1-direccion-detalle-ala-y-casillero-1024x937.jpg",
       "productUrl": "https://www.ismobel.com/en/productos/mobiliario/direccion/zen/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "executive_desk"
+      ]
     },
     {
       "mainCategory": "Direction",
@@ -274,7 +304,10 @@
       "description": "Nereo 2",
       "imageUrl": "https://www.ismobel.com/wp-content/uploads/2021/08/Nereo-Direccion-portada-705x1024.jpg",
       "productUrl": "https://www.ismobel.com/en/productos/mobiliario/direccion/nereo-2/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "executive_desk"
+      ]
     },
     {
       "mainCategory": "Direction",
@@ -284,7 +317,10 @@
       "description": "Nereo 3",
       "imageUrl": "https://www.ismobel.com/wp-content/uploads/2022/04/nereo3-portada-674x1024.jpg",
       "productUrl": "https://www.ismobel.com/en/productos/mobiliario/direccion/nereo-3/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "executive_desk"
+      ]
     },
     {
       "mainCategory": "Common elements",
@@ -1014,7 +1050,10 @@
       "description": "Maya",
       "imageUrl": "https://www.ismobel.com/wp-content/uploads/2021/08/f09-1024x717.jpg",
       "productUrl": "https://www.ismobel.com/productos/mobiliario/operativo/maya/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "workstation_desk"
+      ]
     },
     {
       "mainCategory": "Operative",
@@ -1024,7 +1063,10 @@
       "description": "Argos",
       "imageUrl": "https://www.ismobel.com/wp-content/uploads/2021/08/Argos_02-714x1024.jpg",
       "productUrl": "https://www.ismobel.com/productos/mobiliario/operativo/argos/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "workstation_desk"
+      ]
     },
     {
       "mainCategory": "Operative",
@@ -1034,7 +1076,10 @@
       "description": "Delfos",
       "imageUrl": "https://www.ismobel.com/wp-content/uploads/2021/08/delfos-2019-portada.jpg",
       "productUrl": "https://www.ismobel.com/productos/mobiliario/operativo/delfos/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "workstation_desk"
+      ]
     },
     {
       "mainCategory": "Operative",
@@ -1054,7 +1099,10 @@
       "description": "Idra",
       "imageUrl": "https://www.ismobel.com/wp-content/uploads/2023/11/Idra-reg-ambiente-1024x727.jpg",
       "productUrl": "https://www.ismobel.com/productos/mobiliario/operativo/idra/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "workstation_desk"
+      ]
     },
     {
       "mainCategory": "Operative",
@@ -1064,7 +1112,10 @@
       "description": "Eco",
       "imageUrl": "https://www.ismobel.com/wp-content/uploads/2015/09/Eco-ambiente-bench-2025-baja-1024x727.jpg",
       "productUrl": "https://www.ismobel.com/productos/mobiliario/operativo/eco/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "workstation_desk"
+      ]
     },
     {
       "mainCategory": "Operative",
@@ -1074,7 +1125,10 @@
       "description": "Teseo",
       "imageUrl": "https://www.ismobel.com/wp-content/uploads/2021/08/Teseo-portada-878x1024.jpg",
       "productUrl": "https://www.ismobel.com/productos/mobiliario/operativo/teseo/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "workstation_desk"
+      ]
     },
     {
       "mainCategory": "Operative",
@@ -1084,7 +1138,10 @@
       "description": "Ceres",
       "imageUrl": "https://www.ismobel.com/wp-content/uploads/2021/08/2Ceres-Portada.jpg",
       "productUrl": "https://www.ismobel.com/productos/mobiliario/operativo/ceres/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "workstation_desk"
+      ]
     },
     {
       "mainCategory": "Operative",
@@ -1094,7 +1151,10 @@
       "description": "Zen",
       "imageUrl": "https://www.ismobel.com/wp-content/uploads/2021/08/Zen-foto-1-direccion-detalle-ala-y-casillero-1024x937.jpg",
       "productUrl": "https://www.ismobel.com/productos/mobiliario/direccion/zen/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "executive_desk"
+      ]
     },
     {
       "mainCategory": "Operative",
@@ -1104,7 +1164,10 @@
       "description": "Sky",
       "imageUrl": "https://www.ismobel.com/wp-content/uploads/2021/08/Fsky-foto1-mesa-ciclorama-722x1024.jpg",
       "productUrl": "https://www.ismobel.com/productos/mobiliario/operativo/sky/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "workstation_desk"
+      ]
     },
     {
       "mainCategory": "Operative",
@@ -1114,7 +1177,10 @@
       "description": "Fedra",
       "imageUrl": "https://www.ismobel.com/wp-content/uploads/2021/08/1fedra-mesa-abatible-ciclorama-1024x722.jpg",
       "productUrl": "https://www.ismobel.com/productos/mobiliario/operativo/fedra/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "workstation_desk"
+      ]
     },
     {
       "mainCategory": "Operative",
@@ -1124,7 +1190,10 @@
       "description": "Nereo 2",
       "imageUrl": "https://www.ismobel.com/wp-content/uploads/2021/08/Nereo-Direccion-portada-705x1024.jpg",
       "productUrl": "https://www.ismobel.com/productos/mobiliario/direccion/nereo-2/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "executive_desk"
+      ]
     },
     {
       "mainCategory": "Operative",
@@ -1134,7 +1203,10 @@
       "description": "Nereo 3",
       "imageUrl": "https://www.ismobel.com/wp-content/uploads/2022/04/nereo3-portada-674x1024.jpg",
       "productUrl": "https://www.ismobel.com/productos/mobiliario/direccion/nereo-3/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "executive_desk"
+      ]
     },
     {
       "mainCategory": "Operative",

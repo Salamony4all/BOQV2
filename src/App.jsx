@@ -675,7 +675,8 @@ function AppContent({ onOpenSettings }) {
                     pipeline === 'wordcom_vercel' ? 'wordcom_vercel' :
                       pipeline === 'wordcom_v22' ? 'wordcom_v22' :
                         pipeline === 'wordcom' ? 'wordcom' :
-                          'wordcom_v22';
+                          pipeline === 'default' ? 'parallel' :
+                            'wordcom_v22';
 
             xhr.open('POST', apiUrl('/api/upload'));
             xhr.setRequestHeader('x-session-id', sessionId);

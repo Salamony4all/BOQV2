@@ -64,7 +64,10 @@
       "description": "Contract tables. The Mux70 meeting tables, designed by Stefano Boeri Interiors, combine elegance and functionality through an essential yet distinctive design. \nThese",
       "imageUrl": "https://media.architonic.com/m-on/3101675/product/20344934/frezza_mux70-meeting-table_1ff71ce6.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/frezza-mux70-meeting-table-20344934/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "conference_table"
+      ]
     },
     {
       "mainCategory": "Furniture",
@@ -74,7 +77,10 @@
       "description": "Stools. Be.1 is an authentic, essential and unconventional office furniture system designed by the international architecture company Progetto CMR, with an",
       "imageUrl": "https://media.architonic.com/m-on/3101675/product/20756313/frezza_be1_4a7ca683.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/frezza-be.1-20756313/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "workstation_desk"
+      ]
     },
     {
       "mainCategory": "Furniture",
@@ -84,7 +90,10 @@
       "description": "Desks. Be.1 is an authentic, essential and unconventional office furniture system designed by the international architecture company Progetto CMR, with an",
       "imageUrl": "https://media.architonic.com/m-on/3101675/product/20756315/frezza_be1_bef087b7.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/frezza-be.1-20756315/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "workstation_desk"
+      ]
     },
     {
       "mainCategory": "Furniture",
@@ -94,7 +103,10 @@
       "description": "Desks. The Mux70 executive desk, designed by Stefano Boeri Interiors, combines refined aesthetics with functionality. Its clean lines define a central supporting",
       "imageUrl": "https://media.architonic.com/m-on/3101675/product/20772161/frezza_mux70-desk_tables_aed3c908.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/frezza-mux70-desk-20772161/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "executive_desk"
+      ]
     },
     {
       "mainCategory": "Furniture",
@@ -104,7 +116,10 @@
       "description": "Contract tables. The Mux70 meeting tables, designed by Stefano Boeri Interiors, combine elegance and functionality through an essential yet distinctive design. \nThese",
       "imageUrl": "https://media.architonic.com/m-on/3101675/product/20345254/frezza_mux70-meeting-table_24929709.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/frezza-mux70-meeting-table-20345254/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "conference_table"
+      ]
     },
     {
       "mainCategory": "Furniture",
@@ -114,7 +129,10 @@
       "description": "Contract tables. The Mux70 meeting tables, designed by Stefano Boeri Interiors, combine elegance and functionality through an essential yet distinctive design. \nThese",
       "imageUrl": "https://media.architonic.com/m-on/3101675/product/20344933/frezza_mux70-meeting-table_97f06e69.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/frezza-mux70-meeting-table-20344933/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "conference_table"
+      ]
     },
     {
       "mainCategory": "Furniture",
@@ -124,7 +142,10 @@
       "description": "Privacy screen. Be.1 is an authentic, essential and unconventional office furniture system designed by the international architecture company Progetto CMR, with an",
       "imageUrl": "https://media.architonic.com/m-on/3101675/product/20756314/frezza_be1_812a676a.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/frezza-be.1-20756314/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "workstation_desk"
+      ]
     },
     {
       "mainCategory": "Furniture",
@@ -134,7 +155,10 @@
       "description": "Desks. The Mux70 executive desk, designed by Stefano Boeri Interiors, combines refined aesthetics with functionality. Its clean lines define a central supporting",
       "imageUrl": "https://media.architonic.com/m-on/3101675/product/20344931/frezza_mux70-desk_4a0b0f3f.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/frezza-mux70-desk-20344931/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "executive_desk"
+      ]
     },
     {
       "mainCategory": "Furniture",
@@ -144,7 +168,10 @@
       "description": "Contract tables. The structure of the desk represents the subtle union of aesthetic elements and structural details of a timeless table. The structure is made with tapered",
       "imageUrl": "https://media.architonic.com/m-on/3101675/product/1553637/frezza_alplus_b2a1e60b.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/frezza-alplus-1553637/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "workstation_desk"
+      ]
     },
     {
       "mainCategory": "Furniture",
@@ -154,7 +181,10 @@
       "description": "Desks. The structure of the desk represents the subtle union of aesthetic elements and structural details of a timeless table. The structure is made with tapered",
       "imageUrl": "https://media.architonic.com/m-on/3101675/product/1553652/frezza_alplus_e7442d59.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/frezza-alplus-1553652/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "workstation_desk"
+      ]
     },
     {
       "mainCategory": "Furniture",
@@ -164,7 +194,10 @@
       "description": "Console tables. The practical and functional Mux70 cupboards have the same simple yet recognisable aesthetic lines that characterise the entire collection designed by",
       "imageUrl": "https://media.architonic.com/m-on/3101675/product/20772160/frezza_mux70-sideboard_de523f5c.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/frezza-mux70-sideboard-20772160/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "side_return"
+      ]
     },
     {
       "mainCategory": "Furniture",
@@ -174,7 +207,10 @@
       "description": "Contract tables. The structure of the desk represents the subtle union of aesthetic elements and structural details of a timeless table. The structure is made with tapered",
       "imageUrl": "https://media.architonic.com/m-on/3101675/product/1553661/frezza_alplus_92c0db08.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/frezza-alplus-1553661/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "workstation_desk"
+      ]
     },
     {
       "mainCategory": "Furniture",
@@ -194,7 +230,10 @@
       "description": "Contract tables. The Pop Easy collection represents the essence of the operative office and stands out for its essential lines. The flexibility and functionality that",
       "imageUrl": "https://media.architonic.com/m-on/3101675/product/1553973/frezza_pop-easy_f82647d6.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/frezza-pop-easy-1553973/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "workstation_desk"
+      ]
     },
     {
       "mainCategory": "Furniture",
@@ -214,7 +253,10 @@
       "description": "Desks. The Pop Easy collection represents the essence of the operative office and stands out for its essential lines. The flexibility and functionality that",
       "imageUrl": "https://media.architonic.com/m-on/3101675/product/1553986/frezza_pop-easy_8f77b364.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/frezza-pop-easy-1553986/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "workstation_desk"
+      ]
     },
     {
       "mainCategory": "Furniture",
@@ -224,7 +266,10 @@
       "description": "Contract tables. The structure of the desk represents the subtle union of aesthetic elements and structural details of a timeless table. The structure is made with tapered",
       "imageUrl": "https://media.architonic.com/m-on/3101675/product/1553617/frezza_alplus_1bb52642.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/frezza-alplus-1553617/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "workstation_desk"
+      ]
     },
     {
       "mainCategory": "Furniture",
@@ -254,7 +299,10 @@
       "description": "Contract tables. The structure of the desk represents the subtle union of aesthetic elements and structural details of a timeless table. The structure is made with tapered",
       "imageUrl": "https://media.architonic.com/m-on/3101675/product/1553653/frezza_alplus_619ab776.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/frezza-alplus-1553653/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "workstation_desk"
+      ]
     },
     {
       "mainCategory": "Furniture",
@@ -274,7 +322,10 @@
       "description": "Desks. The Pop Easy collection represents the essence of the operative office and stands out for its essential lines. The flexibility and functionality that",
       "imageUrl": "https://media.architonic.com/m-on/3101675/product/1553971/frezza_pop-easy_1e7a0d01.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/frezza-pop-easy-1553971/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "workstation_desk"
+      ]
     },
     {
       "mainCategory": "Furniture",
@@ -284,7 +335,10 @@
       "description": "Contract tables. The Mux70 meeting tables, designed by Stefano Boeri Interiors, combine elegance and functionality through an essential yet distinctive design. \nThese",
       "imageUrl": "https://media.architonic.com/m-on/3101675/product/20772163/frezza_mux70-meeting-table_tables_a2740102.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/frezza-mux70-meeting-table-20772163/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "conference_table"
+      ]
     },
     {
       "mainCategory": "Furniture",
@@ -294,7 +348,10 @@
       "description": "Contract tables. The structure of the desk represents the subtle union of aesthetic elements and structural details of a timeless table. The structure is made with tapered",
       "imageUrl": "https://media.architonic.com/m-on/3101675/product/1553648/frezza_alplus_aada759a.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/frezza-alplus-1553648/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "workstation_desk"
+      ]
     },
     {
       "mainCategory": "Furniture",
@@ -304,7 +361,10 @@
       "description": "Desks. The Mux70 executive desk, designed by Stefano Boeri Interiors, combines refined aesthetics with functionality. Its clean lines define a central supporting",
       "imageUrl": "https://media.architonic.com/m-on/3101675/product/20344930/frezza_mux70-desk_d0fbdc2b.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/frezza-mux70-desk-20344930/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "executive_desk"
+      ]
     },
     {
       "mainCategory": "Furniture",
@@ -314,7 +374,10 @@
       "description": "Contract tables. The structure of the desk represents the subtle union of aesthetic elements and structural details of a timeless table. The structure is made with tapered",
       "imageUrl": "https://media.architonic.com/m-on/3101675/product/1553663/frezza_alplus_cabe7889.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/frezza-alplus-1553663/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "workstation_desk"
+      ]
     },
     {
       "mainCategory": "Furniture",
@@ -324,7 +387,10 @@
       "description": "Desks. The Pop Easy collection represents the essence of the operative office and stands out for its essential lines. The flexibility and functionality that",
       "imageUrl": "https://media.architonic.com/m-on/3101675/product/1553968/frezza_pop-easy_6ae8682a.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/frezza-pop-easy-1553968/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "workstation_desk"
+      ]
     },
     {
       "mainCategory": "Furniture",
@@ -344,7 +410,10 @@
       "description": "Desks. The structure of the desk represents the subtle union of aesthetic elements and structural details of a timeless table. The structure is made with tapered",
       "imageUrl": "https://media.architonic.com/m-on/3101675/product/1553610/frezza_alplus_ca3a6819.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/frezza-alplus-1553610/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "workstation_desk"
+      ]
     },
     {
       "mainCategory": "Furniture",
@@ -374,7 +443,10 @@
       "description": "Contract tables. The structure of the desk represents the subtle union of aesthetic elements and structural details of a timeless table. The structure is made with tapered",
       "imageUrl": "https://media.architonic.com/m-on/3101675/product/1553639/frezza_alplus_0c8babcb.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/frezza-alplus-1553639/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "workstation_desk"
+      ]
     },
     {
       "mainCategory": "Furniture",
@@ -394,7 +466,10 @@
       "description": "Desks. The structure of the desk represents the subtle union of aesthetic elements and structural details of a timeless table. The structure is made with tapered",
       "imageUrl": "https://media.architonic.com/m-on/3101675/product/1553642/frezza_alplus_a067eff0.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/frezza-alplus-1553642/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "workstation_desk"
+      ]
     },
     {
       "mainCategory": "Furniture",
@@ -414,7 +489,10 @@
       "description": "Contract tables. The structure of the desk represents the subtle union of aesthetic elements and structural details of a timeless table. The structure is made with tapered",
       "imageUrl": "https://media.architonic.com/m-on/3101675/product/1553656/frezza_alplus_b702ea3d.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/frezza-alplus-1553656/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "workstation_desk"
+      ]
     },
     {
       "mainCategory": "Furniture",
@@ -424,7 +502,10 @@
       "description": "Desks. The Pop Easy collection represents the essence of the operative office and stands out for its essential lines. The flexibility and functionality that",
       "imageUrl": "https://media.architonic.com/m-on/3101675/product/1553980/frezza_pop-easy_6126f08d.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/frezza-pop-easy-1553980/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "workstation_desk"
+      ]
     },
     {
       "mainCategory": "Furniture",
@@ -444,7 +525,10 @@
       "description": "Desks. The Pop Easy collection represents the essence of the operative office and stands out for its essential lines. The flexibility and functionality that",
       "imageUrl": "https://media.architonic.com/m-on/3101675/product/1553984/frezza_pop-easy_93f6ed3b.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/frezza-pop-easy-1553984/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "workstation_desk"
+      ]
     },
     {
       "mainCategory": "Furniture",
@@ -464,7 +548,10 @@
       "description": "Desks. The Pop Easy collection represents the essence of the operative office and stands out for its essential lines. The flexibility and functionality that",
       "imageUrl": "https://media.architonic.com/m-on/3101675/product/1553993/frezza_pop-easy_39e33706.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/frezza-pop-easy-1553993/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "workstation_desk"
+      ]
     },
     {
       "mainCategory": "Furniture",
@@ -484,7 +571,10 @@
       "description": "Desks. From the classic four-legged desk variant, the Pop Square collection adopts a ring leg design that provides excellent stability.\nThe Pop Square operating",
       "imageUrl": "https://media.architonic.com/m-on/3101675/product/1554062/frezza_pop-square_67f1144f.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/frezza-pop-square-1554062/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "workstation_desk"
+      ]
     },
     {
       "mainCategory": "Furniture",
@@ -514,7 +604,10 @@
       "description": "Desks. Pop Tee is a collection of operative desks that adapts perfectly to the needs of new workspaces, where functionality and efficiency are stimulated by the",
       "imageUrl": "https://media.architonic.com/m-on/3101675/product/1554069/frezza_pop-tee_a3a02024.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/frezza-pop-tee-1554069/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "workstation_desk"
+      ]
     },
     {
       "mainCategory": "Furniture",
@@ -534,7 +627,10 @@
       "description": "Desks. Pop Tee is a collection of operative desks that adapts perfectly to the needs of new workspaces, where functionality and efficiency are stimulated by the",
       "imageUrl": "https://media.architonic.com/m-on/3101675/product/1554075/frezza_pop-tee_2502d91b.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/frezza-pop-tee-1554075/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "workstation_desk"
+      ]
     },
     {
       "mainCategory": "Furniture",
@@ -544,7 +640,10 @@
       "description": "Desks. Pop Tee is a collection of operative desks that adapts perfectly to the needs of new workspaces, where functionality and efficiency are stimulated by the",
       "imageUrl": "https://media.architonic.com/m-on/3101675/product/1554080/frezza_pop-tee_9bd09e58.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/frezza-pop-tee-1554080/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "workstation_desk"
+      ]
     },
     {
       "mainCategory": "Furniture",
@@ -564,7 +663,10 @@
       "description": "Desks. Pop Tee is a collection of operative desks that adapts perfectly to the needs of new workspaces, where functionality and efficiency are stimulated by the",
       "imageUrl": "https://media.architonic.com/m-on/3101675/product/1554085/frezza_pop-tee_7685bf31.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/frezza-pop-tee-1554085/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "workstation_desk"
+      ]
     },
     {
       "mainCategory": "Furniture",
@@ -594,7 +696,10 @@
       "description": "Contract tables. The Pop Folding table collection has been designed to respond to the need of rapid reconfiguration required by some environments. Training, didactic or",
       "imageUrl": "https://media.architonic.com/m-on/3101675/product/20084145/frezza_pop-folding_f49fa710.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/frezza-pop-folding-20084145/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "folding_table"
+      ]
     },
     {
       "mainCategory": "Furniture",
@@ -614,7 +719,10 @@
       "description": "Desks. The Pop Easy collection represents the essence of the operative office and stands out for its essential lines. The flexibility and functionality that",
       "imageUrl": "https://media.architonic.com/m-on/3101675/product/1553996/frezza_pop-easy_958f1ebd.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/frezza-pop-easy-1553996/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "workstation_desk"
+      ]
     },
     {
       "mainCategory": "Furniture",
@@ -634,7 +742,10 @@
       "description": "Desks. From the classic four-legged desk variant, the Pop Square collection adopts a ring leg design that provides excellent stability.\nThe Pop Square operating",
       "imageUrl": "https://media.architonic.com/m-on/3101675/product/1554012/frezza_pop-square_0b4c0459.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/frezza-pop-square-1554012/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "workstation_desk"
+      ]
     },
     {
       "mainCategory": "Furniture",
@@ -654,7 +765,10 @@
       "description": "Desks. From the classic four-legged desk variant, the Pop Square collection adopts a ring leg design that provides excellent stability.\nThe Pop Square operating",
       "imageUrl": "https://media.architonic.com/m-on/3101675/product/1554013/frezza_pop-square_4dca950e.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/frezza-pop-square-1554013/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "workstation_desk"
+      ]
     },
     {
       "mainCategory": "Furniture",
@@ -674,7 +788,10 @@
       "description": "Desks. From the classic four-legged desk variant, the Pop Square collection adopts a ring leg design that provides excellent stability.\nThe Pop Square operating",
       "imageUrl": "https://media.architonic.com/m-on/3101675/product/1554015/frezza_pop-square_81048388.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/frezza-pop-square-1554015/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "workstation_desk"
+      ]
     },
     {
       "mainCategory": "Furniture",
@@ -694,7 +811,10 @@
       "description": "Desks. From the classic four-legged desk variant, the Pop Square collection adopts a ring leg design that provides excellent stability.\nThe Pop Square operating",
       "imageUrl": "https://media.architonic.com/m-on/3101675/product/1554019/frezza_pop-square_91285731.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/frezza-pop-square-1554019/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "workstation_desk"
+      ]
     },
     {
       "mainCategory": "Furniture",
@@ -714,7 +834,10 @@
       "description": "Desks. Pop Tee is a collection of operative desks that adapts perfectly to the needs of new workspaces, where functionality and efficiency are stimulated by the",
       "imageUrl": "https://media.architonic.com/m-on/3101675/product/1554081/frezza_pop-tee_6beda6e0.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/frezza-pop-tee-1554081/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "workstation_desk"
+      ]
     },
     {
       "mainCategory": "Furniture",
@@ -734,7 +857,10 @@
       "description": "Desks. Pop Tee is a collection of operative desks that adapts perfectly to the needs of new workspaces, where functionality and efficiency are stimulated by the",
       "imageUrl": "https://media.architonic.com/m-on/3101675/product/1554083/frezza_pop-tee_8a592873.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/frezza-pop-tee-1554083/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "workstation_desk"
+      ]
     },
     {
       "mainCategory": "Furniture",
@@ -814,7 +940,10 @@
       "description": "Contract tables. The Pop Easy collection represents the essence of the operative office and stands out for its essential lines. The flexibility and functionality that",
       "imageUrl": "https://media.architonic.com/m-on/3101675/product/1554001/frezza_pop-easy_830b63f2.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/frezza-pop-easy-1554001/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "workstation_desk"
+      ]
     },
     {
       "mainCategory": "Furniture",
@@ -834,7 +963,10 @@
       "description": "Desks. From the classic four-legged desk variant, the Pop Square collection adopts a ring leg design that provides excellent stability.\nThe Pop Square operating",
       "imageUrl": "https://media.architonic.com/m-on/3101675/product/1554023/frezza_pop-square_cae9d895.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/frezza-pop-square-1554023/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "workstation_desk"
+      ]
     },
     {
       "mainCategory": "Furniture",
@@ -844,7 +976,10 @@
       "description": "Desks. From the classic four-legged desk variant, the Pop Square collection adopts a ring leg design that provides excellent stability.\nThe Pop Square operating",
       "imageUrl": "https://media.architonic.com/m-on/3101675/product/1554057/frezza_pop-square_555cd608.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/frezza-pop-square-1554057/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "workstation_desk"
+      ]
     },
     {
       "mainCategory": "Furniture",
@@ -874,7 +1009,10 @@
       "description": "Desks. From the classic four-legged desk variant, the Pop Square collection adopts a ring leg design that provides excellent stability.\nThe Pop Square operating",
       "imageUrl": "https://media.architonic.com/m-on/3101675/product/1554059/frezza_pop-square_eb1022b8.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/frezza-pop-square-1554059/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "workstation_desk"
+      ]
     },
     {
       "mainCategory": "Furniture",
@@ -904,7 +1042,10 @@
       "description": "Desks. From the classic four-legged desk variant, the Pop Square collection adopts a ring leg design that provides excellent stability.\nThe Pop Square operating",
       "imageUrl": "https://media.architonic.com/m-on/3101675/product/1554011/frezza_pop-square_319fa342.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/frezza-pop-square-1554011/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "workstation_desk"
+      ]
     },
     {
       "mainCategory": "Furniture",
@@ -934,7 +1075,10 @@
       "description": "Desks. Pop Tee is a collection of operative desks that adapts perfectly to the needs of new workspaces, where functionality and efficiency are stimulated by the",
       "imageUrl": "https://media.architonic.com/m-on/3101675/product/1554078/frezza_pop-tee_820745ab.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/frezza-pop-tee-1554078/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "workstation_desk"
+      ]
     },
     {
       "mainCategory": "Furniture",
@@ -2754,7 +2898,10 @@
       "description": "Sofas. The strong mixture between relaxation areas and spaces where intense concentration is required is supported by the Alplus office furniture system:",
       "imageUrl": "https://media.architonic.com/m-on/3101675/product/20084141/frezza_alplus_5f617312.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/frezza-alplus-20084141/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "workstation_desk"
+      ]
     },
     {
       "mainCategory": "Furniture",
@@ -2764,7 +2911,10 @@
       "description": "Benches. The strong mixture between relaxation areas and spaces where intense concentration is required is supported by the Alplus office furniture system:",
       "imageUrl": "https://media.architonic.com/m-on/3101675/product/20084140/frezza_alplus_0622927f.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/frezza-alplus-20084140/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "workstation_desk"
+      ]
     },
     {
       "mainCategory": "Furniture",
@@ -2774,7 +2924,10 @@
       "description": "Benches. The strong mixture between relaxation areas and spaces where intense concentration is required is supported by the Alplus office furniture system:",
       "imageUrl": "https://media.architonic.com/m-on/3101675/product/20084142/frezza_alplus_1e01f5b0.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/frezza-alplus-20084142/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "workstation_desk"
+      ]
     },
     {
       "mainCategory": "Furniture",
@@ -4875,6 +5028,200 @@
       "imageUrl": "https://media.architonic.com/m-on/3101675/product/20285881/frezza_phylo_8a382bd9.jpeg?format=webp&quality=75",
       "productUrl": "https://www.architonic.com/en/p/frezza-phylo-20285881/",
       "price": 0
+    },
+    {
+      "model": "Be.1 Modular Bench Workstation & Folding Meeting System",
+      "family": "Be.1",
+      "mainCategory": "Desk & Table",
+      "subCategory": "Workstations",
+      "imageUrl": "https://www.frezza.com/wp-content/uploads/2024/07/scrivania-multipostazione-con-divisori-e-cassettiere-frezza-min.jpg",
+      "productUrl": "https://www.frezza.com/en/products/open-space-bench-desks-be1/",
+      "websiteUrl": "https://www.frezza.com/en/products/open-space-bench-desks-be1/",
+      "price": 0,
+      "currency": "USD",
+      "description": "Be.1 modular bench desks (design Progetto CMR): bench depths 125 / 165 cm, melamine, fabric or glass partition screens, accessory trays and holders, cable grommets. Bench desks (not folding).",
+      "officialRefreshedAt": "2026-11-20T19:40:51.668Z",
+      "verified": true,
+      "source": "official-site",
+      "lastUpdated": "2026-11-21",
+      "officialProductUrl": "https://www.frezza.com/en/products/open-space-bench-desks-be1/",
+      "setRoles": [
+        "workstation_desk"
+      ]
+    },
+    {
+      "model": "Alplus Executive L-Shape Desk with Service Return",
+      "family": "Alplus",
+      "mainCategory": "Desk & Table",
+      "subCategory": "Executive Desks",
+      "imageUrl": "https://www.frezza.com/wp-content/uploads/2024/07/scrivania-direzionale-di-design-alplus-04.jpg",
+      "productUrl": "https://www.frezza.com/en/products/design-modern-executive-desk-alplus/",
+      "websiteUrl": "https://www.frezza.com/en/products/design-modern-executive-desk-alplus/",
+      "price": 0,
+      "currency": "USD",
+      "description": "Alplus executive desk L 180 / 200 / 220 × D 90 cm (operative versions L 140 / 160 / 180 × D 80 cm). Combine with a sideboard or pedestal as the service return.",
+      "officialRefreshedAt": "2026-11-20T19:40:54.907Z",
+      "verified": true,
+      "source": "official-site",
+      "lastUpdated": "2026-11-21",
+      "officialProductUrl": "https://www.frezza.com/en/products/design-modern-executive-desk-alplus/",
+      "setRoles": [
+        "executive_desk"
+      ]
+    },
+    {
+      "model": "Mux70 Executive L-Shape Desk & Conference System",
+      "family": "Mux70",
+      "mainCategory": "Desk & Table",
+      "subCategory": "Executive Desks",
+      "imageUrl": "https://www.frezza.com/wp-content/uploads/2024/07/scrivania-presidenziale-moderna-stefano-boeri-mux70-frezza-3.jpg",
+      "productUrl": "https://www.frezza.com/en/products/presidential-office-desk-mux70/",
+      "websiteUrl": "https://www.frezza.com/en/products/presidential-office-desk-mux70/",
+      "price": 0,
+      "currency": "USD",
+      "description": "Mux70 presidential desk by Stefano Boeri Interiors. Accessories: side extensions, hanging drawers / pedestals, service units and cupboards.",
+      "officialRefreshedAt": "2026-11-20T19:40:57.824Z",
+      "verified": true,
+      "source": "official-site",
+      "lastUpdated": "2026-11-21",
+      "officialProductUrl": "https://www.frezza.com/en/products/presidential-office-desk-mux70/",
+      "setRoles": [
+        "executive_desk"
+      ]
+    },
+    {
+      "model": "FREZZA Top-Access Power & Cable Management Kit",
+      "family": "Be.1",
+      "mainCategory": "Accessories",
+      "subCategory": "Cable Management & Power",
+      "imageUrl": "",
+      "productUrl": "https://www.frezza.com/en/products/open-space-bench-desks-be1/",
+      "websiteUrl": "https://www.frezza.com/en/products/open-space-bench-desks-be1/",
+      "price": 0,
+      "currency": "USD",
+      "description": "Cable grommets and accessory trays offered with the Be.1 bench desks — price-list accessories of the bench system (no product page of their own).",
+      "officialRefreshedAt": "2026-11-20T19:41:00.003Z",
+      "verified": false,
+      "source": "system-accessory",
+      "lastUpdated": "2026-11-21",
+      "setRoles": [
+        "cable_management",
+        "power_box"
+      ]
+    },
+    {
+      "model": "FREZZA Pop-Easy Modesty Panel",
+      "family": "Pop Easy",
+      "mainCategory": "Accessories",
+      "subCategory": "Modesty Panels",
+      "imageUrl": "",
+      "productUrl": "https://www.frezza.com/en/products/office-bench-desks-pop-easy/",
+      "websiteUrl": "https://www.frezza.com/en/products/office-bench-desks-pop-easy/",
+      "price": 0,
+      "currency": "USD",
+      "description": "Modesty panel for Pop Easy bench desks — a price-list accessory of the bench system (no product page of its own).",
+      "officialRefreshedAt": "2026-11-20T19:41:01.618Z",
+      "verified": false,
+      "source": "system-accessory",
+      "lastUpdated": "2026-11-21",
+      "setRoles": [
+        "modesty_panel"
+      ]
+    },
+    {
+      "price": 0,
+      "currency": "USD",
+      "verified": true,
+      "source": "official-site",
+      "lastUpdated": "2026-11-21",
+      "websiteUrl": "https://www.frezza.com/en/products/office-bench-desks-pop-easy/",
+      "officialProductUrl": "https://www.frezza.com/en/products/office-bench-desks-pop-easy/",
+      "model": "Pop Easy Bench Desks",
+      "family": "Pop Easy",
+      "mainCategory": "Desk & Table",
+      "subCategory": "Workstations",
+      "productUrl": "https://www.frezza.com/en/products/office-bench-desks-pop-easy/",
+      "imageUrl": "https://www.frezza.com/wp-content/uploads/2024/07/scrivanie-multipostazione-bench-ufficio-open-space-pop-easy-frezza.jpg",
+      "description": "Pop Easy modular bench desks: bench depths 125 / 165 cm with melamine, fabric or glass partition screens.",
+      "setRoles": [
+        "workstation_desk"
+      ]
+    },
+    {
+      "price": 0,
+      "currency": "USD",
+      "verified": true,
+      "source": "official-site",
+      "lastUpdated": "2026-11-21",
+      "websiteUrl": "https://www.frezza.com/en/products/office-sideboard-design-mux70/",
+      "officialProductUrl": "https://www.frezza.com/en/products/office-sideboard-design-mux70/",
+      "model": "Mux70 Office Sideboard",
+      "family": "Mux70",
+      "mainCategory": "Storage",
+      "subCategory": "Return Credenzas & Pedestals",
+      "productUrl": "https://www.frezza.com/en/products/office-sideboard-design-mux70/",
+      "description": "Mux70 office sideboard — the storage / service return of the Mux70 executive range.",
+      "setRoles": [
+        "side_return"
+      ],
+      "imageUrl": "https://media.architonic.com/m-on/3101675/product/20772160/frezza_mux70-sideboard_de523f5c.jpeg?format=webp&quality=75"
+    },
+    {
+      "price": 0,
+      "currency": "USD",
+      "verified": true,
+      "source": "official-site",
+      "lastUpdated": "2026-11-21",
+      "websiteUrl": "https://www.frezza.com/en/products/folding-desk-with-wheels-pop-folding/",
+      "officialProductUrl": "https://www.frezza.com/en/products/folding-desk-with-wheels-pop-folding/",
+      "model": "Pop Folding Desk with Wheels",
+      "family": "Pop Folding",
+      "mainCategory": "Desk & Table",
+      "subCategory": "Folding & Multi-Purpose Conference Tables",
+      "productUrl": "https://www.frezza.com/en/products/folding-desk-with-wheels-pop-folding/",
+      "imageUrl": "https://www.frezza.com/wp-content/uploads/2024/07/pop-folding-scrivania-regolabile-in-altezza-still-life-00-1.jpg",
+      "description": "Pop Folding: L 120 / 140 / 160 / 180 × D 60 / 80 cm, 25 mm top that folds to vertical, castors (two with brake), corner hooks to link tables in line for horseshoe or boardroom layouts. For training, educational and multi-purpose rooms.",
+      "setRoles": [
+        "folding_table"
+      ]
+    },
+    {
+      "price": 0,
+      "currency": "USD",
+      "verified": true,
+      "source": "official-site",
+      "lastUpdated": "2026-11-21",
+      "websiteUrl": "https://www.frezza.com/en/products/office-drawers-in-wood-and-metal-pedestals/",
+      "officialProductUrl": "https://www.frezza.com/en/products/office-drawers-in-wood-and-metal-pedestals/",
+      "model": "Frezza Pedestals",
+      "family": "Pedestals",
+      "mainCategory": "Storage",
+      "subCategory": "Pedestals",
+      "productUrl": "https://www.frezza.com/en/products/office-drawers-in-wood-and-metal-pedestals/",
+      "imageUrl": "https://www.frezza.com/wp-content/uploads/2024/08/cassettiere-per-ufficio-pedestals-frezza-02.jpg",
+      "description": "Wood and metal office pedestals: fixed desk-height units or mobile units on four castors, with lock.",
+      "setRoles": [
+        "pedestal"
+      ]
+    },
+    {
+      "price": 0,
+      "currency": "USD",
+      "verified": true,
+      "source": "official-site",
+      "lastUpdated": "2026-11-21",
+      "websiteUrl": "https://www.frezza.com/en/products/dividing-panels-for-desks-pal-spina-frezza/",
+      "officialProductUrl": "https://www.frezza.com/en/products/dividing-panels-for-desks-pal-spina-frezza/",
+      "model": "Pal Spina Desk Dividing Panels",
+      "family": "Pal Spina",
+      "mainCategory": "Accessories",
+      "subCategory": "Desk Screens",
+      "productUrl": "https://www.frezza.com/en/products/dividing-panels-for-desks-pal-spina-frezza/",
+      "imageUrl": "https://www.frezza.com/wp-content/uploads/2024/07/passacavi-scrivanie-ufficio-pal-spina-frezza-ufficio-2-min.jpg",
+      "description": "Pal Spina dividing panel system for desks: separates workstations and routes electrical cables to them, with shelves and trays.",
+      "setRoles": [
+        "screen"
+      ]
     }
   ],
   "createdAt": "2025-12-21T16:05:01.631Z",

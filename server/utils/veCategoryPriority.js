@@ -256,6 +256,15 @@ export function classifyFurnishingCategory(description = '') {
     if (/\b(vip\s*lounge|lounge|waiting\s*area|courtyard)\b/i.test(firstLine) && /\b(furniture\s*set|sofa|seating|armchair)\b/i.test(firstLine)) {
         return 'softSeating';
     }
+    if (/\b(sofa|couch|armchair|lounge\s*chair|lounge\s*seating|soft\s*seating|club\s*chair|wingback|accent\s*chair|ottoman|pouf|pouffe|breakout\s*seating|banquette|modular\s*sofa|[123][-\s]?seater)\b/i.test(firstLine) && !/\b(outdoor|patio|terrace|garden)\b/i.test(firstLine)) {
+        return 'softSeating';
+    }
+    if (/\b(coffee\s*table|side\s*table|end\s*table|center\s*table|centre\s*table|occasional\s*table|lounge\s*table)\b/i.test(firstLine) && !/\b(outdoor|patio|terrace)\b/i.test(firstLine)) {
+        return 'tables';
+    }
+    if (/\b(dining\s*chair|cafe\s*chair|café\s*chair|bistro\s*chair|restaurant\s*chair|pantry\s*chair|bar\s*stool|counter\s*stool|high\s*stool)\b/i.test(firstLine) && !/\boutdoor\b/i.test(firstLine)) {
+        return 'diningSeating';
+    }
     if (/\b(cafeteria|canteen|dining\s*area)\b/i.test(firstLine) && !/\boutdoor\b/i.test(firstLine)) {
         return 'diningSeating';
     }
@@ -302,9 +311,24 @@ export function classifyFurnishingCategory(description = '') {
         return 'genericAccessories';
     }
 
-    // 3. Commercial Accessories & Tables (coffee tables, side tables, center tables, pods, planters)
-    if (/\b(coffee table|side table|center table|round center table|planter|acoustic pod|lamp|coat stand|waste bin)\b/i.test(text)) {
+    // 3. Coffee, Side & Center Tables (B&T Design -> Pedrali -> Ottimo Furniture)
+    if (/\b(coffee\s*table|side\s*table|end\s*table|center\s*table|centre\s*table|round\s*center\s*table|occasional\s*table|lounge\s*table)\b/i.test(text) && !/\boutdoor\b/i.test(text)) {
+        return 'tables';
+    }
+
+    // 3.1 Commercial Accessories (pods, planters, acoustic booths, coat stands)
+    if (/\b(planter|acoustic pod|phone booth|coat stand)\b/i.test(text)) {
         return 'commercialAccessories';
+    }
+
+    // 3.2 Soft Seating & Lounge (check BEFORE desking/storage so "Lounge Sofa with side table" or "Executive Lounge Armchair" routes to B&T Design)
+    if (/\b(sofa|couch|three\s*seater|two\s*seater|single\s*seater|[123][-\s]?seater|lounge\s*chair|lounge\s*seating|soft\s*seating|armchair|club\s*chair|accent\s*chair|ottoman|pouf|pouffe|modular\s*sofa|acoustic\s*sofa|breakout\s*seating|banquette|roma|terminal|beam\s*seating)\b/i.test(text) && !/\b(task\s*chair|mesh\s*chair|operator\s*chair|visitor\s*chair|folding\s*chair|stacking\s*chair|outdoor|patio|terrace)\b/i.test(text)) {
+        return 'softSeating';
+    }
+
+    // 3.3 Dining, Café & Bar Seating (Pedrali -> Andreu World -> TON)
+    if (/\b(dining\s*chair|cafe\s*chair|café\s*chair|bistro\s*chair|restaurant\s*chair|pantry\s*chair|bar\s*stool|counter\s*stool|high\s*stool)\b/i.test(text) && !/\boutdoor\b/i.test(text)) {
+        return 'diningSeating';
     }
 
     // 4. Desking & Workstations (desks, workstations, meeting/conference tables, reception desks)
@@ -327,8 +351,8 @@ export function classifyFurnishingCategory(description = '') {
         return 'outdoorSeating';
     }
 
-    // 8. Soft Seating & Lounge (sofas, 2/3 seaters, armchairs, lounge chairs, ottomans, poufs, breakout)
-    if (/\b(sofa|three seater|two seater|single seater|lounge chair|armchair|ottoman|pouf|couch|modular sofa|booth|acoustic sofa|roma|terminal|beam seating)\b/i.test(text) && !/\b(task|mesh|operator|executive|visitor|folding|stacking)\b/i.test(text)) {
+    // 8. Soft Seating & Lounge fallback
+    if (/\b(lounge|booth)\b/i.test(text) && !/\b(task|mesh|operator|visitor|folding|stacking)\b/i.test(text)) {
         return 'softSeating';
     }
 

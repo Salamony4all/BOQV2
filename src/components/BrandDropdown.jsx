@@ -35,10 +35,10 @@ const BrandDropdown = ({
     }, []);
 
     const filteredBrands = brands.filter(brand => 
-        brand.name.toLowerCase().includes(searchTerm.toLowerCase())
+        brand.name.toLowerCase().includes(searchTerm.trim().toLowerCase())
     );
 
-    const handleToggle = () => setIsOpen(!isOpen);
+    const handleToggle = () => setIsOpen(prev => !prev);
 
     const handleSelect = (brand) => {
         if (multiple) {
@@ -95,7 +95,11 @@ const BrandDropdown = ({
                         <span className={styles.placeholder}>{placeholder}</span>
                     )}
                 </div>
-                <span className={styles.triggerArrow}></span>
+                <span className={styles.triggerArrow} aria-hidden="true">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="6 9 12 15 18 9" />
+                    </svg>
+                </span>
             </div>
 
             {isOpen && (
@@ -121,7 +125,7 @@ const BrandDropdown = ({
                                 >
                                     <img src={getBrandLogo(brand)} alt="" className={styles.optionLogo} onError={(e) => { e.target.onerror = null; e.target.src = getBrandLogoFallback(brand); }} />
                                     <span className={styles.optionName}>{brand.name}</span>
-                                    {isSelected(brand.name) && <span className={styles.checkIcon}></span>}
+                                    {isSelected(brand.name) && <span className={styles.checkIcon}>✓</span>}
                                 </div>
                             ))
                         ) : (
@@ -144,7 +148,7 @@ const BrandDropdown = ({
                                     className={styles.removeChip}
                                     onClick={() => onRemove(brandName)}
                                 >
-                                    
+                                    ×
                                 </button>
                             </div>
                         );

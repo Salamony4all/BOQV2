@@ -314,7 +314,10 @@
       "description": "TEK/N AP",
       "imageUrl": "https://assets.teknion.com/m/575686012d594b12/original/Tek-N_desking_landing_thumb.jpg",
       "productUrl": "https://www.teknion.com/me/products/product-details?productLineId=eb74ab6f-8e7a-673b-a6c8-ff05004460c4",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "workstation_desk"
+      ]
     },
     {
       "mainCategory": "DESKING SYSTEMS",
@@ -324,7 +327,10 @@
       "description": "ROUTES",
       "imageUrl": "https://assets.teknion.com/m/4cf5339cabee0956/original/Routes_desking_landing_thumb.jpg",
       "productUrl": "https://www.teknion.com/me/products/product-details?productLineId=70f0476f-8e7a-673b-a6c8-ff05004460c4",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "workstation_desk"
+      ]
     },
     {
       "mainCategory": "DESKING SYSTEMS",
@@ -334,7 +340,10 @@
       "description": "EXPANSION CITYBENCH",
       "imageUrl": "https://assets.teknion.com/m/1e700aeb71a5432a/original/Expansion_citybench_desking_landing_thumb.jpg",
       "productUrl": "https://www.teknion.com/me/products/product-details?productlineid=8589546f-8e7a-673b-a6c8-ff05004460c4",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "workstation_desk"
+      ]
     },
     {
       "mainCategory": "DESKING SYSTEMS",
@@ -344,7 +353,10 @@
       "description": "UPSTAGE",
       "imageUrl": "https://assets.teknion.com/m/19ae0773597af4aa/original/Upstage_desking_landing_thumb.jpg",
       "productUrl": "https://www.teknion.com/me/products/product-details?productlineid=c9743b6e-8e7a-673b-a6c8-ff00004460c4",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "workstation_desk"
+      ]
     },
     {
       "mainCategory": "DESKING SYSTEMS",
@@ -354,7 +366,10 @@
       "description": "INTERPRET",
       "imageUrl": "https://assets.teknion.com/m/488878fd4ce967f8/original/Interpret_desking_landing_thumb.jpg",
       "productUrl": "https://www.teknion.com/me/products/product-details?productlineid=3c4f336e-8e7a-673b-a6c8-ff00004460c4",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "workstation_desk"
+      ]
     },
     {
       "mainCategory": "DESKING SYSTEMS",
@@ -364,7 +379,10 @@
       "description": "EXPANSION DESKING",
       "imageUrl": "https://assets.teknion.com/m/63356c0e17f4a2ff/original/Expansion_desking_landing_thumb.jpg",
       "productUrl": "https://www.teknion.com/me/products/product-details?productlineid=2b4e336e-8e7a-673b-a6c8-ff00004460c4",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "workstation_desk"
+      ]
     },
     {
       "mainCategory": "ROUTES",
@@ -404,7 +422,10 @@
       "description": "EXPANSION CASEGOODS",
       "imageUrl": "https://assets.teknion.com/m/655a17fe97cbc0a2/original/Expansion_Casegoods-AP_landing.jpg",
       "productUrl": "https://www.teknion.com/me/products/product-details?productLineId=cdb4756f-8e7a-673b-a6c8-ff05004460c4",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "executive_desk"
+      ]
     },
     {
       "mainCategory": "CASEGOODS / PRIVATE OFFICE",
@@ -424,7 +445,10 @@
       "description": "JOURNAL",
       "imageUrl": "https://assets.teknion.com/m/36601c4531dd48c6/original/Journal_casegoods_landing_thumb.jpg",
       "productUrl": "https://www.teknion.com/me/products/product-details?productlineid=4e55336e-8e7a-673b-a6c8-ff00004460c4",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "executive_desk"
+      ]
     },
     {
       "mainCategory": "CASEGOODS / PRIVATE OFFICE",
@@ -434,7 +458,10 @@
       "description": "DOSSIER",
       "imageUrl": "https://assets.teknion.com/m/2c4adaa9c79e9227/original/Dossier_casegoods_landing_thumb.jpg",
       "productUrl": "https://www.teknion.com/me/products/product-details?productlineid=f253336e-8e7a-673b-a6c8-ff00004460c4",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "executive_desk"
+      ]
     },
     {
       "mainCategory": "LOCKERS",
@@ -504,7 +531,10 @@
       "description": "PEDESTALS",
       "imageUrl": "https://assets.teknion.com/m/7d103d2f1937a2ff/original/Pedestals_storage_landing_thumb.jpg",
       "productUrl": "https://www.teknion.com/me/products/product-details?productLineId=cfffdd6e-8e7a-673b-a6c8-ff05004460c4",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "pedestal"
+      ]
     },
     {
       "mainCategory": "HEIGHT-ADJUSTABLE TABLES",
@@ -554,7 +584,10 @@
       "description": "EXPANSION TRAINING",
       "imageUrl": "https://assets.teknion.com/m/482fddc3e9ace5c0/original/Expansion_Training_landing.jpg",
       "productUrl": "https://www.teknion.com/me/products/product-details?productlineid=8283336e-8e7a-673b-a6c8-ff00004460c4",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "folding_table"
+      ]
     },
     {
       "mainCategory": "WORK TABLES",
@@ -644,7 +677,10 @@
       "description": "C+D CONFERENCE TABLE",
       "imageUrl": "https://assets.teknion.com/m/1a5adf940fb82369/original/C-D_conference_boardroom_landing_thumb.jpg",
       "productUrl": "https://www.teknion.com/me/products/product-details?productLineId=f681026f-8e7a-673b-a6c8-ff05004460c4",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "conference_table"
+      ]
     },
     {
       "mainCategory": "BOARDROOM / MEETING TABLES",
@@ -674,7 +710,10 @@
       "description": "COMMUNITY TABLE",
       "imageUrl": "https://assets.teknion.com/m/5794a9aa68a32484/original/Community_boardroom_landing_thumb.jpg",
       "productUrl": "https://www.teknion.com/me/products/product-details?productlineid=b807586e-8e7a-673b-a6c8-ff00004460c4",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "conference_table"
+      ]
     },
     {
       "mainCategory": "BOARDROOM / MEETING TABLES",
@@ -684,7 +723,10 @@
       "description": "AUDIENCE",
       "imageUrl": "https://assets.teknion.com/m/2f97bf10b5399780/original/Audience_boardroom_landing_thumb.jpg",
       "productUrl": "https://www.teknion.com/me/products/product-details?productLineId=1280336e-8e7a-673b-a6c8-ff00004460c4",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "conference_table"
+      ]
     },
     {
       "mainCategory": "BOARDROOM / MEETING TABLES",
@@ -744,7 +786,10 @@
       "description": "EXPANSION LEARNING TABLES",
       "imageUrl": "https://assets.teknion.com/m/13e035b87953ef5d/original/Expansion_training_work_tables_landing_thumb.jpg",
       "productUrl": "https://www.teknion.com/me/products/product-details?productlineid=8283336e-8e7a-673b-a6c8-ff00004460c4",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "folding_table"
+      ]
     },
     {
       "mainCategory": "WORK CHAIRS",
@@ -2114,7 +2159,10 @@
       "description": "Expansion Training Table",
       "imageUrl": "https://d2r72yk5wmppdj.cloudfront.net/m/5885fba60d756237/original/Ed-Prod-Map_0035_Expansion-Training-Table.png",
       "productUrl": "https://www.teknion.com/me/products/product-details?productlineid=8283336e-8e7a-673b-a6c8-ff00004460c4",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "folding_table"
+      ]
     },
     {
       "mainCategory": "EDUCATION: CLASSROOM",
@@ -2164,7 +2212,10 @@
       "description": "Thesis Flip Top Table",
       "imageUrl": "https://d2r72yk5wmppdj.cloudfront.net/m/375b49877ef72220/original/Ed-Prod-Map_0067_Thesis-Flip-Top-Table.png",
       "productUrl": "https://www.teknion.com/me/products/product-details?productlineid=067f336e-8e7a-673b-a6c8-ff00004460c4",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "folding_table"
+      ]
     },
     {
       "mainCategory": "EDUCATION: CLASSROOM",
@@ -2294,7 +2345,10 @@
       "description": "THESIS FLIP TOP TABLE",
       "imageUrl": "https://d2r72yk5wmppdj.cloudfront.net/m/450cdee771673ac5/Low-Classroom_Active-Learning_Thesis-FlipTop.jpg",
       "productUrl": "https://www.teknion.com/me/product-details?productlineid=067f336e-8e7a-673b-a6c8-ff00004460c4",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "folding_table"
+      ]
     },
     {
       "mainCategory": "EDUCATION: CLASSROOM",
@@ -2374,7 +2428,10 @@
       "description": "Audience Boardroom Table",
       "imageUrl": "https://d2r72yk5wmppdj.cloudfront.net/m/68052b161d44fafe/original/Ed-Prod-Map_0046_Audience-Boardroom-Table.png",
       "productUrl": "https://www.teknion.com/me/products/product-details?productlineid=1280336e-8e7a-673b-a6c8-ff00004460c4",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "conference_table"
+      ]
     },
     {
       "mainCategory": "EDUCATION: CLASSROOM",
@@ -3414,7 +3471,10 @@
       "description": "Expansion Casegoods",
       "imageUrl": "https://d2r72yk5wmppdj.cloudfront.net/m/4e3264ab4c15bb63/original/Ed-Prod-Map_0031_Expansion-Casegoods.png",
       "productUrl": "https://www.teknion.com/can/products/product-details?productLineId=0053336e-8e7a-673b-a6c8-ff00004460c4",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "executive_desk"
+      ]
     },
     {
       "mainCategory": "EDUCATION: PRIVATE OFFICE",
@@ -4545,6 +4605,25 @@
       "imageUrl": "https://d2r72yk5wmppdj.cloudfront.net/m/69ccb52f71c66afa/Medium-Zones-Dialogue-Table-Soft-Seating.jpg",
       "productUrl": "https://www.teknion.com/me/products",
       "price": 0
+    },
+    {
+      "price": 0,
+      "currency": "USD",
+      "verified": true,
+      "source": "official-site",
+      "lastUpdated": "2026-11-21",
+      "websiteUrl": "https://www.teknion.com/ca/products/product-details?productlineid=8283336e-8e7a-673b-a6c8-ff00004460c4",
+      "officialProductUrl": "https://www.teknion.com/ca/products/product-details?productlineid=8283336e-8e7a-673b-a6c8-ff00004460c4",
+      "model": "Expansion Learning Tables (Flip-Top & Folding)",
+      "family": "Expansion",
+      "mainCategory": "CLASSROOM / TRAINING TABLES",
+      "subCategory": "Folding & Multi-Purpose Conference Tables",
+      "productUrl": "https://www.teknion.com/ca/products/product-details?productlineid=8283336e-8e7a-673b-a6c8-ff00004460c4",
+      "imageUrl": "https://teknion.bynder.com/m/5b12848a975b68e5/prodban_Expansion_Training_Tables.jpg",
+      "description": "Expansion training tables: mobile multi-purpose tables in Flip-Top and Folding models with Quick Release Linking System, modesty panels and optional electrical tray.",
+      "setRoles": [
+        "folding_table"
+      ]
     }
   ],
   "createdAt": "2025-12-18T07:30:03.456Z",

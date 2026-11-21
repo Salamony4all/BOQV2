@@ -4252,12 +4252,20 @@
     {
       "model": "Arper Pix Coffee Table",
       "price": 0,
-      "family": "Arper",
-      "imageUrl": "https://www.arper.com/media/images/products/collections/pix-tables/pix-tables-01.jpg",
-      "productUrl": "https://www.arper.com/us/en/products/collections/pix-tables/",
+      "family": "Pix Table Round Wood and Metal Table",
+      "imageUrl": "https://arper-cdn.thron.com/delivery/public/thumbnail/arper/25240f40-211b-4330-bece-52788bc972c5/jd4oic/std/280x280/5283_Arper_PIX_V39_M04__3050.jpg",
+      "productUrl": "https://www.arper.com/ww/en/products/collections/pix-table",
       "description": "A collection of low coffee tables from Arper, characterized by their soft, rounded forms and lightweight appearance. These tables typically feature a lacquered MDF top and a base made from rotationally molded polyethylene, available in a range of colors and various sizes. Designed for lounge areas, waiting rooms, and residential settings, the Pix Coffee Table offers a versatile, durable, and playful aesthetic.",
-      "subCategory": "Surfaces",
-      "mainCategory": "Furniture"
+      "subCategory": "Lounge Chairs",
+      "mainCategory": "Office Seating",
+      "brand": "Arper",
+      "websiteUrl": "https://www.arper.com/ww/en/products/collections/pix-table",
+      "officialProductUrl": "https://www.arper.com/ww/en/products/collections/pix-table",
+      "currency": "USD",
+      "verified": true,
+      "officialRefreshedAt": "2026-11-20T18:31:49.324Z",
+      "source": "og:arper.com",
+      "lastUpdated": "2026-11-20T18:31:49.324Z"
     },
     {
       "model": "Pix Coffee Table",
@@ -5826,6 +5834,25 @@
       "description": "Contract tables. Laptop cushion upholstered in fabric, leather, coated fabric or customer’s own material, fitted with a plywood tablet and reconstituted oak or walnut",
       "subCategory": "Accessories",
       "mainCategory": "Furniture"
+    },
+    {
+      "price": 0,
+      "currency": "USD",
+      "verified": true,
+      "source": "official-site",
+      "lastUpdated": "2026-11-21",
+      "websiteUrl": "https://www.arper.com/us_EN/collections/cross.html",
+      "officialProductUrl": "https://www.arper.com/us_EN/collections/cross.html",
+      "model": "Cross Meeting & Boardroom Table System",
+      "family": "Cross",
+      "mainCategory": "Desk & Table",
+      "subCategory": "Conference Tables",
+      "productUrl": "https://www.arper.com/us_EN/collections/cross.html",
+      "imageUrl": "https://www.arper.com/media/wysiwyg/CollectionImages/Cross_Gallery_3_2.png",
+      "description": "Cross table system for meeting, boardroom and collaborative work: standard or electrified versions, in-line configurations for long tables.",
+      "setRoles": [
+        "conference_table"
+      ]
     }
   ],
   "source": "Italy",
@@ -5863,6 +5890,7 @@
       "Coffee Tables"
     ],
     "Office Seating": [
+      "Lounge Chairs",
       "Conference Chairs"
     ]
   },

@@ -100,7 +100,10 @@
       "description": "Monolith",
       "imageUrl": "https://www.las.it/wp-content/uploads/2021/08/Orlandini-700x700.jpg",
       "productUrl": "https://www.las.it/en/designer/orlandini-design/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "executive_desk"
+      ]
     },
     {
       "mainCategory": "Find out more",
@@ -140,7 +143,10 @@
       "description": "Sigma",
       "imageUrl": "https://www.las.it/wp-content/uploads/2021/08/Studio-SI-700x700.jpg",
       "productUrl": "https://www.las.it/en/designer/studio-si/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "workstation_desk"
+      ]
     },
     {
       "mainCategory": "Find out more",
@@ -160,7 +166,10 @@
       "description": "Enosi",
       "imageUrl": "https://www.las.it/wp-content/uploads/2021/07/Nikolas-Chachamis-700x700.jpg",
       "productUrl": "https://www.las.it/en/designer/nikolas-chachamis/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "executive_desk"
+      ]
     },
     {
       "mainCategory": "Find out more",
@@ -250,7 +259,10 @@
       "description": "MONOLITH",
       "imageUrl": "https://www.las.it/wp-content/uploads/2024/10/sistemi-direzionali-monolith-las-08.jpg",
       "productUrl": "https://www.las.it/en/products/monolith/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "executive_desk"
+      ]
     },
     {
       "mainCategory": "PRODUCTS",
@@ -260,7 +272,10 @@
       "description": "ENOSI",
       "imageUrl": "https://www.las.it/wp-content/uploads/2021/08/enosi-thumb-01-scaled.jpg",
       "productUrl": "https://www.las.it/en/products/enosi/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "executive_desk"
+      ]
     },
     {
       "mainCategory": "PRODUCTS",
@@ -280,7 +295,10 @@
       "description": "IULIO",
       "imageUrl": "https://www.las.it/wp-content/uploads/2021/08/iulio-thumb-01-scaled.jpg",
       "productUrl": "https://www.las.it/en/products/iulio/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "executive_desk"
+      ]
     },
     {
       "mainCategory": "PRODUCTS",
@@ -290,7 +308,10 @@
       "description": "ELITE",
       "imageUrl": "https://www.las.it/wp-content/uploads/2021/08/elite-thumb-01-scaled.jpg",
       "productUrl": "https://www.las.it/en/products/elite/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "executive_desk"
+      ]
     },
     {
       "mainCategory": "PRODUCTS",
@@ -300,7 +321,10 @@
       "description": "DELTA",
       "imageUrl": "https://www.las.it/wp-content/uploads/2021/08/delta-thumb-01-scaled.jpg",
       "productUrl": "https://www.las.it/en/products/delta/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "workstation_desk"
+      ]
     },
     {
       "mainCategory": "PRODUCTS",
@@ -310,7 +334,10 @@
       "description": "SIGMA",
       "imageUrl": "https://www.las.it/wp-content/uploads/2025/07/sitemi-operativo-sigma-thumb.jpg",
       "productUrl": "https://www.las.it/en/products/20457/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "workstation_desk"
+      ]
     },
     {
       "mainCategory": "PRODUCTS",
@@ -330,7 +357,10 @@
       "description": "5TH ELEMENT",
       "imageUrl": "https://www.las.it/wp-content/uploads/2021/08/5thelement-thumb-01-scaled.jpg",
       "productUrl": "https://www.las.it/en/products/5th-element/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "workstation_desk"
+      ]
     },
     {
       "mainCategory": "PRODUCTS",
@@ -340,7 +370,10 @@
       "description": "OXI",
       "imageUrl": "https://www.las.it/wp-content/uploads/2021/08/oxi-thumb-01-scaled.jpg",
       "productUrl": "https://www.las.it/en/products/oxi/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "workstation_desk"
+      ]
     },
     {
       "mainCategory": "PRODUCTS",
@@ -350,7 +383,10 @@
       "description": "SCHERMI UNIVERSALI",
       "imageUrl": "https://www.las.it/wp-content/uploads/2021/08/schermi-thumb-02.jpg",
       "productUrl": "https://www.las.it/en/products/schermi-universali/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "screen"
+      ]
     },
     {
       "mainCategory": "PRODUCTS",
@@ -380,7 +416,10 @@
       "description": "PIEGO",
       "imageUrl": "https://www.las.it/wp-content/uploads/2021/08/piego-thumb-02-1.jpg",
       "productUrl": "https://www.las.it/en/products/piego/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "folding_table"
+      ]
     },
     {
       "mainCategory": "PRODUCTS",
@@ -390,7 +429,10 @@
       "description": "CHIUDO",
       "imageUrl": "https://www.las.it/wp-content/uploads/2021/08/chiudo-thumb-01-scaled.jpg",
       "productUrl": "https://www.las.it/en/products/chiudo/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "folding_table"
+      ]
     },
     {
       "mainCategory": "PRODUCTS",
@@ -420,7 +462,11 @@
       "description": "CONTENITORI UNIVERSALI",
       "imageUrl": "https://www.las.it/wp-content/uploads/2021/08/contenitori-thumb-01-scaled.jpg",
       "productUrl": "https://www.las.it/en/products/contenitori-universali/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "pedestal",
+        "side_return"
+      ]
     },
     {
       "mainCategory": "PRODUCTS",
@@ -430,7 +476,10 @@
       "description": "I MEET",
       "imageUrl": "https://www.las.it/wp-content/uploads/2021/08/imeet-thumb-01-scaled.jpg",
       "productUrl": "https://www.las.it/en/products/i-meet/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "conference_table"
+      ]
     },
     {
       "mainCategory": "PRODUCTS",
@@ -1130,7 +1179,10 @@
       "description": "Iulio",
       "imageUrl": "https://www.las.it/wp-content/uploads/2021/08/Studio-SI-700x700.jpg",
       "productUrl": "https://www.las.it/en/designer/studio-si/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "executive_desk"
+      ]
     },
     {
       "mainCategory": "PRODUCTS",
@@ -1340,7 +1392,10 @@
       "description": "I Meet",
       "imageUrl": "https://www.las.it/wp-content/uploads/2021/07/Nikolas-Chachamis-700x700.jpg",
       "productUrl": "https://www.las.it/en/designer/nikolas-chachamis/",
-      "price": 0
+      "price": 0,
+      "setRoles": [
+        "conference_table"
+      ]
     },
     {
       "mainCategory": "PRODUCTS",
@@ -1680,7 +1735,189 @@
       "productUrl": "https://www.las.it/en/products/i-meet/",
       "description": "I-MEET",
       "subCategory": "Furniture",
-      "mainCategory": "PRODUCTS"
+      "mainCategory": "PRODUCTS",
+      "setRoles": [
+        "conference_table"
+      ]
+    },
+    {
+      "model": "5th Element Modular Bench Workstation & Executive L-Shape System",
+      "family": "5th Element",
+      "mainCategory": "Desk & Table",
+      "subCategory": "Workstations",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/08/5thelement-thumb-01-scaled.jpg",
+      "productUrl": "https://www.las.it/en/products/5th-element/",
+      "websiteUrl": "https://www.las.it/en/products/5th-element/",
+      "price": 0,
+      "currency": "USD",
+      "description": "5TH ELEMENT shared-structure operative system in Executive, Desking-Bench and Meeting versions, with height-adjustable legs, desk screens and felt front panels.",
+      "officialRefreshedAt": "2026-11-20T19:41:19.611Z",
+      "verified": true,
+      "source": "official-site",
+      "lastUpdated": "2026-11-21",
+      "officialProductUrl": "https://www.las.it/en/products/5th-element/",
+      "setRoles": [
+        "workstation_desk",
+        "executive_desk"
+      ]
+    },
+    {
+      "model": "Oxi Linear Workstation & L-Shape Desk System",
+      "family": "Oxi",
+      "mainCategory": "Desk & Table",
+      "subCategory": "Workstations",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/08/oxi-thumb-01-scaled.jpg",
+      "productUrl": "https://www.las.it/en/products/oxi/",
+      "websiteUrl": "https://www.las.it/en/products/oxi/",
+      "price": 0,
+      "currency": "USD",
+      "description": "OXI operative desks on bridge legs in single-desk and bench versions, with desk screens and Comby storage.",
+      "officialRefreshedAt": "2026-11-20T19:41:21.205Z",
+      "verified": true,
+      "source": "official-site",
+      "lastUpdated": "2026-11-21",
+      "officialProductUrl": "https://www.las.it/en/products/oxi/",
+      "setRoles": [
+        "workstation_desk"
+      ]
+    },
+    {
+      "model": "I-Meet Modular Conference & Multi-Purpose Meeting Table",
+      "family": "I-Meet",
+      "mainCategory": "Desk & Table",
+      "subCategory": "Conference Tables",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/08/imeet-thumb-01-scaled.jpg",
+      "productUrl": "https://www.las.it/en/products/i-meet/",
+      "websiteUrl": "https://www.las.it/en/products/i-meet/",
+      "price": 0,
+      "currency": "USD",
+      "description": "I-MEET modular meeting tables in several formats that combine into large compositions, with top access module and under-top wire management. Fixed tables (not folding).",
+      "officialRefreshedAt": "2026-11-20T19:41:22.651Z",
+      "verified": true,
+      "source": "official-site",
+      "lastUpdated": "2026-11-21",
+      "officialProductUrl": "https://www.las.it/en/products/i-meet/",
+      "setRoles": [
+        "conference_table"
+      ]
+    },
+    {
+      "price": 0,
+      "currency": "USD",
+      "verified": true,
+      "source": "official-site",
+      "lastUpdated": "2026-11-21",
+      "websiteUrl": "https://www.las.it/en/products/20457/",
+      "officialProductUrl": "https://www.las.it/en/products/20457/",
+      "model": "SIGMA Operative Desk System",
+      "family": "Sigma",
+      "mainCategory": "Desk & Table",
+      "subCategory": "Workstations",
+      "productUrl": "https://www.las.it/en/products/20457/",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2025/07/sitemi-operativo-sigma-thumb.jpg",
+      "description": "SIGMA operative desk system.",
+      "setRoles": [
+        "workstation_desk"
+      ]
+    },
+    {
+      "price": 0,
+      "currency": "USD",
+      "verified": true,
+      "source": "official-site",
+      "lastUpdated": "2026-11-21",
+      "websiteUrl": "https://www.las.it/en/products/iulio/",
+      "officialProductUrl": "https://www.las.it/en/products/iulio/",
+      "model": "IULIO Executive Desk with Service Unit",
+      "family": "Iulio",
+      "mainCategory": "Desk & Table",
+      "subCategory": "Executive Desks",
+      "productUrl": "https://www.las.it/en/products/iulio/",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/08/iulio-thumb-01-scaled.jpg",
+      "description": "IULIO executive range: desks with castor drawer units, service cabinets and sliding-door service units, plus matching meeting tables.",
+      "setRoles": [
+        "executive_desk"
+      ],
+      "includesRoles": [
+        "side_return"
+      ]
+    },
+    {
+      "price": 0,
+      "currency": "USD",
+      "verified": true,
+      "source": "official-site",
+      "lastUpdated": "2026-11-21",
+      "websiteUrl": "https://www.las.it/en/products/piego/",
+      "officialProductUrl": "https://www.las.it/en/products/piego/",
+      "model": "PIEGO Folding Tables",
+      "family": "Piego",
+      "mainCategory": "Desk & Table",
+      "subCategory": "Folding & Multi-Purpose Conference Tables",
+      "productUrl": "https://www.las.it/en/products/piego/",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/08/piego-thumb-02-1.jpg",
+      "description": "PIEGO folding tables (folding tops or folding legs) for meetings, training and teamwork: three lengths, fixed feet or castors with brakes, 18 mm tops.",
+      "setRoles": [
+        "folding_table"
+      ]
+    },
+    {
+      "price": 0,
+      "currency": "USD",
+      "verified": true,
+      "source": "official-site",
+      "lastUpdated": "2026-11-21",
+      "websiteUrl": "https://www.las.it/en/products/chiudo/",
+      "officialProductUrl": "https://www.las.it/en/products/chiudo/",
+      "model": "CHIUDO Folding Meeting Tables",
+      "family": "Chiudo",
+      "mainCategory": "Desk & Table",
+      "subCategory": "Folding & Multi-Purpose Conference Tables",
+      "productUrl": "https://www.las.it/en/products/chiudo/",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/08/chiudo-thumb-01-scaled.jpg",
+      "description": "CHIUDO folding meeting tables (folding legs or folding tops) in three lengths on castors; storage cart for 5 tables.",
+      "setRoles": [
+        "folding_table"
+      ]
+    },
+    {
+      "price": 0,
+      "currency": "USD",
+      "verified": true,
+      "source": "official-site",
+      "lastUpdated": "2026-11-21",
+      "websiteUrl": "https://www.las.it/en/products/schermi-universali/",
+      "officialProductUrl": "https://www.las.it/en/products/schermi-universali/",
+      "model": "SCHERMI UNIVERSALI Desk Screens",
+      "family": "Schermi Universali",
+      "mainCategory": "Accessories",
+      "subCategory": "Desk Screens",
+      "productUrl": "https://www.las.it/en/products/schermi-universali/",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/08/schermi-thumb-02.jpg",
+      "description": "SCHERMI UNIVERSALI desk-fixed partition screens in plain or acoustic versions.",
+      "setRoles": [
+        "screen"
+      ]
+    },
+    {
+      "price": 0,
+      "currency": "USD",
+      "verified": true,
+      "source": "official-site",
+      "lastUpdated": "2026-11-21",
+      "websiteUrl": "https://www.las.it/en/products/contenitori-universali/",
+      "officialProductUrl": "https://www.las.it/en/products/contenitori-universali/",
+      "model": "CONTENITORI UNIVERSALI Pedestals & Service Units",
+      "family": "Contenitori Universali",
+      "mainCategory": "Storage",
+      "subCategory": "Pedestals",
+      "productUrl": "https://www.las.it/en/products/contenitori-universali/",
+      "imageUrl": "https://www.las.it/wp-content/uploads/2021/08/contenitori-thumb-01-scaled.jpg",
+      "description": "CONTENITORI UNIVERSALI storage: six chest-of-drawers (pedestal) models, service units and cabinets.",
+      "setRoles": [
+        "pedestal",
+        "side_return"
+      ]
     }
   ],
   "source": "ITALY",
