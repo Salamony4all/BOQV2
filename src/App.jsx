@@ -857,8 +857,23 @@ function AppContent({ onOpenSettings }) {
     setMultiBudgetOpen(true);
   };
 
+  // A VE / Multi-Budget offer is already priced & costed. Keep the original extracted
+  // tables as they are and hand the offer over separately so it is never costed twice.
+  const applyOfferToExtracted = (data) => {
+    const offer = { tables: data?.tables || [], costingFactors: data?.costingFactors || null };
+    setExtractedData(prev => {
+      const hasOriginals = Array.isArray(prev?.tables) && prev.tables.length > 0 && !prev.isOfferOnly;
+      if (hasOriginals) {
+        const { costingFactors: _ignored, ...rest } = prev;
+        return { ...rest, appliedOffer: offer, offerVersion: Date.now() };
+      }
+      // Built from scratch / plan: no originals, show the offer only (still never re-costed)
+      return { tables: offer.tables, recategorizeMode: data?.recategorizeMode, appliedOffer: offer, isOfferOnly: true, offerVersion: Date.now() };
+    });
+  };
+
   const handleMultiBudgetApply = (data) => {
-    setExtractedData(data);
+    applyOfferToExtracted(data);
     setMultiBudgetOpen(false);
     // Smooth scroll will be handled by useEffect
   };
@@ -1056,7 +1071,7 @@ function AppContent({ onOpenSettings }) {
           planPreviewType={planPreviewType}
           planPreviewName={planPreviewName}
           onApply={(data) => {
-            setExtractedData(data);
+            applyOfferToExtracted(data);
             setValueEngineeredOpen(false);
             setShowLanding(false);
           }}
@@ -1228,7 +1243,7 @@ function AppContent({ onOpenSettings }) {
         planPreviewType={planPreviewType}
         planPreviewName={planPreviewName}
         onApply={(data) => {
-          setExtractedData(data);
+          applyOfferToExtracted(data);
           setValueEngineeredOpen(false);
           setShowLanding(false);
         }}

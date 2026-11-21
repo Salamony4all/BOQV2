@@ -124,6 +124,7 @@ function buildLiveMatchShowcase(featuredBrands = [], allBrands = [], getBrandLog
                 logoFallback,
                 label: modelName,
                 imageUrl: toHighResArchitonicUrl(rawImg),
+                productUrl: p?.officialProductUrl || p?.websiteUrl || p?.productUrl || '',
                 score: 94 + ((brandIdx + pIdx) % 6)
             };
 
@@ -292,6 +293,12 @@ function MotionStage({ onPlanClick, onMatchClick, onExportClick, keyActivate, sh
         }
     }, [safeIdx, hasPhotos, liveItems]);
 
+    // Clicking a live match opens its official product page; fall back to the AI Value Engineer.
+const openMatchTarget = () => {
+        if (activePhoto?.productUrl) window.open(activePhoto.productUrl, '_blank', 'noopener,noreferrer');
+        else onMatchClick?.();
+    };
+
     return (
         <div className={`${styles.stage} ${styles.enter}`} style={{ animationDelay: '440ms' }}>
             {/* Stage 1: Architectural CAD Floor-Plan Laser Scan */}
@@ -418,10 +425,10 @@ function MotionStage({ onPlanClick, onMatchClick, onExportClick, keyActivate, sh
             {/* Stage 2: Live High-Res Architonic Chair & Desk Matcher */}
             <div
                 className={`${styles.stageCard} ${styles.stageMatch}`}
-                onClick={onMatchClick}
+                onClick={openMatchTarget}
                 role="button"
                 tabIndex={0}
-                onKeyDown={keyActivate(onMatchClick)}
+                onKeyDown={keyActivate(openMatchTarget)}
                 title={activePhoto ? `${activePhoto.brandName} — ${activePhoto.label}` : 'Open AI Value Engineer'}
             >
                 {activePhoto ? (

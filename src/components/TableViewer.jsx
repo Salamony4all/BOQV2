@@ -3,6 +3,40 @@ import styles from '../styles/TableViewer.module.css';
 import actionStyles from '../styles/ActionBar.module.css';
 import CostingModal from './CostingModal';
 import MultiBudgetModal from './MultiBudgetModal';
+
+// ── Shared money helpers: one source of truth for row amounts, subtotals and VAT ──
+const parseMoney = (v) => {
+    const n = parseFloat(String(v ?? '').replace(/[^0-9.-]/g, ''));
+    return Number.isFinite(n) ? n : NaN;
+};
+const round2 = (n) => Math.round(((Number(n) || 0) + Number.EPSILON) * 100) / 100;
+const fmt2 = (n) => round2(n).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const SUMMARY_LINE_RE = /\b(sub[-\s]?total|grand\s*total|total\s*value|total\s*amount|net\s*total|vat|tax|discount)\b|^\s*total\b/i;
+
+function getMoneyColumns(header = []) {
+    const amountIdx = header.findIndex(h => /amount|total(?!.*(qty|quantity))/i.test(h));
+    const rateIdx = header.findIndex((h, i) => i !== amountIdx && /rate|price/i.test(h));
+    const qtyIdx = header.findIndex(h => /\bqty\b|quantity|\bqt\b/i.test(h));
+    return { amountIdx, rateIdx, qtyIdx };
+}
+
+/** Row amount = qty x rate when both are present (amount cells can be stale); else the amount cell. */
+function resolveRowAmount(cells = [], { qtyIdx, rateIdx, amountIdx }) {
+    const qty = qtyIdx !== -1 ? parseMoney(cells[qtyIdx]?.value) : NaN;
+    const rate = rateIdx !== -1 ? parseMoney(cells[rateIdx]?.value) : NaN;
+    if (Number.isFinite(qty) && Number.isFinite(rate)) return round2(qty * rate);
+    const amt = amountIdx !== -1 ? parseMoney(cells[amountIdx]?.value) : NaN;
+    return Number.isFinite(amt) ? round2(amt) : 0;
+}
+
+/** Printed "TOTAL VALUE / VAT / GRAND TOTAL" lines extracted as rows must never be summed. */
+function isSummaryLine(row, { qtyIdx }) {
+    if (!row || !row.cells) return true;
+    if (row.isHeader || row.isSummary) return true;
+    const qty = qtyIdx !== -1 ? parseMoney(row.cells[qtyIdx]?.value) : NaN;
+    if (Number.isFinite(qty) && qty > 0) return false;
+    return row.cells.some(c => SUMMARY_LINE_RE.test(String(c?.value ?? '')));
+}
 import ValueEngineeredModal from './ValueEngineeredModal';
 import ProjectSettingsPanel from './ProjectSettingsPanel';
 import TenderAutofillModal from './TenderAutofillModal';
@@ -55,6 +89,9 @@ function TableViewer({
     const [isTenderAutofillOpen, setTenderAutofillOpen] = useState(false);
     // Per-table VAT rate for extracted summary (GCC default = 5%)
     const [vatRates, setVatRates] = useState({});
+    // Offer applied from Value Engineer / Multi-Budget: already priced & costed, shown in the
+    // costed section only. The original extracted tables are never replaced by it.
+    const [appliedOffer, setAppliedOffer] = useState(null);
     const [generatingType, setGeneratingType] = useState(null);
     const [showPptxModal, setShowPptxModal] = useState(false);
     const [pptxSourceTables, setPptxSourceTables] = useState(null);
@@ -95,6 +132,8 @@ function TableViewer({
             const shouldRecat = initMode === 'item' || initMode === 'room';
             setTables(shouldRecat ? recategorizeTables(rawTables, initMode) : rawTables);
             setVatRates({}); // Reset VAT selections on new upload (defaults back to 5%)
+            // Already-costed VE / Multi-Budget offer handed over by the parent (never re-costed)
+            setAppliedOffer(data.appliedOffer ? JSON.parse(JSON.stringify(data.appliedOffer)) : null);
 
             // Allow pre-initialized costing factors from parent (e.g. from MultiBudgetModal)
             if (data.costingFactors) {
@@ -210,9 +249,7 @@ function TableViewer({
             const header = table.header || [];
 
             // Find rate and amount/total columns
-            const rateIdx = header.findIndex(h => /rate|price|unit.*price|unit.*rate/i.test(h));
-            const amountIdx = header.findIndex(h => /amount|total(?!.*(qty|quantity))/i.test(h));
-            const qtyIdx = header.findIndex(h => /qty|quantity|qt/i.test(h));
+            const { rateIdx, amountIdx, qtyIdx } = getMoneyColumns(header);
             const unitIdx = header.findIndex(h => /unit|uom/i.test(h));
             const descIdx = header.findIndex(h => /description|desc|disc|item|product/i.test(h));
             const imgIdx = header.findIndex(h => /\b(image|photo|picture|img|pic|illustration|drawing|sketch)\b/i.test(h) || /\b(image\s*ref|photo\s*ref|pic\s*ref)\b/i.test(h));
@@ -232,6 +269,8 @@ function TableViewer({
 
                 // Skip rows that are clearly section titles (text only, no qty/rate/unit)
                 if (!qtyValStr && !rateValStr && !unitValStr) return;
+                // Skip printed TOTAL / VAT / GRAND TOTAL lines extracted as rows
+                if (isSummaryLine(row, { qtyIdx })) return;
 
                 // Parse rate
                 if (rateIdx !== -1 && row.cells[rateIdx]?.value) {
@@ -239,13 +278,11 @@ function TableViewer({
                     if (!isNaN(val)) totalRate += val;
                 }
 
-                // Parse amount
-                if (amountIdx !== -1 && row.cells[amountIdx]?.value) {
-                    const val = parseFloat(String(row.cells[amountIdx].value).replace(/,/g, ''));
-                    if (!isNaN(val)) {
-                        totalAmount += val;
-                        validRows++;
-                    }
+                // Parse amount (qty x rate is authoritative)
+                const lineAmount = resolveRowAmount(row.cells, { qtyIdx, rateIdx, amountIdx });
+                if (lineAmount !== 0) {
+                    totalAmount = round2(totalAmount + lineAmount);
+                    validRows++;
                 }
 
                 // Parse quantity
@@ -272,22 +309,28 @@ function TableViewer({
 
     // Compute Costed Tables (Separate copy)
     const costedTables = useMemo(() => {
-        if (!costingFactors) return null;
+        // An applied VE / Multi-Budget offer is already costed: summarise it, never cost it again.
+        const offerFactors = appliedOffer ? (appliedOffer.costingFactors || costingFactors || { vat: 5, toCurrency: '' }) : null;
+        const factors = offerFactors || costingFactors;
+        if (!factors) return null;
+        const sourceTables = appliedOffer ? appliedOffer.tables : tables;
 
-        const grossMargin = (costingFactors.profit + costingFactors.freight + costingFactors.customs + costingFactors.installation) / 100;
-        const multiplier = costingFactors.exchangeRate * (1 + grossMargin);
-        const vatRate = (costingFactors.vat || 0) / 100;
+        const grossMargin = ((factors.profit || 0) + (factors.freight || 0) + (factors.customs || 0) + (factors.installation || 0)) / 100;
+        const multiplier = appliedOffer ? 1 : (factors.exchangeRate || 1) * (1 + grossMargin);
+        const vatRate = (factors.vat || 0) / 100;
 
-        return tables.map(table => {
+        return sourceTables.map(table => {
             const header = table.header || [];
             const moneyIndices = header.map((h, i) =>
                 /rate|price|amount|total(?!.*(qty|quantity))/i.test(h) ? i : -1
             ).filter(i => i !== -1);
 
-            const amountIdx = header.findIndex(h => /amount|total(?!.*(qty|quantity))/i.test(h));
+            const cols = getMoneyColumns(header);
+            const { amountIdx, rateIdx, qtyIdx } = cols;
 
             const newRows = (table.rows || []).map(row => {
                 if (!row || !row.cells) return row;
+                if (isSummaryLine(row, cols)) return row;
                 const newCells = row.cells.map((cell, idx) => {
                     // Only modify money columns
                     if (cell && moneyIndices.includes(idx) && cell.value) {
@@ -295,28 +338,31 @@ function TableViewer({
                             const cleanVal = String(cell.value).replace(/,/g, '');
                             const num = parseFloat(cleanVal);
                             if (!isNaN(num)) {
-                                const finalPrice = (num * multiplier).toFixed(2);
+                                const finalPrice = round2(num * multiplier).toFixed(2);
                                 return { ...cell, value: finalPrice };
                             }
                         } catch (e) { return cell; }
                     }
                     return cell;
                 });
+                // Keep the costed amount consistent with the costed (rounded) rate x qty
+                if (amountIdx !== -1 && rateIdx !== -1 && qtyIdx !== -1) {
+                    const qty = parseMoney(newCells[qtyIdx]?.value);
+                    const rate = parseMoney(newCells[rateIdx]?.value);
+                    if (Number.isFinite(qty) && Number.isFinite(rate) && newCells[amountIdx]) {
+                        newCells[amountIdx] = { ...newCells[amountIdx], value: round2(qty * rate).toFixed(2) };
+                    }
+                }
                 return { ...row, cells: newCells };
             });
 
-            // Calculate Summary
-            let subtotal = 0;
-            if (amountIdx !== -1) {
-                subtotal = newRows.reduce((acc, row) => {
-                    if (row.isHeader || row.isSummary) return acc;
-                    const val = parseFloat(String(row.cells[amountIdx]?.value || '0').replace(/,/g, ''));
-                    return acc + (isNaN(val) ? 0 : val);
-                }, 0);
-            }
+            // Calculate Summary (same rules as the original table)
+            const subtotal = newRows.reduce((acc, row) => (
+                isSummaryLine(row, cols) ? acc : round2(acc + resolveRowAmount(row.cells, cols))
+            ), 0);
 
-            const vatAmount = subtotal * vatRate;
-            const grandTotal = subtotal + vatAmount;
+            const vatAmount = round2(subtotal * vatRate);
+            const grandTotal = round2(subtotal + vatAmount);
 
             return {
                 ...table,
@@ -325,12 +371,12 @@ function TableViewer({
                     subtotal: subtotal.toFixed(2),
                     vatAmount: vatAmount.toFixed(2),
                     grandTotal: grandTotal.toFixed(2),
-                    vatPercent: costingFactors.vat || 0,
-                    currency: costingFactors.toCurrency
+                    vatPercent: factors.vat || 0,
+                    currency: factors.toCurrency || ''
                 }
             };
         });
-    }, [tables, costingFactors]);
+    }, [tables, costingFactors, appliedOffer]);
 
     // Scroll to costed results when they appear
     useEffect(() => {
@@ -1459,7 +1505,10 @@ function TableViewer({
                 installation: 0,
                 exchangeRate: 1
             };
-            const hasCosting = true;
+            // Live costing formulas only when exporting the originals (or originals costed here).
+            // An applied VE / Multi-Budget offer is already costed and has a different column
+            // layout from the originals, so its rates are exported as fixed values.
+            const hasCosting = !appliedOffer;
 
             const header = table.header || [];
             let imgColIdx = header.findIndex(h => /\b(image|photo|picture|img|pic|illustration|drawing|sketch)\b/i.test(h) || /\b(image\s*ref|photo\s*ref|pic\s*ref)\b/i.test(h));
@@ -1619,7 +1668,7 @@ function TableViewer({
 
             // Always write costing factors exactly beside the table columns (1 empty column gap)
             const startCol = header.length + 2;
-            writeCostingFactorsToRight(ws, startCol, excelCostingFactors);
+            if (hasCosting) writeCostingFactorsToRight(ws, startCol, excelCostingFactors);
 
             // Add header row
             if (header.length > 0) {
@@ -1762,7 +1811,10 @@ function TableViewer({
 
                 if (hasCosting && isRateNumeric) {
                     let originalPrice = rateVal;
-                    const originalRow = tables[tableIndex]?.rows[rowIndex];
+                    // Base price must come from the matching original row/column (same table layout)
+                    const originalRow = (tables[tableIndex]?.header || []).length === header.length
+                        ? tables[tableIndex]?.rows[rowIndex]
+                        : null;
                     const originalRateCell = originalRow?.cells[rateColIdx];
                     if (originalRateCell && originalRateCell.value !== undefined) {
                         const origValStr = String(originalRateCell.value).trim();
@@ -1846,6 +1898,8 @@ function TableViewer({
                     column.width = maxImages > 1 ? 24 : 16;
                 } else if (i === descColIdx) {
                     column.width = 48; // Wider for descriptions
+                } else if (i === amountColIdx || i === rateColIdx) {
+                    column.width = 18; // Money columns: wide enough for totals (avoids ####)
                 } else {
                     let maxLength = 12;
                     column.eachCell({ includeEmpty: true }, (cell) => {
@@ -4518,13 +4572,13 @@ function TableViewer({
                 {!isCosted && table.extractedSummary && (() => {
                     const vatPct = vatRates[tableIndex] !== undefined ? vatRates[tableIndex] : 5;
                     const totalAmt = parseFloat(table.extractedSummary.totalAmount) || 0;
-                    const vatAmt = totalAmt * (vatPct / 100);
-                    const grandTotal = totalAmt + vatAmt;
+                    const vatAmt = round2(totalAmt * (vatPct / 100));
+                    const grandTotal = round2(totalAmt + vatAmt);
                     return (
                         <div className={styles.summarySection} style={{ borderColor: UI_COLORS.primary }}>
                             <div className={styles.summaryDetailRow}>
                                 <span>Total:</span>
-                                <span style={{ color: UI_COLORS.primary, fontWeight: 600 }}>{totalAmt.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                <span style={{ color: UI_COLORS.primary, fontWeight: 600 }}>{fmt2(totalAmt)}</span>
                             </div>
                             <div className={styles.summaryDetailRow} style={{ alignItems: 'center' }}>
                                 <span>VAT:</span>
@@ -4546,11 +4600,11 @@ function TableViewer({
                                     <option value={9}>9%</option>
                                     <option value={15}>15%</option>
                                 </select>
-                                <span style={{ color: UI_COLORS.muted, marginLeft: '8px' }}>{vatAmt.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                <span style={{ color: UI_COLORS.muted, marginLeft: '8px' }}>{fmt2(vatAmt)}</span>
                             </div>
                             <div className={styles.summaryTotal} style={{ color: UI_COLORS.primary }}>
                                 <span>Grand Total:</span>
-                                <span>{grandTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                <span>{fmt2(grandTotal)}</span>
                             </div>
                         </div>
                     );
@@ -4757,8 +4811,9 @@ function TableViewer({
                 planPreviewName={planPreviewName}
                 seededItems={seededItems}
                 onApplyFlow={(formattedData) => {
-                    setTables(formattedData.tables);
-                    setCostingFactors(formattedData.costingFactors);
+                    // Keep the original extracted tables; show the costed offer separately.
+                    setAppliedOffer({ tables: formattedData.tables, costingFactors: formattedData.costingFactors || null });
+                    if (formattedData.costingFactors) setCostingFactors(formattedData.costingFactors);
                     setMultiBudgetOpen(false);
                 }}
                 onOpenValueEngineer={() => {
@@ -4779,7 +4834,8 @@ function TableViewer({
                 planPreviewName={planPreviewName}
                 seededItems={seededItems}
                 onApply={(data) => {
-                    setTables(data.tables);
+                    // Keep the original extracted tables; show the costed offer separately.
+                    setAppliedOffer({ tables: data.tables, costingFactors: data.costingFactors || null });
                     if (data.costingFactors) setCostingFactors(data.costingFactors);
                     setValueEngineeredOpen(false);
                 }}
@@ -4794,6 +4850,8 @@ function TableViewer({
                 onClose={() => setCostingOpen(false)}
                 initialFactors={costingFactors}
                 onApply={(factors) => {
+                    // Costing always runs on the original extracted tables, once.
+                    setAppliedOffer(null);
                     setCostingFactors(factors);
                     setCostingOpen(false);
                 }}
