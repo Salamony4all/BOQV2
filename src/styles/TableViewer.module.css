@@ -740,3 +740,94 @@
     cursor: pointer;
     outline: none;
 }
+
+/* ── Column removal ─────────────────────────────────────────────── */
+.tableHeaderMeta {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.colHead {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+}
+
+.colHeadLabel {
+    outline: none;
+    border-radius: 4px;
+    padding: 0 2px;
+    min-width: 12px;
+}
+
+.colHeadLabel[contenteditable="true"]:focus {
+    background: rgba(99, 102, 241, 0.12);
+    box-shadow: 0 0 0 1px rgba(99, 102, 241, 0.5);
+}
+
+.colAddBtn,
+.colRemoveBtn {
+    width: 18px;
+    height: 18px;
+    padding: 0;
+    border: none;
+    border-radius: 50%;
+    font-size: 13px;
+    line-height: 18px;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.15s ease, background 0.15s ease, color 0.15s ease;
+    flex-shrink: 0;
+}
+
+.colAddBtn {
+    background: rgba(16, 185, 129, 0.14);
+    color: #10b981;
+}
+
+.colRemoveBtn {
+    background: rgba(239, 68, 68, 0.12);
+    color: #ef4444;
+}
+
+.colHeadCell:hover .colAddBtn,
+.colHeadCell:hover .colRemoveBtn,
+.colAddBtn:focus-visible,
+.colRemoveBtn:focus-visible {
+    opacity: 1;
+}
+
+.colAddBtn:hover {
+    background: #10b981;
+    color: #fff;
+}
+
+.colRemoveBtn:hover {
+    background: #ef4444;
+    color: #fff;
+}
+
+.restoreColumnBtn {
+    padding: 5px 12px;
+    border: 1px solid rgba(99, 102, 241, 0.4);
+    border-radius: 999px;
+    background: rgba(99, 102, 241, 0.08);
+    color: #6366f1;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+
+.restoreColumnBtn:hover {
+    background: rgba(99, 102, 241, 0.18);
+}
+
+@media (hover: none) {
+    .colAddBtn,
+    .colRemoveBtn {
+        opacity: 1;
+    }
+}

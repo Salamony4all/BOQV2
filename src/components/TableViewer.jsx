@@ -92,6 +92,8 @@ function TableViewer({
     // Offer applied from Value Engineer / Multi-Budget: already priced & costed, shown in the
     // costed section only. The original extracted tables are never replaced by it.
     const [appliedOffer, setAppliedOffer] = useState(null);
+    // Removed columns, most recent last, so a removal can be undone
+    const [removedColumns, setRemovedColumns] = useState([]);
     const [generatingType, setGeneratingType] = useState(null);
     const [showPptxModal, setShowPptxModal] = useState(false);
     const [pptxSourceTables, setPptxSourceTables] = useState(null);
@@ -134,6 +136,7 @@ function TableViewer({
             setVatRates({}); // Reset VAT selections on new upload (defaults back to 5%)
             // Already-costed VE / Multi-Budget offer handed over by the parent (never re-costed)
             setAppliedOffer(data.appliedOffer ? JSON.parse(JSON.stringify(data.appliedOffer)) : null);
+            setRemovedColumns([]);
 
             // Allow pre-initialized costing factors from parent (e.g. from MultiBudgetModal)
             if (data.costingFactors) {
@@ -691,6 +694,97 @@ function TableViewer({
         const newTables = [...tables];
         newTables[tableIndex].rows.splice(rowIndex, 1);
         setTables(newTables);
+    };
+
+    // Per-column metadata some extractors attach alongside the header
+    const COLUMN_META_KEYS = ['columnRoles', 'originalHeaders', 'columnMetadata'];
+
+    const handleRemoveColumn = (tableIndex, colIndex) => {
+        const table = tables[tableIndex];
+        if (!table || !Array.isArray(table.header) || table.header.length <= 1) return;
+        const width = table.header.length;
+        const snapshot = {
+            tableIndex,
+            colIndex,
+            label: table.header[colIndex],
+            cells: table.rows.map(r => (Array.isArray(r.cells) && r.cells.length === width ? r.cells[colIndex] : undefined)),
+            meta: Object.fromEntries(COLUMN_META_KEYS.filter(k => Array.isArray(table[k]) && table[k].length === width).map(k => [k, table[k][colIndex]]))
+        };
+        setTables(prev => prev.map((t, ti) => {
+            if (ti !== tableIndex) return t;
+            const next = {
+                ...t,
+                header: t.header.filter((_, i) => i !== colIndex),
+                columnCount: width - 1,
+                rows: t.rows.map(r => (Array.isArray(r.cells) && r.cells.length === width
+                    ? { ...r, cells: r.cells.filter((_, i) => i !== colIndex) }
+                    : r))
+            };
+            for (const k of Object.keys(snapshot.meta)) next[k] = t[k].filter((_, i) => i !== colIndex);
+            return next;
+        }));
+        setRemovedColumns(prev => [...prev, snapshot]);
+    };
+
+    /** Insert an empty column to the right of colIndex. Its header can be renamed in place. */
+    const handleAddColumn = (tableIndex, colIndex) => {
+        setTables(prev => prev.map((t, ti) => {
+            if (ti !== tableIndex || !Array.isArray(t.header)) return t;
+            const width = t.header.length;
+            const at = colIndex + 1;
+            const insert = (arr, value) => [...arr.slice(0, at), value, ...arr.slice(at)];
+            const taken = new Set(t.header.map(h => String(h || '').trim().toLowerCase()));
+            let label = 'New Column';
+            for (let n = 2; taken.has(label.toLowerCase()); n++) label = `New Column ${n}`;
+            const next = {
+                ...t,
+                header: insert(t.header, label),
+                columnCount: width + 1,
+                rows: t.rows.map(r => (Array.isArray(r.cells) && r.cells.length === width
+                    ? { ...r, cells: insert(r.cells, { value: '', images: [], image: null, isMerged: false }) }
+                    : r))
+            };
+            for (const k of COLUMN_META_KEYS) {
+                if (Array.isArray(t[k]) && t[k].length === width) next[k] = insert(t[k], k === 'columnRoles' ? 'other' : (k === 'originalHeaders' ? label : null));
+            }
+            return next;
+        }));
+        // Positions of earlier removals shift right when a column is inserted before them
+        setRemovedColumns(prev => prev.map(s => (s.tableIndex === tableIndex && s.colIndex > colIndex ? { ...s, colIndex: s.colIndex + 1 } : s)));
+    };
+
+    const handleRenameColumn = (tableIndex, colIndex, rawLabel) => {
+        const label = String(rawLabel || '').replace(/\s+/g, ' ').trim();
+        setTables(prev => prev.map((t, ti) => {
+            if (ti !== tableIndex || !Array.isArray(t.header) || t.header[colIndex] === label) return t;
+            return { ...t, header: t.header.map((h, i) => (i === colIndex ? label : h)) };
+        }));
+    };
+
+    const handleRestoreColumn = (tableIndex) => {
+        let snapshot = null;
+        for (let i = removedColumns.length - 1; i >= 0; i--) {
+            if (removedColumns[i].tableIndex === tableIndex) { snapshot = removedColumns[i]; break; }
+        }
+        if (!snapshot) return;
+        setTables(prev => prev.map((t, ti) => {
+            if (ti !== tableIndex) return t;
+            const width = t.header.length;
+            const at = Math.min(snapshot.colIndex, width);
+            const insert = (arr, value) => [...arr.slice(0, at), value, ...arr.slice(at)];
+            const next = {
+                ...t,
+                header: insert(t.header, snapshot.label),
+                columnCount: width + 1,
+                // Rows added after the removal get an empty cell
+                rows: t.rows.map((r, ri) => (Array.isArray(r.cells) && r.cells.length === width
+                    ? { ...r, cells: insert(r.cells, snapshot.cells[ri] ?? { value: '', images: [], image: null }) }
+                    : r))
+            };
+            for (const k of Object.keys(snapshot.meta)) if (Array.isArray(t[k]) && t[k].length === width) next[k] = insert(t[k], snapshot.meta[k]);
+            return next;
+        }));
+        setRemovedColumns(prev => prev.filter(s => s !== snapshot));
     };
 
     // --- Export Handlers (Premium Styled) ---
@@ -4396,9 +4490,21 @@ function TableViewer({
                     <h3 className={styles.sheetName} style={isCosted ? { color: '#f59e0b' } : {}} >
                         {isCosted ? ' ' : ''}Sheet: {table.sheetName} {isCosted ? '(Costed)' : ''}
                     </h3>
-                    <span className={styles.rowCount}>
-                        {table.rows.length} rows × {table.columnCount} columns
-                    </span>
+                    <div className={styles.tableHeaderMeta}>
+                        {!isCosted && removedColumns.some(c => c.tableIndex === tableIndex) && (
+                            <button
+                                type="button"
+                                className={styles.restoreColumnBtn}
+                                onClick={() => handleRestoreColumn(tableIndex)}
+                                title="Put the last removed column back"
+                            >
+                                ↶ Restore column
+                            </button>
+                        )}
+                        <span className={styles.rowCount}>
+                            {table.rows.length} rows × {table.header?.length ?? table.columnCount} columns
+                        </span>
+                    </div>
                 </div>
 
                 <div className={styles.tableWrapper}>
@@ -4406,7 +4512,42 @@ function TableViewer({
                         <thead>
                             {table.header && (
                                 <tr className={styles.headerRow}>
-                                    {table.header.map((h, i) => <th key={i}>{h}</th>)}
+                                    {table.header.map((h, i) => (
+                                        <th key={i} className={styles.colHeadCell}>
+                                            <span className={styles.colHead}>
+                                                <span
+                                                    className={styles.colHeadLabel}
+                                                    contentEditable={!isCosted}
+                                                    suppressContentEditableWarning
+                                                    title={isCosted ? undefined : 'Click to rename'}
+                                                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.currentTarget.blur(); } }}
+                                                    onBlur={(e) => !isCosted && handleRenameColumn(tableIndex, i, e.currentTarget.innerText)}
+                                                >{h}</span>
+                                                {!isCosted && (
+                                                    <button
+                                                        type="button"
+                                                        className={styles.colAddBtn}
+                                                        onClick={() => handleAddColumn(tableIndex, i)}
+                                                        title={`Add a column after "${h || i + 1}"`}
+                                                        aria-label={`Add a column after ${h || i + 1}`}
+                                                    >
+                                                        +
+                                                    </button>
+                                                )}
+                                                {!isCosted && table.header.length > 1 && (
+                                                    <button
+                                                        type="button"
+                                                        className={styles.colRemoveBtn}
+                                                        onClick={() => handleRemoveColumn(tableIndex, i)}
+                                                        title={`Remove column "${h || i + 1}"`}
+                                                        aria-label={`Remove column ${h || i + 1}`}
+                                                    >
+                                                        ×
+                                                    </button>
+                                                )}
+                                            </span>
+                                        </th>
+                                    ))}
                                     <th className={styles.actionCell}>Actions</th>
                                 </tr>
                             )}
