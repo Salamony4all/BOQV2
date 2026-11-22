@@ -1708,6 +1708,29 @@ async function executeExtractionPipeline({
         }
         throw new Error(`${extractionMode} extraction failed: ${err.message}`);
       }
+    } else if (isVercel && extractionMode === 'parallel') {
+      // AI Vision Extractor selected: call the chosen model first (PDF sent to the model, images
+      // captured natively by MuPDF). The native parser is only the fallback if the AI call fails.
+      console.log(`[Upload] Running in Vercel - AI Vision extraction with model: ${modelName || 'default'}`);
+      try {
+        const uploadId = crypto.randomUUID();
+        const { extractProductBoqFromPdf } = await getPdfProductExtractor();
+        extractedData = await extractProductBoqFromPdf(filePath, () => { }, modelName);
+        if (!extractedData || !Array.isArray(extractedData.tables) || extractedData.tables.length === 0) {
+          throw new Error('AI extraction returned no tables');
+        }
+        extractedData.tables = extractedData.tables.map(t => ({ ...t, uploadId: t.uploadId || uploadId, engineUsed: t.engineUsed || `ai-vision (${modelName || 'default model'})` }));
+      } catch (aiErr) {
+        console.warn(`[Upload] AI Vision extraction failed (${aiErr.message}). Falling back to native MuPDF parser...`);
+        const uploadId = crypto.randomUUID();
+        const { extractPdfViaWordVercel } = await import('./wordExtractorServiceVercel.js');
+        extractedData = await extractPdfViaWordVercel(filePath, () => { });
+        if (!extractedData || !Array.isArray(extractedData.tables) || extractedData.tables.length === 0) {
+          throw new Error(`AI Vision extraction failed: ${aiErr.message}`);
+        }
+        extractedData.tables = extractedData.tables.map(t => ({ ...t, uploadId, engineUsed: `native-fallback (AI failed: ${String(aiErr.message).slice(0, 80)})` }));
+        extractedData.aiFallbackReason = aiErr.message;
+      }
     } else if (isVercel) {
       console.log(`[Upload] Running in Vercel - Using Vercel-safe MuPDF hybrid extraction`);
       try {

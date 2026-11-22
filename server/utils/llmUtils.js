@@ -1428,6 +1428,9 @@ async function callLocalLLM(systemPrompt, userPrompt, model = 'llama3.2') {
  * UNIVERSAL MULTIMODAL CALL
  * Routes to Google SDK or OpenAI-style Vision API (Nvidia/OpenRouter)
  */
+// Models that rejected `thinkingConfig.thinkingBudget = 0` (learned at runtime, per process)
+const thinkingControlUnsupported = new Set();
+
 export async function callUniversalMultimodalAI(systemPrompt, userPrompt, assets = [], modelName = null, jsonMode = false, pipeline = null) {
     const contextStore = aiKeyStorage.getStore() || {};
     const reqGoogleModel = contextStore.googleModel;
@@ -1482,9 +1485,27 @@ export async function callUniversalMultimodalAI(systemPrompt, userPrompt, assets
             }))
         ];
 
+        // PDF table extraction is transcription, not reasoning: "thinking" roughly doubles the
+        // latency for the same rows. It is switched off per model, and learned at runtime — a
+        // model that rejects the setting is retried without it and remembered.
+        const wantsFastExtraction = effectivePipeline === 'pdf_boq';
+        // Serverless functions have a hard wall-clock limit: spend it across the failover chain
+        // instead of letting one congested model consume all of it.
+        const onServerless = process.env.VERCEL === '1';
+        const budgetMs = onServerless && wantsFastExtraction ? Number(process.env.PDF_BOQ_BUDGET_MS || 50000) : Infinity;
+        const budgetStart = Date.now();
+
         let lastError = null;
         for (let i = 0; i < candidates.length; i++) {
             const candidate = candidates[i];
+            const remainingMs = budgetMs - (Date.now() - budgetStart);
+            if (remainingMs < 6000) {
+                console.warn(`  ⏳ [Multimodal:${effectivePipeline}] Time budget exhausted before "${candidate}".`);
+                break;
+            }
+            // Keep a reserve for one fast fallback when more candidates remain
+            const reserveMs = i < candidates.length - 1 ? 14000 : 0;
+            const attemptTimeoutMs = Math.min(timeoutMs, Math.max(6000, remainingMs - reserveMs));
             try {
                 if (freeTier && i === 0 && rawModelName && rawModelName.replace(':billed', '').trim() !== candidate) {
                     console.log(`  🧭 [Free Router:${effectivePipeline}] Multimodal routed "${rawModelName}" → "${candidate}"`);
@@ -1492,24 +1513,40 @@ export async function callUniversalMultimodalAI(systemPrompt, userPrompt, assets
                     console.log(`  🔁 [Multimodal Failover:${effectivePipeline}] Switching to fallback "${candidate}"...`);
                 }
                 const genAIInstance = getGoogleAI(`${candidate}${forceBilledSuffix}`);
-                const model = genAIInstance.getGenerativeModel({
-                    model: candidate,
-                    systemInstruction: systemPrompt,
-                    generationConfig: {
-                        temperature: 0,
-                        maxOutputTokens: (effectivePipeline === 'pdf_boq' || effectivePipeline === 'plan_vision') ? 65536 : 16384,
-                        ...(jsonMode ? { responseMimeType: 'application/json' } : {})
-                    }
-                });
+                const runOnce = (thinkingOff) => {
+                    const model = genAIInstance.getGenerativeModel({
+                        model: candidate,
+                        systemInstruction: systemPrompt,
+                        generationConfig: {
+                            temperature: 0,
+                            maxOutputTokens: (effectivePipeline === 'pdf_boq' || effectivePipeline === 'plan_vision') ? 65536 : 16384,
+                            ...(jsonMode ? { responseMimeType: 'application/json' } : {}),
+                            ...(thinkingOff ? { thinkingConfig: { thinkingBudget: 0 } } : {})
+                        }
+                    });
+                    return withModelTimeout(
+                        model.generateContent({ contents: [{ role: 'user', parts: promptParts }] }),
+                        attemptTimeoutMs,
+                        `GoogleMultimodal(${candidate})`
+                    );
+                };
 
                 const t0 = Date.now();
-                const result = await withModelTimeout(
-                    model.generateContent({ contents: [{ role: 'user', parts: promptParts }] }),
-                    timeoutMs,
-                    `GoogleMultimodal(${candidate})`
-                );
+                const thinkingOff = wantsFastExtraction && /^gemini/i.test(candidate) && !thinkingControlUnsupported.has(candidate);
+                let result;
+                try {
+                    result = await runOnce(thinkingOff);
+                } catch (firstErr) {
+                    const rejectedSetting = thinkingOff && /thinking|budget|unknown name|generation_?config/i.test(String(firstErr?.message || ''));
+                    if (!rejectedSetting) throw firstErr;
+                    thinkingControlUnsupported.add(candidate);
+                    console.log(`  ↩️  [Multimodal:${effectivePipeline}] "${candidate}" does not accept thinking-off; retrying with its default.`);
+                    result = await runOnce(false);
+                }
                 const parsed = safeParseJSON(result.response.text());
-                recordModelSuccess(candidate, { useSearch: false, freeTier, latencyMs: Date.now() - t0 });
+                const latencyMs = Date.now() - t0;
+                recordModelSuccess(candidate, { useSearch: false, freeTier, latencyMs });
+                if (wantsFastExtraction) console.log(`  ⚡ [Multimodal:${effectivePipeline}] "${candidate}" answered in ${latencyMs}ms (thinking ${thinkingOff && !thinkingControlUnsupported.has(candidate) ? 'off' : 'default'}).`);
                 return parsed;
             } catch (err) {
                 lastError = err;

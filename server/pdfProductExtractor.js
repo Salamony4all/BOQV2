@@ -51,15 +51,20 @@ export async function extractProductBoqFromPdf(filePath, progressCallback = () =
         const imageRefs = [];
         let mupdf = null;
         let doc = null;
+        const startedAt = Date.now();
+        // Runs WHILE the model is reading the PDF: yields to the event loop between pages so the
+        // AI request is sent first and its response is never blocked by image work.
+        const extractImagesNatively = async () => {
         try {
-            mupdf = await import('mupdf');
-            doc = mupdf.Document.openDocument(new Uint8Array(data), 'application/pdf');
+            if (!mupdf) mupdf = await import('mupdf');
+            if (!doc) doc = mupdf.Document.openDocument(new Uint8Array(data), 'application/pdf');
 
             // Track SN to Image mapping: Map<sn_string, dataUri>
             const snImageMap = new Map();
             let imgCounter = 1;
 
             for (let pageIdx = 0; pageIdx < doc.countPages(); pageIdx++) {
+                await new Promise(resolve => setImmediate(resolve));
                 const page = doc.loadPage(pageIdx);
                 let headerY = -1;
                 let tableStartY = -1;
@@ -181,12 +186,13 @@ export async function extractProductBoqFromPdf(filePath, progressCallback = () =
             }
 
             imageRefs.spatialMap = snImageMap;
-            console.log(`   📸 Extraction complete: ${imageRefs.length} images, ${snImageMap.size} spatial locks.`);
+            console.log(`   📸 Extraction complete: ${imageRefs.length} images, ${snImageMap.size} spatial locks (${Date.now() - startedAt}ms).`);
         } catch (err) {
             console.error(`   ❌ mupdf critical extraction error:`, err);
         }
+        };
 
-        progressCallback({ percent: 20, message: `Sending PDF to ${modelName || 'Gemma'} AI...` });
+        progressCallback({ percent: 10, message: `Sending PDF to ${modelName || 'Gemma'} AI...` });
 
         // ── STEP 2: Extract BOQ data using universal model ────────
         const provider = getProviderForModel(modelName || VISION_MODEL);
@@ -241,7 +247,8 @@ Instructions:
 - Set "hasImage": true if there is a picture column for that row.
 - Return ONLY the raw JSON string.`;
 
-        const aiResponse = await callUniversalMultimodalAI(
+        // The model call goes out immediately; native image capture runs alongside it.
+        const aiPromise = callUniversalMultimodalAI(
             "You are a Furniture Procurement Specialist and Data Extraction Engine.",
             prompt + '\nIMPORTANT: Do NOT repeat the schema above. Start your response immediately with the { character.',
             assets,
@@ -249,6 +256,10 @@ Instructions:
             true, // jsonMode
             'pdf_boq'
         );
+        aiPromise.catch(() => { /* surfaced by the await below */ });
+        const imagesPromise = extractImagesNatively();
+        const [aiResponse] = await Promise.all([aiPromise, imagesPromise]);
+        console.log(`   ⏱️  AI table + native images finished in ${Date.now() - startedAt}ms`);
 
         console.log(`🤖 AI Response Received (${modelName || 'Gemma'}):`, JSON.stringify(aiResponse).substring(0, 200));
 
