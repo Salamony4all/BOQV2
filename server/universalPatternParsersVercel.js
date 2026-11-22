@@ -12,6 +12,8 @@ const execFileAsync = promisify(execFile);
 import { renderPDFWithLayoutMuPDF } from './utils/pdfRendererMupdf.js';
 import { uploadToSupabase, supabase } from './utils/supabaseStorage.js';
 
+import { extractGeometricTable } from './geometricTableParser.js';
+
 export const EXTRACTOR_VERSION = 'wordpdf-universal-v22.0-dynamic-header-boq-spec';
 const PAGE_BREAK = '\f';
 
@@ -707,6 +709,38 @@ function reconcileSelectedTable(table, text) {
     if(out.reconciliation.status==='REVIEW'){out.confidence=Math.min(out.confidence,.89);out.quality={...(out.quality||{}),reconciled:false};}
   }
   return out;
+}
+
+/**
+ * A table with no image column whose pages only carry letterhead / watermark pictures ends up
+ * with a handful of unrelated images on a few rows. Keep pairing only when it covers the table.
+ */
+function dropSparseImagePairing(table, headerBefore) {
+  const hadImageColumn = headerBefore.some(h => /image|photo|picture/i.test(String(h)));
+  if (hadImageColumn) return;
+  const rows = table.rows || [];
+  const withImages = rows.filter(r => (r.cells || []).some(c => c?.images?.length || c?.image)).length;
+  if (withImages >= rows.length * 0.3) return;
+  const addedIdx = table.header.length > headerBefore.length ? table.header.findIndex(h => /image|photo|picture/i.test(String(h))) : -1;
+  for (const r of rows) {
+    for (const c of r.cells || []) { if (c) { c.images = []; c.image = null; } }
+    if (addedIdx >= 0) r.cells.splice(addedIdx, 1);
+  }
+  if (addedIdx >= 0) { table.header.splice(addedIdx, 1); table.columnCount = table.header.length; }
+}
+
+function longestTextChars(table) {
+  return (table?.rows || []).reduce((sum, row) => sum + Math.max(0, ...(row.cells || []).map(c => String(c?.value || '').length)), 0);
+}
+
+/** The geometric result replaces a pattern result only on evidence that the pattern one is worse. */
+function shouldPreferGeometric(geometric, selected, acceptanceThreshold = 0.94) {
+  if (!geometric || !(geometric.confidence >= 0.94)) return false;
+  if (!selected || !(selected.confidence >= acceptanceThreshold)) return true;
+  if (/boq-spec-merge|specification|material/i.test(selected.engineUsed || '')) return false;
+  const enoughRows = geometric.rows.length >= selected.rows.length * 0.9;
+  // Truncated descriptions are the signature of a pattern parser matching the wrong layout
+  return enoughRows && longestTextChars(geometric) >= longestTextChars(selected) * 1.25;
 }
 
 export function selectBestCandidate(candidates) {
@@ -1932,6 +1966,8 @@ export async function extractMultiplePdfsV21(filePaths, progressCallback = () =>
   const specs=extracted.filter(x=>isSpecCandidateV21(x.table)).map(x=>x.table);
   const boqs=extracted.filter(x=>!isSpecCandidateV21(x.table)).map(x=>x.table);
   if (!boqs.length) return extracted.length===1?{tables:[extracted[0].table],totalTables:1,isDirectExtraction:true,engineUsed:EXTRACTOR_VERSION}:null;
+  // A lone BOQ with no specification sheets has nothing to consolidate: return it untouched
+  if (!specs.length) return {tables:[boqs[0]],totalTables:1,isDirectExtraction:true,engineUsed:EXTRACTOR_VERSION,sourceFiles:files};
   const merged=mergeBoqAndSpecsV21(boqs[0],specs);
   merged.extractionAudit=buildAudit(merged);
   // Attach the grand-total summary (mirrors extractPdfViaWordFastPathVercel) so
@@ -2005,15 +2041,36 @@ export async function extractPdfViaWordFastPathVercel(filePath, progressCallback
     }
 
 
-    const acceptanceThreshold = /boq-spec-merge/i.test(selected?.engineUsed || '') ? 0.85 : 0.94;
+    let acceptanceThreshold = /boq-spec-merge/i.test(selected?.engineUsed || '') ? 0.85 : 0.94;
+
+    // Layout-driven, format-agnostic parser. It reads the table from its geometry (header
+    // bands, value anchors, wrapped paragraphs) instead of a known document pattern, so it
+    // covers layouts none of the pattern parsers were written for. It takes over when the
+    // pattern result is missing, weak, or visibly truncated.
+    try {
+      const geometric = await extractGeometricTable(absInput);
+      if (shouldPreferGeometric(geometric, selected, acceptanceThreshold)) {
+        console.log(`[WordPdfExtractorVercel] Geometric parser preferred (${geometric.rows.length} rows, confidence ${(geometric.confidence * 100).toFixed(1)}%, reconciliation ${geometric.reconciliation?.status}) over ${selected ? selected.sheetName : 'no pattern candidate'}`);
+        selected = geometric;
+        acceptanceThreshold = 0.94;
+      }
+    } catch (geoErr) {
+      console.warn(`[WordPdfExtractorVercel] Geometric parser notice: ${geoErr.message}`);
+    }
+
     if (selected && selected.confidence >= acceptanceThreshold) {
       const isMergedBoqSpec = /boq-spec-merge/i.test(selected.engineUsed || '') || /CONSOLIDATED_BOQ_SPEC/.test(selected.tableKind || '');
-      if (!isMergedBoqSpec) selected = canonicalizeTable(selected);
-      selected = repairArithmeticFromSource(selected, text);
-      selected = reconcileSelectedTable(selected, text);
+      const isGeometric = selected.tableKind === 'GEOMETRIC_BOQ';
+      if (!isMergedBoqSpec && !isGeometric) selected = canonicalizeTable(selected);
+      if (!isGeometric) {
+        selected = repairArithmeticFromSource(selected, text);
+        selected = reconcileSelectedTable(selected, text);
+      }
       selected.rows = dedupeRows(selected.rows);
       selected.extractionAudit = { ...buildAudit(selected), ...(selected.mergeAudit ? { mergeAudit: selected.mergeAudit } : {}) };
+      const headerBeforeImages = [...selected.header];
       await extractAndPairImagesVercel(absInput, selected, sessionId, preloadedLayouts);
+      if (isGeometric) dropSparseImagePairing(selected, headerBeforeImages);
       selected.serialAudit = selected.extractionAudit;
       selected.extractedSummary = computeExtractedSummary(selected);
       if (selected.reconciliation?.sourceDeclaredTotal) selected.extractedSummary.sourceDeclaredTotal = selected.reconciliation.sourceDeclaredTotal;

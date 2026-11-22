@@ -160,14 +160,14 @@ function isSubHeaderRow(cells, topCells) {
     return hasTopGroupLabels && roleMatches >= 1 && nonEmpty.every(c => c.length <= 25);
 }
 
-function validateBoqHeader(header) {
+function validateBoqHeader(header, roleOverrides = null) {
     const nonEmpty = header.map(h => String(h || '').trim()).filter(Boolean);
     if (nonEmpty.length < 3) return false;
 
     const roles = [];
     let prevRole = null;
-    for (const h of header) {
-        const r = getColumnRole(h, prevRole);
+    for (let i = 0; i < header.length; i++) {
+        const r = (roleOverrides && roleOverrides[i]) || getColumnRole(header[i], prevRole);
         roles.push(r || 'other');
         prevRole = r;
     }
@@ -257,22 +257,79 @@ function detectHeaderAt(rows, idx) {
     if (lastCol - firstCol + 1 < 3) return null;
 
     const header = mergedRaw.slice(firstCol, lastCol + 1);
-    if (!validateBoqHeader(header)) return null;
+    const headerEndIdx = hasSubHeader ? idx + 1 : idx;
+    let roleOverrides = null;
+    if (!validateBoqHeader(header)) {
+        // Unknown wording ("Service", "Works", "Activity", another language...): recognise the
+        // table by its shape instead. Two measure columns + a text-heavy column underneath.
+        roleOverrides = inferDescriptionByShape(rows, headerEndIdx, header, firstCol);
+        if (!roleOverrides || !validateBoqHeader(header, roleOverrides)) return null;
+        const di = roleOverrides.indexOf('desc');
+        header[di] = header[di] && !/desc/i.test(header[di]) ? `${header[di]} DESCRIPTION` : 'DESCRIPTION';
+    }
 
     return {
         header,
         firstCol,
         lastCol,
-        headerEndIdx: hasSubHeader ? idx + 1 : idx
+        headerEndIdx,
+        roleOverrides
     };
 }
 
-function buildRoleIndices(header) {
+/**
+ * Shape-based fallback for headers whose description column uses unknown wording.
+ * Needs >= 2 measure columns (qty / unit / rate / amount) by name, then picks the column
+ * holding the most free text in the rows below as the description.
+ */
+function inferDescriptionByShape(rows, headerEndIdx, header, firstCol) {
+    const roles = [];
+    let prevRole = null;
+    for (const h of header) {
+        const r = getColumnRole(h, prevRole);
+        roles.push(r);
+        prevRole = r;
+    }
+    const measures = new Set(roles.filter(r => r === 'qty' || r === 'unit' || r === 'rate' || r === 'amount'));
+    if (measures.size < 2) return null;
+
+    const textChars = header.map(() => 0);
+    const textCells = header.map(() => 0);
+    let numericRows = 0;
+    for (let j = headerEndIdx + 1; j < Math.min(rows.length, headerEndIdx + 61); j++) {
+        const cells = rows[j].cells || [];
+        let rowHasMeasureNumber = false;
+        for (let c = 0; c < header.length; c++) {
+            const v = String(cells[firstCol + c] || '').trim();
+            if (!v) continue;
+            if (isPureNumeric(v)) {
+                if (roles[c] === 'qty' || roles[c] === 'rate' || roles[c] === 'amount') rowHasMeasureNumber = true;
+                continue;
+            }
+            if (roles[c] === null) { textChars[c] += v.length; textCells[c]++; }
+        }
+        if (rowHasMeasureNumber) numericRows++;
+    }
+    if (numericRows < 1) return null;
+
+    let best = -1;
+    for (let c = 0; c < header.length; c++) {
+        if (roles[c] !== null || textCells[c] === 0) continue;
+        if (best === -1 || textChars[c] > textChars[best]) best = c;
+    }
+    if (best === -1 || textChars[best] / textCells[best] < 6) return null;
+
+    const overrides = header.map(() => null);
+    overrides[best] = 'desc';
+    return overrides;
+}
+
+function buildRoleIndices(header, roleOverrides = null) {
     const roles = [];
     const byRole = {};
     let prevRole = null;
     for (let i = 0; i < header.length; i++) {
-        const role = getColumnRole(header[i], prevRole) || 'other';
+        const role = (roleOverrides && roleOverrides[i]) || getColumnRole(header[i], prevRole) || 'other';
         roles.push(role);
         if (!byRole[role]) byRole[role] = [];
         byRole[role].push(i);
@@ -374,6 +431,28 @@ function isValidBoqDataRow(cells, roleInfo, hasImage) {
     }
 
     return (hasCode && hasDescOrSpec) || hasImage;
+}
+
+function detectSectionTitle(cells, roleInfo) {
+    const measureIdx = new Set([
+        ...(roleInfo.byRole.qty || []), ...(roleInfo.byRole.unit || []),
+        ...(roleInfo.byRole.rate || []), ...(roleInfo.byRole.amount || [])
+    ]);
+    const snIdx = new Set(roleInfo.byRole.sn || []);
+    const texts = [];
+    for (let i = 0; i < cells.length; i++) {
+        const v = String(cells[i] || '').trim();
+        if (!v) continue;
+        if (measureIdx.has(i)) return '';
+        if (snIdx.has(i) && v.length <= 8) continue;
+        if (isPureNumeric(v)) continue;
+        texts.push(v);
+    }
+    const unique = [...new Set(texts)];
+    if (unique.length !== 1) return '';
+    const title = unique[0];
+    if (title.length > 90 || SUMMARY_ROW_RE.test(title) || NOTES_PREFIX_RE.test(title)) return '';
+    return title;
 }
 
 function matchAnchorsToRows(anchors, validRows, headerInfo, roleInfo) {
@@ -582,8 +661,9 @@ function extractCleanBoqTablesFromMatrix(sheetsData, options = {}) {
             const detected = detectHeaderAt(rows, i);
             if (!detected) continue;
 
-            const candidateRoleInfo = buildRoleIndices(detected.header);
+            const candidateRoleInfo = buildRoleIndices(detected.header, detected.roleOverrides);
             const candidateRows = [];
+            let pendingSection = '';
 
             // Pass 1: collect valid BOQ item rows (pre-anchor)
             for (let j = detected.headerEndIdx + 1; j < rows.length; j++) {
@@ -604,11 +684,17 @@ function extractCleanBoqTablesFromMatrix(sheetsData, options = {}) {
                     a => a.colSpan < 3 && Math.abs(a.centerRow - rawRow.rowNumber) <= 0.6 && a.centerCol >= detected.firstCol + 1 && a.centerCol <= detected.lastCol + 1
                 );
 
-                if (!isValidBoqDataRow(slicedCells, candidateRoleInfo, rowHasPotentialAnchor)) continue;
+                if (!isValidBoqDataRow(slicedCells, candidateRoleInfo, rowHasPotentialAnchor)) {
+                    // A short text-only row between items ("1 | Internal Wall Painting") is a section title
+                    const sectionTitle = detectSectionTitle(slicedCells, candidateRoleInfo);
+                    if (sectionTitle) pendingSection = sectionTitle;
+                    continue;
+                }
 
                 candidateRows.push({
                     rowNumber: rawRow.rowNumber,
-                    cells: slicedCells
+                    cells: slicedCells,
+                    sectionLabel: pendingSection
                 });
             }
 
@@ -668,6 +754,7 @@ function extractCleanBoqTablesFromMatrix(sheetsData, options = {}) {
 
         const prunedRows = preAnchoredRows.map(r => ({
             rowNumber: r.rowNumber,
+            sectionLabel: r.sectionLabel || '',
             cells: keptCols.map(oldIdx => r.cells[oldIdx] || '')
         }));
 
@@ -719,6 +806,7 @@ function extractCleanBoqTablesFromMatrix(sheetsData, options = {}) {
                         image: imgs.length > 0 ? imgs[0] : null
                     };
                 }),
+                sectionLabel: r.sectionLabel || '',
                 isHeader: false,
                 isSummary: false
             };
