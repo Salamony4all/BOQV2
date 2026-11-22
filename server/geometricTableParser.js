@@ -36,11 +36,12 @@ const SUMMARY_RX = /^\(?\s*(sub[\s-]*total|grand\s*total|net\s*total|total|net\s
 const FOOTER_RX = /^(notes?\s*:|terms\s*(&|and)\s*conditions|payment\s*terms|validity|exclusions?\s*:|prepared\s*by|authori[sz]ed|for\s+and\s+on\s+behalf|signature)/i;
 
 function roleOf(text) {
-  const clean = String(text || '').replace(/\s+/g, ' ').replace(/\([^)]*\)/g, ' ').trim();
+  const clean = String(text || '').replace(/\([^)]*\)/g, ' ').replace(/\b(omr|aed|usd|sar|qar|eur|gbp|kwd|bhd|egp|inr|sdg|r\.?o\.?)\b\.?/gi, ' ').replace(/[-–|:]+\s*$/g, ' ').replace(/\s+/g, ' ').trim();
   if (!clean || clean.length > 48) return null;
   // "Total Qty" is a quantity, "Unit Price" is a rate: test compound meanings first
   if (/\b(total|est\.?|base)\s*(qty|quantity)\b/i.test(clean)) return 'qty';
-  if (/\bunit\s*(rate|price|cost)\b/i.test(clean)) return 'rate';
+  if (/\b(ext(ended)?\.?|total|net\s*total|line)\s*(net\s*)?(price|cost|amount|value)\b/i.test(clean)) return 'amount';
+  if (/\bunit\s*(net\s*)?(rate|price|cost)\b/i.test(clean)) return 'rate';
   for (const { role, rx } of ROLE_PATTERNS) if (rx.test(clean)) return role;
   return null;
 }
@@ -78,8 +79,11 @@ function pageSegments(page) {
     onChar(c, origin, font, size, quad) {
       const x0 = Math.min(quad[0], quad[4]);
       const x1 = Math.max(quad[2], quad[6]);
-      const y0 = Math.min(quad[1], quad[3]);
-      const y1 = Math.max(quad[5], quad[7]);
+      // Glyph boxes can be far taller than the text (fonts with big ascent/descent), which
+      // would glue neighbouring lines together: derive the line box from baseline + size.
+      let y0 = Math.min(quad[1], quad[3]);
+      let y1 = Math.max(quad[5], quad[7]);
+      if (origin && size > 0 && y1 - y0 > size * 1.35) { y0 = origin[1] - size * 0.82; y1 = origin[1] + size * 0.24; }
       // A wide horizontal jump inside one MuPDF line means two table cells
       if (cur && lastX1 !== null && x0 - lastX1 > Math.max(size * 1.6, 9)) flush();
       if (!cur) {
@@ -160,18 +164,66 @@ function visualRows(segs) {
 }
 
 // ── 2. Header + column bands ─────────────────────────────────────────────────
+/** Merge the segments of 1-3 stacked header lines into header cells by horizontal overlap. */
+function mergeHeaderRows(rowGroup) {
+  const cells = [];
+  for (const row of rowGroup) {
+    for (const s of row.segs) {
+      const hit = cells.find(c => Math.min(c.x1, s.x1) - Math.max(c.x0, s.x0) > -2 || Math.abs((c.x0 + c.x1) / 2 - (s.x0 + s.x1) / 2) < 10);
+      if (hit) { hit.text = `${hit.text} ${s.text}`; hit.x0 = Math.min(hit.x0, s.x0); hit.x1 = Math.max(hit.x1, s.x1); }
+      else cells.push({ text: s.text, x0: s.x0, x1: s.x1 });
+    }
+  }
+  cells.sort((a, b) => a.x0 - b.x0);
+  return cells;
+}
+
+function headerScore(cells) {
+  if (cells.length < 3) return 0;
+  if (cells.some(c => c.text.length > 60)) return 0;
+  if (cells.filter(c => parseAmount(c.text) !== null).length > cells.length / 3) return 0; // data, not labels
+  const roles = cells.map(c => roleOf(c.text));
+  const measures = new Set(roles.filter(x => MEASURE_ROLES.has(x)));
+  if (measures.size < 2) return 0;
+  return measures.size * 10 + new Set(roles.filter(Boolean)).size;
+}
+
+/** Header = the 1-3 adjacent lines whose merged labels name the most column roles. */
 function findHeader(rows, fromIdx = 0) {
   for (let i = fromIdx; i < rows.length; i++) {
-    const r = rows[i];
-    if (r.segs.length < 3) continue;
-    if (r.segs.some(s => s.text.length > 48)) continue;
-    const roles = r.segs.map(s => roleOf(s.text));
-    const measures = new Set(roles.filter(x => MEASURE_ROLES.has(x)));
-    if (measures.size < 2) continue;
-    if (r.segs.filter(s => parseAmount(s.text) !== null).length > r.segs.length / 2) continue; // a data row, not a header
-    return { idx: i, row: r };
+    let best = null;
+    for (let span = 1; span <= 3 && i + span <= rows.length; span++) {
+      const group = rows.slice(i, i + span);
+      const tight = group.every((r, k) => k === 0 || r.y0 - group[k - 1].y1 < Math.max(r.h, group[k - 1].h) * 1.3);
+      if (!tight) break;
+      if (group.some(r => r.segs.some(s => s.text.length > 48))) break;
+      const cells = mergeHeaderRows(group);
+      const score = headerScore(cells);
+      if (score > 0 && (!best || score > best.score)) best = { idx: i, endIdx: i + span - 1, score, row: { segs: cells.map(c => ({ ...c })), y0: group[0].y0, y1: group[span - 1].y1, h: group[0].h } };
+    }
+    if (best) {
+      // A later start inside the same band may capture the labels better (e.g. band starts with a title line)
+      for (let j = i + 1; j <= best.endIdx; j++) {
+        const alt = findHeaderAt(rows, j);
+        if (alt && alt.score > best.score) best = alt;
+      }
+      return best;
+    }
   }
   return null;
+}
+
+function findHeaderAt(rows, i) {
+  let best = null;
+  for (let span = 1; span <= 3 && i + span <= rows.length; span++) {
+    const group = rows.slice(i, i + span);
+    const tight = group.every((r, k) => k === 0 || r.y0 - group[k - 1].y1 < Math.max(r.h, group[k - 1].h) * 1.3);
+    if (!tight) break;
+    const cells = mergeHeaderRows(group);
+    const score = headerScore(cells);
+    if (score > 0 && (!best || score > best.score)) best = { idx: i, endIdx: i + span - 1, score, row: { segs: cells.map(c => ({ ...c })), y0: group[0].y0, y1: group[span - 1].y1, h: group[0].h } };
+  }
+  return best;
 }
 
 function buildColumns(headerRow, bodySegs) {
@@ -184,26 +236,31 @@ function buildColumns(headerRow, bodySegs) {
   const maxX = Math.ceil(Math.max(...cols.map(c => c.hx1), ...bodySegs.map(s => s.x1)) + 2);
   const cover = new Array(Math.max(1, maxX - minX + 1)).fill(0);
   for (const s of bodySegs) for (let x = Math.max(minX, Math.floor(s.x0)); x <= Math.min(maxX, Math.ceil(s.x1)); x++) cover[x - minX]++;
-  const tolerance = Math.max(0, Math.floor(bodySegs.length * 0.012));
+  // Clean gutters first; ragged columns (centred serials, justified text) need a looser look
+  const tolerances = [0.012, 0.05, 0.12].map(f => Math.max(0, Math.floor(bodySegs.length * f)));
 
   const bounds = [minX];
   for (let i = 0; i < cols.length - 1; i++) {
     const lo = Math.floor(cols[i].hx0 + 1), hi = Math.ceil(cols[i + 1].hx1 - 1);
-    let best = null, start = null;
-    for (let x = lo; x <= hi + 1; x++) {
-      const free = x <= hi && cover[x - minX] <= tolerance;
-      if (free && start === null) start = x;
-      if (!free && start !== null) {
-        const width = x - start;
-        // Prefer the gutter nearest to the gap between the two header labels
-        const mid = (start + x) / 2;
-        const target = (cols[i].hx1 + cols[i + 1].hx0) / 2;
-        const score = width - Math.abs(mid - target) * 0.15;
-        if (width >= 2 && (!best || score > best.score)) best = { mid, score };
-        start = null;
+    const target = (cols[i].hx1 + cols[i + 1].hx0) / 2;
+    let best = null;
+    for (const tolerance of tolerances) {
+      let start = null;
+      for (let x = lo; x <= hi + 1; x++) {
+        const free = x <= hi && cover[x - minX] <= tolerance;
+        if (free && start === null) start = x;
+        if (!free && start !== null) {
+          const width = x - start;
+          const mid = (start + x) / 2;
+          // Prefer the gutter nearest to the gap between the two header labels
+          const score = width - Math.abs(mid - target) * 0.15;
+          if (width >= 2 && (!best || score > best.score)) best = { mid, score };
+          start = null;
+        }
       }
+      if (best) break;
     }
-    bounds.push(best ? best.mid : (cols[i].hx1 + cols[i + 1].hx0) / 2);
+    bounds.push(best ? best.mid : target);
   }
   bounds.push(maxX);
   cols.forEach((c, i) => { c.x0 = bounds[i]; c.x1 = bounds[i + 1]; });
@@ -390,7 +447,7 @@ function mergePartialAnchors(inside, anchors, isPrimary) {
  * @param {Array<{pageNum:number, segs:Array}>} pages
  * @returns table candidate or null
  */
-export function parseGeometricTable(pages) {
+export function parseGeometricTable(pages, opts = {}) {
   let cols = null;
   const state = { items: [], summaries: [], section: '', pendingHeadings: [], ended: false, sawSummary: false };
 
@@ -400,12 +457,7 @@ export function parseGeometricTable(pages) {
     const header = findHeader(rows);
     let bodySegs;
     if (header) {
-      let bodyStartY = header.row.y1;
-      // Wrapped header labels ("Rate" / "(OMR)") sit right under the header row
-      const next = rows[header.idx + 1];
-      if (next && next.y0 - header.row.y1 < header.row.h * 0.9 && next.segs.length >= 2 && next.segs.every(s => s.text.length <= 24 && parseAmount(s.text) === null)) {
-        bodyStartY = next.y1;
-      }
+      const bodyStartY = header.row.y1;
       bodySegs = page.segs.filter(s => s.cy > bodyStartY);
       const pageCols = buildColumns(header.row, bodySegs);
       inferDescriptionColumn(pageCols, bodySegs);
@@ -418,6 +470,7 @@ export function parseGeometricTable(pages) {
     // Drop page furniture outside the table's horizontal band
     const tx0 = cols[0].x0 - 4, tx1 = cols[cols.length - 1].x1 + 4;
     bodySegs = bodySegs.filter(s => s.x1 > tx0 && s.x0 < tx1 && !/^page\s*\d+(\s*(of|\/)\s*\d+)?$/i.test(s.text));
+    if (opts.debug) console.log('page', page.pageNum, 'header', Boolean(header), 'cols', cols.map(c => `${c.role || '?'}:${c.label}[${c.x0.toFixed(0)}-${c.x1.toFixed(0)}]`).join(' '), 'body', bodySegs.length, 'items', state.items.length, 'ended', state.ended);
     parsePageBody(bodySegs, cols, page.pageNum, state, page.rules || []);
   }
 
@@ -426,6 +479,22 @@ export function parseGeometricTable(pages) {
   const idxOf = role => cols.findIndex(c => c.role === role);
   const qtyIdx = idxOf('qty'), rateIdx = idxOf('rate'), amountIdx = idxOf('amount'), descIdx = idxOf('desc');
   const header = cols.map(c => CANONICAL_LABEL[c.role] || c.label);
+
+  // Serial numbers printed flush against the description ("1.1 Excavate ...") come out as one
+  // text run: peel them back into the serial column when that column is mostly empty.
+  const snCol = idxOf('sn');
+  if (snCol >= 0 && descIdx >= 0) {
+    const SERIAL_RX = /^((?:\d+|[A-Za-z])(?:[.\-]\d+){0,4}[.)]?)\s+(?=\S)/;
+    const emptySn = state.items.filter(it => !it.values[snCol]);
+    const peelable = emptySn.filter(it => SERIAL_RX.test(it.values[descIdx] || ''));
+    if (emptySn.length >= state.items.length * 0.4 && peelable.length >= emptySn.length * 0.7) {
+      for (const it of peelable) {
+        const m = it.values[descIdx].match(SERIAL_RX);
+        it.values[snCol] = m[1];
+        it.values[descIdx] = it.values[descIdx].slice(m[0].length);
+      }
+    }
+  }
 
   // Lone short lines between items are either SECTION headings (a few, each covering several
   // items) or ITEM TITLES (one above nearly every item). Titles are part of the description;
@@ -470,6 +539,14 @@ export function parseGeometricTable(pages) {
   // Self-verified only when qty x rate = amount could be checked on (nearly) every row
   if (arithmeticChecked >= Math.max(2, rows.length * 0.8) && arithmeticPass >= 0.95) confidence = 0.955;
   if (reconciled && arithmeticChecked >= rows.length * 0.5 && arithmeticPass >= 0.9) confidence = 0.985;
+  // Unpriced schedules (quantities only) cannot be checked by arithmetic: verify their structure
+  const priced = rows.filter((r, i) => amountIdx >= 0 && parseAmount(state.items[i].values[amountIdx]) !== null).length;
+  const structured = rows.filter((r, i) => {
+    const v = state.items[i].values;
+    return descIdx >= 0 && String(v[descIdx] || '').length >= 3 && qtyIdx >= 0 && parseAmount(v[qtyIdx]) !== null;
+  }).length;
+  const unpricedSchedule = priced <= rows.length * 0.1 && rows.length >= 3 && structured >= rows.length * 0.9;
+  if (unpricedSchedule) confidence = Math.max(confidence, 0.95);
   confidence = Math.min(confidence, 0.6 + 0.4 * completeness);
 
   return {
@@ -479,7 +556,7 @@ export function parseGeometricTable(pages) {
     columnCount: header.length,
     engineUsed: GEOMETRIC_PARSER_VERSION,
     confidence,
-    quality: { rowCount: rows.length, arithmeticPass, completeness, reconciled },
+    quality: { rowCount: rows.length, arithmeticPass, arithmeticChecked, completeness, reconciled, unpricedSchedule },
     columnRoles: cols.map(c => c.role || 'other'),
     originalHeaders: cols.map(c => c.label),
     documentSummary: state.summaries,

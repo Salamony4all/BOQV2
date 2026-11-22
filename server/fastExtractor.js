@@ -324,6 +324,117 @@ function inferDescriptionByShape(rows, headerEndIdx, header, firstCol) {
     return overrides;
 }
 
+const SHAPE_ROLE_LABEL = { sn: 'S.No', desc: 'Description', unit: 'Unit', qty: 'Qty', rate: 'Rate', amount: 'Amount' };
+
+/**
+ * Language-agnostic header detection: a row of short labels followed by rows that look like
+ * BOQ items. Column roles come from the DATA: the text-heavy column is the description,
+ * numeric columns where a x b = c are quantity / rate / amount, a short repeating text
+ * column is the unit, a leading running number is the serial.
+ */
+function detectHeaderByShapeAt(rows, idx) {
+    const top = rows[idx];
+    if (!top || !top.cells) return null;
+    const labelled = [];
+    top.cells.forEach((c, i) => { if (String(c || '').trim()) labelled.push(i); });
+    if (labelled.length < 3) return null;
+    if (labelled.some(i => { const v = String(top.cells[i]).trim(); return v.length > 40 || isPureNumeric(v); })) return null;
+    if (isKeyValueMetadataRow(top.cells)) return null;
+
+    const firstCol = labelled[0];
+    const lastCol = labelled[labelled.length - 1];
+    const width = lastCol - firstCol + 1;
+    const sample = rows.slice(idx + 1, idx + 41);
+    if (sample.length < 2) return null;
+
+    const stats = Array.from({ length: width }, () => ({ nums: [], numeric: 0, text: 0, chars: 0, values: new Set() }));
+    const dataRows = [];
+    for (const r of sample) {
+        let hasNumber = false, hasText = false;
+        const parsed = [];
+        for (let c = 0; c < width; c++) {
+            const v = String((r.cells || [])[firstCol + c] || '').trim();
+            const n = v ? parsePositiveNumber(v) : null;
+            parsed.push(n);
+            if (!v) continue;
+            if (n !== null) hasNumber = true; else if (v.length >= 4) hasText = true;
+        }
+        if (!(hasNumber && hasText)) continue;
+        dataRows.push(parsed);
+        for (let c = 0; c < width; c++) {
+            const v = String((r.cells || [])[firstCol + c] || '').trim();
+            if (!v) continue;
+            if (parsed[c] !== null) { stats[c].numeric++; stats[c].nums.push(parsed[c]); }
+            else { stats[c].text++; stats[c].chars += v.length; stats[c].values.add(v.toLowerCase()); }
+        }
+    }
+    if (dataRows.length < 2 || dataRows.length < sample.length * 0.3) return null;
+
+    const roles = Array.from({ length: width }, () => null);
+    // Description: the column carrying the most free text
+    let descCol = -1;
+    stats.forEach((s, c) => { if (s.text && (descCol === -1 || s.chars > stats[descCol].chars)) descCol = c; });
+    if (descCol === -1 || stats[descCol].chars / stats[descCol].text < 8) return null;
+    roles[descCol] = 'desc';
+
+    const numericCols = stats.map((s, c) => c).filter(c => c !== descCol && stats[c].numeric >= dataRows.length * 0.5);
+    // Serial: leading running numbers 1,2,3...
+    if (numericCols.length && numericCols[0] < descCol) {
+        const seq = stats[numericCols[0]].nums;
+        const steps = seq.slice(1).filter((n, i) => n - seq[i] === 1).length;
+        if (seq.length >= 2 && steps >= (seq.length - 1) * 0.7) roles[numericCols.shift()] = 'sn';
+    }
+    // Quantity x rate = amount, in any column order
+    let triple = null;
+    for (const a of numericCols) for (const b of numericCols) for (const c of numericCols) {
+        if (triple || a >= b || a === c || b === c) continue;
+        let checked = 0, ok = 0;
+        for (const row of dataRows) {
+            if (row[a] === null || row[b] === null || row[c] === null) continue;
+            checked++;
+            if (Math.abs(row[a] * row[b] - row[c]) <= Math.max(0.02, Math.abs(row[c]) * 0.002)) ok++;
+        }
+        if (checked >= 2 && ok >= checked * 0.8) triple = [a, b, c];
+    }
+    if (triple) {
+        roles[triple[0]] = 'qty'; roles[triple[1]] = 'rate'; roles[triple[2]] = 'amount';
+    } else if (numericCols.length) {
+        roles[numericCols[0]] = 'qty';
+        if (numericCols[1] !== undefined) roles[numericCols[1]] = 'rate';
+        if (numericCols[2] !== undefined) roles[numericCols[2]] = 'amount';
+    } else {
+        return null;
+    }
+    // Unit: short text that repeats (No, m2, LS ...), preferring the column next to the quantity
+    const qtyCol = roles.indexOf('qty');
+    const unitCandidates = stats.map((s, c) => c).filter(c => {
+        const s = stats[c];
+        if (roles[c] || s.text < dataRows.length * 0.5 || s.chars / s.text > 6) return false;
+        return s.text < 3 || s.values.size <= s.text * 0.7;
+    });
+    if (unitCandidates.length) {
+        unitCandidates.sort((x, y) => Math.abs(x - qtyCol) - Math.abs(y - qtyCol));
+        roles[unitCandidates[0]] = 'unit';
+    }
+    // Serial: a leading column of short, all-different codes (A1, 1.2, I-3 ...)
+    if (!roles.includes('sn')) {
+        for (let c = 0; c < descCol; c++) {
+            const s = stats[c];
+            if (!roles[c] && s.text >= dataRows.length * 0.5 && s.chars / s.text <= 10 && s.values.size >= s.text * 0.9) { roles[c] = 'sn'; break; }
+        }
+    }
+
+    const header = [];
+    for (let c = 0; c < width; c++) {
+        const original = String(top.cells[firstCol + c] || '').replace(/\s+/g, ' ').trim();
+        const role = roles[c];
+        if (role && getColumnRole(original) !== role) header.push(original ? `${SHAPE_ROLE_LABEL[role]} (${original})` : SHAPE_ROLE_LABEL[role]);
+        else header.push(original);
+    }
+    if (!validateBoqHeader(header, roles)) return null;
+    return { header, firstCol, lastCol, headerEndIdx: idx, roleOverrides: roles, detectedByShape: true };
+}
+
 function buildRoleIndices(header, roleOverrides = null) {
     const roles = [];
     const byRole = {};
@@ -657,8 +768,13 @@ function extractCleanBoqTablesFromMatrix(sheetsData, options = {}) {
             anchorsBySheetName[String(sheet.name || '').trim()] ||
             [];
 
-        for (let i = 0; i < rows.length; i++) {
-            const detected = detectHeaderAt(rows, i);
+        // Pass 1: headers recognised by wording (with a shape fallback for the description).
+        // Pass 2: headers in any wording or language, recognised purely by the data beneath.
+        const headerPasses = [detectHeaderAt, detectHeaderByShapeAt];
+        for (const detectFn of headerPasses) {
+          if (headerMatch) break;
+          for (let i = 0; i < rows.length; i++) {
+            const detected = detectFn(rows, i);
             if (!detected) continue;
 
             const candidateRoleInfo = buildRoleIndices(detected.header, detected.roleOverrides);
@@ -704,6 +820,7 @@ function extractCleanBoqTablesFromMatrix(sheetsData, options = {}) {
                 preAnchoredRows = candidateRows;
                 break;
             }
+          }
         }
 
         if (!headerMatch || preAnchoredRows.length === 0) continue;
