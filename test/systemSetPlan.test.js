@@ -15,7 +15,9 @@ import {
     resolveRowSetPlan,
     detectFurnitureSetType,
     isDynamicSystemSetDescription,
+    parseFurnitureDimensions,
     parseSetComponentsFromDescription,
+    computeSetParentRollup,
     planFoldingTableModules,
     applySetPlanToRow,
     refreshRowSetPlan,
@@ -340,6 +342,129 @@ await test('an unpriced component is never shown as "Included"', () => {
     assert.equal(summary.amount, 5844);
     assert.equal(summary.matchedCount, 3);
     assert.equal(summary.unpricedCount, 1, 'only the matched SKU without a price');
+});
+
+console.log('\nRegression checks (audit fixes)');
+await test('workstation accessories with modifiers, IT hardware bodies, and non-desk headlines are not sets', () => {
+    for (const [d, unit] of [
+        ['Workstation mobile pedestal 3-drawer', 'Nos'],
+        ['Workstation fabric acoustic screen 1400mm', 'Nos'],
+        ['Workstation ergonomic mesh chair', 'Nos'],
+        ['Workstation glass partition', 'Nos'],
+        ['WORKSTATION\nIntel Core i7 32GB RAM 1TB SSD', 'Nos'],
+        ['Acoustic wall panel\nFor linear workstation zones', 'Nos'],
+        ['Executive high-back chair\nFor Executive L-Shaped Desk', 'Nos'],
+        ['Cushions for sofa set', 'Nos'],
+        ['Lounge Chair', 'Set']
+    ]) {
+        assert.deepEqual(plan(d, unit), { activeType: null, optionType: null }, d);
+    }
+    assert.equal(plan('Staff Workstations - Furniture Set', 'Set').activeType, 'workstation_set');
+    assert.equal(plan('Conference table 4000x1400, credenza not included').activeType, null);
+});
+
+await test('dimension parser handles case-insensitive units, 5-digit mm and 3D meters', () => {
+    assert.deepEqual(parseFurnitureDimensions('w1400 x d700 x h750 mm'), { lengthMm: 1400, depthMm: 700, heightMm: 750, text: '1400 × 700 × 750 mm' });
+    assert.deepEqual(parseFurnitureDimensions('240 x 120 CM'), { lengthMm: 2400, depthMm: 1200, heightMm: 0, text: '2400 × 1200 mm' });
+    assert.deepEqual(parseFurnitureDimensions('10000 x 1400 mm'), { lengthMm: 10000, depthMm: 1400, heightMm: 0, text: '10000 × 1400 mm' });
+    assert.deepEqual(parseFurnitureDimensions('4.2 x 1.4 x 0.75 m'), { lengthMm: 4200, depthMm: 1400, heightMm: 750, text: '4200 × 1400 × 750 mm' });
+    assert.deepEqual(parseFurnitureDimensions('1400MM x 700MM'), { lengthMm: 1400, depthMm: 700, heightMm: 0, text: '1400 × 700 mm' });
+});
+
+await test('excluded chairs, monitor screen arms, multi-accessories and mixed bullets are parsed cleanly', () => {
+    assert.deepEqual(
+        roles(comps('Linear workstation 1400x700 with pedestal, ergonomic task chair not included', 'workstation_set')),
+        ['1×workstation_desk', '1×pedestal']
+    );
+    assert.deepEqual(
+        roles(comps('Linear workstation 1400x700 with dual monitor screen arm', 'workstation_set')),
+        ['1×workstation_desk', '1×monitor_arm']
+    );
+    assert.deepEqual(
+        roles(comps('Executive L-shaped desk with side return, excluding executive chair', 'l_shape_desk_set')),
+        ['1×executive_desk', '1×side_return']
+    );
+    assert.equal(
+        comps('Linear workstation 1400x700 with CPU holder, keyboard tray and task light', 'workstation_set').filter(c => c.componentRole === 'accessory').length,
+        3
+    );
+    const mixed = comps('Workstation system\n* Desk 1400x700 - 4 Nos\n* Pedestal - 4 Nos\n* Cable management integrated under desk top', 'workstation_set', 'Set');
+    assert.deepEqual(mixed.map(m => `${m.qty}×${m.label}`), ['4×Desk 1400x700', '4×Pedestal']);
+});
+
+await test('rollup clears stale prices/brands, respects qty=0, and state helpers stay clean', () => {
+    const cleared = computeSetParentRollup(
+        { id: 1, setType: 'custom_set', qty: '2', rate: '500.00', amount: '1000.00', basePrice: 500, selectedBrand: 'OldBrand', brandImage: 'old.jpg', brandDesc: 'Old' },
+        [{ id: 's1', label: 'A', qty: '1', rate: '0', basePrice: 0, selectedBrand: '', selectedModel: '', brandImage: '' }]
+    );
+    assert.equal(cleared.rate, '');
+    assert.equal(cleared.amount, '');
+    assert.equal(cleared.basePrice, 0);
+    assert.equal(cleared.selectedBrand, '');
+    assert.equal(cleared.brandImage, '');
+    assert.equal(cleared.brandDesc, '');
+
+    const zeroQty = computeSetParentRollup(
+        { id: 2, setType: 'custom_set', qty: '0', rate: '', amount: '' },
+        [{ id: 's1', label: 'A', qty: '1', rate: '500', basePrice: 500, selectedBrand: 'B', selectedModel: 'M' }]
+    );
+    assert.equal(zeroQty.amount, '0.00');
+    assert.equal(zeroQty.aiStatus, 'success');
+
+    // Editing a conference row to a chair clears its stale unmatched setOption
+    const conf = refreshRowSetPlan({ id: 3, description: 'Conference table 4200x1400', qty: '1', unit: 'Nos', setType: 'single', setItems: [] });
+    assert.equal(conf.setOption?.type, 'folding_meeting_set');
+    const editedToChair = refreshRowSetPlan({ ...conf, description: 'Executive Task Chair' });
+    assert.equal(editedToChair.setOption, null);
+
+    // Reverting to single recomputes amount when qty changed in set mode
+    const asSet = activateSetOption(matchedConferenceRow());
+    const qtyEditedBack = revertSetToSingle({ ...asSet, qty: '5' });
+    assert.equal(qtyEditedBack.amount, '7500.00');
+
+    // Switching between two system set types rebuilds roles cleanly
+    const mtg = applySetPlanToRow({ id: 4, description: 'Conference table 4200x1400 with 12 chairs', qty: '1', unit: 'Nos' });
+    const mtgMatched = computeSetParentRollup(mtg, mtg.setItems.map(it => ({ ...it, selectedBrand: 'Alpha', selectedModel: 'Board' })));
+    const switchedToFolding = changeRowSetType(mtgMatched, 'folding_meeting_set');
+    assert.equal(switchedToFolding.setItems[0].componentRole, 'folding_table');
+
+    // Manual convertRowToSet preserves manually typed rate even without brand/model
+    const typedRateRow = { id: 5, description: 'Visitor chair', qty: '4', unit: 'Nos', rate: '125.00', basePrice: 125, amount: '500.00', setType: 'single', setItems: [] };
+    const converted = convertRowToSet(typedRateRow);
+    assert.equal(converted.setItems[0].rate, '125.00');
+    assert.equal(converted.rate, '125.00');
+});
+
+await test('matcher enforces tier isolation, discrete cluster counts, no $0 monitor arms, and no SKU reuse', async () => {
+    const leak = await matchWorkstationSet({
+        parentDescription: 'Staff workstation 1400x700',
+        components: comps('Staff workstation 1400x700', 'workstation_set'),
+        availableBrands: ['NonExistentBudgetBrand'],
+        allLocalBrands: CATALOG
+    });
+    assert.equal(leak.anchorBrand, '');
+    assert.equal(leak.components[0].status, 'no_match');
+
+    const cluster6 = await matchWorkstationSet({
+        parentDescription: '6-pax back-to-back workstation cluster with dual monitor arm',
+        components: comps('6-pax back-to-back workstation cluster with dual monitor arm', 'workstation_set'),
+        availableBrands: ['Budget Works'],
+        allLocalBrands: [{ name: 'Budget Works', products: [CATALOG[1].products[0]] }]
+    });
+    assert.equal(cluster6.components[0].product.suggestedQty, 2, 'discrete cluster count (ceil 6/4 = 2, never 1.5)');
+    assert.equal(cluster6.components[1].status, 'no_match', 'monitor arm is never silently marked $0 Included');
+
+    // Same SKU must not be reused for both screen and modesty_panel
+    const reuse = await matchWorkstationSet({
+        parentDescription: 'Linear workstation 1400x700 with acoustic screen and modesty panel',
+        components: comps('Linear workstation 1400x700 with acoustic screen and modesty panel', 'workstation_set'),
+        availableBrands: ['Alpha Desking'],
+        allLocalBrands: CATALOG
+    });
+    const screenModel = reuse.components[1].product?.model;
+    const modestyModel = reuse.components[2].product?.model;
+    assert.notEqual(screenModel, modestyModel, 'a desk screen SKU is never billed again as a separate modesty panel');
+    assert.equal(reuse.components[2].product?.includedInSystem, true, 'modesty panel falls back to $0 integrated hardware');
 });
 
 console.log(`\n${passed} passed, ${failures.length} failed`);

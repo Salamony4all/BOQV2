@@ -206,7 +206,7 @@ export function groupTableViewerItemsByBrand(tables = [], allBrands = []) {
             : header.findIndex((_, idx) => idx !== snColIdx && idx !== imgColIdx && idx !== qtyColIdx && idx !== uomColIdx && idx !== brandColIdx);
 
         for (const row of rows) {
-            if (!row || row.isHeader || row.isSummary) continue;
+            if (!row || row.isHeader || row.isSummary || row.isOptionRow || row.isSetSubItem) continue;
             const cells = Array.isArray(row.cells) ? row.cells : [];
 
             const sn = snColIdx >= 0 ? getCellValueText(cells[snColIdx]) : '';
@@ -231,6 +231,34 @@ export function groupTableViewerItemsByBrand(tables = [], allBrands = []) {
                     const candidate = extractCellFirstImageUrl(cell);
                     if (candidate) { imageUrl = candidate; break; }
                 }
+            }
+
+            // If this TableViewer row carries rolled-up Furniture Set components, decompose into real component RFQs
+            if (row.setType && row.setType !== 'single' && Array.isArray(row.setItems) && row.setItems.length > 0) {
+                globalSeq += 1;
+                const parentRef = sn || String(globalSeq);
+                const parentQty = qtyVal > 0 ? qtyVal : 1;
+                row.setItems.forEach((sub, sIdx) => {
+                    if (!sub || sub.aiResult?.product?.includedInSystem) return;
+                    const subDesc = String(sub.brandDesc || sub.description || sub.label || '').trim();
+                    const subModel = String(sub.selectedModel || '').trim();
+                    const brand = resolveCanonicalBrand(sub.selectedBrand || row.selectedBrand || rawBrandCell, subDesc, subModel, brandLookup);
+                    const rawSubQty = parseNumericQty(sub.qty);
+                    const perSetQty = rawSubQty > 0 ? rawSubQty : 1;
+                    const totalSubQty = Math.max(1, Math.ceil(perSetQty * parentQty - 1e-9));
+                    const setNote = descClean ? ` [Part of Set: ${descClean.split('\n')[0].slice(0, 55)}]` : '';
+                    pushItem(brand, {
+                        boqRef: `${parentRef}.${sIdx + 1}`,
+                        location: locationVal,
+                        brand,
+                        model: subModel || sub.label || '',
+                        description: `${subDesc || sub.label || 'Set Component'}${setNote}`,
+                        qty: totalSubQty,
+                        unit: sub.unit || 'Nos',
+                        imageUrl: extractImageUrl(sub.brandImage) || imageUrl
+                    });
+                });
+                continue;
             }
 
             const rowBrandMeta = row.selectedBrand || row.brand || row.matchedBrand || rawBrandCell;
@@ -280,10 +308,15 @@ export function groupMultiBudgetRowsByBrand(rows = [], allBrands = []) {
 
         if (isSet) {
             row.setItems.forEach((sub, sIdx) => {
+                // Accessories bundled inside the anchor SKU (includedInSystem) are not quoted separately
+                if (!sub || sub.aiResult?.product?.includedInSystem) return;
                 const subDesc = String(sub.brandDesc || sub.description || sub.label || '').trim();
                 const subModel = String(sub.selectedModel || '').trim();
                 const brand = resolveCanonicalBrand(sub.selectedBrand || row.selectedBrand, subDesc, subModel, brandLookup);
-                const subQty = Math.max(1, parseNumericQty(sub.qty) || 1) * parentQty;
+                // Preserve shared fractional quantities (e.g. 0.5 shared screen × 30 positions = 15, not 30)
+                const rawSubQty = parseNumericQty(sub.qty);
+                const perSetQty = rawSubQty > 0 ? rawSubQty : 1;
+                const subQty = Math.max(1, Math.ceil(perSetQty * parentQty - 1e-9));
                 const setNote = row.description ? ` [Part of Set: ${String(row.description).slice(0, 55)}]` : '';
 
                 pushItem(brand, {

@@ -983,7 +983,7 @@ export default function ValueEngineeredModal({
 
         try {
             let remainingIndices = [...targetIndices];
-            let effectiveFallbackBrand = targetBrand;
+            let effectiveFallbackBrand = (!useAuto && targetBrand && targetBrand !== 'Auto' && targetBrand !== 'Auto Detected') ? targetBrand : '';
 
             if (onlySubIndex === null && isSystemSetType(parent.setType)) {
                 const wsResolved = await resolveWorkstationSetSystem({
@@ -1006,9 +1006,12 @@ export default function ValueEngineeredModal({
                     });
                     remainingIndices = wsResolved.unresolvedIndices;
                 }
+            } else if (onlySubIndex !== null && !effectiveFallbackBrand) {
+                // Re-matching one component keeps the manufacturer already used by the rest of the set
+                effectiveFallbackBrand = (parent.setItems.find((it, idx) => idx !== onlySubIndex && it.selectedBrand)?.selectedBrand) || '';
             }
 
-            await batch(remainingIndices, 3, async (sIdx) => {
+            const runVeSubMatch = async (sIdx) => {
                 const liveParent = rowsRef.current[rowIndex];
                 const sub = liveParent?.setItems?.[sIdx];
                 if (!sub) return;
@@ -1021,9 +1024,13 @@ export default function ValueEngineeredModal({
                         qty: sub.qty || '1',
                         unit: sub.unit || 'Nos',
                         existingRate: sub.rate || '',
-                        targetBrand,
-                        isAuto: useAuto
+                        targetBrand: effectiveFallbackBrand || targetBrand,
+                        isAuto: effectiveFallbackBrand ? false : useAuto
                     });
+
+                    if (resolved.ok && !effectiveFallbackBrand && resolved.fields?.selectedBrand) {
+                        effectiveFallbackBrand = resolved.fields.selectedBrand;
+                    }
 
                     setRows(prev => {
                         const next = [...prev];
@@ -1047,7 +1054,14 @@ export default function ValueEngineeredModal({
                         return next;
                     });
                 }
-            });
+            };
+
+            // Resolve first component first when brand isn't locked yet so the remaining components keep ONE manufacturer
+            if (!effectiveFallbackBrand && remainingIndices.length > 1) {
+                const firstIdx = remainingIndices.shift();
+                await runVeSubMatch(firstIdx);
+            }
+            await batch(remainingIndices, 3, runVeSubMatch);
         } finally {
             setMatchingSetRowId(null);
         }

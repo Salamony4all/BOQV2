@@ -25,12 +25,13 @@ export const FURNITURE_SET_TYPES = [
         label: 'Workstation Cluster Set',
         shortLabel: 'Workstation Set',
         matchPrefix: 'Workstation',
+        // Fallback template only — parseSetComponentsFromDescription uses extractWorkstationComponents() dynamically
         defaultSlots: [
-            { label: 'Workstation Desk / Worktop', description: 'Office Workstation Desk', qty: '4', unit: 'Nos' },
-            { label: 'Acoustic Desk Divider Screen', description: 'Acoustic Desk Privacy Screen', qty: '2', unit: 'Nos' },
-            { label: 'Mobile Pedestal / Drawers', description: 'Underdesk Mobile Pedestal 3 Drawers', qty: '4', unit: 'Nos' },
-            { label: 'Cable Tray / Power Box', description: 'Underdesk Cable Management Tray Power Box', qty: '2', unit: 'Nos' },
-            { label: 'Ergonomic Task Chairs', description: 'Ergonomic Mesh Office Task Chair', qty: '4', unit: 'Nos' }
+            { label: 'Workstation Desk / Worktop', description: 'Office Workstation Desk', componentRole: 'workstation_desk', qty: '1', unit: 'Nos' },
+            { label: 'Acoustic Desk Divider Screen', description: 'Acoustic Desk Privacy Screen', componentRole: 'screen', qty: '1', unit: 'Nos' },
+            { label: 'Mobile Pedestal / Drawers', description: 'Underdesk Mobile Pedestal 3 Drawers', componentRole: 'pedestal', qty: '1', unit: 'Nos' },
+            { label: 'Cable Tray / Power Box', description: 'Underdesk Cable Management Tray', componentRole: 'cable_management', qty: '1', unit: 'Nos' },
+            { label: 'Power & Data Module Box', description: 'Desk-Mounted Power & Data Socket Module Box', componentRole: 'power_box', qty: '1', unit: 'Nos' }
         ]
     },
     {
@@ -319,9 +320,9 @@ export function createEmptySetComponent(parentId, idx = 0, partial = {}) {
     };
 }
 
-const STANDALONE_ACCESSORY_PREFIX_RE = /^(?:side\s*table|coffee\s*table|center\s*table|lamp|cushion|rug|carpet|task\s*chair|office\s*chair|workstation\s*(?:task\s*)?chair|conference\s*chair|meeting\s*chair|acoustic\s*screen|divider\s*screen|privacy\s*screen|modesty\s*panel|cable\s*tray|power\s*box|mobile\s*pedestal|pedestal|monitor\s*arm|cpu\s*holder)\b/i;
+const STANDALONE_ACCESSORY_PREFIX_RE = /^(?:side\s*table|coffee\s*table|center\s*table|lamp|desk\s*lamp|task\s*light|cushions?|pillows?|covers?|rug|carpet|(?:ergonomic\s+|mesh\s+|high[-\s]?back\s+|mid[-\s]?back\s+|low[-\s]?back\s+|swivel\s+)?(?:task|office|executive|manager(?:ial)?|director|visitor|lounge|workstation(?:\s+task)?|conference|meeting)\s*chairs?|acoustic\s*(?:wall\s*)?(?:screen|panel|divider|baffle)|wall\s*panel|glass\s*partition|divider\s*screen|privacy\s*screen|modesty\s*panel|cable\s*tray|power\s*box|mobile\s*pedestal|pedestal|side\s*return|credenza|storage\s*cabinet|monitor\s*arm|cpu\s*holder|keyboard\s*tray)\b/i;
 
-const WORKSTATION_SYSTEM_RE = /\b(?:(?:linear|open[\s-]?plan|modular|single[-\s]?sided|double[-\s]?sided|back[-\s]?to[-\s]?back|face[-\s]?to[-\s]?face|sit[-\s]?stand|height[-\s]?adjustable|staff|manager|operational|bench)\s+(?:back[-\s]?to[-\s]?back\s+|face[-\s]?to[-\s]?face\s+|single[-\s]?sided\s+|double[-\s]?sided\s+|modular\s+|linear\s+)?workstation|workstation\s+(?:desk\s+|bench\s+|table\s+)?(?:system|set|cluster|bench|unit|station)|bench\s+workstation|workstation\s+bench|cluster\s+(?:of\s+)?\d+\s*workstation|(?:[2-9]|1[0-2])[-\s]?(?:way|pax|person|seater|seat|user|station)\s+(?:linear\s+|back[-\s]?to[-\s]?back\s+|modular\s+)?workstation|120\s*(?:deg|°)\s*(?:3[-\s]?way\s+)?workstation|\bworkstation\b)\b/i;
+const WORKSTATION_SYSTEM_RE = /\b(?:(?:linear|open[\s-]?plan|modular|single[-\s]?sided|double[-\s]?sided|back[-\s]?to[-\s]?back|face[-\s]?to[-\s]?face|sit[-\s]?stand|height[-\s]?adjustable|staff|manager|operational|bench)\s+(?:back[-\s]?to[-\s]?back\s+|face[-\s]?to[-\s]?face\s+|single[-\s]?sided\s+|double[-\s]?sided\s+|modular\s+|linear\s+)?workstations?|workstations?\s+(?:desk\s+|bench\s+|table\s+)?(?:system|set|cluster|bench|unit|station)|bench\s+workstations?|workstations?\s+bench|cluster\s+(?:of\s+)?\d+\s*workstations?|(?:[2-9]|1[0-2])[-\s]?(?:way|pax|person|seater|seat|user|station)\s+(?:linear\s+|back[-\s]?to[-\s]?back\s+|modular\s+)?workstations?|120\s*(?:deg|°)\s*(?:3[-\s]?way\s+)?workstations?)\b/i;
 
 const L_SHAPE_DESK_SET_RE = /\b(?:l[-\s]?shaped?\s+(?:executive\s+|manager(?:ial)?\s+|director\s+|office\s+|workstation\s+|corner\s+)?desks?|executive\s+l[-\s]?shaped?\s+desks?|manager(?:ial)?\s+l[-\s]?shaped?\s+desks?|(?:executive|manager(?:ial)?|director|office|staff)\s+desks?\s*(?:with|w\/|\+|,|and|&|featuring|including|incl\.?|c\/w)\s+(?:attached\s+|integrated\s+|matching\s+)?(?:side\s*)?returns?|corner\s+(?:office\s+|executive\s+|manager(?:ial)?\s+)?desks?\s+(?:with|w\/|featuring)\s+(?:returns?|storage|pedestals?|credenzas?))\b/i;
 
@@ -329,8 +330,15 @@ const L_SHAPE_DESK_SET_RE = /\b(?:l[-\s]?shaped?\s+(?:executive\s+|manager(?:ial
 const NON_OFFICE_DESK_HEADLINE_RE = /\b(?:reception|counters?|cashier|security|concierge|nurses?|teller|check[-\s]?in|information\s+desk|help\s*desk|bar|lectern|podium)\b/i;
 
 /** Headlines that are workstation ACCESSORIES or IT hardware, not furniture workstation systems. */
-const WORKSTATION_ACCESSORY_HEADLINE_RE = /\bworkstations?\s+(?:task\s+|office\s+|desk\s+)?(?:screens?|partitions?|dividers?|pedestals?|chairs?|seating|accessor(?:y|ies)|modesty|cable|power|monitor|lamps?|lights?|lighting|storage|cabinets?|lockers?|shel(?:f|ves|ving)|credenzas?|cadd(?:y|ies))\b|\b(?:screens?|partitions?|dividers?|pedestals?|chairs?|panels?|lockers?|cabinets?|storage|lights?|lighting|sockets?|power\s*(?:box(?:es)?|modules?))\s+(?:for|to|at|of|between)\s+(?:the\s+|each\s+)?(?:staff\s+|office\s+|open\s+office\s+)?workstations?\b/i;
+const WS_ACCESSORY_MODIFIER = '(?:task|office|desk(?:[-\\s]?mounted)?|under[-\\s]?desk|mobile|fixed|lockable|fabric|pet|acoustic|glass|frosted|tempered|felt|ergonomic|mesh|swivel|executive|manager|staff|linear|modular|privacy|divider|central|front|perforated|metal|steel|wooden|single|dual|articulated|vesa|overhead|personal|[234][-\\s]?drawer)';
+const WORKSTATION_ACCESSORY_HEADLINE_RE = new RegExp(
+    `\\bworkstations?\\s+(?:${WS_ACCESSORY_MODIFIER}\\s+){0,3}(?:screens?|partitions?|dividers?|pedestals?|chairs?|seating|accessor(?:y|ies)|modesty|cable|power|monitor|lamps?|lights?|lighting|storage|cabinets?|lockers?|shel(?:f|ves|ving)|credenzas?|cadd(?:y|ies)|keyboard\\s*trays?|cpu\\s*holders?)\\b`
+    + `|\\b(?:screens?|partitions?|dividers?|pedestals?|chairs?|panels?|lockers?|cabinets?|storage|lights?|lighting|sockets?|power\\s*(?:box(?:es)?|modules?))\\s+(?:for|to|at|of|between)\\s+(?:the\\s+|each\\s+)?(?:staff\\s+|office\\s+|open\\s+office\\s+)?workstations?\\b`,
+    'i'
+);
 const IT_WORKSTATION_HEADLINE_RE = /\b(?:pc|computers?|laptops?|intel|xeon|ryzen|core\s*i[3579]|\d+\s*gb|ssd|hdd|gpu|nvidia|windows|dell|lenovo|thinkstation|servers?|software|licen[sc]es?|docking)\b/i;
+/** Non-desk primary product nouns: prevent body text from hijacking a chair/panel/cabinet headline into a desk set. */
+const NON_DESK_HEADLINE_PRODUCT_RE = /\b(?:chairs?|seating|sofas?|armchairs?|stools?|credenzas?|cabinets?|screens?|partitions?|dividers?|panels?|baffles?|pedestals?|lockers?|bookcases?|shelving|lamps?|lights?|carpets?|rugs?|cushions?|pillows?|curtains?|blinds?)\b/i;
 
 /** Dynamic system sets that are resolved as ONE cohesive same-manufacturer system by the backend set matcher. */
 export const SYSTEM_SET_TYPES = ['workstation_set', 'l_shape_desk_set', 'folding_meeting_set', 'meeting_set'];
@@ -395,10 +403,11 @@ export function parseFurnitureDimensions(text = '') {
     let a = 0;
     let b = 0;
     let h = 0;
-    const mm3 = s.match(/(?:\b[LWD]\s*)?(\d{3,4})\s*(?:mm)?\s*[×xX*]\s*(?:[LWD]\s*)?(\d{3,4})\s*(?:mm)?\s*[×xX*]\s*(?:H\s*)?(\d{3,4})\s*(mm|cm)?\b/);
-    const mm2 = !mm3 ? s.match(/(?:\b[LWD]\s*)?(\d{3,4})\s*(?:mm)?\s*[×xX*]\s*(?:[LWD]\s*)?(\d{3,4})\s*(mm|cm)?\b/) : null;
-    const cm2 = (!mm3 && !mm2) ? s.match(/\b(\d{2,3})\s*[×xX*]\s*(\d{2,3})(?:\s*[×xX*]\s*(\d{2,3}))?\s*cm\b/i) : null;
-    const m2 = (!mm3 && !mm2 && !cm2) ? s.match(/\b(\d(?:[.,]\d{1,2})?)\s*m?\s*[×xX*]\s*(\d(?:[.,]\d{1,2})?)\s*m\b/i) : null;
+    const mm3 = s.match(/(?:\b[LWD]\s*)?(\d{3,5})\s*(?:mm)?\s*[×xX*]\s*(?:[LWD]\s*)?(\d{3,5})\s*(?:mm)?\s*[×xX*]\s*(?:H\s*)?(\d{3,4})\s*(mm|cm)?\b/i);
+    const mm2 = !mm3 ? s.match(/(?:\b[LWD]\s*)?(\d{3,5})\s*(?:mm)?\s*[×xX*]\s*(?:[LWD]\s*)?(\d{3,5})\s*(mm|cm)?\b/i) : null;
+    const cm2 = (!mm3 && !mm2) ? s.match(/\b(\d{2,3})\s*(?:cm)?\s*[×xX*]\s*(\d{2,3})(?:\s*(?:cm)?\s*[×xX*]\s*(\d{2,3}))?\s*cm\b/i) : null;
+    const m3 = (!mm3 && !mm2 && !cm2) ? s.match(/\b(\d{1,2}(?:[.,]\d{1,2})?)\s*m?\s*[×xX*]\s*(\d{1,2}(?:[.,]\d{1,2})?)\s*m?\s*[×xX*]\s*(\d{1,2}(?:[.,]\d{1,2})?)\s*m\b/i) : null;
+    const m2 = (!mm3 && !mm2 && !cm2 && !m3) ? s.match(/\b(\d{1,2}(?:[.,]\d{1,2})?)\s*m?\s*[×xX*]\s*(\d{1,2}(?:[.,]\d{1,2})?)\s*m\b/i) : null;
 
     if (mm3) {
         const u = (mm3[4] || 'mm').toLowerCase();
@@ -408,6 +417,10 @@ export function parseFurnitureDimensions(text = '') {
         a = toMm(mm2[1], u); b = toMm(mm2[2], u);
     } else if (cm2) {
         a = toMm(cm2[1], 'cm'); b = toMm(cm2[2], 'cm'); h = cm2[3] ? toMm(cm2[3], 'cm') : 0;
+    } else if (m3) {
+        a = toMm(String(m3[1]).replace(',', '.'), 'm');
+        b = toMm(String(m3[2]).replace(',', '.'), 'm');
+        h = toMm(String(m3[3]).replace(',', '.'), 'm');
     } else if (m2) {
         a = toMm(String(m2[1]).replace(',', '.'), 'm'); b = toMm(String(m2[2]).replace(',', '.'), 'm');
     }
@@ -430,7 +443,11 @@ export function isLShapeDeskSetDescription(description = '') {
     const firstLine = splitHeadline(raw);
     if (STANDALONE_ACCESSORY_PREFIX_RE.test(firstLine)) return false;
     if (NON_OFFICE_DESK_HEADLINE_RE.test(firstLine)) return false;
-    if (L_SHAPE_DESK_SET_RE.test(raw)) return true;
+    if (L_SHAPE_DESK_SET_RE.test(firstLine)) return true;
+    // Body-only match only when the headline mentions a desk (or doesn't name a non-desk product like chair/panel/cabinet)
+    if (L_SHAPE_DESK_SET_RE.test(raw) && (/\bdesks?\b/i.test(firstLine) || !NON_DESK_HEADLINE_PRODUCT_RE.test(firstLine))) {
+        return true;
+    }
     // Also detect any "Desk ... with side return / return storage / return credenza"
     if (/\bdesks?\b/i.test(firstLine) && /\b(?:side\s*returns?|returns?\s*(?:desk|unit|storage|credenza|cabinet|wing)s?|l[-\s]?shaped?)\b/i.test(raw)) {
         return true;
@@ -460,6 +477,7 @@ const INCLUDED_CHAIRS_RE = new RegExp(
 );
 const EXPLICIT_CHAIR_COUNT_RE = new RegExp(`\\b(\\d{1,3})\\s*(?:nos?\\.?|x|pcs?\\.?)?\\s*(?:${CHAIR_ADJECTIVES}\\s+){0,3}chairs?\\b`, 'i');
 const EXCLUDED_CHAIRS_RE = /\b(?:excl(?:uding|usive\s+of)?\.?|without|not\s+incl(?:uded|uding)?\.?|w\/o)\b[^.;\n|]{0,40}\bchairs?\b|\bchairs?\b[^.;\n|]{0,40}\b(?:not\s+included|excluded|measured\s+(?:separately|elsewhere)|by\s+others|separately)\b/gi;
+const EXCLUDED_CREDENZA_RE = /\b(?:excl(?:uding|usive\s+of)?\.?|without|not\s+incl(?:uded|uding)?\.?|w\/o)\b[^.;\n|]{0,40}\b(?:credenzas?|sideboards?|buffets?)\b|\b(?:credenzas?|sideboards?|buffets?)\b[^.;\n|]{0,40}\b(?:not\s+included|excluded|measured\s+(?:separately|elsewhere)|by\s+others|separately)\b/gi;
 
 /** True when the table itself folds (ignores "flip-top power box" style accessory wording). */
 function hasFoldingTableCue(text = '') {
@@ -543,7 +561,7 @@ export function detectMeetingSetType(description = '', unit = '', options = {}) 
     }
 
     // B. Fixed table specified together with other furniture pieces (chairs / credenza)
-    if (/\b(?:credenzas?|sideboards?|buffets?)\b/i.test(body) || mentionsIncludedChairs(body)) {
+    if (/\b(?:credenzas?|sideboards?|buffets?)\b/i.test(body.replace(EXCLUDED_CREDENZA_RE, ' ')) || mentionsIncludedChairs(body)) {
         return 'meeting_set';
     }
     return null;
@@ -590,14 +608,14 @@ export function isWorkstationSetDescription(description = '') {
     // Never hijack standalone chairs, screens, pedestals, cables, accessories or IT hardware
     if (STANDALONE_ACCESSORY_PREFIX_RE.test(firstLine)) return false;
     if (WORKSTATION_ACCESSORY_HEADLINE_RE.test(firstLine)) return false;
-    if (IT_WORKSTATION_HEADLINE_RE.test(firstLine)) return false;
+    if (IT_WORKSTATION_HEADLINE_RE.test(raw)) return false;
 
     // L-shape desks are handled by isLShapeDeskSetDescription unless explicitly titled "Workstation"
     if (!/\bworkstations?\b/i.test(firstLine) && isLShapeDeskSetDescription(raw)) {
         return false;
     }
 
-    if (WORKSTATION_SYSTEM_RE.test(firstLine) || /\b(?:linear|back[-\s]?to[-\s]?back|face[-\s]?to[-\s]?face|bench|cluster)\s+workstation\b/i.test(raw)) {
+    if (WORKSTATION_SYSTEM_RE.test(firstLine)) {
         return true;
     }
 
@@ -608,6 +626,12 @@ export function isWorkstationSetDescription(description = '') {
 
     // Bench desks / desking clusters written without the word "workstation"
     if (/\b(?:bench\s*desk(?:ing)?s?|desk(?:ing)?\s*bench(?:es)?|desking\s*(?:system|cluster)|cluster\s+(?:of\s+)?\d+\s*desks?|back[-\s]?to[-\s]?back\s+desks?|face[-\s]?to[-\s]?face\s+desks?)\b/i.test(firstLine)) {
+        return true;
+    }
+
+    // Body-only workstation match only if the headline does not name a different product (e.g. wall panel, chair)
+    if (!NON_DESK_HEADLINE_PRODUCT_RE.test(firstLine)
+        && /\b(?:linear|back[-\s]?to[-\s]?back|face[-\s]?to[-\s]?face|bench|cluster)\s+workstations?\b/i.test(raw)) {
         return true;
     }
 
@@ -654,8 +678,8 @@ export function extractWorkstationComponents(description = '', options = {}) {
 
     // Explicit cluster size (e.g. "4-pax", "6-way", "cluster of 4", "for 8 persons", "quad")
     let explicitSeats = 0;
-    const paxMatch = bodyOnly.match(/\b([2-9]|1\d|20)\s*[-\s]?(?:way|pax|persons?|people|seaters?|seats?|users?|stations?|positions?|man)\b/i)
-        || bodyOnly.match(/\bcluster\s*(?:of\s*)?([2-9]|1\d|20)\b/i);
+    const paxMatch = bodyOnly.match(/\b([2-9]|[1-5]\d|60)\s*[-\s]?(?:way|pax|persons?|people|seaters?|seats?|users?|stations?|positions?|man)\b/i)
+        || bodyOnly.match(/\bcluster\s*(?:of\s*)?([2-9]|[1-5]\d|60)\b/i);
     if (paxMatch && paxMatch[1]) {
         explicitSeats = parseInt(paxMatch[1], 10) || 0;
     } else if (is120Deg) {
@@ -675,7 +699,7 @@ export function extractWorkstationComponents(description = '', options = {}) {
     // Dimensions: a footprint of 2.2 m+ length or 1.15 m+ depth describes a CLUSTER (rows × desks per row);
     // L-shape footprints describe ONE desk with its return.
     const dims = parseFurnitureDimensions(bodyOnly);
-    const footprintRows = dims.depthMm >= 1150 ? 2 : 1;
+    const footprintRows = (!isSingleSided && dims.depthMm >= 1150) ? 2 : 1;
     const footprintPerRow = dims.lengthMm >= 2200 ? Math.max(1, Math.round(dims.lengthMm / 1400)) : 1;
     const footprintSeats = (!isLShape && !isPerPosition && dims.lengthMm > 0) ? footprintRows * footprintPerRow : 0;
     const dimsAreCluster = footprintSeats > 1;
@@ -759,8 +783,9 @@ export function extractWorkstationComponents(description = '', options = {}) {
         });
     }
 
-    // 2. Acoustic / Privacy Divider Screen
-    const mentionsScreen = /\b(screens?|dividers?|partitions?|privacy\s*panels?|acoustic\s*panels?|pinboards?|tackboards?|baffles?|glass\s*dividers?)\b/i.test(bodyOnly);
+    // 2. Acoustic / Privacy Divider Screen (ignore "monitor screen", "screen arm", "touch screen")
+    const screenScanBody = bodyOnly.replace(/\b(?:monitor\s+screens?|screen\s+arms?|touch\s*screens?|projection\s*screens?|display\s*screens?)\b/gi, ' ');
+    const mentionsScreen = /\b(screens?|dividers?|partitions?|privacy\s*panels?|acoustic\s*panels?|pinboards?|tackboards?|baffles?|glass\s*dividers?)\b/i.test(screenScanBody);
     if (mentionsScreen) {
         const screenMat = /\bfrosted\s*glass|tempered\s*glass|glass\b/i.test(lower)
             ? 'Frosted Glass'
@@ -788,8 +813,9 @@ export function extractWorkstationComponents(description = '', options = {}) {
         });
     }
 
-    // 4. Under-Desk Cable Management / Wire Tray
-    if (/\b(cable\s*(?:trays?|management|channels?|troughs?|baskets?|spines?|ducts?|risers?|raceways?|trunking)|wire\s*(?:trays?|management|baskets?)|grommets?|flip[\s-]?tops?)\b/i.test(bodyOnly)) {
+    // 4. Under-Desk Cable Management / Wire Tray (ignore "flip-top power box" wording)
+    const cableScanBody = bodyOnly.replace(/\bflip[-\s]?(?:tops?|ups?|lids?)\s+(?:power|data|socket|box|access|av)\w*/gi, ' ');
+    if (/\b(cable\s*(?:trays?|management|channels?|troughs?|baskets?|spines?|ducts?|risers?|raceways?|trunking)|wire\s*(?:trays?|management|baskets?)|grommets?|flip[\s-]?tops?)\b/i.test(cableScanBody)) {
         results.push({
             label: `Under-Desk Cable Management Tray${sharedNote}`,
             description: `Under-Desk Horizontal Cable Management Tray & Wire Channel for Workstation${deskWidthMm ? ` W${deskWidthMm} mm` : ''}`,
@@ -836,24 +862,38 @@ export function extractWorkstationComponents(description = '', options = {}) {
         });
     }
 
-    // 8. CPU Holder / Desk Accessories
-    if (/\b(cpu\s*holders?|keyboard\s*trays?|desk\s*lamps?|task\s*lights?)\b/i.test(bodyOnly)) {
-        const accName = /\bcpu\s*holders?\b/i.test(lower)
-            ? 'Under-Desk CPU Holder'
-            : /\bkeyboard\s*trays?\b/i.test(lower)
-                ? 'Sliding Keyboard Tray'
-                : 'Workstation Task Light';
+    // 8. CPU Holder / Desk Accessories (independent checks so multiple accessories are all kept)
+    if (/\bcpu\s*holders?\b/i.test(bodyOnly)) {
         results.push({
-            label: accName,
-            description: `${accName} Accessory for Office Workstation`,
+            label: 'Under-Desk CPU Holder',
+            description: 'Under-Desk CPU Holder Accessory for Office Workstation',
+            componentRole: 'accessory',
+            qty: fmtQty(seatCount),
+            unit: 'Nos',
+        });
+    }
+    if (/\bkeyboard\s*trays?\b/i.test(bodyOnly)) {
+        results.push({
+            label: 'Sliding Keyboard Tray',
+            description: 'Sliding Keyboard Tray Accessory for Office Workstation',
+            componentRole: 'accessory',
+            qty: fmtQty(seatCount),
+            unit: 'Nos',
+        });
+    }
+    if (/\b(?:desk\s*lamps?|task\s*lights?)\b/i.test(bodyOnly)) {
+        results.push({
+            label: 'Workstation Task Light',
+            description: 'Workstation Task Light Accessory for Office Workstation',
             componentRole: 'accessory',
             qty: fmtQty(seatCount),
             unit: 'Nos',
         });
     }
 
-    // 9. Ergonomic Task Chair (ONLY when explicitly included in the workstation BOQ spec!)
-    if (/\b((?:ergonomic\s+|mesh\s+|swivel\s+|office\s+|workstation\s+)*task\s*chairs?|(?:ergonomic|office|swivel|mesh)\s+chairs?|with\s*chairs?|incl(?:uding)?\.?\s*chairs?)\b/i.test(bodyOnly)) {
+    // 9. Ergonomic Task Chair (ONLY when explicitly included — never when marked excluded/not included)
+    const chairScanBody = bodyOnly.replace(EXCLUDED_CHAIRS_RE, ' ');
+    if (/\b((?:ergonomic\s+|mesh\s+|swivel\s+|office\s+|workstation\s+)*task\s*chairs?|(?:ergonomic|office|swivel|mesh)\s+chairs?|with\s*chairs?|incl(?:uding)?\.?\s*chairs?)\b/i.test(chairScanBody)) {
         results.push({
             label: 'Ergonomic Workstation Task Chair',
             description: 'Ergonomic Mesh Back Swivel Office Task Chair with Adjustable Armrests',
@@ -960,7 +1000,8 @@ export function extractLShapeDeskComponents(description = '') {
         });
     }
 
-    if (/\b(cable\s*(?:trays?|management|channels?|grommets?)|wire\s*(?:management|trays?)|grommets?|flip[\s-]?tops?)\b/i.test(bodyOnly)) {
+    const lCableScan = bodyOnly.replace(/\bflip[-\s]?(?:tops?|ups?|lids?)\s+(?:power|data|socket|box|access|av)\w*/gi, ' ');
+    if (/\b(cable\s*(?:trays?|management|channels?|grommets?)|wire\s*(?:management|trays?)|grommets?|flip[\s-]?tops?)\b/i.test(lCableScan)) {
         results.push({
             label: 'Cable Management Tray & Grommet',
             description: 'Under-Desk Cable Management Tray & Desktop Wire Access Grommet for L-Shape Desk',
@@ -980,7 +1021,7 @@ export function extractLShapeDeskComponents(description = '') {
         });
     }
 
-    if (/\b(screens?|dividers?|privacy\s*panels?|acoustic\s*panels?)\b/i.test(bodyOnly)) {
+    if (/\b(screens?|dividers?|privacy\s*panels?|acoustic\s*panels?)\b/i.test(bodyOnly.replace(/\b(?:monitor\s+screens?|screen\s+arms?|touch\s*screens?)\b/gi, ' '))) {
         results.push({
             label: 'Desk Privacy Screen',
             description: 'Desk-Mounted Acoustic Privacy Screen for L-Shape Workstation Desk',
@@ -990,7 +1031,7 @@ export function extractLShapeDeskComponents(description = '') {
         });
     }
 
-    if (/\b((?:executive|task|visitor|office|ergonomic)\s*chairs?|with\s*chairs?)\b/i.test(bodyOnly)) {
+    if (/\b((?:executive|task|visitor|office|ergonomic)\s*chairs?|with\s*chairs?|incl(?:uding)?\.?\s*chairs?)\b/i.test(bodyOnly.replace(EXCLUDED_CHAIRS_RE, ' '))) {
         results.push({
             label: isExecutive ? 'Executive Office Chair' : 'Ergonomic Task Chair',
             description: isExecutive ? 'High-Back Executive Ergonomic Swivel Office Chair' : 'Ergonomic Mesh Office Task Chair',
@@ -1162,7 +1203,7 @@ export function extractFoldingMeetingComponents(description = '', isFolding = tr
 
     if (!asOption) {
         // Meeting Room Storage Credenza / Sideboard
-        if (/\b(credenzas?|sideboards?|buffets?)\b/i.test(bodyOnly)) {
+        if (/\b(credenzas?|sideboards?|buffets?)\b/i.test(bodyOnly.replace(EXCLUDED_CREDENZA_RE, ' '))) {
             results.push({
                 label: 'Meeting Room Storage Credenza',
                 description: 'Low Storage Credenza Sideboard Cabinet for Conference & Meeting Room',
@@ -1175,7 +1216,11 @@ export function extractFoldingMeetingComponents(description = '', isFolding = tr
         // Conference / Nesting Meeting Chairs (only when chairs are part of the row's supply)
         if (mentionsIncludedChairs(bodyOnly)) {
             const explicitChairs = bodyOnly.replace(EXCLUDED_CHAIRS_RE, ' ').match(EXPLICIT_CHAIR_COUNT_RE);
-            const chairQty = explicitChairs ? parseInt(explicitChairs[1], 10) : (paxCount > 0 ? paxCount : (tableQty * 2));
+            let chairQty = explicitChairs ? parseInt(explicitChairs[1], 10) : (paxCount > 0 ? paxCount : (tableQty * 2));
+            const rowQtyNum = parseFloat(options.qty);
+            if (explicitChairs && rowQtyNum > 1 && !isSetLikeUnit(options.unit) && /\btables\b/i.test(splitHeadline(raw)) && chairQty > rowQtyNum) {
+                chairQty = Math.max(1, Math.ceil(chairQty / rowQtyNum));
+            }
             results.push({
                 label: isFolding ? 'Stackable / Nesting Meeting Chair' : 'Conference Meeting Room Chair',
                 description: isFolding
@@ -1196,14 +1241,14 @@ export function extractFoldingMeetingComponents(description = '', isFolding = tr
  */
 export function inferSetTypeFromText(description = '', options = {}) {
     const raw = String(description || '');
-    const firstLine = raw.split(/[\r\n|]+/)[0].trim().toLowerCase();
+    const firstLine = splitHeadline(raw).toLowerCase();
     const full = raw.toLowerCase();
 
-    if (/\b(workstation\s*(?:cluster|set|system|bench)|cluster\s*of\s*[2-9]|(?:2|4|6|8)[-\s]?pax\s*workstation|linear\s*workstation|back[-\s]?to[-\s]?back\s*workstation)\b/.test(firstLine)
-        || (/\bworkstation\b/.test(firstLine) && /\b(screen|pedestal|chair|cable|drawer)\b/.test(full))) {
+    if (/\b(workstations?\s*(?:cluster|set|system|bench|furniture\s*set)|cluster\s*of\s*[2-9]|(?:[2-9]|1\d|20)[-\s]?pax\s*workstations?|linear\s*workstations?|back[-\s]?to[-\s]?back\s*workstations?)\b/.test(firstLine)
+        || (/\bworkstations?\b/.test(firstLine) && (/\b(screen|pedestal|chair|cable|drawer|furniture\s*set)\b/.test(full) || !NON_OFFICE_DESK_HEADLINE_RE.test(firstLine)))) {
         return 'workstation_set';
     }
-    if (/\bl[-\s]?shaped?\s*(?:executive\s*|manager(?:ial)?\s*|office\s*)?desk\b/.test(firstLine)) {
+    if (!NON_OFFICE_DESK_HEADLINE_RE.test(firstLine) && /\bl[-\s]?shaped?\s*(?:executive\s*|manager(?:ial)?\s*|office\s*)?desks?\b/.test(firstLine)) {
         return 'l_shape_desk_set';
     }
     if (/\b(?:fold(?:ing|able)|flip[-\s]?top|nesting|training)\s*(?:conference\s*|meeting\s*|training\s*|seminar\s*)*tables?\b/.test(firstLine)) {
@@ -1237,7 +1282,7 @@ export function inferSetTypeFromText(description = '', options = {}) {
     if (/\b(lounge|waiting\s*area|waiting\s*room|vip\s*lounge|majlis|sofa\s*set|seating\s*set)\b/.test(firstLine)) {
         return 'seating_set';
     }
-    if (/\b(executive\s*office|manager\s*office|director|workstation|desking|office\s*set|office\s*furniture\s*set)\b/.test(firstLine)) {
+    if (/\b(executive\s*office|manager\s*office|director|workstations?|desking|office\s*set|office\s*furniture\s*set)\b/.test(firstLine)) {
         return 'desking_set';
     }
     // Secondary signals from body (weak: skipped when only the headline may decide)
@@ -1245,7 +1290,7 @@ export function inferSetTypeFromText(description = '', options = {}) {
     if (/\b(sofa|armchair|sponge|fabric)\b/.test(full) && !/\boffice\s*desk\b/.test(full)) {
         return 'seating_set';
     }
-    if (/\b(office\s*desk|workstation|executive\s*desk)\b/.test(full)) {
+    if (/\b(office\s*desk|workstations?|executive\s*desk)\b/.test(full)) {
         return 'desking_set';
     }
     return 'custom_set';
@@ -1263,11 +1308,11 @@ export function resolveRowSetPlan(description = '', unit = '', options = {}) {
     const raw = String(description || '');
     if (!raw.trim()) return none;
 
-    const firstLine = raw.split(/[\r\n|]+/)[0].trim().toLowerCase();
+    const firstLine = splitHeadline(raw).toLowerCase();
     const isLumpUnit = isSetLikeUnit(unit) && !/^cluster/i.test(String(unit || '').trim());
 
-    // Avoid catching single accessories like "SIDE TABLE FOR SOFA SET" or "Workstation Task Chair"
-    if (/^(side\s*table|coffee\s*table|center\s*table|lamp|cushion|rug|carpet)\s+for\b/i.test(firstLine)) {
+    // Avoid catching single accessories like "SIDE TABLE FOR SOFA SET", "Cushions for sofa set", or "Workstation Task Chair"
+    if (/^(?:replacement\s+|spare\s+|extra\s+|throw\s+)?(?:side\s*tables?|coffee\s*tables?|center\s*tables?|lamps?|cushions?|pillows?|covers?|rugs?|carpets?|chairs?|stools?|panels?|screens?|parts?|legs?|tops?)\s+for\b/i.test(firstLine)) {
         return none;
     }
 
@@ -1288,8 +1333,10 @@ export function resolveRowSetPlan(description = '', unit = '', options = {}) {
         return { activeType: null, optionType };
     }
 
-    // Lump-sum / set workstations & modular seating concepts
-    if (isLumpUnit && /\b(workstation|cluster|modular\s*seating|modular\s*sofa|lounge|furniture|set)\b/i.test(firstLine)) {
+    // Lump-sum / set workstations & modular seating concepts (ignore single-piece items like "Lounge Chair" priced as Set)
+    const isSinglePieceLounge = /^(?:lounge\s*(?:chair|armchair|stool|pouf|ottoman|table)|single\s+lounge\s+chair)\b/i.test(firstLine)
+        && !/\b(?:set|suite|group|furniture|area|room|sofa)\b/i.test(firstLine);
+    if (isLumpUnit && !isSinglePieceLounge && /\b(workstations?|cluster|modular\s*seating|modular\s*sofa|lounge|furniture|set)\b/i.test(firstLine)) {
         return { activeType: inferSetTypeFromText(raw), optionType: null };
     }
 
@@ -1334,7 +1381,7 @@ const SYSTEM_SET_ACCESSORY_NOUN = /\b(screens?|dividers?|partitions?|modesty\s*p
 function extractNamedBulletComponents(description = '', setType = 'custom_set') {
     const raw = String(description || '');
     // Strip trailing pipe metadata (| TOTAL: ... | Supplier: ...)
-    const bodyOnly = raw.split(/\s*\|\s*(?:TOTAL|Supplier|Model|Item|Qty|Unit)\b/i)[0] || raw;
+    const bodyOnly = stripPipeMetadata(raw);
     const lines = bodyOnly.split(/\r?\n/).slice(1); // Skip headline line
 
     const prefix = getSetTypeMeta(setType).matchPrefix;
@@ -1483,11 +1530,11 @@ function inferPieceTypeFromDimensions({ widthMm, depthMm, heightMm, diaMm, setTy
  */
 function extractCodedDimensionComponents(description = '', setType = 'custom_set') {
     const raw = String(description || '');
-    const bodyOnly = raw.split(/\s*\|\s*(?:TOTAL|Supplier|Model|Item|Qty|Unit)\b/i)[0] || raw;
+    const bodyOnly = stripPipeMetadata(raw);
 
-    // 1. Parse quantity mapping: "A * 3 Nos", "B * 6 Nos", "F*14 Nos", "C&D * 1 No"
+    // 1. Parse quantity mapping: "A * 3 Nos", "B * 6 Nos", "F*14 Nos", "C&D * 1 No", "H x 2 Nos"
     const qtyMap = {};
-    const qtyRegex = /\b([A-G](?:\s*&\s*[A-G])?)\s*[*×]\s*(\d+)\s*(?:nos?|sets?|pcs?)?/gi;
+    const qtyRegex = /\b([A-Z](?:\s*&\s*[A-Z])?)\s*[*×x]\s*(\d+)\s*(?:nos?|sets?|pcs?)?/gi;
     let qm;
     while ((qm = qtyRegex.exec(bodyOnly)) !== null) {
         const codes = qm[1].toUpperCase().split('&').map(s => s.trim());
@@ -1496,15 +1543,15 @@ function extractCodedDimensionComponents(description = '', setType = 'custom_set
         }
     }
 
-    // 2. Parse Dimension A / B / C / D / E / F lines
+    // 2. Parse Dimension A / B / C / ... lines
     const results = [];
-    const dimLineRegex = /dimension\s+([A-G])\s*[:-]\s*([^\r\n]+)/gi;
+    const dimLineRegex = /dimension\s+([A-Z])\s*[:-]\s*([^\r\n]+)/gi;
     let dm;
     while ((dm = dimLineRegex.exec(bodyOnly)) !== null) {
         const code = dm[1].toUpperCase();
         const specLine = dm[2].trim();
 
-        const wMatch = specLine.match(/\bW\s*(\d{3,5})\b/i);
+        const wMatch = specLine.match(/\b[WL]\s*(\d{3,5})\b/i);
         const dMatch = specLine.match(/\bD\s*(\d{3,5})\b/i);
         const hMatch = specLine.match(/\bH\s*(\d{3,5})\b/i);
         const diaMatch = specLine.match(/\bDia\.?\s*(\d{3,5})\b/i);
@@ -1524,9 +1571,10 @@ function extractCodedDimensionComponents(description = '', setType = 'custom_set
             widthMm, depthMm, heightMm, diaMm, setType, rawBody: bodyOnly
         });
 
+        const dimParts = [widthMm && `W${widthMm}`, depthMm && `D${depthMm}`, heightMm && `H${heightMm}`].filter(Boolean);
         const dimSummary = diaMm
             ? `Dia ${diaMm}${heightMm ? ` × H${heightMm}` : ''} mm`
-            : [widthMm && `W${widthMm}`, depthMm && `D${depthMm}`, heightMm && `H${heightMm}`].filter(Boolean).join(' × ') + (widthMm ? ' mm' : '');
+            : (dimParts.length > 0 ? `${dimParts.join(' × ')} mm` : '');
 
         const label = `${code} — ${inferredPiece}${dimSummary ? ` (${dimSummary})` : ''}`;
         const matchDescription = [
@@ -1571,7 +1619,7 @@ export function parseSetComponentsFromDescription(description = '', setType = 'c
         const namedBullets = extractNamedBulletComponents(description, effectiveType);
         const qualifyingBullets = isSystemType ? namedBullets.filter(b => b.explicitQty) : namedBullets;
         if (qualifyingBullets.length >= 2) {
-            return toComponents(namedBullets);
+            return toComponents(qualifyingBullets);
         }
 
         // 2. Coded dimensions (A/B/C/D)
@@ -1621,12 +1669,12 @@ export function computeSetParentRollup(parentRow, setItems = []) {
     }
 
     const meta = getSetTypeMeta(parentRow.setType);
-    const matchedItems = setItems.filter(it => it.selectedBrand || it.selectedModel || it.brandImage);
+    const matchedItems = setItems.filter(it => isMatchedSetItem(it) || Boolean(it.brandImage));
 
     const uniqueBrands = Array.from(new Set(setItems.map(it => (it.selectedBrand || '').trim()).filter(Boolean)));
     const uniqueModels = Array.from(new Set(setItems.map(it => (it.selectedModel || '').trim()).filter(Boolean)));
     const allImages = Array.from(new Set(setItems.map(it => (it.brandImage || '').trim()).filter(Boolean)));
-    const firstLogo = setItems.find(it => it.brandLogo)?.brandLogo || parentRow.brandLogo || '';
+    const firstLogo = setItems.find(it => it.brandLogo)?.brandLogo || '';
 
     // Sum component amounts for 1 Set
     let sumRatePerSet = 0;
@@ -1657,16 +1705,22 @@ export function computeSetParentRollup(parentRow, setItems = []) {
     });
     const compiledBrandDesc = matchedItems.length > 0
         ? [headerLine, ...itemLines].join('\n')
-        : parentRow.brandDesc || '';
+        : '';
 
-    const parentQtyNum = parseFloat(parentRow.qty) || 1;
-    const nextRate = hasAnyPricedItem ? sumRatePerSet.toFixed(2) : parentRow.rate;
-    const nextAmount = hasAnyPricedItem ? (sumRatePerSet * parentQtyNum).toFixed(2) : parentRow.amount;
-    const nextBasePrice = sumBasePerSet > 0 ? sumBasePerSet : (parentRow.basePrice || 0);
+    const parsedParentQty = parseFloat(parentRow.qty);
+    const parentQtyNum = Number.isFinite(parsedParentQty) ? parsedParentQty : 1;
+    // Round the per-set rate first so rate × qty matches TableViewer and Excel formulas to the cent
+    const roundedRatePerSet = Math.round((sumRatePerSet + Number.EPSILON) * 100) / 100;
+    const hadRolledUpPrice = (parseFloat(parentRow.basePrice) || 0) > 0;
+    const nextRate = hasAnyPricedItem ? roundedRatePerSet.toFixed(2) : (hadRolledUpPrice ? '' : parentRow.rate);
+    const nextAmount = hasAnyPricedItem
+        ? (Math.round((roundedRatePerSet * parentQtyNum + Number.EPSILON) * 100) / 100).toFixed(2)
+        : (hadRolledUpPrice ? '' : parentRow.amount);
+    const nextBasePrice = sumBasePerSet > 0 ? sumBasePerSet : 0;
 
-    // Aggregate AI status across components
+    // Aggregate AI status across components (manual component selections count as matched)
     const anyProcessing = setItems.some(it => it.aiStatus === 'processing');
-    const anySuccess = setItems.some(it => it.aiStatus === 'success');
+    const anySuccess = setItems.some(it => it.aiStatus === 'success' || isMatchedSetItem(it));
     const allError = setItems.length > 0 && setItems.every(it => it.aiStatus === 'error' || it.aiStatus === 'no_match');
     const nextAiStatus = anyProcessing
         ? 'processing'
@@ -1676,7 +1730,7 @@ export function computeSetParentRollup(parentRow, setItems = []) {
                 ? 'error'
                 : (parentRow.aiStatus === 'processing' ? 'idle' : (parentRow.aiStatus || 'idle'));
 
-    const primaryBrand = setItems.find(it => (it.selectedBrand || '').trim())?.selectedBrand?.trim() || uniqueBrands[0] || (parentRow.selectedBrand || '');
+    const primaryBrand = setItems.find(it => (it.selectedBrand || '').trim())?.selectedBrand?.trim() || uniqueBrands[0] || '';
 
     return {
         ...parentRow,
@@ -1684,10 +1738,10 @@ export function computeSetParentRollup(parentRow, setItems = []) {
         selectedBrand: primaryBrand,
         selectedModel: uniqueModels.length > 0
             ? (uniqueModels.length <= 3 ? uniqueModels.join(' + ') : `${uniqueModels.slice(0, 2).join(' + ')} +${uniqueModels.length - 2} more`)
-            : (parentRow.selectedModel || ''),
+            : '',
         selectedMainCat: meta.label,
         selectedSubCat: `${setItems.length} Components`,
-        brandImage: allImages[0] || parentRow.brandImage || '',
+        brandImage: allImages[0] || '',
         brandImages: allImages,
         brandLogo: firstLogo,
         brandDesc: compiledBrandDesc,
@@ -1776,7 +1830,8 @@ function isFitoutScopeRow(row) {
 }
 
 function getSetSourceKey(description = '', unit = '', qty = undefined) {
-    return `${String(description || '').trim()}¦${String(unit || '').trim().toLowerCase()}¦${parseFloat(qty) > 1 ? 'n' : '1'}`;
+    const q = parseFloat(qty);
+    return `${String(description || '').trim()}¦${String(unit || '').trim().toLowerCase()}¦${Number.isFinite(q) && q > 0 ? String(q) : '1'}`;
 }
 
 /**
@@ -1862,15 +1917,20 @@ export function refreshRowSetPlan(row) {
         }
     }
 
+    const existing = row.setOption;
+    const existingMatched = Boolean(existing && (existing.items || []).some(isMatchedSetItem));
+    const currentKey = getSetSourceKey(row.description, row.unit, row.qty);
+
     if (plan.optionType) {
-        const existing = row.setOption;
-        const existingMatched = Boolean(existing && (existing.items || []).some(isMatchedSetItem));
         const isStale = existing && existing.type === plan.optionType
-            && existing.sourceKey !== getSetSourceKey(row.description, row.unit, row.qty) && !existingMatched;
+            && existing.sourceKey !== currentKey && !existingMatched;
         if (!existing || isStale) {
             const option = buildSetOption(row.description, row.unit, row.id, plan.optionType, row.qty);
             if (option) return { ...row, setOption: option };
         }
+    } else if (existing && !existingMatched && existing.sourceKey && existing.sourceKey !== currentKey) {
+        // Description/unit/qty was edited so the row no longer qualifies for its stale unmatched option
+        return { ...row, setOption: null };
     }
     return row;
 }
@@ -1938,6 +1998,12 @@ export function revertSetToSingle(row) {
     const restored = row.singleAlt
         ? { ...blankSingleMatch(), ...row.singleAlt }
         : { ...blankSingleMatch(), ...(rollupPriced ? { rate: '', amount: '', basePrice: 0 } : {}) };
+    // Keep restored single-item amount synchronized if row.qty changed while in Set mode
+    const restoredRate = parseFloat(restored.rate);
+    const currentQty = parseFloat(row.qty);
+    if (row.singleAlt && Number.isFinite(restoredRate) && restoredRate > 0 && Number.isFinite(currentQty)) {
+        restored.amount = (Math.round((restoredRate * currentQty + Number.EPSILON) * 100) / 100).toFixed(2);
+    }
     return {
         ...row,
         ...restored,
@@ -1976,8 +2042,11 @@ export function changeRowSetType(row, newSetType) {
     }
 
     const existingItems = row.setItems;
-    const hasMatchedOrEdited = existingItems.some(it => it.selectedBrand || it.selectedModel || it.brandImage || parseFloat(it.rate) > 0);
-    const nextItems = hasMatchedOrEdited
+    const hasMatchedOrEdited = existingItems.some(it => isMatchedSetItem(it) || Boolean(it.brandImage) || parseFloat(it.rate) > 0);
+    // Switching between two DIFFERENT dynamic system types (e.g. meeting_set -> folding_meeting_set)
+    // must rebuild components so incompatible anchor/component roles are replaced cleanly.
+    const switchingSystemTypes = row.setType !== newSetType && isSystemSetType(newSetType) && isSystemSetType(row.setType);
+    const nextItems = (hasMatchedOrEdited && !switchingSystemTypes)
         ? existingItems
         : parseSetComponentsFromDescription(row.description, newSetType, row.id, { unit: row.unit, qty: row.qty });
     return computeSetParentRollup({ ...row, setType: newSetType, setExpanded: true, setChoice: 'set' }, nextItems);
@@ -1996,13 +2065,15 @@ export function convertRowToSet(row) {
     const setType = inferSetTypeFromText(row.description, { headlineOnly: true });
     if (setType !== 'custom_set') return changeRowSetType(row, setType);
 
-    const headline = String(row.description || '').split(/[\r\n|]+/)[0].trim();
-    const ownMatch = (row.selectedBrand || row.selectedModel) ? {
-        selectedBrand: row.selectedBrand, selectedMainCat: row.selectedMainCat, selectedSubCat: row.selectedSubCat,
-        selectedFamily: row.selectedFamily, selectedModel: row.selectedModel, selectedModelUrl: row.selectedModelUrl,
-        brandImage: row.brandImage, brandLogo: row.brandLogo, brandDesc: row.brandDesc,
-        rate: (parseFloat(row.rate) || 0) > 0 ? row.rate : '', basePrice: row.basePrice,
-        aiStatus: 'success', aiResult: row.aiResult || null
+    const headline = splitHeadline(row.description);
+    const hasBrandOrModel = Boolean(row.selectedBrand || row.selectedModel);
+    const hasTypedRate = (parseFloat(row.rate) || 0) > 0;
+    const ownMatch = (hasBrandOrModel || hasTypedRate) ? {
+        selectedBrand: row.selectedBrand || '', selectedMainCat: row.selectedMainCat || '', selectedSubCat: row.selectedSubCat || '',
+        selectedFamily: row.selectedFamily || '', selectedModel: row.selectedModel || '', selectedModelUrl: row.selectedModelUrl || '',
+        brandImage: row.brandImage || '', brandLogo: row.brandLogo || '', brandDesc: row.brandDesc || '',
+        rate: hasTypedRate ? row.rate : '', basePrice: parseFloat(row.basePrice) || (hasTypedRate ? parseFloat(row.rate) : 0),
+        aiStatus: hasBrandOrModel ? 'success' : 'idle', aiResult: row.aiResult || null
     } : {};
     const items = [
         createEmptySetComponent(row.id, 0, { ...(headline ? { label: headline.slice(0, 140), description: headline } : {}), ...ownMatch }),

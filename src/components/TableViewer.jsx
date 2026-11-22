@@ -37,6 +37,11 @@ function isSummaryLine(row, { qtyIdx }) {
     if (Number.isFinite(qty) && qty > 0) return false;
     return row.cells.some(c => SUMMARY_LINE_RE.test(String(c?.value ?? '')));
 }
+
+/** Sub-items of a rolled-up set ("Included") and optional alternatives ("Optional") are never summed. */
+function isNonTotalRow(row) {
+    return Boolean(row && (row.isOptionRow || row.isSetSubItem));
+}
 import ValueEngineeredModal from './ValueEngineeredModal';
 import ProjectSettingsPanel from './ProjectSettingsPanel';
 import TenderAutofillModal from './TenderAutofillModal';
@@ -264,7 +269,7 @@ function TableViewer({
             let validRows = 0;
 
             table.rows.forEach(row => {
-                if (!row || !row.cells || row.isHeader || row.isSummary) return;
+                if (!row || !row.cells || row.isHeader || row.isSummary || isNonTotalRow(row)) return;
 
                 const qtyValStr = qtyIdx !== -1 ? String(row.cells[qtyIdx]?.value || '').trim() : '';
                 const rateValStr = rateIdx !== -1 ? String(row.cells[rateIdx]?.value || '').trim() : '';
@@ -334,7 +339,10 @@ function TableViewer({
             const newRows = (table.rows || []).map(row => {
                 if (!row || !row.cells) return row;
                 if (isSummaryLine(row, cols)) return row;
+                const nonTotal = isNonTotalRow(row);
                 const newCells = row.cells.map((cell, idx) => {
+                    // Never alter the "Optional" / "Included" amount marker on non-total rows
+                    if (nonTotal && idx === amountIdx) return cell;
                     // Only modify money columns
                     if (cell && moneyIndices.includes(idx) && cell.value) {
                         try {
@@ -349,7 +357,8 @@ function TableViewer({
                     return cell;
                 });
                 // Keep the costed amount consistent with the costed (rounded) rate x qty
-                if (amountIdx !== -1 && rateIdx !== -1 && qtyIdx !== -1) {
+                // (never overwrite "Included" / "Optional" on set sub-items or optional lines)
+                if (!nonTotal && amountIdx !== -1 && rateIdx !== -1 && qtyIdx !== -1) {
                     const qty = parseMoney(newCells[qtyIdx]?.value);
                     const rate = parseMoney(newCells[rateIdx]?.value);
                     if (Number.isFinite(qty) && Number.isFinite(rate) && newCells[amountIdx]) {
@@ -359,9 +368,9 @@ function TableViewer({
                 return { ...row, cells: newCells };
             });
 
-            // Calculate Summary (same rules as the original table)
+            // Calculate Summary (same rules as the original table; exclude Included sub-items & Optional lines)
             const subtotal = newRows.reduce((acc, row) => (
-                isSummaryLine(row, cols) ? acc : round2(acc + resolveRowAmount(row.cells, cols))
+                (isSummaryLine(row, cols) || isNonTotalRow(row)) ? acc : round2(acc + resolveRowAmount(row.cells, cols))
             ), 0);
 
             const vatAmount = round2(subtotal * vatRate);
@@ -1839,6 +1848,9 @@ function TableViewer({
                 const rowData = row.cells.map((c, i) => {
                     if (i === imgColIdx) return ''; // Clear image column text
                     const valStr = String(c && c.value !== undefined ? c.value : '').trim();
+                    if (isNonTotalRow(row) && i === amountColIdx) {
+                        return valStr || (row.isOptionRow ? 'Optional' : 'Included');
+                    }
                     if (i === rateColIdx || i === amountColIdx || i === qtyColIdx) {
                         const cleanVal = valStr.replace(/[^0-9.-]/g, '');
                         const num = parseFloat(cleanVal);
@@ -1933,7 +1945,7 @@ function TableViewer({
                     };
                 }
 
-                if (isAmountNumeric && hasQtyCol && hasRateCol) {
+                if (!isNonTotalRow(row) && isAmountNumeric && hasQtyCol && hasRateCol) {
                     const amountCell = dataRow.getCell(amountColIdx + 1);
                     amountCell.value = {
                         formula: `${qtyLetter}${excelRow}*${rateLetter}${excelRow}`,

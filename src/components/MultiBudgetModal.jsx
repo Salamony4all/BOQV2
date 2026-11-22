@@ -1785,7 +1785,7 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                 lockedSetBrand = (parent.setItems.find((it, idx) => idx !== onlySubIndex && it.selectedBrand)?.selectedBrand) || '';
             }
 
-            await batch(remainingIndices, 3, async (sIdx) => {
+            const runMbSubMatch = async (sIdx) => {
                 const liveRow = tierDataRef.current[tierKey]?.rows?.[rowIndex];
                 const liveParent = liveRow?.setItems?.[sIdx] ? liveRow : parent;
                 const sub = liveParent?.setItems?.[sIdx];
@@ -1817,7 +1817,8 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                     });
                     const data = await res.json();
                     if (data.status === 'success' && data.product) {
-                        const { updatedRow: hydratedSub } = hydrateMatchedProduct(data, sub);
+                        const { updatedRow: hydratedSub, matchedBrandName } = hydrateMatchedProduct(data, sub);
+                        if (!lockedSetBrand && matchedBrandName) lockedSetBrand = matchedBrandName;
                         setTierData(prev => {
                             const curTier = prev[tierKey];
                             if (!curTier || !curTier.rows?.[rowIndex]) return prev;
@@ -1849,7 +1850,13 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                         return { ...prev, [tierKey]: { ...curTier, rows: nextRows } };
                     });
                 }
-            });
+            };
+
+            if (!lockedSetBrand && remainingIndices.length > 1) {
+                const firstIdx = remainingIndices.shift();
+                await runMbSubMatch(firstIdx);
+            }
+            await batch(remainingIndices, 3, runMbSubMatch);
         } finally {
             setMatchingSetRowId(null);
         }
@@ -1932,7 +1939,10 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
             }
             if (row.basePrice && row.basePrice > 0) {
                 const costedPrice = row.basePrice * markup * factors.exchangeRate;
-                return { ...row, rate: costedPrice.toFixed(2) };
+                const costedRateStr = costedPrice.toFixed(2);
+                const qtyNum = parseFloat(row.qty);
+                const finalAmount = (Number.isFinite(qtyNum) ? qtyNum * parseFloat(costedRateStr) : 0).toFixed(2);
+                return { ...row, rate: costedRateStr, amount: finalAmount };
             }
             return row;
         });
@@ -1946,7 +1956,11 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
             const exportRows = recategorizeBoqRows(updatedRows, recategorizeMode);
             const formattedRows = exportRows.flatMap((row, idx) => {
                 const parentSn = String(row.sn || idx + 1);
-                const amount = row.amount || (parseFloat(row.qty || 0) * parseFloat(row.rate || 0)).toFixed(2);
+                const rateValNum = parseFloat(row.rate);
+                const qtyValNum = parseFloat(row.qty);
+                const amount = (Number.isFinite(rateValNum) && rateValNum > 0 && Number.isFinite(qtyValNum))
+                    ? (qtyValNum * rateValNum).toFixed(2)
+                    : (row.amount || '0.00');
                 const isSetRow = row.setType && row.setType !== 'single' && Array.isArray(row.setItems) && row.setItems.length > 0;
                 const parentImages = (isSetRow && row.brandImages?.length)
                     ? row.brandImages.map(u => ({ url: u }))

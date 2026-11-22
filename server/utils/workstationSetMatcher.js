@@ -462,10 +462,10 @@ function findBestInBrandForRole(brandObj, role, queryText, anchorFamily = '', us
   let bestScore = -Infinity;
 
   for (const prod of brandObj.products) {
-    let s = scoreCatalogProductForRole(prod, role, queryText, anchorFamily, opts);
-    if (s <= -500) continue;
     const key = `${brandObj.name.toLowerCase()}::${String(prod.model || '').toLowerCase().trim()}`;
-    if (usedKeys && usedKeys.has(key)) s -= 22;
+    if (usedKeys && usedKeys.has(key)) continue;
+    const s = scoreCatalogProductForRole(prod, role, queryText, anchorFamily, opts);
+    if (s <= -500) continue;
     if (s > bestScore) {
       bestScore = s;
       best = prod;
@@ -489,10 +489,15 @@ const MEETING_FOLDING_PRIORITY_ORDER = [
   'narbutas', 'sedus stoll', 'pedrali', 'frezza', 'ottimo furniture', 'nurus', 'las', 'b&t design', 'arper'
 ];
 
+function matchesPriorityBrandName(brandLow, priorityName) {
+  if (brandLow === priorityName) return true;
+  const escaped = priorityName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(`(?:^|[\\s\\-_&/])${escaped}(?:$|[\\s\\-_&/])`, 'i').test(brandLow);
+}
+
 function pickBestWorkstationSystemBrand(brandsList, components, parentDescription, anchorRole = 'workstation_desk', anchorQuery = '', opts = {}) {
   let bestBrand = null;
   let bestSystemScore = -Infinity;
-  const roles = components.map(c => inferComponentRole(c));
   const priorityOrder = (anchorRole === 'folding_table' || anchorRole === 'conference_table')
     ? MEETING_FOLDING_PRIORITY_ORDER
     : DESKING_PRIORITY_ORDER;
@@ -503,20 +508,24 @@ function pickBestWorkstationSystemBrand(brandsList, components, parentDescriptio
     if (!deskHit) continue;
 
     const family = extractAnchorFamily(deskHit.product, b.name);
+    const simUsedKeys = new Set([`${b.name.toLowerCase()}::${String(deskHit.product.model || '').toLowerCase().trim()}`]);
     let systemScore = deskHit.score * 1.4;
     let roleCoverage = 1;
 
-    for (const r of roles) {
+    for (const comp of components) {
+      const r = inferComponentRole(comp);
       if (r === anchorRole) continue;
-      const compHit = findBestInBrandForRole(b, r, parentDescription, family);
+      const compQuery = `${comp.description || comp.label || parentDescription} ${family}`.trim();
+      const compHit = findBestInBrandForRole(b, r, compQuery, family, simUsedKeys);
       if (compHit) {
+        simUsedKeys.add(`${b.name.toLowerCase()}::${String(compHit.product.model || '').toLowerCase().trim()}`);
         roleCoverage++;
         systemScore += Math.min(compHit.score, 60) * 0.65;
       }
     }
 
     const bLow = b.name.toLowerCase().trim();
-    const prioIdx = priorityOrder.findIndex(p => bLow === p || bLow.includes(p));
+    const prioIdx = priorityOrder.findIndex(p => matchesPriorityBrandName(bLow, p));
     if (prioIdx !== -1) {
       systemScore += Math.max(10, 65 - prioIdx * 10);
     }
@@ -561,7 +570,7 @@ function formatProductResult(brandObj, prod, role, matchSource, resolveBrandLogo
     model: prod.model || '',
     mainCategory: prod.mainCategory || prod.category || prod.normalization?.category || '',
     subCategory: prod.subCategory || prod.normalization?.subCategory || '',
-    family: prod.family || extractAnchorFamily(prod) || '',
+    family: prod.family || extractAnchorFamily(prod, brandObj.name) || '',
     imageUrl,
     productUrl: prod.productUrl || prod.websiteUrl || rawImg || '',
     websiteUrl: prod.websiteUrl || prod.productUrl || '',
@@ -587,7 +596,9 @@ function anchorIncludesRole(anchorProduct, role) {
   const re = ANCHOR_NAME_INCLUDES_RE[role];
   return Boolean(re && re.test(String(anchorProduct.model || '')));
 }
-const INTEGRATED_HARDWARE_ROLES = new Set(['cable_management', 'power_box', 'modesty_panel', 'monitor_arm', 'accessory']);
+// Only hardware physically built into the desk frame defaults to $0 included; standalone add-ons
+// (monitor arms, CPU holders, task lights) stay unmatched when absent so they are never under-bid.
+const INTEGRATED_HARDWARE_ROLES = new Set(['cable_management', 'power_box', 'modesty_panel']);
 
 function findBrandByName(brandsList, name) {
   const low = String(name || '').toLowerCase().trim();
@@ -626,11 +637,13 @@ export async function matchWorkstationSet({
   };
   const nonFitoutBrands = (allLocalBrands || []).filter(b => !isExcludedCatalogBrand(b));
 
-  // Scope eligible brands if Multi-Budget passed availableBrands filter
-  const eligibleBrands = (Array.isArray(availableBrands) && availableBrands.length > 0)
+  // Scope eligible brands strictly when Multi-Budget passed a tier-scoped availableBrands filter
+  // (never silently leak into other budget tiers if the filter matches 0 local catalogs).
+  const hasBrandFilter = Array.isArray(availableBrands) && availableBrands.length > 0;
+  const eligibleBrands = hasBrandFilter
     ? nonFitoutBrands.filter(b => availableBrands.some(ab => String(ab).toLowerCase().trim() === b.name.toLowerCase().trim()))
     : nonFitoutBrands;
-  const searchBrands = eligibleBrands.length > 0 ? eligibleBrands : nonFitoutBrands;
+  const searchBrands = hasBrandFilter ? eligibleBrands : nonFitoutBrands;
 
   const normalizedComponents = (Array.isArray(components) ? components : []).map((c, idx) => ({
     ...c,
@@ -711,7 +724,7 @@ export async function matchWorkstationSet({
       if (aiRes?.status === 'success' && aiRes.model) {
         const hit = candidateProducts.find(p => p.model && p.model.toLowerCase().trim() === aiRes.model.toLowerCase().trim())
           || candidateProducts.find(p => p.model && p.model.toLowerCase().includes(aiRes.model.toLowerCase()));
-        if (hit) {
+        if (hit && scoreCatalogProductForRole(hit, anchorRole, anchorQuery, '', anchorOpts) > -500) {
           anchorProduct = hit;
           anchorFamily = extractAnchorFamily(hit, anchorBrandObj.name);
           anchorSource = 'system-ai-brand';
@@ -749,11 +762,11 @@ export async function matchWorkstationSet({
   if (anchorBrandObj && anchorProduct) {
     usedKeys.add(`${anchorBrandObj.name.toLowerCase()}::${String(anchorProduct.model || '').toLowerCase().trim()}`);
     const anchorResult = formatProductResult(anchorBrandObj, anchorProduct, anchorRole, anchorSource, resolveBrandLogo, proxyBaseUrl);
-    // A cluster product covers several positions: tell the client how many units ONE set needs
+    // A cluster product covers several positions: suggest whole discrete units when covering a cluster
     const seatsPerUnit = anchorRole === 'workstation_desk' ? getSeatsPerUnit(anchorProduct) : 1;
-    if (seatsPerUnit > 1 && desiredSeats > 0) {
+    if (seatsPerUnit > 1 && desiredSeats >= seatsPerUnit) {
       anchorResult.seatsPerUnit = seatsPerUnit;
-      anchorResult.suggestedQty = Math.round((desiredSeats / seatsPerUnit) * 100) / 100;
+      anchorResult.suggestedQty = Math.ceil(desiredSeats / seatsPerUnit);
     }
     results[anchorIdx] = {
       index: anchorIdx,
