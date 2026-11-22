@@ -32,7 +32,7 @@ const COLUMN_ROLE_PATTERNS = [
     { role: 'sn', pattern: /^(s\.?\s*n\.?o?\.?|sr\.?\s*n\.?o?\.?|sl\.?\s*n\.?o?\.?|item\s*(no\.?|#)|line\s*(no\.?|#)|no\.?|#)$/i },
     { role: 'image', pattern: /\b(image|img|photo|picture|pic|indicative\s*image|reference\s*image|illustration|sketch|visual)s?\b/i },
     { role: 'code', pattern: /\b(code|item\s*code|product\s*code|ref(\.?|erence)?(\s*no\.?)?|tag|id|mark|symbol|type\s*code|cat(\.?|alog)\s*no)\b/i },
-    { role: 'desc', pattern: /\b(description|desc\.?|particulars?|item\s*description|work\s*description|material\s*description|product\s*name|item\s*name|furniture\s*description|boq\s*description|scope)\b/i },
+    { role: 'desc', pattern: /\b(descriptions?|desc\.?|particulars?|items?\s*descriptions?|work\s*descriptions?|material\s*descriptions?|product\s*name|item\s*name|furniture\s*descriptions?|boq\s*descriptions?|scope(\s*of\s*works?)?)\b/i },
     { role: 'spec', pattern: /\b(spec(ification)?s?|details?|technical\s*spec|material\s*&?\s*finish|finish(es)?|dimensions?|size|model|brand|make|manufacturer|supplier|reference|type)\b/i },
     { role: 'location', pattern: /\b(location|area|room|zone|floor|level|building|department|space)\b/i },
     { role: 'qty', pattern: /\b(qty|quantity|quanity|qnty|q'?ty|total\s*qty|total\s*quantity|base\s*qty|est(\.|imated)?\s*qty|count)\b/i },
@@ -259,14 +259,25 @@ function detectHeaderAt(rows, idx) {
     const header = mergedRaw.slice(firstCol, lastCol + 1);
     const headerEndIdx = hasSubHeader ? idx + 1 : idx;
     let roleOverrides = null;
-    if (!validateBoqHeader(header)) {
-        // Unknown wording ("Service", "Works", "Activity", another language...): recognise the
-        // table by its shape instead. Two measure columns + a text-heavy column underneath.
-        roleOverrides = inferDescriptionByShape(rows, headerEndIdx, header, firstCol);
-        if (!roleOverrides || !validateBoqHeader(header, roleOverrides)) return null;
-        const di = roleOverrides.indexOf('desc');
-        header[di] = header[di] && !/desc/i.test(header[di]) ? `${header[di]} DESCRIPTION` : 'DESCRIPTION';
+    const namedRoles = [];
+    { let prev = null; for (const h of header) { const r = getColumnRole(h, prev); namedRoles.push(r); prev = r; } }
+    if (!namedRoles.includes('desc')) {
+        // No column is NAMED as the description ("Service", "Works", "Item", another language...):
+        // find it by shape instead. Two measure columns + a text-heavy column underneath.
+        const inferred = inferDescriptionByShape(rows, headerEndIdx, header, firstCol);
+        if (inferred && validateBoqHeader(header, inferred)) {
+            roleOverrides = inferred;
+            const di = roleOverrides.indexOf('desc');
+            // Downstream code finds the description by header text, so make the label say so
+            if (!/desc|item|product|spec|particular|detail|scope/i.test(header[di] || '')) {
+                header[di] = header[di] ? `${header[di]} DESCRIPTION` : 'DESCRIPTION';
+            }
+        }
     }
+    if (!validateBoqHeader(header, roleOverrides)) return null;
+
+    // A header can disagree with its data ("QTY | Unit" above "LS | 20"): trust the data
+    roleOverrides = alignQtyUnitWithData(rows, headerEndIdx, header, firstCol, roleOverrides);
 
     return {
         header,
@@ -295,6 +306,8 @@ function inferDescriptionByShape(rows, headerEndIdx, header, firstCol) {
 
     const textChars = header.map(() => 0);
     const textCells = header.map(() => 0);
+    const softChars = header.map(() => 0);
+    const softCells = header.map(() => 0);
     let numericRows = 0;
     for (let j = headerEndIdx + 1; j < Math.min(rows.length, headerEndIdx + 61); j++) {
         const cells = rows[j].cells || [];
@@ -307,21 +320,64 @@ function inferDescriptionByShape(rows, headerEndIdx, header, firstCol) {
                 continue;
             }
             if (roles[c] === null) { textChars[c] += v.length; textCells[c]++; }
+            else { softChars[c] += v.length; softCells[c]++; }
         }
         if (rowHasMeasureNumber) numericRows++;
     }
     if (numericRows < 1) return null;
 
+    // Unnamed columns first; a column named like a serial / code / location only qualifies
+    // when its cells are clearly sentences (header "Item" above full descriptions)
+    const firstSn = roles.indexOf('sn');
+    const isCandidate = (c) => {
+        if (roles[c] === null) return textCells[c] > 0;
+        if (!softCells[c]) return false;
+        const avg = softChars[c] / softCells[c];
+        // A second "serial" column ("# | Item") cannot be a serial too
+        if (roles[c] === 'sn' && firstSn !== -1 && c > firstSn) return avg >= 6;
+        return (roles[c] === 'sn' || roles[c] === 'code' || roles[c] === 'location' || roles[c] === 'remarks') && avg >= 15;
+    };
     let best = -1;
     for (let c = 0; c < header.length; c++) {
-        if (roles[c] !== null || textCells[c] === 0) continue;
-        if (best === -1 || textChars[c] > textChars[best]) best = c;
+        if (!isCandidate(c)) continue;
+        const chars = roles[c] === null ? textChars[c] : softChars[c];
+        const bestChars = best === -1 ? -1 : (roles[best] === null ? textChars[best] : softChars[best]);
+        if (chars > bestChars) best = c;
     }
-    if (best === -1 || textChars[best] / textCells[best] < 6) return null;
+    if (best === -1) return null;
+    const avg = roles[best] === null ? textChars[best] / textCells[best] : softChars[best] / softCells[best];
+    if (avg < 6) return null;
 
     const overrides = header.map(() => null);
     overrides[best] = 'desc';
     return overrides;
+}
+
+/** Swap quantity and unit when the cells under them are plainly the other way round. */
+function alignQtyUnitWithData(rows, headerEndIdx, header, firstCol, roleOverrides) {
+    const roles = [];
+    let prev = null;
+    for (let i = 0; i < header.length; i++) {
+        const r = (roleOverrides && roleOverrides[i]) || getColumnRole(header[i], prev);
+        roles.push(r);
+        prev = r;
+    }
+    const q = roles.indexOf('qty'), u = roles.indexOf('unit');
+    if (q === -1 || u === -1) return roleOverrides;
+    let qNum = 0, qText = 0, uNum = 0, uText = 0;
+    for (let j = headerEndIdx + 1; j < Math.min(rows.length, headerEndIdx + 61); j++) {
+        const cells = rows[j].cells || [];
+        const qv = String(cells[firstCol + q] || '').trim(), uv = String(cells[firstCol + u] || '').trim();
+        if (qv) { if (isPureNumeric(qv)) qNum++; else if (qv.length <= 8) qText++; }
+        if (uv) { if (isPureNumeric(uv)) uNum++; else if (uv.length <= 8) uText++; }
+    }
+    if (qText >= 2 && uNum >= 2 && qNum <= qText * 0.2 && uText <= uNum * 0.2) {
+        const out = roles.slice();
+        out[q] = 'unit'; out[u] = 'qty';
+        [header[q], header[u]] = [header[u], header[q]];
+        return out;
+    }
+    return roleOverrides;
 }
 
 const SHAPE_ROLE_LABEL = { sn: 'S.No', desc: 'Description', unit: 'Unit', qty: 'Qty', rate: 'Rate', amount: 'Amount' };
@@ -524,7 +580,8 @@ function isValidBoqDataRow(cells, roleInfo, hasImage) {
     const hasNumericQty = (roleInfo.byRole.qty || []).some(idx => parsePositiveNumber(cells[idx]) !== null);
     const hasUnit = (roleInfo.byRole.unit || []).some(idx => {
         const v = String(cells[idx] || '').trim();
-        return v !== '' && v.length <= 20;
+        // "Note" / "Remark" in the unit column marks an explanatory line, not a measured item
+        return v !== '' && v.length <= 20 && !/^(notes?|remarks?|info|n\/?a)\.?$/i.test(v);
     });
     const hasRate = (roleInfo.byRole.rate || []).some(
         idx => parsePositiveNumber(cells[idx]) !== null
@@ -554,15 +611,19 @@ function detectSectionTitle(cells, roleInfo) {
     for (let i = 0; i < cells.length; i++) {
         const v = String(cells[i] || '').trim();
         if (!v) continue;
-        if (measureIdx.has(i)) return '';
-        if (snIdx.has(i) && v.length <= 8) continue;
+        if (measureIdx.has(i)) {
+            // Empty-looking totals ("0", "-", "0.00") next to a heading do not make it an item
+            if (/^[-–—\s]*$|^0+(\.0+)?$/.test(v)) continue;
+            return '';
+        }
+        if (snIdx.has(i) && v.length <= 12) continue;
         if (isPureNumeric(v)) continue;
         texts.push(v);
     }
     const unique = [...new Set(texts)];
     if (unique.length !== 1) return '';
     const title = unique[0];
-    if (title.length > 90 || SUMMARY_ROW_RE.test(title) || NOTES_PREFIX_RE.test(title)) return '';
+    if (title.length > 90 || !/\p{L}{2,}/u.test(title) || SUMMARY_ROW_RE.test(title) || NOTES_PREFIX_RE.test(title)) return '';
     return title;
 }
 
@@ -636,9 +697,17 @@ function stitchSheetTables(sheetTables) {
         t => t.header.length === firstNorm.length && t.header.every((h, idx) => norm(h) === firstNorm[idx])
     );
 
+    // In a multi-sheet workbook the sheet is the top-level section ("Civil Works", "Bill No 3")
+    const sectionFor = (table, row) => {
+        const sheet = String(table.sheetName || '').trim();
+        const inner = String(row.sectionLabel || '').trim();
+        if (!sheet || /^sheet\s*\d+$/i.test(sheet)) return inner;
+        return inner && inner.toLowerCase() !== sheet.toLowerCase() ? `${sheet} — ${inner}` : sheet;
+    };
+
     if (allIdentical) {
         const unifiedRows = [];
-        for (const t of sheetTables) unifiedRows.push(...t.rows);
+        for (const t of sheetTables) unifiedRows.push(...t.rows.map(r => ({ ...r, sectionLabel: sectionFor(t, r) })));
         return [{
             sheetName: 'BOQ Schedule',
             rows: unifiedRows,
@@ -730,6 +799,7 @@ function stitchSheetTables(sheetTables) {
 
             unifiedRows.push({
                 cells: alignedCells,
+                sectionLabel: sectionFor(table, row),
                 isHeader: false,
                 isSummary: false
             });

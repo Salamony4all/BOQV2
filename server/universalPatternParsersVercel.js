@@ -733,6 +733,34 @@ function longestTextChars(table) {
   return (table?.rows || []).reduce((sum, row) => sum + Math.max(0, ...(row.cells || []).map(c => String(c?.value || '').length)), 0);
 }
 
+/** All the words a table captured (figures aside): what the reader would have to re-type. */
+function totalTextChars(table) {
+  return (table?.rows || []).reduce((sum, row) => sum + (row.cells || []).reduce((n, c) => {
+    const v = String(c?.value || '');
+    return n + (/[^\d\s.,%$-]/.test(v) ? v.length : 0);
+  }, 0), 0);
+}
+
+/** Share of rows carrying a price: an unpriced tender schedule cannot be verified by arithmetic. */
+function pricedShare(table) {
+  const rows = table?.rows || [];
+  if (!rows.length) return 0;
+  const moneyCols = (table.header || []).map((h, i) => (/rate|price|amount|total|cost|value/i.test(String(h)) && !/qty|quantity/i.test(String(h)) ? i : -1)).filter(i => i >= 0);
+  if (!moneyCols.length) return 0;
+  const priced = rows.filter(r => moneyCols.some(i => { const n = Number(String(r.cells?.[i]?.value || '').replace(/[^\d.]/g, '')); return Number.isFinite(n) && n > 0; })).length;
+  return priced / rows.length;
+}
+
+/** Share of rows that name an item and give its quantity. */
+function measuredShare(table) {
+  const rows = table?.rows || [];
+  if (!rows.length) return 0;
+  const qtyCol = (table.header || []).findIndex(h => /qty|quantity|qnty/i.test(String(h)));
+  if (qtyCol < 0) return 0;
+  const ok = rows.filter(r => /\d/.test(String(r.cells?.[qtyCol]?.value || '')) && (r.cells || []).some((c, i) => i !== qtyCol && /[A-Za-z\u0600-\u06ff]{3}/.test(String(c?.value || '')))).length;
+  return ok / rows.length;
+}
+
 /** The geometric result replaces a pattern result only on evidence that the pattern one is worse. */
 function shouldPreferGeometric(geometric, selected, acceptanceThreshold = 0.94) {
   if (!geometric || !(geometric.confidence >= 0.94)) return false;
@@ -740,7 +768,18 @@ function shouldPreferGeometric(geometric, selected, acceptanceThreshold = 0.94) 
   if (/boq-spec-merge|specification|material/i.test(selected.engineUsed || '')) return false;
   const enoughRows = geometric.rows.length >= selected.rows.length * 0.9;
   // Truncated descriptions are the signature of a pattern parser matching the wrong layout
-  return enoughRows && longestTextChars(geometric) >= longestTextChars(selected) * 1.25;
+  if (enoughRows && longestTextChars(geometric) >= longestTextChars(selected) * 1.25) return true;
+  // Unpriced schedules: no arithmetic can referee, so a pattern parser's confidence is only a
+  // claim. The layout reading wins when its rows are structurally sound (name + quantity on
+  // nearly every row) and it kept at least as much of the document's text - fewer rows with
+  // the same words means the pattern split items apart, more rows means it missed them.
+  if (pricedShare(selected) < 0.2 && geometric.quality?.unpricedSchedule) {
+    if (totalTextChars(geometric) >= totalTextChars(selected) * 0.9) return true;
+    // ... or when the pattern result is not even a clean list of items (rows without a
+    // quantity are halves of split items, stray notes, footers)
+    return measuredShare(selected) < 0.85;
+  }
+  return false;
 }
 
 export function selectBestCandidate(candidates) {
