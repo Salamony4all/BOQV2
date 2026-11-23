@@ -1,36 +1,14 @@
-import React, { useCallback, useState } from 'react';
-import { designBuild, customProducts } from '../features/designBuild/designBuildStore';
-import { SUITE_GROUPS, buildExportSuite, saveExportSuite } from '../features/designBuild/exportSuite';
+import React, { useState } from 'react';
+import { designBuild } from '../features/designBuild/designBuildStore';
+import { SUITE_GROUPS } from '../features/designBuild/exportSuite';
+import { suiteGroupState as groupState } from '../features/designBuild/exportGroups';
 import styles from '../styles/DesignBuildDock.module.css';
 
 // The Design & Build export suite inside BOQ Flow: the package Design & Build lays out,
-// made here from the approved render and the offer's real products.
+// made here from the approved render and the offer's real products. The download runs
+// through the store, so its progress also shows in BOQ Flow's exports and the chip.
 
 const VIEW_LABEL = { cutaway: '3D cutaway', 'eye-level': 'Eye-level view', interior: 'Interior view' };
-
-function groupState(g, s) {
-    const offer = s.offer?.tables?.length ? s.offer : null;
-    switch (g.key) {
-        case 'boq':
-            return offer ? { ok: true, note: `${offer.tables.length} sheet${offer.tables.length === 1 ? '' : 's'} from the applied offer` } : { ok: false, note: 'Apply an offer first' };
-        case 'ffe': {
-            const custom = (s.customItems || []).length;
-            const extra = custom ? ` (${custom} custom)` : '';
-            const n = s.products.length + custom;
-            return n ? { ok: true, note: `${n} products${extra} with pictures, colours, links and where each piece stands` } : { ok: false, note: 'Apply an offer first' };
-        }
-        case 'renders':
-            return { ok: s.renders.length > 0, note: `${s.renders.length} render${s.renders.length === 1 ? '' : 's'}, the approved one first` };
-        case 'drawings':
-            return { ok: true, note: 'The source drawing, the extracted plan, and the plan with each product\'s photo in place' };
-        case 'presentation':
-            return { ok: true, note: 'Cover, the space, plan, renders, products and schedule' };
-        case 'model':
-            return { ok: true, note: 'The 3D scene from Design & Build' };
-        default:
-            return { ok: true, note: 'Extraction and product placement audit' };
-    }
-}
 
 function filesOf(g, s) {
     if (g.key !== 'renders') return g.files;
@@ -38,13 +16,16 @@ function filesOf(g, s) {
     return n ? Array.from({ length: Math.min(n, 3) }, (_, i) => `Perspective_${String(i + 1).padStart(2, '0')}`).concat(n > 3 ? ['…'] : []) : g.files;
 }
 
-export default function DesignBuildExportPanel({ s, requestArtifacts, onClose }) {
+export default function DesignBuildExportPanel({ s, onClose }) {
     const approved = s.renders.find((r) => r.id === s.approvedRenderId) || null;
     const [chosen, setChosen] = useState(() => new Set(SUITE_GROUPS.filter((g) => groupState(g, s).ok).map((g) => g.key)));
-    const [busy, setBusy] = useState(false);
-    const [progress, setProgress] = useState('');
-    const [notes, setNotes] = useState([]);
-    const [error, setError] = useState('');
+    const busy = !!s.exporting;
+    const progress = s.exporting?.label
+        || (s.exportResult
+            ? `Saved ${s.exportResult.files} file${s.exportResult.files === 1 ? '' : 's'}${s.exportResult.viewsMissing ? ' (Design & Build did not send its views)' : ''}.`
+            : '');
+    const error = s.exportError || '';
+    const notes = !busy && s.exportResult?.notes?.length ? s.exportResult.notes : [];
 
     const toggle = (key) => {
         setChosen((prev) => {
@@ -55,41 +36,7 @@ export default function DesignBuildExportPanel({ s, requestArtifacts, onClose })
         });
     };
 
-    const run = useCallback(async (groups, { asZip, suffix }) => {
-        setBusy(true);
-        setError('');
-        setNotes([]);
-        try {
-            setProgress('Collecting the model from Design & Build…');
-            const artifacts = await requestArtifacts();
-            const st = designBuild.getState();
-            const result = await buildExportSuite(
-                {
-                    plan: st.plan,
-                    artifacts,
-                    products: [...st.products, ...customProducts(st.customItems)],
-                    furnished: st.furnished,
-                    furniture: st.furniture,
-                    renders: st.renders,
-                    approvedRenderId: st.approvedRenderId,
-                    offer: st.offer,
-                    counts: st.counts,
-                },
-                { groups, onProgress: (label) => setProgress(label) },
-            );
-            if (!result.files.length) throw new Error(result.notes[0] || 'Nothing to export yet.');
-            setProgress('Saving…');
-            await saveExportSuite(result, { asZip, suffix });
-            designBuild.set({ exportedAt: Date.now() });
-            setNotes(result.notes);
-            setProgress(`Saved ${result.files.length} file${result.files.length === 1 ? '' : 's'}${artifacts ? '' : ' (Design & Build did not send its views)'}.`);
-        } catch (e) {
-            setError(e?.message || String(e));
-            setProgress('');
-        } finally {
-            setBusy(false);
-        }
-    }, [requestArtifacts]);
+    const run = (groups, opts) => designBuild.downloadPackage({ groups, ...opts });
 
     return (
         <div className={styles.exportLayer}>

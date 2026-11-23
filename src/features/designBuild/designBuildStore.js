@@ -35,6 +35,9 @@ const initial = {
     approvedRenderId: null,
     exportedAt: null,
     exportPanel: false, // the export suite panel is open in the modal
+    exporting: null,    // { label } while the package is being made (from the modal, BOQ Flow's exports or the chip)
+    exportResult: null, // { files, notes, viewsMissing, at } of the last package saved
+    exportError: null,
     lastPlan: null,     // the last plan PDF uploaded (kept when a session closes), for one-click starts
     customItems: [],    // { typeId, name, kind, count, picture } set on drawn furniture without a product
 };
@@ -45,6 +48,8 @@ const MAX_CUSTOM_ITEMS = 24;
 let state = { ...initial };
 const listeners = new Set();
 const emit = () => listeners.forEach((l) => l());
+/** How the open session makes the package (it needs Design & Build's views): set by the modal. */
+let exporter = null;
 
 export const designBuild = {
     getState: () => state,
@@ -76,6 +81,9 @@ export const designBuild = {
             approvedRenderId: null,
             exportedAt: null,
             exportPanel: false,
+            exporting: null,
+            exportResult: null,
+            exportError: null,
             // Custom items belong to the drawing they were set on (kept when the same plan reopens).
             customItems: state.plan?.file === file || state.lastPlan === file ? state.customItems : [],
         };
@@ -141,6 +149,28 @@ export const designBuild = {
     openExportSuite() {
         if (!state.open || !state.renders.some((r) => r.id === state.approvedRenderId)) return;
         designBuild.set({ minimized: false, exportPanel: true });
+    },
+    /** The open session tells the store how to make the package (null when it closes). */
+    setExporter(fn) {
+        exporter = typeof fn === 'function' ? fn : null;
+    },
+    /**
+     * Make and save the package around the approved render: every folder that can be
+     * made, as one .zip (or the `groups` asked for). Progress shows wherever the store
+     * is shown: the modal, BOQ Flow's exports and the chip.
+     */
+    async downloadPackage(opts = {}) {
+        if (!exporter || state.exporting) return false;
+        if (!state.renders.some((r) => r.id === state.approvedRenderId)) return false;
+        designBuild.set({ exporting: { label: 'Collecting the model from Design & Build…' }, exportError: null });
+        try {
+            const res = await exporter({ ...opts, onProgress: (label) => designBuild.set({ exporting: { label: String(label || '') } }) });
+            designBuild.set({ exporting: null, exportedAt: Date.now(), exportResult: { ...res, at: Date.now() } });
+            return true;
+        } catch (e) {
+            designBuild.set({ exporting: null, exportError: e?.message || String(e) });
+            return false;
+        }
     },
 };
 

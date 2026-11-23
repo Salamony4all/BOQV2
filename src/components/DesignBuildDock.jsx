@@ -10,12 +10,19 @@ import {
     DESIGN_BUILD_ORIGIN,
 } from '../features/designBuild/designBuildStore';
 import DesignBuildExportPanel from './DesignBuildExportPanel';
+import { SUITE_GROUPS, buildExportSuite, saveExportSuite } from '../features/designBuild/exportSuite';
+import { suiteGroupState } from '../features/designBuild/exportGroups';
 import styles from '../styles/DesignBuildDock.module.css';
 
 // Design & Build express modal. Design & Build runs inside an iframe in its
 // "express" mode; the two apps talk by postMessage only (origin-checked both
 // ways). The modal can tuck into a chip, which keeps the 3D model loaded while
 // the user carries on in BOQ Flow (for example in a Value Engineered offer).
+// On a phone the 3D model gets the screen: one slim header row with the steps,
+// and the status under it folds to a bar while the user chats, prompts or
+// watches a render in Design & Build. "Continue in BOQ Flow" takes the newest
+// render (unless one is approved) for the package, which then downloads from
+// here, from BOQ Flow's exports and from the chip.
 
 const BRIDGE = { source: 'boqflow', v: 1 };
 const READY_TIMEOUT_MS = 30000;
@@ -55,6 +62,15 @@ function describeFurnished(f, products) {
 }
 
 const text = (v, max) => (typeof v === 'string' ? v.slice(0, max) : '');
+
+/** Phones and small tablets: the status folds to a bar so the 3D model has the screen. */
+function isCompact() {
+    try {
+        return window.matchMedia('(max-width: 900px)').matches;
+    } catch {
+        return false;
+    }
+}
 
 const KIND_LABEL = {
     seat: 'Chair', sofa: 'Sofa', table: 'Table', 'side-table': 'Side table', desk: 'Desk', bed: 'Bed',
@@ -248,6 +264,8 @@ function DockSession({ s }) {
     const [draft, setDraft] = useState(null);
     const [draftBusy, setDraftBusy] = useState(false);
     const customFileRef = useRef(null);
+    // The status, products and actions under the model: folded to a bar on phones.
+    const [sheetOpen, setSheetOpen] = useState(() => !isCompact());
 
     const post = useCallback((type, payload = {}) => {
         const win = iframeRef.current?.contentWindow;
@@ -304,6 +322,47 @@ function DockSession({ s }) {
             resolve(null);
         }
     }), [post]);
+
+    // The package needs this session's views: the store calls this from the modal,
+    // BOQ Flow's exports and the chip alike.
+    useEffect(() => {
+        designBuild.setExporter(async ({ groups, asZip = true, suffix, onProgress } = {}) => {
+            onProgress?.('Collecting the model from Design & Build…');
+            const artifacts = await requestArtifacts();
+            const st = designBuild.getState();
+            const keys = Array.isArray(groups) && groups.length
+                ? groups
+                : SUITE_GROUPS.filter((g) => suiteGroupState(g, st).ok).map((g) => g.key);
+            const result = await buildExportSuite(
+                {
+                    plan: st.plan,
+                    artifacts,
+                    products: [...st.products, ...customProducts(st.customItems)],
+                    furnished: st.furnished,
+                    furniture: st.furniture,
+                    renders: st.renders,
+                    approvedRenderId: st.approvedRenderId,
+                    offer: st.offer,
+                    counts: st.counts,
+                },
+                { groups: keys, onProgress },
+            );
+            if (!result.files.length) throw new Error(result.notes[0] || 'Nothing to export yet.');
+            onProgress?.('Saving…');
+            await saveExportSuite(result, { asZip, suffix });
+            return { files: result.files.length, notes: result.notes, viewsMissing: !artifacts };
+        });
+        return () => designBuild.setExporter(null);
+    }, [requestArtifacts]);
+
+    // On a phone, tapping into Design & Build (the model, the chat, a prompt) folds the status.
+    useEffect(() => {
+        const onBlur = () => window.setTimeout(() => {
+            if (document.activeElement === iframeRef.current && isCompact()) setSheetOpen(false);
+        }, 0);
+        window.addEventListener('blur', onBlur);
+        return () => window.removeEventListener('blur', onBlur);
+    }, []);
 
     // Messages from Design & Build: only from its origin, and only from our iframe.
     useEffect(() => {
@@ -362,6 +421,10 @@ function DockSession({ s }) {
                 }
                 case 'error':
                     designBuild.set({ error: String(m.message || 'Design & Build reported a problem.').slice(0, 400) });
+                    break;
+                case 'ui':
+                    // The user chats, types a prompt or watches a render there: on a phone the status makes room.
+                    if (isCompact() && (m.panel || m.composing || m.rendering)) setSheetOpen(false);
                     break;
                 default:
                     break;
@@ -483,6 +546,20 @@ function DockSession({ s }) {
         if (post('render')) setFocus({ id: null, of: null });
     }, [post]);
 
+    /**
+     * Back to BOQ Flow. The newest render goes into the package unless one is approved,
+     * so the package downloads from BOQ Flow's exports and the chip.
+     */
+    const continueInBoq = useCallback(() => {
+        const st = designBuild.getState();
+        if (st.renders.length && !st.renders.some((r) => r.id === st.approvedRenderId)) {
+            designBuild.approveRender(st.renders[st.renders.length - 1].id);
+        }
+        setReviewId(null);
+        setExportOpen(false);
+        designBuild.minimize();
+    }, []);
+
     const askClose = useCallback(() => {
         if (!confirmClose) {
             setConfirmClose(true);
@@ -507,8 +584,12 @@ function DockSession({ s }) {
         if (timedOut) return 'Design & Build did not answer. Check your connection, then try again.';
         if (s.error) return s.error;
         if (s.stage) return s.stage;
-        if (approved) return s.exportedAt ? 'Exported · the package is in your downloads' : 'Render approved · the export suite is ready';
-        if (s.renders.length) return `${s.renders.length} render${s.renders.length === 1 ? '' : 's'} · review one and approve it for the export suite`;
+        if (approved) {
+            if (s.exporting) return s.exporting.label || 'Preparing the package…';
+            if (s.exportError) return `The package could not be made: ${s.exportError}`;
+            return s.exportedAt ? 'Exported · the package is in your downloads' : 'Render approved · the package is ready to download';
+        }
+        if (s.renders.length) return `${s.renders.length} render${s.renders.length === 1 ? '' : 's'} · Continue in BOQ Flow takes the newest for the package`;
         if (furnished) return describeFurnished(furnished, s.products);
         if (ready) return `Model ready · ${describeCounts(s.counts)}${pieces ? ` · ${pieces} furniture pieces from the drawing` : ''}`;
         return 'Opening Design & Build…';
@@ -530,11 +611,60 @@ function DockSession({ s }) {
         return 'Next: apply a Value Engineered or Multi-Budget offer, then the space is furnished with your products here.';
     })();
     const strip = s.renders.slice(-4).reverse();
+    const lastRender = s.renders[s.renders.length - 1] || null;
+    // Every action under the model; folded, only the main one shows.
+    const actions = [];
+    if (timedOut || s.error) actions.push({ key: 'retry', label: 'Try again', short: 'Try again', primary: true });
+    if (lastRender && !approved) actions.push({ key: 'review', label: 'Review render' });
+    if (ready && !approved) {
+        actions.push({
+            key: 'render',
+            label: s.renders.length ? 'New render' : 'Render',
+            short: 'Render',
+            primary: !!furnished && !s.renders.length,
+            title: 'Photoreal render of the current view in Design & Build',
+        });
+    }
+    if (approved) actions.push({ key: 'files', label: 'Choose files', title: 'Pick the folders of the package' });
+    actions.push({
+        key: 'continue',
+        label: 'Continue in BOQ Flow',
+        short: 'Continue',
+        primary: !approved && !(furnished && !s.renders.length) && !(timedOut || s.error),
+        title: s.renders.length && !approved ? 'Back to BOQ Flow; the newest render goes into the package' : 'Back to BOQ Flow (the 3D model stays loaded)',
+    });
+    if (approved) {
+        actions.push({
+            key: 'download',
+            label: s.exporting ? 'Preparing…' : 'Download package',
+            short: s.exporting ? 'Preparing…' : 'Download',
+            primary: true,
+            disabled: !!s.exporting,
+            title: 'The whole package as one .zip',
+        });
+    }
+    const runAction = (key) => {
+        if (key === 'retry') retry();
+        else if (key === 'review' && lastRender) setReviewId(lastRender.id);
+        else if (key === 'render') openRender();
+        else if (key === 'files') setExportOpen(true);
+        else if (key === 'continue') continueInBoq();
+        else if (key === 'download') designBuild.downloadPackage();
+    };
+    // A step that does something: Render opens Design & Build's renders, Export suite the package.
+    const stepGoes = (key) => (key === 'export' && approved) || (key === 'render' && ready);
+    const goToStep = (key) => {
+        if (key === 'export') setExportOpen(true);
+        else openRender();
+    };
+    const mainAction = [...actions].reverse().find((a) => a.primary) || actions[actions.length - 1];
 
     return (
         <>
             <div
-                className={s.minimized ? styles.layerHidden : styles.overlay}
+                // Minimised while the package is made: the model stays technically on screen (under the
+                // page, see-through), so the browser keeps drawing it for the package's views.
+                className={s.minimized ? (s.exporting ? styles.layerCapturing : styles.layerHidden) : styles.overlay}
                 aria-hidden={s.minimized ? 'true' : undefined}
             >
                 <section className={styles.modal} role="dialog" aria-modal="true" aria-label="Design & Build">
@@ -548,12 +678,29 @@ function DockSession({ s }) {
                         </div>
 
                         <ol className={styles.steps} aria-label="Steps">
-                            {STEPS.map((step, i) => (
-                                <li key={step.key} className={`${styles.step} ${styles[`step_${stepState(step.key)}`]}`}>
-                                    <span className={styles.stepDot}>{stepState(step.key) === 'done' ? '✓' : i + 1}</span>
-                                    <span>{step.label}</span>
-                                </li>
-                            ))}
+                            {STEPS.map((step, i) => {
+                                const st = stepState(step.key);
+                                const inner = (
+                                    <>
+                                        <span className={styles.stepDot}>{st === 'done' ? '✓' : i + 1}</span>
+                                        <span className={styles.stepLabel}>{step.label}</span>
+                                    </>
+                                );
+                                return (
+                                    <li key={step.key} className={`${styles.step} ${styles[`step_${st}`]}`} aria-current={st === 'active' ? 'step' : undefined}>
+                                        {stepGoes(step.key) ? (
+                                            <button
+                                                type="button"
+                                                className={styles.stepBtn}
+                                                onClick={() => goToStep(step.key)}
+                                                title={step.key === 'export' ? 'Download the package' : 'Render in Design & Build'}
+                                            >
+                                                {inner}
+                                            </button>
+                                        ) : inner}
+                                    </li>
+                                );
+                            })}
                         </ol>
 
                         <div className={styles.headerActions}>
@@ -629,11 +776,11 @@ function DockSession({ s }) {
                         )}
 
                         {exportOpen && approved && (
-                            <DesignBuildExportPanel s={s} requestArtifacts={requestArtifacts} onClose={() => setExportOpen(false)} />
+                            <DesignBuildExportPanel s={s} onClose={() => setExportOpen(false)} />
                         )}
                     </div>
 
-                    {(legend.length > 0 || canCustom) && (
+                    {sheetOpen && (legend.length > 0 || canCustom) && (
                         <div className={styles.legend} role="group" aria-label="Products in the model">
                             <span className={styles.legendTitle}>In the model</span>
                             <div className={styles.legendList}>
@@ -774,15 +921,21 @@ function DockSession({ s }) {
                         </div>
                     )}
 
-                    <footer className={styles.footer}>
-                        <div className={styles.status} role="status" aria-live="polite">
-                            <span className={`${styles.statusDot} ${timedOut || s.error ? styles.dotError : ready ? styles.dotReady : styles.dotBusy}`} />
-                            <div className={styles.statusLines}>
+                    <footer className={`${styles.footer} ${sheetOpen ? '' : styles.footerFolded}`}>
+                        <button
+                            type="button"
+                            className={styles.status}
+                            onClick={() => setSheetOpen((o) => !o)}
+                            aria-expanded={sheetOpen}
+                            title={sheetOpen ? 'Fold the status (more room for the model)' : 'Show the products, renders and actions'}
+                        >
+                            <span className={`${styles.statusDot} ${timedOut || s.error ? styles.dotError : ready && !s.exporting ? styles.dotReady : styles.dotBusy}`} />
+                            <span className={styles.statusLines} role="status" aria-live="polite">
                                 <span className={styles.statusMain}>{statusText}</span>
-                                {hint && <span className={styles.statusHint}>{hint}</span>}
-                            </div>
-                        </div>
-                        {strip.length > 0 && (
+                                {sheetOpen && hint && <span className={styles.statusHint}>{hint}</span>}
+                            </span>
+                        </button>
+                        {sheetOpen && strip.length > 0 && (
                             <div className={styles.renderStrip} aria-label="Renders">
                                 {strip.map((r) => (
                                     <button
@@ -799,36 +952,28 @@ function DockSession({ s }) {
                             </div>
                         )}
                         <div className={styles.footerActions}>
-                            {(timedOut || s.error) && (
-                                <button type="button" className={styles.secondaryBtn} onClick={retry}>Try again</button>
-                            )}
-                            {s.renders.length > 0 && !approved && (
-                                <button type="button" className={styles.secondaryBtn} onClick={() => setReviewId(s.renders[s.renders.length - 1].id)}>
-                                    Review render
-                                </button>
-                            )}
-                            {ready && !approved && (
+                            {(sheetOpen ? actions : [mainAction]).map((a) => (
                                 <button
+                                    key={a.key}
                                     type="button"
-                                    className={furnished && !s.renders.length ? styles.primaryBtn : styles.secondaryBtn}
-                                    onClick={openRender}
-                                    title="Photoreal render of the current view in Design & Build"
+                                    className={a.primary ? styles.primaryBtn : styles.secondaryBtn}
+                                    onClick={() => runAction(a.key)}
+                                    disabled={a.disabled}
+                                    title={a.title}
                                 >
-                                    {s.renders.length ? 'New render' : 'Render'}
+                                    {sheetOpen ? a.label : a.short || a.label}
                                 </button>
-                            )}
+                            ))}
                             <button
                                 type="button"
-                                className={approved || (furnished && !s.renders.length) ? styles.secondaryBtn : styles.primaryBtn}
-                                onClick={designBuild.minimize}
+                                className={styles.sheetToggle}
+                                onClick={() => setSheetOpen((o) => !o)}
+                                aria-expanded={sheetOpen}
+                                aria-label={sheetOpen ? 'Fold the status' : 'Show the products, renders and actions'}
+                                title={sheetOpen ? 'Fold (more room for the model)' : 'Show more'}
                             >
-                                Continue in BOQ Flow
+                                <span aria-hidden>{sheetOpen ? '▾' : '▴'}</span>
                             </button>
-                            {approved && (
-                                <button type="button" className={styles.primaryBtn} onClick={() => setExportOpen(true)}>
-                                    Export suite
-                                </button>
-                            )}
                         </div>
                     </footer>
                 </section>
@@ -836,14 +981,20 @@ function DockSession({ s }) {
 
             {s.minimized && (
                 <div className={styles.chip} role="region" aria-label="Design & Build">
-                    <span className={`${styles.statusDot} ${s.error ? styles.dotError : ready ? styles.dotReady : styles.dotBusy}`} />
+                    <span className={`${styles.statusDot} ${s.error || s.exportError ? styles.dotError : ready && !s.exporting ? styles.dotReady : styles.dotBusy}`} />
                     <button type="button" className={styles.chipMain} onClick={designBuild.restore} title="Open Design & Build">
                         <span className={styles.chipTitle}>Design &amp; Build</span>
                         <span className={styles.chipSub}>
                             {s.error
                                 ? 'Needs attention'
                                 : approved
-                                    ? 'Render approved · export suite ready'
+                                    ? s.exporting
+                                        ? s.exporting.label || 'Preparing the package…'
+                                        : s.exportError
+                                            ? 'The package could not be made'
+                                            : s.exportedAt
+                                                ? 'Package saved · download again'
+                                                : 'Package ready to download'
                                     : s.renders.length
                                         ? `${s.renders.length} render${s.renders.length === 1 ? '' : 's'} to review`
                                         : furnished
@@ -853,7 +1004,24 @@ function DockSession({ s }) {
                                                 : 'Building the 3D model…'}
                         </span>
                     </button>
-                    <button type="button" className={styles.chipOpen} onClick={designBuild.restore}>Open</button>
+                    {approved && (
+                        <button
+                            type="button"
+                            className={styles.chipOpen}
+                            onClick={() => designBuild.downloadPackage()}
+                            disabled={!!s.exporting}
+                            title="The whole package as one .zip"
+                        >
+                            {s.exporting ? 'Preparing…' : 'Download'}
+                        </button>
+                    )}
+                    <button
+                        type="button"
+                        className={approved ? styles.chipGhost : styles.chipOpen}
+                        onClick={designBuild.restore}
+                    >
+                        Open
+                    </button>
                 </div>
             )}
         </>

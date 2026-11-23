@@ -138,12 +138,22 @@ const SUITE_FILES = '3D model · renders · BOQ · FF&E schedule · mood board �
  */
 export function DesignBuildSuite({ getTables, title }) {
     const s = useDesignBuild();
-    const ready = s.open && !!s.approvedRenderId;
-    const hint = ready
-        ? `Render approved: the package is ready${s.offer?.title ? ` (${s.offer.title})` : ''}.`
-        : s.open
-            ? 'Render a view and approve it in Design & Build, then download the package.'
-            : 'Builds the plan in 3D with these products, ready to render; approve a render to download the package.';
+    const approved = s.open && s.renders.some((r) => r.id === s.approvedRenderId);
+    const waiting = s.open && !approved && s.renders.length > 0;
+    const busy = !!s.exporting;
+    const hint = busy
+        ? s.exporting.label || 'Preparing the package…'
+        : s.exportError && approved
+            ? `The package could not be made: ${s.exportError}`
+            : approved
+                ? s.exportResult
+                    ? `Saved ${s.exportResult.files} file${s.exportResult.files === 1 ? '' : 's'} to your downloads.`
+                    : `Render approved: the package is ready${s.offer?.title ? ` (${s.offer.title})` : ''}.`
+                : waiting
+                    ? `${s.renders.length} render${s.renders.length === 1 ? '' : 's'} in Design & Build: use the newest for the package, or review them there.`
+                    : s.open
+                        ? 'Render a view in Design & Build, then Continue in BOQ Flow: the package downloads here.'
+                        : 'Builds the plan in 3D with these products, ready to render; render a view to download the package.';
     return (
         <div className={styles.suite}>
             <div className={styles.suiteText}>
@@ -155,13 +165,33 @@ export function DesignBuildSuite({ getTables, title }) {
             </div>
             <div className={styles.suiteActions}>
                 <DesignBuildButton getTables={getTables} title={title} />
-                {ready && (
-                    <button type="button" className={styles.suiteBtn} onClick={() => designBuild.openExportSuite()}>
-                        Download package
+                {approved && (
+                    <button type="button" className={styles.suiteBtn} onClick={() => designBuild.downloadPackage()} disabled={busy}>
+                        {busy ? 'Preparing…' : 'Download package'}
+                    </button>
+                )}
+                {waiting && (
+                    <button
+                        type="button"
+                        className={styles.suiteBtn}
+                        onClick={() => designBuild.approveRender(s.renders[s.renders.length - 1].id)}
+                        title="Put the newest render in the package"
+                    >
+                        Use the newest render
                     </button>
                 )}
             </div>
-            <span className={styles.suiteHint}>{hint}</span>
+            <span className={`${styles.suiteHint} ${s.exportError && approved && !busy ? styles.suiteHintError : ''}`} role="status" aria-live="polite">
+                {hint}
+                {approved && !busy && (
+                    <>
+                        {' '}
+                        <button type="button" className={styles.linkBtn} onClick={() => designBuild.openExportSuite()}>
+                            Choose files
+                        </button>
+                    </>
+                )}
+            </span>
         </div>
     );
 }

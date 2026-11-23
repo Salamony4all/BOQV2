@@ -531,14 +531,29 @@ p.resultNote {
     box-shadow: 0 3px 10px rgba(76, 70, 229, 0.18);
 }
 
-.suiteBtn:hover {
+.suiteBtn:hover:not(:disabled) {
     transform: translateY(-1px);
+}
+
+.suiteBtn:disabled {
+    opacity: 0.65;
+    cursor: wait;
+    box-shadow: none;
 }
 
 .suiteHint {
     font-size: 0.76rem;
     line-height: 1.35;
     color: var(--text-muted, #94a3b8);
+}
+
+.suiteHint .linkBtn {
+    font-size: 0.76rem;
+    padding: 0;
+}
+
+.suiteHintError {
+    color: var(--danger, #dc2626);
 }
 
 .docsTitle {

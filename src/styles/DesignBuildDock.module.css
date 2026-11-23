@@ -14,6 +14,20 @@
     animation: dbFade 0.25s ease;
 }
 
+/* Minimised while the package is made: under the page and see-through, but not hidden,
+   so the browser keeps drawing the 3D model the package's views are taken from. */
+.layerCapturing {
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    opacity: 0.01;
+    pointer-events: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2vh 2vw;
+}
+
 /* Minimised: the modal stays mounted (and the 3D model loaded) but out of sight. */
 .layerHidden {
     position: fixed;
@@ -618,6 +632,13 @@
     gap: 10px;
     min-width: 0;
     flex: 1 1 auto;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
 }
 
 .statusDot {
@@ -1131,6 +1152,74 @@
     cursor: pointer;
 }
 
+/* A step that does something: Render opens Design & Build's renders, Export suite the package. */
+.stepBtn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+}
+
+.stepBtn:hover .stepLabel {
+    text-decoration: underline;
+}
+
+/* The status folds to a bar (phones: the model gets the screen). */
+.sheetToggle {
+    flex: none;
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+    border: 1px solid var(--border-color);
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    cursor: pointer;
+}
+
+.sheetToggle:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+}
+
+.footerFolded .statusMain {
+    display: block;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.footerFolded .statusLines {
+    min-width: 0;
+    flex: 1;
+}
+
+.footerFolded .statusDot {
+    margin-top: 4px;
+}
+
+.chipGhost {
+    height: 32px;
+    padding: 0 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 9px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    background: transparent;
+    cursor: pointer;
+}
+
+.chipOpen:disabled {
+    opacity: 0.6;
+    cursor: wait;
+}
+
 .srOnly {
     position: absolute;
     width: 1px;
@@ -1142,7 +1231,8 @@
 
 @media (max-width: 900px) {
     .overlay,
-    .layerHidden {
+    .layerHidden,
+    .layerCapturing {
         padding: 0;
     }
 
@@ -1150,15 +1240,64 @@
         border-radius: 0;
     }
 
+    /* One slim header: the mark, the title and the buttons, the steps under them. */
     .header {
         flex-wrap: wrap;
-        gap: 10px;
+        gap: 6px 10px;
+        padding: 8px 10px;
+    }
+
+    .brand {
+        gap: 8px;
+        flex: 1 1 0;
+    }
+
+    .mark {
+        width: 30px;
+        height: 30px;
+        border-radius: 9px;
+        font-size: 0.72rem;
+    }
+
+    .title {
+        font-size: 0.95rem;
+    }
+
+    .planName {
+        max-width: 52vw;
+        font-size: 0.72rem;
+    }
+
+    .iconBtn {
+        min-width: 34px;
+        height: 34px;
     }
 
     .steps {
         order: 3;
         width: 100%;
         justify-content: flex-start;
+        flex-wrap: nowrap;
+        gap: 4px;
+        overflow-x: auto;
+        scrollbar-width: none;
+    }
+
+    .steps::-webkit-scrollbar {
+        display: none;
+    }
+
+    .step {
+        flex: none;
+        gap: 6px;
+        padding: 2px 10px 2px 2px;
+        font-size: 0.76rem;
+    }
+
+    .stepDot {
+        width: 20px;
+        height: 20px;
+        font-size: 0.66rem;
     }
 
     .headerActions {
@@ -1168,11 +1307,49 @@
     .footer {
         flex-direction: column;
         align-items: stretch;
+        gap: 10px;
+        padding: 10px 12px calc(10px + env(safe-area-inset-bottom, 0px));
     }
 
     .footerActions {
         justify-content: flex-end;
         flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    /* Folded: one row with the status, the main action and the unfold button. */
+    .footerFolded {
+        flex-direction: row;
+        align-items: center;
+        gap: 10px;
+        padding: 8px 10px calc(8px + env(safe-area-inset-bottom, 0px));
+    }
+
+    .footerFolded .footerActions {
+        flex-wrap: nowrap;
+        flex: none;
+    }
+
+    .footerFolded .primaryBtn,
+    .footerFolded .secondaryBtn {
+        height: 38px;
+        padding: 0 14px;
+    }
+
+    /* The chip spans the bottom of the screen, with its download at hand. */
+    .chip {
+        left: 12px;
+        right: 12px;
+        bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+    }
+
+    .chipMain {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .chipSub {
+        max-width: 100%;
     }
 
     .renderStrip {
@@ -1190,6 +1367,16 @@
     .reviewBar {
         flex-direction: column;
         align-items: stretch;
+    }
+}
+
+@media (max-width: 560px) {
+    .step:not(.step_active) .stepLabel {
+        display: none;
+    }
+
+    .step:not(.step_active) {
+        padding-right: 2px;
     }
 }
 
