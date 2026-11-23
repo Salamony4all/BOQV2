@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo, Fragment } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useImperativeHandle, useEffectEvent, Fragment } from 'react';
 import AIPresentationModal from './AIPresentationModal';
 import SpecialistModal from './SpecialistModal';
 import CostingModal from './CostingModal';
@@ -49,6 +49,8 @@ const VE_UI_CONFIG = {
 };
 
 const VE_TABLE_HEADER = ['#', 'Image', 'Description', 'Brand', 'Model', 'Qty', 'Unit', 'Rate', 'Amount'];
+/** Catalogue prices as they are (VAT 5%), for a one-click run started without costing factors. */
+const CATALOGUE_PRICES = { profit: 0, freight: 0, customs: 0, installation: 0, vat: 5, fromCurrency: 'USD', toCurrency: 'USD', exchangeRate: 1 };
 
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 const batch = async (items, limit, fn) => {
@@ -74,7 +76,7 @@ const isHeaderRow = (desc, row = {}) => {
 export default function ValueEngineeredModal({
     isOpen, onClose, originalTables, allBrands = [], onApplyFlow, onApply,
     onUploadBoq, onUploadPlan, planPreviewUrl, planPreviewType, planPreviewName,
-    seededItems
+    seededItems, ref
 }) {
     const { aiSettings } = useCompanyProfile();
     const { theme } = useTheme();
@@ -140,6 +142,11 @@ export default function ValueEngineeredModal({
     const [progress, setProgress] = useState({ current: 0, total: 0 });
     const [swarm, setSwarm] = useState(null); // { lanes: { desking: { status, currentItem, progress, brand }, ... } }
     const [pendingSeed, setPendingSeed] = useState(false);
+    // 1-Click Auto Detect started from the table viewer (runAutoDetect, through the ref): it runs
+    // here with the modal open or closed, reports its progress, and hands the offer over once
+    // the last row is in.
+    const backgroundRef = useRef(null);
+    const [backgroundDone, setBackgroundDone] = useState(null);
 
     useEffect(() => {
         console.log(`[VE Modal] Rendered with ${localBrands?.length || 0} brands`);
@@ -244,7 +251,8 @@ export default function ValueEngineeredModal({
         }).filter(Boolean);
     };
 
-    const loadDataIntoRows = () => {
+    /** The rows the modal starts from: the plan's items, else the extracted table. */
+    const startingRows = () => {
         if (seededItems && seededItems.length > 0) {
             const planRows = seededItems.map((item, i) => {
                 const rawDesc = String(item.description || item.Description || '').replace(/^(\s*\[[^\]]+\]\s*)+/, '').trim();
@@ -260,19 +268,23 @@ export default function ValueEngineeredModal({
                     selectedBrand: '', selectedMainCat: '', selectedSubCat: '', selectedFamily: '', selectedModel: '', selectedModelUrl: '', aiStatus: 'idle'
                 });
             });
-            setRecategorizeMode('item');
-            setRows(planRows);
-        } else if (originalTables && originalTables.length > 0) {
-            setRecategorizeMode(originalTables[0]?.recategorizeMode || 'original');
-            setRows(buildBoqRows(originalTables));
-        } else {
-            setRecategorizeMode('original');
-            setRows([]);
+            return { rows: planRows, mode: 'item' };
         }
+        if (originalTables && originalTables.length > 0) {
+            return { rows: buildBoqRows(originalTables), mode: originalTables[0]?.recategorizeMode || 'original' };
+        }
+        return { rows: [], mode: 'original' };
+    };
+
+    const loadDataIntoRows = () => {
+        const start = startingRows();
+        setRecategorizeMode(start.mode);
+        setRows(start.rows);
     };
 
     useEffect(() => {
-        if (!isOpen) return;
+        // Rows of a one-click run in progress are not reloaded under it.
+        if (!isOpen || backgroundRef.current) return;
         const tablesChanged = originalTables && originalTables !== lastLoadedTablesRef.current;
         const shouldLoad = rows.length === 0 || tablesChanged;
         if (shouldLoad) {
@@ -322,14 +334,12 @@ export default function ValueEngineeredModal({
         setRows(emptyRows);
     };
 
-    const handleApplyCosting = (factors) => {
-        setCostingFactors(factors);
-        setIsCostingOpen(false);
-
+    /** The rows costed with these factors, and the offer they make (for Apply, and for a 1-Click run). */
+    const buildVeOffer = (sourceRows, factors) => {
         const markup = 1 + (factors.profit + factors.freight + factors.customs + factors.installation) / 100;
         const costMultiplier = markup * factors.exchangeRate;
 
-        const updatedRows = rows.map(sourceRow => {
+        const updatedRows = sourceRows.map(sourceRow => {
             // Inactive alternates (set option / single-item snapshot) are costed with the same factors
             const row = applyCostingToRowAlternates(sourceRow, costMultiplier);
             if (row.setType && row.setType !== 'single' && Array.isArray(row.setItems) && row.setItems.length > 0) {
@@ -362,165 +372,173 @@ export default function ValueEngineeredModal({
             return row;
         });
 
+        const exportRows = recategorizeBoqRows(updatedRows, recategorizeMode);
+        const formattedRows = exportRows.flatMap((row, idx) => {
+            const parentSn = String(row.sn || idx + 1);
+            const amount = row.amount || (parseFloat(row.qty || 0) * parseFloat(row.rate || 0)).toFixed(2);
+            const isSetRow = row.setType && row.setType !== 'single' && Array.isArray(row.setItems) && row.setItems.length > 0;
+            const parentImages = (isSetRow && row.brandImages?.length)
+                ? row.brandImages.map(u => ({ url: u }))
+                : (row.brandImage
+                    ? [{ url: row.brandImage }]
+                    : (row.imageRefs?.length ? row.imageRefs : (row.imageRef ? [row.imageRef] : [])).map(u => ({ url: u })));
+
+            const parentExport = {
+                // the BOQ line's own words (sizes, kind) for Design & Build to match drawn furniture
+                sourceDescription: row.description || '',
+                // chosen model and its page, for Design & Build's FF&E schedule and catalogue links
+                selectedModel: row.selectedModel || '',
+                productUrl: row.selectedModelUrl || '',
+                location: row.location || '',
+                scope: row.scope || '',
+                code: row.code || '',
+                categoryHint: row.categoryHint || '',
+                selectedBrand: row.selectedBrand || '',
+                selectedMainCat: row.selectedMainCat || '',
+                selectedSubCat: row.selectedSubCat || '',
+                sectionLabel: row.sectionLabel || '',
+                sectionCategory: row.sectionCategory || '',
+                sectionSubheader: row.sectionSubheader || '',
+                submissionTitle: row.submissionTitle || '',
+                setType: row.setType || 'single',
+                setItems: isSetRow ? row.setItems : undefined,
+                cells: [
+                    { value: parentSn },
+                    {
+                        value: '',
+                        image: (isSetRow && row.brandImages?.[0]) || row.brandImage || row.imageRef,
+                        images: parentImages
+                    },
+                    { value: row.brandDesc || row.description || 'N/A' },
+                    { value: row.selectedBrand || '' },
+                    { value: row.selectedModel || '' },
+                    { value: String(row.qty || '0') },
+                    { value: String(row.unit || 'Nos') },
+                    { value: String(row.rate || '0') },
+                    { value: String(isNaN(parseFloat(amount)) ? '0' : amount) }
+                ]
+            };
+
+            // Optional line for the row's inactive alternative (set option below a single item,
+            // or the single item kept beside an active set). Never counted in totals.
+            const optionExports = [];
+            if (exportSetOptions) {
+                const rowMeta = {
+                    location: row.location || '',
+                    scope: row.scope || '',
+                    code: row.code || '',
+                    categoryHint: row.categoryHint || '',
+                    sectionLabel: row.sectionLabel || '',
+                    sectionCategory: row.sectionCategory || '',
+                    sectionSubheader: row.sectionSubheader || '',
+                    submissionTitle: row.submissionTitle || '',
+                    isOptionRow: true
+                };
+                const optionSummary = !isSetRow && row.setOption ? summarizeSetOption(row.setOption, row.qty) : null;
+                if (optionSummary && optionSummary.matchedCount > 0) {
+                    const optionLines = row.setOption.items.map(it =>
+                        `• ${it.qty || 1} ${it.unit || 'Nos'} × ${[it.selectedBrand, it.selectedModel].filter(Boolean).join(' — ') || it.label}`
+                    );
+                    optionExports.push({
+                        ...rowMeta,
+                        selectedBrand: optionSummary.brands[0] || '',
+                        selectedMainCat: optionSummary.typeLabel,
+                        selectedSubCat: `${optionSummary.itemCount} Components`,
+                        cells: [
+                            { value: `${parentSn} (Option)` },
+                            { value: '', image: optionSummary.images[0] || null, images: optionSummary.images.map(u => ({ url: u })) },
+                            { value: [`OPTION for item ${parentSn} — ${optionSummary.label}`, ...optionLines].join('\n') },
+                            { value: optionSummary.brands.join(' / ') },
+                            { value: optionSummary.models.join(' + ') },
+                            { value: String(row.qty || '1') },
+                            { value: 'Set' },
+                            { value: optionSummary.hasPrice ? optionSummary.ratePerSet.toFixed(2) : '0' },
+                            { value: 'Optional' }
+                        ]
+                    });
+                } else if (isSetRow && hasSingleAlternative(row)) {
+                    const alt = row.singleAlt;
+                    optionExports.push({
+                        ...rowMeta,
+                        selectedBrand: alt.selectedBrand || '',
+                        selectedMainCat: alt.selectedMainCat || '',
+                        selectedSubCat: alt.selectedSubCat || '',
+                        cells: [
+                            { value: `${parentSn} (Option)` },
+                            { value: '', image: alt.brandImage || null, images: alt.brandImage ? [{ url: alt.brandImage }] : [] },
+                            { value: `OPTION for item ${parentSn} — Single item: ${alt.brandDesc || [alt.selectedBrand, alt.selectedModel].filter(Boolean).join(' — ')}` },
+                            { value: alt.selectedBrand || '' },
+                            { value: alt.selectedModel || '' },
+                            { value: String(row.qty || '1') },
+                            { value: String(row.unit || 'Nos') },
+                            { value: String(alt.rate || '0') },
+                            { value: 'Optional' }
+                        ]
+                    });
+                }
+            }
+
+            if (!isSetRow || setExportMode !== 'include_sub_items') {
+                return [parentExport, ...optionExports];
+            }
+
+            const subExports = row.setItems.map((sub, sIdx) => ({
+                location: row.location || '',
+                scope: row.scope || '',
+                code: row.code || '',
+                categoryHint: row.categoryHint || '',
+                selectedBrand: sub.selectedBrand || '',
+                selectedMainCat: sub.selectedMainCat || '',
+                selectedSubCat: sub.selectedSubCat || '',
+                sectionLabel: row.sectionLabel || '',
+                sectionCategory: row.sectionCategory || '',
+                sectionSubheader: row.sectionSubheader || '',
+                submissionTitle: row.submissionTitle || '',
+                isSetSubItem: true,
+                cells: [
+                    { value: `${parentSn}.${sIdx + 1}` },
+                    {
+                        value: '',
+                        image: sub.brandImage || null,
+                        images: sub.brandImage ? [{ url: sub.brandImage }] : []
+                    },
+                    { value: `↳ ${sub.label || sub.description}${sub.brandDesc ? ` — ${sub.brandDesc}` : ''}` },
+                    { value: sub.selectedBrand || '' },
+                    { value: sub.selectedModel || '' },
+                    { value: String(sub.qty || '1') },
+                    { value: String(sub.unit || 'Nos') },
+                    { value: String(sub.rate || '0') },
+                    { value: 'Included' }
+                ]
+            }));
+
+            return [parentExport, ...subExports, ...optionExports];
+        });
+
+        const formattedData = {
+            costingFactors: factors,
+            recategorizeMode,
+            setExportMode,
+            exportSetOptions,
+            tables: [{
+                sheetName: `Value Engineered Offer`,
+                header: VE_TABLE_HEADER,
+                columnCount: 9,
+                recategorizeMode,
+                rows: formattedRows
+            }]
+        };
+        return { updatedRows, formattedData };
+    };
+
+    const handleApplyCosting = (factors) => {
+        setCostingFactors(factors);
+        setIsCostingOpen(false);
+
+        const { updatedRows, formattedData } = buildVeOffer(rows, factors);
         setRows(updatedRows);
 
         if (onApplyFlow || onApply) {
-            const exportRows = recategorizeBoqRows(updatedRows, recategorizeMode);
-            const formattedRows = exportRows.flatMap((row, idx) => {
-                const parentSn = String(row.sn || idx + 1);
-                const amount = row.amount || (parseFloat(row.qty || 0) * parseFloat(row.rate || 0)).toFixed(2);
-                const isSetRow = row.setType && row.setType !== 'single' && Array.isArray(row.setItems) && row.setItems.length > 0;
-                const parentImages = (isSetRow && row.brandImages?.length)
-                    ? row.brandImages.map(u => ({ url: u }))
-                    : (row.brandImage
-                        ? [{ url: row.brandImage }]
-                        : (row.imageRefs?.length ? row.imageRefs : (row.imageRef ? [row.imageRef] : [])).map(u => ({ url: u })));
-
-                const parentExport = {
-                    // the BOQ line's own words (sizes, kind) for Design & Build to match drawn furniture
-                    sourceDescription: row.description || '',
-                    // chosen model and its page, for Design & Build's FF&E schedule and catalogue links
-                    selectedModel: row.selectedModel || '',
-                    productUrl: row.selectedModelUrl || '',
-                    location: row.location || '',
-                    scope: row.scope || '',
-                    code: row.code || '',
-                    categoryHint: row.categoryHint || '',
-                    selectedBrand: row.selectedBrand || '',
-                    selectedMainCat: row.selectedMainCat || '',
-                    selectedSubCat: row.selectedSubCat || '',
-                    sectionLabel: row.sectionLabel || '',
-                    sectionCategory: row.sectionCategory || '',
-                    sectionSubheader: row.sectionSubheader || '',
-                    submissionTitle: row.submissionTitle || '',
-                    setType: row.setType || 'single',
-                    setItems: isSetRow ? row.setItems : undefined,
-                    cells: [
-                        { value: parentSn },
-                        {
-                            value: '',
-                            image: (isSetRow && row.brandImages?.[0]) || row.brandImage || row.imageRef,
-                            images: parentImages
-                        },
-                        { value: row.brandDesc || row.description || 'N/A' },
-                        { value: row.selectedBrand || '' },
-                        { value: row.selectedModel || '' },
-                        { value: String(row.qty || '0') },
-                        { value: String(row.unit || 'Nos') },
-                        { value: String(row.rate || '0') },
-                        { value: String(isNaN(parseFloat(amount)) ? '0' : amount) }
-                    ]
-                };
-
-                // Optional line for the row's inactive alternative (set option below a single item,
-                // or the single item kept beside an active set). Never counted in totals.
-                const optionExports = [];
-                if (exportSetOptions) {
-                    const rowMeta = {
-                        location: row.location || '',
-                        scope: row.scope || '',
-                        code: row.code || '',
-                        categoryHint: row.categoryHint || '',
-                        sectionLabel: row.sectionLabel || '',
-                        sectionCategory: row.sectionCategory || '',
-                        sectionSubheader: row.sectionSubheader || '',
-                        submissionTitle: row.submissionTitle || '',
-                        isOptionRow: true
-                    };
-                    const optionSummary = !isSetRow && row.setOption ? summarizeSetOption(row.setOption, row.qty) : null;
-                    if (optionSummary && optionSummary.matchedCount > 0) {
-                        const optionLines = row.setOption.items.map(it =>
-                            `• ${it.qty || 1} ${it.unit || 'Nos'} × ${[it.selectedBrand, it.selectedModel].filter(Boolean).join(' — ') || it.label}`
-                        );
-                        optionExports.push({
-                            ...rowMeta,
-                            selectedBrand: optionSummary.brands[0] || '',
-                            selectedMainCat: optionSummary.typeLabel,
-                            selectedSubCat: `${optionSummary.itemCount} Components`,
-                            cells: [
-                                { value: `${parentSn} (Option)` },
-                                { value: '', image: optionSummary.images[0] || null, images: optionSummary.images.map(u => ({ url: u })) },
-                                { value: [`OPTION for item ${parentSn} — ${optionSummary.label}`, ...optionLines].join('\n') },
-                                { value: optionSummary.brands.join(' / ') },
-                                { value: optionSummary.models.join(' + ') },
-                                { value: String(row.qty || '1') },
-                                { value: 'Set' },
-                                { value: optionSummary.hasPrice ? optionSummary.ratePerSet.toFixed(2) : '0' },
-                                { value: 'Optional' }
-                            ]
-                        });
-                    } else if (isSetRow && hasSingleAlternative(row)) {
-                        const alt = row.singleAlt;
-                        optionExports.push({
-                            ...rowMeta,
-                            selectedBrand: alt.selectedBrand || '',
-                            selectedMainCat: alt.selectedMainCat || '',
-                            selectedSubCat: alt.selectedSubCat || '',
-                            cells: [
-                                { value: `${parentSn} (Option)` },
-                                { value: '', image: alt.brandImage || null, images: alt.brandImage ? [{ url: alt.brandImage }] : [] },
-                                { value: `OPTION for item ${parentSn} — Single item: ${alt.brandDesc || [alt.selectedBrand, alt.selectedModel].filter(Boolean).join(' — ')}` },
-                                { value: alt.selectedBrand || '' },
-                                { value: alt.selectedModel || '' },
-                                { value: String(row.qty || '1') },
-                                { value: String(row.unit || 'Nos') },
-                                { value: String(alt.rate || '0') },
-                                { value: 'Optional' }
-                            ]
-                        });
-                    }
-                }
-
-                if (!isSetRow || setExportMode !== 'include_sub_items') {
-                    return [parentExport, ...optionExports];
-                }
-
-                const subExports = row.setItems.map((sub, sIdx) => ({
-                    location: row.location || '',
-                    scope: row.scope || '',
-                    code: row.code || '',
-                    categoryHint: row.categoryHint || '',
-                    selectedBrand: sub.selectedBrand || '',
-                    selectedMainCat: sub.selectedMainCat || '',
-                    selectedSubCat: sub.selectedSubCat || '',
-                    sectionLabel: row.sectionLabel || '',
-                    sectionCategory: row.sectionCategory || '',
-                    sectionSubheader: row.sectionSubheader || '',
-                    submissionTitle: row.submissionTitle || '',
-                    isSetSubItem: true,
-                    cells: [
-                        { value: `${parentSn}.${sIdx + 1}` },
-                        {
-                            value: '',
-                            image: sub.brandImage || null,
-                            images: sub.brandImage ? [{ url: sub.brandImage }] : []
-                        },
-                        { value: `↳ ${sub.label || sub.description}${sub.brandDesc ? ` — ${sub.brandDesc}` : ''}` },
-                        { value: sub.selectedBrand || '' },
-                        { value: sub.selectedModel || '' },
-                        { value: String(sub.qty || '1') },
-                        { value: String(sub.unit || 'Nos') },
-                        { value: String(sub.rate || '0') },
-                        { value: 'Included' }
-                    ]
-                }));
-
-                return [parentExport, ...subExports, ...optionExports];
-            });
-
-            const formattedData = {
-                costingFactors: factors,
-                recategorizeMode,
-                setExportMode,
-                exportSetOptions,
-                tables: [{
-                    sheetName: `Value Engineered Offer`,
-                    header: VE_TABLE_HEADER,
-                    columnCount: 9,
-                    recategorizeMode,
-                    rows: formattedRows
-                }]
-            };
             const applyFn = onApplyFlow || onApply;
             applyFn(formattedData);
             onClose();
@@ -533,6 +551,8 @@ export default function ValueEngineeredModal({
             if (rows.length === 0) {
                 loadDataIntoRows();
             }
+            // A one-click run from the table viewer goes on in the open modal.
+            if (backgroundRef.current) return;
 
             setCostingFactors(null);
             setIsConfigOpen(false);
@@ -544,8 +564,6 @@ export default function ValueEngineeredModal({
             setSwarm(null);
         }
     }, [isOpen]); // Only trigger on modal open/close transitions
-
-    if (!isOpen) return null;
 
     const applyProductFieldChange = (target, field, value) => {
         const row = { ...target };
@@ -1856,23 +1874,27 @@ export default function ValueEngineeredModal({
     // ─────────────────────────────────────────────────────────────
     // MAIN EXECUTION LOGIC (Router + Swarm Parallelization)
     // ─────────────────────────────────────────────────────────────
-    const executeValueEngineeredAI = async (modeOverride = null) => {
-        if (isRunning) return;
+    // Resolves { success, error, total } once every row is answered (nothing when it could not start).
+    // `sourceRows`: rows to start from instead of the current ones (a 1-Click run from the table viewer).
+    const executeValueEngineeredAI = async (modeOverride = null, sourceRows = null) => {
+        if (isRunning) return null;
         const effectiveMode = typeof modeOverride === 'string' ? modeOverride : brandMode;
+        const startRows = Array.isArray(sourceRows) ? sourceRows : rows;
         setIsConfigOpen(false);
         setIsRunning(true);
         setActiveRunMode(effectiveMode);
         setBatchResult(null);
-        setAiStatus(prev => ({ ...prev, active: true, status: 'routing', currentItem: null, minimized: false }));
+        // A run started from the table viewer shows its progress card tucked in at the bottom.
+        setAiStatus(prev => ({ ...prev, active: true, status: 'routing', currentItem: null, minimized: Boolean(backgroundRef.current) }));
 
-        if (rows.length === 0) {
+        if (startRows.length === 0) {
             setIsRunning(false);
             setActiveRunMode(null);
             setAiStatus(prev => ({ ...prev, active: false }));
-            return;
+            return null;
         }
 
-        const currentData = rows.map(r => ({
+        const currentData = startRows.map(r => ({
             ...r,
             aiStatus: 'idle',
             setItems: Array.isArray(r.setItems) ? r.setItems.map(it => ({ ...it, aiStatus: 'idle' })) : r.setItems
@@ -2527,6 +2549,7 @@ export default function ValueEngineeredModal({
         setActiveRunMode(null);
         setAiStatus(prev => ({ ...prev, active: false }));
         setTimeout(() => setBatchResult(null), 8000);
+        return { success: successCount, error: errorCount, total: workableRows.length };
     };
 
     const handleQuickAutoDetect = () => {
@@ -2535,11 +2558,137 @@ export default function ValueEngineeredModal({
         executeValueEngineeredAI('auto_detect');
     };
 
+    /**
+     * 1-Click Auto Detect started from the table viewer, with the modal open or closed: always
+     * from the current BOQ (the plan's items, else the extracted table). `onProgress` follows the
+     * run; `onDone` gets the offer (costed with `factors`, catalogue prices when none) and
+     * `costWith(factors)` to cost the same rows again, or { status: 'empty' }. False when the
+     * Value Engineer is already running.
+     */
+    const runAutoDetect = async ({ factors = null, onProgress = null, onDone = null } = {}) => {
+        if (isRunning || backgroundRef.current) return false;
+        const start = startingRows();
+        if (start.rows.length === 0) {
+            onDone?.({ status: 'empty' });
+            return true;
+        }
+        const token = Date.now();
+        backgroundRef.current = { token, factors: factors || CATALOGUE_PRICES, onProgress, onDone };
+        lastLoadedTablesRef.current = originalTables;
+        setRecategorizeMode(start.mode);
+        setBrandMode('auto_detect');
+        const result = await executeValueEngineeredAI('auto_detect', start.rows);
+        if (backgroundRef.current?.token !== token) return true;
+        // The table viewer shows the outcome, not the result card over its page.
+        setBatchResult(null);
+        // The offer is built from the rows once their last update is in (see deliverBackgroundRun).
+        setBackgroundDone({ token, ...(result || { success: 0, error: 0, total: 0 }) });
+        return true;
+    };
+
     const canStartAI = workableRowCount > 0 && (
         brandMode === 'auto_detect'
             ? true
             : (brandMode === 'simple' ? globalBrand !== '' : Object.values(categoryBrands).some(b => b !== ''))
     );
+
+    // ── 1-Click run from the table viewer ──
+    // Its progress as the Value Engineer counts it: rows answered and matched, the item, the product found.
+    // The status keeps the last model found while the next row is identified, under the mode's brand
+    // label ("Auto Detected"), so the brand comes from the row that model was matched on.
+    const reportBackgroundProgress = useEffectEvent(() => {
+        const bg = backgroundRef.current;
+        if (!bg?.onProgress) return;
+        const matched = rows.filter(r => r.aiStatus === 'success');
+        const update = {
+            current: progress.current,
+            total: progress.total,
+            found: matched.length,
+            stage: aiStatus.status,
+            item: String(aiStatus.currentItem?.description || '')
+        };
+        const lastFound = aiStatus.model ? matched.find(r => r.selectedModel === aiStatus.model) : null;
+        if (lastFound) {
+            update.brand = lastFound.selectedBrand || '';
+            update.model = aiStatus.model;
+            update.image = aiStatus.image || lastFound.brandImage || '';
+        }
+        bg.onProgress(update);
+    });
+    useEffect(() => {
+        reportBackgroundProgress();
+    }, [progress, aiStatus]);
+
+    // Its offer, built from the rows once the last row's update is in.
+    const deliverBackgroundRun = useEffectEvent((done) => {
+        const bg = backgroundRef.current;
+        if (!bg || bg.token !== done.token) return;
+        backgroundRef.current = null;
+        const snapshot = rows;
+        const { formattedData } = buildVeOffer(snapshot, bg.factors);
+        bg.onDone?.({
+            status: 'done',
+            ...formattedData,
+            stats: { success: done.success, error: done.error, total: done.total },
+            costWith: (factors) => buildVeOffer(snapshot, factors).formattedData
+        });
+    });
+    useEffect(() => {
+        if (backgroundDone) deliverBackgroundRun(backgroundDone);
+    }, [backgroundDone]);
+
+    useImperativeHandle(ref, () => ({ runAutoDetect }));
+
+    // The Value Engineer's live progress card and its result card (also over the table viewer
+    // when the modal is closed during a run).
+    const aiWidgets = (() => {
+        const getActiveModals = () => {
+            if (aiStatus.active) {
+                const itemType = aiStatus.currentItem?.scope?.toLowerCase().includes('fitout') ? 'fitout' : 'furniture';
+                return [{ type: itemType, status: aiStatus, progress: progress, isResult: false }];
+            }
+            if (batchResult) {
+                return [{ type: 'furniture', status: {}, batchResult: batchResult, progress: progress, isResult: true }];
+            }
+            return [];
+        };
+
+        const activeModals = getActiveModals();
+
+        return activeModals.map((modalData, idx) => {
+            const { type, status, progress, isResult, batchResult: bRes } = modalData;
+            const alignment = 'center';
+            const minimizedOffset = 24;
+
+            return (
+                <AIPresentationModal
+                    key={`ve-modal-${isResult ? 'result' : 'discovery'}`}
+                    type={type}
+                    isOpen={true}
+                    onClose={() => {
+                        if (isResult) setBatchResult(null);
+                        else setAiStatus(prev => ({ ...prev, active: false }));
+                    }}
+                    tier="value-engineered"
+                    alignment={alignment}
+                    currentItem={status.currentItem}
+                    batchResult={isResult ? bRes : null}
+                    brand={status.brand}
+                    foundModel={status.model}
+                    foundImage={status.image}
+                    progress={progress.total > 0 ? Math.round((progress.current / progress.total) * 100) : 0}
+                    status={status.status}
+                    swarm={swarm}
+                    isMinimized={status.minimized}
+                    onToggleMinimize={() => setAiStatus(prev => ({ ...prev, minimized: !prev.minimized }))}
+                    minimizedOffset={minimizedOffset}
+                    title={(activeRunMode || brandMode) === 'auto_detect' ? "Value Engineer - Auto Detect AI Active" : "Value Engineer - Category Based AI Active"}
+                />
+            );
+        });
+    })();
+
+    if (!isOpen) return aiWidgets;
 
     return (
         <>
@@ -3066,52 +3215,7 @@ export default function ValueEngineeredModal({
                 data={specialistData}
             />
 
-            {(() => {
-                const getActiveModals = () => {
-                    if (aiStatus.active) {
-                        const itemType = aiStatus.currentItem?.scope?.toLowerCase().includes('fitout') ? 'fitout' : 'furniture';
-                        return [{ type: itemType, status: aiStatus, progress: progress, isResult: false }];
-                    }
-                    if (batchResult) {
-                        return [{ type: 'furniture', status: {}, batchResult: batchResult, progress: progress, isResult: true }];
-                    }
-                    return [];
-                };
-
-                const activeModals = getActiveModals();
-
-                return activeModals.map((modalData, idx) => {
-                    const { type, status, progress, isResult, batchResult: bRes } = modalData;
-                    const alignment = 'center';
-                    const minimizedOffset = 24;
-
-                    return (
-                        <AIPresentationModal
-                            key={`ve-modal-${isResult ? 'result' : 'discovery'}`}
-                            type={type}
-                            isOpen={true}
-                            onClose={() => {
-                                if (isResult) setBatchResult(null);
-                                else setAiStatus(prev => ({ ...prev, active: false }));
-                            }}
-                            tier="value-engineered"
-                            alignment={alignment}
-                            currentItem={status.currentItem}
-                            batchResult={isResult ? bRes : null}
-                            brand={status.brand}
-                            foundModel={status.model}
-                            foundImage={status.image}
-                            progress={progress.total > 0 ? Math.round((progress.current / progress.total) * 100) : 0}
-                            status={status.status}
-                            swarm={swarm}
-                            isMinimized={status.minimized}
-                            onToggleMinimize={() => setAiStatus(prev => ({ ...prev, minimized: !prev.minimized }))}
-                            minimizedOffset={minimizedOffset}
-                            title={(activeRunMode || brandMode) === 'auto_detect' ? "Value Engineer - Auto Detect AI Active" : "Value Engineer - Category Based AI Active"}
-                        />
-                    );
-                });
-            })()}
+            {aiWidgets}
 
             {galleryModal.isOpen && (
                 <ImageGalleryModal
@@ -3153,4 +3257,4 @@ export default function ValueEngineeredModal({
             )}
         </>
     );
-}
+}

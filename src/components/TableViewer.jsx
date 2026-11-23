@@ -6,17 +6,6 @@ import CostingModal from './CostingModal';
 import MultiBudgetModal from './MultiBudgetModal';
 import { Pipeline, PipelineStep, QuickMatchStatus, DesignBuildSuite, ExportSource } from './OfferPipeline';
 import { designBuild, productsFromTables } from '../features/designBuild/designBuildStore';
-import {
-    MATCH_CONCURRENCY,
-    collectLines,
-    matchLine,
-    enrichFromCatalog,
-    runQuickMatch,
-    matchStats,
-    matchedOfferTables,
-    neutralFactors,
-    offerCurrency
-} from '../features/matching/quickMatch';
 
 /** An offer applied here also furnishes the Design & Build model (and feeds its export suite). */
 const shareOfferWithDesignBuild = (offerTables) => {
@@ -27,7 +16,9 @@ const shareOfferWithDesignBuild = (offerTables) => {
 /** The offer in the costed results, by the pipeline step it came from. */
 const OFFER_NAMES = { 'quick-match': 'Matched offer', 'value-engineering': 'Value engineered offer', 'multi-budget': 'Multi-budget offer' };
 const STEP_NAMES = { 'value-engineering': 'Value engineering', 'multi-budget': 'Multi-budget' };
-const QUICK_IDLE = { forData: null, status: 'idle', done: 0, total: 0, found: 0, exact: 0, current: '', preview: [], error: '', stopped: false };
+const QUICK_IDLE = { forData: null, status: 'idle', current: 0, total: 0, found: 0, stage: '', item: '', brand: '', model: '', image: '' };
+/** One-click matching's offer goes by its own name in the costed results and the documents. */
+const asMatchedOffer = (tables) => (tables || []).map((t) => ({ ...t, sheetName: 'Matched Offer' }));
 
 /** "Profit 10% · Freight 5% · … · USD → OMR" */
 function factorsText(f) {
@@ -132,9 +123,11 @@ function TableViewer({
     // Offer applied from Value Engineer / Multi-Budget: already priced & costed, shown in the
     // costed section only. The original extracted tables are never replaced by it.
     const [appliedOffer, setAppliedOffer] = useState(null);
-    // One-click matching: the run in progress (or its outcome) for the data it was started on,
-    // its abort controller, and the lines and answers behind the matched offer (for re-costing).
+    // One-click matching runs the Value Engineer's 1-Click Auto Detect without opening it: the
+    // run's progress (or outcome) for the data it was started on, the run that still belongs to
+    // this data, and how to cost the matched offer again.
     const [quickMatch, setQuickMatch] = useState(QUICK_IDLE);
+    const veRef = useRef(null);
     const quickRunRef = useRef(null);
     const quickOfferRef = useRef(null);
     // The exports use the offer in the costed results, or the BOQ as extracted.
@@ -187,7 +180,7 @@ function TableViewer({
             setAppliedOffer(data.appliedOffer ? JSON.parse(JSON.stringify(data.appliedOffer)) : null);
             setRemovedColumns([]);
             // A matching run belongs to the data it started on.
-            quickRunRef.current?.abort('new-data');
+            quickRunRef.current = null;
             quickOfferRef.current = null;
 
             // Allow pre-initialized costing factors from parent (e.g. from MultiBudgetModal)
@@ -450,14 +443,7 @@ function TableViewer({
         }
     }, [costedTables]);
 
-    // A matching run stops when the table viewer goes away.
-    useEffect(() => {
-        const runs = quickRunRef;
-        return () => runs.current?.abort('unmount');
-    }, []);
-
-    // ── One-click matching: every line gets a catalogue product, the result is the matched offer ──
-    const matchableLines = useMemo(() => collectLines(tables), [tables]);
+    // ── One-click matching: the Value Engineer's 1-Click Auto Detect, run from here ──
     const qm = quickMatch.forData === data ? quickMatch : QUICK_IDLE;
     const quickOfferActive = appliedOffer?.origin === 'quick-match';
     const offerName = costedTables ? (OFFER_NAMES[appliedOffer?.origin] || (appliedOffer ? 'Costed offer' : 'Costed BOQ')) : '';
@@ -469,60 +455,46 @@ function TableViewer({
     const scrollToOffer = () => document.getElementById('costed-results')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
     const startQuickMatch = async () => {
-        if (quickRunRef.current) return;
+        const ve = veRef.current;
+        if (!ve || quickRunRef.current) return;
         const forData = data;
-        const sourceTables = tables;
-        const lines = collectLines(sourceTables);
-        if (!lines.length) {
-            setQuickMatch({ ...QUICK_IDLE, forData, status: 'empty' });
-            return;
-        }
-        const controller = new AbortController();
-        quickRunRef.current = controller;
-        setQuickMatch({ ...QUICK_IDLE, forData, status: 'running', total: lines.length, current: lines[0].description });
-        const providerModel = profile.aiSettings?.model || null;
-        const results = await runQuickMatch(lines, {
-            concurrency: MATCH_CONCURRENCY,
-            signal: controller.signal,
-            match: async (line) => {
-                const r = await matchLine(line, { apiBase: API_BASE, providerModel, signal: controller.signal });
-                return r.ok ? { ...r, product: enrichFromCatalog(r.product, allBrands) } : r;
+        const token = Date.now();
+        quickRunRef.current = token;
+        setQuickMatch({ ...QUICK_IDLE, forData, status: 'running' });
+        const mine = () => quickRunRef.current === token;
+        const started = await ve.runAutoDetect({
+            // Catalogue prices as they are, unless costing factors are already set for this BOQ.
+            factors: costingFactors,
+            onProgress: (p) => {
+                if (!mine()) return;
+                setQuickMatch((q) => (q.forData !== forData ? q : { ...q, ...p, status: 'running' }));
             },
-            onProgress: ({ done, found, exact, line, result }) => {
-                if (controller.signal.aborted) return;
-                const picture = result?.ok ? result.product?.imageUrl : '';
-                setQuickMatch((q) => (q.forData !== forData ? q : {
-                    ...q,
-                    done,
-                    found,
-                    exact,
-                    current: line.description,
-                    preview: picture && !q.preview.includes(picture) ? [...q.preview, picture].slice(-5) : q.preview
-                }));
+            onDone: (result) => {
+                if (!mine()) return;
+                quickRunRef.current = null;
+                if (result.status === 'empty') {
+                    setQuickMatch((q) => ({ ...q, status: 'empty' }));
+                    return;
+                }
+                const { success = 0, error = 0, total = 0 } = result.stats || {};
+                if (!success) {
+                    setQuickMatch((q) => ({ ...q, status: 'none', found: 0, total }));
+                    return;
+                }
+                const offerTables = asMatchedOffer(result.tables);
+                quickOfferRef.current = { costWith: result.costWith };
+                setAppliedOffer({ tables: offerTables, costingFactors: result.costingFactors, origin: 'quick-match' });
+                setCostingFactors(result.costingFactors);
+                setExportSource('offer');
+                shareOfferWithDesignBuild(offerTables);
+                setQuickMatch((q) => ({ ...q, status: 'done', found: success, failed: error, total }));
             }
         });
-        quickRunRef.current = null;
-        const reason = controller.signal.aborted ? controller.signal.reason : null;
-        if (reason === 'new-data' || reason === 'unmount') return;
-        const stats = matchStats(results);
-        const stopped = reason === 'stop';
-        if (!stats.found) {
-            const status = stats.failed > 0 && stats.missing === 0 ? 'error' : 'none';
-            setQuickMatch((q) => ({ ...q, ...stats, status, error: status === 'error' ? stats.firstError : '', stopped }));
-            return;
+        if (!started && mine()) {
+            quickRunRef.current = null;
+            setQuickMatch((q) => ({ ...q, status: 'busy' }));
         }
-        // Catalogue prices as they are, unless costing factors are already set for this BOQ.
-        const factors = costingFactors || neutralFactors(offerCurrency(results));
-        const offerTables = matchedOfferTables(sourceTables, lines, results, factors);
-        quickOfferRef.current = { lines, results, sourceTables };
-        setAppliedOffer({ tables: offerTables, costingFactors: factors, origin: 'quick-match' });
-        setCostingFactors(factors);
-        setExportSource('offer');
-        shareOfferWithDesignBuild(offerTables);
-        setQuickMatch((q) => ({ ...q, ...stats, status: 'done', total: lines.length, stopped }));
     };
-
-    const stopQuickMatch = () => quickRunRef.current?.abort('stop');
 
     /** The costing modal costs the matched offer (from its catalogue prices) or the extracted BOQ. */
     const openCosting = (target) => {
@@ -4971,24 +4943,24 @@ function TableViewer({
                     title="One-click matching"
                     done={quickOfferActive}
                     badge={quickOfferActive ? 'In the costed results' : ''}
-                    sub="Every line gets a catalogue product with its photo, brand, model and price. A line that names its brand and model keeps them."
+                    sub="The Value Engineer's 1-Click Auto Detect, without opening it: every line gets the brand and model it names, or the best catalogue match, with photo and price."
                     actions={qm.status === 'running' ? null : (
                         <button
                             type="button"
                             className={pipeStyles.primary}
                             onClick={startQuickMatch}
-                            disabled={!matchableLines.length}
-                            title={matchableLines.length ? 'Match every line of the extracted BOQ to a catalogue product' : 'No line with a description and a quantity'}
+                            title="Run the Value Engineer's 1-Click Auto Detect on every line of the BOQ"
                         >
-                            {quickOfferActive
-                                ? 'Match again'
-                                : matchableLines.length
-                                    ? `Match all ${matchableLines.length} line${matchableLines.length === 1 ? '' : 's'}`
-                                    : 'No lines to match'}
+                            {quickOfferActive ? 'Match again' : 'Match all lines'}
                         </button>
                     )}
                 >
-                    <QuickMatchStatus run={qm} offerActive={quickOfferActive} onStop={stopQuickMatch} onView={scrollToOffer} />
+                    <QuickMatchStatus
+                        run={qm}
+                        offerActive={quickOfferActive}
+                        onView={scrollToOffer}
+                        onReview={() => setValueEngineeredOpen(true)}
+                    />
                 </PipelineStep>
                 <PipelineStep
                     n={2}
@@ -4996,7 +4968,7 @@ function TableViewer({
                     title="Value engineering"
                     done={appliedOffer?.origin === 'value-engineering'}
                     badge={appliedOffer?.origin === 'value-engineering' ? 'In the costed results' : ''}
-                    sub="Exact matches and cheaper equivalents line by line, across brands."
+                    sub="Review and refine line by line in the Value Engineer: brands, strategy and cheaper equivalents. It opens on the lines matched in step 1."
                     actions={(
                         <button type="button" className={pipeStyles.primary} onClick={() => setValueEngineeredOpen(true)}>
                             AI Value Engineer
@@ -5152,6 +5124,7 @@ function TableViewer({
             />
 
             <ValueEngineeredModal
+                ref={veRef}
                 isOpen={isValueEngineeredOpen}
                 onClose={() => setValueEngineeredOpen(false)}
                 allBrands={allBrands}
@@ -5182,9 +5155,9 @@ function TableViewer({
                 initialFactors={costingFactors}
                 onApply={(factors) => {
                     const matched = quickOfferRef.current;
-                    if (costingTarget === 'offer' && appliedOffer?.origin === 'quick-match' && matched) {
-                        // The matched offer is costed again from its catalogue prices.
-                        const offerTables = matchedOfferTables(matched.sourceTables, matched.lines, matched.results, factors);
+                    if (costingTarget === 'offer' && appliedOffer?.origin === 'quick-match' && matched?.costWith) {
+                        // The matched offer is costed again from its catalogue prices, as the Value Engineer costs it.
+                        const offerTables = asMatchedOffer(matched.costWith(factors).tables);
                         setAppliedOffer({ tables: offerTables, costingFactors: factors, origin: 'quick-match' });
                         shareOfferWithDesignBuild(offerTables);
                     } else {

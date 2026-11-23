@@ -351,18 +351,31 @@
     text-overflow: ellipsis;
 }
 
-.thumbs {
-    display: flex;
-    gap: 6px;
+/* The last product found, as the Value Engineer's own card shows it */
+.found {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--text-primary, #0f172a);
 }
 
-.thumbs img {
+.found img {
+    flex: none;
     width: 34px;
     height: 34px;
     border-radius: 7px;
-    object-fit: cover;
+    object-fit: contain;
     background: #fff;
     border: 1px solid var(--border-color, rgba(148, 163, 184, 0.3));
+}
+
+.found span {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
 }
 
 .result {

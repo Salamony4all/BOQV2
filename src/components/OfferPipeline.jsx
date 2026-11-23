@@ -1,6 +1,7 @@
 import React from 'react';
 import DesignBuildButton from './DesignBuildButton';
 import { designBuild, useDesignBuild } from '../features/designBuild/designBuildStore';
+import { getFullUrl } from '../utils/urlUtils';
 import styles from '../styles/OfferPipeline.module.css';
 
 // The table actions as one pipeline, top to bottom: match the lines, value-engineer,
@@ -60,15 +61,16 @@ export function PipelineStep({ n, title, sub, tone = 'match', done = false, badg
 }
 
 const plural = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
-const NETWORK_ERROR = /failed to fetch|networkerror|load failed|network request failed/i;
 
 /**
- * What one-click matching is doing: the progress of a run, then what it found.
- * `run.status`: idle | running | done | none | error | empty.
+ * What one-click matching (the Value Engineer's 1-Click Auto Detect, run from the pipeline) is
+ * doing: the run's progress, then what it found. `run.status`: idle | running | done | none |
+ * busy | empty.
  */
-export function QuickMatchStatus({ run, offerActive, onStop, onView }) {
+export function QuickMatchStatus({ run, offerActive, onView, onReview }) {
     if (run.status === 'running') {
-        const pct = run.total ? Math.round((run.done / run.total) * 100) : 0;
+        const scanning = !run.total || run.stage === 'routing';
+        const pct = run.total ? Math.round((run.current / run.total) * 100) : 0;
         return (
             <div className={styles.progress} role="status" aria-live="polite">
                 <div className={styles.bar} aria-hidden>
@@ -76,49 +78,54 @@ export function QuickMatchStatus({ run, offerActive, onStop, onView }) {
                 </div>
                 <div className={styles.progressRow}>
                     <span className={styles.progressText}>
-                        Matching {run.done} of {plural(run.total, 'line')} · {run.found} found
+                        {scanning
+                            ? 'Scanning the specs and catalogues…'
+                            : `Matching ${run.current} of ${plural(run.total, 'line')} · ${run.found} found`}
                     </span>
-                    <button type="button" className={styles.linkBtn} onClick={onStop}>Stop</button>
+                    <button type="button" className={styles.linkBtn} onClick={onReview}>Watch in the Value Engineer</button>
                 </div>
-                {run.current && <span className={styles.current} title={run.current}>{run.current}</span>}
-                {run.preview?.length > 0 && (
-                    <span className={styles.thumbs} aria-hidden>
-                        {run.preview.map((src) => <img key={src} src={src} alt="" loading="lazy" />)}
+                {run.item && <span className={styles.current} title={run.item}>{run.item}</span>}
+                {run.model && (
+                    <span className={styles.found}>
+                        {run.image && <img src={getFullUrl(run.image)} alt="" loading="lazy" />}
+                        <span>Found: {run.model}{run.brand ? ` · ${run.brand}` : ''}</span>
                     </span>
                 )}
             </div>
         );
     }
     if (run.status === 'done' && offerActive) {
-        const left = run.total - run.found;
+        const left = Math.max(0, run.total - run.found);
         return (
             <p className={styles.result} role="status">
-                <span className={styles.resultMain}>
-                    {run.stopped ? 'Stopped: ' : ''}
-                    {run.found} of {plural(run.total, 'line')} matched{run.exact ? ` · ${run.exact} as specified` : ''}
-                </span>
+                <span className={styles.resultMain}>{run.found} of {plural(run.total, 'line')} matched</span>
                 <span className={styles.resultNote}>
-                    {left > 0 ? `${plural(left, 'line')} kept as in the BOQ. ` : ''}
+                    {left > 0 ? `${plural(left, 'line')} to review. ` : ''}
                     The matched offer is in the costed results.
                 </span>
                 <button type="button" className={styles.linkBtn} onClick={onView}>View the offer</button>
+                <button type="button" className={styles.linkBtn} onClick={onReview}>Review in the Value Engineer</button>
             </p>
         );
     }
-    if (run.status === 'none' || run.status === 'error') {
+    if (run.status === 'none') {
         return (
             <p className={`${styles.result} ${styles.resultError}`} role="alert">
-                <span className={styles.resultMain}>{run.status === 'error' ? 'The matcher could not be reached.' : 'No catalogue product was found for these lines.'}</span>
-                {run.error && (
-                    <span className={styles.resultNote}>
-                        {NETWORK_ERROR.test(run.error) ? 'Check the connection to the BOQ Flow server, then match again.' : run.error}
-                    </span>
-                )}
+                <span className={styles.resultMain}>No catalogue product was found for these lines.</span>
+                <button type="button" className={styles.linkBtn} onClick={onReview}>Review in the Value Engineer</button>
+            </p>
+        );
+    }
+    if (run.status === 'busy') {
+        return (
+            <p className={`${styles.result} ${styles.resultError}`} role="alert">
+                <span className={styles.resultMain}>The Value Engineer is already matching.</span>
+                <button type="button" className={styles.linkBtn} onClick={onReview}>Watch it there</button>
             </p>
         );
     }
     if (run.status === 'empty') {
-        return <p className={styles.resultNote}>No line with a description and a quantity to match.</p>;
+        return <p className={styles.resultNote}>No lines to match in this BOQ.</p>;
     }
     return null;
 }
