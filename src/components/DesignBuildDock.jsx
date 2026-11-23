@@ -170,6 +170,9 @@ function shortText(t, max) {
     return `${(cut.length > max * 0.5 ? cut : s.slice(0, max)).replace(/[\s,;:–—-]+$/, '')}…`;
 }
 
+/** The export suite panel lives in the store, so BOQ Flow's exports can open it too. */
+const setExportOpen = (open) => designBuild.set({ exportPanel: !!open });
+
 const productName = (p) => [p.brand, p.model].filter(Boolean).join(' ') || shortText(p.description, 36);
 
 /** Furniture lines of the offer that found no place on the drawing (other lines are not furniture). */
@@ -234,7 +237,7 @@ function DockSession({ s }) {
     const [confirmClose, setConfirmClose] = useState(false);
     const [timedOut, setTimedOut] = useState(false);
     const [reviewId, setReviewId] = useState(null);
-    const [exportOpen, setExportOpen] = useState(false);
+    const exportOpen = s.exportPanel;
     // The product shown in the model from the legend (Design & Build frames its pieces),
     // for the furnishing it was picked in: a new furnishing has none in focus.
     const [focus, setFocus] = useState({ id: null, of: null });

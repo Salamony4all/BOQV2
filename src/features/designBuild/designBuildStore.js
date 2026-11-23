@@ -34,6 +34,7 @@ const initial = {
     renders: [],        // finished renders from Design & Build, newest last
     approvedRenderId: null,
     exportedAt: null,
+    exportPanel: false, // the export suite panel is open in the modal
     lastPlan: null,     // the last plan PDF uploaded (kept when a session closes), for one-click starts
     customItems: [],    // { typeId, name, kind, count, picture } set on drawn furniture without a product
 };
@@ -74,6 +75,7 @@ export const designBuild = {
             renders: [],
             approvedRenderId: null,
             exportedAt: null,
+            exportPanel: false,
             // Custom items belong to the drawing they were set on (kept when the same plan reopens).
             customItems: state.plan?.file === file || state.lastPlan === file ? state.customItems : [],
         };
@@ -134,6 +136,11 @@ export const designBuild = {
     /** The render the client validated: the export suite is built around it. */
     approveRender(id) {
         designBuild.set({ approvedRenderId: state.renders.some((r) => r.id === id) ? id : null });
+    },
+    /** Show the export suite of the open session (from BOQ Flow's exports); it needs an approved render. */
+    openExportSuite() {
+        if (!state.open || !state.renders.some((r) => r.id === state.approvedRenderId)) return;
+        designBuild.set({ minimized: false, exportPanel: true });
     },
 };
 

@@ -1,16 +1,43 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import styles from '../styles/TableViewer.module.css';
 import actionStyles from '../styles/ActionBar.module.css';
+import pipeStyles from '../styles/OfferPipeline.module.css';
 import CostingModal from './CostingModal';
 import MultiBudgetModal from './MultiBudgetModal';
-import DesignBuildButton from './DesignBuildButton';
+import { Pipeline, PipelineStep, QuickMatchStatus, DesignBuildSuite, ExportSource } from './OfferPipeline';
 import { designBuild, productsFromTables } from '../features/designBuild/designBuildStore';
+import {
+    MATCH_CONCURRENCY,
+    collectLines,
+    matchLine,
+    enrichFromCatalog,
+    runQuickMatch,
+    matchStats,
+    matchedOfferTables,
+    neutralFactors,
+    offerCurrency
+} from '../features/matching/quickMatch';
 
 /** An offer applied here also furnishes the Design & Build model (and feeds its export suite). */
 const shareOfferWithDesignBuild = (offerTables) => {
     const tables = Array.isArray(offerTables) ? offerTables : [];
     designBuild.setProducts(productsFromTables(tables), { tables, title: tables[0]?.sheetName || 'Applied offer' });
 };
+
+/** The offer in the costed results, by the pipeline step it came from. */
+const OFFER_NAMES = { 'quick-match': 'Matched offer', 'value-engineering': 'Value engineered offer', 'multi-budget': 'Multi-budget offer' };
+const STEP_NAMES = { 'value-engineering': 'Value engineering', 'multi-budget': 'Multi-budget' };
+const QUICK_IDLE = { forData: null, status: 'idle', done: 0, total: 0, found: 0, exact: 0, current: '', preview: [], error: '', stopped: false };
+
+/** "Profit 10% · Freight 5% · … · USD → OMR" */
+function factorsText(f) {
+    if (!f) return '';
+    const margins = [['Profit', f.profit], ['Freight', f.freight], ['Customs', f.customs], ['Install', f.installation]]
+        .filter(([, v]) => Number(v) > 0)
+        .map(([k, v]) => `${k} ${v}%`);
+    const currency = f.fromCurrency && f.toCurrency && f.fromCurrency !== f.toCurrency ? `${f.fromCurrency} → ${f.toCurrency}` : (f.toCurrency || '');
+    return [...(margins.length ? margins : ['No margins']), Number(f.vat) > 0 ? `VAT ${f.vat}%` : '', currency].filter(Boolean).join(' · ');
+}
 
 // ── Shared money helpers: one source of truth for row amounts, subtotals and VAT ──
 const parseMoney = (v) => {
@@ -105,6 +132,15 @@ function TableViewer({
     // Offer applied from Value Engineer / Multi-Budget: already priced & costed, shown in the
     // costed section only. The original extracted tables are never replaced by it.
     const [appliedOffer, setAppliedOffer] = useState(null);
+    // One-click matching: the run in progress (or its outcome) for the data it was started on,
+    // its abort controller, and the lines and answers behind the matched offer (for re-costing).
+    const [quickMatch, setQuickMatch] = useState(QUICK_IDLE);
+    const quickRunRef = useRef(null);
+    const quickOfferRef = useRef(null);
+    // The exports use the offer in the costed results, or the BOQ as extracted.
+    const [exportSource, setExportSource] = useState('offer');
+    // What the costing modal costs: the matched offer (from its catalogue prices) or the extracted BOQ.
+    const [costingTarget, setCostingTarget] = useState('original');
     // Removed columns, most recent last, so a removal can be undone
     const [removedColumns, setRemovedColumns] = useState([]);
     const [generatingType, setGeneratingType] = useState(null);
@@ -150,6 +186,9 @@ function TableViewer({
             // Already-costed VE / Multi-Budget offer handed over by the parent (never re-costed)
             setAppliedOffer(data.appliedOffer ? JSON.parse(JSON.stringify(data.appliedOffer)) : null);
             setRemovedColumns([]);
+            // A matching run belongs to the data it started on.
+            quickRunRef.current?.abort('new-data');
+            quickOfferRef.current = null;
 
             // Allow pre-initialized costing factors from parent (e.g. from MultiBudgetModal)
             if (data.costingFactors) {
@@ -410,6 +449,86 @@ function TableViewer({
             return () => clearTimeout(timer);
         }
     }, [costedTables]);
+
+    // A matching run stops when the table viewer goes away.
+    useEffect(() => {
+        const runs = quickRunRef;
+        return () => runs.current?.abort('unmount');
+    }, []);
+
+    // ── One-click matching: every line gets a catalogue product, the result is the matched offer ──
+    const matchableLines = useMemo(() => collectLines(tables), [tables]);
+    const qm = quickMatch.forData === data ? quickMatch : QUICK_IDLE;
+    const quickOfferActive = appliedOffer?.origin === 'quick-match';
+    const offerName = costedTables ? (OFFER_NAMES[appliedOffer?.origin] || (appliedOffer ? 'Costed offer' : 'Costed BOQ')) : '';
+    const exportOffer = !!costedTables && exportSource !== 'original';
+    const exportSrc = exportOffer
+        ? { tables: costedTables, summary: costedTables, file: 'Costed_Offer', key: 'costed', costed: true }
+        : { tables, summary: tablesWithSummary, file: 'Original_Offer', key: 'original', costed: false };
+
+    const scrollToOffer = () => document.getElementById('costed-results')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+    const startQuickMatch = async () => {
+        if (quickRunRef.current) return;
+        const forData = data;
+        const sourceTables = tables;
+        const lines = collectLines(sourceTables);
+        if (!lines.length) {
+            setQuickMatch({ ...QUICK_IDLE, forData, status: 'empty' });
+            return;
+        }
+        const controller = new AbortController();
+        quickRunRef.current = controller;
+        setQuickMatch({ ...QUICK_IDLE, forData, status: 'running', total: lines.length, current: lines[0].description });
+        const providerModel = profile.aiSettings?.model || null;
+        const results = await runQuickMatch(lines, {
+            concurrency: MATCH_CONCURRENCY,
+            signal: controller.signal,
+            match: async (line) => {
+                const r = await matchLine(line, { apiBase: API_BASE, providerModel, signal: controller.signal });
+                return r.ok ? { ...r, product: enrichFromCatalog(r.product, allBrands) } : r;
+            },
+            onProgress: ({ done, found, exact, line, result }) => {
+                if (controller.signal.aborted) return;
+                const picture = result?.ok ? result.product?.imageUrl : '';
+                setQuickMatch((q) => (q.forData !== forData ? q : {
+                    ...q,
+                    done,
+                    found,
+                    exact,
+                    current: line.description,
+                    preview: picture && !q.preview.includes(picture) ? [...q.preview, picture].slice(-5) : q.preview
+                }));
+            }
+        });
+        quickRunRef.current = null;
+        const reason = controller.signal.aborted ? controller.signal.reason : null;
+        if (reason === 'new-data' || reason === 'unmount') return;
+        const stats = matchStats(results);
+        const stopped = reason === 'stop';
+        if (!stats.found) {
+            const status = stats.failed > 0 && stats.missing === 0 ? 'error' : 'none';
+            setQuickMatch((q) => ({ ...q, ...stats, status, error: status === 'error' ? stats.firstError : '', stopped }));
+            return;
+        }
+        // Catalogue prices as they are, unless costing factors are already set for this BOQ.
+        const factors = costingFactors || neutralFactors(offerCurrency(results));
+        const offerTables = matchedOfferTables(sourceTables, lines, results, factors);
+        quickOfferRef.current = { lines, results, sourceTables };
+        setAppliedOffer({ tables: offerTables, costingFactors: factors, origin: 'quick-match' });
+        setCostingFactors(factors);
+        setExportSource('offer');
+        shareOfferWithDesignBuild(offerTables);
+        setQuickMatch((q) => ({ ...q, ...stats, status: 'done', total: lines.length, stopped }));
+    };
+
+    const stopQuickMatch = () => quickRunRef.current?.abort('stop');
+
+    /** The costing modal costs the matched offer (from its catalogue prices) or the extracted BOQ. */
+    const openCosting = (target) => {
+        setCostingTarget(target);
+        setCostingOpen(true);
+    };
 
     // Handlers
     const handleCellChange = (tableIndex, rowIndex, cellIndex, newValue) => {
@@ -4807,159 +4926,204 @@ function TableViewer({
             {/* Project Settings Panel */}
             <ProjectSettingsPanel isOpen={isProjectPanelOpen} onClose={() => setProjectPanelOpen(false)} />
 
-            {/* Set of Actions for Original Tables */}
-            <div className={actionStyles.actionBar}>
-                <div className={actionStyles.actionBarTop}>
-                    <div className={actionStyles.actionTitle}>Original Data Actions</div>
-                    <button
-                        className={actionStyles.projectSettingsBtn}
-                        onClick={() => setProjectPanelOpen(true)}
-                        title="Project Settings — fills info on all generated documents"
-                    >
-                         Project Settings
-                        {(project.projectName || project.clientName) && (
-                            <span className={actionStyles.projectBadge}>
-                                {project.projectName || project.clientName}
-                            </span>
-                        )}
-                    </button>
-                </div>
-                <div className={actionStyles.buttonGroup}>
-                    <DesignBuildButton getTables={() => tables} title="Original offer" />
-                    <button className={actionStyles.actionBtn} onClick={() => handleDownloadPDF(tablesWithSummary, 'Original_Offer')}> Download Offer PDF</button>
-                    <button className={actionStyles.actionBtn} onClick={() => handleDownloadExcel(tablesWithSummary, 'Original_Offer')}> Download Offer Excel</button>
-                    <button
-                        className={`${actionStyles.actionBtn} ${generatingType === 'pptx_original' ? actionStyles.loading : ''}`}
-                        onClick={() => triggerPptxExport(tables, false, false)}
-                        disabled={!!generatingType}
-                    >
-                        {generatingType === 'pptx_original' ? ' Generating...' : ' Generate Presentation'}
-                    </button>
-                    <button
-                        className={`${actionStyles.actionBtn} ${generatingType === 'pdf_original' ? actionStyles.loading : ''}`}
-                        onClick={() => triggerPptxExport(tables, true, false)}
-                        disabled={!!generatingType}
-                    >
-                        {generatingType === 'pdf_original' ? ' Generating...' : ' Presentation PDF'}
-                    </button>
-
-                    <button className={actionStyles.actionBtn} onClick={() => handleGenerateMas(tables)}> Generate MAS</button>
-                    <button className={`${actionStyles.actionBtn} ${actionStyles.actionBtnMir}`} onClick={() => handleGenerateMIR(tables)}> Generate MIR</button>
-                    <button className={`${actionStyles.actionBtn} ${actionStyles.actionBtnWir}`} onClick={() => handleGenerateWIR(tables)}> Generate WIR</button>
-                    <button className={`${actionStyles.actionBtn} ${actionStyles.actionBtnDn}`} onClick={() => handleGenerateDeliveryNote(tables)}> Delivery Note</button>
-                    <button
-                        className={`${actionStyles.actionBtn} ${actionStyles.actionBtnRfq} ${generatingType === 'rfq_original' ? actionStyles.loading : ''}`}
-                        onClick={() => handleGenerateRfqByBrand(tables, 'original')}
-                        disabled={!!generatingType}
-                        title="Split BOQ by Brand into ready-to-send Supplier RFQ Excel sheets (ZIP pack with Master Tracker)"
-                    >
-                        {generatingType === 'rfq_original' ? ' Grouping RFQs...' : ' RFQ by Brand'}
-                    </button>
-                    <button className={`${actionStyles.actionBtn} ${actionStyles.actionBtnDn}`} style={{ background: '#10b981', color: '#ffffff', borderColor: '#059669', fontWeight: '500' }} onClick={() => setTenderAutofillOpen(true)}> Autofill on Tender Board</button>
-                </div>
-            </div>
-
-            {/* Costing Trigger Button (Centrally Placed) */}
-            {/* Action Triggers */}
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginTop: '2rem', marginBottom: '2rem' }}>
-                <div style={{ display: 'flex', gap: '2rem', justifyContent: 'center', flexWrap: 'wrap' }}>
-                    <button className={actionStyles.btnCostingTrigger} onClick={() => setCostingOpen(true)}>
-                         Apply Costing Factors
-                    </button>
-                    <button className={actionStyles.btnMultiBudget} onClick={() => setMultiBudgetOpen(true)}>
-                         Multi Budget Offer
-                    </button>
-                    <button
-                        className={actionStyles.btnAiValueEngineer}
-                        onClick={() => setValueEngineeredOpen(true)}
-                    >
-                         AI Value Engineer
-                    </button>
-                    <label className={actionStyles.btnMultiBudget} style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', background: '#0f766e', borderColor: '#0d9488' }}>
-                        <input
-                            type="file"
-                            accept=".xlsx,.xls,.xlsb,.pdf,.png,.jpg,.jpeg"
-                            style={{ display: 'none' }}
-                            multiple
-                            onChange={(e) => {
-                                const files = Array.from(e.target.files || []).filter(Boolean);
-                                if (files.length > 0 && onUploadBoq) {
-                                    onUploadBoq(files);
-                                }
-                                e.target.value = '';
-                            }}
-                        />
-                         Append / Batch BOQs
-                    </label>
-                </div>
-                {costingFactors && (
-                    <div style={{ marginTop: '1rem', fontSize: '0.9rem', color: UI_COLORS.muted }}>
-                        Active: Profit {costingFactors.profit}%, Freight {costingFactors.freight}%, Customs {costingFactors.customs}%, Install {costingFactors.installation}%
-                    </div>
+            {/* The pipeline, top to bottom: match the lines, value-engineer, compare budgets
+                (each puts its offer in the costed results), then the exports. */}
+            <Pipeline
+                title="Offer pipeline"
+                sub="From the extracted BOQ to a priced offer and its documents"
+                open={!costedTables}
+                tools={(
+                    <>
+                        <button
+                            className={actionStyles.projectSettingsBtn}
+                            onClick={() => setProjectPanelOpen(true)}
+                            title="Project Settings — fills info on all generated documents"
+                        >
+                            Project Settings
+                            {(project.projectName || project.clientName) && (
+                                <span className={actionStyles.projectBadge}>
+                                    {project.projectName || project.clientName}
+                                </span>
+                            )}
+                        </button>
+                        <label className={pipeStyles.toolBtn} title="Add more BOQs (Excel, PDF or pictures) to this extraction">
+                            <input
+                                type="file"
+                                accept=".xlsx,.xls,.xlsb,.pdf,.png,.jpg,.jpeg"
+                                hidden
+                                multiple
+                                onChange={(e) => {
+                                    const files = Array.from(e.target.files || []).filter(Boolean);
+                                    if (files.length > 0 && onUploadBoq) {
+                                        onUploadBoq(files);
+                                    }
+                                    e.target.value = '';
+                                }}
+                            />
+                            + Append / Batch BOQs
+                        </label>
+                    </>
                 )}
-            </div>
+            >
+                <PipelineStep
+                    n={1}
+                    tone="match"
+                    title="One-click matching"
+                    done={quickOfferActive}
+                    badge={quickOfferActive ? 'In the costed results' : ''}
+                    sub="Every line gets a catalogue product with its photo, brand, model and price. A line that names its brand and model keeps them."
+                    actions={qm.status === 'running' ? null : (
+                        <button
+                            type="button"
+                            className={pipeStyles.primary}
+                            onClick={startQuickMatch}
+                            disabled={!matchableLines.length}
+                            title={matchableLines.length ? 'Match every line of the extracted BOQ to a catalogue product' : 'No line with a description and a quantity'}
+                        >
+                            {quickOfferActive
+                                ? 'Match again'
+                                : matchableLines.length
+                                    ? `Match all ${matchableLines.length} line${matchableLines.length === 1 ? '' : 's'}`
+                                    : 'No lines to match'}
+                        </button>
+                    )}
+                >
+                    <QuickMatchStatus run={qm} offerActive={quickOfferActive} onStop={stopQuickMatch} onView={scrollToOffer} />
+                </PipelineStep>
+                <PipelineStep
+                    n={2}
+                    tone="value"
+                    title="Value engineering"
+                    done={appliedOffer?.origin === 'value-engineering'}
+                    badge={appliedOffer?.origin === 'value-engineering' ? 'In the costed results' : ''}
+                    sub="Exact matches and cheaper equivalents line by line, across brands."
+                    actions={(
+                        <button type="button" className={pipeStyles.primary} onClick={() => setValueEngineeredOpen(true)}>
+                            AI Value Engineer
+                        </button>
+                    )}
+                />
+                <PipelineStep
+                    n={3}
+                    tone="budget"
+                    title="Multi-budget"
+                    done={appliedOffer?.origin === 'multi-budget'}
+                    badge={appliedOffer?.origin === 'multi-budget' ? 'In the costed results' : ''}
+                    sub="Budgetary, mid-range and high-end offers side by side; apply the one the client picks."
+                    actions={(
+                        <button type="button" className={pipeStyles.primary} onClick={() => setMultiBudgetOpen(true)}>
+                            Multi Budget Offer
+                        </button>
+                    )}
+                />
+            </Pipeline>
 
-            {/* 2. Costed Data Section (Only if Costing Applied) */}
+            {/* The offer of the pipeline (Costed Results) */}
             {costedTables && (
                 <div id="costed-results" style={{ animation: 'fadeInUp 0.5s ease' }}>
                     <div className={styles.header}>
-                        <h2 className={styles.title} style={{ color: UI_COLORS.costing }}>Costed Results</h2>
+                        <h2 className={styles.title} style={{ color: UI_COLORS.costing }}>
+                            Costed Results
+                            {offerName && <span className={pipeStyles.offerPill}>{offerName}</span>}
+                        </h2>
                         {renderRecategorizeControl('costed')}
                     </div>
                     {renderTableList(costedTables, true)}
-
-                    {/* Set of Actions for Costed Tables */}
-                    <div className={actionStyles.actionBar}>
-                        <div className={actionStyles.actionBarTop}>
-                            <div className={actionStyles.actionTitle} style={{ color: UI_COLORS.costing }}>Costed Data Actions</div>
-                            <button
-                                className={actionStyles.projectSettingsBtn}
-                                onClick={() => setProjectPanelOpen(true)}
-                                title="Project Settings"
-                            >
-                                 Project Settings
-                                {(project.projectName || project.clientName) && (
-                                    <span className={actionStyles.projectBadge}>
-                                        {project.projectName || project.clientName}
-                                    </span>
-                                )}
-                            </button>
-                        </div>
-                        <div className={actionStyles.buttonGroup}>
-                            <DesignBuildButton getTables={() => costedTables} title="Costed offer" />
-                            <button className={actionStyles.actionBtn} onClick={() => handleDownloadPDF(costedTables, 'Costed_Offer')}> Download Costed PDF</button>
-                            <button className={actionStyles.actionBtn} onClick={() => handleDownloadExcel(costedTables, 'Costed_Offer')}> Download Costed Excel</button>
-                            <button
-                                className={`${actionStyles.actionBtn} ${generatingType === 'pptx_costed' ? actionStyles.loading : ''}`}
-                                onClick={() => triggerPptxExport(costedTables, false, true)}
-                                disabled={!!generatingType}
-                            >
-                                {generatingType === 'pptx_costed' ? ' Generating...' : ' Generate Costed Presentation'}
-                            </button>
-                            <button
-                                className={`${actionStyles.actionBtn} ${generatingType === 'pdf_costed' ? actionStyles.loading : ''}`}
-                                onClick={() => triggerPptxExport(costedTables, true, true)}
-                                disabled={!!generatingType}
-                            >
-                                {generatingType === 'pdf_costed' ? ' Generating...' : ' Costed Presentation PDF'}
-                            </button>
-
-                            <button className={actionStyles.actionBtn} onClick={() => handleGenerateMas(costedTables)}> Generate Costed MAS</button>
-                            <button className={`${actionStyles.actionBtn} ${actionStyles.actionBtnMir}`} onClick={() => handleGenerateMIR(costedTables)}> Generate Costed MIR</button>
-                            <button className={`${actionStyles.actionBtn} ${actionStyles.actionBtnWir}`} onClick={() => handleGenerateWIR(costedTables)}> Generate Costed WIR</button>
-                            <button className={`${actionStyles.actionBtn} ${actionStyles.actionBtnDn}`} onClick={() => handleGenerateDeliveryNote(costedTables)}> Costed Delivery Note</button>
-                            <button
-                                className={`${actionStyles.actionBtn} ${actionStyles.actionBtnRfq} ${generatingType === 'rfq_costed' ? actionStyles.loading : ''}`}
-                                onClick={() => handleGenerateRfqByBrand(costedTables, 'costed')}
-                                disabled={!!generatingType}
-                                title="Split BOQ by Brand into ready-to-send Supplier RFQ Excel sheets (excludes client margins)"
-                            >
-                                {generatingType === 'rfq_costed' ? ' Grouping RFQs...' : ' RFQ by Brand'}
-                            </button>
-                        </div>
-                    </div>
                 </div>
             )}
+
+            {/* 4. Exports (after the costed results when there are some): of the offer there, or of the extracted BOQ */}
+            <Pipeline start={4} label="Exports" joined={!costedTables} continued={!!costedTables}>
+                <PipelineStep
+                    n={4}
+                    tone="exports"
+                    title="Exports"
+                    sub={exportOffer ? `The documents of the ${offerName.toLowerCase()}, and the Design & Build package.` : 'The documents of the extracted BOQ, and the Design & Build package.'}
+                    actions={costedTables ? (
+                        <ExportSource value={exportOffer ? 'offer' : 'original'} onChange={setExportSource} offerName={offerName} />
+                    ) : null}
+                >
+                    <div className={pipeStyles.costing}>
+                        {exportOffer && appliedOffer && !quickOfferActive ? (
+                            <span className={pipeStyles.costingNote}>
+                                Costed in {STEP_NAMES[appliedOffer.origin] || 'its own step'}
+                                {factorsText(appliedOffer.costingFactors) ? `: ${factorsText(appliedOffer.costingFactors)}` : ''}
+                            </span>
+                        ) : (
+                            <>
+                                <button
+                                    type="button"
+                                    className={pipeStyles.costingBtn}
+                                    onClick={() => openCosting(exportOffer && quickOfferActive ? 'offer' : 'original')}
+                                    title={exportOffer && quickOfferActive ? 'Margins, freight, customs, installation, VAT and currency on the catalogue prices of the matched offer' : 'Margins, freight, customs, installation, VAT and currency on the rates of the extracted BOQ'}
+                                >
+                                    {exportOffer ? 'Costing factors' : 'Apply costing factors'}
+                                </button>
+                                <span className={pipeStyles.costingNote}>
+                                    {exportOffer
+                                        ? factorsText(costingFactors)
+                                        : appliedOffer
+                                            ? `Costs the extracted BOQ in place of the ${offerName.toLowerCase()}.`
+                                            : costingFactors
+                                                ? factorsText(costingFactors)
+                                                : 'Margins, VAT and currency on the BOQ rates.'}
+                                </span>
+                            </>
+                        )}
+                    </div>
+
+                    <DesignBuildSuite
+                        getTables={() => (exportOffer ? costedTables : tables)}
+                        title={exportOffer ? offerName : 'Original offer'}
+                    />
+
+                    <p className={pipeStyles.docsTitle}>Offer documents</p>
+                    <div className={pipeStyles.docs}>
+                        <button className={actionStyles.actionBtn} onClick={() => handleDownloadPDF(exportSrc.summary, exportSrc.file)} title={exportSrc.costed ? 'Download Costed PDF' : 'Download Offer PDF'}>Offer PDF</button>
+                        <button className={actionStyles.actionBtn} onClick={() => handleDownloadExcel(exportSrc.summary, exportSrc.file)} title={exportSrc.costed ? 'Download Costed Excel' : 'Download Offer Excel'}>Offer Excel</button>
+                        <button
+                            className={`${actionStyles.actionBtn} ${generatingType === `pptx_${exportSrc.key}` ? actionStyles.loading : ''}`}
+                            onClick={() => triggerPptxExport(exportSrc.tables, false, exportSrc.costed)}
+                            disabled={!!generatingType}
+                            title="Generate the presentation (PowerPoint)"
+                        >
+                            {generatingType === `pptx_${exportSrc.key}` ? 'Generating...' : 'Presentation'}
+                        </button>
+                        <button
+                            className={`${actionStyles.actionBtn} ${generatingType === `pdf_${exportSrc.key}` ? actionStyles.loading : ''}`}
+                            onClick={() => triggerPptxExport(exportSrc.tables, true, exportSrc.costed)}
+                            disabled={!!generatingType}
+                            title="The presentation as a PDF"
+                        >
+                            {generatingType === `pdf_${exportSrc.key}` ? 'Generating...' : 'Presentation PDF'}
+                        </button>
+                        <button className={actionStyles.actionBtn} onClick={() => handleGenerateMas(exportSrc.tables)} title="Generate the Material Approval Submittal (MAS)">MAS</button>
+                        <button className={`${actionStyles.actionBtn} ${actionStyles.actionBtnMir}`} onClick={() => handleGenerateMIR(exportSrc.tables)} title="Generate the Material Inspection Request (MIR)">MIR</button>
+                        <button className={`${actionStyles.actionBtn} ${actionStyles.actionBtnWir}`} onClick={() => handleGenerateWIR(exportSrc.tables)} title="Generate the Work Inspection Request (WIR)">WIR</button>
+                        <button className={`${actionStyles.actionBtn} ${actionStyles.actionBtnDn}`} onClick={() => handleGenerateDeliveryNote(exportSrc.tables)} title="Generate the Delivery Note">Delivery Note</button>
+                        <button
+                            className={`${actionStyles.actionBtn} ${actionStyles.actionBtnRfq} ${generatingType === `rfq_${exportSrc.key}` ? actionStyles.loading : ''}`}
+                            onClick={() => handleGenerateRfqByBrand(exportSrc.tables, exportSrc.key)}
+                            disabled={!!generatingType}
+                            title={exportSrc.costed
+                                ? 'Split BOQ by Brand into ready-to-send Supplier RFQ Excel sheets (excludes client margins)'
+                                : 'Split BOQ by Brand into ready-to-send Supplier RFQ Excel sheets (ZIP pack with Master Tracker)'}
+                        >
+                            {generatingType === `rfq_${exportSrc.key}` ? 'Grouping RFQs...' : 'RFQ by Brand'}
+                        </button>
+                        {!exportSrc.costed && (
+                            <button
+                                className={`${actionStyles.actionBtn} ${actionStyles.actionBtnDn}`}
+                                style={{ background: '#10b981', color: '#ffffff', borderColor: '#059669', fontWeight: '500' }}
+                                onClick={() => setTenderAutofillOpen(true)}
+                                title="Autofill the extracted BOQ on a tender board"
+                            >
+                                Autofill on Tender Board
+                            </button>
+                        )}
+                    </div>
+                </PipelineStep>
+            </Pipeline>
 
             <TenderAutofillModal isOpen={isTenderAutofillOpen} onClose={() => setTenderAutofillOpen(false)} tables={tables} apiBase={API_BASE} />
 
@@ -4975,9 +5139,10 @@ function TableViewer({
                 seededItems={seededItems}
                 onApplyFlow={(formattedData) => {
                     // Keep the original extracted tables; show the costed offer separately.
-                    setAppliedOffer({ tables: formattedData.tables, costingFactors: formattedData.costingFactors || null });
+                    setAppliedOffer({ tables: formattedData.tables, costingFactors: formattedData.costingFactors || null, origin: 'multi-budget' });
                     shareOfferWithDesignBuild(formattedData.tables);
                     if (formattedData.costingFactors) setCostingFactors(formattedData.costingFactors);
+                    setExportSource('offer');
                     setMultiBudgetOpen(false);
                 }}
                 onOpenValueEngineer={() => {
@@ -4999,9 +5164,10 @@ function TableViewer({
                 seededItems={seededItems}
                 onApply={(data) => {
                     // Keep the original extracted tables; show the costed offer separately.
-                    setAppliedOffer({ tables: data.tables, costingFactors: data.costingFactors || null });
+                    setAppliedOffer({ tables: data.tables, costingFactors: data.costingFactors || null, origin: 'value-engineering' });
                     shareOfferWithDesignBuild(data.tables);
                     if (data.costingFactors) setCostingFactors(data.costingFactors);
+                    setExportSource('offer');
                     setValueEngineeredOpen(false);
                 }}
                 onOpenMultiBudget={() => {
@@ -5015,9 +5181,18 @@ function TableViewer({
                 onClose={() => setCostingOpen(false)}
                 initialFactors={costingFactors}
                 onApply={(factors) => {
-                    // Costing always runs on the original extracted tables, once.
-                    setAppliedOffer(null);
+                    const matched = quickOfferRef.current;
+                    if (costingTarget === 'offer' && appliedOffer?.origin === 'quick-match' && matched) {
+                        // The matched offer is costed again from its catalogue prices.
+                        const offerTables = matchedOfferTables(matched.sourceTables, matched.lines, matched.results, factors);
+                        setAppliedOffer({ tables: offerTables, costingFactors: factors, origin: 'quick-match' });
+                        shareOfferWithDesignBuild(offerTables);
+                    } else {
+                        // Costing runs on the original extracted tables, once.
+                        setAppliedOffer(null);
+                    }
                     setCostingFactors(factors);
+                    setExportSource('offer');
                     setCostingOpen(false);
                 }}
             />

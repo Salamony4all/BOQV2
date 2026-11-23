@@ -866,8 +866,9 @@ function AppContent({ onOpenSettings }) {
 
   // A VE / Multi-Budget offer is already priced & costed. Keep the original extracted
   // tables as they are and hand the offer over separately so it is never costed twice.
-  const applyOfferToExtracted = (data) => {
-    const offer = { tables: data?.tables || [], costingFactors: data?.costingFactors || null };
+  const applyOfferToExtracted = (data, origin = '') => {
+    // origin: the pipeline step the offer comes from (multi-budget | value-engineering)
+    const offer = { tables: data?.tables || [], costingFactors: data?.costingFactors || null, origin };
     // Design & Build furnishes the 3D space with the offer's products; the offer itself
     // goes into its export suite (Detailed BOQ, summary, FF&E schedule).
     designBuild.setProducts(productsFromTables(offer.tables), {
@@ -886,7 +887,7 @@ function AppContent({ onOpenSettings }) {
   };
 
   const handleMultiBudgetApply = (data) => {
-    applyOfferToExtracted(data);
+    applyOfferToExtracted(data, 'multi-budget');
     setMultiBudgetOpen(false);
     // Smooth scroll will be handled by useEffect
   };
@@ -1084,7 +1085,7 @@ function AppContent({ onOpenSettings }) {
           planPreviewType={planPreviewType}
           planPreviewName={planPreviewName}
           onApply={(data) => {
-            applyOfferToExtracted(data);
+            applyOfferToExtracted(data, 'value-engineering');
             setValueEngineeredOpen(false);
             setShowLanding(false);
           }}
@@ -1257,7 +1258,7 @@ function AppContent({ onOpenSettings }) {
         planPreviewType={planPreviewType}
         planPreviewName={planPreviewName}
         onApply={(data) => {
-          applyOfferToExtracted(data);
+          applyOfferToExtracted(data, 'value-engineering');
           setValueEngineeredOpen(false);
           setShowLanding(false);
         }}
