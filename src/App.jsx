@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import ActionCard from './components/ActionCard';
 import ProgressModal from './components/ProgressModal';
+import { isPdfPlan, planPicture } from './utils/planPicture';
 import TableViewer from './components/TableViewer';
 import MultiBudgetModal from './components/MultiBudgetModal';
 import PlanScopeModal from './components/PlanScopeModal';
@@ -401,6 +402,8 @@ function AppContent({ onOpenSettings }) {
     if (!uploadedPlanFile) return undefined;
 
     const objectUrl = URL.createObjectURL(uploadedPlanFile);
+    // Draw the plan's first page now: phones show it as a picture while the plan is read.
+    if (isPdfPlan(uploadedPlanFile.type, uploadedPlanFile.name)) planPicture(objectUrl);
     setPlanPreviewUrl(objectUrl);
     setPlanPreviewType(uploadedPlanFile.type || '');
     setPlanPreviewName(uploadedPlanFile.name || 'Uploaded plan');
@@ -1326,10 +1329,13 @@ function AppWithSetup() {
       {/* Mounted once, outside the page views, so the 3D model survives page changes. */}
       <DesignBuildDock />
       {showSetupModal && (
-        <CompanySettings
-          isModal={true}
-          onClose={() => setShowSetupModal(false)}
-        />
+        // Above the Design & Build modal too: its export suite opens the branding from there.
+        <div style={{ position: 'relative', zIndex: 100010 }}>
+          <CompanySettings
+            isModal={true}
+            onClose={() => setShowSetupModal(false)}
+          />
+        </div>
       )}
     </>
   );

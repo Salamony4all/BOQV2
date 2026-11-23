@@ -1403,3 +1403,104 @@
     0%, 100% { opacity: 1; }
     50% { opacity: 0.55; }
 }
+
+/* Whose documents these are: the company's logo and the project, and where to change them */
+.brandCard {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 0 18px 10px;
+    padding: 9px 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    background: var(--bg-primary);
+}
+
+.brandLogo {
+    flex: none;
+    width: 56px;
+    height: 38px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    background: #fff;
+    overflow: hidden;
+    font-size: 1.05rem;
+    font-weight: 800;
+    color: #0f3e67;
+}
+
+.brandLogoDark {
+    background: #0f172a;
+}
+
+.brandLogo img {
+    max-width: 48px;
+    max-height: 30px;
+    object-fit: contain;
+}
+
+.brandText {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.brandName {
+    font-size: 0.86rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.brandSub,
+.brandHint {
+    font-size: 0.74rem;
+    line-height: 1.3;
+}
+
+.brandSub {
+    color: var(--text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.brandHint {
+    color: var(--warning, #b45309);
+}
+
+.brandActions {
+    flex: none;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.brandBtn {
+    padding: 4px 9px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: transparent;
+    color: var(--text-primary);
+    font-size: 0.74rem;
+    font-weight: 600;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.brandBtn:hover {
+    background: var(--bg-hover);
+}
+
+/* The project drawer opened from the modal sits above it */
+.settingsLayer {
+    position: relative;
+    z-index: 100010;
+}

@@ -2,21 +2,57 @@ import React, { useState } from 'react';
 import { designBuild } from '../features/designBuild/designBuildStore';
 import { SUITE_GROUPS } from '../features/designBuild/exportSuite';
 import { suiteGroupState as groupState } from '../features/designBuild/exportGroups';
+import { useCompanyProfile } from '../context/CompanyContext';
+import { useProject } from '../context/ProjectContext';
 import styles from '../styles/DesignBuildDock.module.css';
 
 // The Design & Build export suite inside BOQ Flow: the package Design & Build lays out,
-// made here from the approved render and the offer's real products. The download runs
-// through the store, so its progress also shows in BOQ Flow's exports and the chip.
+// made here from the approved render and the offer's real products, branded with the
+// company profile and project details, with BOQ Flow's own offer, BOQ and submittals.
+// The download runs through the store, so its progress also shows in BOQ Flow's exports
+// and the chip.
 
 const VIEW_LABEL = { cutaway: '3D cutaway', 'eye-level': 'Eye-level view', interior: 'Interior view' };
 
 function filesOf(g, s) {
+    if (g.key === 'boq' && !s.documents) return ['Detailed_BOQ.xlsx', 'BOQ_Summary.pdf'];
     if (g.key !== 'renders') return g.files;
     const n = s.renders.length;
     return n ? Array.from({ length: Math.min(n, 3) }, (_, i) => `Perspective_${String(i + 1).padStart(2, '0')}`).concat(n > 3 ? ['…'] : []) : g.files;
 }
 
-export default function DesignBuildExportPanel({ s, onClose }) {
+/** Whose documents these are: the company's logo and the project, with the way to change them. */
+function Branding({ onEditProject }) {
+    const company = useCompanyProfile();
+    const { project } = useProject();
+    const logo = company.logoOriginal || company.logoWhite;
+    const name = project.projectName?.trim();
+    const client = project.clientName?.trim();
+    const missing = [!logo && 'your logo', !name && 'the project name'].filter(Boolean);
+    return (
+        <section className={styles.brandCard} aria-label="On every document">
+            <span className={`${styles.brandLogo} ${company.logo?.isLight ? styles.brandLogoDark : ''}`}>
+                {logo ? <img src={logo} alt={company.companyName} /> : <span aria-hidden>{String(company.companyName || 'B').trim().charAt(0)}</span>}
+            </span>
+            <span className={styles.brandText}>
+                <span className={styles.brandName}>{name || 'No project name yet'}</span>
+                <span className={missing.length ? styles.brandHint : styles.brandSub}>
+                    {missing.length
+                        ? `Add ${missing.join(' and ')}: it goes on every file`
+                        : [client ? `for ${client}` : '', `by ${company.companyName}`].filter(Boolean).join(' · ')}
+                </span>
+            </span>
+            <span className={styles.brandActions}>
+                <button type="button" className={styles.brandBtn} onClick={onEditProject}>Project details</button>
+                <button type="button" className={styles.brandBtn} onClick={() => company.setShowSetupModal(true)}>
+                    {logo ? 'Branding' : 'Add logo'}
+                </button>
+            </span>
+        </section>
+    );
+}
+
+export default function DesignBuildExportPanel({ s, onClose, onEditProject }) {
     const approved = s.renders.find((r) => r.id === s.approvedRenderId) || null;
     const [chosen, setChosen] = useState(() => new Set(SUITE_GROUPS.filter((g) => groupState(g, s).ok).map((g) => g.key)));
     const busy = !!s.exporting;
@@ -45,13 +81,15 @@ export default function DesignBuildExportPanel({ s, onClose }) {
                 <header className={styles.exportHead}>
                     <div>
                         <h3 className={styles.exportTitle}>Export suite</h3>
-                        <p className={styles.exportSub}>The full Design &amp; Build package, from the approved render and the offer&apos;s real products.</p>
+                        <p className={styles.exportSub}>The full Design &amp; Build package, from the approved render and the offer&apos;s real products, with BOQ Flow&apos;s offer and submittals.</p>
                     </div>
                     <button type="button" className={styles.iconBtn} onClick={onClose} disabled={busy} title="Close">
                         <span aria-hidden>×</span>
                         <span className={styles.srOnly}>Close</span>
                     </button>
                 </header>
+
+                <Branding onEditProject={onEditProject} />
 
                 {approved && (
                     <figure className={styles.exportHero}>

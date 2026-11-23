@@ -40,6 +40,7 @@ const initial = {
     exportError: null,
     lastPlan: null,     // the last plan PDF uploaded (kept when a session closes), for one-click starts
     customItems: [],    // { typeId, name, kind, count, picture } set on drawn furniture without a product
+    documents: null,    // { source } while BOQ Flow's table can add its offer, BOQ and submittals to the package
 };
 
 /** Custom items at most (each carries a small picture). */
@@ -50,6 +51,8 @@ const listeners = new Set();
 const emit = () => listeners.forEach((l) => l());
 /** How the open session makes the package (it needs Design & Build's views): set by the modal. */
 let exporter = null;
+/** How BOQ Flow's table makes its own offer, BOQ and submittals for the package: set by the table viewer. */
+let documentMaker = null;
 
 export const designBuild = {
     getState: () => state,
@@ -101,7 +104,7 @@ export const designBuild = {
     },
     /** End the session; the 3D model is discarded. */
     close() {
-        state = { ...initial, session: state.session, lastPlan: state.lastPlan, customItems: state.customItems };
+        state = { ...initial, session: state.session, lastPlan: state.lastPlan, customItems: state.customItems, documents: state.documents };
         emit();
     },
     /**
@@ -153,6 +156,18 @@ export const designBuild = {
     /** The open session tells the store how to make the package (null when it closes). */
     setExporter(fn) {
         exporter = typeof fn === 'function' ? fn : null;
+    },
+    /** BOQ Flow's table tells the store how to make its own documents (null when it closes). */
+    setDocumentMaker(fn) {
+        documentMaker = typeof fn === 'function' ? fn : null;
+    },
+    /** What BOQ Flow's table would add to the package ({ source }), for the export panel. */
+    setDocumentsInfo(info) {
+        if ((state.documents?.source || '') !== (info?.source || '')) designBuild.set({ documents: info?.source ? { source: info.source } : null });
+    },
+    /** BOQ Flow's offer, BOQ and submittals for the package ({ files, notes, source }), or null when its table is not open. */
+    async makeDocuments(opts) {
+        return documentMaker ? documentMaker(opts) : null;
     },
     /**
      * Make and save the package around the approved render: every folder that can be

@@ -51,6 +51,8 @@ import { getApiBase } from '../utils/apiBase';
 import { getFullUrl, loadExportImageData } from '../utils/urlUtils';
 import { exportRfqByBrandFromTierRows } from '../utils/rfqExportUtils';
 import { getBrandColors } from '../utils/themeConfig';
+import PlanPreview from './PlanPreview';
+import { isPdfPlan } from '../utils/planPicture';
 
 const API_BASE = getApiBase();
 
@@ -4873,10 +4875,14 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                 <div className={styles.previewOverlay} onClick={() => setPlanPreviewOpen(false)}>
                     <div className={styles.previewContent} onClick={e => e.stopPropagation()}>
                         <div className={styles.previewMain}>
-                            {planPreviewType === 'application/pdf' ? (
-                                <object data={planPreviewUrl} type="application/pdf" className={styles.previewImage}>
-                                    <div className={styles.previewFallback}>PDF preview unavailable</div>
-                                </object>
+                            {isPdfPlan(planPreviewType, planPreviewName) ? (
+                                <PlanPreview
+                                    url={planPreviewUrl}
+                                    type={planPreviewType}
+                                    name={planPreviewName}
+                                    className={styles.previewImage}
+                                    fallbackClassName={styles.previewFallback}
+                                />
                             ) : (
                                 <img
                                     src={planPreviewUrl}

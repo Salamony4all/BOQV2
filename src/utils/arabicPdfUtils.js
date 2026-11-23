@@ -205,12 +205,36 @@ async function fetchAlmaraiBase64() {
     return cachedAlmaraiBase64Promise;
 }
 
+/**
+ * Almarai has no glyphs for most isolated presentation forms (U+FE8D alif, U+FEAD ra,
+ * U+FEED waw, …), and jsPDF writes a letter standing alone with them, so such letters went
+ * missing from the PDFs ("الزوار" came out as "لز"). A letter alone already has its isolated
+ * shape: each missing form is given its letter's own glyph.
+ */
+function aliasMissingArabicForms(doc) {
+    for (const style of ["normal", "bold"]) {
+        let codeMap = null;
+        try {
+            codeMap = doc.internal.getFont("Almarai", style)?.metadata?.cmap?.unicode?.codeMap || null;
+        } catch {
+            codeMap = null;
+        }
+        if (!codeMap) continue;
+        for (let cp = 0xFB50; cp <= 0xFEFC; cp++) {
+            if (codeMap[cp]) continue;
+            const letter = String.fromCharCode(cp).normalize("NFKC");
+            if (letter.length === 1 && codeMap[letter.charCodeAt(0)]) codeMap[cp] = codeMap[letter.charCodeAt(0)];
+        }
+    }
+}
+
 export const loadArabicFont = async (doc) => {
     try {
         const base64 = await fetchAlmaraiBase64();
         doc.addFileToVFS("Almarai-Regular.ttf", base64);
         doc.addFont("Almarai-Regular.ttf", "Almarai", "normal");
         doc.addFont("Almarai-Regular.ttf", "Almarai", "bold");
+        aliasMissingArabicForms(doc);
         return true;
     } catch (e) {
         console.error("Failed to load Arabic font:", e);

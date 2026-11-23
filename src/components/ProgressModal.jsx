@@ -1,16 +1,20 @@
 import { useEffect, useState } from 'react';
 import styles from '../styles/ProgressModal.module.css';
+import PlanPreview from './PlanPreview';
 
 function ProgressModal({ isOpen, progress, stage, stageDetail, planPreviewUrl, planPreviewType, planPreviewName }) {
-    const [visible, setVisible] = useState(false);
+    // Shown while open, and for 0.3 s after closing so it can fade out.
+    const [visible, setVisible] = useState(isOpen);
+    const [wasOpen, setWasOpen] = useState(isOpen);
+    if (isOpen !== wasOpen) {
+        setWasOpen(isOpen);
+        if (isOpen) setVisible(true);
+    }
 
     useEffect(() => {
-        if (isOpen) {
-            setVisible(true);
-        } else {
-            const timer = setTimeout(() => setVisible(false), 300);
-            return () => clearTimeout(timer);
-        }
+        if (isOpen) return undefined;
+        const timer = setTimeout(() => setVisible(false), 300);
+        return () => clearTimeout(timer);
     }, [isOpen]);
 
     if (!visible) return null;
@@ -26,15 +30,13 @@ function ProgressModal({ isOpen, progress, stage, stageDetail, planPreviewUrl, p
                 {hasPreview && (
                     <div className={styles.planPreviewSection}>
                         <div className={styles.planPreviewFrame}>
-                            {normalizedType === 'application/pdf' ? (
-                                <object data={planPreviewUrl} type="application/pdf" className={styles.previewMedia}>
-                                    <div className={styles.previewFallback}>PDF preview unavailable</div>
-                                </object>
-                            ) : normalizedType.startsWith('image/') ? (
-                                <img src={planPreviewUrl} alt={planPreviewName || 'Plan preview'} className={styles.previewMedia} />
-                            ) : (
-                                <div className={styles.previewFallback}>Preview unavailable</div>
-                            )}
+                            <PlanPreview
+                                url={planPreviewUrl}
+                                type={normalizedType}
+                                name={planPreviewName}
+                                className={styles.previewMedia}
+                                fallbackClassName={styles.previewFallback}
+                            />
                             <div className={styles.scanLine} />
                         </div>
                         <div className={styles.planPreviewCaption}>

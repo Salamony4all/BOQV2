@@ -130,7 +130,7 @@ export function QuickMatchStatus({ run, offerActive, onView, onReview }) {
     return null;
 }
 
-const SUITE_FILES = '3D model · renders · BOQ · FF&E schedule · mood board · drawings · presentation';
+const SUITE_FILES = '3D model · renders · offer & BOQ · MAS, MIR, WIR · FF&E schedule · mood board · drawings · presentation, with your logo and project details';
 
 /**
  * The Design & Build export suite in the exports: the one-click button (the plan in 3D,

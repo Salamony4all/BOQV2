@@ -6,6 +6,7 @@ import CostingModal from './CostingModal';
 import MultiBudgetModal from './MultiBudgetModal';
 import { Pipeline, PipelineStep, QuickMatchStatus, DesignBuildSuite, ExportSource } from './OfferPipeline';
 import { designBuild, productsFromTables } from '../features/designBuild/designBuildStore';
+import { captureFiles, saveFile, savePdf } from '../utils/fileSink';
 
 /** An offer applied here also furnishes the Design & Build model (and feeds its export suite). */
 const shareOfferWithDesignBuild = (offerTables) => {
@@ -1567,7 +1568,7 @@ function TableViewer({
             }
         }
 
-        doc.save(`${filename}.pdf`);
+        savePdf(doc, `${filename}.pdf`);
     };
 
     // ===================== PREMIUM EXCEL EXPORT =====================
@@ -2231,8 +2232,7 @@ function TableViewer({
 
         const buffer = await workbook.xlsx.writeBuffer();
         const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-        const { saveAs } = await import('file-saver');
-        saveAs(blob, `${filename}.xlsx`);
+        await saveFile(blob, `${filename}.xlsx`);
     };
 
     const loadSubmissionLogos = async () => {
@@ -2595,7 +2595,7 @@ function TableViewer({
             doc.text(`Page ${p} of ${totalMasPages}`, pageWidth - 10, pageHeight - 2.8, { align: 'right' });
         }
 
-        doc.save(`MAS_${masBatchRef}.pdf`);
+        savePdf(doc, `MAS_${masBatchRef}.pdf`);
     };
 
     // ===================== MATERIAL INSPECTION REPORT (MIR) — 1 PAGE PER ITEM =====================
@@ -2917,7 +2917,7 @@ function TableViewer({
             doc.text(`${mirFootBrand}  |  Material Inspection Request (${mirRef})`, 10, pageHeight - 2.8);
             doc.text(`Page ${p} of ${totalMirPages}`, pageWidth - 10, pageHeight - 2.8, { align: 'right' });
         }
-        doc.save(`MIR_${mirRef}.pdf`);
+        savePdf(doc, `MIR_${mirRef}.pdf`);
     };
 
     // ===================== WORK INSPECTION REQUEST (WIR) — 1 PAGE PER ITEM =====================
@@ -3238,7 +3238,7 @@ function TableViewer({
             doc.text(`${wirFootBrand}  |  Work Inspection Request (${wirRef})`, 10, pageHeight - 2.8);
             doc.text(`Page ${p} of ${totalWirPages}`, pageWidth - 10, pageHeight - 2.8, { align: 'right' });
         }
-        doc.save(`WIR_${wirRef}.pdf`);
+        savePdf(doc, `WIR_${wirRef}.pdf`);
     };
 
     // ===================== DELIVERY NOTE — 1 PAGE PER ITEM =====================
@@ -3509,7 +3509,7 @@ function TableViewer({
             doc.text(`Page ${p} of ${totalDnPages}`, pageWidth - 10, pageHeight - 5.5, { align: 'right' });
         }
 
-        doc.save(`DeliveryNote_${dnRef}.pdf`);
+        savePdf(doc, `DeliveryNote_${dnRef}.pdf`);
     };
 
     // ===================== PREMIUM POWERPOINT PRESENTATION (LIGHT THEME) =====================
@@ -4880,6 +4880,49 @@ function TableViewer({
             </select>
         </div>
     );
+
+    // ── The Design & Build package takes this table's own documents ──
+    // The offer PDF and Excel, MAS, MIR, WIR and delivery note, made by the exports below
+    // from the same source (the offer in the costed results, or the BOQ as extracted),
+    // with the company profile and project details: collected instead of downloaded.
+    const makePackageDocuments = async ({ onProgress } = {}) => {
+        const src = exportSrc;
+        if (!src.tables?.length) return null;
+        const steps = [
+            ['BOQ', 'offer PDF', () => handleDownloadPDF(src.summary, src.file)],
+            ['BOQ', 'offer Excel', () => handleDownloadExcel(src.summary, src.file)],
+            ['Submittals', 'material approval submittal (MAS)', () => handleGenerateMas(src.tables)],
+            ['Submittals', 'material inspection request (MIR)', () => handleGenerateMIR(src.tables)],
+            ['Submittals', 'work inspection request (WIR)', () => handleGenerateWIR(src.tables)],
+            ['Submittals', 'delivery note', () => handleGenerateDeliveryNote(src.tables)],
+        ];
+        const files = [];
+        const notes = [];
+        for (const [folder, label, make] of steps) {
+            onProgress?.(`Making the ${label}…`);
+            try {
+                const made = await captureFiles(make);
+                made.forEach((f) => files.push({ path: `${folder}/${f.name}`, blob: f.blob }));
+            } catch (e) {
+                console.warn('[design-build package]', label, e);
+                notes.push(`${folder}: the ${label} could not be made (${e?.message || e}).`);
+            }
+        }
+        return { files, notes, source: src.costed ? offerName : 'Extracted BOQ' };
+    };
+    const packageDocumentsRef = useRef(null);
+    useEffect(() => {
+        packageDocumentsRef.current = makePackageDocuments;
+    });
+    useEffect(() => {
+        designBuild.setDocumentMaker((opts) => packageDocumentsRef.current?.(opts) ?? null);
+        return () => designBuild.setDocumentMaker(null);
+    }, []);
+    const packageSource = tables?.length && exportSrc.tables?.length ? (exportSrc.costed ? offerName : 'Extracted BOQ') : '';
+    useEffect(() => {
+        designBuild.setDocumentsInfo(packageSource ? { source: packageSource } : null);
+    }, [packageSource]);
+    useEffect(() => () => designBuild.setDocumentsInfo(null), []);
 
     if (!tables || tables.length === 0) return <div className={styles.noData}>No tables found in the uploaded file</div>;
 

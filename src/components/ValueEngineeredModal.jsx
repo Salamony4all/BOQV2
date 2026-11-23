@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo, useImperativeHandle, useEffectEvent, Fragment } from 'react';
+import PlanPreview from './PlanPreview';
+import { isPdfPlan } from '../utils/planPicture';
 import AIPresentationModal from './AIPresentationModal';
 import SpecialistModal from './SpecialistModal';
 import CostingModal from './CostingModal';
@@ -2953,10 +2955,14 @@ export default function ValueEngineeredModal({
                 <div className={mbs.previewOverlay} onClick={() => setPlanPreviewOpen(false)}>
                     <div className={mbs.previewContent} onClick={e => e.stopPropagation()}>
                         <div className={mbs.previewMain}>
-                            {planPreviewType === 'application/pdf' ? (
-                                <object data={planPreviewUrl} type="application/pdf" className={mbs.previewImage}>
-                                    <div className={mbs.previewFallback}>PDF preview unavailable</div>
-                                </object>
+                            {isPdfPlan(planPreviewType, planPreviewName) ? (
+                                <PlanPreview
+                                    url={planPreviewUrl}
+                                    type={planPreviewType}
+                                    name={planPreviewName}
+                                    className={mbs.previewImage}
+                                    fallbackClassName={mbs.previewFallback}
+                                />
                             ) : (
                                 <img
                                     src={planPreviewUrl}
@@ -3257,4 +3263,4 @@ export default function ValueEngineeredModal({
             )}
         </>
     );
-}
+}

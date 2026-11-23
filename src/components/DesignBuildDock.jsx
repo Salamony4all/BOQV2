@@ -10,6 +10,9 @@ import {
     DESIGN_BUILD_ORIGIN,
 } from '../features/designBuild/designBuildStore';
 import DesignBuildExportPanel from './DesignBuildExportPanel';
+import ProjectSettingsPanel from './ProjectSettingsPanel';
+import { useCompanyProfile } from '../context/CompanyContext';
+import { useProject } from '../context/ProjectContext';
 import { SUITE_GROUPS, buildExportSuite, saveExportSuite } from '../features/designBuild/exportSuite';
 import { suiteGroupState } from '../features/designBuild/exportGroups';
 import styles from '../styles/DesignBuildDock.module.css';
@@ -266,6 +269,23 @@ function DockSession({ s }) {
     const customFileRef = useRef(null);
     // The status, products and actions under the model: folded to a bar on phones.
     const [sheetOpen, setSheetOpen] = useState(() => !isCompact());
+    // The company profile and project details brand the package; the project drawer opens from it.
+    const company = useCompanyProfile();
+    const { project } = useProject();
+    const [projectOpen, setProjectOpen] = useState(false);
+    const brandingRef = useRef(null);
+    useEffect(() => {
+        brandingRef.current = {
+            brand: {
+                company: company.companyName,
+                website: company.website,
+                logo: company.logoOriginal || company.logoWhite || null,
+                logoWhite: company.logoWhite || null,
+                logoIsLight: !!company.logo?.isLight,
+            },
+            project,
+        };
+    });
 
     const post = useCallback((type, payload = {}) => {
         const win = iframeRef.current?.contentWindow;
@@ -333,6 +353,10 @@ function DockSession({ s }) {
             const keys = Array.isArray(groups) && groups.length
                 ? groups
                 : SUITE_GROUPS.filter((g) => suiteGroupState(g, st).ok).map((g) => g.key);
+            // BOQ Flow's own offer, BOQ and submittals, from its table's generators.
+            const documents = keys.includes('boq') || keys.includes('submittals')
+                ? await designBuild.makeDocuments({ onProgress }).catch((e) => ({ files: [], notes: [`BOQ Flow's documents could not be made (${e?.message || e}).`] }))
+                : null;
             const result = await buildExportSuite(
                 {
                     plan: st.plan,
@@ -344,6 +368,8 @@ function DockSession({ s }) {
                     approvedRenderId: st.approvedRenderId,
                     offer: st.offer,
                     counts: st.counts,
+                    documents,
+                    ...brandingRef.current,
                 },
                 { groups: keys, onProgress },
             );
@@ -673,7 +699,9 @@ function DockSession({ s }) {
                             <span className={styles.mark}>DB</span>
                             <div className={styles.titles}>
                                 <h2 className={styles.title}>Design &amp; Build</h2>
-                                <span className={styles.planName} title={s.plan?.name}>{s.plan?.name}</span>
+                                <span className={styles.planName} title={[project.projectName, s.plan?.name].filter(Boolean).join(' · ')}>
+                                    {project.projectName?.trim() || s.plan?.name}
+                                </span>
                             </div>
                         </div>
 
@@ -776,7 +804,7 @@ function DockSession({ s }) {
                         )}
 
                         {exportOpen && approved && (
-                            <DesignBuildExportPanel s={s} onClose={() => setExportOpen(false)} />
+                            <DesignBuildExportPanel s={s} onClose={() => setExportOpen(false)} onEditProject={() => setProjectOpen(true)} />
                         )}
                     </div>
 
@@ -1022,6 +1050,12 @@ function DockSession({ s }) {
                     >
                         Open
                     </button>
+                </div>
+            )}
+            {exportOpen && !s.minimized && (
+                // The project drawer, above the modal: what it holds goes on every file of the package.
+                <div className={styles.settingsLayer}>
+                    <ProjectSettingsPanel isOpen={projectOpen} onClose={() => setProjectOpen(false)} />
                 </div>
             )}
         </>
