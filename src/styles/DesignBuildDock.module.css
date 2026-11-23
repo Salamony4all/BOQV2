@@ -228,6 +228,7 @@
     align-items: flex-start;
     gap: 10px;
     min-width: 0;
+    flex: 1 1 auto;
 }
 
 .statusDot {
@@ -296,6 +297,13 @@
     filter: brightness(1.06);
 }
 
+.primaryBtn:disabled,
+.secondaryBtn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    filter: none;
+}
+
 .secondaryBtn {
     border: 1px solid var(--border-color);
     background: transparent;
@@ -304,6 +312,374 @@
 
 .secondaryBtn:hover {
     background: var(--bg-hover);
+}
+
+/* Renders from Design & Build, newest first */
+.renderStrip {
+    display: flex;
+    gap: 6px;
+    flex: none;
+}
+
+.renderThumb {
+    position: relative;
+    width: 64px;
+    height: 40px;
+    padding: 0;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    overflow: hidden;
+    cursor: pointer;
+    background: #0f172a;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.renderThumb:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px rgba(15, 23, 42, 0.2);
+}
+
+.renderThumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.renderThumbApproved {
+    border: 2px solid #16a34a;
+}
+
+.thumbTick {
+    position: absolute;
+    right: 3px;
+    bottom: 3px;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    font-size: 0.62rem;
+    font-weight: 800;
+    color: #fff;
+    background: #16a34a;
+}
+
+/* Reviewing one render over the 3D view */
+.review {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    background: rgba(15, 23, 42, 0.92);
+    animation: dbFade 0.2s ease;
+}
+
+.reviewImage {
+    flex: 1;
+    min-height: 0;
+    width: 100%;
+    object-fit: contain;
+    padding: 18px 18px 0;
+}
+
+.reviewBar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 14px 18px;
+}
+
+.reviewInfo {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-width: 0;
+}
+
+.reviewTitle {
+    font-size: 0.92rem;
+    font-weight: 700;
+    color: #fff;
+}
+
+.reviewProducts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.productChip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    max-width: 240px;
+    padding: 3px 9px;
+    border-radius: 999px;
+    font-size: 0.74rem;
+    color: #e2e8f0;
+    background: rgba(255, 255, 255, 0.1);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.swatch {
+    flex: none;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    border: 1px solid rgba(255, 255, 255, 0.6);
+}
+
+.reviewActions {
+    display: flex;
+    gap: 10px;
+    flex: none;
+}
+
+.review .secondaryBtn {
+    color: #fff;
+    border-color: rgba(255, 255, 255, 0.3);
+}
+
+.review .secondaryBtn:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.approvedBtn {
+    height: 38px;
+    padding: 0 16px;
+    border-radius: 10px;
+    border: 0;
+    font-weight: 700;
+    font-size: 0.88rem;
+    color: #fff;
+    background: #16a34a;
+    cursor: pointer;
+}
+
+/* Export suite, over the 3D view */
+.exportLayer {
+    position: absolute;
+    inset: 0;
+    z-index: 3;
+    display: flex;
+    justify-content: flex-end;
+}
+
+.exportScrim {
+    position: absolute;
+    inset: 0;
+    border: 0;
+    padding: 0;
+    background: rgba(15, 23, 42, 0.35);
+    cursor: default;
+    animation: dbFade 0.2s ease;
+}
+
+.exportPanel {
+    position: relative;
+    width: min(440px, 100%);
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-secondary);
+    border-left: 1px solid var(--border-color);
+    box-shadow: -18px 0 40px rgba(15, 23, 42, 0.18);
+    animation: dbSlide 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.exportHead {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 16px 16px 10px 18px;
+}
+
+.exportTitle {
+    margin: 0;
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.exportSub {
+    margin: 4px 0 0;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+}
+
+.exportHero {
+    margin: 0 18px 10px;
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid var(--border-color);
+    background: #0f172a;
+}
+
+.exportHero img {
+    display: block;
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    object-fit: cover;
+}
+
+.exportHero figcaption {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    font-size: 0.76rem;
+    color: #cbd5e1;
+}
+
+.approvedTag {
+    flex: none;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-weight: 700;
+    color: #fff;
+    background: #16a34a;
+}
+
+.groupList {
+    list-style: none;
+    margin: 0;
+    padding: 4px 10px;
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+}
+
+.groupRow {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 8px;
+    border-radius: 10px;
+}
+
+.groupRow:hover {
+    background: var(--bg-hover);
+}
+
+.groupOff {
+    opacity: 0.55;
+}
+
+.groupCheck {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: none;
+    width: 118px;
+    cursor: pointer;
+}
+
+.groupCheck input {
+    width: 16px;
+    height: 16px;
+    accent-color: #2d66f6;
+}
+
+.groupName {
+    font-size: 0.84rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.groupText {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+    flex: 1;
+}
+
+.groupFiles {
+    font-size: 0.76rem;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.groupNote {
+    font-size: 0.74rem;
+    color: var(--text-muted);
+}
+
+.groupDownload {
+    flex: none;
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    background: transparent;
+    color: var(--text-secondary);
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.groupDownload:hover:not(:disabled) {
+    color: #2d66f6;
+    border-color: #2d66f6;
+}
+
+.groupDownload:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.exportFoot {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px 18px 16px;
+    border-top: 1px solid var(--border-muted, var(--border-color));
+}
+
+.exportFoot .primaryBtn {
+    width: 100%;
+}
+
+.exportProgress,
+.exportError {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+}
+
+.exportError {
+    color: #dc2626;
+}
+
+.exportSpinner {
+    flex: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: 2px solid rgba(45, 102, 246, 0.25);
+    border-top-color: #2d66f6;
+    animation: dbSpin 0.8s linear infinite;
+}
+
+.exportNotes {
+    font-size: 0.76rem;
+    color: var(--text-secondary);
+}
+
+.exportNotes ul {
+    margin: 6px 0 0;
+    padding-left: 18px;
 }
 
 /* Minimised chip */
@@ -407,6 +783,16 @@
 
     .footerActions {
         justify-content: flex-end;
+        flex-wrap: wrap;
+    }
+
+    .renderStrip {
+        overflow-x: auto;
+    }
+
+    .reviewBar {
+        flex-direction: column;
+        align-items: stretch;
     }
 }
 
@@ -418,6 +804,15 @@
 @keyframes dbRise {
     from { opacity: 0; transform: translateY(14px); }
     to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes dbSlide {
+    from { transform: translateX(24px); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes dbSpin {
+    to { transform: rotate(360deg); }
 }
 
 @keyframes dbPulse {

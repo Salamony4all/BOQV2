@@ -1971,6 +1971,9 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                 const parentExport = {
                     // the BOQ line's own words (sizes, kind) for Design & Build to match drawn furniture
                     sourceDescription: row.description || '',
+                    // chosen model and its page, for Design & Build's FF&E schedule and catalogue links
+                    selectedModel: row.selectedModel || '',
+                    productUrl: row.selectedModelUrl || '',
                     location: row.location || '',
                     scope: row.scope || '',
                     code: row.code || '',

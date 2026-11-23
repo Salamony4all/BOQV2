@@ -869,8 +869,12 @@ function AppContent({ onOpenSettings }) {
   // tables as they are and hand the offer over separately so it is never costed twice.
   const applyOfferToExtracted = (data) => {
     const offer = { tables: data?.tables || [], costingFactors: data?.costingFactors || null };
-    // Design & Build furnishes the 3D space with the offer's products.
-    designBuild.setProducts(productsFromTables(offer.tables));
+    // Design & Build furnishes the 3D space with the offer's products; the offer itself
+    // goes into its export suite (Detailed BOQ, summary, FF&E schedule).
+    designBuild.setProducts(productsFromTables(offer.tables), {
+      tables: offer.tables,
+      title: offer.tables[0]?.sheetName || 'Applied offer',
+    });
     setExtractedData(prev => {
       const hasOriginals = Array.isArray(prev?.tables) && prev.tables.length > 0 && !prev.isOfferOnly;
       if (hasOriginals) {

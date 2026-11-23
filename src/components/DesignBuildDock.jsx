@@ -1,5 +1,13 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { designBuild, useDesignBuild, DESIGN_BUILD_URL, DESIGN_BUILD_ORIGIN } from '../features/designBuild/designBuildStore';
+import {
+    designBuild,
+    useDesignBuild,
+    prepareProductPictures,
+    productForBridge,
+    DESIGN_BUILD_URL,
+    DESIGN_BUILD_ORIGIN,
+} from '../features/designBuild/designBuildStore';
+import DesignBuildExportPanel from './DesignBuildExportPanel';
 import styles from '../styles/DesignBuildDock.module.css';
 
 // Design & Build express modal. Design & Build runs inside an iframe in its
@@ -9,6 +17,9 @@ import styles from '../styles/DesignBuildDock.module.css';
 
 const BRIDGE = { source: 'boqflow', v: 1 };
 const READY_TIMEOUT_MS = 30000;
+const ARTIFACTS_TIMEOUT_MS = 45000;
+const IMAGE_DATA_URL = /^data:image\/(png|jpeg|webp);base64,/i;
+const VIEW_LABEL = { cutaway: '3D cutaway', 'eye-level': 'Eye-level view', interior: 'Interior view' };
 
 const STEPS = [
     { key: 'model', label: '3D model' },
@@ -35,6 +46,51 @@ function describeFurnished(f, products) {
     return `Furnished · ${f.placedPieces} of ${f.pieces} drawn pieces carry ${withProduct} of ${products.length} products`;
 }
 
+const text = (v, max) => (typeof v === 'string' ? v.slice(0, max) : '');
+
+/** A finished render from Design & Build, checked field by field. */
+function renderFromMessage(m) {
+    if (typeof m.image !== 'string' || !IMAGE_DATA_URL.test(m.image)) return null;
+    const products = Array.isArray(m.products)
+        ? m.products.slice(0, 24).map((p) => ({
+            id: text(p?.id, 100),
+            label: text(p?.label, 200),
+            colour: /^#[0-9a-f]{6}$/i.test(p?.colour) ? p.colour : '',
+            count: Number(p?.count) || 0,
+            withPicture: !!p?.withPicture,
+        }))
+        : [];
+    return {
+        id: text(m.renderId, 80) || `render_${Date.now().toString(36)}`,
+        image: m.image,
+        width: Number(m.width) || 0,
+        height: Number(m.height) || 0,
+        viewKind: text(m.viewKind, 20),
+        style: text(m.style, 20),
+        tier: text(m.tier, 20),
+        modelLabel: text(m.modelLabel, 80),
+        score: Math.max(0, Math.min(1, Number(m.score) || 0)),
+        products,
+        at: Date.now(),
+    };
+}
+
+/** The model's export material from Design & Build (pictures as inline images only). */
+function artifactsFromMessage(m) {
+    const views = Array.isArray(m.views)
+        ? m.views
+            .filter((v) => v && typeof v.image === 'string' && IMAGE_DATA_URL.test(v.image))
+            .map((v) => ({ kind: ['current', 'top', 'overview'].includes(v.kind) ? v.kind : 'current', image: v.image }))
+        : [];
+    return {
+        planName: text(m.planName, 300),
+        planImage: typeof m.planImage === 'string' && IMAGE_DATA_URL.test(m.planImage) ? m.planImage : null,
+        views,
+        scene: typeof m.scene === 'string' && m.scene.length < 80_000_000 ? m.scene : '',
+        counts: m.counts && typeof m.counts === 'object' ? m.counts : null,
+    };
+}
+
 function unplacedNames(f, products) {
     const byId = new Map(products.map((p) => [p.id, p]));
     return (f.unplacedProductIds || [])
@@ -55,9 +111,12 @@ function DockSession({ s }) {
     const readyRef = useRef(false);
     const sentPlanRef = useRef(0);
     const sentProductsRef = useRef(0);
+    const pendingArtifactsRef = useRef(new Map());
     const [frameKey, setFrameKey] = useState(0);
     const [confirmClose, setConfirmClose] = useState(false);
     const [timedOut, setTimedOut] = useState(false);
+    const [reviewId, setReviewId] = useState(null);
+    const [exportOpen, setExportOpen] = useState(false);
 
     const post = useCallback((type, payload = {}) => {
         const win = iframeRef.current?.contentWindow;
@@ -75,15 +134,43 @@ function DockSession({ s }) {
         }
     }, [post]);
 
-    // Products of the applied offer go to the finished model to furnish it.
-    const sendProductsIfNeeded = useCallback(() => {
+    // Products of the applied offer go to the finished model to furnish it, with small
+    // pictures of each product (the renders use them to show the real products).
+    const sendProductsIfNeeded = useCallback(async () => {
         const st = designBuild.getState();
         if (!readyRef.current || st.status !== 'ready' || !st.products.length || st.productsToken === sentProductsRef.current) return;
-        if (post('products', { items: st.products })) {
-            sentProductsRef.current = st.productsToken;
-            designBuild.set({ stage: `Furnishing with ${st.products.length} products…` });
+        const token = st.productsToken;
+        sentProductsRef.current = token;
+        designBuild.set({ stage: `Preparing pictures of ${st.products.length} products…` });
+        let items = st.products;
+        try {
+            items = await prepareProductPictures(st.products);
+        } catch {
+            // send the links only
+        }
+        if (designBuild.getState().productsToken !== token) return; // newer products go instead
+        if (post('products', { items: items.map(productForBridge) })) {
+            designBuild.set({ stage: `Furnishing with ${items.length} products…` });
         }
     }, [post]);
+
+    /** Ask Design & Build for the model's export material (views, scene, counts). */
+    const requestArtifacts = useCallback(() => new Promise((resolve) => {
+        const requestId = `a${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
+        const timer = window.setTimeout(() => {
+            pendingArtifactsRef.current.delete(requestId);
+            resolve(null);
+        }, ARTIFACTS_TIMEOUT_MS);
+        pendingArtifactsRef.current.set(requestId, (data) => {
+            window.clearTimeout(timer);
+            resolve(data);
+        });
+        if (!readyRef.current || !post('artifacts', { requestId })) {
+            window.clearTimeout(timer);
+            pendingArtifactsRef.current.delete(requestId);
+            resolve(null);
+        }
+    }), [post]);
 
     // Messages from Design & Build: only from its origin, and only from our iframe.
     useEffect(() => {
@@ -117,9 +204,27 @@ function DockSession({ s }) {
                             pieces: Number(m.pieces) || 0,
                             products: Array.isArray(m.products) ? m.products : [],
                             unplacedProductIds: Array.isArray(m.unplacedProductIds) ? m.unplacedProductIds : [],
+                            colours: Array.isArray(m.colours)
+                                ? m.colours
+                                    .filter((c) => c && typeof c.id === 'string' && /^#[0-9a-f]{6}$/i.test(c.hex))
+                                    .map((c) => ({ id: c.id, hex: c.hex, name: text(c.name, 30) }))
+                                : [],
                         },
                     });
                     break;
+                case 'render-ready': {
+                    const render = renderFromMessage(m);
+                    if (render) designBuild.addRender(render);
+                    break;
+                }
+                case 'artifacts': {
+                    const done = pendingArtifactsRef.current.get(m.requestId);
+                    if (done) {
+                        pendingArtifactsRef.current.delete(m.requestId);
+                        done(artifactsFromMessage(m));
+                    }
+                    break;
+                }
                 case 'error':
                     designBuild.set({ error: String(m.message || 'Design & Build reported a problem.').slice(0, 400) });
                     break;
@@ -149,15 +254,19 @@ function DockSession({ s }) {
         return () => window.clearTimeout(id);
     }, [frameKey]);
 
-    // Escape tucks the modal away (the model stays loaded).
+    // Escape closes a review or the export suite first, then tucks the modal away
+    // (the model stays loaded).
     useEffect(() => {
         if (s.minimized) return undefined;
         const onKey = (e) => {
-            if (e.key === 'Escape') designBuild.minimize();
+            if (e.key !== 'Escape') return;
+            if (reviewId) setReviewId(null);
+            else if (exportOpen) setExportOpen(false);
+            else designBuild.minimize();
         };
         window.addEventListener('keydown', onKey);
         return () => window.removeEventListener('keydown', onKey);
-    }, [s.minimized]);
+    }, [s.minimized, reviewId, exportOpen]);
 
     const retry = useCallback(() => {
         readyRef.current = false;
@@ -179,34 +288,35 @@ function DockSession({ s }) {
 
     const ready = s.status === 'ready';
     const furnished = s.furnished && s.furnished.placedPieces > 0 ? s.furnished : null;
+    const approved = s.renders.find((r) => r.id === s.approvedRenderId) || null;
+    const reviewing = reviewId ? s.renders.find((r) => r.id === reviewId) || null : null;
     const stepState = (key) => {
         if (key === 'model') return ready ? 'done' : 'active';
         if (key === 'furnish') return furnished ? 'done' : ready && s.products.length ? 'active' : ready ? 'next' : 'todo';
-        if (key === 'render') return furnished ? 'next' : 'todo';
-        return 'todo';
+        if (key === 'render') return approved ? 'done' : s.renders.length ? 'active' : furnished || ready ? 'next' : 'todo';
+        return s.exportedAt ? 'done' : approved ? 'active' : 'todo';
     };
     const pieces = s.furniture?.pieces || 0;
-    const statusText = timedOut
-        ? 'Design & Build did not answer. Check your connection, then try again.'
-        : s.error
-            ? s.error
-            : s.stage
-                ? s.stage
-                : furnished
-                    ? describeFurnished(furnished, s.products)
-                    : ready
-                        ? `Model ready · ${describeCounts(s.counts)}${pieces ? ` · ${pieces} furniture pieces from the drawing` : ''}`
-                        : 'Opening Design & Build…';
+    const statusText = (() => {
+        if (timedOut) return 'Design & Build did not answer. Check your connection, then try again.';
+        if (s.error) return s.error;
+        if (s.stage) return s.stage;
+        if (approved) return s.exportedAt ? 'Exported · the package is in your downloads' : 'Render approved · the export suite is ready';
+        if (s.renders.length) return `${s.renders.length} render${s.renders.length === 1 ? '' : 's'} · review one and approve it for the export suite`;
+        if (furnished) return describeFurnished(furnished, s.products);
+        if (ready) return `Model ready · ${describeCounts(s.counts)}${pieces ? ` · ${pieces} furniture pieces from the drawing` : ''}`;
+        return 'Opening Design & Build…';
+    })();
     const missing = furnished ? unplacedNames(furnished, s.products) : [];
-    const hint = !ready || s.error
-        ? ''
-        : furnished
-            ? missing.length
-                ? `Not found on the drawing: ${missing.slice(0, 4).join(', ')}${missing.length > 4 ? ` and ${missing.length - 4} more` : ''}.`
-                : 'Every product found its place on the drawing.'
-            : s.products.length
-                ? ''
-                : 'Next: apply a Value Engineered or Multi-Budget offer, then the space is furnished with your products here.';
+    const notFound = (n) => (missing.length ? `Not found on the drawing: ${missing.slice(0, n).join(', ')}${missing.length > n ? ` and ${missing.length - n} more` : ''}.` : '');
+    const hint = (() => {
+        if (!ready || s.error || approved) return '';
+        if (furnished && !s.renders.length) return `Next: press Render in Design & Build — the render shows the offer's real products. ${notFound(3)}`.trim();
+        if (furnished) return notFound(4) || 'Every product found its place on the drawing.';
+        if (s.products.length) return '';
+        return 'Next: apply a Value Engineered or Multi-Budget offer, then the space is furnished with your products here.';
+    })();
+    const strip = s.renders.slice(-4).reverse();
 
     return (
         <>
@@ -259,6 +369,55 @@ function DockSession({ s }) {
                             title="Design & Build 3D model"
                             allow="fullscreen; clipboard-write"
                         />
+
+                        {reviewing && (
+                            <div className={styles.review} role="dialog" aria-label="Review render">
+                                <img className={styles.reviewImage} src={reviewing.image} alt="Render from Design & Build" />
+                                <div className={styles.reviewBar}>
+                                    <div className={styles.reviewInfo}>
+                                        <span className={styles.reviewTitle}>
+                                            {VIEW_LABEL[reviewing.viewKind] || 'Render'}
+                                            {reviewing.score ? ` · geometry match ${Math.round(reviewing.score * 100)}%` : ''}
+                                        </span>
+                                        {reviewing.products.length > 0 && (
+                                            <span className={styles.reviewProducts}>
+                                                {reviewing.products.slice(0, 6).map((p) => (
+                                                    <span key={p.id} className={styles.productChip} title={p.label}>
+                                                        {p.colour && <span className={styles.swatch} style={{ background: p.colour }} />}
+                                                        {p.label}
+                                                    </span>
+                                                ))}
+                                                {reviewing.products.length > 6 && <span className={styles.productChip}>+{reviewing.products.length - 6}</span>}
+                                            </span>
+                                        )}
+                                    </div>
+                                    <div className={styles.reviewActions}>
+                                        <button type="button" className={styles.secondaryBtn} onClick={() => setReviewId(null)}>Close</button>
+                                        {reviewing.id === s.approvedRenderId ? (
+                                            <button type="button" className={styles.approvedBtn} onClick={() => designBuild.approveRender(null)} title="Withdraw the approval">
+                                                ✓ Approved
+                                            </button>
+                                        ) : (
+                                            <button
+                                                type="button"
+                                                className={styles.primaryBtn}
+                                                onClick={() => {
+                                                    designBuild.approveRender(reviewing.id);
+                                                    setReviewId(null);
+                                                    setExportOpen(true);
+                                                }}
+                                            >
+                                                Approve render
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {exportOpen && approved && (
+                            <DesignBuildExportPanel s={s} requestArtifacts={requestArtifacts} onClose={() => setExportOpen(false)} />
+                        )}
                     </div>
 
                     <footer className={styles.footer}>
@@ -269,13 +428,39 @@ function DockSession({ s }) {
                                 {hint && <span className={styles.statusHint}>{hint}</span>}
                             </div>
                         </div>
+                        {strip.length > 0 && (
+                            <div className={styles.renderStrip} aria-label="Renders">
+                                {strip.map((r) => (
+                                    <button
+                                        key={r.id}
+                                        type="button"
+                                        className={`${styles.renderThumb} ${r.id === s.approvedRenderId ? styles.renderThumbApproved : ''}`}
+                                        onClick={() => setReviewId(r.id)}
+                                        title={r.id === s.approvedRenderId ? 'Approved render' : 'Review this render'}
+                                    >
+                                        <img src={r.image} alt="" />
+                                        {r.id === s.approvedRenderId && <span className={styles.thumbTick}>✓</span>}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
                         <div className={styles.footerActions}>
                             {(timedOut || s.error) && (
                                 <button type="button" className={styles.secondaryBtn} onClick={retry}>Try again</button>
                             )}
-                            <button type="button" className={styles.primaryBtn} onClick={designBuild.minimize}>
+                            {s.renders.length > 0 && !approved && (
+                                <button type="button" className={styles.secondaryBtn} onClick={() => setReviewId(s.renders[s.renders.length - 1].id)}>
+                                    Review render
+                                </button>
+                            )}
+                            <button type="button" className={approved ? styles.secondaryBtn : styles.primaryBtn} onClick={designBuild.minimize}>
                                 Continue in BOQ Flow
                             </button>
+                            {approved && (
+                                <button type="button" className={styles.primaryBtn} onClick={() => setExportOpen(true)}>
+                                    Export suite
+                                </button>
+                            )}
                         </div>
                     </footer>
                 </section>
@@ -286,7 +471,19 @@ function DockSession({ s }) {
                     <span className={`${styles.statusDot} ${s.error ? styles.dotError : ready ? styles.dotReady : styles.dotBusy}`} />
                     <button type="button" className={styles.chipMain} onClick={designBuild.restore} title="Open Design & Build">
                         <span className={styles.chipTitle}>Design &amp; Build</span>
-                        <span className={styles.chipSub}>{s.error ? 'Needs attention' : furnished ? `Furnished with ${s.products.length} products` : ready ? describeCounts(s.counts) : 'Building the 3D model…'}</span>
+                        <span className={styles.chipSub}>
+                            {s.error
+                                ? 'Needs attention'
+                                : approved
+                                    ? 'Render approved · export suite ready'
+                                    : s.renders.length
+                                        ? `${s.renders.length} render${s.renders.length === 1 ? '' : 's'} to review`
+                                        : furnished
+                                            ? `Furnished with ${s.products.length} products`
+                                            : ready
+                                                ? describeCounts(s.counts)
+                                                : 'Building the 3D model…'}
+                        </span>
                     </button>
                     <button type="button" className={styles.chipOpen} onClick={designBuild.restore}>Open</button>
                 </div>
