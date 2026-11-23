@@ -205,7 +205,7 @@ export async function prepareProductPictures(products) {
             const p = todo[next++];
             try {
                 const img = await Promise.race([
-                    loadExportImageData(p.imageRef, { maxWidth: 384, format: 'image/jpeg', quality: 0.8 }),
+                    loadExportImageData(p.imageRef, { maxWidth: 512, format: 'image/jpeg', quality: 0.82 }),
                     new Promise((resolve) => setTimeout(() => resolve(null), 12000)),
                 ]);
                 if (img?.dataUrl && img.dataUrl.length < 600000) p.imageUrl = img.dataUrl;

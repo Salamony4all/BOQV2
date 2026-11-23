@@ -206,7 +206,10 @@ function suiteContext(input) {
         colourOf: (p) => colours.get(p.id) || null,
         renders: approved ? [approved, ...renders.filter((r) => r !== approved)] : renders,
         approved,
+        // The plan from the top with each product's photo in place, and without them.
         planView: views.get('top') || views.get('current') || null,
+        planPlain: views.get('top-plain') || views.get('top') || views.get('current') || null,
+        placements: Array.isArray(input.artifacts?.placements) ? input.artifacts.placements : [],
         overview: views.get('overview') || views.get('current') || null,
         tables,
         currency: detectCurrency(tables),
@@ -459,11 +462,17 @@ async function drawAnnotatedPlan(ctx) {
     if (!ctx.planView) return null;
     const plan = await loadImage(ctx.planView);
     const keyed = ctx.products.filter((p) => ctx.colourOf(p) && ctx.placedOf(p) > 0);
+    const thumbs = await Promise.all(
+        keyed.map(async (p) => {
+            const pic = p.imageRef || p.imageUrl ? await ctx.picture(p.imageRef || p.imageUrl, 200) : null;
+            return pic?.dataUrl ? loadImage(pic.dataUrl).catch(() => null) : null;
+        }),
+    );
     const pw = plan.naturalWidth;
     const ph = plan.naturalHeight;
-    const legendW = Math.round(Math.max(380, pw * 0.3));
-    const unit = Math.max(1, legendW / 420);
-    const rowH = 58 * unit;
+    const legendW = Math.round(Math.max(420, pw * 0.32));
+    const unit = Math.max(1, legendW / 460);
+    const rowH = 78 * unit;
     const needH = 210 * unit + (keyed.length + 1) * rowH;
     const H = Math.max(ph, needH);
     const c = canvasOf(pw + legendW, H);
@@ -476,32 +485,42 @@ async function drawAnnotatedPlan(ctx) {
     g.fillRect(pw, 0, legendW, H);
     g.fillStyle = `#${NAVY}`;
     g.font = `700 ${Math.round(26 * unit)}px Arial, sans-serif`;
-    g.fillText('Furniture key', x0, 56 * unit);
+    g.fillText('Products in place', x0, 56 * unit);
     g.fillStyle = `#${MUTED}`;
     g.font = `${Math.round(15 * unit)}px Arial, sans-serif`;
     g.fillText(clip(ctx.title, 40), x0, 84 * unit);
     g.fillText(ctx.date, x0, 106 * unit);
-    let y = 150 * unit;
-    const drawRow = (hex, title, sub) => {
+    let y = 140 * unit;
+    const box = 60 * unit;
+    const drawRow = (hex, thumb, title, sub) => {
+        // colour bar, then the product's own picture, then its name
         g.fillStyle = hex;
-        g.beginPath();
-        g.roundRect?.(x0, y - 22 * unit, 30 * unit, 30 * unit, 6 * unit);
-        if (!g.roundRect) g.rect(x0, y - 22 * unit, 30 * unit, 30 * unit);
-        g.fill();
-        g.strokeStyle = 'rgba(15,23,42,0.18)';
-        g.stroke();
+        g.fillRect(x0, y, 8 * unit, box);
+        const tx = x0 + 18 * unit;
+        if (thumb) {
+            g.fillStyle = '#ffffff';
+            g.fillRect(tx, y, box, box);
+            g.strokeStyle = 'rgba(15,23,42,0.15)';
+            g.lineWidth = Math.max(1, unit);
+            g.strokeRect(tx, y, box, box);
+        }
+        if (thumb) {
+            const f = contain(thumb.naturalWidth, thumb.naturalHeight, { x: tx + 3 * unit, y: y + 3 * unit, w: box - 6 * unit, h: box - 6 * unit });
+            g.drawImage(thumb, f.x, f.y, f.w, f.h);
+        }
+        const textX = tx + box + 14 * unit;
         g.fillStyle = `#${INK}`;
         g.font = `700 ${Math.round(16 * unit)}px Arial, sans-serif`;
-        g.fillText(clip(title, 34), x0 + 44 * unit, y - 4 * unit);
+        g.fillText(clip(title, 30), textX, y + 24 * unit);
         g.fillStyle = `#${MUTED}`;
         g.font = `${Math.round(13 * unit)}px Arial, sans-serif`;
-        g.fillText(clip(sub, 44), x0 + 44 * unit, y + 15 * unit);
+        g.fillText(clip(sub, 38), textX, y + 46 * unit);
         y += rowH;
     };
-    for (const p of keyed) {
-        drawRow(ctx.colourOf(p).hex, productLabel(p), `${ctx.placedOf(p)} placed · ${clip(p.description, 40)}`);
-    }
-    drawRow('#ece8e2', 'Furniture from the drawing', 'No product matched yet');
+    keyed.forEach((p, i) => {
+        drawRow(ctx.colourOf(p).hex, thumbs[i], productLabel(p), `${ctx.placedOf(p)} placed · ${clip(p.description, 40)}`);
+    });
+    drawRow('#ece8e2', null, 'Furniture from the drawing', 'No product matched yet');
     return canvasBlob(c, 'image/png');
 }
 
@@ -571,15 +590,20 @@ async function buildPresentation(ctx, pictures) {
     // Plan from the top, with the furniture key beside it.
     if (ctx.planView) {
         const slide = pres.addSlide();
-        heading(slide, 'Plan and furniture key', 'Each colour is one product from the offer, placed where the drawing shows it');
+        heading(slide, 'Plan with the products in place', 'Each product stands where the drawing shows it, by its own photo and colour');
         await containImage(slide, ctx.planView, { x: 0.5, y: 1.35, w: 8.2, h: 5.8 });
         const keyed = ctx.products.filter((p) => ctx.colourOf(p) && ctx.placedOf(p) > 0);
         const shownKeys = keyed.slice(0, 10);
         shownKeys.forEach((p, i) => {
             const y = 1.45 + i * 0.56;
-            slide.addShape(pres.ShapeType.roundRect, { x: 9.0, y: y + 0.04, w: 0.3, h: 0.3, rectRadius: 0.06, fill: { color: ctx.colourOf(p).hex.replace('#', '') }, line: { color: 'FFFFFF', width: 0.5 } });
-            slide.addText(clip(productLabel(p), 40), { x: 9.45, y: y - 0.04, w: 3.4, h: 0.28, fontFace: font, fontSize: 11.5, bold: true, color: INK });
-            slide.addText(`${ctx.placedOf(p)} placed · ${clip(p.description, 46)}`, { x: 9.45, y: y + 0.22, w: 3.4, h: 0.24, fontFace: font, fontSize: 8.5, color: MUTED });
+            slide.addShape(pres.ShapeType.rect, { x: 9.0, y, w: 0.08, h: 0.46, fill: { color: ctx.colourOf(p).hex.replace('#', '') }, line: { color: ctx.colourOf(p).hex.replace('#', ''), width: 0 } });
+            const img = pictures[ctx.products.indexOf(p)];
+            if (img?.dataUrl) {
+                const f = contain(img.width, img.height, { x: 9.14, y, w: 0.46, h: 0.46 });
+                slide.addImage({ data: img.dataUrl, ...f });
+            }
+            slide.addText(clip(productLabel(p), 34), { x: 9.68, y: y - 0.04, w: 3.2, h: 0.28, fontFace: font, fontSize: 11, bold: true, color: INK });
+            slide.addText(`${ctx.placedOf(p)} placed · ${clip(p.description, 40)}`, { x: 9.68, y: y + 0.22, w: 3.2, h: 0.24, fontFace: font, fontSize: 8.5, color: MUTED });
         });
         const y = 1.45 + shownKeys.length * 0.56;
         if (keyed.length > shownKeys.length) {
@@ -722,6 +746,40 @@ async function buildFfeSchedule(ctx, pictures) {
         tr.getCell(c).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: argb(SOFT) } };
     });
     ws.views = [{ state: 'frozen', ySplit: 4 }];
+
+    // Where each piece stands on the plan, with its product.
+    if (ctx.placements.length) {
+        const ps = wb.addWorksheet('Placement');
+        sheetTitle(ps, ctx.title, 'Each piece of furniture on the plan (centre in metres from the drawing origin, x right, y down)', 9);
+        [8, 34, 11, 14, 10, 10, 12, 11, 11].forEach((w, i) => {
+            ps.getColumn(i + 1).width = w;
+        });
+        const h = ps.getRow(4);
+        h.values = ['Ref', 'Product', 'Key', 'Kind', 'X (m)', 'Y (m)', 'Rotation (°)', 'Width (m)', 'Depth (m)'];
+        styleHeaderRow(h);
+        const byId = new Map(ctx.products.map((p) => [p.id, p]));
+        const order = new Map(ctx.products.map((p, i) => [p.id, i]));
+        const rows = [...ctx.placements].sort((a, b) => {
+            const pa = a.productId && byId.has(a.productId) ? order.get(a.productId) : 1e9;
+            const pb = b.productId && byId.has(b.productId) ? order.get(b.productId) : 1e9;
+            return pa - pb || a.y - b.y || a.x - b.x;
+        });
+        rows.forEach((pl, i) => {
+            const p = pl.productId ? byId.get(pl.productId) : null;
+            const colour = p ? ctx.colourOf(p) : null;
+            const row = ps.getRow(5 + i);
+            row.values = [p?.sn || '', p ? productLabel(p) : 'No product yet', colour ? colour.name : '', pl.kind, pl.x, pl.y, pl.angleDeg, pl.widthM, pl.depthM];
+            [5, 6, 8, 9].forEach((c) => {
+                row.getCell(c).numFmt = '0.00';
+            });
+            if (colour) {
+                row.getCell(3).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: argb(colour.hex) } };
+                row.getCell(3).font = { size: 9, bold: true, color: { argb: 'FFFFFFFF' } };
+            }
+            if (!p) row.getCell(2).font = { italic: true, color: { argb: argb(MUTED) } };
+        });
+        ps.views = [{ state: 'frozen', ySplit: 4 }];
+    }
 
     // The furniture Design & Build read from the drawing.
     const schedule = ctx.input.furniture?.schedule || [];
@@ -956,7 +1014,7 @@ export async function buildExportSuite(input, { groups, onProgress } = {}) {
         ['boq', 'BOQ/Detailed_BOQ.xlsx', () => buildDetailedBoq(ctx)],
         ['boq', 'BOQ/BOQ_Summary.pdf', () => buildBoqSummary(ctx)],
         ['drawings', 'Drawings/Source_Drawing.pdf', async () => input.plan?.file || null],
-        ['drawings', 'Drawings/Extracted_Plan.png', async () => (ctx.planView ? asPngBlob(ctx.planView) : null)],
+        ['drawings', 'Drawings/Extracted_Plan.png', async () => (ctx.planPlain ? asPngBlob(ctx.planPlain) : null)],
         ['drawings', 'Drawings/Annotated_Plan.png', () => buildAnnotatedPlan(ctx)],
         ['presentation', 'Presentation/Design_and_Build_Presentation.pptx', async () => buildPresentation(ctx, await pics())],
         ['ffe', 'FF&E/FF&E_Schedule.xlsx', async () => (ctx.products.length ? buildFfeSchedule(ctx, await pics()) : null)],

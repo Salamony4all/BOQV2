@@ -43,7 +43,8 @@ function describeCounts(c) {
 
 function describeFurnished(f, products) {
     const withProduct = (f.products || []).filter((m) => m.placed > 0).length;
-    return `Furnished · ${f.placedPieces} of ${f.pieces} drawn pieces carry ${withProduct} of ${products.length} products`;
+    const photos = f.withPhotos ? ` · ${f.withPhotos === withProduct ? 'all' : f.withPhotos} shown by their own photo` : '';
+    return `Furnished · ${f.placedPieces} of ${f.pieces} drawn pieces carry ${withProduct} of ${products.length} products${photos}`;
 }
 
 const text = (v, max) => (typeof v === 'string' ? v.slice(0, max) : '');
@@ -80,12 +81,26 @@ function artifactsFromMessage(m) {
     const views = Array.isArray(m.views)
         ? m.views
             .filter((v) => v && typeof v.image === 'string' && IMAGE_DATA_URL.test(v.image))
-            .map((v) => ({ kind: ['current', 'top', 'overview'].includes(v.kind) ? v.kind : 'current', image: v.image }))
+            .map((v) => ({ kind: ['current', 'top', 'top-plain', 'overview'].includes(v.kind) ? v.kind : 'current', image: v.image }))
+        : [];
+    const num = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0);
+    const placements = Array.isArray(m.placements)
+        ? m.placements.slice(0, 5000).filter((p) => p && typeof p.pieceId === 'string').map((p) => ({
+            pieceId: text(p.pieceId, 60),
+            kind: text(p.kind, 30),
+            productId: typeof p.productId === 'string' ? text(p.productId, 100) : null,
+            x: num(p.x),
+            y: num(p.y),
+            angleDeg: num(p.angleDeg),
+            widthM: num(p.widthM),
+            depthM: num(p.depthM),
+        }))
         : [];
     return {
         planName: text(m.planName, 300),
         planImage: typeof m.planImage === 'string' && IMAGE_DATA_URL.test(m.planImage) ? m.planImage : null,
         views,
+        placements,
         scene: typeof m.scene === 'string' && m.scene.length < 80_000_000 ? m.scene : '',
         counts: m.counts && typeof m.counts === 'object' ? m.counts : null,
     };
@@ -202,6 +217,7 @@ function DockSession({ s }) {
                         furnished: {
                             placedPieces: Number(m.placedPieces) || 0,
                             pieces: Number(m.pieces) || 0,
+                            withPhotos: Number(m.withPhotos) || 0,
                             products: Array.isArray(m.products) ? m.products : [],
                             unplacedProductIds: Array.isArray(m.unplacedProductIds) ? m.unplacedProductIds : [],
                             colours: Array.isArray(m.colours)

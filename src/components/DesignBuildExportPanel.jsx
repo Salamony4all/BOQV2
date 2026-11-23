@@ -14,11 +14,11 @@ function groupState(g, s) {
         case 'boq':
             return offer ? { ok: true, note: `${offer.tables.length} sheet${offer.tables.length === 1 ? '' : 's'} from the applied offer` } : { ok: false, note: 'Apply an offer first' };
         case 'ffe':
-            return s.products.length ? { ok: true, note: `${s.products.length} products with pictures, colours and links` } : { ok: false, note: 'Apply an offer first' };
+            return s.products.length ? { ok: true, note: `${s.products.length} products with pictures, colours, links and where each piece stands` } : { ok: false, note: 'Apply an offer first' };
         case 'renders':
             return { ok: s.renders.length > 0, note: `${s.renders.length} render${s.renders.length === 1 ? '' : 's'}, the approved one first` };
         case 'drawings':
-            return { ok: true, note: 'The source drawing, the extracted plan and its furniture key' };
+            return { ok: true, note: 'The source drawing, the extracted plan, and the plan with each product\'s photo in place' };
         case 'presentation':
             return { ok: true, note: 'Cover, the space, plan, renders, products and schedule' };
         case 'model':
