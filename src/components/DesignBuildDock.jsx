@@ -30,6 +30,19 @@ function describeCounts(c) {
     return `${c.walls} walls${glass} · ${c.windows} windows · ${c.doors} doors`;
 }
 
+function describeFurnished(f, products) {
+    const withProduct = (f.products || []).filter((m) => m.placed > 0).length;
+    return `Furnished · ${f.placedPieces} of ${f.pieces} drawn pieces carry ${withProduct} of ${products.length} products`;
+}
+
+function unplacedNames(f, products) {
+    const byId = new Map(products.map((p) => [p.id, p]));
+    return (f.unplacedProductIds || [])
+        .map((id) => byId.get(id))
+        .filter(Boolean)
+        .map((p) => [p.brand, p.model].filter(Boolean).join(' ') || p.description.slice(0, 40));
+}
+
 export default function DesignBuildDock() {
     const s = useDesignBuild();
     if (!s.open) return null;
@@ -41,6 +54,7 @@ function DockSession({ s }) {
     const iframeRef = useRef(null);
     const readyRef = useRef(false);
     const sentPlanRef = useRef(0);
+    const sentProductsRef = useRef(0);
     const [frameKey, setFrameKey] = useState(0);
     const [confirmClose, setConfirmClose] = useState(false);
     const [timedOut, setTimedOut] = useState(false);
@@ -58,6 +72,16 @@ function DockSession({ s }) {
         if (post('plan', { file: plan.file, name: plan.name })) {
             sentPlanRef.current = plan.token;
             designBuild.set({ status: 'building', stage: 'Reading the drawing…', error: null });
+        }
+    }, [post]);
+
+    // Products of the applied offer go to the finished model to furnish it.
+    const sendProductsIfNeeded = useCallback(() => {
+        const st = designBuild.getState();
+        if (!readyRef.current || st.status !== 'ready' || !st.products.length || st.productsToken === sentProductsRef.current) return;
+        if (post('products', { items: st.products })) {
+            sentProductsRef.current = st.productsToken;
+            designBuild.set({ stage: `Furnishing with ${st.products.length} products…` });
         }
     }, [post]);
 
@@ -80,6 +104,21 @@ function DockSession({ s }) {
                     break;
                 case 'model-ready':
                     designBuild.set({ status: 'ready', stage: '', counts: m.counts || null, error: null });
+                    sendProductsIfNeeded();
+                    break;
+                case 'furniture-ready':
+                    designBuild.set({ furniture: { pieces: Number(m.pieces) || 0, schedule: Array.isArray(m.schedule) ? m.schedule : [] } });
+                    break;
+                case 'furnished':
+                    designBuild.set({
+                        stage: '',
+                        furnished: {
+                            placedPieces: Number(m.placedPieces) || 0,
+                            pieces: Number(m.pieces) || 0,
+                            products: Array.isArray(m.products) ? m.products : [],
+                            unplacedProductIds: Array.isArray(m.unplacedProductIds) ? m.unplacedProductIds : [],
+                        },
+                    });
                     break;
                 case 'error':
                     designBuild.set({ error: String(m.message || 'Design & Build reported a problem.').slice(0, 400) });
@@ -90,7 +129,12 @@ function DockSession({ s }) {
         };
         window.addEventListener('message', onMessage);
         return () => window.removeEventListener('message', onMessage);
-    }, [sendPlanIfNeeded]);
+    }, [sendPlanIfNeeded, sendProductsIfNeeded]);
+
+    // Products arrive (an offer was applied) or the model became ready: furnish.
+    useEffect(() => {
+        sendProductsIfNeeded();
+    }, [s.status, s.productsToken, sendProductsIfNeeded]);
 
     // Another plan uploaded while the session is open: send it on.
     useEffect(() => {
@@ -118,6 +162,7 @@ function DockSession({ s }) {
     const retry = useCallback(() => {
         readyRef.current = false;
         sentPlanRef.current = 0;
+        sentProductsRef.current = 0;
         setTimedOut(false);
         designBuild.set({ status: 'connecting', stage: 'Opening Design & Build…', error: null, counts: null });
         setFrameKey((k) => k + 1);
@@ -133,18 +178,35 @@ function DockSession({ s }) {
     }, [confirmClose]);
 
     const ready = s.status === 'ready';
+    const furnished = s.furnished && s.furnished.placedPieces > 0 ? s.furnished : null;
     const stepState = (key) => {
         if (key === 'model') return ready ? 'done' : 'active';
-        if (key === 'furnish') return ready ? 'next' : 'todo';
+        if (key === 'furnish') return furnished ? 'done' : ready && s.products.length ? 'active' : ready ? 'next' : 'todo';
+        if (key === 'render') return furnished ? 'next' : 'todo';
         return 'todo';
     };
+    const pieces = s.furniture?.pieces || 0;
     const statusText = timedOut
         ? 'Design & Build did not answer. Check your connection, then try again.'
         : s.error
             ? s.error
-            : ready
-                ? `Model ready · ${describeCounts(s.counts)}`
-                : s.stage || 'Opening Design & Build…';
+            : s.stage
+                ? s.stage
+                : furnished
+                    ? describeFurnished(furnished, s.products)
+                    : ready
+                        ? `Model ready · ${describeCounts(s.counts)}${pieces ? ` · ${pieces} furniture pieces from the drawing` : ''}`
+                        : 'Opening Design & Build…';
+    const missing = furnished ? unplacedNames(furnished, s.products) : [];
+    const hint = !ready || s.error
+        ? ''
+        : furnished
+            ? missing.length
+                ? `Not found on the drawing: ${missing.slice(0, 4).join(', ')}${missing.length > 4 ? ` and ${missing.length - 4} more` : ''}.`
+                : 'Every product found its place on the drawing.'
+            : s.products.length
+                ? ''
+                : 'Next: apply a Value Engineered or Multi-Budget offer, then the space is furnished with your products here.';
 
     return (
         <>
@@ -204,11 +266,7 @@ function DockSession({ s }) {
                             <span className={`${styles.statusDot} ${timedOut || s.error ? styles.dotError : ready ? styles.dotReady : styles.dotBusy}`} />
                             <div className={styles.statusLines}>
                                 <span className={styles.statusMain}>{statusText}</span>
-                                {ready && !s.error && (
-                                    <span className={styles.statusHint}>
-                                        Next: apply a Value Engineered or Multi-Budget offer, then furnish the space with your products here.
-                                    </span>
-                                )}
+                                {hint && <span className={styles.statusHint}>{hint}</span>}
                             </div>
                         </div>
                         <div className={styles.footerActions}>
@@ -228,7 +286,7 @@ function DockSession({ s }) {
                     <span className={`${styles.statusDot} ${s.error ? styles.dotError : ready ? styles.dotReady : styles.dotBusy}`} />
                     <button type="button" className={styles.chipMain} onClick={designBuild.restore} title="Open Design & Build">
                         <span className={styles.chipTitle}>Design &amp; Build</span>
-                        <span className={styles.chipSub}>{ready ? describeCounts(s.counts) : s.error ? 'Needs attention' : 'Building the 3D model…'}</span>
+                        <span className={styles.chipSub}>{s.error ? 'Needs attention' : furnished ? `Furnished with ${s.products.length} products` : ready ? describeCounts(s.counts) : 'Building the 3D model…'}</span>
                     </button>
                     <button type="button" className={styles.chipOpen} onClick={designBuild.restore}>Open</button>
                 </div>

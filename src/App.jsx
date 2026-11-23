@@ -5,7 +5,7 @@ import TableViewer from './components/TableViewer';
 import MultiBudgetModal from './components/MultiBudgetModal';
 import PlanScopeModal from './components/PlanScopeModal';
 import DesignBuildDock from './components/DesignBuildDock';
-import { designBuild, isPdfFile } from './features/designBuild/designBuildStore';
+import { designBuild, isPdfFile, productsFromTables } from './features/designBuild/designBuildStore';
 import CompanySettings from './components/CompanySettings';
 import { useCompanyProfile, CompanyProvider } from './context/CompanyContext';
 import { ScrapingProvider } from './context/ScrapingContext';
@@ -869,6 +869,8 @@ function AppContent({ onOpenSettings }) {
   // tables as they are and hand the offer over separately so it is never costed twice.
   const applyOfferToExtracted = (data) => {
     const offer = { tables: data?.tables || [], costingFactors: data?.costingFactors || null };
+    // Design & Build furnishes the 3D space with the offer's products.
+    designBuild.setProducts(productsFromTables(offer.tables));
     setExtractedData(prev => {
       const hasOriginals = Array.isArray(prev?.tables) && prev.tables.length > 0 && !prev.isOfferOnly;
       if (hasOriginals) {

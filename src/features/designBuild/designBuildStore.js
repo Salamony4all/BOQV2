@@ -26,6 +26,8 @@ const initial = {
     error: null,
     products: [],       // BOQ lines with their chosen products (sent for furnishing)
     productsToken: 0,
+    furniture: null,    // { pieces, schedule } read from the drawing by Design & Build
+    furnished: null,    // { placedPieces, pieces, products, unplacedProductIds }
 };
 
 let state = { ...initial };
@@ -55,6 +57,8 @@ export const designBuild = {
             stage: 'Opening Design & Build…',
             counts: null,
             error: null,
+            furniture: null,
+            furnished: null,
         };
         emit();
     },
@@ -76,6 +80,42 @@ export const designBuild = {
 
 export function useDesignBuild() {
     return useSyncExternalStore(designBuild.subscribe, designBuild.getState);
+}
+
+const cellValue = (row, i) => {
+    const c = row?.cells?.[i];
+    return c && typeof c === 'object' ? c.value : c;
+};
+
+/**
+ * Product lines of an applied offer (Value Engineered or Multi-Budget): one per BOQ
+ * line, with its own words, category, chosen brand and model, picture and quantity.
+ * Option lines and set components are left out.
+ */
+export function productsFromTables(tables) {
+    const out = [];
+    (tables || []).forEach((table, t) => {
+        (table?.rows || []).forEach((row, r) => {
+            if (!row || row.isOptionRow || row.isSetSubItem || !Array.isArray(row.cells) || row.cells.length < 7) return;
+            const qty = parseFloat(String(cellValue(row, 5) ?? '').replace(/,/g, ''));
+            const description = String(row.sourceDescription || cellValue(row, 2) || '').trim();
+            if (!description || !(qty > 0)) return;
+            const imageCell = row.cells[1] || {};
+            const imageUrl = imageCell.image || imageCell.images?.[0]?.url || '';
+            out.push({
+                id: `t${t}r${r}`,
+                description: description.slice(0, 1000),
+                qty,
+                unit: String(cellValue(row, 6) || ''),
+                location: row.location || '',
+                category: [row.selectedMainCat, row.selectedSubCat, row.categoryHint].filter(Boolean).join(' / '),
+                brand: String(cellValue(row, 3) || row.selectedBrand || ''),
+                model: String(cellValue(row, 4) || ''),
+                imageUrl: /^(https?:\/\/|data:image\/)/i.test(imageUrl) ? imageUrl : '',
+            });
+        });
+    });
+    return out;
 }
 
 export function isPdfFile(file) {

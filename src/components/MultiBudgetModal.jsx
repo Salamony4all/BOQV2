@@ -1969,6 +1969,8 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                         : (row.imageRefs?.length ? row.imageRefs : (row.imageRef ? [row.imageRef] : [])).map(u => ({ url: u })));
 
                 const parentExport = {
+                    // the BOQ line's own words (sizes, kind) for Design & Build to match drawn furniture
+                    sourceDescription: row.description || '',
                     location: row.location || '',
                     scope: row.scope || '',
                     code: row.code || '',
