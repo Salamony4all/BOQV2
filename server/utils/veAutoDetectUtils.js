@@ -768,10 +768,52 @@ const randomJitter = () => Promise.resolve();
  * Uses withRetry for optimal parallel performance.
  * STRICTLY respects the UI providerModel selection, with a multi-stage safety rescue for API image failures.
  */
+/** A "model" that is only where the maker is from (country, region, "made in ..."). */
+const ORIGIN_ONLY_MODEL_RE = /^(?:(?:made|manufactured|assembled)\s+in\s+|origin\s*[:\-]?\s*|country\s*(?:of\s*origin)?\s*[:\-]?\s*)?(?:the\s+)?(?:u\.?a\.?e\.?|united\s+arab\s+emirates|emirates|dubai|abu\s*dhabi|sharjah|ajman|k\.?s\.?a\.?|saudi(?:\s+arabia)?|oman|muscat|qatar|doha|kuwait|bahrain|gcc|middle\s+east|egypt|jordan|lebanon|turkey|t[uü]rkiye|italy|germany|spain|france|portugal|poland|lithuania|netherlands|holland|belgium|denmark|sweden|norway|finland|switzerland|austria|czech(?:\s+republic|ia)?|romania|greece|europe(?:an)?|e\.?u\.?|u\.?k\.?|united\s+kingdom|england|britain|ireland|u\.?s\.?a?\.?|united\s+states|america|canada|mexico|brazil|china|p\.?r\.?c\.?|hong\s*kong|taiwan|japan|korea|south\s+korea|india|pakistan|malaysia|indonesia|thailand|vietnam|singapore|australia|local|imported|international)(?:\s*(?:origin|made|brand|manufacturer))?[\s.)]*$/i;
+
+/**
+ * Find the product of a maker's catalog that an item's headline names: the product's model
+ * or family appears in the headline, or shares most of its distinctive words with it.
+ */
+function findCatalogProductByHeadline(description, catalogBrand) {
+    if (!catalogBrand || !Array.isArray(catalogBrand.products) || !catalogBrand.products.length) return null;
+    const clean = (v) => String(v || '').toLowerCase().replace(/\([^)]*\)/g, ' ').replace(/[^a-z0-9\s-]/g, ' ').replace(/\s+/g, ' ').trim();
+    const headline = clean(String(description || '').split(/[\r\n|\u2022]+/)[0]);
+    if (headline.length < 6) return null;
+    const words = (v) => clean(v).split(/[\s-]+/).filter(w => w.length >= 3 && !/^(?:the|and|with|for|series|type)$/.test(w));
+    const headWords = new Set(words(headline));
+    let best = null, bestScore = 0;
+    for (const p of catalogBrand.products) {
+        for (const name of [p.family, p.model]) {
+            const n = clean(name);
+            if (n.length < 6 || !/[a-z]{3}/.test(n)) continue;
+            let score = 0;
+            if (headline.includes(n)) score = 100 + n.length;
+            else {
+                const nw = words(n);
+                const shared = nw.filter(w => headWords.has(w)).length;
+                if (nw.length >= 3 && shared >= 2 && shared / nw.length >= 0.6) score = 50 + shared * 10 + (shared / nw.length) * 10;
+            }
+            if (p.imageUrl) score += score ? 1 : 0;
+            if (score > bestScore) { bestScore = score; best = p; }
+        }
+    }
+    return best;
+}
+
 export async function veMatchAuto(description, providerModel = null, assets = [], brandList = [], localCatalogs = []) {
     return withRetry(async () => {
         // ── 1. DETERMINISTIC EXACTMATCH SHORT-CIRCUIT (< 5ms) ────────────────
         const specifiedDetails = extractSpecifiedProductDetails(description, localCatalogs);
+        if (specifiedDetails && specifiedDetails.brand) {
+            // "Workspace.ae - UAE": a country of origin after the maker's name is not a model
+            if (specifiedDetails.model && ORIGIN_ONLY_MODEL_RE.test(String(specifiedDetails.model).trim())) specifiedDetails.model = '';
+            // Maker named without a model: the item's own headline may name a product of that maker
+            if (!specifiedDetails.model) {
+                const headlineHit = findCatalogProductByHeadline(description, findBrandInCatalog(specifiedDetails.brand, localCatalogs, ''));
+                if (headlineHit) specifiedDetails.model = headlineHit.model;
+            }
+        }
         const GENERIC_CATEGORY_MODEL_RE = /^(?:acoustic\s+furniture|office\s+furniture|commercial\s+furniture|furniture|seating|office\s+seating|chair|chairs|desk|desks|table|tables|stool|stools|sofa|sofas|lounge|cabinet|storage|workstation|partition|divider|general)$/i;
 
         if (specifiedDetails && specifiedDetails.brand && (specifiedDetails.model || specifiedDetails.url)) {
