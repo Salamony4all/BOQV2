@@ -445,7 +445,8 @@ async function buildBoqSummary(ctx) {
         head: [['#', 'Description', 'Brand', 'Model', 'Qty', 'Unit', `Rate${cur}`, `Amount${cur}`]],
         body: lines,
         styles: { ...TABLE_STYLE.styles, fontSize: 7.2 },
-        columnStyles: { 0: { cellWidth: 9 }, 4: { halign: 'center', cellWidth: 11 }, 5: { halign: 'center', cellWidth: 12 }, 6: { halign: 'right', cellWidth: 20 }, 7: { halign: 'right', cellWidth: 22 } },
+        // References like "LF-01" stay on one line.
+        columnStyles: { 0: { cellWidth: 'wrap', minCellWidth: 9 }, 4: { halign: 'center', cellWidth: 11 }, 5: { halign: 'center', cellWidth: 12 }, 6: { halign: 'right', cellWidth: 20 }, 7: { halign: 'right', cellWidth: 22 } },
     });
     pdfFooters(doc, ctx);
     return doc.output('blob');
