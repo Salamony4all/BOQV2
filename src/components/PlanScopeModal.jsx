@@ -2,15 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { useCompanyProfile } from '../context/CompanyContext';
 import { AI_ENGINES, MODEL_OPTIONS, DEFAULT_AI_SETTINGS } from '../utils/aiConstants';
 import styles from '../styles/PlanScopeModal.module.css';
-import { getAutoDesignBuild, setAutoDesignBuild } from '../features/designBuild/designBuildStore';
 
 const PlanScopeModal = ({ isOpen, onClose, onSelect }) => {
     const { aiSettings } = useCompanyProfile();
     
     const [selectedEngine, setSelectedEngine] = useState(aiSettings?.engine || DEFAULT_AI_SETTINGS.engine);
     const [selectedModel, setSelectedModel] = useState(aiSettings?.model || DEFAULT_AI_SETTINGS.model);
-    // Also open the plan in Design & Build (3D), remembered between visits.
-    const [designBuildOn, setDesignBuildOn] = useState(getAutoDesignBuild);
 
     // Sync from profile when opened
     useEffect(() => {
@@ -52,7 +49,7 @@ const PlanScopeModal = ({ isOpen, onClose, onSelect }) => {
                 <div className={styles.content}>
 
                     <div className={styles.cards}>
-                        <div className={styles.card} onClick={() => onSelect('furniture', selectedEngine, selectedModel, { designBuild: designBuildOn })}>
+                        <div className={styles.card} onClick={() => onSelect('furniture', selectedEngine, selectedModel)}>
                             <div className={styles.icon}></div>
                             <h3 className={styles.cardTitle}>Furniture Only</h3>
                             <p className={styles.cardDesc}>
@@ -61,7 +58,7 @@ const PlanScopeModal = ({ isOpen, onClose, onSelect }) => {
                             </p>
                         </div>
 
-                        <div className={styles.card} onClick={() => onSelect('both', selectedEngine, selectedModel, { designBuild: designBuildOn })}>
+                        <div className={styles.card} onClick={() => onSelect('both', selectedEngine, selectedModel)}>
                             <div className={styles.icon}></div>
                             <h3 className={styles.cardTitle}>Fitout & Furniture</h3>
                             <p className={styles.cardDesc}>
@@ -71,22 +68,12 @@ const PlanScopeModal = ({ isOpen, onClose, onSelect }) => {
                         </div>
                     </div>
 
-                    <label className={styles.dbToggle}>
-                        <input
-                            type="checkbox"
-                            className={styles.dbToggleInput}
-                            checked={designBuildOn}
-                            onChange={(e) => {
-                                setDesignBuildOn(e.target.checked);
-                                setAutoDesignBuild(e.target.checked);
-                            }}
-                        />
-                        <span className={styles.dbToggleMark}>DB</span>
-                        <span className={styles.dbToggleText}>
-                            <strong>Also build the 3D space in Design &amp; Build</strong>
-                            <small>Opens the plan in 3D while the items are extracted (PDF plans), ready to furnish with your products.</small>
-                        </span>
-                    </label>
+                    {/* The BOQ comes first; the 3D model is built later, from the table, with its products. */}
+                    <ol className={styles.flow} aria-label="What happens next">
+                        <li><span className={styles.flowStep}>1</span>AI extracts the BOQ</li>
+                        <li><span className={styles.flowStep}>2</span>Match products and pictures</li>
+                        <li><span className={styles.flowStep}>3</span>Design &amp; Build from the table: 3D model and renders</li>
+                    </ol>
                 </div>
 
                 <div className={styles.footer}>

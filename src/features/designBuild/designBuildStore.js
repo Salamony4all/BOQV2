@@ -14,7 +14,6 @@ export const DESIGN_BUILD_ORIGIN = (() => {
     }
 })();
 
-const AUTO_KEY = 'boqflow.designBuild.auto';
 /** Renders kept per session (each is a full-size picture). */
 const MAX_RENDERS = 8;
 
@@ -327,23 +326,6 @@ export function productForBridge(p) {
 
 export function isPdfFile(file) {
     return !!file && (file.type === 'application/pdf' || /\.pdf$/i.test(file.name || ''));
-}
-
-/** Whether plan uploads also open Design & Build (on unless the user turned it off). */
-export function getAutoDesignBuild() {
-    try {
-        return localStorage.getItem(AUTO_KEY) !== 'off';
-    } catch {
-        return true;
-    }
-}
-
-export function setAutoDesignBuild(on) {
-    try {
-        localStorage.setItem(AUTO_KEY, on ? 'on' : 'off');
-    } catch {
-        // storage unavailable: the choice lasts for this visit only
-    }
 }
 
 if (import.meta.env.DEV && typeof window !== 'undefined') {

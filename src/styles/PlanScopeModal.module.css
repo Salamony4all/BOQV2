@@ -245,60 +245,34 @@
     to { transform: translateY(0); opacity: 1; }
 }
 
-/* Design & Build toggle */
-.dbToggle {
-    margin-top: 22px;
+/* What happens after the scope is picked: the BOQ first, then Design & Build from the table. */
+.flow {
+    margin: 22px 0 0;
+    padding: 0;
+    list-style: none;
     display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px 22px;
+    font-size: 0.82rem;
+    color: var(--text-muted);
+}
+
+.flow li {
+    display: inline-flex;
     align-items: center;
-    gap: 14px;
-    padding: 14px 16px;
-    border-radius: 14px;
-    border: 1px solid var(--border-color);
-    background: var(--bg-surface);
-    cursor: pointer;
-    transition: border-color 0.2s ease, background 0.2s ease;
+    gap: 7px;
 }
 
-.dbToggle:hover {
-    border-color: #2d66f6;
-    background: var(--bg-hover);
-}
-
-.dbToggleInput {
-    width: 18px;
-    height: 18px;
+.flowStep {
     flex: none;
-    accent-color: #2d66f6;
-    cursor: pointer;
-}
-
-.dbToggleMark {
-    flex: none;
-    width: 34px;
-    height: 34px;
-    border-radius: 10px;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
     display: grid;
     place-items: center;
-    font-size: 0.75rem;
-    font-weight: 800;
-    color: #fff;
-    background: linear-gradient(135deg, #2d66f6, #7c3aed);
-}
-
-.dbToggleText {
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
-    text-align: left;
-}
-
-.dbToggleText strong {
-    font-size: 0.95rem;
-    color: var(--text-primary);
-}
-
-.dbToggleText small {
-    font-size: 0.82rem;
+    font-size: 0.7rem;
+    font-weight: 700;
     color: var(--text-secondary);
-    line-height: 1.4;
+    border: 1px solid var(--border-color);
 }

@@ -761,15 +761,12 @@ function AppContent({ onOpenSettings }) {
     }
   };
 
-  const handlePlanAnalyze = async (scope, provider = aiSettings?.engine || 'google', providerModel = aiSettings?.model, options = {}) => {
+  const handlePlanAnalyze = async (scope, provider = aiSettings?.engine || 'google', providerModel = aiSettings?.model) => {
     if (!currentPlanFiles || currentPlanFiles.length === 0) return;
 
-    // Design & Build: build the same plan in 3D alongside the item extraction.
-    if (options.designBuild) {
-      const planPdf = Array.from(currentPlanFiles).find(isPdfFile);
-      if (planPdf) designBuild.openWithPlan(planPdf);
-    }
-
+    // The BOQ is extracted first. Design & Build starts later from the table (its
+    // Design & Build button), so the model is built already furnished with the
+    // matched products and their pictures; the plan is remembered for it.
     setIsPlanScopeOpen(false);
     setShowLanding(false);
     setUploading(true);
