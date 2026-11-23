@@ -148,6 +148,8 @@ const cellValue = (row, i) => {
 };
 
 const VE_COLUMNS = { sn: 0, image: 1, description: 2, brand: 3, model: 4, qty: 5, unit: 6, rate: 7, amount: 8 };
+/** A line's own reference column: Sr., S/N, S.No., Sl. No, No., #, Ref, Item No., Item Code, Code. */
+const REF_HEADER = /^(s\s*[./]?\s*n\.?(o\.?)?|sr\.?(\s*no\.?)?|sl\.?(\s*no\.?)?|no\.?|#|ref(erence)?\.?(\s*no\.?)?|item\s*(no\.?|code)|code)$/i;
 const MB_COLUMNS = { sn: 0, image: 1, description: 2, brand: -1, model: -1, qty: 3, unit: 4, rate: 5, amount: 6 };
 
 /**
@@ -159,11 +161,16 @@ export function offerColumns(table) {
     if (header.length >= 5) {
         const find = (re, not) => header.findIndex((h) => re.test(h) && !(not && not.test(h)));
         const described = find(/description|particulars|specification/i);
+        // "Item No." / "Item code" columns are not the description.
+        const description = described >= 0 ? described : find(/item|product/i, /\bno\b|no\.|number|code|ref|#/i);
+        // The line's reference; an "Item" column next to a description is one too. None (a plan
+        // analysis starts with Location): the export numbers the lines.
+        let sn = header.findIndex((h) => REF_HEADER.test(h));
+        if (sn < 0) sn = header.findIndex((h, i) => /^item$/i.test(h) && i !== description);
         return {
-            sn: 0,
+            sn,
             image: find(/image|photo|picture/i, /brand|logo/i),
-            // "Item No." / "Item code" columns are not the description.
-            description: described >= 0 ? described : find(/item|product/i, /\bno\b|no\.|number|code|ref|#/i),
+            description,
             brand: find(/brand|manufacturer|make/i),
             model: find(/model/i),
             qty: find(/qty|quantity/i),
@@ -226,7 +233,7 @@ export function productsFromTables(tables) {
                 imageRef,
                 productUrl: /^https?:\/\//i.test(productUrl) ? productUrl : '',
                 productText: offerText,
-                sn: String(cellValue(row, col.sn) ?? ''),
+                sn: col.sn >= 0 ? String(cellValue(row, col.sn) ?? '') : '',
                 rate: amountOf(cellValue(row, col.rate)),
                 amount: amountOf(cellValue(row, col.amount)),
                 section: row.sectionLabel || row.sectionCategory || table.sheetName || '',

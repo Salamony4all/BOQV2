@@ -415,7 +415,8 @@ async function buildBoqSummary(ctx) {
             sections.set(key, s);
             total += amount;
             lines.push([
-                String(cellValue(row, col.sn) ?? ''),
+                // No reference column (a plan analysis): number the lines.
+                col.sn >= 0 ? String(cellValue(row, col.sn) ?? '') : String(lines.length + 1),
                 clip(cellValue(row, col.description), 90),
                 clip(cellValue(row, col.brand) || row.selectedBrand, 24),
                 clip(cellValue(row, col.model) || row.selectedModel, 28),
