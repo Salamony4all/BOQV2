@@ -2,8 +2,10 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
     designBuild,
     useDesignBuild,
+    customProducts,
     prepareProductPictures,
     productForBridge,
+    smallPicture,
     DESIGN_BUILD_URL,
     DESIGN_BUILD_ORIGIN,
 } from '../features/designBuild/designBuildStore';
@@ -53,6 +55,55 @@ function describeFurnished(f, products) {
 }
 
 const text = (v, max) => (typeof v === 'string' ? v.slice(0, max) : '');
+
+const KIND_LABEL = {
+    seat: 'Chair', sofa: 'Sofa', table: 'Table', 'side-table': 'Side table', desk: 'Desk', bed: 'Bed',
+    storage: 'Storage', plant: 'Plant', screen: 'Screen', sanitary: 'Sanitary fitting', equipment: 'Equipment',
+    joinery: 'Joinery', unknown: 'Furniture',
+};
+const kindLabel = (k) => KIND_LABEL[k] || 'Furniture';
+const TYPE_ID = /^[\w-]{1,40}$/;
+
+/** The drawn furniture types (from Design & Build's schedule), checked field by field. */
+function scheduleFromMessage(list) {
+    if (!Array.isArray(list)) return [];
+    const num = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0);
+    return list.slice(0, 400).filter((t) => t && typeof t === 'object').map((t) => ({
+        typeId: typeof t.typeId === 'string' && TYPE_ID.test(t.typeId) ? t.typeId : '',
+        kind: text(t.kind, 30),
+        shape: text(t.shape, 30),
+        widthM: num(t.widthM),
+        depthM: num(t.depthM),
+        count: Math.max(0, Math.round(num(t.count))),
+    }));
+}
+
+const sizeText = (t) => (t.widthM > 0 && t.depthM > 0 ? `${t.widthM.toFixed(t.widthM < 1 ? 2 : 1)} × ${t.depthM.toFixed(t.depthM < 1 ? 2 : 1)} m` : '');
+const SHAPE_LABEL = { round: 'round', curved: 'curved', 'l-shape': 'L-shaped', free: 'free-form' };
+const shapeText = (shape) => SHAPE_LABEL[shape] || '';
+/** "Curved sofa", "Round table", "Chair": a first name for a custom item. */
+const defaultName = (t) => {
+    const shape = shapeText(t.shape);
+    const kind = kindLabel(t.kind);
+    return shape ? `${shape.charAt(0).toUpperCase()}${shape.slice(1)} ${kind.toLowerCase()}` : kind;
+};
+
+/**
+ * Drawn furniture types that no offer line took: a custom item (a name and a photo)
+ * can be set on each. Types already custom are listed too, to change them.
+ */
+function freeTypesOf(schedule, furnished, customItems) {
+    const taken = new Set();
+    for (const m of furnished?.products || []) {
+        if (!m || String(m.productId || '').startsWith('custom-') || !(Number(m.placed) > 0)) continue;
+        for (const id of m.typeIds || []) taken.add(id);
+    }
+    const custom = new Map((customItems || []).map((c) => [c.typeId, c]));
+    return (schedule || [])
+        .filter((t) => t.typeId && t.count > 0 && !taken.has(t.typeId))
+        .map((t) => ({ ...t, custom: custom.get(t.typeId) || null }))
+        .sort((a, b) => b.count - a.count);
+}
 
 /** A finished render from Design & Build, checked field by field. */
 function renderFromMessage(m) {
@@ -152,13 +203,15 @@ function legendOf(f, products) {
             : `The drawing shows ${placed} of the offer's ${qty}.`;
         rows.push({
             id: p.id,
+            custom: !!p.custom,
+            typeId: p.typeId || '',
             name: short,
             picture: typeof p.imageRef === 'string' && p.imageRef ? p.imageRef : p.imageUrl || '',
             hex: c?.hex || '',
             placed,
             count: differs ? `${placed} of ${qty}` : `${placed}`,
             differs,
-            title: [name, c?.name ? `${c.name} in the model` : '', `${placed} placed`, note, 'Click to see where it stands.'].filter(Boolean).join(' · '),
+            title: [p.custom ? `${short} (custom item)` : name, c?.name ? `${c.name} in the model` : '', `${placed} placed`, note, 'Click to see where it stands.'].filter(Boolean).join(' · '),
         });
     }
     return rows.sort((a, b) => b.placed - a.placed);
@@ -187,6 +240,11 @@ function DockSession({ s }) {
     const [focus, setFocus] = useState({ id: null, of: null });
     const focusId = focus.of && focus.of === s.furnished ? focus.id : null;
     const [brokenPictures, setBrokenPictures] = useState(() => new Set());
+    // Custom item picker: the list of drawn types without a product, then one type's form.
+    const [customOpen, setCustomOpen] = useState(false);
+    const [draft, setDraft] = useState(null);
+    const [draftBusy, setDraftBusy] = useState(false);
+    const customFileRef = useRef(null);
 
     const post = useCallback((type, payload = {}) => {
         const win = iframeRef.current?.contentWindow;
@@ -208,13 +266,15 @@ function DockSession({ s }) {
     // pictures of each product (the renders use them to show the real products).
     const sendProductsIfNeeded = useCallback(async () => {
         const st = designBuild.getState();
-        if (!readyRef.current || st.status !== 'ready' || !st.products.length || st.productsToken === sentProductsRef.current) return;
+        // The offer's lines, and the custom items set on drawn furniture without a line.
+        const all = [...st.products, ...customProducts(st.customItems)];
+        if (!readyRef.current || st.status !== 'ready' || !all.length || st.productsToken === sentProductsRef.current) return;
         const token = st.productsToken;
         sentProductsRef.current = token;
-        designBuild.set({ stage: `Preparing pictures of ${st.products.length} products…` });
-        let items = st.products;
+        designBuild.set({ stage: `Preparing pictures of ${all.length} products…` });
+        let items = all;
         try {
-            items = await prepareProductPictures(st.products);
+            items = await prepareProductPictures(all);
         } catch {
             // send the links only
         }
@@ -264,7 +324,7 @@ function DockSession({ s }) {
                     sendProductsIfNeeded();
                     break;
                 case 'furniture-ready':
-                    designBuild.set({ furniture: { pieces: Number(m.pieces) || 0, schedule: Array.isArray(m.schedule) ? m.schedule : [] } });
+                    designBuild.set({ furniture: { pieces: Number(m.pieces) || 0, schedule: scheduleFromMessage(m.schedule) } });
                     break;
                 case 'furnished':
                     designBuild.set({
@@ -326,20 +386,6 @@ function DockSession({ s }) {
         return () => window.clearTimeout(id);
     }, [frameKey]);
 
-    // Escape closes a review or the export suite first, then tucks the modal away
-    // (the model stays loaded).
-    useEffect(() => {
-        if (s.minimized) return undefined;
-        const onKey = (e) => {
-            if (e.key !== 'Escape') return;
-            if (reviewId) setReviewId(null);
-            else if (exportOpen) setExportOpen(false);
-            else designBuild.minimize();
-        };
-        window.addEventListener('keydown', onKey);
-        return () => window.removeEventListener('keydown', onKey);
-    }, [s.minimized, reviewId, exportOpen]);
-
     const retry = useCallback(() => {
         readyRef.current = false;
         sentPlanRef.current = 0;
@@ -356,6 +402,75 @@ function DockSession({ s }) {
         setExportOpen(false);
         if (post('focus-product', { productId: next })) setFocus({ id: next, of: designBuild.getState().furnished });
     }, [focusId, post]);
+
+    /** Show where the pieces of a drawn type stand while a custom item is set on them. */
+    const focusType = useCallback((typeId) => {
+        if (post('focus-type', { typeId: typeId || null })) setFocus({ id: null, of: null });
+    }, [post]);
+
+    const openCustom = useCallback(() => {
+        setReviewId(null);
+        setExportOpen(false);
+        setDraft(null);
+        setCustomOpen((o) => !o);
+    }, []);
+
+    const closeCustom = useCallback(() => {
+        setCustomOpen(false);
+        setDraft(null);
+        focusType(null);
+    }, [focusType]);
+
+    const pickType = useCallback((t) => {
+        setDraft({
+            typeId: t.typeId,
+            kind: t.kind,
+            count: t.count,
+            size: sizeText(t),
+            name: t.custom?.name || defaultName(t),
+            picture: t.custom?.picture || '',
+            existing: !!t.custom,
+        });
+        focusType(t.typeId);
+    }, [focusType]);
+
+    const onCustomPicture = useCallback(async (e) => {
+        const file = Array.from(e.target.files || []).find(Boolean);
+        e.target.value = '';
+        if (!file) return;
+        setDraftBusy(true);
+        const picture = await smallPicture(file);
+        setDraftBusy(false);
+        setDraft((d) => (d ? { ...d, picture: picture || d.picture, error: picture ? '' : 'Use a JPEG, PNG or WebP picture.' } : d));
+    }, []);
+
+    const saveCustom = useCallback(() => {
+        if (!draft || !draft.name.trim()) return;
+        designBuild.setCustomItem({
+            typeId: draft.typeId,
+            name: draft.name.trim().slice(0, 80),
+            kind: draft.kind,
+            count: draft.count,
+            picture: draft.picture || '',
+        });
+        setCustomOpen(false);
+        setDraft(null);
+    }, [draft]);
+
+    // Escape closes the custom item picker, a review or the export suite first, then tucks the modal away
+    // (the model stays loaded).
+    useEffect(() => {
+        if (s.minimized) return undefined;
+        const onKey = (e) => {
+            if (e.key !== 'Escape') return;
+            if (customOpen) closeCustom();
+            else if (reviewId) setReviewId(null);
+            else if (exportOpen) setExportOpen(false);
+            else designBuild.minimize();
+        };
+        window.addEventListener('keydown', onKey);
+        return () => window.removeEventListener('keydown', onKey);
+    }, [s.minimized, reviewId, exportOpen, customOpen, closeCustom]);
 
     /** Open Design & Build's render panel on the current view. */
     const openRender = useCallback(() => {
@@ -396,7 +511,10 @@ function DockSession({ s }) {
         return 'Opening Design & Build…';
     })();
     const missing = furnished ? unplacedNames(furnished, s.products) : [];
-    const legend = legendOf(furnished, s.products);
+    const allProducts = s.customItems.length ? [...s.products, ...customProducts(s.customItems)] : s.products;
+    const legend = legendOf(furnished, allProducts);
+    const freeTypes = ready ? freeTypesOf(s.furniture?.schedule, furnished, s.customItems) : [];
+    const canCustom = freeTypes.length > 0;
     const notFound = (n) => (missing.length ? `Not found on the drawing: ${missing.slice(0, n).join(', ')}${missing.length > n ? ` and ${missing.length - n} more` : ''}.` : '');
     const hint = (() => {
         if (!ready || s.error || approved) return '';
@@ -512,42 +630,144 @@ function DockSession({ s }) {
                         )}
                     </div>
 
-                    {legend.length > 0 && (
+                    {(legend.length > 0 || canCustom) && (
                         <div className={styles.legend} role="group" aria-label="Products in the model">
                             <span className={styles.legendTitle}>In the model</span>
                             <div className={styles.legendList}>
-                                {legend.map((p) => (
-                                    <button
-                                        key={p.id}
-                                        type="button"
-                                        className={`${styles.legendItem} ${focusId === p.id ? styles.legendItemActive : ''}`}
-                                        onClick={() => focusProduct(p.id)}
-                                        aria-pressed={focusId === p.id}
-                                        title={p.title}
-                                        disabled={!ready}
-                                    >
-                                        <span className={styles.legendPic} style={p.hex ? { borderColor: p.hex } : undefined}>
-                                            {p.picture && !brokenPictures.has(p.id) ? (
-                                                <img
-                                                    src={p.picture}
-                                                    alt=""
-                                                    loading="lazy"
-                                                    onError={() => setBrokenPictures((b) => new Set(b).add(p.id))}
-                                                />
-                                            ) : (
-                                                <span className={styles.legendDot} style={{ background: p.hex || '#94a3b8' }} />
-                                            )}
+                                {legend.map((p) => {
+                                    const chip = (
+                                        <button
+                                            key={p.custom ? undefined : p.id}
+                                            type="button"
+                                            className={`${styles.legendItem} ${focusId === p.id ? styles.legendItemActive : ''} ${p.custom ? styles.legendItemCustom : ''}`}
+                                            onClick={() => focusProduct(p.id)}
+                                            aria-pressed={focusId === p.id}
+                                            title={p.title}
+                                            disabled={!ready}
+                                        >
+                                            <span className={styles.legendPic} style={p.hex ? { borderColor: p.hex } : undefined}>
+                                                {p.picture && !brokenPictures.has(p.id) ? (
+                                                    <img
+                                                        src={p.picture}
+                                                        alt=""
+                                                        loading="lazy"
+                                                        onError={() => setBrokenPictures((b) => new Set(b).add(p.id))}
+                                                    />
+                                                ) : (
+                                                    <span className={styles.legendDot} style={{ background: p.hex || '#94a3b8' }} />
+                                                )}
+                                            </span>
+                                            <span className={styles.legendName}>{p.name}</span>
+                                            {p.custom && <span className={styles.legendTag}>Custom</span>}
+                                            <span className={`${styles.legendCount} ${p.differs ? styles.legendCountWarn : ''}`}>{p.count}</span>
+                                        </button>
+                                    );
+                                    if (!p.custom) return chip;
+                                    return (
+                                        <span key={p.id} className={styles.legendGroup}>
+                                            {chip}
+                                            <button
+                                                type="button"
+                                                className={styles.legendRemove}
+                                                onClick={() => designBuild.removeCustomItem(p.typeId)}
+                                                aria-label={`Remove the custom item ${p.name}`}
+                                                title="Remove this custom item"
+                                            >
+                                                ×
+                                            </button>
                                         </span>
-                                        <span className={styles.legendName}>{p.name}</span>
-                                        <span className={`${styles.legendCount} ${p.differs ? styles.legendCountWarn : ''}`}>{p.count}</span>
-                                    </button>
-                                ))}
+                                    );
+                                })}
                                 {missing.length > 0 && (
                                     <span className={styles.legendMissing} title={`Not on the drawing: ${missing.join(', ')}`}>
                                         {missing.length} not on the drawing
                                     </span>
                                 )}
                             </div>
+                            {canCustom && (
+                                <button
+                                    type="button"
+                                    className={`${styles.legendAdd} ${customOpen ? styles.legendAddActive : ''}`}
+                                    onClick={openCustom}
+                                    aria-expanded={customOpen}
+                                    title="Drawn furniture with no product in the offer: give it a name and a photo, and the model and renders show it"
+                                >
+                                    <span aria-hidden>＋</span> Custom item
+                                </button>
+                            )}
+
+                            {customOpen && (
+                                <div className={styles.customPop} role="dialog" aria-label="Custom item">
+                                    <div className={styles.customHead}>
+                                        <div>
+                                            <strong>{draft ? (draft.existing ? 'Change the custom item' : 'Custom item') : 'Custom item'}</strong>
+                                            <small>
+                                                {draft
+                                                    ? `${draft.count} drawn ${kindLabel(draft.kind).toLowerCase()}${draft.count === 1 ? '' : 's'}${draft.size ? ` · ${draft.size}` : ''} — shown in the model`
+                                                    : 'Drawn furniture with no product in the offer. Pick one, then give it a name and a photo: the model and the renders show it.'}
+                                            </small>
+                                        </div>
+                                        <button type="button" className={styles.iconBtn} onClick={closeCustom} aria-label="Close">
+                                            <span aria-hidden>×</span>
+                                        </button>
+                                    </div>
+                                    {!draft ? (
+                                        <ul className={styles.customTypes}>
+                                            {freeTypes.map((t) => (
+                                                <li key={t.typeId}>
+                                                    <button type="button" className={styles.customType} onClick={() => pickType(t)}>
+                                                        <span className={styles.customTypePic}>
+                                                            {t.custom?.picture ? <img src={t.custom.picture} alt="" /> : <span aria-hidden>{kindLabel(t.kind).charAt(0)}</span>}
+                                                        </span>
+                                                        <span className={styles.customTypeName}>
+                                                            {t.custom?.name || kindLabel(t.kind)}
+                                                            <small>{[sizeText(t), shapeText(t.shape)].filter(Boolean).join(' · ')}</small>
+                                                        </span>
+                                                        <span className={styles.customTypeCount}>{t.count}</span>
+                                                    </button>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    ) : (
+                                        <div className={styles.customForm}>
+                                            <label className={styles.customField}>
+                                                <span>Name</span>
+                                                <input
+                                                    type="text"
+                                                    value={draft.name}
+                                                    maxLength={80}
+                                                    onChange={(e) => setDraft((d) => (d ? { ...d, name: e.target.value } : d))}
+                                                    onKeyDown={(e) => {
+                                                        if (e.key === 'Enter') saveCustom();
+                                                    }}
+                                                    autoFocus
+                                                />
+                                            </label>
+                                            <div className={styles.customPicRow}>
+                                                <span className={styles.customPic}>
+                                                    {draft.picture ? <img src={draft.picture} alt="" /> : <small>No photo</small>}
+                                                </span>
+                                                <div className={styles.customPicText}>
+                                                    <button type="button" className={styles.secondaryBtn} onClick={() => customFileRef.current?.click()} disabled={draftBusy}>
+                                                        {draftBusy ? 'Reading…' : draft.picture ? 'Change photo' : 'Add a photo'}
+                                                    </button>
+                                                    <small>A product photo on a plain background renders best.</small>
+                                                    {draft.error && <small className={styles.customError}>{draft.error}</small>}
+                                                </div>
+                                                <input ref={customFileRef} type="file" accept="image/jpeg,image/png,image/webp" hidden onChange={onCustomPicture} />
+                                            </div>
+                                            <div className={styles.customActions}>
+                                                <button type="button" className={styles.secondaryBtn} onClick={() => { setDraft(null); focusType(null); }}>
+                                                    Back
+                                                </button>
+                                                <button type="button" className={styles.primaryBtn} onClick={saveCustom} disabled={!draft.name.trim() || draftBusy}>
+                                                    {draft.existing ? 'Update in the model' : 'Place in the model'}
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
                         </div>
                     )}
 

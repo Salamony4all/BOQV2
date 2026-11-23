@@ -35,7 +35,12 @@ const initial = {
     renders: [],        // finished renders from Design & Build, newest last
     approvedRenderId: null,
     exportedAt: null,
+    lastPlan: null,     // the last plan PDF uploaded (kept when a session closes), for one-click starts
+    customItems: [],    // { typeId, name, kind, count, picture } set on drawn furniture without a product
 };
+
+/** Custom items at most (each carries a small picture). */
+const MAX_CUSTOM_ITEMS = 24;
 
 let state = { ...initial };
 const listeners = new Set();
@@ -60,6 +65,7 @@ export const designBuild = {
             open: true,
             minimized: false,
             plan: { file, name: file.name, token },
+            lastPlan: file,
             status: 'connecting',
             stage: 'Opening Design & Build…',
             counts: null,
@@ -69,8 +75,14 @@ export const designBuild = {
             renders: [],
             approvedRenderId: null,
             exportedAt: null,
+            // Custom items belong to the drawing they were set on (kept when the same plan reopens).
+            customItems: state.plan?.file === file || state.lastPlan === file ? state.customItems : [],
         };
         emit();
+    },
+    /** Remember a plan PDF the user uploaded, so Design & Build can start from it in one click. */
+    rememberPlan(file) {
+        if (isPdfFile(file)) designBuild.set({ lastPlan: file });
     },
     minimize() {
         designBuild.set({ minimized: true });
@@ -80,7 +92,7 @@ export const designBuild = {
     },
     /** End the session; the 3D model is discarded. */
     close() {
-        state = { ...initial, session: state.session };
+        state = { ...initial, session: state.session, lastPlan: state.lastPlan, customItems: state.customItems };
         emit();
     },
     /**
@@ -92,6 +104,25 @@ export const designBuild = {
             products,
             productsToken: state.productsToken + 1,
             ...(offer ? { offer } : {}),
+            approvedRenderId: null,
+            exportedAt: null,
+        });
+    },
+    /** A custom item (name and picture) on one drawn furniture type that has no product line. */
+    setCustomItem(item) {
+        const others = state.customItems.filter((c) => c.typeId !== item.typeId);
+        designBuild.set({
+            customItems: [...others, item].slice(-MAX_CUSTOM_ITEMS),
+            productsToken: state.productsToken + 1,
+            approvedRenderId: null,
+            exportedAt: null,
+        });
+    },
+    removeCustomItem(typeId) {
+        if (!state.customItems.some((c) => c.typeId === typeId)) return;
+        designBuild.set({
+            customItems: state.customItems.filter((c) => c.typeId !== typeId),
+            productsToken: state.productsToken + 1,
             approvedRenderId: null,
             exportedAt: null,
         });
@@ -128,10 +159,12 @@ export function offerColumns(table) {
     const header = (table?.header || []).map((h) => String(h || '').replace(/\s+/g, ' ').trim());
     if (header.length >= 5) {
         const find = (re, not) => header.findIndex((h) => re.test(h) && !(not && not.test(h)));
+        const described = find(/description|particulars|specification/i);
         return {
             sn: 0,
-            image: find(/image|photo|picture/i),
-            description: find(/description|item|product/i),
+            image: find(/image|photo|picture/i, /brand|logo/i),
+            // "Item No." / "Item code" columns are not the description.
+            description: described >= 0 ? described : find(/item|product/i, /\bno\b|no\.|number|code|ref|#/i),
             brand: find(/brand|manufacturer|make/i),
             model: find(/model/i),
             qty: find(/qty|quantity/i),
@@ -145,6 +178,23 @@ export function offerColumns(table) {
 }
 
 const amountOf = (v) => parseFloat(String(v ?? '').replace(/,/g, '')) || 0;
+
+const cellPicture = (c) => (c && typeof c === 'object' ? extractImageUrl(c.image) || extractImageUrl(c.images?.[0]) || '' : '');
+
+/**
+ * The product picture of a line: its image column, else the first picture in the line
+ * (extracted tables keep pictures wherever the BOQ had them), never a brand logo.
+ */
+function rowPicture(row, col, header) {
+    const own = cellPicture(row.cells[col.image >= 0 ? col.image : 1]);
+    if (own) return own;
+    for (let i = 0; i < row.cells.length; i++) {
+        if (i === col.description || /brand|logo/i.test(String(header?.[i] || ''))) continue;
+        const url = cellPicture(row.cells[i]);
+        if (url) return url;
+    }
+    return '';
+}
 
 /**
  * Product lines of an applied offer (Value Engineered or Multi-Budget): one per BOQ
@@ -161,8 +211,7 @@ export function productsFromTables(tables) {
             const offerText = String(cellValue(row, col.description) || '').trim();
             const description = String(row.sourceDescription || offerText).trim();
             if (!description || !(qty > 0)) return;
-            const imageCell = row.cells[col.image >= 0 ? col.image : 1] || {};
-            const imageRef = extractImageUrl(imageCell.image) || extractImageUrl(imageCell.images?.[0]) || '';
+            const imageRef = rowPicture(row, col, table?.header);
             const productUrl = String(row.productUrl || '');
             out.push({
                 id: `t${t}r${r}`,
@@ -218,9 +267,61 @@ export async function prepareProductPictures(products) {
     return out;
 }
 
+/**
+ * Custom items as product lines for Design & Build: each is set on its drawn type, with
+ * the user's picture, and is listed as a custom item in the export suite.
+ */
+export function customProducts(items) {
+    return (items || []).map((c) => ({
+        id: `custom-${c.typeId}`,
+        description: `Custom ${c.name || c.kind || 'item'}`.slice(0, 300),
+        qty: Math.max(1, Number(c.count) || 1),
+        unit: 'Nos',
+        location: '',
+        category: 'Custom item',
+        brand: 'Custom',
+        model: String(c.name || c.kind || 'Custom item').slice(0, 120),
+        imageUrl: typeof c.picture === 'string' ? c.picture : '',
+        imageRef: typeof c.picture === 'string' ? c.picture : '',
+        productUrl: '',
+        productText: '',
+        sn: '',
+        rate: 0,
+        amount: 0,
+        section: 'Custom items',
+        typeId: c.typeId,
+        custom: true,
+    }));
+}
+
+/** A picture file as a small JPEG data URL (for custom items), or null. */
+export async function smallPicture(file, maxSide = 512) {
+    if (!file || !/^image\//.test(file.type || '')) return null;
+    const url = URL.createObjectURL(file);
+    try {
+        const img = new Image();
+        img.src = url;
+        await img.decode();
+        const scale = Math.min(1, maxSide / Math.max(img.naturalWidth || 1, img.naturalHeight || 1));
+        const c = document.createElement('canvas');
+        c.width = Math.max(1, Math.round((img.naturalWidth || 1) * scale));
+        c.height = Math.max(1, Math.round((img.naturalHeight || 1) * scale));
+        const ctx = c.getContext('2d');
+        if (!ctx) return null;
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, c.width, c.height);
+        ctx.drawImage(img, 0, 0, c.width, c.height);
+        return c.toDataURL('image/jpeg', 0.85);
+    } catch {
+        return null;
+    } finally {
+        URL.revokeObjectURL(url);
+    }
+}
+
 /** What goes to Design & Build for one product line (local fields stay here). */
 export function productForBridge(p) {
-    const { imageRef: _ref, productUrl: _url, productText: _text, sn: _sn, rate: _rate, amount: _amount, section: _section, ...rest } = p;
+    const { imageRef: _ref, productUrl: _url, productText: _text, sn: _sn, rate: _rate, amount: _amount, section: _section, custom: _custom, ...rest } = p;
     return rest;
 }
 

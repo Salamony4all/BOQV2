@@ -13,6 +13,7 @@ import autoTable from 'jspdf-autotable';
 import BrandDropdown from './BrandDropdown';
 import MultiImageCell from './MultiImageCell';
 import ImageGalleryModal from './ImageGalleryModal';
+import DesignBuildButton from './DesignBuildButton';
 import { findDescColumn, cellImageUrls } from '../utils/boqUtils';
 import {
     recategorizeBoqRows,
@@ -1907,6 +1908,158 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
         });
     };
 
+    /**
+     * The offer table of the active tier, as Apply Costing hands it over (and as the
+     * Design & Build button sends it, with the rows' pictures and chosen products).
+     */
+    const offerTablesFor = (rows) => {
+        const exportRows = recategorizeBoqRows(rows, recategorizeMode);
+        const formattedRows = exportRows.flatMap((row, idx) => {
+            const parentSn = String(row.sn || idx + 1);
+            const rateValNum = parseFloat(row.rate);
+            const qtyValNum = parseFloat(row.qty);
+            const amount = (Number.isFinite(rateValNum) && rateValNum > 0 && Number.isFinite(qtyValNum))
+                ? (qtyValNum * rateValNum).toFixed(2)
+                : (row.amount || '0.00');
+            const isSetRow = row.setType && row.setType !== 'single' && Array.isArray(row.setItems) && row.setItems.length > 0;
+            const parentImages = (isSetRow && row.brandImages?.length)
+                ? row.brandImages.map(u => ({ url: u }))
+                : (row.brandImage
+                    ? [{ url: row.brandImage }]
+                    : (row.imageRefs?.length ? row.imageRefs : (row.imageRef ? [row.imageRef] : [])).map(u => ({ url: u })));
+
+            const parentExport = {
+                // the BOQ line's own words (sizes, kind) for Design & Build to match drawn furniture
+                sourceDescription: row.description || '',
+                // chosen model and its page, for Design & Build's FF&E schedule and catalogue links
+                selectedModel: row.selectedModel || '',
+                productUrl: row.selectedModelUrl || '',
+                location: row.location || '',
+                scope: row.scope || '',
+                code: row.code || '',
+                categoryHint: row.categoryHint || '',
+                selectedBrand: row.selectedBrand || '',
+                selectedMainCat: row.selectedMainCat || '',
+                selectedSubCat: row.selectedSubCat || '',
+                sectionLabel: row.sectionLabel || '',
+                sectionCategory: row.sectionCategory || '',
+                sectionSubheader: row.sectionSubheader || '',
+                submissionTitle: row.submissionTitle || '',
+                setType: row.setType || 'single',
+                setItems: isSetRow ? row.setItems : undefined,
+                cells: [
+                    { value: parentSn },
+                    {
+                        value: '',
+                        image: (isSetRow && row.brandImages?.[0]) || row.brandImage || row.imageRef,
+                        images: parentImages
+                    },
+                    { value: row.brandDesc || row.description || 'N/A' },
+                    { value: row.qty || '0' },
+                    { value: row.unit || 'Nos' },
+                    { value: row.rate || '0' },
+                    { value: isNaN(parseFloat(amount)) ? '0' : amount }
+                ]
+            };
+
+            // Optional line for the row's inactive alternative (set option below a single item,
+            // or the single item kept beside an active set). Never counted in totals.
+            const optionExports = [];
+            if (exportSetOptions) {
+                const rowMeta = {
+                    location: row.location || '',
+                    scope: row.scope || '',
+                    code: row.code || '',
+                    categoryHint: row.categoryHint || '',
+                    sectionLabel: row.sectionLabel || '',
+                    sectionCategory: row.sectionCategory || '',
+                    sectionSubheader: row.sectionSubheader || '',
+                    submissionTitle: row.submissionTitle || '',
+                    isOptionRow: true
+                };
+                const optionSummary = !isSetRow && row.setOption ? summarizeSetOption(row.setOption, row.qty) : null;
+                if (optionSummary && optionSummary.matchedCount > 0) {
+                    const optionLines = row.setOption.items.map(it =>
+                        `• ${it.qty || 1} ${it.unit || 'Nos'} × ${[it.selectedBrand, it.selectedModel].filter(Boolean).join(' — ') || it.label}`
+                    );
+                    optionExports.push({
+                        ...rowMeta,
+                        selectedBrand: optionSummary.brands[0] || '',
+                        selectedMainCat: optionSummary.typeLabel,
+                        selectedSubCat: `${optionSummary.itemCount} Components`,
+                        cells: [
+                            { value: `${parentSn} (Option)` },
+                            { value: '', image: optionSummary.images[0] || null, images: optionSummary.images.map(u => ({ url: u })) },
+                            { value: [`OPTION for item ${parentSn} — ${optionSummary.label}`, ...optionLines].join('\n') },
+                            { value: row.qty || '1' },
+                            { value: 'Set' },
+                            { value: optionSummary.hasPrice ? optionSummary.ratePerSet.toFixed(2) : '0' },
+                            { value: 'Optional' }
+                        ]
+                    });
+                } else if (isSetRow && hasSingleAlternative(row)) {
+                    const alt = row.singleAlt;
+                    optionExports.push({
+                        ...rowMeta,
+                        selectedBrand: alt.selectedBrand || '',
+                        selectedMainCat: alt.selectedMainCat || '',
+                        selectedSubCat: alt.selectedSubCat || '',
+                        cells: [
+                            { value: `${parentSn} (Option)` },
+                            { value: '', image: alt.brandImage || null, images: alt.brandImage ? [{ url: alt.brandImage }] : [] },
+                            { value: `OPTION for item ${parentSn} — Single item: ${alt.brandDesc || [alt.selectedBrand, alt.selectedModel].filter(Boolean).join(' — ')}` },
+                            { value: row.qty || '1' },
+                            { value: row.unit || 'Nos' },
+                            { value: alt.rate || '0' },
+                            { value: 'Optional' }
+                        ]
+                    });
+                }
+            }
+
+            if (!isSetRow || setExportMode !== 'include_sub_items') {
+                return [parentExport, ...optionExports];
+            }
+
+            const subExports = row.setItems.map((sub, sIdx) => ({
+                location: row.location || '',
+                scope: row.scope || '',
+                code: row.code || '',
+                categoryHint: row.categoryHint || '',
+                selectedBrand: sub.selectedBrand || '',
+                selectedMainCat: sub.selectedMainCat || '',
+                selectedSubCat: sub.selectedSubCat || '',
+                sectionLabel: row.sectionLabel || '',
+                sectionCategory: row.sectionCategory || '',
+                sectionSubheader: row.sectionSubheader || '',
+                submissionTitle: row.submissionTitle || '',
+                isSetSubItem: true,
+                cells: [
+                    { value: `${parentSn}.${sIdx + 1}` },
+                    {
+                        value: '',
+                        image: sub.brandImage || null,
+                        images: sub.brandImage ? [{ url: sub.brandImage }] : []
+                    },
+                    { value: `↳ ${sub.label || sub.description}${sub.brandDesc ? ` — ${sub.brandDesc}` : ''}` },
+                    { value: sub.qty || '1' },
+                    { value: sub.unit || 'Nos' },
+                    { value: sub.rate || '0' },
+                    { value: 'Included' }
+                ]
+            }));
+
+            return [parentExport, ...subExports, ...optionExports];
+        });
+        return [{
+            sheetName: `New BOQ - ${activeTier.charAt(0).toUpperCase() + activeTier.slice(1)} Tier`,
+            header: ['Sr.', 'Image', 'Description', 'Qty', 'Unit', 'Rate', 'Amount'],
+            columnCount: 7,
+            recategorizeMode,
+            rows: formattedRows
+        }];
+    };
+
     const handleApplyCosting = (factors) => {
         setCostingFactors(factors);
         setIsCostingOpen(false);
@@ -1953,157 +2106,12 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
         }));
 
         if (onApplyFlow) {
-            const exportRows = recategorizeBoqRows(updatedRows, recategorizeMode);
-            const formattedRows = exportRows.flatMap((row, idx) => {
-                const parentSn = String(row.sn || idx + 1);
-                const rateValNum = parseFloat(row.rate);
-                const qtyValNum = parseFloat(row.qty);
-                const amount = (Number.isFinite(rateValNum) && rateValNum > 0 && Number.isFinite(qtyValNum))
-                    ? (qtyValNum * rateValNum).toFixed(2)
-                    : (row.amount || '0.00');
-                const isSetRow = row.setType && row.setType !== 'single' && Array.isArray(row.setItems) && row.setItems.length > 0;
-                const parentImages = (isSetRow && row.brandImages?.length)
-                    ? row.brandImages.map(u => ({ url: u }))
-                    : (row.brandImage
-                        ? [{ url: row.brandImage }]
-                        : (row.imageRefs?.length ? row.imageRefs : (row.imageRef ? [row.imageRef] : [])).map(u => ({ url: u })));
-
-                const parentExport = {
-                    // the BOQ line's own words (sizes, kind) for Design & Build to match drawn furniture
-                    sourceDescription: row.description || '',
-                    // chosen model and its page, for Design & Build's FF&E schedule and catalogue links
-                    selectedModel: row.selectedModel || '',
-                    productUrl: row.selectedModelUrl || '',
-                    location: row.location || '',
-                    scope: row.scope || '',
-                    code: row.code || '',
-                    categoryHint: row.categoryHint || '',
-                    selectedBrand: row.selectedBrand || '',
-                    selectedMainCat: row.selectedMainCat || '',
-                    selectedSubCat: row.selectedSubCat || '',
-                    sectionLabel: row.sectionLabel || '',
-                    sectionCategory: row.sectionCategory || '',
-                    sectionSubheader: row.sectionSubheader || '',
-                    submissionTitle: row.submissionTitle || '',
-                    setType: row.setType || 'single',
-                    setItems: isSetRow ? row.setItems : undefined,
-                    cells: [
-                        { value: parentSn },
-                        {
-                            value: '',
-                            image: (isSetRow && row.brandImages?.[0]) || row.brandImage || row.imageRef,
-                            images: parentImages
-                        },
-                        { value: row.brandDesc || row.description || 'N/A' },
-                        { value: row.qty || '0' },
-                        { value: row.unit || 'Nos' },
-                        { value: row.rate || '0' },
-                        { value: isNaN(parseFloat(amount)) ? '0' : amount }
-                    ]
-                };
-
-                // Optional line for the row's inactive alternative (set option below a single item,
-                // or the single item kept beside an active set). Never counted in totals.
-                const optionExports = [];
-                if (exportSetOptions) {
-                    const rowMeta = {
-                        location: row.location || '',
-                        scope: row.scope || '',
-                        code: row.code || '',
-                        categoryHint: row.categoryHint || '',
-                        sectionLabel: row.sectionLabel || '',
-                        sectionCategory: row.sectionCategory || '',
-                        sectionSubheader: row.sectionSubheader || '',
-                        submissionTitle: row.submissionTitle || '',
-                        isOptionRow: true
-                    };
-                    const optionSummary = !isSetRow && row.setOption ? summarizeSetOption(row.setOption, row.qty) : null;
-                    if (optionSummary && optionSummary.matchedCount > 0) {
-                        const optionLines = row.setOption.items.map(it =>
-                            `• ${it.qty || 1} ${it.unit || 'Nos'} × ${[it.selectedBrand, it.selectedModel].filter(Boolean).join(' — ') || it.label}`
-                        );
-                        optionExports.push({
-                            ...rowMeta,
-                            selectedBrand: optionSummary.brands[0] || '',
-                            selectedMainCat: optionSummary.typeLabel,
-                            selectedSubCat: `${optionSummary.itemCount} Components`,
-                            cells: [
-                                { value: `${parentSn} (Option)` },
-                                { value: '', image: optionSummary.images[0] || null, images: optionSummary.images.map(u => ({ url: u })) },
-                                { value: [`OPTION for item ${parentSn} — ${optionSummary.label}`, ...optionLines].join('\n') },
-                                { value: row.qty || '1' },
-                                { value: 'Set' },
-                                { value: optionSummary.hasPrice ? optionSummary.ratePerSet.toFixed(2) : '0' },
-                                { value: 'Optional' }
-                            ]
-                        });
-                    } else if (isSetRow && hasSingleAlternative(row)) {
-                        const alt = row.singleAlt;
-                        optionExports.push({
-                            ...rowMeta,
-                            selectedBrand: alt.selectedBrand || '',
-                            selectedMainCat: alt.selectedMainCat || '',
-                            selectedSubCat: alt.selectedSubCat || '',
-                            cells: [
-                                { value: `${parentSn} (Option)` },
-                                { value: '', image: alt.brandImage || null, images: alt.brandImage ? [{ url: alt.brandImage }] : [] },
-                                { value: `OPTION for item ${parentSn} — Single item: ${alt.brandDesc || [alt.selectedBrand, alt.selectedModel].filter(Boolean).join(' — ')}` },
-                                { value: row.qty || '1' },
-                                { value: row.unit || 'Nos' },
-                                { value: alt.rate || '0' },
-                                { value: 'Optional' }
-                            ]
-                        });
-                    }
-                }
-
-                if (!isSetRow || setExportMode !== 'include_sub_items') {
-                    return [parentExport, ...optionExports];
-                }
-
-                const subExports = row.setItems.map((sub, sIdx) => ({
-                    location: row.location || '',
-                    scope: row.scope || '',
-                    code: row.code || '',
-                    categoryHint: row.categoryHint || '',
-                    selectedBrand: sub.selectedBrand || '',
-                    selectedMainCat: sub.selectedMainCat || '',
-                    selectedSubCat: sub.selectedSubCat || '',
-                    sectionLabel: row.sectionLabel || '',
-                    sectionCategory: row.sectionCategory || '',
-                    sectionSubheader: row.sectionSubheader || '',
-                    submissionTitle: row.submissionTitle || '',
-                    isSetSubItem: true,
-                    cells: [
-                        { value: `${parentSn}.${sIdx + 1}` },
-                        {
-                            value: '',
-                            image: sub.brandImage || null,
-                            images: sub.brandImage ? [{ url: sub.brandImage }] : []
-                        },
-                        { value: `↳ ${sub.label || sub.description}${sub.brandDesc ? ` — ${sub.brandDesc}` : ''}` },
-                        { value: sub.qty || '1' },
-                        { value: sub.unit || 'Nos' },
-                        { value: sub.rate || '0' },
-                        { value: 'Included' }
-                    ]
-                }));
-
-                return [parentExport, ...subExports, ...optionExports];
-            });
-
             const formattedData = {
                 costingFactors: factors,
                 recategorizeMode,
                 setExportMode,
                 exportSetOptions,
-                tables: [{
-                    sheetName: `New BOQ - ${activeTier.charAt(0).toUpperCase() + activeTier.slice(1)} Tier`,
-                    header: ['Sr.', 'Image', 'Description', 'Qty', 'Unit', 'Rate', 'Amount'],
-                    columnCount: 7,
-                    recategorizeMode,
-                    rows: formattedRows
-                }]
+                tables: offerTablesFor(updatedRows)
             };
             onApplyFlow(formattedData);
         }
@@ -4798,6 +4806,11 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                         <div style={{ width: '100%', borderTop: '1px solid rgba(255,255,255,0.1)' }} />
 
                         <div className={styles.exportGroup}>
+                            <DesignBuildButton
+                                compact
+                                getTables={() => offerTablesFor(tierData[activeTier]?.rows || [])}
+                                title={`${{ budgetary: 'Budgetary', mid: 'Mid-Range', high: 'High-End' }[activeTier] || 'Multi-Budget'} offer`}
+                            />
                             <button className={styles.exportBtn} onClick={handleExportPDF}>Offer PDF</button>
                             <button className={styles.exportBtn} onClick={handleExportExcel}>Offer Excel</button>
                             <button className={styles.exportBtn} onClick={handleExportPPTX}>Presentation</button>

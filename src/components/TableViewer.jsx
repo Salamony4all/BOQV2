@@ -3,6 +3,14 @@ import styles from '../styles/TableViewer.module.css';
 import actionStyles from '../styles/ActionBar.module.css';
 import CostingModal from './CostingModal';
 import MultiBudgetModal from './MultiBudgetModal';
+import DesignBuildButton from './DesignBuildButton';
+import { designBuild, productsFromTables } from '../features/designBuild/designBuildStore';
+
+/** An offer applied here also furnishes the Design & Build model (and feeds its export suite). */
+const shareOfferWithDesignBuild = (offerTables) => {
+    const tables = Array.isArray(offerTables) ? offerTables : [];
+    designBuild.setProducts(productsFromTables(tables), { tables, title: tables[0]?.sheetName || 'Applied offer' });
+};
 
 // ── Shared money helpers: one source of truth for row amounts, subtotals and VAT ──
 const parseMoney = (v) => {
@@ -4817,6 +4825,7 @@ function TableViewer({
                     </button>
                 </div>
                 <div className={actionStyles.buttonGroup}>
+                    <DesignBuildButton getTables={() => tables} title="Original offer" />
                     <button className={actionStyles.actionBtn} onClick={() => handleDownloadPDF(tablesWithSummary, 'Original_Offer')}> Download Offer PDF</button>
                     <button className={actionStyles.actionBtn} onClick={() => handleDownloadExcel(tablesWithSummary, 'Original_Offer')}> Download Offer Excel</button>
                     <button
@@ -4917,6 +4926,7 @@ function TableViewer({
                             </button>
                         </div>
                         <div className={actionStyles.buttonGroup}>
+                            <DesignBuildButton getTables={() => costedTables} title="Costed offer" />
                             <button className={actionStyles.actionBtn} onClick={() => handleDownloadPDF(costedTables, 'Costed_Offer')}> Download Costed PDF</button>
                             <button className={actionStyles.actionBtn} onClick={() => handleDownloadExcel(costedTables, 'Costed_Offer')}> Download Costed Excel</button>
                             <button
@@ -4966,6 +4976,7 @@ function TableViewer({
                 onApplyFlow={(formattedData) => {
                     // Keep the original extracted tables; show the costed offer separately.
                     setAppliedOffer({ tables: formattedData.tables, costingFactors: formattedData.costingFactors || null });
+                    shareOfferWithDesignBuild(formattedData.tables);
                     if (formattedData.costingFactors) setCostingFactors(formattedData.costingFactors);
                     setMultiBudgetOpen(false);
                 }}
@@ -4989,6 +5000,7 @@ function TableViewer({
                 onApply={(data) => {
                     // Keep the original extracted tables; show the costed offer separately.
                     setAppliedOffer({ tables: data.tables, costingFactors: data.costingFactors || null });
+                    shareOfferWithDesignBuild(data.tables);
                     if (data.costingFactors) setCostingFactors(data.costingFactors);
                     setValueEngineeredOpen(false);
                 }}

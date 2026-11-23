@@ -753,6 +753,8 @@ function AppContent({ onOpenSettings }) {
   const handlePlanUpload = (files) => {
     const fileArray = Array.from(files);
     if (fileArray.length > 0) {
+      // Kept for the one-click Design & Build buttons of the tables.
+      designBuild.rememberPlan(fileArray.find(isPdfFile));
       setCurrentPlanFiles(fileArray);
       setUploadedPlanFile(fileArray[0]);
       setIsPlanScopeOpen(true);
@@ -1189,6 +1191,7 @@ function AppContent({ onOpenSettings }) {
         planInputRef={landingPlanInputRef}
         onBoqFiles={(files) => handleFileUpload(files)}
         onPlanFiles={(files) => {
+          designBuild.rememberPlan(Array.from(files).find(isPdfFile));
           setCurrentPlanFiles(files);
           setUploadedPlanFile(files[0]);
           setIsPlanScopeOpen(true);

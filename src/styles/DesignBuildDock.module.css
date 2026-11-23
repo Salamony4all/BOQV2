@@ -216,6 +216,7 @@
 
 /* Products in the furnished model: picture, colour in the model, pieces placed */
 .legend {
+    position: relative;
     display: flex;
     align-items: center;
     gap: 12px;
@@ -234,6 +235,7 @@
 }
 
 .legendList {
+    flex: 1;
     display: flex;
     align-items: center;
     gap: 6px;
@@ -320,6 +322,270 @@
     color: var(--warning, #d97706);
     background: var(--warning-muted, rgba(245, 158, 11, 0.14));
     box-shadow: inset 0 0 0 1px var(--warning, #d97706);
+}
+
+/* Custom items: drawn furniture with the user's own name and photo. */
+.legendItemCustom {
+    border-style: dashed;
+}
+
+.legendTag {
+    flex: none;
+    padding: 1px 6px;
+    border-radius: 999px;
+    font-size: 0.64rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    color: #7c3aed;
+    background: rgba(124, 58, 237, 0.12);
+}
+
+.legendGroup {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+}
+
+.legendRemove {
+    flex: none;
+    width: 24px;
+    height: 24px;
+    border: 0;
+    border-radius: 50%;
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 1rem;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.legendRemove:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+}
+
+.legendAdd {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    height: 32px;
+    padding: 0 12px;
+    border-radius: 999px;
+    border: 1.5px dashed rgba(124, 58, 237, 0.55);
+    background: rgba(124, 58, 237, 0.06);
+    color: #7c3aed;
+    font-size: 0.78rem;
+    font-weight: 700;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.legendAdd:hover,
+.legendAddActive {
+    background: rgba(124, 58, 237, 0.14);
+}
+
+.legendAdd:focus-visible,
+.legendRemove:focus-visible {
+    outline: 3px solid rgba(124, 58, 237, 0.4);
+    outline-offset: 2px;
+}
+
+.customPop {
+    position: absolute;
+    right: 18px;
+    bottom: calc(100% + 8px);
+    z-index: 4;
+    width: min(380px, calc(100% - 36px));
+    max-height: min(440px, 60vh);
+    display: flex;
+    flex-direction: column;
+    border-radius: 14px;
+    border: 1px solid var(--border-color);
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    box-shadow: 0 16px 40px rgba(15, 23, 42, 0.28);
+    overflow: hidden;
+    animation: dbRise 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.customHead {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 12px 12px 10px 14px;
+    border-bottom: 1px solid var(--border-muted, var(--border-color));
+}
+
+.customHead strong {
+    display: block;
+    font-size: 0.92rem;
+}
+
+.customHead small {
+    display: block;
+    margin-top: 2px;
+    font-size: 0.76rem;
+    line-height: 1.35;
+    color: var(--text-muted);
+}
+
+.customTypes {
+    margin: 0;
+    padding: 6px;
+    list-style: none;
+    overflow-y: auto;
+}
+
+.customType {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 7px 8px;
+    border: 0;
+    border-radius: 10px;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.customType:hover,
+.customType:focus-visible {
+    background: var(--bg-hover);
+    outline: none;
+}
+
+.customTypePic {
+    flex: none;
+    width: 34px;
+    height: 34px;
+    border-radius: 9px;
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+    font-weight: 700;
+    color: #7c3aed;
+    background: rgba(124, 58, 237, 0.1);
+}
+
+.customTypePic img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    background: #fff;
+}
+
+.customTypeName {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    font-size: 0.84rem;
+    font-weight: 600;
+}
+
+.customTypeName small {
+    font-size: 0.72rem;
+    font-weight: 500;
+    color: var(--text-muted);
+}
+
+.customTypeCount {
+    flex: none;
+    padding: 1px 8px;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: var(--text-secondary);
+    background: var(--bg-hover, rgba(148, 163, 184, 0.18));
+}
+
+.customForm {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 12px 14px 14px;
+}
+
+.customField {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 0.74rem;
+    font-weight: 700;
+    color: var(--text-muted);
+}
+
+.customField input {
+    height: 36px;
+    padding: 0 10px;
+    border-radius: 9px;
+    border: 1px solid var(--border-color);
+    background: var(--bg-primary, transparent);
+    color: var(--text-primary);
+    font: inherit;
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+.customField input:focus {
+    outline: none;
+    border-color: #7c3aed;
+    box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.18);
+}
+
+.customPicRow {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.customPic {
+    flex: none;
+    width: 72px;
+    height: 72px;
+    border-radius: 12px;
+    border: 1px dashed var(--border-color);
+    background: #fff;
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+    color: #94a3b8;
+}
+
+.customPic img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+.customPicText {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+}
+
+.customPicText small {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+}
+
+.customError {
+    color: var(--danger, #dc2626) !important;
+}
+
+.customActions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
 }
 
 .legendMissing {

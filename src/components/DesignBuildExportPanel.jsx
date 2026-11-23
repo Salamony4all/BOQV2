@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from 'react';
-import { designBuild } from '../features/designBuild/designBuildStore';
+import { designBuild, customProducts } from '../features/designBuild/designBuildStore';
 import { SUITE_GROUPS, buildExportSuite, saveExportSuite } from '../features/designBuild/exportSuite';
 import styles from '../styles/DesignBuildDock.module.css';
 
@@ -13,8 +13,12 @@ function groupState(g, s) {
     switch (g.key) {
         case 'boq':
             return offer ? { ok: true, note: `${offer.tables.length} sheet${offer.tables.length === 1 ? '' : 's'} from the applied offer` } : { ok: false, note: 'Apply an offer first' };
-        case 'ffe':
-            return s.products.length ? { ok: true, note: `${s.products.length} products with pictures, colours, links and where each piece stands` } : { ok: false, note: 'Apply an offer first' };
+        case 'ffe': {
+            const custom = (s.customItems || []).length;
+            const extra = custom ? ` (${custom} custom)` : '';
+            const n = s.products.length + custom;
+            return n ? { ok: true, note: `${n} products${extra} with pictures, colours, links and where each piece stands` } : { ok: false, note: 'Apply an offer first' };
+        }
         case 'renders':
             return { ok: s.renders.length > 0, note: `${s.renders.length} render${s.renders.length === 1 ? '' : 's'}, the approved one first` };
         case 'drawings':
@@ -63,7 +67,7 @@ export default function DesignBuildExportPanel({ s, requestArtifacts, onClose })
                 {
                     plan: st.plan,
                     artifacts,
-                    products: st.products,
+                    products: [...st.products, ...customProducts(st.customItems)],
                     furnished: st.furnished,
                     furniture: st.furniture,
                     renders: st.renders,
