@@ -8,6 +8,7 @@ import { callUniversalMultimodalAI, withRetry, GOOGLE_MODEL, VISION_MODEL } from
 import { TAXONOMY } from './normalizer.js';
 import { BRAND_ALIASES, KNOWN_CONTRACT_BRANDS, NON_BRAND_MODEL_WORDS, VE_CATEGORY_CONFIG, classifyFurnishingCategory, findBrandInCatalog } from './veCategoryPriority.js';
 import { detectSpecArchetype, DOMAIN_EXCLUSIONS } from './veBrandSpecialties.js';
+import { expandNumberWords } from './specArchetypes.js';
 import { getCanonicalBrandLogo, getCanonicalBrandWebsite, resolveBrandLogo, classifyContractCategory } from './brandLogos.js';
 import { computeTokenOverlapScore } from '../embeddingService.js';
 import { discoverLiveWebAndArchitonicAlternatives } from './liveAlternativesDiscovery.js';
@@ -778,7 +779,7 @@ const ORIGIN_ONLY_MODEL_RE = /^(?:(?:made|manufactured|assembled)\s+in\s+|origin
 function findCatalogProductByHeadline(description, catalogBrand) {
     if (!catalogBrand || !Array.isArray(catalogBrand.products) || !catalogBrand.products.length) return null;
     const clean = (v) => String(v || '').toLowerCase().replace(/\([^)]*\)/g, ' ').replace(/[^a-z0-9\s-]/g, ' ').replace(/\s+/g, ' ').trim();
-    const headline = clean(String(description || '').split(/[\r\n|\u2022]+/)[0]);
+    const headline = clean(expandNumberWords(String(description || '').split(/[\r\n|\u2022]+/)[0]));
     if (headline.length < 6) return null;
     const words = (v) => clean(v).split(/[\s-]+/).filter(w => w.length >= 3 && !/^(?:the|and|with|for|series|type)$/.test(w));
     const headWords = new Set(words(headline));

@@ -42,6 +42,7 @@ import { enrichBrandFromOfficialSite } from './utils/brandEnricher.js';
 import { enrichBrandFromArchitonic } from './utils/architonicAdapter.js';
 import { fetchProductFacts } from './utils/jsonldVerifier.js';
 import { VE_CATEGORY_CONFIG, classifyFurnishingCategory, isGenuineContractBrand, findBrandInCatalog, NON_BRAND_MODEL_WORDS, BRAND_ALIASES } from './utils/veCategoryPriority.js';
+import { isBedSpecHeadline, expandNumberWords } from './utils/specArchetypes.js';
 import { getCanonicalBrandLogo, getCanonicalBrandWebsite, resolveBrandLogo, classifyContractCategory, CONTRACT_BRAND_LOGOS } from './utils/brandLogos.js';
 import { matchWorkstationSet } from './utils/workstationSetMatcher.js';
 import { fetchLiveProductImage, cleanTechnicalDescription, verifyImageUrl } from './utils/veImageEnricher.js';
@@ -2373,7 +2374,7 @@ function cleanBracketedTagsFromMatchQuery(text = '') {
 const ARCHETYPE_BUCKETS = new Set([
   'pod', 'windowTreatment', 'fitout', 'screen', 'highStool', 'highTable', 'coffeeTable',
   'foldingTable', 'conferenceTable', 'receptionDesk', 'workstation', 'desking', 'sofa',
-  'armchair', 'seating', 'storage'
+  'armchair', 'seating', 'storage', 'bed'
 ]);
 
 function getArchetypeBucket(text = '', extraProduct = null) {
@@ -2398,6 +2399,9 @@ function getArchetypeBucket(text = '', extraProduct = null) {
   const hasFitout = /\b(carpet tile|carpet flooring|tufted nylon carpet|prayer room carpet|carpet with underlay|carpet for\b|porcelain tile|ceramic tile|tile flooring|vinyl flooring|marble flooring|stone flooring|gypsum ceiling|false ceiling|mineral fiber ceiling|acoustic ceiling|partition wall|drywall partition|glass partition|swing door|sliding door|skirting|wall cladding|pantry cabinet|pantry sink)\b/.test(s)
     && !/\b(mobile|freestanding|desk screen|privacy screen|conference table|meeting table|task chair|office chair|workstation|credenza|cupboard|bookcase|wardrobe|locker|pedestal)\b/.test(s);
   if (hasFitout) return 'fitout';
+
+  // Beds (bunk / single / hostel beds) never cross-match seating, desks or storage
+  if (isBedSpecHeadline(extraProduct ? `${prodModel} ${prodSub}` : (firstLine || s.slice(0, 160)))) return 'bed';
 
   // Product-level strict opening-sentence overrides (Bistro / Standing / Media Walls / Folding Flip-Top)
   if (extraProduct) {
@@ -2892,8 +2896,11 @@ function fuzzyFindModel(products, targetModelName, targetCategory = '') {
     'seater', 'pax', 'office', 'open', 'area', 'room', 'cafe', 'dining', 'pantry'
   ]);
   const targetTokens = target.split(' ').filter(Boolean);
+  // "4 tier" also reads "four tier" so counted features rank the right variant
+  const fuseTarget = normalize(expandNumberWords(targetModelName));
+  const numberWordTokens = fuseTarget.split(' ').filter(t => t && !targetTokens.includes(t) && !GENERIC_SERIES_WORDS.has(t));
   const coreSeriesTokens = targetTokens.length <= 6
-    ? targetTokens.filter(t => !GENERIC_SERIES_WORDS.has(t) && (t.length >= 2 || /^[a-z0-9]$/.test(t)))
+    ? [...targetTokens.filter(t => !GENERIC_SERIES_WORDS.has(t) && (t.length >= 2 || /^[a-z0-9]$/.test(t))), ...new Set(numberWordTokens)]
     : [];
 
   const isCompatibleBucket = (p) => !isArchetypeConflict(targetCategory ? `${targetModelName} ${targetCategory}` : targetModelName, p);
@@ -2938,7 +2945,7 @@ function fuzzyFindModel(products, targetModelName, targetCategory = '') {
   };
 
   const fuse = new Fuse(pool, options);
-  let results = fuse.search(target);
+  let results = fuse.search(fuseTarget);
 
   // 3. Synonym Expansion (Fallback if no strong match)
   if (results.length === 0 || results[0].score > 0.3) {
@@ -4757,6 +4764,8 @@ app.post('/api/ve-match-auto', async (req, res) => {
           desking: 'desking',
           storage: 'storage',
           heavyDutyAndMobileFiling: 'storage',
+          steelStorage: 'storage',
+          bedsAndAccommodation: 'bed',
           taskSeating: 'seating',
           softSeating: 'sofa',
           classroomAndStackable: 'seating',

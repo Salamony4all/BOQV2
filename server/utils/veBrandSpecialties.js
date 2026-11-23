@@ -3,6 +3,8 @@
  * Generated from Deep Database Product Audit (20 Brand Catalogs, 5,232+ SKUs)
  */
 
+import { isBedSpecHeadline, isSteelStorageSpec } from './specArchetypes.js';
+
 export const BRAND_SPECIALTIES = {
   // Auditorium & Theater Seating (TMA = LEADCOM highest priority)
   auditoriumAndTheater: [
@@ -195,6 +197,23 @@ export const BRAND_SPECIALTIES = {
     'las'
   ],
 
+  // Steel Lockers, Cupboards, Filing & Shelving (HADID-led)
+  steelStorage: [
+    'hadid',
+    'narbutas',
+    'ottimo',
+    'ottimo furniture',
+    'nurus',
+    'las',
+    'ofifran',
+    'frezza'
+  ],
+
+  // Beds & Accommodation Furniture (bunk / single / hostel beds)
+  bedsAndAccommodation: [
+    'hadid'
+  ],
+
   // Metal Furniture, Fitout & Partitions (250 catalog products in DB)
   metalAndFitout: [
     'hadid',
@@ -249,7 +268,13 @@ export const DOMAIN_EXCLUSIONS = {
   softSeating: ['hadid', 'fitout v2', 'ismobil', 'dauphin', 'dauphin products, collections and more'],
 
   // If an item is a Storage / Cabinet, these pure seating brands MUST NOT be matched
-  storage: ['sokoa', 'rim', 'dauphin', 'dauphin products, collections and more', 'amara', 'divani']
+  storage: ['sokoa', 'rim', 'dauphin', 'dauphin products, collections and more', 'amara', 'divani'],
+
+  // Steel lockers / cupboards / filing: no seating or soft-furniture houses
+  steelStorage: ['sokoa', 'rim', 'dauphin', 'dauphin products, collections and more', 'amara', 'divani', 'b&t design', 'pedrali', 'arper'],
+
+  // Beds: office desking, seating and fitout catalogs carry no bed frames
+  bedsAndAccommodation: ['narbutas', 'nurus', 'sedus', 'sedus stoll', 'sokoa', 'rim', 'dauphin', 'dauphin products, collections and more', 'ofifran', 'las', 'frezza', 'teknion', 'ismobil', 'mw structure test', 'fitout v2']
 };
 
 /**
@@ -283,6 +308,16 @@ export function detectSpecArchetype(description, categoryHint = '') {
   const isTerrazzoOrPrecast = /\b(terrazzo|terazzo|precast\s*concrete|cast\s*concrete|concrete\s*outdoor|concrete\s*bench|monolithic\s*bench|landscape\s*bench|capsule\s*shapes?\s*seating|capsule\s*shape\s*seat|outdoor\s*terrazzo|arcade\s*bench|street\s*furniture|automatic\s*terrazzo|attf|assarain)\b/i.test(text);
   if (isTerrazzoOrPrecast) {
     return 'customLandscapeAndTerrazzo';
+  }
+
+  // 0.15 Beds and steel storage (lockers, steel cupboards / filing) — judged on the
+  // headline so a passing mention in a long description does not re-route the item
+  const headline = text.split(/[\r\n|]+/)[0].slice(0, 200);
+  if (isBedSpecHeadline(headline)) {
+    return 'bedsAndAccommodation';
+  }
+  if (isSteelStorageSpec(headline, text)) {
+    return 'steelStorage';
   }
 
   // 0.2 Folding & Portable Seating (Folding stools, X-shape legs, carry handles, collapsible chairs)

@@ -2,6 +2,8 @@
  * Contract Furniture Brand Logo Registry & Taxonomy Normalization Utilities
  */
 
+import { isBedSpecHeadline } from './specArchetypes.js';
+
 export const CONTRACT_BRAND_LOGOS = {
     'narbutas': 'https://media.architonic.com/m-on/10001981/logo/narbutas_logo_c1db0dc7.jpeg?width=320&height=120&fit=inside&crop=true&format=webp&quality=90',
     'b&t design': 'https://media.architonic.com/m-on/3103498/logo/b-t-design_logo_b083bc1d.png?width=320&height=120&fit=inside&crop=true&format=webp&quality=90',
@@ -268,6 +270,12 @@ export function classifyContractCategory(mainHint, subHint, model, description) 
     }
 
     const titleOnly = `${mainHint || ''} ${subHint || ''} ${model || ''}`.toLowerCase();
+
+    // ── 2.5 BEDS (bunk / single / hostel beds), judged on the product title ──
+    if (isBedSpecHeadline(String(model || '')) || isBedSpecHeadline(`${subHint || ''} ${model || ''}`)
+        || (!String(model || '').trim() && isBedSpecHeadline(String(description || '').split(/[\r\n|.]+/)[0]))) {
+        return { mainCategory: 'Furniture', subCategory: 'Beds' };
+    }
 
     // ── 3. FOLDING, NESTING, TRAINING & STACKING CHAIRS ──
     if (/\b(foldable chair|folding chair|training chair|nesting chair|nesting training chair|educational chair|piper|pila|stackable chair|stacking chair|seminar chair|round chair \(foldable\))\b/i.test(combined)) {

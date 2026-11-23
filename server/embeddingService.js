@@ -1,5 +1,6 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { getBrandAffinityScore, detectSpecArchetype, DOMAIN_EXCLUSIONS } from './utils/veBrandSpecialties.js';
+import { expandNumberWords, extractCountedFeatures } from './utils/specArchetypes.js';
 import { readSettings } from './settings.js';
 import { aiKeyStorage } from './utils/llmUtils.js';
 import {
@@ -177,9 +178,18 @@ const BASIC_ENGLISH_STOPWORDS = new Set([
  * tables, round vs rectangular tables, steel/mobile filing vs open dividers).
  */
 export function computeTokenOverlapScore(queryText, product) {
-  if (!queryText || !product) return 0;
+  return computeTokenOverlapDetail(queryText, product).score;
+}
+
+/**
+ * Token overlap score (capped at 1.0) plus the uncapped value, used to break ties
+ * between candidates that both saturate the cap (e.g. sibling variants of one series).
+ */
+export function computeTokenOverlapDetail(queryText, product) {
+  if (!queryText || !product) return { score: 0, raw: 0 };
   // Strip color-compound phrases like "coffee-colored" so paint finishes never hijack coffee/bistro tables
-  const sanitizedQuery = String(queryText)
+  // "4 tier" also reads "four tier" so counted features score against spelled-out model names
+  const sanitizedQuery = expandNumberWords(String(queryText))
     .toLowerCase()
     .replace(/\bcoffee[-\s]+(?:colored|coloured|brown|matte|paint|finish)\b/g, 'brown finish');
   const qTokens = new Set(
@@ -188,7 +198,7 @@ export function computeTokenOverlapScore(queryText, product) {
       .split(/\s+/)
       .filter(t => t.length > 2 && !BASIC_ENGLISH_STOPWORDS.has(t))
   );
-  if (qTokens.size === 0) return 0;
+  if (qTokens.size === 0) return { score: 0, raw: 0 };
 
   const modelLower = String(product.model || '').toLowerCase();
   const subLower = String(product.subCategory || '').toLowerCase();
@@ -277,8 +287,43 @@ export function computeTokenOverlapScore(queryText, product) {
     if (isProdTask) functionalAdj += 0.25;
   }
 
+  // 7. Counted features ("4 tier" / "six compartments" / "3 drawer"): the variant with the
+  // requested count wins. A sibling with another count is a different SKU, so its penalty
+  // lands after the cap (sibling variants of one series otherwise all saturate at 1.0)
+  let variantPenalty = 0;
+  const wantCounts = extractCountedFeatures(sanitizedQuery);
+  const wantFamilies = Object.keys(wantCounts);
+  if (wantFamilies.length) {
+    const haveCounts = extractCountedFeatures(modelLower);
+    for (const family of wantFamilies) {
+      if (!(family in haveCounts)) continue;
+      if (haveCounts[family] === wantCounts[family]) functionalAdj += 0.35;
+      else variantPenalty += 0.35;
+    }
+  }
+
+  // 8. Vertical vs lateral (side) filing cabinets
+  if (/\bfil(?:ing|ers?|es?)\b/.test(sanitizedQuery)) {
+    const lateralRx = /\b(?:lateral|side[\s-]?fil(?:ers?|ing))\b/;
+    const wantsVertical = /\bvertical\b/.test(sanitizedQuery);
+    const wantsLateral = lateralRx.test(sanitizedQuery);
+    if (wantsVertical !== wantsLateral) {
+      const prodText = `${modelLower} ${descLower.slice(0, 200)}`;
+      const isProdVertical = /\bvertical\b/.test(prodText);
+      const isProdLateral = lateralRx.test(prodText);
+      const prodMatches = wantsVertical ? (isProdVertical && !isProdLateral) : (isProdLateral && !isProdVertical);
+      const prodOpposes = wantsVertical ? (isProdLateral && !isProdVertical) : (isProdVertical && !isProdLateral);
+      if (prodMatches) functionalAdj += 0.20;
+      else if (prodOpposes) variantPenalty += 0.35;
+    }
+  }
+
   const rawRatio = matchCount / qTokens.size;
-  return Math.max(0, Math.min(1.0, rawRatio + Math.min(0.45, modelBonus) + functionalAdj));
+  const capped = Math.min(1.0, rawRatio + Math.min(0.45, modelBonus) + functionalAdj);
+  return {
+    score: Math.max(0, capped - variantPenalty),
+    raw: rawRatio + modelBonus + functionalAdj - variantPenalty
+  };
 }
 
 
@@ -313,7 +358,8 @@ export async function findHybridSemanticMatches({
 
     const targetProducts = cached ? cached.products : products;
     const scoredProducts = targetProducts.map(p => {
-      const tokenScore = computeTokenOverlapScore(description, p);
+      const tokenDetail = computeTokenOverlapDetail(description, p);
+      const tokenScore = tokenDetail.score;
       const cosineSim = (queryVector && p._vector) ? cosineSimilarity(queryVector, p._vector) : Math.max(0.75, tokenScore);
       const brandAffinity = getBrandAffinityScore(description, brandName || p.brand, archetype);
 
@@ -328,12 +374,14 @@ export async function findHybridSemanticMatches({
         product: p,
         cosineSim,
         tokenScore,
+        tokenRaw: tokenDetail.raw,
         brandAffinity,
         finalScore,
         confidenceScore: confidencePct
       };
     })
-    .sort((a, b) => b.finalScore - a.finalScore);
+    // Equal hybrid scores (both candidates at the token cap) fall back to the uncapped overlap
+    .sort((a, b) => (b.finalScore - a.finalScore) || (b.tokenRaw - a.tokenRaw));
 
     let selectedProducts = [];
     if (brandName === 'Catalog' || brandName === 'All' || !brandName) {
@@ -369,6 +417,12 @@ export async function findHybridSemanticMatches({
       description: item.product.description || '',
       mainCategory: item.product.mainCategory || item.product.category || '',
       subCategory: item.product.subCategory || '',
+      // Catalog identity fields: without them a hit loses its family/official URL downstream,
+      // which forces a needless live re-scrape that overwrites the stored family
+      ...(item.product.family ? { family: item.product.family } : {}),
+      ...(item.product.productUrl ? { productUrl: item.product.productUrl } : {}),
+      ...(item.product.websiteUrl ? { websiteUrl: item.product.websiteUrl } : {}),
+      ...(item.product.officialProductUrl ? { officialProductUrl: item.product.officialProductUrl } : {}),
       finalScore: parseFloat(item.finalScore.toFixed(3)),
       confidenceScore: item.confidenceScore,
       matchTier: item.confidenceScore >= 95 ? 'EXACT_MATCH' : (item.confidenceScore >= 80 ? 'HIGH_CONFIDENCE' : (item.confidenceScore >= 60 ? 'SUGGESTED' : 'LOW_CONFIDENCE')),
@@ -500,7 +554,7 @@ function checkExactModelMatchWithSpecs(description, product, specArchetype) {
  * Fast Weighted Keyword & Token Cosine Matching (runs in < 3ms for 2000+ items)
  */
 function fastWeightedCatalogMatch(description, products, category = null, topK = 3) {
-  const queryTokens = description.toLowerCase().replace(/[^a-z0-9]/g, ' ').split(/\s+/).filter(w => w.length > 1);
+  const queryTokens = expandNumberWords(description).toLowerCase().replace(/[^a-z0-9]/g, ' ').split(/\s+/).filter(w => w.length > 1);
   const querySet = new Set(queryTokens);
   const specArchetype = detectSpecArchetype(description, category);
 

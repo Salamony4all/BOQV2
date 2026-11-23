@@ -14,6 +14,27 @@ const normalizeText = (v) => String(v || '').replace(/\s+/g, ' ').trim();
 const stripLeadingTags = (v) => normalizeText(String(v || '').replace(/^(\s*\[[^\]]{1,45}\]\s*)+/g, ''));
 
 /**
+ * A bed frame (bunk / single / hostel bed) — not a sofa-bed, bedside unit, bedding, a mattress,
+ * or a civil bedding layer (sand bed, concrete bed under pipes). Mirrors server/utils/specArchetypes.js.
+ * Whichever furniture noun comes first in the headline is the item ("single bed with side table" is a bed).
+ */
+const BED_WORD_RX = /\b(?:bunk\s*beds?|beds?|bunks?|double[\s-]?deck(?:er)?s?)\b/;
+const NOT_BED_RX = /\b(?:sofa|day|futon)[\s-]?beds?\b|\bbeds?[\s-]?(?:side|sheets?|linens?|spreads?|covers?|skirts?|throws?|runners?|rooms?|heads?|bugs?|plates?|joints?|bolts?|loads?)\b|\b(?:flower|seed|plant(?:er|ing)?|garden|lawn|grass|nursery|reed|filter|gravel|sand|mortar|concrete|cement|granular|stone|aggregate|test|river|sea|oyster)[\s-]?beds?\b/;
+const STRONG_BED_RX = /\b(?:bunk\s*beds?|double[\s-]?deck(?:er)?\s*beds?|(?:single|double|twin|queen|king|steel|metal|iron|wooden|timber|hospital|hostel|dormitory|staff|labou?r|military|camp)\s*beds?|(?:m\.?\s?s\.?|steel|metal|g\.?i\.?)\s+pipe\s*beds?|beds?\s*frames?)\b/;
+const CIVIL_WORKS_RX = /\b(?:cement|sand|mortar|concrete|screed|granito|terrazzo|excavat\w*|manholes?|reservoirs?|trench\w*|pipes?|piping|aggregates?|gravel|backfill\w*|asphalt|bitumen|tiles?|tiling|floor\s*finish\w*|plaster\w*|masonry|blockwork|brickwork|kerbs?|culverts?|drains?|drainage)\b/;
+const OTHER_ITEM_RX = /\b(?:sofas?|couch(?:es)?|settees?|futons?|armchairs?|ottomans?|poufs?|chairs?|stools?|bench(?:es)?|tables?|desks?|workstations?|wardrobes?|cabinets?|cupboards?|lockers?|lamps?|mattress(?:es)?|pillows?|duvets?|blankets?|linens?|quilts?|comforters?|sheets?)\b/;
+
+function isBedItemText(text = '') {
+    const t = String(text || '').split(/[\r\n|]+/)[0].slice(0, 200).toLowerCase();
+    const bedAt = t.search(BED_WORD_RX);
+    if (bedAt < 0) return false;
+    if (NOT_BED_RX.test(t)) return false;
+    if (CIVIL_WORKS_RX.test(t) && !STRONG_BED_RX.test(t)) return false;
+    const otherAt = t.search(OTHER_ITEM_RX);
+    return otherAt < 0 || bedAt < otherAt;
+}
+
+/**
  * Determine whether a row belongs to Architectural / MEP / Joinery Fitout vs Furniture.
  */
 export function isFitoutRow(row = {}) {
@@ -89,6 +110,9 @@ export function classifyBoqItemGroup(row = {}) {
     if (/\b(pods?|phone booths?|acoustic booths?|meeting pods?|work pods?|silence booths?|soundproof)\b/i.test(hintText)) {
         subCategory = 'Acoustic Pods & Booths';
         order = 28;
+    } else if (isBedItemText(stripLeadingTags(row.description || row.name || '')) || /^beds$/i.test(normalizeText(row.selectedSubCat))) {
+        subCategory = 'Beds & Accommodation';
+        order = 27;
     } else if (/\b(reception counters?|reception desks?|reception furniture|counters?\.)\b/i.test(hintText)) {
         subCategory = 'Reception Counters & Joinery';
         order = 24;

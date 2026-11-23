@@ -145,6 +145,7 @@ export const TAXONOMY = {
     "Sanitary": /stone ledge|counter top/i
   },
   "Furniture": {
+    "Beds": /bunk bed|double deck bed|single bed|double bed|steel bed|metal bed|bed frame|hospital bed|hostel bed|dormitory bed/i,
     "Conference Tables": /conference table/i,
     "Conference Chairs": /meeting chair|conference chair/i,
     "Office Desks": /desk|workstation/i,

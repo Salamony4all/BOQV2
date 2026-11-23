@@ -7,6 +7,7 @@
  */
 
 import { findSemanticMatches } from '../embeddingService.js';
+import { isBedSpecHeadline, isSteelStorageSpec } from './specArchetypes.js';
 
 export const VE_CATEGORY_CONFIG = {
     auditoriumAndTheater: {
@@ -186,6 +187,25 @@ export const VE_CATEGORY_CONFIG = {
             'bollard', 'litter bin', 'bus shelter', 'public realm'
         ]
     },
+    steelStorage: {
+        id: 'steelStorage',
+        label: 'Steel Lockers, Cupboards & Filing',
+        priorityBrands: ['HADID', 'NARBUTAS', 'Ottimo Furniture', 'Nurus', 'LAS', 'Ofifran', 'FREZZA'],
+        keywords: [
+            'locker', 'steel locker', 'metal locker', 'tier locker', 'staff locker', 'steel cupboard',
+            'metal cupboard', 'steel cabinet', 'metal cabinet', 'steel filing cabinet', 'metal filing cabinet',
+            'steel wardrobe', 'almirah', 'steel shelving', 'slotted angle rack', 'cold rolled steel', 'powder coated steel'
+        ]
+    },
+    bedsAndAccommodation: {
+        id: 'bedsAndAccommodation',
+        label: 'Beds & Accommodation Furniture',
+        priorityBrands: ['HADID'],
+        keywords: [
+            'bunk bed', 'double deck bed', 'single bed', 'steel bed', 'metal bed', 'hostel bed',
+            'dormitory bed', 'labour camp bed', 'staff accommodation bed', 'bed frame', 'hospital bed'
+        ]
+    },
     genericAccessories: {
         id: 'genericAccessories',
         label: 'Generic & Retail Accessories',
@@ -239,6 +259,14 @@ export function classifyFurnishingCategory(description = '') {
     }
     if (/\b(mechanical\s*mobile\s*filing|mobile\s*filing\s*system|mobile\s*shelving|compactor\s*(?:filing|shelving)|high[\s-]?density\s*(?:filing|shelving)|filing\s*racks?)\b/i.test(text)) {
         return 'heavyDutyAndMobileFiling';
+    }
+    // Beds (bunk / single / hostel / staff-camp beds) have their own partner lane
+    if (isBedSpecHeadline(firstLine)) {
+        return 'bedsAndAccommodation';
+    }
+    // Steel lockers, cupboards, filing & shelving (steel furniture lane, ahead of office cabinetry)
+    if (isSteelStorageSpec(firstLine, text)) {
+        return 'steelStorage';
     }
     if (/\b(shoe\s*rack|coat\s*rack|storage\s*rack|shelving\s*rack|wardrobe|credenza|bookcase|filing\s*cabinet|high\s*cabinet|low\s*cabinet)\b/i.test(firstLine)
         || /^cabinet\b/i.test(firstLine)) {
@@ -371,7 +399,7 @@ export function classifyFurnishingCategory(description = '') {
  * Known established contract manufacturer brands (both local catalog and international specifications).
  */
 export const KNOWN_CONTRACT_BRANDS = new Set([
-    'narbutas', 'nurus', 'ottimo', 'ottimo furniture', 'b&t design', 'bt design', 'b&t', 'pedrali',
+    'hadid', 'narbutas', 'nurus', 'ottimo', 'ottimo furniture', 'b&t design', 'bt design', 'b&t', 'pedrali',
     'sedus', 'sedus stoll', 'sokoa', 'las', 'ofifran', 'rim', 'm&w', 'mw structure test', 'mw',
     'ismobil', 'arper', 'frezza', 'teknion', 'teknion me', 'dauphin', 'dauphin products, collections and more',
     'vitra', 'herman miller', 'steelcase', 'haworth', 'knoll', 'amara', 'andreu world', 'true design',
@@ -415,7 +443,13 @@ export const BRAND_ALIASES = {
     'timeout space': 'TON',
     'timeoutspace': 'TON',
     'moonako arabesque collection': 'Moonako',
-    'moodie': 'Moonako'
+    'moodie': 'Moonako',
+    'al khoudh': 'HADID',
+    'al-khoudh': 'HADID',
+    'alkhoudh': 'HADID',
+    'al khoudh steel': 'HADID',
+    'al khoudh steel furniture': 'HADID',
+    'aksf': 'HADID'
 };
 
 /**
