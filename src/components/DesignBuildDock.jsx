@@ -43,8 +43,13 @@ function describeCounts(c) {
 
 function describeFurnished(f, products) {
     const withProduct = (f.products || []).filter((m) => m.placed > 0).length;
+    // Lines that are not furniture (finishes, lights…) are left out of the count.
+    const notFurniture = Array.isArray(f.unplacedFurnitureIds)
+        ? Math.max(0, (f.unplacedProductIds || []).length - f.unplacedFurnitureIds.length)
+        : 0;
+    const lines = Math.max(withProduct, products.length - notFurniture);
     const photos = f.withPhotos ? ` · ${f.withPhotos === withProduct ? 'all' : f.withPhotos} shown by their own photo` : '';
-    return `Furnished · ${f.placedPieces} of ${f.pieces} drawn pieces carry ${withProduct} of ${products.length} products${photos}`;
+    return `Furnished · ${f.placedPieces} of ${f.pieces} drawn pieces carry ${withProduct} of ${lines} furniture products${photos}`;
 }
 
 const text = (v, max) => (typeof v === 'string' ? v.slice(0, max) : '');
@@ -106,12 +111,57 @@ function artifactsFromMessage(m) {
     };
 }
 
+/** The start of a text, cut at a word, with an ellipsis when cut. */
+function shortText(t, max) {
+    const s = String(t || '').replace(/\s+/g, ' ').trim();
+    if (s.length <= max) return s;
+    const cut = s.slice(0, max + 1).replace(/[\s,;:–—-]+\S*$/, '');
+    return `${(cut.length > max * 0.5 ? cut : s.slice(0, max)).replace(/[\s,;:–—-]+$/, '')}…`;
+}
+
+const productName = (p) => [p.brand, p.model].filter(Boolean).join(' ') || shortText(p.description, 36);
+
+/** Furniture lines of the offer that found no place on the drawing (other lines are not furniture). */
 function unplacedNames(f, products) {
     const byId = new Map(products.map((p) => [p.id, p]));
-    return (f.unplacedProductIds || [])
-        .map((id) => byId.get(id))
-        .filter(Boolean)
-        .map((p) => [p.brand, p.model].filter(Boolean).join(' ') || p.description.slice(0, 40));
+    const ids = Array.isArray(f.unplacedFurnitureIds) ? f.unplacedFurnitureIds : f.unplacedProductIds || [];
+    return ids.map((id) => byId.get(id)).filter(Boolean).map(productName);
+}
+
+/**
+ * The legend of the furnished model: each product placed on the drawing with its
+ * picture, its colour in the model and how many pieces carry it against the offer.
+ */
+function legendOf(f, products) {
+    if (!f) return [];
+    const byId = new Map(products.map((p) => [p.id, p]));
+    const colour = new Map((f.colours || []).map((c) => [c.id, c]));
+    const rows = [];
+    for (const m of f.products || []) {
+        const p = byId.get(m?.productId);
+        const placed = Number(m?.placed) || 0;
+        if (!p || placed <= 0) continue;
+        const qty = Number(p.qty) || Number(m.qty) || 0;
+        const c = colour.get(p.id);
+        const name = productName(p);
+        const differs = qty > 0 && Math.round(qty) !== placed;
+        // The model names the product; the brand is in the tooltip.
+        const short = p.model || p.brand || shortText(p.description, 28);
+        const note = !differs ? '' : placed > qty
+            ? `The drawing shows ${placed}; the offer has ${qty}.`
+            : `The drawing shows ${placed} of the offer's ${qty}.`;
+        rows.push({
+            id: p.id,
+            name: short,
+            picture: typeof p.imageRef === 'string' && p.imageRef ? p.imageRef : p.imageUrl || '',
+            hex: c?.hex || '',
+            placed,
+            count: differs ? `${placed} of ${qty}` : `${placed}`,
+            differs,
+            title: [name, c?.name ? `${c.name} in the model` : '', `${placed} placed`, note, 'Click to see where it stands.'].filter(Boolean).join(' · '),
+        });
+    }
+    return rows.sort((a, b) => b.placed - a.placed);
 }
 
 export default function DesignBuildDock() {
@@ -132,6 +182,11 @@ function DockSession({ s }) {
     const [timedOut, setTimedOut] = useState(false);
     const [reviewId, setReviewId] = useState(null);
     const [exportOpen, setExportOpen] = useState(false);
+    // The product shown in the model from the legend (Design & Build frames its pieces),
+    // for the furnishing it was picked in: a new furnishing has none in focus.
+    const [focus, setFocus] = useState({ id: null, of: null });
+    const focusId = focus.of && focus.of === s.furnished ? focus.id : null;
+    const [brokenPictures, setBrokenPictures] = useState(() => new Set());
 
     const post = useCallback((type, payload = {}) => {
         const win = iframeRef.current?.contentWindow;
@@ -220,6 +275,7 @@ function DockSession({ s }) {
                             withPhotos: Number(m.withPhotos) || 0,
                             products: Array.isArray(m.products) ? m.products : [],
                             unplacedProductIds: Array.isArray(m.unplacedProductIds) ? m.unplacedProductIds : [],
+                            ...(Array.isArray(m.unplacedFurnitureIds) ? { unplacedFurnitureIds: m.unplacedFurnitureIds } : {}),
                             colours: Array.isArray(m.colours)
                                 ? m.colours
                                     .filter((c) => c && typeof c.id === 'string' && /^#[0-9a-f]{6}$/i.test(c.hex))
@@ -293,6 +349,22 @@ function DockSession({ s }) {
         setFrameKey((k) => k + 1);
     }, []);
 
+    /** Show where a product stands in the model (again: the whole model). */
+    const focusProduct = useCallback((id) => {
+        const next = focusId === id ? null : id;
+        setReviewId(null);
+        setExportOpen(false);
+        if (post('focus-product', { productId: next })) setFocus({ id: next, of: designBuild.getState().furnished });
+    }, [focusId, post]);
+
+    /** Open Design & Build's render panel on the current view. */
+    const openRender = useCallback(() => {
+        setReviewId(null);
+        setExportOpen(false);
+        // Design & Build lets go of a product picked here before the shot.
+        if (post('render')) setFocus({ id: null, of: null });
+    }, [post]);
+
     const askClose = useCallback(() => {
         if (!confirmClose) {
             setConfirmClose(true);
@@ -327,12 +399,13 @@ function DockSession({ s }) {
     const notFound = (n) => (missing.length ? `Not found on the drawing: ${missing.slice(0, n).join(', ')}${missing.length > n ? ` and ${missing.length - n} more` : ''}.` : '');
     const hint = (() => {
         if (!ready || s.error || approved) return '';
-        if (furnished && !s.renders.length) return `Next: press Render in Design & Build — the render shows the offer's real products. ${notFound(3)}`.trim();
-        if (furnished) return notFound(4) || 'Every product found its place on the drawing.';
+        if (furnished && !s.renders.length) return `Next: Render — the render shows the offer's real products. Click a product below to see where it stands. ${notFound(3)}`.trim();
+        if (furnished) return notFound(4) || 'Every furniture line found its place on the drawing.';
         if (s.products.length) return '';
         return 'Next: apply a Value Engineered or Multi-Budget offer, then the space is furnished with your products here.';
     })();
     const strip = s.renders.slice(-4).reverse();
+    const legend = legendOf(furnished, s.products);
 
     return (
         <>
@@ -436,6 +509,45 @@ function DockSession({ s }) {
                         )}
                     </div>
 
+                    {legend.length > 0 && (
+                        <div className={styles.legend} role="group" aria-label="Products in the model">
+                            <span className={styles.legendTitle}>In the model</span>
+                            <div className={styles.legendList}>
+                                {legend.map((p) => (
+                                    <button
+                                        key={p.id}
+                                        type="button"
+                                        className={`${styles.legendItem} ${focusId === p.id ? styles.legendItemActive : ''}`}
+                                        onClick={() => focusProduct(p.id)}
+                                        aria-pressed={focusId === p.id}
+                                        title={p.title}
+                                        disabled={!ready}
+                                    >
+                                        <span className={styles.legendPic} style={p.hex ? { borderColor: p.hex } : undefined}>
+                                            {p.picture && !brokenPictures.has(p.id) ? (
+                                                <img
+                                                    src={p.picture}
+                                                    alt=""
+                                                    loading="lazy"
+                                                    onError={() => setBrokenPictures((b) => new Set(b).add(p.id))}
+                                                />
+                                            ) : (
+                                                <span className={styles.legendDot} style={{ background: p.hex || '#94a3b8' }} />
+                                            )}
+                                        </span>
+                                        <span className={styles.legendName}>{p.name}</span>
+                                        <span className={`${styles.legendCount} ${p.differs ? styles.legendCountWarn : ''}`}>{p.count}</span>
+                                    </button>
+                                ))}
+                                {missing.length > 0 && (
+                                    <span className={styles.legendMissing} title={`Not on the drawing: ${missing.join(', ')}`}>
+                                        {missing.length} not on the drawing
+                                    </span>
+                                )}
+                            </div>
+                        </div>
+                    )}
+
                     <footer className={styles.footer}>
                         <div className={styles.status} role="status" aria-live="polite">
                             <span className={`${styles.statusDot} ${timedOut || s.error ? styles.dotError : ready ? styles.dotReady : styles.dotBusy}`} />
@@ -469,7 +581,21 @@ function DockSession({ s }) {
                                     Review render
                                 </button>
                             )}
-                            <button type="button" className={approved ? styles.secondaryBtn : styles.primaryBtn} onClick={designBuild.minimize}>
+                            {ready && !approved && (
+                                <button
+                                    type="button"
+                                    className={furnished && !s.renders.length ? styles.primaryBtn : styles.secondaryBtn}
+                                    onClick={openRender}
+                                    title="Photoreal render of the current view in Design & Build"
+                                >
+                                    {s.renders.length ? 'New render' : 'Render'}
+                                </button>
+                            )}
+                            <button
+                                type="button"
+                                className={approved || (furnished && !s.renders.length) ? styles.secondaryBtn : styles.primaryBtn}
+                                onClick={designBuild.minimize}
+                            >
                                 Continue in BOQ Flow
                             </button>
                             {approved && (
