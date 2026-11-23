@@ -4,6 +4,8 @@ import ProgressModal from './components/ProgressModal';
 import TableViewer from './components/TableViewer';
 import MultiBudgetModal from './components/MultiBudgetModal';
 import PlanScopeModal from './components/PlanScopeModal';
+import DesignBuildDock from './components/DesignBuildDock';
+import { designBuild, isPdfFile } from './features/designBuild/designBuildStore';
 import CompanySettings from './components/CompanySettings';
 import { useCompanyProfile, CompanyProvider } from './context/CompanyContext';
 import { ScrapingProvider } from './context/ScrapingContext';
@@ -757,8 +759,14 @@ function AppContent({ onOpenSettings }) {
     }
   };
 
-  const handlePlanAnalyze = async (scope, provider = aiSettings?.engine || 'google', providerModel = aiSettings?.model) => {
+  const handlePlanAnalyze = async (scope, provider = aiSettings?.engine || 'google', providerModel = aiSettings?.model, options = {}) => {
     if (!currentPlanFiles || currentPlanFiles.length === 0) return;
+
+    // Design & Build: build the same plan in 3D alongside the item extraction.
+    if (options.designBuild) {
+      const planPdf = Array.from(currentPlanFiles).find(isPdfFile);
+      if (planPdf) designBuild.openWithPlan(planPdf);
+    }
 
     setIsPlanScopeOpen(false);
     setShowLanding(false);
@@ -1308,6 +1316,8 @@ function AppWithSetup() {
   return (
     <>
       <AppContent onOpenSettings={() => setShowSetupModal(true)} />
+      {/* Mounted once, outside the page views, so the 3D model survives page changes. */}
+      <DesignBuildDock />
       {showSetupModal && (
         <CompanySettings
           isModal={true}
