@@ -83,9 +83,18 @@ export const designBuild = {
         state = { ...initial, session: state.session };
         emit();
     },
-    /** Products of an applied offer (and the offer itself, for the export suite). */
+    /**
+     * Products of an applied offer (and the offer itself, for the export suite). Renders
+     * made with earlier products stay to look at, but one must be approved again.
+     */
     setProducts(products, offer = null) {
-        designBuild.set({ products, productsToken: state.productsToken + 1, ...(offer ? { offer } : {}) });
+        designBuild.set({
+            products,
+            productsToken: state.productsToken + 1,
+            ...(offer ? { offer } : {}),
+            approvedRenderId: null,
+            exportedAt: null,
+        });
     },
     addRender(render) {
         const renders = [...state.renders.filter((r) => r.id !== render.id), render].slice(-MAX_RENDERS);
