@@ -396,16 +396,19 @@ function DockSession({ s }) {
         return 'Opening Design & Build…';
     })();
     const missing = furnished ? unplacedNames(furnished, s.products) : [];
+    const legend = legendOf(furnished, s.products);
     const notFound = (n) => (missing.length ? `Not found on the drawing: ${missing.slice(0, n).join(', ')}${missing.length > n ? ` and ${missing.length - n} more` : ''}.` : '');
     const hint = (() => {
         if (!ready || s.error || approved) return '';
-        if (furnished && !s.renders.length) return `Next: Render — the render shows the offer's real products. Click a product below to see where it stands. ${notFound(3)}`.trim();
+        if (furnished && !s.renders.length) {
+            const locate = legend.length ? ' Click a product below to see where it stands.' : '';
+            return `Next: Render — the render shows the offer's real products.${locate} ${notFound(3)}`.trim();
+        }
         if (furnished) return notFound(4) || 'Every furniture line found its place on the drawing.';
         if (s.products.length) return '';
         return 'Next: apply a Value Engineered or Multi-Budget offer, then the space is furnished with your products here.';
     })();
     const strip = s.renders.slice(-4).reverse();
-    const legend = legendOf(furnished, s.products);
 
     return (
         <>
