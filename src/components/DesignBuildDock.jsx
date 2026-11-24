@@ -167,6 +167,8 @@ function artifactsFromMessage(m) {
             x: num(p.x),
             y: num(p.y),
             angleDeg: num(p.angleDeg),
+            // which way the piece's front points on the plan, when the drawing shows it
+            facingDeg: p.facingDeg !== null && p.facingDeg !== undefined && Number.isFinite(Number(p.facingDeg)) ? Number(p.facingDeg) : null,
             widthM: num(p.widthM),
             depthM: num(p.depthM),
         }))

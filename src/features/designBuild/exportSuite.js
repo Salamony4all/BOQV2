@@ -71,6 +71,14 @@ const clean = (s) => String(s ?? '').replace(/\s+/g, ' ').trim();
 /** Document properties: pptxgenjs writes some of them unescaped, so no XML special characters. */
 const metaText = (s) => clean(s).replace(/&/g, 'and').replace(/[<>"']/g, '');
 
+/** Where a piece's front points on the plan (y down): an arrow, a word and the angle; a dash when unknown. */
+export function facesText(deg) {
+    if (deg === null || deg === undefined || !Number.isFinite(Number(deg))) return '—';
+    const d = ((Math.round(Number(deg)) % 360) + 360) % 360;
+    const names = ['→ right', '↘ down-right', '↓ down', '↙ down-left', '← left', '↖ up-left', '↑ up', '↗ up-right'];
+    return `${names[Math.round(d / 45) % 8]} (${d}°)`;
+}
+
 /** The project's issue date (yyyy-mm-dd from the project details) as "24 November 2026". */
 function issueDate(value) {
     const m = String(value || '').match(/^(\d{4})-(\d{2})-(\d{2})/);
@@ -1010,16 +1018,16 @@ async function buildFfeSchedule(ctx, pictures) {
     });
     ws.views = [{ state: 'frozen', ySplit: 4 }];
 
-    // Where each piece stands on the plan, with its product.
+    // Where each piece stands on the plan, with its product, and which way it faces.
     if (ctx.placements.length) {
         const ps = wb.addWorksheet('Placement');
-        sheetTitle(ps, ctx, 'Each piece of furniture on the plan (centre in metres from the drawing origin, x right, y down)', 9);
-        [8, 34, 11, 14, 10, 10, 12, 11, 11].forEach((w, i) => {
+        sheetTitle(ps, ctx, 'Each piece of furniture on the plan (centre in metres from the drawing origin, x right, y down; faces: where its front points, 0° right, 90° down)', 10);
+        [8, 34, 11, 14, 10, 10, 12, 16, 11, 11].forEach((w, i) => {
             ps.getColumn(i + 1).width = w;
         });
-        sheetLogo(wb, ps, ctx, 9);
+        sheetLogo(wb, ps, ctx, 10);
         const h = ps.getRow(4);
-        h.values = ['Ref', 'Product', 'Key', 'Kind', 'X (m)', 'Y (m)', 'Rotation (°)', 'Width (m)', 'Depth (m)'];
+        h.values = ['Ref', 'Product', 'Key', 'Kind', 'X (m)', 'Y (m)', 'Rotation (°)', 'Faces', 'Width (m)', 'Depth (m)'];
         styleHeaderRow(h);
         const byId = new Map(ctx.products.map((p) => [p.id, p]));
         const order = new Map(ctx.products.map((p, i) => [p.id, i]));
@@ -1032,8 +1040,8 @@ async function buildFfeSchedule(ctx, pictures) {
             const p = pl.productId ? byId.get(pl.productId) : null;
             const colour = p ? ctx.colourOf(p) : null;
             const row = ps.getRow(5 + i);
-            row.values = [p?.sn || '', p ? productLabel(p) : 'No product yet', colour ? colour.name : '', pl.kind, pl.x, pl.y, pl.angleDeg, pl.widthM, pl.depthM];
-            [5, 6, 8, 9].forEach((c) => {
+            row.values = [p?.sn || '', p ? productLabel(p) : 'No product yet', colour ? colour.name : '', pl.kind, pl.x, pl.y, pl.angleDeg, facesText(pl.facingDeg), pl.widthM, pl.depthM];
+            [5, 6, 9, 10].forEach((c) => {
                 row.getCell(c).numFmt = '0.00';
             });
             if (colour) {
