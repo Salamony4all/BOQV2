@@ -18,7 +18,7 @@ function normalizeApiBase(raw) {
 
 export function getApiBase() {
   // Allow overriding via Vite environment variable (useful for deployment/testing)
-  const raw = import.meta.env.VITE_API_BASE;
+  const raw = import.meta.env?.VITE_API_BASE;
   const normalized = raw ? normalizeApiBase(raw) : '';
 
   // Debugging support: log API base decisions (only in dev)

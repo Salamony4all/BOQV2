@@ -55,19 +55,22 @@ if (supabaseUrl && !supabaseServiceKey) {
     console.warn('⚠️  [SupabaseStorage] SUPABASE_SERVICE_ROLE_KEY not set — DELETE operations may be blocked by RLS. Add it to your Vercel environment variables.');
 }
 
-// Cache for verified buckets to avoid redundant API calls
-const verifiedBuckets = new Set(['assets', 'extracted-images']);
+// Cache for verified buckets to avoid redundant API calls (never pre-assume non-default buckets exist)
+const verifiedBuckets = new Set(['assets']);
 
 /**
- * Ensures the specified bucket exists in Supabase storage
+ * Ensures the specified bucket exists in Supabase storage (uses admin client when available)
  */
-async function ensureBucket(bucketName) {
-    if (!supabase) return false;
+async function ensureBucket(bucketName, options = {}) {
+    const client = supabaseAdmin || supabase;
+    if (!client) return false;
     if (verifiedBuckets.has(bucketName)) return true;
 
+    const isPrivate = options.public === false || bucketName === 'plan-uploads';
+    const fileSizeLimit = options.fileSizeLimit || (isPrivate ? 52428800 : 15728640);
+
     try {
-        // Attempt to list buckets to check existence
-        const { data: buckets, error: listError } = await supabase.storage.listBuckets();
+        const { data: buckets, error: listError } = await client.storage.listBuckets();
 
         if (listError) {
             console.warn(`[SupabaseStorage] Notice: Cannot list buckets (${listError.message}). Proceeding assuming "${bucketName}" exists.`);
@@ -77,13 +80,13 @@ async function ensureBucket(bucketName) {
 
         const exists = (buckets || []).some(b => b.name === bucketName);
         if (!exists) {
-            console.log(`[SupabaseStorage] Creating missing bucket: "${bucketName}"`);
-            const { error: createError } = await supabase.storage.createBucket(bucketName, {
-                public: true,
-                fileSizeLimit: 10485760, // 10MB
+            console.log(`[SupabaseStorage] Creating missing bucket: "${bucketName}" (public=${!isPrivate})`);
+            const { error: createError } = await client.storage.createBucket(bucketName, {
+                public: !isPrivate,
+                fileSizeLimit,
             });
-            if (createError) {
-                console.warn(`[SupabaseStorage] Warning: Failed to create bucket "${bucketName}" (${createError.message}). It may already exist.`);
+            if (createError && !/already exists/i.test(createError.message)) {
+                console.warn(`[SupabaseStorage] Warning: Failed to create bucket "${bucketName}" (${createError.message}).`);
             }
         }
 
@@ -91,7 +94,7 @@ async function ensureBucket(bucketName) {
         return true;
     } catch (err) {
         console.warn(`[SupabaseStorage] Notice during bucket check for "${bucketName}": ${err.message}`);
-        verifiedBuckets.add(bucketName); // Mark as checked to prevent loop
+        verifiedBuckets.add(bucketName);
         return true;
     }
 }
@@ -104,20 +107,21 @@ async function ensureBucket(bucketName) {
  * @param {object} options - Supabase storage options (e.g. contentType)
  */
 export async function uploadToSupabase(bucket, path, fileObject, options = {}) {
-    if (!supabase) {
-        console.warn('[SupabaseStorage] Supabase client NOT initialized. Check SUPABASE_URL and SUPABASE_ANON_KEY.');
+    const client = supabaseAdmin || supabase;
+    if (!client) {
+        console.warn('[SupabaseStorage] Supabase client NOT initialized. Check SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.');
         throw new Error('Supabase client not initialized');
     }
 
     try {
-        await ensureBucket(bucket);
+        await ensureBucket(bucket, options);
 
         let dataToUpload = fileObject;
         if (Buffer.isBuffer(fileObject)) {
             dataToUpload = fileObject.buffer.slice(fileObject.byteOffset, fileObject.byteOffset + fileObject.byteLength);
         }
 
-        const { data, error } = await supabase.storage
+        const { data, error } = await client.storage
             .from(bucket)
             .upload(path, dataToUpload, {
                 upsert: true,
@@ -129,7 +133,7 @@ export async function uploadToSupabase(bucket, path, fileObject, options = {}) {
             throw error;
         }
 
-        const { data: urlData } = supabase.storage
+        const { data: urlData } = client.storage
             .from(bucket)
             .getPublicUrl(data.path);
 
@@ -138,9 +142,6 @@ export async function uploadToSupabase(bucket, path, fileObject, options = {}) {
             url: urlData.publicUrl
         };
     } catch (err) {
-        // `fetch failed` from undici hides the real reason in err.cause. Surface it
-        // (ENOTFOUND = bad/paused project URL, ECONNREFUSED, UND_ERR_CONNECT_TIMEOUT, etc.)
-        // so live logs diagnose transport failures instead of a bare "fetch failed".
         const causeCode = err?.cause?.code || err?.cause?.message;
         console.error(`❌ [SupabaseStorage] Upload exception for path "${path}": ${err.message}${causeCode ? ` (cause: ${causeCode}; host: ${supabaseUrl})` : ''}`);
         throw err;
@@ -153,10 +154,11 @@ export async function uploadToSupabase(bucket, path, fileObject, options = {}) {
  * @param {string} folder 
  */
 export async function listSupabaseFiles(bucket, folder = '') {
-    if (!supabase) return [];
+    const client = supabaseAdmin || supabase;
+    if (!client) return [];
 
     try {
-        const { data, error } = await supabase.storage
+        const { data, error } = await client.storage
             .from(bucket)
             .list(folder, {
                 limit: 100,
@@ -171,7 +173,7 @@ export async function listSupabaseFiles(bucket, folder = '') {
 
         return (data || []).map(file => ({
             ...file,
-            url: supabase.storage.from(bucket).getPublicUrl(`${folder ? folder + '/' : ''}${file.name}`).data.publicUrl,
+            url: client.storage.from(bucket).getPublicUrl(`${folder ? folder + '/' : ''}${file.name}`).data.publicUrl,
             pathname: `${folder ? folder + '/' : ''}${file.name}`
         }));
     } catch (err) {
@@ -186,10 +188,11 @@ export async function listSupabaseFiles(bucket, folder = '') {
  * @param {string} path 
  */
 export async function deleteFromSupabase(bucket, path) {
-    if (!supabase) return null;
+    const client = supabaseAdmin || supabase;
+    if (!client) return null;
 
     try {
-        const { data, error } = await supabase.storage
+        const { data, error } = await client.storage
             .from(bucket)
             .remove([path]);
 
@@ -209,10 +212,11 @@ export async function deleteFromSupabase(bucket, path) {
  * Brand DB Logic - Get all brands from 'brands' table
  */
 export async function getSupabaseBrands() {
-    if (!supabase) return [];
+    const client = supabaseAdmin || supabase;
+    if (!client) return [];
 
     try {
-        const { data, error } = await supabase
+        const { data, error } = await client
             .from('brands')
             .select('*');
 
@@ -223,7 +227,6 @@ export async function getSupabaseBrands() {
 
         if (!data) return [];
 
-        // Map DB columns (snake_case) to app properties (camelCase)
         return data.map(b => ({
             ...b,
             budgetTier: b.budget_tier || b.budgetTier || 'mid',
@@ -235,7 +238,8 @@ export async function getSupabaseBrands() {
 }
 
 export async function saveSupabaseBrand(brand) {
-    if (!supabase) {
+    const client = supabaseAdmin || supabase;
+    if (!client) {
         console.warn('⚠️ [SupabaseStorage] Cannot save brand: Supabase client not initialized');
         return false;
     }
@@ -247,7 +251,7 @@ export async function saveSupabaseBrand(brand) {
     console.log(`📡 [SupabaseStorage] Attempting to upsert brand: "${brandName}" (ID: ${brandId}, Products: ${productCount})`);
 
     try {
-        const { error } = await supabase
+        const { error } = await client
             .from('brands')
             .upsert({
                 id: brandId,
@@ -283,13 +287,13 @@ export async function saveSupabaseBrand(brand) {
  * Gets overview stats for the dashboard
  */
 export async function getSupabaseStats() {
-    if (!supabase) return { brands: 0, products: 0, assets: 0 };
+    const client = supabaseAdmin || supabase;
+    if (!client) return { brands: 0, products: 0, assets: 0 };
 
     try {
-        const { count: brandCount } = await supabase.from('brands').select('*', { count: 'exact', head: true });
+        const { count: brandCount } = await client.from('brands').select('*', { count: 'exact', head: true });
 
-        // Sum products across all brands
-        const { data: brands } = await supabase.from('brands').select('products');
+        const { data: brands } = await client.from('brands').select('products');
         const productCount = (brands || []).reduce((acc, b) => acc + (b.products?.length || 0), 0);
 
         return {
@@ -300,6 +304,98 @@ export async function getSupabaseStats() {
     } catch (e) {
         console.warn(`[SupabaseStorage] Stats fetch notice: ${e.message}`);
         return { brands: 0, products: 0, lastSync: null };
+    }
+}
+
+/**
+ * Creates a signed upload URL in the private `plan-uploads` bucket so large multi-sheet CAD/PDFs
+ * bypass Vercel's 4.5 MB request payload ceiling cleanly.
+ */
+export async function createSignedPlanUploadUrl(filename = 'plan.pdf') {
+    const client = supabaseAdmin || supabase;
+    if (!client) throw new Error('Supabase client not initialized');
+    await ensureBucket('plan-uploads', { public: false, fileSizeLimit: 52428800 });
+
+    const safeName = String(filename || 'plan.pdf').replace(/[^a-zA-Z0-9._-]/g, '_');
+    const storagePath = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}_${safeName}`;
+    const { data, error } = await client.storage
+        .from('plan-uploads')
+        .createSignedUploadUrl(storagePath);
+
+    if (error || !data?.signedUrl) {
+        throw new Error(error?.message || 'Could not create signed upload URL');
+    }
+
+    return {
+        storagePath,
+        signedUrl: data.signedUrl,
+        token: data.token || ''
+    };
+}
+
+/**
+ * Downloads a plan file previously uploaded to `plan-uploads` into a Buffer.
+ */
+export async function downloadPlanFromStorage(storagePath) {
+    const client = supabaseAdmin || supabase;
+    if (!client) throw new Error('Supabase client not initialized');
+    const cleanPath = String(storagePath || '').replace(/^\/+/, '');
+    if (!cleanPath || cleanPath.includes('..')) throw new Error('Invalid storage path');
+
+    const { data, error } = await client.storage
+        .from('plan-uploads')
+        .download(cleanPath);
+
+    if (error || !data) {
+        throw new Error(error?.message || `Failed to download plan "${cleanPath}"`);
+    }
+    const arrayBuffer = await data.arrayBuffer();
+    return Buffer.from(arrayBuffer);
+}
+
+/**
+ * Mirrors an external verified product image into Supabase Storage `product-images` bucket
+ * so exports and renders never fail from expired hotlinks or upstream CDN blocks.
+ */
+export async function mirrorImageToSupabaseStorage(sourceUrl, brandSlug = 'brand', modelSlug = 'item') {
+    const client = supabaseAdmin || supabase;
+    if (!client || !sourceUrl || typeof sourceUrl !== 'string') return '';
+    if (!/^https?:\/\//i.test(sourceUrl)) return '';
+    if (supabaseUrl && sourceUrl.startsWith(supabaseUrl)) return sourceUrl; // Already hosted on Supabase
+
+    try {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 6000);
+        const res = await fetch(sourceUrl, {
+            signal: controller.signal,
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (compatible; BOQFLOW-ImageMirror/1.0)',
+                'Accept': 'image/avif,image/webp,image/png,image/jpeg,image/*;q=0.8'
+            }
+        });
+        clearTimeout(timer);
+        if (!res.ok) return '';
+
+        const ct = String(res.headers.get('content-type') || '').toLowerCase();
+        if (!ct.startsWith('image/') || ct.includes('svg')) return '';
+
+        const buf = Buffer.from(await res.arrayBuffer());
+        if (buf.length < 1024 || buf.length > 8 * 1024 * 1024) return '';
+
+        const ext = ct.includes('png') ? 'png' : ct.includes('webp') ? 'webp' : ct.includes('gif') ? 'gif' : 'jpg';
+        const safeBrand = String(brandSlug || 'brand').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 48) || 'brand';
+        const safeModel = String(modelSlug || 'item').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 64) || 'item';
+        const path = `${safeBrand}/${safeModel}.${ext}`;
+
+        const uploaded = await uploadToSupabase('product-images', path, buf, {
+            contentType: ct.split(';')[0].trim() || `image/${ext}`,
+            cacheControl: '31536000',
+            public: true,
+            fileSizeLimit: 10485760
+        });
+        return uploaded?.url || '';
+    } catch {
+        return '';
     }
 }
 

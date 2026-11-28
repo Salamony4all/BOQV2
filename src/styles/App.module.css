@@ -178,9 +178,30 @@
 .landingNavRight {
   display: flex;
   align-items: center;
-  gap: 0.6rem;
-  flex-wrap: wrap;
+  gap: 0.5rem;
+  flex-wrap: nowrap;
   justify-content: flex-end;
+  flex-shrink: 0;
+}
+
+.headerRightActions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  flex-shrink: 0;
+}
+
+.navBtnLabel {
+  display: inline;
+}
+
+.desktopOnlyExt {
+  display: inline-flex;
+}
+
+.desktopOnlyBrandBtn {
+  display: inline-flex;
 }
 
 .landingNavRight .extensionDownloadBtn {
@@ -1282,23 +1303,34 @@
 }
 
 .logoTextSmall {
-  font-size: 1.5rem;
+  font-size: 1.45rem;
   font-weight: 800;
   background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
-  letter-spacing: 2px;
+  letter-spacing: 1.5px;
+  white-space: nowrap;
 }
 
 /* ... */
 .homeCardGrid {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 2rem;
-  margin-top: 2rem;
+  align-items: stretch;
+  gap: 1.35rem;
+  margin: 1.75rem auto;
   width: 100%;
+  max-width: 1140px;
+}
+
+@media (min-width: 980px) {
+  .homeCardGrid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1.35rem;
+    align-items: stretch;
+  }
 }
 
 /* ... */
@@ -1309,7 +1341,7 @@
   backdrop-filter: blur(10px);
   border: 2px dashed rgba(148, 163, 184, 0.4);
   /* Visible border default */
-  border-radius: 14px;
+  border-radius: 20px;
   padding: 2rem;
   text-align: center;
   cursor: pointer;
@@ -1320,9 +1352,10 @@
   flex-direction: column;
   justify-content: center;
   align-items: center;
-  width: 550px;
-  height: 260px;
-  max-width: 95vw;
+  width: 100%;
+  max-width: 550px;
+  height: 235px;
+  margin: 0 auto;
 }
 
 .newBoqCard:hover {
@@ -1565,25 +1598,77 @@
 
   /* Main App */
   .app {
-    padding: 1rem 0.5rem;
+    padding: calc(4.6rem + var(--safe-top, 0px)) 0.75rem calc(1.75rem + var(--safe-bottom, 0px));
   }
 
   .container {
-    padding: 0 0.5rem;
+    padding: 0 0.25rem;
+  }
+
+  .landingNavInner {
+    padding: 0.5rem 0.65rem;
+    gap: 0.35rem;
+  }
+
+  .landingNavLeft {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    gap: 0.15rem;
+  }
+
+  .landingNavBrand {
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  .landingNavBrandText {
+    min-width: 0;
+  }
+
+  .logoSmall {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
   }
 
   .headerCompact {
-    margin-bottom: 1.5rem;
-    padding-bottom: 0.75rem;
+    padding: 0.5rem 0.65rem;
+    gap: 0.35rem;
+    justify-content: space-between;
+  }
+
+  .desktopOnlyExt {
+    display: none !important;
+  }
+
+  .navBtnLabel {
+    display: none;
+  }
+
+  .extensionDownloadBtn {
+    padding: 5px 8px;
+    min-height: 34px;
+  }
+
+  .headerRightActions,
+  .landingNavRight {
+    gap: 0.3rem;
   }
 
   .logoTextSmall {
-    font-size: 1.2rem;
-    letter-spacing: 1px;
+    font-size: 0.94rem;
+    letter-spacing: 0.4px;
+    white-space: nowrap;
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
-  .headerLogo {
+  .headerLogo,
+  .landingNavLogoImg {
     height: 24px;
+    max-width: 96px;
   }
 
   /* Hamburger Button */
@@ -1594,8 +1679,8 @@
   }
 
   .hamburgerBtn {
-    padding: 0.5rem;
-    margin-right: 0.75rem;
+    padding: 0.42rem;
+    margin-right: 0.35rem;
   }
 
   .hamburgerLine {
@@ -1626,8 +1711,20 @@
   }
 }
 
+/* Compact Phone Screens — hamburger menu handles Company Branding/Settings cleanly */
+@media (max-width: 640px) {
+  .desktopOnlyBrandBtn {
+    display: none !important;
+  }
+}
+
 /* Extra Small Devices */
 @media (max-width: 480px) {
+  .landingNavBrandBadge,
+  .landingNavMark {
+    display: none;
+  }
+
   .logoContainer {
     font-size: 2rem;
   }

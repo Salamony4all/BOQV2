@@ -268,8 +268,10 @@
 
     /* Action buttons - larger touch targets */
     .actionBtn {
-        width: 32px;
-        height: 32px;
+        width: 38px;
+        height: 38px;
+        min-width: 38px;
+        min-height: 38px;
         font-size: 16px;
     }
 
@@ -295,11 +297,11 @@
     }
 
     .closeButton {
-        /* Move close button to be more accessible on mobile */
-        top: -35px;
-        right: -35px;
-        width: 36px;
-        height: 36px;
+        /* Move close button inside safe bounds on mobile */
+        top: -42px;
+        right: 4px;
+        width: 38px;
+        height: 38px;
         font-size: 20px;
     }
 

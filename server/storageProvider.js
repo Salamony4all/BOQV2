@@ -139,18 +139,22 @@ export const brandStorage = {
         // Master list
         const brandMap = new Map();
 
-        // 1. Supabase - Top Priority "Source of Truth" with 5s timeout + last-known snapshot fallback
-        if (supabase) {
+        // 1. Supabase - Top Priority "Source of Truth" with 12s timeout + last-known snapshot fallback
+        let loadedFromSupabase = false;
+        const sbClient = supabaseAdmin || supabase;
+        if (sbClient) {
             try {
                 const supabasePromise = getSupabaseBrands();
-                const timeoutPromise = new Promise(resolve => setTimeout(() => resolve([]), 5000));
+                const timeoutPromise = new Promise(resolve => setTimeout(() => resolve([]), 12000));
                 let supabaseBrands = await Promise.race([supabasePromise, timeoutPromise]);
 
                 if (Array.isArray(supabaseBrands) && supabaseBrands.length > 0) {
                     lastSupabaseBrandsSnapshot = supabaseBrands;
+                    loadedFromSupabase = true;
                     console.log(`✅ [Storage] Loaded ${supabaseBrands.length} brands from Supabase.`);
                 } else if (lastSupabaseBrandsSnapshot.length > 0) {
                     supabaseBrands = lastSupabaseBrandsSnapshot;
+                    loadedFromSupabase = true;
                     console.warn(`⚠️ [Storage] Supabase timed out/empty — preserving ${supabaseBrands.length} cached Supabase brands.`);
                 }
 
@@ -168,6 +172,7 @@ export const brandStorage = {
             } catch (e) {
                 console.error('❌ [Storage] Supabase load failed:', e.message);
                 if (lastSupabaseBrandsSnapshot.length > 0) {
+                    loadedFromSupabase = true;
                     lastSupabaseBrandsSnapshot.forEach(b => {
                         if (b && (b.id || b.name)) {
                             const brandObj = {
@@ -184,29 +189,17 @@ export const brandStorage = {
             }
         }
 
-        // 2. Load Local Brands (Filesystem / Tmp) - Fallback/Migration Layer
-        const localBrands = await getLocalBrands();
-        localBrands.forEach(b => {
-            const id = String(b.id);
-            if (!brandMap.has(id)) {
-                brandMap.set(id, b);
-            } else {
-                // Merge local products with remote products for highest fidelity
-                const existing = brandMap.get(id);
-                const existingProducts = existing.products || [];
-                const localProds = b.products || [];
-                const mergedProducts = [...localProds];
-                const seenModels = new Set(localProds.map(p => (p.model || '').toLowerCase().trim()));
-                for (const ep of existingProducts) {
-                    const mNorm = (ep.model || '').toLowerCase().trim();
-                    if (!seenModels.has(mNorm)) {
-                        seenModels.add(mNorm);
-                        mergedProducts.push(ep);
-                    }
+        // 2. Local Filesystem Fallback ONLY when Supabase returned nothing or is unconfigured
+        // (Prevents stale bundled JSON files from overwriting curated Supabase records!)
+        if (!loadedFromSupabase || brandMap.size === 0) {
+            const localBrands = await getLocalBrands();
+            localBrands.forEach(b => {
+                const id = String(b.id);
+                if (!brandMap.has(id)) {
+                    brandMap.set(id, b);
                 }
-                existing.products = mergedProducts;
-            }
-        });
+            });
+        }
 
         // 2b. Heal stale/mangled brand logos and build dynamic category trees (zero Supabase writes)
         for (const [id, brand] of brandMap) {
@@ -312,25 +305,7 @@ export const brandStorage = {
             } catch (error) { /* continue */ }
         }
 
-        // 3. Railway Persistent Volume Replication (async non-blocking backup)
-        const scraperUrl = process.env.JS_SCRAPER_SERVICE_URL;
-        if (scraperUrl) {
-            const sanitizedName = brand.name.toLowerCase().replace(/[^a-z0-9]/g, '_');
-            const filename = `${sanitizedName}-${brand.budgetTier || 'mid'}.json`;
-            axios.post(`${scraperUrl}/brands/upload`, JSON.stringify(brand, null, 2), {
-                headers: {
-                    'Content-Type': 'text/plain',
-                    'X-Filename': filename
-                },
-                timeout: 10000
-            }).then(() => {
-                console.log(`✅ [Storage] Backed up brand "${brand.name}" to Railway volume.`);
-            }).catch(err => {
-                console.warn(`⚠️ [Storage] Railway volume replication warning:`, err.message);
-            });
-        }
-
-        // Local / Try-Hard Strategy
+        // 3. Local /tmp and dev filesystem cache (Railway volume backup retired — Supabase is sole cloud source)
         try {
             const baseDir = isVercel ? '/tmp/data/brands' : path.join(__dirname, 'data/brands');
             const sanitizedName = brand.name.toLowerCase().replace(/[^a-z0-9]/g, '_');

@@ -85,3 +85,5 @@ scripts/test_single.js
 
 .lens-chrome-profile/
 .lens-jar/
+
+server/data/fabrication_custom.json

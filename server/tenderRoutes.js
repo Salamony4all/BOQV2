@@ -8,7 +8,7 @@ import { callGoogle, callOpenRouter, callNvidia, getProviderForModel, GOOGLE_MOD
 
 const router = express.Router();
 
-const AUTO_BROWSER_SERVICE_URL = process.env.AUTO_BROWSER_URL || 'http://auto-browser-container:8000';
+const AUTO_BROWSER_SERVICE_URL = process.env.AUTO_BROWSER_URL || '';
 const BROWSER_GATEWAY_TOKEN = process.env.BROWSER_GATEWAY_TOKEN || '';
 const AUTO_BROWSER_HEADERS = BROWSER_GATEWAY_TOKEN ? { Authorization: `Bearer ${BROWSER_GATEWAY_TOKEN}` } : {};
 
@@ -45,6 +45,13 @@ setInterval(() => {
  */
 router.post('/setup', async (req, res) => {
     try {
+        if (!AUTO_BROWSER_SERVICE_URL) {
+            return res.status(503).json({
+                success: false,
+                useChromeExtension: true,
+                error: 'Remote cloud browser retired. Use the BOQFLOW Chrome Extension (extension/) or set AUTO_BROWSER_URL locally.'
+            });
+        }
         console.log(`🌐 [Tender Router] Provisioning isolated execution container profile instance...`);
 
         // Check if the auto browser service is reachable
@@ -109,8 +116,8 @@ router.post('/setup', async (req, res) => {
             createdAt: Date.now()
         });
 
-        if (vnc_url && vnc_url.includes('127.0.0.1:6080')) {
-            const publicVncBase = process.env.AUTO_BROWSER_VNC_URL || 'https://browser-node-production.up.railway.app';
+        if (vnc_url && vnc_url.includes('127.0.0.1:6080') && process.env.AUTO_BROWSER_VNC_URL) {
+            const publicVncBase = process.env.AUTO_BROWSER_VNC_URL;
             vnc_url = vnc_url.replace('http://127.0.0.1:6080', publicVncBase);
             vnc_url = vnc_url.replace('resize=remote', 'resize=scale');
         }

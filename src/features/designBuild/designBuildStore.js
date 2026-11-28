@@ -2,9 +2,48 @@
 // modal (and the 3D model inside it) survives BOQ Flow's own page changes. The
 // modal itself is mounted once, next to the app (see DesignBuildDock).
 import { useSyncExternalStore } from 'react';
-import { extractImageUrl, loadExportImageData } from '../../utils/urlUtils';
+import { extractImageUrl, loadExportImageData } from '../../utils/urlUtils.js';
+import { resolveItemFinishes, resolveFitoutSkuCode } from '../../utils/officialBrandFinishes.js';
 
-export const DESIGN_BUILD_URL = String(import.meta.env.VITE_DESIGN_BUILD_URL || 'https://design-and-build-v2.vercel.app').replace(/\/+$/, '');
+const FITOUT_3D_FIXTURE_CODES = new Set([
+    'MEP-SAN-01', 'MEP-SAN-02', 'MEP-SAN-03', 'MEP-SAN-04',
+    'MEP-AV-01', 'JN-VAN-01', 'JN-PNT-01',
+]);
+
+export function inferArchitecturalRole({ brand = '', code = '', category = '', description = '', fulfillmentType = '', designBuildKind = '', subtype = '' }) {
+    const sku = String(code || '').toUpperCase().trim();
+    const hay = `${sku} ${brand} ${category} ${description} ${subtype}`;
+    if (designBuildKind === 'ceiling' || /^CL-(?:WOD|ACU|GYP)-|^FAB-CLG-/.test(sku) || /\b(rotunda\s*canopy|slatted?\s*(?:ceiling|canopy)|ceiling\s*(?:baffle|cloud|canopy)|hunter\s*douglas\s*.*ceil|recessed\s*cove\s*ceil)\b/i.test(hay)) {
+        return 'ceiling-feature';
+    }
+    if (/^PT-GLS-/.test(sku) || /\b(glass\s*partition|glazed\s*partition|fluted\s*glass|reeded\s*glass|frosted\s*glass|optima\s*revolution)\b/i.test(hay)) {
+        return 'glazing-partition';
+    }
+    if (/^WC-(?:WOD|FLT|ACU|MTL)-|^FAB-FTR-/.test(sku) || /\b(fluted\s*(?:timber|wood|oak|walnut)?\s*(?:wall|panel)|wood\s*veneer\s*wall|acoustic\s*wall\s*panel|feature\s*wall\s*(?:panel|cladding))\b/i.test(hay)) {
+        return 'wall-cladding';
+    }
+    if (/^PT-DRY-/.test(sku) || /\b(knauf.*drywall|gypsum\s*partition)\b/i.test(hay)) {
+        return 'gypsum-partition';
+    }
+    if (/^FAB-ART-|^FN-ART-/.test(sku) || subtype === 'wall-art' || /\b(wall\s*art(?:work)?|framed\s*(?:art|canvas|painting)|bas[\s-]*relief|sculptural\s*wall\s*(?:art|panel))\b/i.test(hay)) {
+        return 'wall-artwork';
+    }
+    if (fulfillmentType === 'custom_fabrication' && (subtype === 'slat-screen' || /^FAB-SCR-/.test(sku))) return 'slat-screen';
+    if (fulfillmentType === 'custom_fabrication' && (subtype === 'retail-kiosk' || /^FAB-KSK-/.test(sku))) return 'retail-kiosk';
+    return '';
+}
+
+function isPlaceable3DProduct({ brand = '', code = '', category = '', description = '', unit = '', fulfillmentType = '', designBuildKind = '' }) {
+    if (fulfillmentType === 'custom_fabrication' || /custom\s*fab/i.test(`${brand} ${category}`)) return true;
+    const isFitout = /fitout|fit-out/i.test(`${brand} ${category}`) || /^(?:FL|PT|WC|CL|DR|WN|FN|JN|MEP|MOB|UTIL|HSE|DEB|CLN|INS)\b/i.test(code);
+    if (!isFitout) return true;
+    if (FITOUT_3D_FIXTURE_CODES.has(String(code || '').toUpperCase())) return true;
+    if (/^(sanitary|screen|joinery|storage|equipment)$/i.test(String(designBuildKind || ''))) return true;
+    if (/^(sqm|m2|lm|ls|lot)$/i.test(String(unit || '').trim())) return false;
+    return /\b(wc|toilet|basin|urinal|shower|vanity|pantry|display\s*screen|television|tv)\b/i.test(description) && !/\b(tile|paint|gypsum|carpet|vinyl|partition|skirting|plaster)\b/i.test(description);
+}
+
+export const DESIGN_BUILD_URL = String(import.meta.env?.VITE_DESIGN_BUILD_URL || 'https://design-and-build-v2.vercel.app').replace(/\/+$/, '');
 
 export const DESIGN_BUILD_ORIGIN = (() => {
     try {
@@ -29,6 +68,8 @@ const initial = {
     products: [],       // BOQ lines with their chosen products (sent for furnishing)
     productsToken: 0,
     furniture: null,    // { pieces, schedule } read from the drawing by Design & Build
+    takeoff: null,      // pure 3D geometric surface/opening takeoff from Design & Build
+    boqEnrichedAt: null,
     furnished: null,    // { placedPieces, pieces, products, unplacedProductIds, colours }
     offer: null,        // { tables, title } of the applied offer, for the export suite
     renders: [],        // finished renders from Design & Build, newest last
@@ -53,6 +94,10 @@ const emit = () => listeners.forEach((l) => l());
 let exporter = null;
 /** How BOQ Flow's table makes its own offer, BOQ and submittals for the package: set by the table viewer. */
 let documentMaker = null;
+/** How BOQ Flow's table applies post-build 3D geometric enrichment updates & additions. */
+let boqEnricher = null;
+/** Active BOQ tables getter for post-build geometric enrichment even before applying an offer. */
+let tablesGetter = null;
 
 export const designBuild = {
     getState: () => state,
@@ -148,9 +193,9 @@ export const designBuild = {
     approveRender(id) {
         designBuild.set({ approvedRenderId: state.renders.some((r) => r.id === id) ? id : null });
     },
-    /** Show the export suite of the open session (from BOQ Flow's exports); it needs an approved render. */
+    /** Show the export suite of the open session. */
     openExportSuite() {
-        if (!state.open || !state.renders.some((r) => r.id === state.approvedRenderId)) return;
+        if (!state.open || (state.status !== 'ready' && !state.renders.some((r) => r.id === state.approvedRenderId))) return;
         designBuild.set({ minimized: false, exportPanel: true });
     },
     /** The open session tells the store how to make the package (null when it closes). */
@@ -169,6 +214,22 @@ export const designBuild = {
     async makeDocuments(opts) {
         return documentMaker ? documentMaker(opts) : null;
     },
+    setBoqEnricher(fn) {
+        boqEnricher = typeof fn === 'function' ? fn : null;
+    },
+    setTablesGetter(fn) {
+        tablesGetter = typeof fn === 'function' ? fn : null;
+    },
+    getActiveTables() {
+        if (state.offer?.tables?.length) return state.offer.tables;
+        return typeof tablesGetter === 'function' ? (tablesGetter() || []) : [];
+    },
+    applyBoqEnrichment(payload) {
+        if (!boqEnricher) return false;
+        const ok = boqEnricher(payload);
+        if (ok) designBuild.set({ boqEnrichedAt: Date.now() });
+        return !!ok;
+    },
     /**
      * Make and save the package around the approved render: every folder that can be
      * made, as one .zip (or the `groups` asked for). Progress shows wherever the store
@@ -176,7 +237,7 @@ export const designBuild = {
      */
     async downloadPackage(opts = {}) {
         if (!exporter || state.exporting) return false;
-        if (!state.renders.some((r) => r.id === state.approvedRenderId)) return false;
+        if (state.status !== 'ready' && !state.renders.some((r) => r.id === state.approvedRenderId)) return false;
         designBuild.set({ exporting: { label: 'Collecting the model from Design & Build…' }, exportError: null });
         try {
             const res = await exporter({ ...opts, onProgress: (label) => designBuild.set({ exporting: { label: String(label || '') } }) });
@@ -237,6 +298,45 @@ export function offerColumns(table) {
 
 const amountOf = (v) => parseFloat(String(v ?? '').replace(/,/g, '')) || 0;
 
+/**
+ * Parses BOQ / fabrication dimension strings into metres (`{ w, d, h }`), clamped to Design & Build's
+ * bridge bounds (`0.05 < v < 30`, `h < 4`). Returns `undefined` if no valid footprint exists.
+ */
+export function parseDimsMetres(text) {
+    const s = String(text || '').replace(/,/g, '.');
+    if (!s) return undefined;
+    const toM = (val, unit, hint) => {
+        const u = (unit || '').toLowerCase();
+        if (u === 'mm') return val / 1000;
+        if (u === 'cm') return val / 100;
+        if (u === 'm') return val;
+        return hint >= 100 ? val / 1000 : hint >= 10 ? val / 100 : val;
+    };
+    const r3 = (v) => Math.round(v * 1000) / 1000;
+    const clampSide = (v) => Number.isFinite(v) && v > 0.05 && v < 30;
+    const box = s.match(/(\d+(?:\.\d+)?)\s*(mm|cm|m)?\s*[x×*]\s*(\d+(?:\.\d+)?)\s*(mm|cm|m)?(?:\s*[x×*]\s*(\d+(?:\.\d+)?)\s*(mm|cm|m)?)?/i);
+    if (box) {
+        const tailUnit = box[6] || box[4] || box[2];
+        const a = toM(parseFloat(box[1]), box[2] || tailUnit, parseFloat(box[1]));
+        const b = toM(parseFloat(box[3]), box[4] || tailUnit, parseFloat(box[3]));
+        const c = box[5] ? toM(parseFloat(box[5]), box[6] || tailUnit, parseFloat(box[5])) : undefined;
+        if (clampSide(a) && clampSide(b)) {
+            return {
+                w: r3(Math.max(a, b)),
+                d: r3(Math.min(a, b)),
+                ...(c && c > 0.05 && c < 4 ? { h: r3(c) } : {}),
+            };
+        }
+    }
+    const dia = s.match(/(?:Ø|ø|⌀|dia(?:meter)?\.?)\s*(\d+(?:\.\d+)?)\s*(mm|cm|m)?/i);
+    if (dia) {
+        const n = parseFloat(dia[1]);
+        const m = toM(n, dia[2], n);
+        if (clampSide(m)) return { w: r3(m), d: r3(m) };
+    }
+    return undefined;
+}
+
 const cellPicture = (c) => (c && typeof c === 'object' ? extractImageUrl(c.image) || extractImageUrl(c.images?.[0]) || '' : '');
 
 /**
@@ -271,24 +371,79 @@ export function productsFromTables(tables) {
             if (!description || !(qty > 0)) return;
             const imageRef = rowPicture(row, col, table?.header);
             const productUrl = String(row.productUrl || '');
+            const rate = amountOf(cellValue(row, col.rate));
+            const amount = amountOf(cellValue(row, col.amount));
+            const isCustomFab = row.fulfillmentType === 'custom_fabrication' || /custom\s*fab/i.test(String(row.scope || '')) || /custom\s*fab/i.test(String(cellValue(row, col.brand) || row.selectedBrand || ''));
+            const dims = parseDimsMetres(row.dimensionsMm || row.dimensions || '') || parseDimsMetres(description) || parseDimsMetres(offerText);
+            const brand = String(cellValue(row, col.brand) || row.selectedBrand || (isCustomFab ? 'Custom Fabrication' : ''));
+            const model = String(cellValue(row, col.model) || row.selectedModel || '');
+            const unitStr = String(cellValue(row, col.unit) || '');
+            const categoryStr = [row.selectedMainCat, row.selectedSubCat, row.categoryHint].filter(Boolean).join(' / ');
+            const code = String(row.code || row.skuCode || resolveFitoutSkuCode({ code: row.code, model, description, productText: offerText }) || '');
+            const finishes = resolveItemFinishes({
+                brand,
+                code,
+                model,
+                description,
+                productText: offerText,
+                category: categoryStr,
+                materialSpec: row.materialSpec || '',
+                finishes: row.finishes,
+            });
+            const placeable3D = isPlaceable3DProduct({
+                brand,
+                code,
+                category: categoryStr,
+                description,
+                unit: unitStr,
+                fulfillmentType: row.fulfillmentType,
+                designBuildKind: row.designBuildKind,
+            });
+            const architecturalRole = inferArchitecturalRole({
+                brand,
+                code,
+                category: categoryStr,
+                description,
+                fulfillmentType: row.fulfillmentType,
+                designBuildKind: row.designBuildKind,
+                subtype: row.designBuildSubtype || '',
+            });
             out.push({
                 id: `t${t}r${r}`,
                 description: description.slice(0, 1000),
+                sourceDescription: String(row.sourceDescription || description).slice(0, 1000),
                 qty,
-                unit: String(cellValue(row, col.unit) || ''),
+                unit: unitStr,
                 location: row.location || '',
-                category: [row.selectedMainCat, row.selectedSubCat, row.categoryHint].filter(Boolean).join(' / '),
-                brand: String(cellValue(row, col.brand) || row.selectedBrand || ''),
-                model: String(cellValue(row, col.model) || row.selectedModel || ''),
+                category: categoryStr,
+                brand,
+                model,
+                code,
+                finishes,
+                placeable3D,
+                ...(row.designBuildSubtype ? { subtype: row.designBuildSubtype } : {}),
+                ...(architecturalRole ? { architecturalRole } : {}),
                 // Sent as is when it is a link; prepareProductPictures turns any picture into a thumbnail.
                 imageUrl: /^https?:\/\//i.test(imageRef) ? imageRef : '',
                 imageRef,
                 productUrl: /^https?:\/\//i.test(productUrl) ? productUrl : '',
                 productText: offerText,
                 sn: col.sn >= 0 ? String(cellValue(row, col.sn) ?? '') : '',
-                rate: amountOf(cellValue(row, col.rate)),
-                amount: amountOf(cellValue(row, col.amount)),
+                rate,
+                amount,
                 section: row.sectionLabel || row.sectionCategory || table.sheetName || '',
+                ...(dims ? { dims } : {}),
+                ...(isCustomFab ? {
+                    fulfillmentType: 'custom_fabrication',
+                    fabricationId: row.fabricationId || '',
+                    skuCode: row.skuCode || code,
+                    designBuildKind: row.designBuildKind || '',
+                    shape: row.shape || '',
+                    dimensionsMm: row.dimensionsMm || row.dimensions || '',
+                    materialSpec: row.materialSpec || '',
+                    workshopTrade: row.workshopTrade || 'Joinery',
+                    leadTimeDays: Number(row.leadTimeDays) || 21,
+                } : {}),
             });
         });
     });
@@ -330,26 +485,61 @@ export async function prepareProductPictures(products) {
  * the user's picture, and is listed as a custom item in the export suite.
  */
 export function customProducts(items) {
-    return (items || []).map((c) => ({
-        id: `custom-${c.typeId}`,
-        description: `Custom ${c.name || c.kind || 'item'}`.slice(0, 300),
-        qty: Math.max(1, Number(c.count) || 1),
-        unit: 'Nos',
-        location: '',
-        category: 'Custom item',
-        brand: 'Custom',
-        model: String(c.name || c.kind || 'Custom item').slice(0, 120),
-        imageUrl: typeof c.picture === 'string' ? c.picture : '',
-        imageRef: typeof c.picture === 'string' ? c.picture : '',
-        productUrl: '',
-        productText: '',
-        sn: '',
-        rate: 0,
-        amount: 0,
-        section: 'Custom items',
-        typeId: c.typeId,
-        custom: true,
-    }));
+    return (items || []).map((c) => {
+        const qty = Math.max(1, Number(c.count) || 1);
+        const rate = Math.max(0, Number(c.rate) || 0);
+        const amount = rate > 0 ? Math.round(rate * qty * 100) / 100 : 0;
+        const dims = (c.widthM > 0.05 && c.depthM > 0.05 && c.widthM < 30 && c.depthM < 30)
+            ? { w: Math.round(Math.max(c.widthM, c.depthM) * 1000) / 1000, d: Math.round(Math.min(c.widthM, c.depthM) * 1000) / 1000 }
+            : parseDimsMetres(c.size || c.materialSpec || '');
+        return {
+            id: `custom-${c.typeId}`,
+            description: (c.materialSpec ? `${c.name || c.kind || 'Custom item'} — ${c.materialSpec}` : `Custom ${c.name || c.kind || 'item'}`).slice(0, 300),
+            qty,
+            unit: c.unit || 'Nos',
+            location: '',
+            category: c.category || 'Custom Fabrication',
+            brand: c.brand || 'Custom Fabrication',
+            model: String(c.name || c.kind || 'Custom item').slice(0, 120),
+            code: c.skuCode || '',
+            placeable3D: true,
+            finishes: resolveItemFinishes({
+                brand: c.brand || 'Custom Fabrication',
+                code: c.skuCode || '',
+                model: String(c.name || c.kind || 'Custom item'),
+                description: c.materialSpec || '',
+                finishes: c.finishes,
+            }),
+            imageUrl: typeof c.picture === 'string' ? c.picture : '',
+            imageRef: typeof c.picture === 'string' ? c.picture : '',
+            productUrl: '',
+            productText: c.materialSpec || '',
+            sn: c.skuCode || '',
+            rate,
+            amount,
+            section: 'Custom Fabrication',
+            ...(dims ? { dims } : {}),
+            ...(c.isZone
+                ? { customZoneId: c.typeId, subtype: c.subtype || 'rotunda-canopy', architecturalRole: 'ceiling-feature' }
+                : (c.isWallTarget || c.typeId === 'arch_walls')
+                    ? {
+                        customZoneId: 'arch_walls',
+                        subtype: c.subtype || 'wall-cladding',
+                        architecturalRole: (c.subtype === 'wall-art' || /^FAB-ART-/i.test(c.skuCode || '')) ? 'wall-artwork' : 'wall-cladding',
+                    }
+                    : { typeId: c.typeId }),
+            ...(c.subtype ? { subtype: c.subtype } : {}),
+            custom: true,
+            fulfillmentType: 'custom_fabrication',
+            fabricationId: c.fabricationId || '',
+            skuCode: c.skuCode || '',
+            designBuildKind: c.isZone ? 'ceiling' : (c.isWallTarget || c.typeId === 'arch_walls') ? 'screen' : (c.kind || ''),
+            dimensionsMm: c.size || '',
+            materialSpec: c.materialSpec || '',
+            workshopTrade: c.workshopTrade || 'Joinery',
+            leadTimeDays: Number(c.leadTimeDays) || 21,
+        };
+    });
 }
 
 /** A picture file as a small JPEG data URL (for custom items), or null. */
@@ -387,6 +577,6 @@ export function isPdfFile(file) {
     return !!file && (file.type === 'application/pdf' || /\.pdf$/i.test(file.name || ''));
 }
 
-if (import.meta.env.DEV && typeof window !== 'undefined') {
+if (import.meta.env?.DEV && typeof window !== 'undefined') {
     window.__boqDesignBuild = designBuild;
 }

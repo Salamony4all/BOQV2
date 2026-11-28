@@ -9,13 +9,16 @@ import DesignBuildDock from './components/DesignBuildDock';
 import { designBuild, isPdfFile, productsFromTables } from './features/designBuild/designBuildStore';
 import CompanySettings from './components/CompanySettings';
 import { useCompanyProfile, CompanyProvider } from './context/CompanyContext';
+import { useProject } from './context/ProjectContext';
 import { ScrapingProvider } from './context/ScrapingContext';
 import styles from './styles/App.module.css';
+import scannerStyles from './styles/MarketScanner.module.css';
 import { useTheme } from './context/ThemeContext';
 import PdfModelModal from './components/PdfModelModal';
 import ValueEngineeredModal from './components/ValueEngineeredModal';
 import CostingModal from './components/CostingModal';
 import LandingShowcase from './components/LandingShowcase';
+import MarketScannerModal from './components/MarketScannerModal';
 import { MODEL_OPTIONS } from './utils/aiConstants';
 
 import { createClient } from '@supabase/supabase-js';
@@ -280,6 +283,7 @@ function AppContent({ onOpenSettings }) {
     secondaryColor,
     updateAiSettings
   } = useCompanyProfile();
+  const { updateProject } = useProject();
   const { theme } = useTheme();
 
   // Update document title dynamically
@@ -335,6 +339,27 @@ function AppContent({ onOpenSettings }) {
   const [isCostingOpen, setIsCostingOpen] = useState(false);
   const [pendingVeData, setPendingVeData] = useState(null);
   const [systemErrors, setSystemErrors] = useState([]);
+  const [scannerModalState, setScannerModalState] = useState({
+    isOpen: false,
+    initialLeadId: null,
+    initialTab: 'radar',
+    initialCountry: 'ALL',
+    initialScope: '',
+  });
+  const [scannerStats, setScannerStats] = useState(null);
+  const [activeScannerLead, setActiveScannerLead] = useState(null);
+
+  // Fetch Market Scanner KPIs once on mount so the navbar badge is always live
+  useEffect(() => {
+    fetch(apiUrl('/api/scanner/stats'))
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data && typeof data.total_projects === 'number') {
+          setScannerStats((prev) => prev || data);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   // Reset environment on app load
   useEffect(() => {
@@ -783,24 +808,52 @@ function AppContent({ onOpenSettings }) {
       setStage('Analyzing Geometric Data...');
       setProgress(30);
 
-      const formData = new FormData();
-      Array.from(currentPlanFiles).forEach((file) => {
-        formData.append('files', file);
-      });
-      formData.append('includeFitout', includeFitout);
+      const planFileArray = Array.from(currentPlanFiles);
+      const totalBytes = planFileArray.reduce((acc, f) => acc + (f.size || 0), 0);
 
       // Heartbeat for progress bar
       const interval = setInterval(() => {
         setProgress(prev => (prev < 90 ? prev + 1 : prev));
       }, 500);
 
-      formData.append('provider', provider);
-      formData.append('providerModel', providerModel);
+      let response;
+      if (totalBytes > 3.2 * 1024 * 1024) {
+        const storagePaths = [];
+        for (const f of planFileArray) {
+          const uRes = await fetch(apiUrl('/api/plans/upload-url'), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ filename: f.name, contentType: f.type || 'application/pdf' })
+          });
+          if (uRes.ok) {
+            const { signedUrl, storagePath } = await uRes.json();
+            const putRes = await fetch(signedUrl, { method: 'PUT', headers: { 'Content-Type': f.type || 'application/pdf' }, body: f });
+            if (putRes.ok) storagePaths.push({ storagePath, originalname: f.name, mimeType: f.type || 'application/pdf' });
+          }
+        }
+        if (storagePaths.length === planFileArray.length) {
+          response = await fetch(apiUrl('/api/analyze-plan'), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ storagePaths, includeFitout, provider, providerModel })
+          });
+        }
+      }
 
-      const response = await fetch(apiUrl('/api/analyze-plan'), {
-        method: 'POST',
-        body: formData
-      });
+      if (!response) {
+        const formData = new FormData();
+        planFileArray.forEach((file) => {
+          formData.append('files', file);
+        });
+        formData.append('includeFitout', includeFitout);
+        formData.append('provider', provider);
+        formData.append('providerModel', providerModel);
+
+        response = await fetch(apiUrl('/api/analyze-plan'), {
+          method: 'POST',
+          body: formData
+        });
+      }
 
       clearInterval(interval);
 
@@ -815,7 +868,6 @@ function AppContent({ onOpenSettings }) {
         setSeededPlanItems(data.items);
 
         // Format the extracted items into a table so TableViewer can display them directly
-        // Format the extracted items into a table so TableViewer can display them directly (Item wise by default with subheaders)
         const planTable = {
           sheetName: "Plan Analysis",
           columnCount: 6,
@@ -826,6 +878,13 @@ function AppContent({ onOpenSettings }) {
             code: item.code || "",
             categoryHint: item.categoryHint || "",
             description: item.description || item.Description || "",
+            ...(item.fulfillmentType ? { fulfillmentType: item.fulfillmentType } : {}),
+            ...(item.fabricationId ? { fabricationId: item.fabricationId } : {}),
+            ...(item.designBuildKind ? { designBuildKind: item.designBuildKind } : {}),
+            ...(item.shape ? { shape: item.shape } : {}),
+            ...(item.dimensions ? { dimensionsMm: item.dimensions } : {}),
+            ...(item.workshopTrade ? { workshopTrade: item.workshopTrade } : {}),
+            ...(item.leadTimeDays ? { leadTimeDays: item.leadTimeDays } : {}),
             cells: [
               { value: item.location || item.Location || "General" },
               { value: item.scope || item.Scope || "Furniture" },
@@ -840,7 +899,6 @@ function AppContent({ onOpenSettings }) {
           }
         };
 
-        setExtractedData({ tables: [planTable] });
         const groupedPlanTables = recategorizeTables([planTable], 'item');
         setExtractedData({ tables: groupedPlanTables, recategorizeMode: 'item' });
         setProgress(100);
@@ -901,6 +959,94 @@ function AppContent({ onOpenSettings }) {
     setMultiBudgetOpen(true);
   };
 
+  const resolvePortalDomain = (sourceUrl = '') => {
+    const knownHosts = [
+      'etendering.tenderboard.gov.om',
+      'etimad.sa',
+      'esupply.dubai.gov.ae',
+      'monaqasat.mof.gov.qa',
+      'capt.gov.kw',
+      'tenderboard.gov.bh',
+      'joneps.gov.jo',
+      'businessgateways.com',
+    ];
+    try {
+      const host = new URL(sourceUrl).hostname;
+      if (knownHosts.some((h) => host === h || host.endsWith(`.${h}`))) return host;
+    } catch { /* fallback below */ }
+    return 'etendering.tenderboard.gov.om';
+  };
+
+  const openScannerModal = (opts = {}) => {
+    setScannerModalState({
+      isOpen: true,
+      initialLeadId: opts.leadId || null,
+      initialTab: opts.tab || 'radar',
+      initialCountry: opts.country || 'ALL',
+      initialScope: opts.scope || '',
+    });
+  };
+
+  const handleEstimateLead = (lead) => {
+    if (!lead) return;
+    const vatMap = { OM: '5', AE: '5', SA: '15', BH: '10', QA: '0', KW: '0', EG: '14', JO: '16' };
+    const code = String(lead.country_code || 'OM').toUpperCase();
+    const vatPercent = vatMap[code] ?? '5';
+    const topContact = Array.isArray(lead.contacts) && lead.contacts.length > 0 ? lead.contacts[0] : null;
+    const locationZone = [lead.city, lead.governorate, lead.country_name || lead.country]
+      .filter((v, idx, arr) => v && arr.indexOf(v) === idx)
+      .join(', ');
+
+    updateProject({
+      projectName: lead.title || lead.en_name || lead.name || '',
+      projectNumber: lead.reference_no || lead.tender_number || `SCAN-${lead.id}`,
+      clientName: lead.client || lead.operator || '',
+      locationZone,
+      contractor: lead.main_contractor || lead.contractor || '',
+      consultant: lead.consultant || '',
+      clientRepName: topContact?.name || topContact?.person_name || '',
+      clientRepDesignation: topContact?.role || '',
+      vatPercent,
+    });
+
+    fetch(apiUrl(`/api/scanner/projects/${lead.id}`), {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ boq_status: 'estimating' }),
+    }).catch(() => {});
+
+    setActiveScannerLead(lead);
+    setScannerModalState((prev) => ({ ...prev, isOpen: false }));
+    setShowLanding(false);
+  };
+
+  const radarNavButton = (
+    <button
+      type="button"
+      onClick={() => openScannerModal({ tab: 'radar' })}
+      className={scannerStyles.radarNavPill}
+      title="Open Live GCC & Oman Market Radar & Top 10 Daily Digest"
+    >
+      <span className={scannerStyles.liveDot} />
+      <span><span className={scannerStyles.radarNavFull}>Market </span>Radar</span>
+      {typeof scannerStats?.hot_leads === 'number' && (
+        <span className={scannerStyles.radarBadgeCount}>{scannerStats.hot_leads} Hot</span>
+      )}
+    </button>
+  );
+
+  const scannerModalNode = (
+    <MarketScannerModal
+      isOpen={scannerModalState.isOpen}
+      onClose={() => setScannerModalState((prev) => ({ ...prev, isOpen: false }))}
+      initialLeadId={scannerModalState.initialLeadId}
+      initialTab={scannerModalState.initialTab}
+      initialCountry={scannerModalState.initialCountry}
+      initialScope={scannerModalState.initialScope}
+      onEstimateLead={handleEstimateLead}
+    />
+  );
+
   // Smooth scroll to top of results when data appears
   useEffect(() => {
     if (extractedData) {
@@ -933,20 +1079,21 @@ function AppContent({ onOpenSettings }) {
                 <span className={styles.logoTextSmall}>{companyName || 'BOQ FLOW'}</span>
               )}
             </div>
-            <div style={{ marginLeft: 'auto', marginRight: '1rem', display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div className={styles.headerRightActions}>
+              {radarNavButton}
               <button
                 type="button"
                 onClick={onOpenSettings}
-                className={styles.extensionDownloadBtn}
+                className={`${styles.extensionDownloadBtn} ${styles.desktopOnlyBrandBtn}`}
                 title="Upload your company logo, set brand colors, and configure AI models"
               >
                 <i className="ri-building-2-line" style={{ fontSize: '14px' }} />
-                <span>{logoOriginal || logoWhite ? 'Company Branding' : 'Add Company Logo'}</span>
+                <span className={styles.navBtnLabel}>{logoOriginal || logoWhite ? 'Company Branding' : 'Add Company Logo'}</span>
               </button>
               <a
                 href="/extension.zip"
                 download="AutoBrowserBridge-Extension.zip"
-                className={styles.extensionDownloadBtn}
+                className={`${styles.extensionDownloadBtn} ${styles.desktopOnlyExt}`}
                 title="Download the Auto Browser Extension to enable silent Google Lens matching, Tender Board autofill, and portal automation"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
@@ -960,6 +1107,85 @@ function AppContent({ onOpenSettings }) {
               <ThemeToggle />
             </div>
           </header>
+
+          {activeScannerLead && (
+            <div className={scannerStyles.activeLeadBanner}>
+              <div className={scannerStyles.bannerInfo}>
+                <div className={scannerStyles.bannerTopRow}>
+                  <div className={scannerStyles.bannerTitle}>
+                    <span className={scannerStyles.liveDot} />
+                    <span>{activeScannerLead.flag || '🌍'} Reserved Project: {activeScannerLead.title}</span>
+                    <span className={scannerStyles.stageBadge}>VAT {activeScannerLead.vat_percent ?? 5}% Synced</span>
+                  </div>
+                  <button
+                    type="button"
+                    className={scannerStyles.bannerDismissBtn}
+                    onClick={() => setActiveScannerLead(null)}
+                    title="Release reserved project card"
+                    aria-label="Release reserved project card"
+                  >
+                    ×
+                  </button>
+                </div>
+                <div className={scannerStyles.bannerMeta}>
+                  {[
+                    activeScannerLead.client,
+                    [activeScannerLead.city, activeScannerLead.governorate].filter(Boolean).join(', ') || activeScannerLead.country_name,
+                    activeScannerLead.reference_no,
+                    activeScannerLead.deadline ? `Closing ${activeScannerLead.deadline}` : '',
+                  ].filter(Boolean).join(' · ')}
+                </div>
+              </div>
+              <div className={scannerStyles.bannerActions}>
+                {activeScannerLead.source_url && (
+                  <a
+                    href={activeScannerLead.source_url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className={scannerStyles.btnInspect}
+                    style={{ textDecoration: 'none' }}
+                    title="Open official portal to download official tender BOQ & drawings"
+                  >
+                    1. Official Portal ↗
+                  </a>
+                )}
+                <label className={scannerStyles.intakeUploadLabel} title="Upload official tender BOQ (Excel, PDF, Image)">
+                  <input
+                    type="file"
+                    accept=".xls,.xlsx,.xlsb,.pdf,.png,.jpg,.jpeg"
+                    style={{ display: 'none' }}
+                    onChange={(e) => {
+                      const files = Array.from(e.target.files || []).filter(Boolean);
+                      if (files.length > 0) handleFileUpload(files);
+                      e.target.value = '';
+                    }}
+                  />
+                  <span>2. Upload Project BOQ</span>
+                </label>
+                <label className={`${scannerStyles.intakeUploadLabel} ${scannerStyles.intakePlanLabel}`} title="Upload floor plans or drawings (PDF, PNG, JPG)">
+                  <input
+                    type="file"
+                    accept=".pdf,.png,.jpg,.jpeg"
+                    multiple
+                    style={{ display: 'none' }}
+                    onChange={(e) => {
+                      const files = Array.from(e.target.files || []).filter(Boolean);
+                      if (files.length > 0) handlePlanUpload(files);
+                      e.target.value = '';
+                    }}
+                  />
+                  <span>3. Upload Drawings</span>
+                </label>
+                <button
+                  type="button"
+                  className={scannerStyles.btnInspect}
+                  onClick={() => openScannerModal({ leadId: activeScannerLead.id })}
+                >
+                  Switch Lead
+                </button>
+              </div>
+            </div>
+          )}
 
           {!extractedData && (
             <div className={styles.homeCardGrid}>
@@ -1020,6 +1246,7 @@ function AppContent({ onOpenSettings }) {
               data={extractedData}
               allBrands={allBrands}
               seededItems={seededPlanItems}
+              initialTenderDomain={resolvePortalDomain(activeScannerLead?.source_url)}
               onUploadBoq={handleFileUpload}
               onUploadPlan={handlePlanUpload}
               planPreviewUrl={planPreviewUrl}
@@ -1119,6 +1346,8 @@ function AppContent({ onOpenSettings }) {
           planPreviewType={planPreviewType}
           planPreviewName={planPreviewName}
         />
+
+        {scannerModalNode}
       </div>
     );
   }
@@ -1155,19 +1384,20 @@ function AppContent({ onOpenSettings }) {
           </div>
 
           <div className={styles.landingNavRight}>
+            {radarNavButton}
             <button
               type="button"
               onClick={onOpenSettings}
-              className={styles.extensionDownloadBtn}
+              className={`${styles.extensionDownloadBtn} ${styles.desktopOnlyBrandBtn}`}
               title="Upload your company logo, set brand colors, and configure AI models"
             >
               <i className="ri-building-2-line" style={{ fontSize: '14px' }} />
-              <span>{logoOriginal || logoWhite ? 'Company Branding' : 'Add Company Logo'}</span>
+              <span className={styles.navBtnLabel}>{logoOriginal || logoWhite ? 'Company Branding' : 'Add Company Logo'}</span>
             </button>
             <a
               href="/extension.zip"
               download="AutoBrowserBridge-Extension.zip"
-              className={styles.extensionDownloadBtn}
+              className={`${styles.extensionDownloadBtn} ${styles.desktopOnlyExt}`}
               title="Download the Auto Browser Extension to enable silent Google Lens matching, Tender Board autofill, and portal automation"
             >
               <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
@@ -1201,6 +1431,9 @@ function AppContent({ onOpenSettings }) {
         onOpenValueEngineer={() => setValueEngineeredOpen(true)}
         onOpenMultiBudget={() => setMultiBudgetOpen(true)}
         onOpenSettings={onOpenSettings}
+        onOpenScanner={openScannerModal}
+        onEstimateLead={handleEstimateLead}
+        onScannerStats={(s) => s && setScannerStats(s)}
         brands={FEATURED_PARTNER_BRANDS}
         allBrands={allBrands}
         brandTotalCount={allBrands?.length || 0}
@@ -1304,6 +1537,7 @@ function AppContent({ onOpenSettings }) {
       </div>
     )
   }
+      {scannerModalNode}
     </div >
   );
 }

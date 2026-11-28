@@ -2,9 +2,31 @@ import React, { useState, useEffect } from 'react';
 import { useCompanyProfile } from '../context/CompanyContext';
 import { DEFAULT_AI_SETTINGS } from '../utils/aiConstants';
 import { getApiBase } from '../utils/apiBase';
+import { designBuild, isPdfFile } from '../features/designBuild/designBuildStore';
 import styles from '../styles/PlanAnalyzerModal.module.css';
 
 const API_BASE = getApiBase();
+
+async function uploadPlanToSignedStorage(file) {
+    try {
+        const uRes = await fetch(`${API_BASE}/api/plans/upload-url`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ filename: file.name, contentType: file.type || 'application/pdf' })
+        });
+        if (!uRes.ok) return null;
+        const { signedUrl, storagePath } = await uRes.json();
+        if (!signedUrl || !storagePath) return null;
+        const putRes = await fetch(signedUrl, {
+            method: 'PUT',
+            headers: { 'Content-Type': file.type || 'application/pdf' },
+            body: file
+        });
+        return putRes.ok ? { storagePath, originalname: file.name, mimeType: file.type || 'application/pdf' } : null;
+    } catch {
+        return null;
+    }
+}
 
 const PlanAnalyzerModal = ({ isOpen, onClose, onApply }) => {
     const { aiSettings } = useCompanyProfile();
@@ -38,6 +60,9 @@ const PlanAnalyzerModal = ({ isOpen, onClose, onApply }) => {
         const selected = Array.from(rawFiles || []);
         
         if (selected.length === 0) return;
+        // Keep the source PDF ready for 1-click Design & Build handoff
+        const pdf = selected.find(isPdfFile);
+        if (pdf) designBuild.rememberPlan(pdf);
         
         setStage('uploading');
         setFiles(selected);
@@ -69,16 +94,32 @@ const PlanAnalyzerModal = ({ isOpen, onClose, onApply }) => {
                 const fileLabel = files.length > 1 ? `[File ${i+1}/${files.length}] ` : '';
                 setProgress(`${fileLabel}Initializing AI Engine for ${file.name}...`);
 
-                const formData = new FormData();
-                formData.append('files', file);
-                formData.append('includeFitout', includeFitout);
-                formData.append('provider', aiSettings?.engine || 'google');
-                formData.append('providerModel', aiSettings?.model || '');
+                let response;
+                const uploadedRef = file.size > 3.2 * 1024 * 1024 ? await uploadPlanToSignedStorage(file) : null;
+                if (uploadedRef) {
+                    setProgress(`${fileLabel}Analyzing cloud-staged drawing ${file.name}...`);
+                    response = await fetch(`${API_BASE}/api/analyze-plan`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            storagePaths: [uploadedRef],
+                            includeFitout,
+                            provider: aiSettings?.engine || 'google',
+                            providerModel: aiSettings?.model || ''
+                        })
+                    });
+                } else {
+                    const formData = new FormData();
+                    formData.append('files', file);
+                    formData.append('includeFitout', includeFitout);
+                    formData.append('provider', aiSettings?.engine || 'google');
+                    formData.append('providerModel', aiSettings?.model || '');
 
-                const response = await fetch(`${API_BASE}/api/analyze-plan`, {
-                    method: 'POST',
-                    body: formData
-                });
+                    response = await fetch(`${API_BASE}/api/analyze-plan`, {
+                        method: 'POST',
+                        body: formData
+                    });
+                }
 
                 if (!response.ok) {
                     const errData = await response.json().catch(() => ({}));
@@ -137,6 +178,19 @@ const PlanAnalyzerModal = ({ isOpen, onClose, onApply }) => {
                 items: newItems,
                 itemCount: total
             };
+        });
+    };
+
+    const updateScope = (idx, newScope) => {
+        setResults(prev => {
+            if (!prev) return null;
+            const newItems = [...prev.items];
+            newItems[idx] = {
+                ...newItems[idx],
+                scope: newScope,
+                fulfillmentType: newScope === 'Custom Fabrication' ? 'custom_fabrication' : undefined
+            };
+            return { ...prev, items: newItems };
         });
     };
 
@@ -307,11 +361,29 @@ const PlanAnalyzerModal = ({ isOpen, onClose, onApply }) => {
                                             <tr key={idx}>
                                                 <td className={styles.locationCell}>{item.location}</td>
                                                 <td>
-                                                    <span className={`${styles.scopeTag} ${item.scope?.toLowerCase().includes('fitout') ? styles.fitoutScope : styles.furnitureScope}`}>
-                                                        {item.scope}
-                                                    </span>
+                                                    <select
+                                                        value={item.scope || 'Furniture'}
+                                                        onChange={(e) => updateScope(idx, e.target.value)}
+                                                        className={`${styles.scopeTag} ${item.scope?.toLowerCase().includes('fitout') ? styles.fitoutScope : styles.furnitureScope}`}
+                                                        style={{ border: '1px solid rgba(148,163,184,0.35)', cursor: 'pointer' }}
+                                                    >
+                                                        <option value="Furniture">Furniture</option>
+                                                        <option value="Custom Fabrication">Custom Fabrication</option>
+                                                        <option value="Fitout (Architectural)">Fitout (Architectural)</option>
+                                                        <option value="Fitout (Joinery)">Fitout (Joinery)</option>
+                                                        <option value="Fitout (Lighting)">Fitout (Lighting)</option>
+                                                        <option value="Fitout (MEP)">Fitout (MEP)</option>
+                                                    </select>
+                                                    {item.confidence && (
+                                                        <span style={{ display: 'block', fontSize: '0.68rem', marginTop: 3, color: item.confidence === 'high' ? '#10b981' : item.confidence === 'low' ? '#f59e0b' : '#64748b' }}>
+                                                            {item.confidence.toUpperCase()} conf
+                                                        </span>
+                                                    )}
                                                 </td>
-                                                <td className={styles.descCell}>{item.description}</td>
+                                                <td className={styles.descCell}>
+                                                    {item.description}
+                                                    {item.dimensions && <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: 2 }}>Dim: {item.dimensions}</div>}
+                                                </td>
                                                 <td className={styles.qtyCell}>
                                                     <input 
                                                         type="number" 

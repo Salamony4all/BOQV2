@@ -16,9 +16,36 @@ import {
   listSupabaseFiles,
   deleteFromSupabase,
   supabase,
+  supabaseAdmin,
   getSupabaseBrands,
-  getSupabaseStats
+  getSupabaseStats,
+  createSignedPlanUploadUrl,
+  downloadPlanFromStorage,
+  mirrorImageToSupabaseStorage
 } from './utils/supabaseStorage.js';
+import {
+  detectCustomFabrication
+} from './utils/customFabricationDetector.js';
+import {
+  listFabricationCatalog,
+  createFabricationItem,
+  deleteFabricationItem,
+  searchFabricationHybrid,
+  searchFitoutHybrid,
+  searchProductsHybrid,
+  buildSpecHash,
+  getMatchCache,
+  setMatchCache,
+  enqueueScrapeJob,
+  getScrapeJob,
+  updateScrapeJob,
+  listScrapeJobs,
+  normalizeBudgetTier,
+  hasNormalizedSchema,
+  resolveBenchmarkPriceOMR
+} from './repositories/supabaseCatalogRepo.js';
+import { matchMultiBudgetBatch } from './utils/multiBudgetBatchMatcher.js';
+import { runSupabaseScrapeJob, discoverProductUrls } from './utils/supabaseNativeScraper.js';
 import { syncLocalToSupabase } from './scripts/syncLocalToSupabase.js';
 import axios from 'axios';
 import https from 'https';
@@ -34,6 +61,7 @@ import Fuse from 'fuse.js';
 import { TAXONOMY } from './utils/normalizer.js';
 import tenderRouter from './tenderRoutes.js';
 import llmProxyRouter from './llmProxyRoutes.js';
+import scannerRouter from './scannerRoutes.js';
 import { findSemanticMatches, ensureBrandCatalogEmbeddings } from './embeddingService.js';
 import { readSettings, writeSettings, getPublicSettings } from './settings.js';
 import { isLensHeadlessAvailable, scrapeLensVisualMatches, isLensWalled } from './utils/lensHeadless.js';
@@ -47,6 +75,7 @@ import { getCanonicalBrandLogo, getCanonicalBrandWebsite, resolveBrandLogo, clas
 import { matchWorkstationSet } from './utils/workstationSetMatcher.js';
 import { fetchLiveProductImage, cleanTechnicalDescription, verifyImageUrl } from './utils/veImageEnricher.js';
 import { enrichProductFromLiveWeb } from './utils/veLiveEnricher.js';
+import { resolveItemFinishes } from '../src/utils/officialBrandFinishes.js';
 import { verifyImagePairing } from './utils/veImageVerification.js';
 import { discoverOfficialOriginViaWeb } from './utils/webSearchUtils.js';
 import { assertSafeExternalUrl, safeAxiosGet } from './utils/urlSecurity.js';
@@ -878,7 +907,7 @@ const activeLayoutPromises = new Map();
 
 const app = express();
 app.set('trust proxy', true);
-const PORT = 3001;
+const PORT = Number(process.env.BOQ_SERVER_PORT || process.env.PORT) || 3001;
 let server;
 
 // Initialize services
@@ -888,84 +917,19 @@ const dbManager = new ExcelDbManager();
 console.log('✅ [Server] All services initialized.');
 
 
-// --- Configuration & Tasks ---
-const JS_SCRAPER_SERVICE_URL = process.env.JS_SCRAPER_SERVICE_URL;
-const DOCLING_SERVICE_URL = process.env.DOCLING_SERVICE_URL || process.env.PYTHON_SERVICE_URL || 'http://localhost:8000';
+// --- Configuration & Tasks (100% Supabase Native — Railway Retired) ---
+const DOCLING_SERVICE_URL = (process.env.NODE_ENV === 'development' && (process.env.DOCLING_SERVICE_URL || process.env.PYTHON_SERVICE_URL)) || '';
 const tasks = new Map();
 
 function getTrustedStorageHosts() {
   const hosts = [];
-  for (const raw of [process.env.SUPABASE_URL, process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.JS_SCRAPER_SERVICE_URL]) {
+  for (const raw of [process.env.SUPABASE_URL, process.env.NEXT_PUBLIC_SUPABASE_URL]) {
     if (!raw) continue;
     try {
       hosts.push(new URL(raw).hostname.toLowerCase());
     } catch { }
   }
   return hosts;
-}
-
-// --- Stable Railway Helpers ---
-const isJsScraperAvailable = () => !!JS_SCRAPER_SERVICE_URL;
-
-async function callJsScraperService(endpoint, payload, timeout = 300000) {
-  if (!JS_SCRAPER_SERVICE_URL) {
-    throw new Error('JS_SCRAPER_SERVICE_URL not configured');
-  }
-  const url = `${JS_SCRAPER_SERVICE_URL}${endpoint}`;
-  console.log(`🌐 Calling JS Scraper Service: ${url}`);
-
-  const response = await axios.post(url, payload, {
-    timeout,
-    headers: { 'Content-Type': 'application/json' }
-  });
-  return response.data;
-}
-
-async function pollJsScraperTask(taskId, onProgress = null, maxWaitMs = 3600000) {
-  const startTime = Date.now();
-  const pollInterval = 3000;
-  let consecutiveErrors = 0;
-  const maxConsecutiveErrors = 20;
-  let lastProgress = 0;
-
-  console.log(`🔄 Starting poll for Railway task: ${taskId} (timeout: ${maxWaitMs / 60000} mins)`);
-
-  while (Date.now() - startTime < maxWaitMs) {
-    try {
-      const response = await axios.get(`${JS_SCRAPER_SERVICE_URL}/tasks/${taskId}`, { timeout: 10000 });
-      const task = response.data;
-      consecutiveErrors = 0;
-
-      if (onProgress && task.progress) {
-        onProgress(task.progress, task.stage || 'Processing...', task.brandName);
-        if (Math.abs(task.progress - lastProgress) >= 5 || task.status === 'completed') {
-          console.log(`   📊 Task ${taskId}: ${task.progress}% - ${task.stage} (Status: ${task.status})`);
-          lastProgress = task.progress;
-        }
-      }
-
-      if (task.status === 'completed') {
-        console.log(`✅ Task ${taskId} COMPLETED with ${task.productCount || 0} products`);
-        return task;
-      } else if (task.status === 'failed') {
-        throw new Error(task.error || 'JS Scraper task failed');
-      } else if (task.status === 'cancelled') {
-        throw new Error('Task was cancelled');
-      }
-
-      await new Promise(resolve => setTimeout(resolve, pollInterval));
-    } catch (error) {
-      if (error.response?.status === 404) {
-        console.warn(`⚠️ Task ${taskId} not found (404).`);
-        throw new Error('Task not found on JS Scraper service');
-      }
-      consecutiveErrors++;
-      console.warn(`⚠️ Poll error (${consecutiveErrors}/${maxConsecutiveErrors}): ${error.message}`);
-      if (consecutiveErrors >= maxConsecutiveErrors) throw new Error(`Too many polling errors: ${error.message}`);
-      await new Promise(resolve => setTimeout(resolve, Math.min(pollInterval * consecutiveErrors, 10000)));
-    }
-  }
-  throw new Error('JS Scraper task timed out in polling loop');
 }
 
 // Middleware
@@ -997,6 +961,7 @@ app.use('/api', (req, res, next) => {
 
 app.use('/api/tender', tenderRouter);
 app.use('/api/llm-proxy', llmProxyRouter);
+app.use('/api/scanner', scannerRouter);
 
 // Path logger
 app.use((req, res, next) => {
@@ -1433,18 +1398,21 @@ app.get('/api/upload/metadata/:uploadId', async (req, res) => {
 });
 
 
-app.get('/api/scraper-config', (req, res) => {
+app.get('/api/scraper-config', async (req, res) => {
+  const v2Active = await hasNormalizedSchema().catch(() => false);
   res.json({
+    railwayRetired: true,
+    supabaseReady: Boolean(supabaseAdmin || supabase),
+    normalizedSchemaActive: v2Active,
+    browserlessReady: Boolean(process.env.BROWSERLESS_API_KEY),
     methods: [
-      { id: 'standard', name: 'Standard (Deep Gallery Scan)', description: 'Best for standard e-commerce galleries' },
-      { id: 'ai', name: 'Specialized Scraper (Optimized for Architonic)', description: 'Fast, intelligent mapping for complex sites' },
-      { id: 'scrapling', name: 'Scrapling Engine (Ultra High Speed)', description: 'Fastest product collection' }
+      { id: 'standard', name: 'Supabase Native (Sitemap + JSON-LD + Browserless)', description: 'Direct catalog extraction mirrored to Supabase Storage' },
+      { id: 'architonic', name: 'Architonic / Official Hybrid Discovery', description: 'Intelligent mapping for design portals' },
+      { id: 'py_universal', name: 'Fast Sync (Queued Immediate)', description: 'Ultra-fast direct feed harvesting' }
     ],
     engines: [
-      { id: 'railway', name: 'Railway Service (Recommended - Stable)', description: 'Cloud-based execution with proxy support' },
-      { id: 'local', name: 'Local Instance (Developer / Internal)', description: 'Use your local machine resources' }
-    ],
-    dashboardUrl: process.env.RAILWAY_DASHBOARD_URL || (JS_SCRAPER_SERVICE_URL ? `${JS_SCRAPER_SERVICE_URL}/dashboard` : 'https://railway.app')
+      { id: 'supabase', name: 'Supabase Native Engine (Active)', description: '100% Supabase Postgres + Storage + Browserless' }
+    ]
   });
 });
 
@@ -1906,21 +1874,63 @@ app.delete('/api/admin/blobs', async (req, res) => {
 
 app.get('/api/blobs', async (req, res) => {
   try {
-    const folders = ['', 'manual-upload', 'extracted-images', 'temp-uploads'];
+    const normalizeBlob = (b, bucket) => ({
+      ...b,
+      bucket,
+      size: b.size ?? b.metadata?.size ?? 0,
+      uploadedAt: b.uploadedAt || b.created_at || b.updated_at || null,
+      pathname: b.pathname || b.name || '',
+    });
+
+    const assetFolders = ['', 'manual-upload', 'extracted-images', 'temp-uploads'];
     let allBlobs = [];
 
-    for (const folder of folders) {
+    for (const folder of assetFolders) {
       try {
         const blobs = await listSupabaseFiles('assets', folder);
-        // Filter out actual folders returned as files
-        allBlobs = [...allBlobs, ...blobs.filter(b => b.id)];
+        allBlobs.push(...blobs.filter(b => b.id).map(b => normalizeBlob(b, 'assets')));
       } catch (e) {
-        console.warn(`⚠️ [Storage API] Could not list folder "${folder}":`, e.message);
+        console.warn(`⚠️ [Storage API] Could not list assets folder "${folder}":`, e.message);
       }
     }
 
-    // Sort by created_at desc
-    allBlobs.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    // List fabrication-assets (root + subfolders)
+    try {
+      const fabEntries = await listSupabaseFiles('fabrication-assets', '');
+      allBlobs.push(...fabEntries.filter(b => b.id).map(b => normalizeBlob(b, 'fabrication-assets')));
+      for (const sub of fabEntries.filter(b => !b.id && b.name)) {
+        const subFiles = await listSupabaseFiles('fabrication-assets', sub.name);
+        allBlobs.push(...subFiles.filter(b => b.id).map(b => normalizeBlob(b, 'fabrication-assets')));
+      }
+    } catch (e) {
+      console.warn('⚠️ [Storage API] Could not list fabrication-assets:', e.message);
+    }
+
+    // List mirrored product-images (brand subfolders, capped at 120 files for UI responsiveness)
+    try {
+      const PRODUCT_IMAGE_CAP = 120;
+      let productImageCount = 0;
+      const rootEntries = await listSupabaseFiles('product-images', '');
+      for (const b of rootEntries.filter(entry => entry.id)) {
+        if (productImageCount >= PRODUCT_IMAGE_CAP) break;
+        allBlobs.push(normalizeBlob(b, 'product-images'));
+        productImageCount++;
+      }
+      for (const sub of rootEntries.filter(entry => !entry.id && entry.name)) {
+        if (productImageCount >= PRODUCT_IMAGE_CAP) break;
+        const subFiles = await listSupabaseFiles('product-images', sub.name);
+        for (const b of subFiles.filter(entry => entry.id)) {
+          if (productImageCount >= PRODUCT_IMAGE_CAP) break;
+          allBlobs.push(normalizeBlob(b, 'product-images'));
+          productImageCount++;
+        }
+      }
+    } catch (e) {
+      console.warn('⚠️ [Storage API] Could not list product-images:', e.message);
+    }
+
+    // Sort by uploadedAt/created_at desc
+    allBlobs.sort((a, b) => new Date(b.uploadedAt || b.created_at || 0) - new Date(a.uploadedAt || a.created_at || 0));
 
     res.json({ success: true, blobs: allBlobs });
   } catch (error) {
@@ -1930,13 +1940,23 @@ app.get('/api/blobs', async (req, res) => {
 });
 
 app.post('/api/blobs/delete', async (req, res) => {
-  const { url, path: filePath } = req.body;
+  const { url, path: filePath, bucket: requestedBucket } = req.body;
   if (!url && !filePath) return res.status(400).json({ error: 'URL or path is required' });
   try {
     if (supabase) {
-      // Extract path from URL if path is not provided
-      const finalPath = filePath || new URL(url).pathname.split('/').slice(2).join('/');
-      await deleteFromSupabase('assets', finalPath);
+      let targetBucket = requestedBucket || 'assets';
+      let finalPath = filePath || '';
+      if (!finalPath && url) {
+        const pathname = new URL(url).pathname;
+        const match = pathname.match(/\/storage\/v1\/object\/public\/([^/]+)\/(.+)$/);
+        if (match) {
+          targetBucket = requestedBucket || decodeURIComponent(match[1]);
+          finalPath = decodeURIComponent(match[2]);
+        } else {
+          finalPath = decodeURIComponent(pathname.split('/').slice(2).join('/'));
+        }
+      }
+      await deleteFromSupabase(targetBucket, finalPath);
     }
     res.json({ success: true });
   } catch (error) {
@@ -2678,44 +2698,31 @@ function inferMainCategoryFromSubCategory(subCat = '') {
   return '';
 }
 
-async function resolveFitoutCatalogMatch(req, desc, requestedTier = 'mid', provider = 'google', providerModel = null, { normalizeCategory = true, skipLlm = false } = {}) {
-  const tierNorm = String(requestedTier || 'mid').toLowerCase().trim();
-  let dbName = 'fitout_v2-mid.json';
-  if (tierNorm === 'budget' || tierNorm === 'budgetary') {
-    dbName = 'fitout_v2-budgetary.json';
-  } else if (tierNorm === 'high' || tierNorm === 'premium') {
-    dbName = 'fitout_v2-high.json';
-  }
+async function resolveFitoutCatalogMatch(req, desc, requestedTier = 'mid', provider = 'google', providerModel = null, { normalizeCategory = true, skipLlm = false, unitHint = '' } = {}) {
+  const tierNorm = normalizeBudgetTier(requestedTier);
+  const topCandidates = await searchFitoutHybrid({
+    queryText: desc,
+    tier: tierNorm,
+    unitHint,
+    topK: 4
+  });
 
-  let dbPath = path.join(__dirname, 'data', 'brands', dbName);
-  try {
-    await fs.access(dbPath);
-  } catch {
-    dbPath = path.join(__dirname, 'data', 'brands', 'fitout_v2-mid.json');
-  }
+  if (!topCandidates || topCandidates.length === 0) return null;
 
-  console.log(`  🔍 [VE Fitout] Loading local database: ${dbPath}`);
-  const dbRaw = await fs.readFile(dbPath, 'utf-8');
-  const dbData = JSON.parse(dbRaw);
-  const internalProducts = filterValidFitoutProducts(dbData.products || []);
-
-  const tierLabel = dbName.replace('fitout_v2-', '').replace('.json', '');
-  let matchResult = null;
-  if (!skipLlm) {
+  let chosen = topCandidates[0];
+  if (!skipLlm && topCandidates.length > 1 && (chosen.score || 0) < 0.72) {
     try {
-      matchResult = await matchFitoutItem(desc, internalProducts, tierLabel, provider, providerModel);
+      const llmPick = await matchFitoutItem(desc, topCandidates, tierNorm, provider, providerModel);
+      if (llmPick?.status === 'success' && llmPick.product?.model) {
+        const hit = topCandidates.find(c => c.model.toLowerCase() === String(llmPick.product.model).toLowerCase());
+        if (hit) chosen = hit;
+      }
     } catch (llmFitoutErr) {
-      console.warn(`  ⚡ [VE Fitout Local Fallback] LLM fitout matcher failed (${llmFitoutErr.message}) — falling back to deterministic catalog matcher.`);
+      console.warn(`  ⚡ [VE Fitout Retrieval Fallback] Using top deterministic fitout hit (${llmFitoutErr.message}).`);
     }
   }
-  if (!matchResult || matchResult.status !== 'success' || !matchResult.product) {
-    matchResult = matchFitoutCatalogDeterministic(desc, internalProducts);
-  }
-  if (!matchResult || matchResult.status !== 'success' || !matchResult.product) {
-    return null;
-  }
 
-  const p = { ...matchResult.product };
+  const p = { ...chosen };
   let subCat = p.subCategory || 'full height partition wall';
   let mainCat = p.mainCategory || p.category || inferMainCategoryFromSubCategory(subCat) || 'Partitions & Wall Cladding';
   if (normalizeCategory) {
@@ -2729,17 +2736,26 @@ async function resolveFitoutCatalogMatch(req, desc, requestedTier = 'mid', provi
     p.images = p.images.map(img => toProxiedImageUrl(req, img));
   }
 
-  console.log(`  ✨ [VE Fitout Success] Found internal match: "${p.model}" (Category: ${mainCat} / ${subCat})`);
+  console.log(`  ✨ [VE Fitout V2 Success] Matched "${p.model}" [${tierNorm}: ${p.price} ${p.currency}/${p.unit}] (${mainCat} / ${subCat})`);
   return {
     status: 'success',
     product: {
       ...p,
       brand: 'FitOut V2',
+      code: p.skuCode || p.model || '',
       brandLogo: '',
       mainCategory: mainCat,
-      subCategory: subCat
+      subCategory: subCat,
+      finishes: resolveItemFinishes({
+        brand: 'FitOut V2',
+        code: p.skuCode || '',
+        model: p.model || '',
+        description: p.description || '',
+        finishes: p.finishes
+      })
     },
-    identifiedModel: p.model
+    identifiedModel: p.model,
+    source: 'fitout-catalog-v2'
   };
 }
 
@@ -3017,64 +3033,93 @@ app.post('/api/auto-match-ai', async (req, res) => {
       provider = 'google',
       providerModel = null,
       scope = 'Furniture', // Default to furniture
-      brandCategoryRules = null // Add this parameter
+      brandCategoryRules = null,
+      allowTierFallback = false
     } = req.body;
 
-    const finalTier = tier || budgetTier || 'mid';
+    const finalTier = normalizeBudgetTier(tier || budgetTier || 'mid');
 
-    // ── SPECIALIZED FITOUT WORKFLOW ─────────────────────────────────────────
+    // ── SPECIALIZED FITOUT WORKFLOW (3-Tier Supabase / Clean Seed) ──────────
     if (scope?.toLowerCase().includes('fitout')) {
-      console.log(`\n🏗️ [Fitout Logic] Match: "${description.substring(0, 50)}..." against internal DB...`);
-
+      console.log(`\n🏗️ [Fitout Logic V2] Match: "${(description || '').substring(0, 50)}..." [Tier: ${finalTier}]`);
       try {
-        // Load the specific fitout database file
-        let dbName = `fitout_v2-${finalTier}.json`;
-        let dbPath = path.join(__dirname, 'data', 'brands', dbName);
-
-        // Fallback to mid if the specific tier file is missing
-        try {
-          await fs.access(dbPath);
-        } catch {
-          dbPath = path.join(__dirname, 'data', 'brands', 'fitout_v2-mid.json');
-        }
-
-        const dbRaw = await fs.readFile(dbPath, 'utf-8');
-        const dbData = JSON.parse(dbRaw);
-        const internalProducts = filterValidFitoutProducts(dbData.products || []);
-
-        // Match using specialized local matcher
-        const matchResult = await matchFitoutItem(description, internalProducts, finalTier, provider, providerModel);
-
-        if (matchResult && matchResult.status === 'success' && matchResult.product) {
-          console.log(`  ✅ [Fitout Logic] Match found: ${matchResult.product.model} @ AED ${matchResult.product.price}`);
+        const fitoutRes = await resolveFitoutCatalogMatch(req, description, finalTier, provider, providerModel, { normalizeCategory: false, unitHint: unit || '' });
+        if (fitoutRes && fitoutRes.status === 'success' && fitoutRes.product) {
           return res.json({
             status: 'success',
             isFitout: true,
-            product: {
-              ...matchResult.product,
-              brand: 'FitOut V2',
-              brandLogo: '',
-              imageUrl: matchResult.product.imageUrl || '',
-              images: (matchResult.product.images || []).map(img =>
-                img && img.startsWith('http') ? toProxiedImageUrl(req, img) : img
-              )
-            },
-            source: 'internal-fitout-db',
-            identifiedModel: matchResult.product.model
+            product: fitoutRes.product,
+            source: fitoutRes.source || 'fitout-catalog-v2',
+            identifiedModel: fitoutRes.product.model
           });
         }
       } catch (err) {
-        console.error('  ❌ [Fitout Logic] Database error:', err.message);
+        console.error('  ❌ [Fitout Logic V2] Database error:', err.message);
       }
 
-      // Fallback if no match found in internal DB
       return res.json({
         status: 'no_match',
         isFitout: true,
-        message: 'No suitable item found in local Fitout database.'
+        message: 'No suitable item found in Fitout database.'
       });
     }
-    // ── END FITOUT WORKFLOW ─────────────────────────────────────────────────
+
+    if (!description) {
+      return res.status(400).json({ status: 'error', error_message: 'Missing description' });
+    }
+
+    // Build a clean matching description (strip leading [Location]/[Code] tags if substantial spec text follows)
+    const effectiveMatchDesc = cleanBracketedTagsFromMatchQuery(description);
+    const sizeContext = [qty && `Qty: ${qty}`, unit && `Unit: ${unit}`].filter(Boolean).join(', ');
+    const enrichedDescription = sizeContext ? `${effectiveMatchDesc} | ${sizeContext}` : effectiveMatchDesc;
+
+    // ── EARLY CUSTOM FABRICATION INTERCEPT (Bespoke Joinery / Counters / Banquettes) ──
+    const allLocalBrands = await brandStorage.getAllBrands();
+    const specBrand = detectSpecifiedBrandInText(enrichedDescription, allLocalBrands);
+    const hasExplicitBrand = Boolean(specBrand?.brand && !/^(generic|custom|local|unknown|amazon|noon|ikea|fitout)/i.test(specBrand.brand));
+    const fabDetect = detectCustomFabrication(enrichedDescription, scope, allLocalBrands);
+    if (fabDetect.isCustomFabrication && !hasExplicitBrand) {
+      const fabMatches = await searchFabricationHybrid({
+        queryText: enrichedDescription,
+        tier: finalTier,
+        designBuildKind: fabDetect.designBuildKind,
+        shape: fabDetect.shape,
+        parsedDimsMm: fabDetect.parsedDimsMm,
+        qty: parseFloat(qty) || 1,
+        unit: unit || 'Nos',
+        topK: 2
+      });
+      if (fabMatches.length > 0) {
+        const top = fabMatches[0];
+        return res.json({
+          status: 'success',
+          fulfillmentType: 'custom_fabrication',
+          source: 'fabrication-catalog',
+          identifiedModel: top.name,
+          product: {
+            brand: 'Custom Fabrication',
+            brandLogo: '',
+            model: top.name,
+            skuCode: top.sku_code,
+            fabricationId: top.id || top.sku_code,
+            family: top.category,
+            mainCategory: 'Custom Fabrication',
+            subCategory: top.category,
+            description: `${top.name} — ${top.computedMaterialSpec || top.description_template}`,
+            imageUrl: top.image_url ? toProxiedImageUrl(req, top.image_url) : '',
+            price: top.computedRate,
+            currency: top.computedCurrency || 'OMR',
+            priceSource: 'parametric_fabrication',
+            designBuildKind: top.design_build_kind || fabDetect.designBuildKind,
+            shape: top.shape || fabDetect.shape,
+            dimensionsMm: fabDetect.parsedDimsMm?.raw || '',
+            materialSpec: top.computedMaterialSpec || '',
+            workshopTrade: top.workshop_trade || 'Joinery',
+            leadTimeDays: top.lead_time_days || 21,
+          }
+        });
+      }
+    }
 
     // Normalize brand candidates: support both array and single string
     const brandCandidates = Array.isArray(availableBrands)
@@ -3083,26 +3128,22 @@ app.post('/api/auto-match-ai', async (req, res) => {
         ? [brand]
         : [];
 
-    if (!description) {
-      return res.status(400).json({ status: 'error', error_message: 'Missing description' });
-    }
     if (brandCandidates.length === 0) {
       return res.status(400).json({ status: 'error', error_message: 'No brands provided' });
     }
 
-    // Build a clean matching description (strip leading [Location]/[Code] tags if substantial spec text follows)
-    const effectiveMatchDesc = cleanBracketedTagsFromMatchQuery(description);
-    const sizeContext = [qty && `Qty: ${qty}`, unit && `Unit: ${unit}`].filter(Boolean).join(', ');
-    const enrichedDescription = sizeContext ? `${effectiveMatchDesc} | ${sizeContext}` : effectiveMatchDesc;
-
     console.log(`\n🤖 [AI AutoFill] "${enrichedDescription.substring(0, 70)}" | Tier: ${finalTier} | Brands: ${brandCandidates.join(', ')} | Provider: ${provider}`);
 
-    // Load all local brands once (for DB lookups)
-    const allLocalBrands = await brandStorage.getAllBrands();
-
-    // ── RELAXED TIER SELECTION ──────────────────────────────────────────────────
-    // We no longer block brands based on their DB tier, allowing full flexibility.
-    const tierIsolatedCandidates = brandCandidates;
+    // ── STRICT TIER ISOLATION (Restored) ───────────────────────────────────
+    const strictTierMatches = brandCandidates.filter((name) => {
+      const dbEntry = allLocalBrands.find(b => b.name && b.name.toLowerCase().trim() === String(name).toLowerCase().trim());
+      if (!dbEntry) return true; // allow explicit requested brand if not yet categorized
+      return normalizeBudgetTier(dbEntry.budgetTier || dbEntry.budget_tier) === finalTier;
+    });
+    const tierIsolatedCandidates = strictTierMatches.length > 0
+      ? strictTierMatches
+      : (allowTierFallback ? brandCandidates : brandCandidates.slice(0, 3));
+    const usedTierFallback = strictTierMatches.length === 0 && brandCandidates.length > 0;
 
 
     if (tierIsolatedCandidates.length === 0) {
@@ -3324,6 +3365,51 @@ app.post('/api/auto-match-ai', async (req, res) => {
     });
   } catch (error) {
     console.error('🔥 [AI Endpoint Error]:', error.message, error.stack);
+    res.status(500).json({ status: 'error', error_message: error.message });
+  }
+});
+
+// High-Speed 3-Tier Multi-Budget Batch Endpoint (Shared Embeddings + Strict Tier Isolation + Single Batched Rerank)
+app.post('/api/multi-budget/match-batch', async (req, res) => {
+  try {
+    const { rows = [], tiers = ['budgetary', 'mid', 'high'], brandsByTier = {}, allowTierFallback = false, providerModel = null } = req.body || {};
+    if (!Array.isArray(rows) || rows.length === 0) {
+      return res.status(400).json({ status: 'error', error_message: 'Missing rows array' });
+    }
+    const apiKey = req.headers['x-google-api-key'] || req.headers['x-google-free-key'] || null;
+    const out = await matchMultiBudgetBatch({ rows, tiers, brandsByTier, allowTierFallback, providerModel, apiKey });
+    res.json(out);
+  } catch (error) {
+    console.error('🔥 [MultiBudget Batch Error]:', error.message);
+    res.status(500).json({ status: 'error', error_message: error.message });
+  }
+});
+
+// Custom-Made / Fabrication Products Catalog APIs (Supabase Postgres + Storage)
+app.get('/api/fabrication-catalog', async (req, res) => {
+  try {
+    const { q = '', category = '', designBuildKind = '', shape = '' } = req.query || {};
+    const items = await listFabricationCatalog({ q, category, designBuildKind, shape });
+    res.json({ status: 'success', count: items.length, items });
+  } catch (error) {
+    res.status(500).json({ status: 'error', error_message: error.message, items: [] });
+  }
+});
+
+app.post('/api/fabrication-catalog', async (req, res) => {
+  try {
+    const saved = await createFabricationItem(req.body || {});
+    res.json({ status: 'success', item: saved });
+  } catch (error) {
+    res.status(400).json({ status: 'error', error_message: error.message });
+  }
+});
+
+app.delete('/api/fabrication-catalog/:id', async (req, res) => {
+  try {
+    await deleteFabricationItem(req.params.id);
+    res.json({ status: 'success' });
+  } catch (error) {
     res.status(500).json({ status: 'error', error_message: error.message });
   }
 });
@@ -3598,91 +3684,52 @@ app.post('/api/ve-prescan-brands', async (req, res) => {
     const discoveredBrands = prescanResult.brands || [];
     let provisionedCount = 0;
 
-    // Auto-provision any contract brands not in local database (parallel save + deferred background enrich)
     const allCurrentBrands = await brandStorage.getAllBrands();
-    const seenProvisioned = new Set();
-    const brandsToSave = [];
-    const brandsToQueueEnrich = [];
+    const seenQueued = new Set();
+    let queuedCount = 0;
 
+    // Resolve against canonical brands ONLY — NEVER insert 0-product / unverified stub rows directly!
+    // Truly new manufacturers are queued durably in Supabase `scrape_jobs` for verified ingestion.
     for (const dBrand of discoveredBrands) {
       const bName = (dBrand.name || '').trim();
       const bNameLower = bName.toLowerCase();
 
-      // Skip consumer retail marketplaces, local dealers, and suppliers from contract brand database registration
-      if (!bName || seenProvisioned.has(bNameLower) || /^(amazon|noon|desertcart|ubuy|marketplace|ikea|homedepot|fahmy|kr furniture|al jassar|gear4music|attf|assarain|acp|automatic terrazzo|generic|unknown|dealer|trader|supplier|distributor)/i.test(bNameLower)) {
+      if (!bName || seenQueued.has(bNameLower) || /^(amazon|noon|desertcart|ubuy|marketplace|ikea|homedepot|fahmy|kr furniture|al jassar|gear4music|attf|assarain|acp|automatic terrazzo|generic|unknown|dealer|trader|supplier|distributor)/i.test(bNameLower)) {
         continue;
       }
+      seenQueued.add(bNameLower);
 
       const existingBrand = findBrandInCatalog(bName, allCurrentBrands);
       if (!existingBrand) {
-        seenProvisioned.add(bNameLower);
         const canonicalSite = dBrand.websiteUrl || getCanonicalBrandWebsite(bName) || '';
-        const logoUrl = getCanonicalBrandLogo(bName, canonicalSite);
-
-        const newBrandObj = {
-          id: Date.now() + Math.floor(Math.random() * 10000),
-          name: bName,
-          logo: logoUrl,
-          websiteUrl: canonicalSite,
-          budgetTier: budgetTier || 'mid',
-          origin: 'VE-Prescan-Discovery',
-          gatewayVersion: 1,
-          registry: {
-            name: bName,
-            officialDomain: (() => { try { return new URL(canonicalSite || '').hostname; } catch { return ''; } })(),
-            budgetTier: budgetTier || 'mid',
-            origin: 'VE-Prescan-Discovery'
-          },
-          discovery: { discoveredAt: new Date().toISOString(), ttlDays: 30, verified: false, quarantine: true },
-          products: (dBrand.models || []).map(m => ({
-            brand: bName,
-            model: m,
-            mainCategory: dBrand.categoryHint || 'Furniture',
-            subCategory: '',
-            imageUrl: '',
-            websiteUrl: canonicalSite,
-            lastUpdated: new Date().toISOString(),
-            source: 'VE-Prescan-Discovery',
-            verified: false,
-            discoveredAt: new Date().toISOString(),
-            ttlDays: 30
-          })),
-          createdAt: new Date().toISOString()
-        };
-        brandsToSave.push(newBrandObj);
-        brandsToQueueEnrich.push(bName);
+        await enqueueScrapeJob({
+          jobType: 'brand_enrich',
+          brandName: bName,
+          targetUrl: canonicalSite,
+          payload: { models: (dBrand.models || []).slice(0, 25), categoryHint: dBrand.categoryHint || 'Furniture', budgetTier }
+        });
+        queuedCount++;
       } else {
         const verifiedCount = (existingBrand?.products || []).filter(p => p.verified === true && p.imageUrl).length;
         const hasImageGaps = (existingBrand?.products || []).some(p => !p.imageUrl);
         if (verifiedCount < 3 && hasImageGaps) {
-          brandsToQueueEnrich.push(existingBrand.name);
+          await enqueueScrapeJob({
+            jobType: 'brand_enrich',
+            brandName: existingBrand.name,
+            targetUrl: existingBrand.websiteUrl || getCanonicalBrandWebsite(existingBrand.name) || ''
+          });
+          queuedCount++;
         }
       }
     }
 
-    if (brandsToSave.length > 0) {
-      await Promise.all(brandsToSave.map(async (bObj) => {
-        await brandStorage.saveBrand(bObj);
-        provisionedCount++;
-        console.log(`[VE Pre-Scan] Provisioned brand "${bObj.name}" with ${bObj.products?.length || 0} models into database!`);
-      }));
-    }
-
-    const updatedBrands = provisionedCount > 0 ? await brandStorage.getAllBrands() : allCurrentBrands;
     res.json({
       status: 'success',
       discoveredBrands,
-      provisionedCount,
-      allBrands: updatedBrands
+      provisionedCount: 0,
+      queuedEnrichmentCount: queuedCount,
+      allBrands: allCurrentBrands
     });
-
-    if (brandsToQueueEnrich.length > 0) {
-      setTimeout(() => {
-        for (const enrichName of [...new Set(brandsToQueueEnrich)]) {
-          queueBrandEnrich(enrichName);
-        }
-      }, 1500);
-    }
   } catch (error) {
     console.error('❌ [VE Pre-Scan Error]:', error.message);
     res.status(500).json({ status: 'error', error_message: error.message });
@@ -3949,21 +3996,32 @@ app.post('/api/ve-match', async (req, res) => {
     const modelList = localBrand?.products?.map(p => p.model).filter(Boolean) || [];
 
     let identityResult;
+    let llmFallbackMode = false;
 
-    if (category && category.trim()) {
-      // ── OPTION 2: Advanced Categorical Scope ─────────────────────────────
-      console.log(`\n🔷 [VE Endpoint] Option 2 (Advanced) | Brand: ${brand} | Category: ${category}`);
-      identityResult = await veMatchAdvanced(enrichedDesc, brand, category, modelList, providerModel);
-    } else {
-      // ── OPTION 1: Simple Global Brand Scope ──────────────────────────────
-      console.log(`\n🔷 [VE Endpoint] Option 1 (Simple) | Brand: ${brand}`);
-      identityResult = await veMatchSimple(enrichedDesc, brand, modelList, providerModel);
+    try {
+      if (category && category.trim()) {
+        // ── OPTION 2: Advanced Categorical Scope ─────────────────────────────
+        console.log(`\n🔷 [VE Endpoint] Option 2 (Advanced) | Brand: ${brand} | Category: ${category}`);
+        identityResult = await veMatchAdvanced(enrichedDesc, brand, category, modelList, providerModel);
+      } else {
+        // ── OPTION 1: Simple Global Brand Scope ──────────────────────────────
+        console.log(`\n🔷 [VE Endpoint] Option 1 (Simple) | Brand: ${brand}`);
+        identityResult = await veMatchSimple(enrichedDesc, brand, modelList, providerModel);
+      }
+    } catch (veErr) {
+      llmFallbackMode = true;
+      console.warn(`  ⚡ [VE Endpoint Fallback] LLM unavailable (${veErr.message?.slice(0, 80)}); resolving "${brand}" from local Supabase catalog.`);
+      identityResult = localBrand?.products?.length
+        ? { status: 'success', brand: localBrand.name, model: effectiveMatchDesc, mainCategory: category || '' }
+        : null;
     }
 
-    if (identityResult.status !== 'success' || !identityResult.model) {
+    if (!identityResult || identityResult.status !== 'success' || !identityResult.model) {
       return res.json({
         status: 'no_match',
-        message: `AI could not identify a model for "${brand}"${category ? ` [${category}]` : ''}.`
+        message: llmFallbackMode
+          ? `AI temporarily unavailable and "${brand}" has no local catalog fallback.`
+          : `AI could not identify a model for "${brand}"${category ? ` [${category}]` : ''}.`
       });
     }
 
@@ -3971,7 +4029,7 @@ app.post('/api/ve-match', async (req, res) => {
     const identifiedBrand = identityResult.brand || brand;
     const identifiedCategory = identityResult.mainCategory || category || '';
 
-    console.log(`  🎯 [VE Endpoint] Identified: ${identifiedBrand} → "${identifiedModel}"`);
+    console.log(`  🎯 [VE Endpoint] Identified: ${identifiedBrand} → "${identifiedModel}"${llmFallbackMode ? ' (fallback)' : ''}`);
 
     // ── STAGE 2: LOCAL DB CACHE LOOKUP (Zero-Cost) ──────────────────────────
     if (localBrand?.products?.length > 0) {
@@ -3991,12 +4049,34 @@ app.post('/api/ve-match', async (req, res) => {
             topK: 1,
             apiKey: req.headers['x-google-api-key'] || req.headers['x-google-free-key'] || null
           });
-          if (semanticResults && semanticResults.length > 0 && semanticResults[0].confidenceScore >= 50) {
+          if (semanticResults && semanticResults.length > 0 && semanticResults[0].confidenceScore >= (llmFallbackMode ? 40 : 50)) {
             best = semanticResults[0];
             console.log(`  ✨ [VE Semantic Vector Hit] "${best.model}" matched with confidence ${best.confidenceScore}%`);
           }
         } catch (embErr) {
           console.warn('  ⚠️ [VE Embedding Match Error]:', embErr.message);
+        }
+      }
+
+      // Deterministic token overlap fallback if LLM was unavailable
+      if (!best && llmFallbackMode) {
+        const qToks = enrichedDesc.toLowerCase().replace(/[^a-z0-9\s]/g, ' ').split(/\s+/).filter(w => w.length >= 3);
+        let bestScore = 0;
+        for (const cand of localBrand.products) {
+          if (!cand?.model || isArchetypeConflict(enrichedDesc, cand)) continue;
+          const hay = `${cand.model} ${cand.mainCategory || ''} ${cand.subCategory || ''} ${cand.family || ''} ${cand.description || ''}`.toLowerCase();
+          let s = 0;
+          for (const tok of qToks) {
+            if (hay.includes(tok)) s += (String(cand.model).toLowerCase().includes(tok) ? 6 : 2);
+          }
+          if (cand.imageUrl) s += 1;
+          if (s > bestScore) {
+            bestScore = s;
+            best = cand;
+          }
+        }
+        if (best) {
+          console.log(`  ⚡ [VE Stage 2 Deterministic Fallback] Matched "${best.model}" in "${brand}" (score ${bestScore})`);
         }
       }
 
@@ -4008,10 +4088,23 @@ app.post('/api/ve-match', async (req, res) => {
             ...best,
             brand: identifiedBrand,
             brandLogo: localBrand.logo || '',
-            mainCategory: best.mainCategory || identifiedCategory
+            mainCategory: best.mainCategory || identifiedCategory,
+            finishes: resolveItemFinishes({
+              brand: identifiedBrand,
+              model: best.model,
+              description: best.description || enrichedDesc,
+              category: best.mainCategory || identifiedCategory,
+              finishes: best.finishes
+            })
           },
           source: 'local-database',
           identifiedModel: best.model || identifiedModel
+        });
+      }
+      if (llmFallbackMode) {
+        return res.json({
+          status: 'no_match',
+          message: `No compatible item found in "${brand}" during LLM fallback.`
         });
       }
       console.log(`  📂 [VE Stage 2] Miss: No local entry for "${identifiedModel}".`);
@@ -4071,7 +4164,14 @@ app.post('/api/ve-match', async (req, res) => {
           ...p,
           brand: identifiedBrand,
           brandLogo: resolveBrandLogo(localBrand || { name: identifiedBrand, websiteUrl: p.websiteUrl }, p.websiteUrl || ''),
-          mainCategory: identifiedCategory
+          mainCategory: identifiedCategory,
+          finishes: resolveItemFinishes({
+            brand: identifiedBrand,
+            model: p.model || identifiedModel,
+            description: p.description || enrichedDesc,
+            category: identifiedCategory,
+            finishes: p.finishes
+          })
         },
         source: 've-ai-discovery',
         identifiedModel
@@ -4192,6 +4292,19 @@ function isBadOrLogoUrl(url) {
     || url.includes('localhost')
     || /img\.architonic\.com/i.test(url)
     || /\/logo\/|\/header\/|logo_|logo\.|favicon|data:image\/svg|\.svg(\?|$)|amazon_logo/i.test(url);
+}
+
+function decodeHtmlEntities(str = '') {
+  return String(str || '')
+    .replace(/&amp;(?=[A-Z0-9])|&amp;|&amp(?=[^a-z;]|$)/gi, ' & ')
+    .replace(/&#38;/g, '&')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;|&apos;/gi, "'")
+    .replace(/&#8211;|&ndash;/gi, '–')
+    .replace(/&#8212;|&mdash;/gi, '—')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
 }
 
 const LIVE_WEB_ENRICH_CACHE = new Map();
@@ -4361,6 +4474,11 @@ async function resolveAndMergeLiveProduct({
     try {
       let officialOrigin = '';
       try { officialOrigin = new URL(resolvedUrl).origin; } catch { /* ignore */ }
+      // Mirror verified external photo once into Supabase Storage `product-images` bucket
+      const mirroredStorageUrl = rawImg
+        ? await mirrorImageToSupabaseStorage(rawImg, brand, effectiveModelName || model)
+        : '';
+      const finalStoredImg = mirroredStorageUrl || rawImg;
       const productPayload = {
         brand,
         model: effectiveModelName || model,
@@ -4369,15 +4487,16 @@ async function resolveAndMergeLiveProduct({
         mainCategory: catNorm.mainCategory,
         subCategory: catNorm.subCategory,
         description: resolvedDesc,
-        imageUrl: rawImg,
+        imageUrl: finalStoredImg,
+        sourceImageUrl: rawImg,
         websiteUrl: resolvedUrl,
         productUrl: resolvedUrl,
         officialProductUrl: resolvedUrl,
         price: resolvedPrice,
         currency: resolvedCurrency,
-        verified: Boolean(rawImg || hasRealLiveScrape),
+        verified: Boolean(finalStoredImg || hasRealLiveScrape),
         ...(liveIsOfficialNonArchi ? { officialRefreshedAt: new Date().toISOString(), forceOfficialRefresh: true } : {}),
-        ...(hadDeadInputImg && rawImg ? { forceImageUpgrade: true } : {}),
+        ...(hadDeadInputImg && finalStoredImg ? { forceImageUpgrade: true } : {}),
         source: liveSourceStr || 'AI-Specialist-Discovery'
       };
 
@@ -4404,7 +4523,7 @@ async function resolveAndMergeLiveProduct({
         await brandStorage.saveBrand(newBrandRecord);
         persistedBrandObj = newBrandRecord;
         console.log(`💎 [Live Web Enricher] Auto-created NEW brand "${brand}" (${officialOrigin || resolvedUrl}) & saved scraped model "${productPayload.model}" to Product DB!`);
-        setTimeout(() => queueBrandEnrich(brand), 1200);
+        enqueueScrapeJob({ jobType: 'brand_enrich', brandName: brand, targetUrl: officialOrigin || resolvedUrl }).catch(() => { });
       } else {
         await brandStorage.addProductToBrand(brand, localBrand.budgetTier || 'mid', productPayload);
         console.log(`💎 [Live Web Enricher] Saved/upgraded scraped model "${productPayload.model}" under "${brand}" in Product DB!`);
@@ -4415,8 +4534,8 @@ async function resolveAndMergeLiveProduct({
   }
 
   return {
-    model: effectiveModelName,
-    description: resolvedDesc,
+    model: decodeHtmlEntities(effectiveModelName),
+    description: decodeHtmlEntities(resolvedDesc),
     imageUrl: toProxiedImageUrl(req, rawImg),
     rawImageUrl: rawImg,
     price: resolvedPrice,
@@ -4437,7 +4556,7 @@ const VE_AUTO_INFLIGHT = new Map();
 const VE_AUTO_CACHE_TTL_MS = 15 * 60 * 1000;
 
 app.post('/api/ve-match-auto', async (req, res) => {
-  let settleInFlight = () => {};
+  let settleInFlight = () => { };
   try {
     const {
       description,
@@ -4460,7 +4579,14 @@ app.post('/api/ve-match-auto', async (req, res) => {
     const effectiveMatchDesc = cleanBracketedTagsFromMatchQuery(description);
     const enrichedDesc = sizeContext ? `${effectiveMatchDesc} | ${sizeContext}` : effectiveMatchDesc;
 
-    // Deterministic Cache & In-Flight Request Coalescing (identical specs always yield identical matches & avoid duplicate LLM calls)
+    // Persistent + In-Memory Cache & In-Flight Request Coalescing
+    const veSpecHash = buildSpecHash({
+      description: effectiveMatchDesc,
+      mode: `ve_auto:${includeLiveAlternatives === true ? 'liveAlt' : 'localAlt'}:${imageUrl ? 'img' : 'noimg'}:${String(providerModel || '')}`,
+      tier: req.body.tier || req.body.budgetTier || 'mid',
+      qty,
+      unit
+    });
     const veCacheKey = [
       effectiveMatchDesc.toLowerCase().replace(/\s+/g, ' ').trim(),
       String(providerModel || ''),
@@ -4473,6 +4599,13 @@ app.post('/api/ve-match-auto', async (req, res) => {
     if (cachedEntry && (Date.now() - cachedEntry.ts) < VE_AUTO_CACHE_TTL_MS) {
       console.log(`  ⚡ [VE Auto-Detect Deterministic Cache] Instant hit for "${effectiveMatchDesc.slice(0, 50)}..."`);
       return res.json(cachedEntry.payload);
+    }
+
+    const persistentHit = await getMatchCache(veSpecHash).catch(() => null);
+    if (persistentHit && persistentHit.status === 'success') {
+      VE_AUTO_RESULT_CACHE.set(veCacheKey, { payload: persistentHit, ts: Date.now() });
+      console.log(`  ⚡ [VE Persistent Supabase Cache] Hit for "${effectiveMatchDesc.slice(0, 50)}..."`);
+      return res.json(persistentHit);
     }
 
     if (VE_AUTO_INFLIGHT.has(veCacheKey)) {
@@ -4496,6 +4629,7 @@ app.post('/api/ve-match-auto', async (req, res) => {
             VE_AUTO_RESULT_CACHE.delete(VE_AUTO_RESULT_CACHE.keys().next().value);
           }
           VE_AUTO_RESULT_CACHE.set(veCacheKey, { payload, ts: Date.now() });
+          setMatchCache(veSpecHash, 've_auto', req.body.tier || req.body.budgetTier || 'mid', payload).catch(() => { });
         }
         resolveInFlight(payload);
       } else {
@@ -4515,10 +4649,95 @@ app.post('/api/ve-match-auto', async (req, res) => {
 
     console.log(`\n🔷 [VE Auto-Detect Endpoint] Model Matching with ${availableBrandNames.length} preferred catalog brands`);
 
+    // ── LANE B: EARLY CUSTOM FABRICATION INTERCEPT (Bespoke Joinery / Counters / Banquettes) ──
+    const preSpecifiedBrand = detectSpecifiedBrandInText(enrichedDesc, allLocalBrands);
+    const hasExplicitBrandLock = Boolean(preSpecifiedBrand?.brand && !/^(generic|custom|local|unknown|amazon|noon|ikea|fitout)/i.test(preSpecifiedBrand.brand));
+    const fabDetect = detectCustomFabrication(enrichedDesc, req.body.scope || '', allLocalBrands);
+    if (fabDetect.isCustomFabrication && !hasExplicitBrandLock) {
+      const tierReq = req.body.tier || req.body.budgetTier || 'mid';
+      const fabMatches = await searchFabricationHybrid({
+        queryText: enrichedDesc,
+        tier: tierReq,
+        designBuildKind: fabDetect.designBuildKind,
+        shape: fabDetect.shape,
+        parsedDimsMm: fabDetect.parsedDimsMm,
+        qty: parseFloat(qty) || 1,
+        unit: unit || 'Nos',
+        topK: 4
+      });
+      if (fabMatches.length > 0) {
+        const top = fabMatches[0];
+        console.log(`  🛠️ [VE Lane B: Custom Fabrication] Matched "${top.sku_code} - ${top.name}" (${top.computedRate} ${top.computedCurrency})`);
+        const buildFabFinishes = (row) => resolveItemFinishes({
+          brand: 'Custom Fabrication',
+          code: row.sku_code || '',
+          model: row.name,
+          description: `${row.description_template || ''} ${row.computedMaterialSpec || ''} ${description || ''}`,
+          category: row.category || 'Custom Fabrication'
+        });
+        return res.json({
+          status: 'success',
+          matchTier: 'EXACT_MATCH',
+          confidenceScore: Math.max(85, fabDetect.confidence),
+          fulfillmentType: 'custom_fabrication',
+          source: 'fabrication-catalog',
+          product: {
+            brand: 'Custom Fabrication',
+            brandLogo: '',
+            code: top.sku_code || '',
+            model: top.name,
+            skuCode: top.sku_code,
+            fabricationId: top.id || top.sku_code,
+            family: top.category,
+            mainCategory: 'Custom Fabrication',
+            subCategory: top.category,
+            price: top.computedRate,
+            currency: top.computedCurrency || 'OMR',
+            priceSource: 'parametric_fabrication',
+            imageUrl: top.image_url ? toProxiedImageUrl(req, top.image_url) : '',
+            websiteUrl: '',
+            productUrl: '',
+            description: `${top.name} — ${top.computedMaterialSpec || top.description_template}`,
+            designBuildKind: top.design_build_kind || fabDetect.designBuildKind,
+            shape: top.shape || fabDetect.shape,
+            dimensionsMm: fabDetect.parsedDimsMm?.raw || (top.default_width_mm ? `${top.default_width_mm}x${top.default_depth_mm || 600}x${top.default_height_mm || 750}mm` : ''),
+            materialSpec: top.computedMaterialSpec || '',
+            finishes: buildFabFinishes(top),
+            workshopTrade: top.workshop_trade || 'Joinery',
+            leadTimeDays: top.lead_time_days || 21,
+          },
+          alternatives: fabMatches.slice(1).map((alt) => ({
+            brand: 'Custom Fabrication',
+            code: alt.sku_code || '',
+            model: alt.name,
+            skuCode: alt.sku_code,
+            mainCategory: 'Custom Fabrication',
+            subCategory: alt.category,
+            price: alt.computedRate,
+            currency: alt.computedCurrency || 'OMR',
+            imageUrl: alt.image_url ? toProxiedImageUrl(req, alt.image_url) : '',
+            description: `${alt.name} — ${alt.computedMaterialSpec || alt.description_template}`,
+            finishes: buildFabFinishes(alt),
+            confidenceScore: 84,
+            source: 'Custom Fabrication Library'
+          })),
+          evidence: {
+            matchType: 'CUSTOM_FABRICATION_EARLY_DETECT',
+            reasons: fabDetect.reasons,
+            pricingBasis: top.pricingBasis
+          }
+        });
+      }
+    }
+
     // Prepare structured image context metadata (never send raw multi-MB binaries)
     const normalizedImageAssets = (imageAssets && imageAssets.length > 0)
       ? imageAssets
       : (imageUrl ? [{ url: imageUrl, ocrText: (ocrTokens || []).join(' ') }] : []);
+
+    const furnishingCatPrecheck = classifyFurnishingCategory(enrichedDesc);
+    const isScopeFitout = /\bfitout\b/i.test(String(req.body.scope || ''));
+    const hasExplicitMarketplaceUrlEarly = /https?:\/\/(www\.)?(amazon|noon|desertcart|ubuy|ikea|homedepot)\./i.test(enrichedDesc);
 
     const getFormattedAlternatives = async (matchedBrand, matchedModel, catHint) => {
       try {
@@ -4537,6 +4756,438 @@ app.post('/api/ve-match-auto', async (req, res) => {
         return [];
       }
     };
+
+    // Spec-intent candidate scorer (guards against executive/reception/conference drift on plain desks,
+    // round vs square/rectangular table drift, seating sub-type swaps, and prefers imaged & priced SKUs).
+    const scorePriorityCandidate = (cand, label, furnishingCat) => {
+      const qLower = enrichedDesc.toLowerCase();
+      const candText = `${cand.model || ''} ${cand.subCategory || ''} ${cand.mainCategory || ''} ${cand.family || ''} ${(cand.description || '').slice(0, 160)}`.toLowerCase();
+
+      let s = 10;
+      const semMatch = String(label || '').match(/Semantic\s+(\d+)/i);
+      if (semMatch) s = Number(semMatch[1]) * 0.55;
+      else if (/Fast Hit/i.test(label)) s = 34;
+      else if (/Category Hit/i.test(label)) s = 18;
+
+      if (parseFloat(cand.price) > 0) s += 12;
+      if (cand.imageUrl && !isBadOrLogoUrl(cand.imageUrl)) s += 10;
+
+      if (furnishingCat === 'desking') {
+        const wantsExecutive = /\b(executive|ceo|director|manager|managerial|vip|presidential)\b/i.test(qLower);
+        const wantsConf = /\b(conference|boardroom|meeting)\s*table\b/i.test(qLower);
+        const wantsRec = /\breception\b/i.test(qLower);
+        const wantsReturn = /\b(side\s*return|return\s*desk|extension)\b/i.test(qLower);
+        if (!wantsExecutive && /\b(executive|director|presidential)\b/i.test(candText)) s -= 35;
+        if (!wantsRec && /\breception\b/i.test(candText)) s -= 40;
+        if (!wantsReturn && /\bside\s*return\b/i.test(candText)) s -= 28;
+        if (!wantsConf && /\b(conference|boardroom|meeting|flip[\s-]?top|folding)\b/i.test(candText)) s -= 32;
+        if (/\b(screen|panel|acoustic\s*screen|divider|privacy)\b/i.test(candText) && !/\b(screen|panel|divider)\b/i.test(qLower)) s -= 42;
+        if (!wantsExecutive && !wantsConf && /\b(single\s*desk|workstation|desk|nova|optima|one|easy|air)\b/i.test(candText) && !/\b(executive|reception|conference|screen|side\s*return)\b/i.test(candText)) s += 22;
+        if (wantsExecutive && /\bexecutive\b/i.test(candText)) s += 25;
+      } else if (furnishingCat === 'tables') {
+        const wantsRound = /\b(round|circular|dia\.?|diameter)\b/i.test(qLower);
+        const wantsSideSq = /\b(square|side\s*table|end\s*table|occasional\s*table)\b/i.test(qLower);
+        const wantsRect = /\brectangular\b/i.test(qLower);
+        if (wantsRound) {
+          if (/\b(round|circular)\b/i.test(candText)) s += 28;
+          if (/\b(rectangular|square)\b/i.test(candText)) s -= 25;
+        }
+        if (wantsSideSq) {
+          if (/\b(side|end|square|occasional|compact|small)\b/i.test(candText)) s += 28;
+          if (/\b(rectangular|conference)\b/i.test(candText)) s -= 24;
+        }
+        if (wantsRect && !wantsSideSq) {
+          if (/\brectangular\b/i.test(candText)) s += 22;
+          if (/\b(round|circular)\b/i.test(candText)) s -= 22;
+        }
+      } else if (furnishingCat === 'softSeating') {
+        const wantsModularL = /\b(l[-\s]?shape|l[-\s]?shaped|modular|corner|curved|sectional)\b/i.test(qLower);
+        const wantsArmchair = /\b(armchair|lounge\s*chair)\b/i.test(qLower) && !/\bsofa\b/i.test(qLower);
+        if (wantsModularL) {
+          if (/\b(modular|corner|curved|sectional|l[-\s]?shape|sofa)\b/i.test(candText)) s += 24;
+          if (/\b(pouf|ottoman)\b/i.test(candText)) s -= 22;
+        }
+        if (wantsArmchair) {
+          if (/\b(armchair|lounge\s*chair|club\s*chair)\b/i.test(candText)) s += 24;
+          if (/\b([23][-\s]?seater|sofa|bench|sectional)\b/i.test(candText)) s -= 22;
+        }
+      } else if (furnishingCat === 'taskSeating') {
+        const wantsVisitor = /\b(visitor|guest|reception|4[-\s]?leg|cantilever|meeting\s*chair)\b/i.test(qLower) && !/\bswivel\b/i.test(qLower);
+        const wantsSwivel = /\b(swivel|task|5[-\s]?star|ergonomic|mesh\s*back|operator)\b/i.test(qLower);
+        if (wantsVisitor) {
+          if (/\b(visitor|guest|4[-\s]?leg|sledge|cantilever|meeting)\b/i.test(candText)) s += 24;
+          if (/\b(swivel|task|5[-\s]?star|executive)\b/i.test(candText)) s -= 22;
+        } else if (wantsSwivel) {
+          if (/\b(swivel|task|ergonomic|mesh|operator)\b/i.test(candText)) s += 24;
+          if (/\b(visitor|guest|4[-\s]?leg|cantilever|lounge)\b/i.test(candText)) s -= 20;
+        }
+      }
+
+      return s;
+    };
+
+    // Reusable Local Partner Alternative Matcher (used both for fast-path unbranded matching AND post-LLM fallback)
+    const resolveLocalPriorityAlternative = async (sourceTag = 'category-priority-match', requestedMeta = null, opts = {}) => {
+      const idModelOpt = opts.identifiedModel || '';
+      const idCatOpt = opts.identifiedCategory || '';
+      const idSubCatOpt = opts.identifiedSubCategory || '';
+      const quotaExhaustedOpt = Boolean(opts.llmQuotaExhausted);
+
+      const furnishingCat = furnishingCatPrecheck;
+      const catConfig = VE_CATEGORY_CONFIG[furnishingCat] || VE_CATEGORY_CONFIG.desking;
+      const prioritySequence = catConfig.priorityBrands;
+
+      console.log(`\n🎯 [VE Priority Matcher] ${requestedMeta ? `No verified exact match for "${requestedMeta.requestedBrand} ${requestedMeta.requestedModel}" — falling back to local alternatives.` : 'Specification is unbranded/generic.'} Auto-categorized as "${catConfig.label}" (${furnishingCat}). Priority Sequence: ${prioritySequence.join(' ➔ ')}`);
+
+      let matchedProduct = null;
+      let matchedBrandObj = null;
+
+      for (const priorityBrandName of prioritySequence) {
+        if (/^fitout\s*v2$/i.test(priorityBrandName)) {
+          try {
+            const fitoutRes = await resolveFitoutCatalogMatch(req, enrichedDesc, req.body.tier || req.body.budgetTier || 'mid', 'google', providerModel, { skipLlm: true, unitHint: unit || '' });
+            if (fitoutRes) {
+              return {
+                ...fitoutRes,
+                alternatives: [],
+                source: requestedMeta ? 've-alternative-fallback-fitout' : 'category-priority-fitout',
+                ...(requestedMeta ? { evidence: { matchType: 'ALTERNATIVE_FALLBACK', ...requestedMeta } } : {}),
+                ...(quotaExhaustedOpt ? { llmQuotaFallback: true } : {})
+              };
+            }
+          } catch (fitoutErr) {
+            console.warn('  ⚠️ [VE Priority Fitout Warning]:', fitoutErr.message);
+          }
+          continue;
+        }
+
+        if (/^(amazon|noon)/i.test(priorityBrandName)) {
+          if (furnishingCat === 'genericAccessories') {
+            if (!quotaExhaustedOpt) {
+              try {
+                const marketplaceHit = await Promise.race([
+                  veGetProductDetails('Amazon', idModelOpt || effectiveMatchDesc, providerModel, null, 'Accessories'),
+                  new Promise((_, rej) => setTimeout(() => rej(new Error('Marketplace lookup timed out after 8s')), 8000))
+                ]);
+                if (marketplaceHit && marketplaceHit.status === 'success' && marketplaceHit.product) {
+                  matchedProduct = marketplaceHit.product;
+                  matchedBrandObj = { name: 'Amazon', logo: 'https://upload.wikimedia.org/wikipedia/commons/a/a9/Amazon_logo.svg' };
+                  break;
+                }
+              } catch (mktErr) {
+                console.warn(`  ⚡ [VE AV/Accessory Fast Fallback] ${mktErr.message}; returning deterministic AV/Accessory entry.`);
+              }
+            }
+            const cleanHeadline = decodeHtmlEntities(String(effectiveMatchDesc || '').split(/\s+[—–\-]\s+|\s*\|\s*/)[0].trim()).slice(0, 90) || 'Commercial AV / Accessory';
+            const isDisplayAv = /\b(tv|television|display\s*screen|led\s*display|smart\s*display|monitor\s*screen)\b/i.test(cleanHeadline);
+            if (isDisplayAv) {
+              const avMatch = await resolveFitoutCatalogMatch(req, `MEP-AV-01 ${cleanHeadline} ${effectiveMatchDesc}`, req.body.tier || req.body.budgetTier || 'mid', 'google', providerModel, { skipLlm: true, unitHint: unit || '' });
+              if (avMatch) return { ...avMatch, alternatives: [], identifiedModel: avMatch.product.model };
+            }
+            const benchRate = resolveBenchmarkPriceOMR('genericAccessories', req.body.tier || req.body.budgetTier || 'mid');
+            return {
+              status: 'success',
+              matchTier: 'SUGGESTED',
+              product: {
+                brand: 'Commercial AV & Accessories',
+                brandLogo: '',
+                model: cleanHeadline,
+                family: 'Accessories',
+                mainCategory: 'Accessories',
+                subCategory: 'Audio Visual & Accessories',
+                price: benchRate,
+                currency: 'OMR',
+                priceSource: 'category_benchmark',
+                imageUrl: '',
+                websiteUrl: '',
+                productUrl: '',
+                description: decodeHtmlEntities(effectiveMatchDesc),
+                finishes: resolveItemFinishes({
+                  brand: isDisplayAv ? 'FitOut V2' : 'Commercial AV & Accessories',
+                  code: isDisplayAv ? 'MEP-AV-01' : '',
+                  model: cleanHeadline,
+                  description: effectiveMatchDesc,
+                  category: 'Accessories'
+                })
+              },
+              alternatives: [],
+              source: `${sourceTag}-benchmark`,
+              identifiedModel: cleanHeadline,
+            };
+          }
+          continue;
+        }
+
+        const b = findBrandInCatalog(priorityBrandName, allLocalBrands);
+        if (!b || !b.products || b.products.length === 0) continue;
+
+        const PRIORITY_CAT_FALLBACK_BUCKET = {
+          desking: 'desking',
+          storage: 'storage',
+          heavyDutyAndMobileFiling: 'storage',
+          steelStorage: 'storage',
+          bedsAndAccommodation: 'bed',
+          taskSeating: 'seating',
+          softSeating: 'sofa',
+          classroomAndStackable: 'seating',
+          foldingAndPortableSeating: 'seating',
+          diningSeating: 'seating',
+          outdoorSeating: 'seating',
+          auditoriumAndTheater: 'seating',
+          auditoriumAndTheatre: 'seating'
+        };
+        const priorityConflictTarget = getArchetypeBucket(enrichedDesc)
+          ? enrichedDesc
+          : (PRIORITY_CAT_FALLBACK_BUCKET[furnishingCat] || enrichedDesc);
+
+        const eligibleProducts = b.products.filter(p =>
+          !isScrapedChromeEntry(p)
+          && !isGarbageProductDesc(p.description)
+          && !isArchetypeConflict(priorityConflictTarget, p)
+        );
+        if (eligibleProducts.length === 0) continue;
+
+        const rawCandidates = [];
+        const seenModels = new Set();
+        const pushCand = (cand, label) => {
+          if (!cand || !cand.model || isArchetypeConflict(priorityConflictTarget, cand)) return;
+          const mk = String(cand.model).toLowerCase().trim();
+          if (seenModels.has(mk)) return;
+          seenModels.add(mk);
+          rawCandidates.push({
+            cand,
+            label,
+            intentScore: scorePriorityCandidate(cand, label, furnishingCat)
+          });
+        };
+
+        const filterCat = catConfig.label || idCatOpt || null;
+        const fuzzyHit = fuzzyFindModel(eligibleProducts, requestedMeta ? enrichedDesc : (idModelOpt || enrichedDesc), filterCat);
+        if (fuzzyHit) pushCand(fuzzyHit, 'Fast Hit');
+
+        try {
+          const clientApiKey = req.headers['x-google-api-key'] || req.headers['x-google-free-key'] || null;
+          const semanticHits = await findSemanticMatches({
+            description: enrichedDesc,
+            brandName: b.name,
+            products: eligibleProducts,
+            category: filterCat,
+            topK: 8,
+            apiKey: clientApiKey
+          });
+          for (const sh of (semanticHits || [])) {
+            if (sh.exactModelMatch || sh.confidenceScore >= 52) {
+              pushCand(sh, `Semantic ${sh.confidenceScore}%`);
+            }
+          }
+        } catch (semErr) {
+          console.warn(`  ⚠️ [VE Priority Semantic Warning for ${b.name}]:`, semErr.message);
+        }
+
+        const CATEGORY_FALLBACK_PATTERNS = {
+          desking: /\b(single\s*desk|workstation|office\s*desk|executive\s*desk|conference\s*table|meeting\s*table|desk\s*&\s*table|desk)\b/i,
+          tables: /\b(coffee\s*table|side\s*table|occasional\s*table|end\s*table|table)\b/i,
+          softSeating: /\b(sofa|lounge|armchair|soft\s*seating|pouf|banquette)\b/i,
+          taskSeating: /\b(task\s*chair|office\s*chair|staff\s*chair|swivel|visitor|meeting\s*chair|seating)\b/i,
+          storage: /\b(cabinet|credenza|pedestal|bookcase|wardrobe|locker|storage)\b/i,
+          diningSeating: /\b(dining|cafe|bar\s*stool|stool)\b/i,
+        };
+        const catFallbackRe = CATEGORY_FALLBACK_PATTERNS[furnishingCat] || null;
+        const catMatchedProducts = eligibleProducts
+          .filter(p => {
+            if (isBadOrLogoUrl(p.imageUrl)) return false;
+            const combined = `${p.mainCategory || p.category || ''} ${p.subCategory || ''}`.toLowerCase();
+            const target = (catConfig.label || furnishingCat).toLowerCase();
+            return combined.includes(target) || (catFallbackRe && catFallbackRe.test(combined));
+          })
+          .sort((a, b2) => scorePriorityCandidate(b2, 'Category Hit', furnishingCat) - scorePriorityCandidate(a, 'Category Hit', furnishingCat))
+          .slice(0, 6);
+        for (const cm of catMatchedProducts) {
+          pushCand(cm, 'Category Hit');
+        }
+
+        const rankedCandidates = rawCandidates.sort((a, b2) => b2.intentScore - a.intentScore);
+
+        const brandOfficialSite = getCanonicalBrandWebsite(b.name) || b.websiteUrl || b.registry?.officialDomain || '';
+        const hasKnownOfficialSite = Boolean(brandOfficialSite && !/architonic\.com/i.test(brandOfficialSite));
+
+        let fallbackUnimaged = null;
+        for (const { cand, label } of rankedCandidates) {
+          const catalogRef = b.products.find(p => String(p.model || '').toLowerCase().trim() === String(cand.model || '').toLowerCase().trim()) || cand;
+          const rawImg = catalogRef.imageUrl || cand.imageUrl || (cand.images && cand.images[0]) || '';
+          const imgOk = Boolean(rawImg) && !isBadOrLogoUrl(rawImg)
+            && await Promise.race([verifyImageUrl(rawImg, catalogRef.officialProductUrl || catalogRef.websiteUrl || ''), new Promise(r => setTimeout(() => r(false), 2500))]);
+
+          const isArchitonicEntry = /architonic\.com/i.test(rawImg) || /architonic\.com/i.test(catalogRef.websiteUrl || catalogRef.productUrl || '') || /#\d+\s*$/.test(String(cand.model || ''));
+          const needsOfficialRefresh = hasKnownOfficialSite && !catalogRef.officialRefreshedAt && (!imgOk || isArchitonicEntry);
+
+          if (!imgOk || needsOfficialRefresh) {
+            const liveMerged = await resolveAndMergeLiveProduct({
+              req,
+              brand: b.name,
+              model: cand.model,
+              boqDescription: enrichedDesc,
+              directUrl: isArchitonicEntry ? '' : (catalogRef.officialProductUrl || catalogRef.productUrl || catalogRef.websiteUrl || ''),
+              localBrand: b,
+              categoryHint: cand.mainCategory || catConfig.label,
+              subCategoryHint: cand.subCategory || idSubCatOpt,
+              familyHint: cand.family || '',
+              providerModel,
+              currentImageUrl: imgOk ? rawImg : '',
+              currentDescription: cand.description || '',
+              currentPrice: cand.price || 0,
+              currentCurrency: cand.currency || 'USD',
+              persistToCatalog: true,
+              skipLlm: quotaExhaustedOpt,
+              preferOfficialRefresh: needsOfficialRefresh,
+              currentImageVerified: imgOk
+            });
+
+            if (liveMerged.rawImageUrl && !isBadOrLogoUrl(liveMerged.rawImageUrl)) {
+              const upgradedFromOfficial = liveMerged.rawImageUrl !== rawImg;
+              console.log(`  ✨ [VE Priority ${label}] Matched "${liveMerged.model || cand.model}" from Priority Brand "${b.name}"${upgradedFromOfficial ? ` (refreshed live from ${b.name} official site!)` : ''}`);
+              catalogRef.officialRefreshedAt = catalogRef.officialRefreshedAt || new Date().toISOString();
+              if (upgradedFromOfficial) {
+                catalogRef.imageUrl = liveMerged.rawImageUrl;
+                catalogRef.description = liveMerged.description || catalogRef.description;
+                catalogRef.websiteUrl = liveMerged.websiteUrl || catalogRef.websiteUrl;
+                catalogRef.officialProductUrl = liveMerged.websiteUrl || catalogRef.officialProductUrl;
+              }
+              const alternatives = await getFormattedAlternatives(b.name, liveMerged.model || cand.model, liveMerged.mainCategory);
+              return {
+                status: 'success',
+                matchTier: requestedMeta ? 'ALTERNATIVE_MATCH' : 'SUGGESTED',
+                product: {
+                  ...cand,
+                  brand: b.name,
+                  brandLogo: liveMerged.brandLogo || b.logo || '',
+                  model: decodeHtmlEntities(liveMerged.model || cand.model),
+                  imageUrl: liveMerged.imageUrl,
+                  websiteUrl: liveMerged.websiteUrl,
+                  productUrl: liveMerged.websiteUrl,
+                  price: liveMerged.price,
+                  currency: liveMerged.currency,
+                  family: liveMerged.family,
+                  mainCategory: liveMerged.mainCategory,
+                  subCategory: liveMerged.subCategory,
+                  description: decodeHtmlEntities(liveMerged.description),
+                  finishes: resolveItemFinishes({
+                    brand: b.name,
+                    model: liveMerged.model || cand.model,
+                    description: liveMerged.description || enrichedDesc,
+                    category: liveMerged.mainCategory,
+                    finishes: cand.finishes
+                  })
+                },
+                alternatives,
+                source: upgradedFromOfficial ? `${sourceTag}+official-refresh` : sourceTag,
+                identifiedModel: decodeHtmlEntities(liveMerged.model || cand.model),
+                ...(requestedMeta ? { evidence: { matchType: 'ALTERNATIVE_FALLBACK', ...requestedMeta } } : {}),
+                ...(quotaExhaustedOpt ? { llmQuotaFallback: true } : {})
+              };
+            }
+            catalogRef.officialRefreshedAt = catalogRef.officialRefreshedAt || new Date().toISOString();
+            if (!imgOk) {
+              console.warn(`  ⚠️ [VE Priority Dead Image Skip] "${b.name} - ${cand.model}" image failed verification and could not be rescued; trying next candidate...`);
+              if (!fallbackUnimaged) fallbackUnimaged = { cand, brand: b };
+              continue;
+            }
+          }
+
+          if (imgOk) {
+            matchedProduct = cand;
+            matchedBrandObj = b;
+            console.log(`  ✨ [VE Priority ${label}] Matched "${matchedProduct.model}" from Priority Brand "${b.name}"`);
+            break;
+          }
+        }
+
+        if (matchedProduct && matchedBrandObj) break;
+        if (!matchedProduct && fallbackUnimaged) {
+          matchedProduct = fallbackUnimaged.cand;
+          matchedBrandObj = fallbackUnimaged.brand;
+          matchedProduct = { ...matchedProduct, _deadImageCleared: true };
+        }
+      }
+
+      if (!matchedProduct || !matchedBrandObj) return null;
+
+      const rawImg = matchedProduct._deadImageCleared
+        ? ''
+        : (matchedProduct.imageUrl || (matchedProduct.images && matchedProduct.images[0]) || '');
+      const safeImg = (rawImg && !isBadOrLogoUrl(rawImg)) ? toProxiedImageUrl(req, rawImg) : '';
+      const cleanModel = decodeHtmlEntities(matchedProduct.model);
+      const cleanDesc = decodeHtmlEntities(matchedProduct.description || '');
+      const alternatives = await getFormattedAlternatives(matchedBrandObj.name, cleanModel, matchedProduct.mainCategory || catConfig.label);
+
+      return {
+        status: 'success',
+        matchTier: requestedMeta ? 'ALTERNATIVE_MATCH' : 'SUGGESTED',
+        product: {
+          ...matchedProduct,
+          brand: matchedBrandObj.name,
+          brandLogo: matchedBrandObj.logo || '',
+          model: cleanModel,
+          description: cleanDesc,
+          imageUrl: safeImg,
+          mainCategory: matchedProduct.mainCategory || matchedProduct.category || catConfig.label,
+          subCategory: matchedProduct.subCategory || idSubCatOpt || '',
+          finishes: resolveItemFinishes({
+            brand: matchedBrandObj.name,
+            model: cleanModel,
+            description: cleanDesc || enrichedDesc,
+            category: matchedProduct.mainCategory || matchedProduct.category || catConfig.label,
+            finishes: matchedProduct.finishes
+          })
+        },
+        alternatives,
+        source: sourceTag,
+        identifiedModel: cleanModel,
+        ...(requestedMeta ? { evidence: { matchType: 'ALTERNATIVE_FALLBACK', ...requestedMeta } } : {}),
+        ...(quotaExhaustedOpt ? { llmQuotaFallback: true } : {})
+      };
+    };
+
+    // ── LANE C: EARLY ARCHITECTURAL FITOUT INTERCEPTOR (Zero LLM calls when Fitout DB applies) ──
+    if (!hasExplicitBrandLock && (isScopeFitout || furnishingCatPrecheck === 'fitoutArchitectural')) {
+      console.log(`\n🏗️ [VE Lane C: Early Fitout Interceptor] Routing "${description}" (${isScopeFitout ? 'Scope: FITOUT' : furnishingCatPrecheck}) directly to internal Fitout DB...`);
+      try {
+        const fitoutRes = await resolveFitoutCatalogMatch(req, enrichedDesc, req.body.tier || req.body.budgetTier || 'mid', 'google', providerModel, { skipLlm: true, unitHint: unit || '' });
+        if (fitoutRes) {
+          return res.json({
+            ...fitoutRes,
+            alternatives: [],
+            source: 'fitout-hybrid-early'
+          });
+        }
+      } catch (fitoutErr) {
+        console.warn('  ⚠️ [VE Lane C Early Fitout Warning]:', fitoutErr.message);
+      }
+    }
+
+    // ── LANE D: FAST-PATH HYBRID FOR UNBRANDED TEXT-ONLY CONTRACT FURNITURE (Zero LLM calls) ──
+    if (
+      !hasExplicitBrandLock &&
+      !hasExplicitMarketplaceUrlEarly &&
+      normalizedImageAssets.length === 0 &&
+      furnishingCatPrecheck &&
+      furnishingCatPrecheck !== 'genericAccessories' &&
+      furnishingCatPrecheck !== 'fitoutArchitectural'
+    ) {
+      const fastHybridPayload = await resolveLocalPriorityAlternative('category-priority-hybrid', null, { llmQuotaExhausted: true });
+      if (fastHybridPayload && fastHybridPayload.status === 'success') {
+        delete fastHybridPayload.llmQuotaFallback;
+        return res.json(fastHybridPayload);
+      }
+    }
+
+    // ── LANE E: FAST-PATH AV / ACCESSORIES (Strict 20s timeout + deterministic benchmark fallback) ──
+    if (!hasExplicitBrandLock && !hasExplicitMarketplaceUrlEarly && normalizedImageAssets.length === 0 && furnishingCatPrecheck === 'genericAccessories') {
+      const fastAccessoryPayload = await resolveLocalPriorityAlternative('category-priority-accessory', null, { llmQuotaExhausted: false });
+      if (fastAccessoryPayload && fastAccessoryPayload.status === 'success') {
+        return res.json(fastAccessoryPayload);
+      }
+    }
 
     let llmQuotaExhausted = false;
     let identityResult;
@@ -4620,7 +5271,14 @@ app.post('/api/ve-match-auto', async (req, res) => {
             websiteUrl: liveMerged.websiteUrl,
             productUrl: liveMerged.websiteUrl,
             supplierReferences: identityResult.supplierReferences || identityResult.product?.supplierReferences || [],
-            description: liveMerged.description
+            description: liveMerged.description,
+            finishes: resolveItemFinishes({
+              brand: matchedBrandObj?.name || matchedBrandName,
+              model: finalExactModel,
+              description: liveMerged.description || enrichedDesc,
+              category: liveMerged.mainCategory,
+              finishes: liveMerged.finishes || identityResult.finishes || identityResult.product?.finishes
+            })
           },
           alternatives,
           brandCreated: Boolean(!matchedBrandObj && liveMerged.persistedBrandObj),
@@ -4692,17 +5350,16 @@ app.post('/api/ve-match-auto', async (req, res) => {
     const isGenuine = isGenuineContractBrand(canonicalBrand, allLocalBrands);
 
     const targetBucket = getArchetypeBucket(enrichedDesc);
-    const furnishingCatPrecheck = classifyFurnishingCategory(enrichedDesc);
     const hasExplicitBrandInDesc = canonicalBrand && !isGenericBrand && canonicalBrand.length > 2
       && enrichedDesc.toLowerCase().includes(canonicalBrand.toLowerCase());
-    const isFitoutBrandDetected = canonicalBrand && (canonicalBrand.toLowerCase().trim() === 'fitout v2' || canonicalBrand.toLowerCase().includes('fitout'));
-    const isUnbrandedArchitecturalFitout = furnishingCatPrecheck === 'fitoutArchitectural' && !hasExplicitBrandInDesc;
+    const isFitoutBrandDetected = isScopeFitout || (canonicalBrand && (canonicalBrand.toLowerCase().trim() === 'fitout v2' || canonicalBrand.toLowerCase().includes('fitout')));
+    const isUnbrandedArchitecturalFitout = (furnishingCatPrecheck === 'fitoutArchitectural' || isScopeFitout) && !hasExplicitBrandInDesc;
 
     // 🏗️ ARCHITECTURAL FITOUT INTERCEPTOR (Handles both FitOut V2 detections and unbranded Plan Fitout items)
     if (isFitoutBrandDetected || isUnbrandedArchitecturalFitout) {
       console.log(`\n🏗️ [VE Auto-Detect Fitout Interceptor] Routing "${description}" (${isFitoutBrandDetected ? canonicalBrand : furnishingCatPrecheck}) to internal Fitout DB...`);
       try {
-        const fitoutRes = await resolveFitoutCatalogMatch(req, enrichedDesc, req.body.tier || req.body.budgetTier || 'mid', 'google', providerModel, { skipLlm: llmQuotaExhausted });
+        const fitoutRes = await resolveFitoutCatalogMatch(req, enrichedDesc, req.body.tier || req.body.budgetTier || 'mid', 'google', providerModel, { skipLlm: llmQuotaExhausted, unitHint: unit || '' });
         if (fitoutRes) {
           return res.json({
             ...fitoutRes,
@@ -4715,247 +5372,16 @@ app.post('/api/ve-match-auto', async (req, res) => {
       }
     }
 
-    // Reusable Local Partner Alternative Matcher (used both for unbranded specs AND when a specified brand/model cannot be exact-matched online)
-    const resolveLocalPriorityAlternative = async (sourceTag = 'category-priority-match', requestedMeta = null) => {
-      const furnishingCat = furnishingCatPrecheck;
-      const catConfig = VE_CATEGORY_CONFIG[furnishingCat] || VE_CATEGORY_CONFIG.desking;
-      const prioritySequence = catConfig.priorityBrands;
-
-      console.log(`\n🎯 [VE Priority Matcher] ${requestedMeta ? `No verified exact match for "${requestedMeta.requestedBrand} ${requestedMeta.requestedModel}" — falling back to local alternatives.` : 'Specification is unbranded/generic.'} Auto-categorized as "${catConfig.label}" (${furnishingCat}). Priority Sequence: ${prioritySequence.join(' ➔ ')}`);
-
-      let matchedProduct = null;
-      let matchedBrandObj = null;
-
-      for (const priorityBrandName of prioritySequence) {
-        if (/^fitout\s*v2$/i.test(priorityBrandName)) {
-          try {
-            const fitoutRes = await resolveFitoutCatalogMatch(req, enrichedDesc, req.body.tier || req.body.budgetTier || 'mid', 'google', providerModel, { skipLlm: llmQuotaExhausted });
-            if (fitoutRes) {
-              return {
-                ...fitoutRes,
-                alternatives: [],
-                source: requestedMeta ? 've-alternative-fallback-fitout' : 'category-priority-fitout',
-                ...(requestedMeta ? { evidence: { matchType: 'ALTERNATIVE_FALLBACK', ...requestedMeta } } : {}),
-                ...(llmQuotaExhausted ? { llmQuotaFallback: true } : {})
-              };
-            }
-          } catch (fitoutErr) {
-            console.warn('  ⚠️ [VE Priority Fitout Warning]:', fitoutErr.message);
-          }
-          continue;
-        }
-
-        if (/^(amazon|noon)/i.test(priorityBrandName)) {
-          if (furnishingCat === 'genericAccessories' && !llmQuotaExhausted) {
-            const marketplaceHit = await veGetProductDetails('Amazon', identifiedModel || description, providerModel, null, 'Accessories');
-            if (marketplaceHit && marketplaceHit.status === 'success' && marketplaceHit.product) {
-              matchedProduct = marketplaceHit.product;
-              matchedBrandObj = { name: 'Amazon', logo: 'https://upload.wikimedia.org/wikipedia/commons/a/a9/Amazon_logo.svg' };
-              break;
-            }
-          }
-          continue;
-        }
-
-        const b = findBrandInCatalog(priorityBrandName, allLocalBrands);
-        if (!b || !b.products || b.products.length === 0) continue;
-
-        const PRIORITY_CAT_FALLBACK_BUCKET = {
-          desking: 'desking',
-          storage: 'storage',
-          heavyDutyAndMobileFiling: 'storage',
-          steelStorage: 'storage',
-          bedsAndAccommodation: 'bed',
-          taskSeating: 'seating',
-          softSeating: 'sofa',
-          classroomAndStackable: 'seating',
-          foldingAndPortableSeating: 'seating',
-          diningSeating: 'seating',
-          outdoorSeating: 'seating',
-          auditoriumAndTheater: 'seating',
-          auditoriumAndTheatre: 'seating'
-        };
-        const priorityConflictTarget = getArchetypeBucket(enrichedDesc)
-          ? enrichedDesc
-          : (PRIORITY_CAT_FALLBACK_BUCKET[furnishingCat] || enrichedDesc);
-
-        const eligibleProducts = b.products.filter(p =>
-          !isScrapedChromeEntry(p)
-          && !isGarbageProductDesc(p.description)
-          && !isArchetypeConflict(priorityConflictTarget, p)
-        );
-        if (eligibleProducts.length === 0) continue;
-
-        // Collect ranked candidates (preferring live-imaged entries over defunct img.architonic.com stubs)
-        const rankedCandidates = [];
-        const seenModels = new Set();
-        const pushCand = (cand, label) => {
-          if (!cand || !cand.model || isArchetypeConflict(priorityConflictTarget, cand)) return;
-          const mk = String(cand.model).toLowerCase().trim();
-          if (seenModels.has(mk)) return;
-          seenModels.add(mk);
-          rankedCandidates.push({ cand, label });
-        };
-
-        const filterCat = catConfig.label || identifiedCategory || null;
-        const fuzzyHit = fuzzyFindModel(eligibleProducts, requestedMeta ? enrichedDesc : (identifiedModel || enrichedDesc), filterCat);
-        if (fuzzyHit) pushCand(fuzzyHit, 'Fast Hit');
-
-        try {
-          const clientApiKey = req.headers['x-google-api-key'] || req.headers['x-google-free-key'] || null;
-          const semanticHits = await findSemanticMatches({
-            description: enrichedDesc,
-            brandName: b.name,
-            products: eligibleProducts,
-            category: filterCat,
-            topK: 6,
-            apiKey: clientApiKey
-          });
-          for (const sh of (semanticHits || [])) {
-            if (sh.exactModelMatch || sh.confidenceScore >= 60) {
-              pushCand(sh, `Semantic ${sh.confidenceScore}%`);
-            }
-          }
-        } catch (semErr) {
-          console.warn(`  ⚠️ [VE Priority Semantic Warning for ${b.name}]:`, semErr.message);
-        }
-
-        const catMatchedProduct = eligibleProducts.find(p => {
-          const pCat = (p.mainCategory || p.category || '').toLowerCase();
-          const pSub = (p.subCategory || '').toLowerCase();
-          const target = (catConfig.label || furnishingCat).toLowerCase();
-          return (pCat.includes(target) || pSub.includes(target)) && !isBadOrLogoUrl(p.imageUrl);
-        });
-        if (catMatchedProduct) pushCand(catMatchedProduct, 'Category Hit');
-
-        // Verify candidate image liveness & auto-upgrade stale Architonic/dead-image entries from the brand's official website
-        const brandOfficialSite = getCanonicalBrandWebsite(b.name) || b.websiteUrl || b.registry?.officialDomain || '';
-        const hasKnownOfficialSite = Boolean(brandOfficialSite && !/architonic\.com/i.test(brandOfficialSite));
-
-        let fallbackUnimaged = null;
-        for (const { cand, label } of rankedCandidates) {
-          const catalogRef = b.products.find(p => String(p.model || '').toLowerCase().trim() === String(cand.model || '').toLowerCase().trim()) || cand;
-          const rawImg = catalogRef.imageUrl || cand.imageUrl || (cand.images && cand.images[0]) || '';
-          const imgOk = Boolean(rawImg) && !isBadOrLogoUrl(rawImg)
-            && await Promise.race([verifyImageUrl(rawImg, catalogRef.officialProductUrl || catalogRef.websiteUrl || ''), new Promise(r => setTimeout(() => r(false), 2500))]);
-
-          const isArchitonicEntry = /architonic\.com/i.test(rawImg) || /architonic\.com/i.test(catalogRef.websiteUrl || catalogRef.productUrl || '') || /#\d+\s*$/.test(String(cand.model || ''));
-          const needsOfficialRefresh = hasKnownOfficialSite && !catalogRef.officialRefreshedAt && (!imgOk || isArchitonicEntry);
-
-          if (!imgOk || needsOfficialRefresh) {
-            const liveMerged = await resolveAndMergeLiveProduct({
-              req,
-              brand: b.name,
-              model: cand.model,
-              boqDescription: enrichedDesc,
-              directUrl: isArchitonicEntry ? '' : (catalogRef.officialProductUrl || catalogRef.productUrl || catalogRef.websiteUrl || ''),
-              localBrand: b,
-              categoryHint: cand.mainCategory || catConfig.label,
-              subCategoryHint: cand.subCategory || identifiedSubCategory,
-              familyHint: cand.family || '',
-              providerModel,
-              currentImageUrl: imgOk ? rawImg : '',
-              currentDescription: cand.description || '',
-              currentPrice: cand.price || 0,
-              currentCurrency: cand.currency || 'USD',
-              persistToCatalog: true,
-              skipLlm: llmQuotaExhausted,
-              preferOfficialRefresh: needsOfficialRefresh,
-              currentImageVerified: imgOk
-            });
-
-            if (liveMerged.rawImageUrl && !isBadOrLogoUrl(liveMerged.rawImageUrl)) {
-              const upgradedFromOfficial = liveMerged.rawImageUrl !== rawImg;
-              console.log(`  ✨ [VE Priority ${label}] Matched "${cand.model}" from Priority Brand "${b.name}"${upgradedFromOfficial ? ` (refreshed live from ${b.name} official site!)` : ''}`);
-              // Mark in-memory so subsequent rows in same session don't re-probe official site
-              catalogRef.officialRefreshedAt = catalogRef.officialRefreshedAt || new Date().toISOString();
-              if (upgradedFromOfficial) {
-                catalogRef.imageUrl = liveMerged.rawImageUrl;
-                catalogRef.description = liveMerged.description || catalogRef.description;
-                catalogRef.websiteUrl = liveMerged.websiteUrl || catalogRef.websiteUrl;
-                catalogRef.officialProductUrl = liveMerged.websiteUrl || catalogRef.officialProductUrl;
-              }
-              const alternatives = await getFormattedAlternatives(b.name, cand.model, liveMerged.mainCategory);
-              return {
-                status: 'success',
-                matchTier: requestedMeta ? 'ALTERNATIVE_MATCH' : 'SUGGESTED',
-                product: {
-                  ...cand,
-                  brand: b.name,
-                  brandLogo: liveMerged.brandLogo || b.logo || '',
-                  imageUrl: liveMerged.imageUrl,
-                  websiteUrl: liveMerged.websiteUrl,
-                  productUrl: liveMerged.websiteUrl,
-                  price: liveMerged.price,
-                  currency: liveMerged.currency,
-                  family: liveMerged.family,
-                  mainCategory: liveMerged.mainCategory,
-                  subCategory: liveMerged.subCategory,
-                  description: liveMerged.description
-                },
-                alternatives,
-                source: upgradedFromOfficial ? `${sourceTag}+official-refresh` : sourceTag,
-                identifiedModel: cand.model,
-                ...(requestedMeta ? { evidence: { matchType: 'ALTERNATIVE_FALLBACK', ...requestedMeta } } : {}),
-                ...(llmQuotaExhausted ? { llmQuotaFallback: true } : {})
-              };
-            }
-            // Mark attempted even if official site didn't have this older SKU, and skip to next candidate if dead image
-            catalogRef.officialRefreshedAt = catalogRef.officialRefreshedAt || new Date().toISOString();
-            if (!imgOk) {
-              console.warn(`  ⚠️ [VE Priority Dead Image Skip] "${b.name} - ${cand.model}" image failed verification and could not be rescued; trying next candidate...`);
-              if (!fallbackUnimaged) fallbackUnimaged = { cand, brand: b };
-              continue;
-            }
-          }
-
-          if (imgOk) {
-            matchedProduct = cand;
-            matchedBrandObj = b;
-            console.log(`  ✨ [VE Priority ${label}] Matched "${matchedProduct.model}" from Priority Brand "${b.name}"`);
-            break;
-          }
-        }
-
-        if (matchedProduct && matchedBrandObj) break;
-        if (!matchedProduct && fallbackUnimaged) {
-          matchedProduct = fallbackUnimaged.cand;
-          matchedBrandObj = fallbackUnimaged.brand;
-          matchedProduct = { ...matchedProduct, _deadImageCleared: true };
-        }
-      }
-
-      if (!matchedProduct || !matchedBrandObj) return null;
-
-      const rawImg = matchedProduct._deadImageCleared
-        ? ''
-        : (matchedProduct.imageUrl || (matchedProduct.images && matchedProduct.images[0]) || '');
-      const safeImg = (rawImg && !isBadOrLogoUrl(rawImg)) ? toProxiedImageUrl(req, rawImg) : '';
-      const alternatives = await getFormattedAlternatives(matchedBrandObj.name, matchedProduct.model, matchedProduct.mainCategory || catConfig.label);
-
-      return {
-        status: 'success',
-        matchTier: requestedMeta ? 'ALTERNATIVE_MATCH' : 'SUGGESTED',
-        product: {
-          ...matchedProduct,
-          brand: matchedBrandObj.name,
-          brandLogo: matchedBrandObj.logo || '',
-          imageUrl: safeImg,
-          mainCategory: matchedProduct.mainCategory || matchedProduct.category || catConfig.label,
-          subCategory: matchedProduct.subCategory || identifiedSubCategory || ''
-        },
-        alternatives,
-        source: sourceTag,
-        identifiedModel: matchedProduct.model,
-        ...(requestedMeta ? { evidence: { matchType: 'ALTERNATIVE_FALLBACK', ...requestedMeta } } : {}),
-        ...(llmQuotaExhausted ? { llmQuotaFallback: true } : {})
-      };
-    };
-
+    // Post-LLM fallback / Alternative Matcher when LLM path ran for Branded, Image-bearing, or Unknown specs
     // If Exact-Match Short-Circuit checked local DB + official site + Architonic and found no verifiable page,
     // immediately fall back to our verified local partner alternatives!
     if (exactMissRequestedMeta) {
-      const altPayload = await resolveLocalPriorityAlternative('ve-alternative-fallback', exactMissRequestedMeta);
+      const altPayload = await resolveLocalPriorityAlternative('ve-alternative-fallback', exactMissRequestedMeta, {
+        identifiedModel,
+        identifiedCategory,
+        identifiedSubCategory,
+        llmQuotaExhausted
+      });
       if (altPayload) {
         return res.json(altPayload);
       }
@@ -5016,12 +5442,12 @@ app.post('/api/ve-match-auto', async (req, res) => {
             product: {
               ...p,
               brand: 'Amazon',
-              model: p.model || identifiedModel || 'Mobile Cart',
+              model: decodeHtmlEntities(p.model || identifiedModel || 'Mobile Cart'),
               mainCategory: catNorm.mainCategory,
               subCategory: catNorm.subCategory,
               imageUrl: proxiedImageUrl,
               brandLogo: 'https://upload.wikimedia.org/wikipedia/commons/a/a9/Amazon_logo.svg',
-              description: cleanDesc,
+              description: decodeHtmlEntities(cleanDesc),
               websiteUrl: explicitDetails?.url || identityResult.productUrl || p.websiteUrl || ''
             },
             source: 'amazon-on-the-fly',
@@ -5030,7 +5456,12 @@ app.post('/api/ve-match-auto', async (req, res) => {
         }
       }
 
-      const priorityPayload = await resolveLocalPriorityAlternative('category-priority-match', null);
+      const priorityPayload = await resolveLocalPriorityAlternative('category-priority-match', null, {
+        identifiedModel,
+        identifiedCategory,
+        identifiedSubCategory,
+        llmQuotaExhausted
+      });
       if (priorityPayload) {
         return res.json(priorityPayload);
       }
@@ -5096,10 +5527,16 @@ app.post('/api/ve-match-auto', async (req, res) => {
         }
       }
 
-      // 2.4: LLM Catalog Disambiguation (only for established multi-product catalogs)
+      // 2.4: LLM Catalog Disambiguation (only for established multi-product catalogs, resilient to 503/rate-limit spikes)
       if (!best && stage2Products.length > 3 && !llmQuotaExhausted) {
         const modelList = stage2Products.map(p => p.model + (p.subCategory || p.mainCategory ? ` [${p.mainCategory} / ${p.subCategory}]` : '')).filter(Boolean);
-        const matchResult = await veMatchAdvanced(enrichedDesc, canonicalBrand, identifiedSubCategory || identifiedCategory || 'Commercial Furniture', modelList, providerModel);
+        let matchResult = null;
+        try {
+          matchResult = await veMatchAdvanced(enrichedDesc, canonicalBrand, identifiedSubCategory || identifiedCategory || 'Commercial Furniture', modelList, providerModel);
+        } catch (advErr) {
+          llmQuotaExhausted = true;
+          console.warn(`  ⚡ [VE Auto-Detect Stage 2.4 Fallback] veMatchAdvanced unavailable (${advErr.message?.slice(0, 80)}); using deterministic catalog scorer.`);
+        }
         if (matchResult && matchResult.status === 'success' && matchResult.model && matchResult.model !== 'FAILED' && matchResult.model !== 'NO_CATALOG_MATCH') {
           const rawFull = String(matchResult.model).replace(/\s*\[.*\]$/, '').trim().toLowerCase();
           const rawClean = rawFull.replace(/\s*#\d+\s*$/, '').trim();
@@ -5134,6 +5571,34 @@ app.post('/api/ve-match-auto', async (req, res) => {
           if (best) {
             console.log(`  🧠 [VE Auto-Detect Stage 2.4] veMatchAdvanced selected: "${best.model}"`);
           }
+        }
+      }
+
+      // 2.5: Deterministic catalog fallback when LLM was unavailable/throttled (ensures known-brand BOQ lines never 500 on 503)
+      if (!best && stage2Products.length > 0 && llmQuotaExhausted) {
+        const stopTokens = new Set(['chair', 'table', 'desk', 'sofa', 'office', 'ergonomic', 'with', 'adjustable', 'support', 'for', 'and', 'the', 'mesh']);
+        const queryTokens = `${identifiedModel} ${enrichedDesc}`
+          .toLowerCase()
+          .replace(/[^a-z0-9\s-]/g, ' ')
+          .split(/\s+/)
+          .filter(t => t.length >= 3 && !stopTokens.has(t) && t !== canonicalBrand.toLowerCase());
+        let topDetScore = 0;
+        for (const cand of stage2Products) {
+          if (!cand?.model || isArchetypeConflict(enrichedDesc, cand)) continue;
+          const hay = `${cand.model} ${cand.family || ''} ${cand.subCategory || ''} ${cand.mainCategory || ''}`.toLowerCase();
+          let s = 0;
+          for (const tok of queryTokens) {
+            if (hay.includes(tok)) s += (String(cand.model).toLowerCase().includes(tok) ? 10 : 3);
+          }
+          if (cand.imageUrl) s += 1;
+          if (parseFloat(cand.price) > 0) s += 1;
+          if (s > topDetScore) {
+            topDetScore = s;
+            best = cand;
+          }
+        }
+        if (best) {
+          console.log(`  ⚡ [VE Auto-Detect Stage 2.5] Deterministic catalog fallback selected: "${best.model}" (score ${topDetScore})`);
         }
       }
 
@@ -5182,7 +5647,14 @@ app.post('/api/ve-match-auto', async (req, res) => {
             family: liveMerged.family,
             mainCategory: liveMerged.mainCategory,
             subCategory: liveMerged.subCategory,
-            description: liveMerged.description
+            description: liveMerged.description,
+            finishes: resolveItemFinishes({
+              brand: canonicalExactBrand,
+              model: exactMatchHit.product.model,
+              description: liveMerged.description || enrichedDesc,
+              category: liveMerged.mainCategory,
+              finishes: exactMatchHit.product.finishes
+            })
           },
           alternatives,
           source: 'local-database',
@@ -5248,7 +5720,14 @@ app.post('/api/ve-match-auto', async (req, res) => {
           product: {
             ...newProduct,
             imageUrl: liveMerged.imageUrl,
-            brandLogo: liveMerged.brandLogo || (isMarketplace ? 'https://upload.wikimedia.org/wikipedia/commons/a/a9/Amazon_logo.svg' : '')
+            brandLogo: liveMerged.brandLogo || (isMarketplace ? 'https://upload.wikimedia.org/wikipedia/commons/a/a9/Amazon_logo.svg' : ''),
+            finishes: resolveItemFinishes({
+              brand: canonicalBrand,
+              model: newProduct.model,
+              description: newProduct.description || enrichedDesc,
+              category: newProduct.mainCategory,
+              finishes: newProduct.finishes
+            })
           },
           alternatives,
           brandCreated: !localBrand && !isMarketplace,
@@ -5266,39 +5745,39 @@ app.post('/api/ve-match-auto', async (req, res) => {
     const skipGenericLive = isGenericBrand && llmQuotaExhausted && !fallbackUrl;
     const liveFallback = skipGenericLive
       ? {
-          model: identifiedModel,
-          family: '',
-          mainCategory: identifiedCategory || 'Accessories',
-          subCategory: identifiedSubCategory || '',
-          imageUrl: toProxiedImageUrl(req, normalizedImageAssets[0]?.url || '') || '',
-          rawImageUrl: '',
-          brandLogo: '',
-          websiteUrl: '',
-          price: 0,
-          currency: 'USD',
-          description: effectiveMatchDesc,
-          liveSource: '',
-          verifiedLiveScrape: false,
-          persistedBrandObj: null
-        }
+        model: identifiedModel,
+        family: '',
+        mainCategory: identifiedCategory || 'Accessories',
+        subCategory: identifiedSubCategory || '',
+        imageUrl: toProxiedImageUrl(req, normalizedImageAssets[0]?.url || '') || '',
+        rawImageUrl: '',
+        brandLogo: '',
+        websiteUrl: '',
+        price: 0,
+        currency: 'USD',
+        description: effectiveMatchDesc,
+        liveSource: '',
+        verifiedLiveScrape: false,
+        persistedBrandObj: null
+      }
       : await resolveAndMergeLiveProduct({
-          req,
-          brand: canonicalBrand,
-          model: identifiedModel,
-          boqDescription: enrichedDesc,
-          directUrl: fallbackUrl,
-          localBrand,
-          categoryHint: identifiedCategory,
-          subCategoryHint: identifiedSubCategory,
-          familyHint: identityResult.family || '',
-          providerModel,
-          currentImageUrl: '',
-          currentDescription: identityResult.logic || '',
-          currentPrice: parseFloat(identityResult.estimatedPrice) || 0,
-          currentCurrency: 'USD',
-          persistToCatalog: Boolean(!isGenericBrand && !isMarketplace),
-          skipLlm: llmQuotaExhausted
-        });
+        req,
+        brand: canonicalBrand,
+        model: identifiedModel,
+        boqDescription: enrichedDesc,
+        directUrl: fallbackUrl,
+        localBrand,
+        categoryHint: identifiedCategory,
+        subCategoryHint: identifiedSubCategory,
+        familyHint: identityResult.family || '',
+        providerModel,
+        currentImageUrl: '',
+        currentDescription: identityResult.logic || '',
+        currentPrice: parseFloat(identityResult.estimatedPrice) || 0,
+        currentCurrency: 'USD',
+        persistToCatalog: Boolean(!isGenericBrand && !isMarketplace),
+        skipLlm: llmQuotaExhausted
+      });
 
     // If a named brand/model could NOT be exact-matched from local DB, official site, OR Architonic,
     // automatically fall back to our verified local partner alternatives (unless it's a decorative generic accessory).
@@ -5331,7 +5810,13 @@ app.post('/api/ve-match-auto', async (req, res) => {
         supplierReferences: identityResult.supplierReferences || explicitDetails?.supplierUrls || [],
         price: liveFallback.price,
         currency: liveFallback.currency,
-        description: liveFallback.description
+        description: liveFallback.description,
+        finishes: resolveItemFinishes({
+          brand: canonicalBrand,
+          model: finalScrapedModel,
+          description: liveFallback.description || enrichedDesc,
+          category: liveFallback.mainCategory || identifiedCategory || 'Furniture'
+        })
       },
       alternatives: fallbackAlternatives,
       brandCreated: Boolean(!localBrand && !isMarketplace && liveFallback.persistedBrandObj),
@@ -5383,175 +5868,162 @@ app.post('/api/ai/live-alternatives', async (req, res) => {
 });
 
 
-// --- Scraper Task Management ---
-app.get('/api/tasks/:id', (req, res) => {
-  const task = tasks.get(req.params.id);
-  if (!task) return res.status(404).json({ error: 'Task not found' });
-  res.json(task);
+// --- Scraper Task Management (In-Memory + Supabase scrape_jobs + Vercel chunked continuation) ---
+app.get('/api/tasks/:id', async (req, res) => {
+  const taskId = req.params.id;
+  const task = tasks.get(taskId);
+  if (task && !task.cloudChunked) return res.json(task);
+
+  const sbJob = await getScrapeJob(taskId).catch(() => null);
+  if (sbJob) {
+    // Drive chunked full-catalog continuation synchronously per poll on Vercel / serverless
+    // (25 URLs per poll completes well within serverless timeout with zero Edge-deploy dependency).
+    const pendingUrls = Array.isArray(sbJob.payload?.pendingUrls) ? sbJob.payload.pendingUrls : null;
+    const cursor = Number(sbJob.payload?.cursor) || 0;
+    const lockUntil = Number(sbJob.payload?.lockUntil) || 0;
+
+    if (sbJob.status === 'running' && pendingUrls && cursor < pendingUrls.length && Date.now() > lockUntil) {
+      const totalDiscovered = Number(sbJob.payload?.totalDiscovered) || (40 + pendingUrls.length);
+      try {
+        await updateScrapeJob(sbJob.id, {
+          payload: { ...sbJob.payload, lockUntil: Date.now() + 28000 },
+        });
+        const chunk = pendingUrls.slice(cursor, cursor + 25);
+        const nextCursor = cursor + chunk.length;
+        const hasMore = nextCursor < pendingUrls.length;
+        const chunkOut = await runSupabaseScrapeJob({
+          name: sbJob.brand_name,
+          url: sbJob.target_url,
+          origin: sbJob.payload?.origin || 'Supabase-Native',
+          budgetTier: sbJob.payload?.budgetTier || 'mid',
+          existingJobId: sbJob.id,
+          preDiscovered: chunk,
+          skipComplete: hasMore,
+          totalDiscoveredCount: totalDiscovered,
+          processedOffset: 40 + cursor,
+        });
+
+        const processedSoFar = Math.min(totalDiscovered, 40 + nextCursor);
+        const nextProgress = hasMore
+          ? Math.min(95, Math.max(25, Math.round((processedSoFar / Math.max(1, totalDiscovered)) * 95)))
+          : 100;
+        const nextStatus = hasMore ? 'running' : 'completed';
+        const nextStage = hasMore
+          ? `Harvesting full catalog via Supabase (${processedSoFar}/${totalDiscovered})...`
+          : 'Finished!';
+
+        await updateScrapeJob(sbJob.id, {
+          status: nextStatus,
+          progress: nextProgress,
+          payload: {
+            ...sbJob.payload,
+            cursor: nextCursor,
+            lockUntil: 0,
+          },
+          result_summary: {
+            ...(sbJob.result_summary || {}),
+            discoveredCount: totalDiscovered,
+            processedCount: processedSoFar,
+            totalProducts: chunkOut.totalProducts,
+          },
+        });
+
+        const payload = {
+          id: sbJob.id,
+          status: hasMore ? 'processing' : 'completed',
+          progress: nextProgress,
+          stage: nextStage,
+          brandName: sbJob.brand_name,
+          productCount: chunkOut.totalProducts || 0,
+          resultCount: chunkOut.totalProducts || 0,
+          cloudChunked: hasMore,
+        };
+        if (task) tasks.set(taskId, { ...task, ...payload });
+        return res.json(payload);
+      } catch (chunkErr) {
+        await updateScrapeJob(sbJob.id, {
+          status: 'failed',
+          error_message: chunkErr.message,
+          payload: { ...sbJob.payload, lockUntil: 0 },
+        }).catch(() => {});
+        const errPayload = {
+          id: sbJob.id,
+          status: 'failed',
+          progress: sbJob.progress || 0,
+          stage: 'Failed',
+          brandName: sbJob.brand_name,
+          error: chunkErr.message,
+        };
+        if (task) tasks.set(taskId, { ...task, ...errPayload });
+        return res.json(errPayload);
+      }
+    }
+
+    const totalDisc = Number(sbJob.payload?.totalDiscovered) || Number(sbJob.result_summary?.discoveredCount) || 0;
+    const processed = Number(sbJob.result_summary?.processedCount) || (40 + cursor);
+    return res.json({
+      id: sbJob.id,
+      status: sbJob.status === 'running' ? 'processing' : sbJob.status,
+      progress: sbJob.progress || 0,
+      stage: sbJob.status === 'running' && totalDisc > 0
+        ? `Harvesting full catalog via Supabase (${Math.min(processed, totalDisc)}/${totalDisc})...`
+        : sbJob.status,
+      brandName: sbJob.brand_name,
+      productCount: sbJob.result_summary?.totalProducts || 0,
+      resultCount: sbJob.result_summary?.totalProducts || 0,
+      error: sbJob.error_message || null
+    });
+  }
+
+  if (task) return res.json(task);
+  res.status(404).json({ error: 'Task not found' });
 });
 
-app.delete('/api/tasks/:id', (req, res) => {
+app.delete('/api/tasks/:id', async (req, res) => {
   const taskId = req.params.id;
   const task = tasks.get(taskId);
   if (task) {
     tasks.set(taskId, { ...task, status: 'cancelled', stage: 'Cancelled by user' });
+  }
+  const sbCancelled = await updateScrapeJob(taskId, {
+    status: 'cancelled',
+    error_message: 'Cancelled by user',
+  }).catch(() => null);
+  if (task || sbCancelled) {
     return res.json({ success: true, message: 'Task cancelled' });
   }
   res.status(404).json({ error: 'Task not found' });
 });
 
-// --- Railway Cloud Recovery ---
-app.get('/api/railway-brands', async (req, res) => {
-  if (!JS_SCRAPER_SERVICE_URL) {
-    console.warn('⚠️ JS_SCRAPER_SERVICE_URL not set');
-    return res.json({ brands: [], warning: 'Service URL not configured' });
-  }
+// --- Supabase Native Scrape Queue & Retired Railway Compatibility Shims ---
+app.get('/api/supabase-jobs', async (req, res) => {
   try {
-    const url = `${JS_SCRAPER_SERVICE_URL}/brands`;
-    console.log(`📡 Proxying fetch to: ${url}`);
-    const response = await axios.get(url, { timeout: 10000 });
-    res.json(response.data);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 25));
+    const jobs = await listScrapeJobs(limit);
+    res.json({ success: true, jobs });
   } catch (error) {
-    console.error('❌ Failed to fetch from Railway:', error.message);
-    res.status(500).json({
-      brands: [],
-      error: error.message,
-      targetUrl: `${JS_SCRAPER_SERVICE_URL}/brands`
-    });
+    res.status(500).json({ success: false, error: error.message, jobs: [] });
   }
 });
 
-app.get('/api/railway-brands/:filename', async (req, res) => {
-  if (!JS_SCRAPER_SERVICE_URL) return res.status(404).json({ error: 'Cloud service not configured' });
-  try {
-    const response = await axios.get(`${JS_SCRAPER_SERVICE_URL}/brands/${req.params.filename}`, { timeout: 10000 });
-    res.json(response.data);
-  } catch (error) {
-    res.status(404).json({ error: 'Cloud backup not found' });
-  }
+app.get('/api/railway-brands', (req, res) => {
+  res.json({ brands: [], railwayRetired: true, message: 'Railway retired — Supabase Postgres & Storage is the sole source of truth.' });
 });
 
-app.post('/api/railway-brands/import/:filename', async (req, res) => {
-  try {
-    if (!JS_SCRAPER_SERVICE_URL) throw new Error('Cloud service not configured');
-    const filename = req.params.filename;
-    console.log(`📥 Restoring from cloud: ${filename}`);
-    const response = await axios.get(`${JS_SCRAPER_SERVICE_URL}/brands/${filename}`, { timeout: 15000 });
-    const data = response.data;
-
-    const brandName = (data.brandInfo?.name || filename).replace(/_/g, ' ');
-
-    // Check if brand exists to avoid duplicates
-    const allBrands = await brandStorage.getAllBrands();
-    const existingBrand = allBrands.find(b => b.name.toLowerCase().trim() === brandName.toLowerCase().trim());
-
-    const restoredBrand = {
-      id: existingBrand ? existingBrand.id : (data.brandInfo?.id || Date.now()),
-      name: brandName,
-      logo: data.brandInfo?.logo || existingBrand?.logo || '',
-      budgetTier: data.budgetTier || existingBrand?.budgetTier || 'mid',
-      origin: 'Cloud-Restore',
-      products: data.products || [],
-      createdAt: existingBrand?.createdAt || new Date(),
-      updatedAt: new Date()
-    };
-
-    // If it exists, we merge products (avoiding duplicates by model)
-    if (existingBrand && existingBrand.products) {
-      const existingModels = new Set(existingBrand.products.map(p => String(p.model).toLowerCase().trim()));
-      const newProducts = (data.products || []).filter(p => !existingModels.has(String(p.model).toLowerCase().trim()));
-      restoredBrand.products = [...existingBrand.products, ...newProducts];
-    }
-
-    await brandStorage.saveBrand(restoredBrand);
-    res.json({
-      success: true,
-      count: restoredBrand.products.length,
-      added: restoredBrand.products.length - (existingBrand?.products?.length || 0),
-      brandName: restoredBrand.name
-    });
-  } catch (e) {
-    console.error('❌ Cloud Import Error:', e.message);
-    res.status(500).json({ error: e.message });
-  }
+app.get('/api/railway-brands/:filename', (req, res) => {
+  res.status(410).json({ error: 'Railway retired — use Supabase catalog APIs.' });
 });
 
-app.delete('/api/railway-brands/:filename', async (req, res) => {
-  if (!JS_SCRAPER_SERVICE_URL) return res.status(404).json({ error: 'Cloud service not configured' });
-  try {
-    await axios.delete(`${JS_SCRAPER_SERVICE_URL}/brands/${req.params.filename}`, { timeout: 10000 });
-    res.json({ success: true, message: 'Cloud backup deleted' });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
+app.post('/api/railway-brands/import/:filename', (req, res) => {
+  res.status(410).json({ error: 'Railway retired — use Supabase catalog APIs.' });
 });
 
-app.post('/api/railway-brands/sync-to-blob', async (req, res) => {
-  if (!JS_SCRAPER_SERVICE_URL) {
-    return res.status(500).json({ error: 'Railway service not configured' });
-  }
+app.delete('/api/railway-brands/:filename', (req, res) => {
+  res.status(410).json({ error: 'Railway retired — use Supabase catalog APIs.' });
+});
 
-  try {
-    const listRes = await axios.get(`${JS_SCRAPER_SERVICE_URL}/brands`, { timeout: 15000 });
-    const files = listRes.data.brands || [];
-    const results = [];
-    let synced = 0;
-    let skipped = 0;
-
-    // Load all local/supabase brands once for lookup
-    const allBrands = await brandStorage.getAllBrands();
-
-    for (const fileMeta of files) {
-      const filename = fileMeta.filename;
-      try {
-        const response = await axios.get(`${JS_SCRAPER_SERVICE_URL}/brands/${filename}`, { timeout: 20000 });
-        const data = response.data;
-
-        const brandName = (data.brandInfo?.name || filename).replace(/_/g, ' ');
-        const existingBrand = allBrands.find(b => b.name.toLowerCase().trim() === brandName.toLowerCase().trim());
-
-        const brand = {
-          id: existingBrand ? existingBrand.id : (data.brandInfo?.id || Date.now() + Math.floor(Math.random() * 1000)),
-          name: brandName,
-          logo: data.brandInfo?.logo || existingBrand?.logo || '',
-          origin: 'Railway-Volume-Recovery',
-          budgetTier: data.budgetTier || existingBrand?.budgetTier || 'mid',
-          products: data.products || [],
-          sourceUrl: data.sourceUrl || '',
-          completedAt: data.completedAt || new Date().toISOString()
-        };
-
-        // Merge logic
-        if (existingBrand && existingBrand.products) {
-          const existingModels = new Set(existingBrand.products.map(p => String(p.model).toLowerCase().trim()));
-          const newProducts = (data.products || []).filter(p => !existingModels.has(String(p.model).toLowerCase().trim()));
-          brand.products = [...existingBrand.products, ...newProducts];
-        }
-
-        const saved = await brandStorage.saveBrand(brand);
-        if (saved) {
-          synced += 1;
-          results.push({ filename, status: 'synced', brand: brand.name });
-        } else {
-          skipped += 1;
-          results.push({ filename, status: 'skipped', error: 'saveBrand returned false' });
-        }
-      } catch (importErr) {
-        results.push({ filename, status: 'failed', error: importErr.message });
-      }
-    }
-
-    res.json({
-      success: true,
-      total: files.length,
-      synced,
-      skipped,
-      files: results
-    });
-  } catch (error) {
-    console.error('❌ Railway sync-to-blob failed:', error.message);
-    res.status(500).json({ error: 'Railway sync failed', details: error.message });
-  }
+app.post('/api/railway-brands/sync-to-blob', (req, res) => {
+  res.status(410).json({ error: 'Railway retired — Supabase Postgres & Storage is the sole source of truth.' });
 });
 
 // --- Supabase Management ---
@@ -6234,126 +6706,116 @@ app.get('/api/image-proxy', async (req, res) => {
 });
 
 
-// --- Unified Scraper Engine ---
+// --- Unified Supabase-Native Scraper Engine (Railway Completely Retired) ---
 async function handleScrapeRequest(req, res, method = 'standard') {
-  const { name, url, origin, budgetTier, scraperSource } = req.body;
-  const taskId = `task-${Date.now()}`;
-
+  const { name, url, origin, budgetTier } = req.body;
   if (!name || !url) {
     return res.status(400).json({ error: 'Missing brand name or website URL' });
   }
 
-  // Initialize task
-  const initialTask = {
+  const job = await enqueueScrapeJob({
+    jobType: 'brand_full_scrape',
+    brandName: name,
+    targetUrl: url,
+    payload: { origin, budgetTier, method }
+  });
+  const taskId = job.id;
+
+  tasks.set(taskId, {
     id: taskId,
-    status: 'pending',
-    progress: 0,
-    stage: 'Starting...',
+    status: 'processing',
+    progress: 10,
+    stage: 'Running Supabase Native Scraper...',
     brandName: name,
     brandUrl: url,
     method,
     startTime: new Date().toISOString()
-  };
-  tasks.set(taskId, initialTask);
+  });
 
-  // Send immediate response so UI can start polling
-  res.json({ success: true, taskId });
+  // On Vercel serverless we run the first 40 synchronously and store the remaining URLs
+  // in Supabase `scrape_jobs.payload.pendingUrls` so `GET /api/tasks/:id` polls drive
+  // 25-item continuations cleanly within serverless limits (zero Railway/Edge-deploy dependency);
+  // locally we scrape up to 250-500 directly.
+  try {
+    const requestedLimit = Math.min(500, Math.max(10, Number(req.body.limit) || 250));
+    let preDiscovered = null;
+    let remainingForChunks = [];
 
-  // EXECUTION WRAPPER
-  const runScraper = async () => {
-    try {
-      let results = { products: [] };
-      const isArchitonic = url.toLowerCase().includes('architonic.com');
+    if (isVercel && req.body.fullCatalog !== false) {
+      const allDiscovered = await discoverProductUrls(url, requestedLimit);
+      preDiscovered = allDiscovered.slice(0, 40);
+      remainingForChunks = allDiscovered.slice(40);
+    }
 
-      // 🚂 DELEGATION: RAILWAY CLOUD
-      // Use Railway if source is railway OR if it's Architonic (which is better handled by specialized cloud scraper)
-      if ((scraperSource === 'railway' || isArchitonic) && isJsScraperAvailable()) {
-        console.log(`🚂 [DELEGATING] Task ${taskId} (${name}) to Railway Cloud...`);
-        const endpointMap = {
-          'standard': '/scrape',
-          'ai': '/scrape-structure',
-          'scrapling': '/scrape'
-        };
-        // Architonic ALWAYS uses its dedicated endpoint (scraper.js) regardless of method —
-        // scrapeArchitonic() has scroll loops + collection discovery the structure scraper lacks.
-        const railwayEndpoint = isArchitonic ? '/scrape-architonic' : (endpointMap[method] || '/scrape');
+    const hasRemaining = remainingForChunks.length > 0;
+    const totalDiscoveredCount = preDiscovered ? (preDiscovered.length + remainingForChunks.length) : 0;
 
-        try {
-          const delegation = await callJsScraperService(railwayEndpoint, {
-            name, url, origin, budgetTier,
-            options: { method }
-          });
+    const out = await runSupabaseScrapeJob({
+      name,
+      url,
+      origin: origin || 'Supabase-Native',
+      budgetTier: budgetTier || 'mid',
+      limit: requestedLimit,
+      existingJobId: taskId,
+      preDiscovered,
+      skipComplete: hasRemaining,
+      totalDiscoveredCount,
+      processedOffset: 0
+    });
 
-          if (delegation && delegation.taskId) {
-            console.log(`🌐 [RAILWAY] Proxying task: ${delegation.taskId}`);
-            const finalResult = await pollJsScraperTask(delegation.taskId, (progress, stage) => {
-              tasks.set(taskId, { ...initialTask, status: 'processing', progress, stage });
-            });
-            results = finalResult;
-          } else {
-            throw new Error('Railway service failed to return a taskId');
-          }
-        } catch (delegationErr) {
-          console.error(`❌ [DELEGATION FAILED] falling back to local: ${delegationErr.message}`);
-          // If NOT explicitly railway, we can try local fallback. 
-          // But for now, let's treat it as a hard failure if delegation was expected.
-          throw delegationErr;
-        }
-      }
-      // 🏠 EXECUTION: LOCAL ENGINE
-      else {
-        console.log(`🏠 [LOCAL] Executing task ${taskId} (${name}) on local engine...`);
-        const onProgress = (progress, stage) => {
-          tasks.set(taskId, { ...initialTask, status: 'processing', progress, stage });
-        };
-
-        if (method === 'ai') {
-          const sc = await getStructureScraper();
-          results = await sc.scrapeBrand(url, name, onProgress);
-        } else {
-          const sc = await getScraperService();
-          results = await sc.scrapeBrand(url, onProgress);
-        }
-      }
-
-      // Finalize Brand Entry
-      const finalBrand = {
-        id: name.toLowerCase().replace(/[^a-z0-9]/g, '-'),
-        name,
-        website: url,
-        origin: origin || 'Unknown',
-        budgetTier: budgetTier || 'mid',
-        products: results.products || [],
-        logo: results.brandInfo?.logo || results.brand?.logo || results.logo || '',
-        lastScraped: new Date().toISOString()
-      };
-
-      await brandStorage.saveBrand(finalBrand);
-
-      tasks.set(taskId, {
-        ...initialTask,
-        status: 'completed',
-        progress: 100,
-        stage: 'Finished!',
-        brand: finalBrand,
-        resultCount: finalBrand.products.length
-      });
-
-      console.log(`✅ [SUCCESS] Task ${taskId} finished with ${finalBrand.products.length} items.`);
-
-    } catch (err) {
-      console.error(`❌ [TASK FAILED] ${taskId}:`, err);
-      tasks.set(taskId, {
-        ...initialTask,
-        status: 'failed',
-        error: err.message,
-        stage: 'Error occurred'
+    if (hasRemaining) {
+      await updateScrapeJob(taskId, {
+        status: 'running',
+        progress: Math.max(20, Math.round((40 / Math.max(1, totalDiscoveredCount)) * 90)),
+        payload: {
+          origin: origin || 'Supabase-Native',
+          budgetTier: budgetTier || 'mid',
+          method,
+          pendingUrls: remainingForChunks,
+          totalDiscovered: totalDiscoveredCount,
+          cursor: 0,
+          lockUntil: 0,
+        },
+        result_summary: {
+          discoveredCount: totalDiscoveredCount,
+          processedCount: 40,
+          totalProducts: out.totalProducts,
+          queuedChunks: Math.ceil(remainingForChunks.length / 25),
+        },
       });
     }
-  };
 
-  // Start execution in background
-  runScraper();
+    const stageLabel = hasRemaining
+      ? `Harvesting full catalog via Supabase (40/${totalDiscoveredCount})...`
+      : 'Finished!';
+
+    tasks.set(taskId, {
+      id: taskId,
+      status: hasRemaining ? 'processing' : 'completed',
+      progress: hasRemaining ? Math.max(25, Math.round((40 / Math.max(1, totalDiscoveredCount)) * 90)) : 100,
+      stage: stageLabel,
+      brandName: name,
+      productCount: out.totalProducts,
+      resultCount: out.totalProducts,
+      cloudChunked: hasRemaining,
+    });
+    return res.json({
+      success: true,
+      taskId,
+      cloudChunked: hasRemaining,
+      remainingChunkItems: remainingForChunks.length,
+      ...out,
+    });
+  } catch (err) {
+    tasks.set(taskId, {
+      id: taskId,
+      status: 'failed',
+      progress: 0,
+      stage: 'Failed',
+      error: err.message
+    });
+    return res.status(500).json({ success: false, taskId, error: err.message });
+  }
 }
 
 app.post('/api/scrape-brand', async (req, res) => handleScrapeRequest(req, res, 'standard'));
@@ -6362,67 +6824,37 @@ app.post('/api/scrape-scrapling', async (req, res) => handleScrapeRequest(req, r
 
 app.post('/api/brands/sync', async (req, res) => {
   try {
-    const { brandName, website, syncStrategy, origin, budgetTier } = req.body;
+    const { brandName, website, origin, budgetTier, limit } = req.body;
     if (!brandName || !website) {
       return res.status(400).json({ error: 'Missing brand name or website URL' });
     }
 
-    console.log(`📡 [Sync Strategy API] Delegating ${brandName} (${syncStrategy}) to external Python scraper...`);
-    const scraperUrl = process.env.PYTHON_SCRAPER_URL || 'https://web-production-38d1f.up.railway.app/api/scrape';
-
-    const response = await fetch(scraperUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        url: website,
-        brand_name: brandName,
-        strategy: syncStrategy,
-        sync: true,
-        js_scraper_url: process.env.JS_SCRAPER_SERVICE_URL
-      }),
-      signal: AbortSignal.timeout(120000)
-    });
-
-    if (!response.ok) {
-      const errText = await response.text();
-      console.error(`❌ [Sync Strategy API] External scraper error: ${response.status} - ${errText}`);
-      return res.status(response.status).json({ error: `External scraper error: ${errText}` });
-    }
-
-    const results = await response.json();
-    console.log(`✅ [Sync Strategy API] Successfully scraped ${results.products?.length || 0} products from external scraper.`);
-
-    const finalBrand = {
-      id: brandName.toLowerCase().replace(/[^a-z0-9]/g, '-'),
+    const effectiveLimit = Math.min(500, Math.max(10, Number(limit) || (isVercel ? 60 : 250)));
+    console.log(`📡 [Supabase Native Sync] Harvesting ${brandName} (${website}, limit=${effectiveLimit})...`);
+    const result = await runSupabaseScrapeJob({
       name: brandName,
-      website: website,
-      origin: origin || 'Unknown',
+      url: website,
+      origin: origin || 'Supabase-Native',
       budgetTier: budgetTier || 'mid',
-      products: results.products || [],
-      logo: results.brandInfo?.logo || '',
-      lastScraped: new Date().toISOString()
-    };
-
-    await brandStorage.saveBrand(finalBrand);
+      limit: effectiveLimit
+    });
+    const allBrands = await brandStorage.getAllBrands(true);
+    const savedBrand = allBrands.find(b => b.name.toLowerCase().trim() === brandName.toLowerCase().trim());
 
     res.json({
       success: true,
-      brand: finalBrand,
-      productCount: finalBrand.products.length,
-      brandInfo: results.brandInfo || { name: brandName, logo: '' },
-      products: results.products || []
+      brand: savedBrand || { name: brandName, products: [] },
+      productCount: result.totalProducts,
+      brandInfo: { name: brandName, logo: savedBrand?.logo || '' },
+      products: savedBrand?.products || []
     });
-
   } catch (error) {
-    console.error('🔥 [Sync Strategy API Error]:', error.message);
-    if (error.name === 'TimeoutError' || error.message.includes('timeout')) {
-      return res.status(504).json({ error: 'Request to external scraper timed out (2 minutes exceeded).' });
-    }
+    console.error('🔥 [Supabase Sync API Error]:', error.message);
     res.status(500).json({ error: error.message });
   }
 });
 
-// Batch Fitout Matching
+// Batch Fitout Matching (3-Tier Supabase / Clean Seed)
 app.post('/api/ai/match-fitout', async (req, res) => {
   try {
     const { items, tier = 'mid' } = req.body;
@@ -6430,65 +6862,84 @@ app.post('/api/ai/match-fitout', async (req, res) => {
       return res.status(400).json({ error: 'Items array required' });
     }
 
-    console.log(`\n🏗️  [Batch Fitout] Matching ${items.length} items (Tier: ${tier})...`);
-
-    let dbName = `fitout_v2-${tier}.json`;
-    let dbPath = path.join(__dirname, 'data', 'brands', dbName);
-
-    try {
-      await fs.access(dbPath);
-    } catch {
-      dbPath = path.join(__dirname, 'data', 'brands', 'fitout_v2-mid.json');
-    }
-
-    const dbRaw = await fs.readFile(dbPath, 'utf-8');
-    const dbData = JSON.parse(dbRaw);
-    const internalProducts = filterValidFitoutProducts(dbData.products || []);
-
+    const normTier = normalizeBudgetTier(tier);
     const results = await Promise.all(items.map(async (item) => {
       try {
-        const matchResult = await matchFitoutItem(item.description, internalProducts, tier);
+        const hits = await searchFitoutHybrid({
+          queryText: item.description || '',
+          tier: normTier,
+          unitHint: item.unit || '',
+          topK: 1
+        });
         return {
           originalItem: item,
-          match: matchResult.status === 'success' ? matchResult.product : null,
-          status: matchResult.status
+          match: hits[0] || null,
+          status: hits[0] ? 'success' : 'no_match'
         };
       } catch (err) {
         return { originalItem: item, match: null, status: 'error', error: err.message };
       }
     }));
 
-    res.json({ success: true, results });
+    res.json({ success: true, tier: normTier, results });
   } catch (error) {
     console.error('🔥 [Batch Fitout Error]:', error.message);
     res.status(500).json({ error: error.message });
   }
 });
 
-// --- Plan Analysis ---
+// Signed Plan Upload URL (bypasses Vercel 4.5MB limit using Supabase Storage `plan-uploads` bucket)
+app.post('/api/plans/upload-url', async (req, res) => {
+  try {
+    const { filename = 'plan.pdf' } = req.body || {};
+    const signed = await createSignedPlanUploadUrl(filename);
+    res.json({ success: true, ...signed });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// --- Plan Analysis (Supports direct Supabase Storage paths OR multipart files) ---
 app.post('/api/analyze-plan', planUpload.array('files', 10), async (req, res) => {
-  if (!req.files || req.files.length === 0) {
-    return res.status(400).json({ error: 'No files uploaded' });
+  const storagePaths = Array.isArray(req.body?.storagePaths) ? req.body.storagePaths : [];
+  if ((!req.files || req.files.length === 0) && storagePaths.length === 0) {
+    return res.status(400).json({ error: 'No files or storagePaths provided' });
   }
 
   try {
-    const filesData = await Promise.all(req.files.map(async (file) => {
-      const fileBuffer = await fs.readFile(file.path);
-      return {
-        base64Data: fileBuffer.toString('base64'),
-        mimeType: file.mimetype,
-        originalname: file.originalname,
-        path: file.path
-      };
-    }));
+    let filesData = [];
+    if (storagePaths.length > 0) {
+      filesData = await Promise.all(storagePaths.map(async (sp) => {
+        const storagePath = typeof sp === 'string' ? sp : sp.storagePath;
+        const origName = (typeof sp === 'object' && sp.originalname) ? sp.originalname : path.basename(storagePath);
+        const mimeType = (typeof sp === 'object' && sp.mimeType) ? sp.mimeType : (/\.png$/i.test(origName) ? 'image/png' : /\.jpe?g$/i.test(origName) ? 'image/jpeg' : 'application/pdf');
+        const buf = await downloadPlanFromStorage(storagePath);
+        return {
+          base64Data: buf.toString('base64'),
+          mimeType,
+          originalname: origName,
+          storagePath
+        };
+      }));
+    } else {
+      filesData = await Promise.all(req.files.map(async (file) => {
+        const fileBuffer = await fs.readFile(file.path);
+        return {
+          base64Data: fileBuffer.toString('base64'),
+          mimeType: file.mimetype,
+          originalname: file.originalname,
+          path: file.path
+        };
+      }));
+    }
 
-    console.log(`🏗️  Received ${filesData.length} plan(s) for analysis: ${filesData.map(f => f.originalname).join(', ')}`);
-    const includeFitout = req.body.includeFitout === 'true';
+    console.log(`🏗️  Received ${filesData.length} plan(s) for hybrid mupdf+Vision analysis: ${filesData.map(f => f.originalname).join(', ')}`);
+    const includeFitout = req.body.includeFitout === 'true' || req.body.includeFitout === true;
     const provider = req.body.provider || 'google';
     const providerModel = req.body.providerModel || undefined;
     const result = await analyzePlan(filesData, { includeFitout, provider, providerModel });
 
-    for (const file of req.files) {
+    for (const file of (req.files || [])) {
       try { await fs.unlink(file.path); } catch (e) { }
     }
 

@@ -13,7 +13,10 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "sync:brands": "node scripts/sync-brands-to-blob.js"
+    "sync:brands": "node scripts/sync-brands-to-blob.js",
+    "seed:scanner": "node server/scripts/seedMarketScannerToSupabase.js",
+    "deploy:functions": "npx supabase functions deploy market-scanner scrape-worker --project-ref kfrjsvqhvwaezdvsrgzw",
+    "test:e2e": "node test/e2e.browser.mjs"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",

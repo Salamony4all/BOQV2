@@ -5,676 +5,1874 @@
   "url": "",
   "origin": "Local",
   "budgetTier": "budgetary",
+  "budget_tier": "budgetary",
   "logo": "",
   "products": [
     {
       "mainCategory": "General Requirements",
       "subCategory": "Site Setup",
-      "family": "MOB",
+      "family": "MOB 01",
       "model": "MOB 01",
-      "description": "Site mobilization including temporary office setup and storage facilities.",
-      "imageUrl": "",
-      "price": 2500,
-      "productUrl": ""
+      "name": "Site Mobilization & Temporary Office",
+      "manufacturer": "",
+      "brandSystem": "GCC Contract Standard",
+      "unit": "Nos",
+      "currency": "OMR",
+      "description": "Value-Engineered / Economy Grade: Site mobilization including temporary site office, hoarding protection, and lockable storage.",
+      "imageUrl": "https://kfrjsvqhvwaezdvsrgzw.supabase.co/storage/v1/object/public/product-images/fitout-v2/mob-01.png?v=1795649203226",
+      "finishes": [
+        {
+          "role": "Hoarding",
+          "code": "RAL 7035",
+          "name": "Light Grey",
+          "hex": "#CBD0D3"
+        },
+        {
+          "role": "Frame",
+          "code": "GI",
+          "name": "Galvanized Steel",
+          "hex": "#8D959C"
+        }
+      ],
+      "price": 1750,
+      "productUrl": "",
+      "verified": true,
+      "source": "Fitout-Seed-V2"
     },
     {
       "mainCategory": "General Requirements",
       "subCategory": "Utilities",
-      "family": "UTIL",
+      "family": "UTIL 01",
       "model": "UTIL 01",
-      "description": "Provision of temporary water and electricity for site works.",
-      "imageUrl": "",
-      "price": 500,
-      "productUrl": ""
+      "name": "Schneider / ABB Temporary Site Water & Power DB",
+      "manufacturer": "Schneider Electric",
+      "brandSystem": "Schneider Electric® / ABB®",
+      "unit": "Nos",
+      "currency": "OMR",
+      "description": "Value-Engineered / Economy Grade: Provision and maintenance of temporary water, Schneider / ABB distribution boards, and site electricity.",
+      "imageUrl": "https://kfrjsvqhvwaezdvsrgzw.supabase.co/storage/v1/object/public/product-images/fitout-v2/util-01.png?v=1795649203226",
+      "finishes": [
+        {
+          "role": "Enclosure",
+          "code": "RAL 7035",
+          "name": "Industrial Grey",
+          "hex": "#C5CACD"
+        },
+        {
+          "role": "Warning",
+          "code": "RAL 2004",
+          "name": "Safety Orange",
+          "hex": "#E06020"
+        }
+      ],
+      "price": 350,
+      "productUrl": "",
+      "verified": true,
+      "source": "Fitout-Seed-V2"
     },
     {
       "mainCategory": "General Requirements",
       "subCategory": "Health & Safety",
-      "family": "HSE",
+      "family": "HSE 01",
       "model": "HSE 01",
-      "description": "Health and safety requirements including PPE and on-site safety signage.",
-      "imageUrl": "",
-      "price": 1200,
-      "productUrl": ""
+      "name": "NAFFCO HSE & Civil Defense Fire Safety Pack",
+      "manufacturer": "NAFFCO",
+      "brandSystem": "NAFFCO® / Civil Defense",
+      "unit": "Nos",
+      "currency": "OMR",
+      "description": "Value-Engineered / Economy Grade: NAFFCO fire extinguishers, Civil Defense signage, PPE, first-aid station, and HSE compliance boards.",
+      "imageUrl": "https://kfrjsvqhvwaezdvsrgzw.supabase.co/storage/v1/object/public/product-images/fitout-v2/hse-01.png?v=1795649203226",
+      "finishes": [
+        {
+          "role": "Signage",
+          "code": "RAL 6032",
+          "name": "Safety Green",
+          "hex": "#1D8348"
+        },
+        {
+          "role": "Hardware",
+          "code": "RAL 3001",
+          "name": "Fire Red",
+          "hex": "#C0392B"
+        }
+      ],
+      "price": 840,
+      "productUrl": "",
+      "verified": true,
+      "source": "Fitout-Seed-V2"
     },
     {
       "mainCategory": "General Requirements",
       "subCategory": "Logistics",
-      "family": "DEB",
+      "family": "DEB 01",
       "model": "DEB 01",
-      "description": "Daily housekeeping and periodic disposal of debris off-site to approved dumpsites.",
-      "imageUrl": "",
-      "price": 850,
-      "productUrl": ""
+      "name": "Daily Housekeeping & Debris Disposal",
+      "manufacturer": "",
+      "brandSystem": "GCC Contract Standard",
+      "unit": "Nos",
+      "currency": "OMR",
+      "description": "Value-Engineered / Economy Grade: Daily housekeeping and periodic carting away of construction debris to approved municipal dumpsites.",
+      "imageUrl": "https://kfrjsvqhvwaezdvsrgzw.supabase.co/storage/v1/object/public/product-images/fitout-v2/deb-01.png?v=1795649203226",
+      "finishes": [
+        {
+          "role": "Protection",
+          "code": "FR-3mm",
+          "name": "Correx Grey",
+          "hex": "#7F8C8D"
+        },
+        {
+          "role": "Wrap",
+          "code": "HDPE",
+          "name": "Clean Kraft",
+          "hex": "#B59B7A"
+        }
+      ],
+      "price": 595,
+      "productUrl": "",
+      "verified": true,
+      "source": "Fitout-Seed-V2"
     },
     {
       "mainCategory": "General Requirements",
       "subCategory": "Final Works",
-      "family": "CLN",
+      "family": "CLN 01",
       "model": "CLN 01",
-      "description": "Professional deep cleaning and handover preparation.",
-      "imageUrl": "",
-      "price": 1500,
-      "productUrl": ""
+      "name": "3M Commercial Deep Post-Construction Cleaning",
+      "manufacturer": "3M Commercial",
+      "brandSystem": "3M™ Commercial Care",
+      "unit": "Nos",
+      "currency": "OMR",
+      "description": "Value-Engineered / Economy Grade: Professional builder clean using 3M commercial floor pads, glass polishing, floor scrubbing, and snagging handover.",
+      "imageUrl": "https://kfrjsvqhvwaezdvsrgzw.supabase.co/storage/v1/object/public/product-images/fitout-v2/cln-01.png?v=1795649203226",
+      "finishes": [
+        {
+          "role": "Glass Finish",
+          "code": "CLR-01",
+          "name": "Streak-Free Polish",
+          "hex": "#DCEEF8"
+        },
+        {
+          "role": "Floor Buff",
+          "code": "MAT-02",
+          "name": "Sealer Neutral",
+          "hex": "#E8E4DC"
+        }
+      ],
+      "price": 1050,
+      "productUrl": "",
+      "verified": true,
+      "source": "Fitout-Seed-V2"
     },
     {
       "mainCategory": "General Requirements",
       "subCategory": "Insurance",
-      "family": "INS",
+      "family": "INS 01",
       "model": "INS 01",
-      "description": "Workmen Compensation and All-Risk Insurance for project duration.",
-      "imageUrl": "",
-      "price": 1800,
-      "productUrl": ""
+      "name": "CAR & Workmen Compensation Insurance",
+      "manufacturer": "",
+      "brandSystem": "GCC Contract Standard",
+      "unit": "Nos",
+      "currency": "OMR",
+      "description": "Value-Engineered / Economy Grade: Contractors All-Risk and Workmen Compensation Insurance covering full fit-out duration.",
+      "imageUrl": "https://kfrjsvqhvwaezdvsrgzw.supabase.co/storage/v1/object/public/product-images/fitout-v2/ins-01.png?v=1795649203226",
+      "finishes": [
+        {
+          "role": "Coverage",
+          "code": "CAR-100",
+          "name": "Policy Navy",
+          "hex": "#1E3A5F"
+        },
+        {
+          "role": "Bond",
+          "code": "WC-01",
+          "name": "Slate Seal",
+          "hex": "#64748B"
+        }
+      ],
+      "price": 1260,
+      "productUrl": "",
+      "verified": true,
+      "source": "Fitout-Seed-V2"
+    },
+    {
+      "mainCategory": "Flooring & Wet Works",
+      "subCategory": "Carpet Tiles",
+      "family": "FL",
+      "model": "FL-CPT-01",
+      "name": "Heavy-Duty Commercial Carpet Tile 500x500mm",
+      "manufacturer": "Interface",
+      "brandSystem": "Interface® Human Connections",
+      "unit": "SQM",
+      "currency": "OMR",
+      "description": "Value-Engineered / Economy Grade: 9mm tufted solution-dyed nylon carpet tile (500x500mm), bitumen/acoustic backing, Class 33, Bfl-s1 fire rating.",
+      "imageUrl": "https://kfrjsvqhvwaezdvsrgzw.supabase.co/storage/v1/object/public/product-images/fitout-v2/fl-cpt-01.png?v=1795649203226",
+      "finishes": [
+        {
+          "role": "Primary Tile",
+          "code": "IF-7501 Stone",
+          "name": "Woven Ash Charcoal",
+          "hex": "#4B4F54"
+        },
+        {
+          "role": "Accent Tile",
+          "code": "IF-7504 Pebble",
+          "name": "Warm Quartz Grey",
+          "hex": "#908E88"
+        },
+        {
+          "role": "Backing",
+          "code": "CQuest™Bio",
+          "name": "Acoustic Cushion Black",
+          "hex": "#222528"
+        }
+      ],
+      "price": 13.5,
+      "productUrl": "",
+      "verified": true,
+      "source": "Fitout-Seed-V2"
+    },
+    {
+      "mainCategory": "Flooring & Wet Works",
+      "subCategory": "Carpet Tiles",
+      "family": "FL",
+      "model": "FL-CPT-02",
+      "name": "Wall-to-Wall Broadloom Carpet with Underlay",
+      "manufacturer": "Shaw Contract",
+      "brandSystem": "Shaw Contract® Broadloom",
+      "unit": "SQM",
+      "currency": "OMR",
+      "description": "Value-Engineered / Economy Grade: 9mm commercial cut-pile broadloom carpet over high-density acousticPU underlay, tackless perimeter.",
+      "imageUrl": "https://kfrjsvqhvwaezdvsrgzw.supabase.co/storage/v1/object/public/product-images/fitout-v2/fl-cpt-02.png?v=1795649203226",
+      "finishes": [
+        {
+          "role": "Broadloom",
+          "code": "SC-4429",
+          "name": "Heathered Greige",
+          "hex": "#888278"
+        },
+        {
+          "role": "Perimeter",
+          "code": "SC-4435",
+          "name": "Charcoal Border",
+          "hex": "#3B3E42"
+        },
+        {
+          "role": "Underlay",
+          "code": "PU-9mm",
+          "name": "Acoustic Foam",
+          "hex": "#6A7178"
+        }
+      ],
+      "price": 15.5,
+      "productUrl": "",
+      "verified": true,
+      "source": "Fitout-Seed-V2"
+    },
+    {
+      "mainCategory": "Flooring & Wet Works",
+      "subCategory": "Porcelain Tiles",
+      "family": "FL",
+      "model": "FL-POR-01",
+      "name": "RAK Ceramics Rectified Matte Porcelain Floor Tile 600x600mm",
+      "manufacturer": "RAK Ceramics",
+      "brandSystem": "RAK Ceramics® Surface Tech",
+      "unit": "SQM",
+      "currency": "OMR",
+      "description": "Value-Engineered / Economy Grade: RAK Ceramics 600x600x10mm full-body rectified porcelain tile, R10 anti-slip matte finish, Mapei C2TE adhesive & epoxy grout.",
+      "imageUrl": "https://kfrjsvqhvwaezdvsrgzw.supabase.co/storage/v1/object/public/product-images/fitout-v2/fl-por-01.png?v=1795649203226",
+      "finishes": [
+        {
+          "role": "Field Tile",
+          "code": "RAK Atlas Warm",
+          "name": "Warm Limestone Matte R10",
+          "hex": "#D8CFC2"
+        },
+        {
+          "role": "Accent Tile",
+          "code": "RAK Basalt Grey",
+          "name": "Full-Body Anthracite Matte",
+          "hex": "#6F7275"
+        },
+        {
+          "role": "Adhesive / Grout",
+          "code": "MAPEI 111",
+          "name": "Silver Grey C2TE + Epoxy",
+          "hex": "#9DA3A8"
+        }
+      ],
+      "price": 17,
+      "productUrl": "",
+      "verified": true,
+      "source": "Fitout-Seed-V2"
+    },
+    {
+      "mainCategory": "Flooring & Wet Works",
+      "subCategory": "Vinyl Flooring",
+      "family": "FL",
+      "model": "FL-VNL-01",
+      "name": "Tarkett Commercial LVT / Heterogeneous Vinyl Flooring",
+      "manufacturer": "Tarkett",
+      "brandSystem": "Tarkett® iD Inspiration",
+      "unit": "SQM",
+      "currency": "OMR",
+      "description": "Value-Engineered / Economy Grade: Tarkett 3.0-5.0mm commercial luxury vinyl plank/tile with 0.55mm wear layer, acoustic backing & PU surface.",
+      "imageUrl": "https://kfrjsvqhvwaezdvsrgzw.supabase.co/storage/v1/object/public/product-images/fitout-v2/fl-vnl-01.png?v=1795649203226",
+      "finishes": [
+        {
+          "role": "Wood Plank",
+          "code": "TK-2401",
+          "name": "Scandi Bleached Oak",
+          "hex": "#CBB18B"
+        },
+        {
+          "role": "Feature Grain",
+          "code": "TK-2409",
+          "name": "Smoked Chestnut",
+          "hex": "#7A5B43"
+        },
+        {
+          "role": "PUR Shield",
+          "code": "TEKTANIUM",
+          "name": "Ultra-Matte Seal",
+          "hex": "#E4DED4"
+        }
+      ],
+      "price": 12.5,
+      "productUrl": "",
+      "verified": true,
+      "source": "Fitout-Seed-V2"
     },
     {
       "mainCategory": "Flooring & Wet Works",
       "subCategory": "Stone Flooring",
-      "family": "MA",
-      "model": "MA 201",
-      "description": "Mechanically fixed marble, 20mm thick stone as per approved sample.",
-      "imageUrl": "",
-      "price": 26,
-      "productUrl": ""
+      "family": "FL",
+      "model": "FL-MRB-01",
+      "name": "Omani Marble Flooring (Ibri Crema / Beige) 1200x600x20mm",
+      "manufacturer": "Al Turki Enterprises (Omani Marble)",
+      "brandSystem": "Omani Marble (Al Turki Ibri Crema)",
+      "unit": "SQM",
+      "currency": "OMR",
+      "description": "Value-Engineered / Economy Grade: Natural Omani marble slab (Al Turki Ibri Crema / Sohar Beige) 1200x600x20mm honed/polished on 50mm semi-dry cement sand screed with Mapei marble adhesive.",
+      "imageUrl": "https://kfrjsvqhvwaezdvsrgzw.supabase.co/storage/v1/object/public/product-images/fitout-v2/fl-mrb-01.png?v=1795649203226",
+      "finishes": [
+        {
+          "role": "Primary Stone",
+          "code": "Ibri Crema",
+          "name": "Omani Crema Polished Slab",
+          "hex": "#E6D6BF"
+        },
+        {
+          "role": "Secondary Vein",
+          "code": "Sohar Beige",
+          "name": "Omani Desert Warm Vein",
+          "hex": "#CBB393"
+        },
+        {
+          "role": "Bedding Mortar",
+          "code": "MAPEI 100",
+          "name": "Keraflex White Marble Glue",
+          "hex": "#EFECE6"
+        }
+      ],
+      "price": 29,
+      "productUrl": "",
+      "verified": true,
+      "source": "Fitout-Seed-V2"
     },
     {
       "mainCategory": "Flooring & Wet Works",
       "subCategory": "Stone Flooring",
-      "family": "MA",
-      "model": "MA 101",
-      "description": "Cool white marble 1200x600x20mm thick stone as per approved sample including cement sand screed.",
-      "imageUrl": "",
-      "price": 42,
-      "productUrl": ""
-    },
-    {
-      "mainCategory": "Flooring & Wet Works",
-      "subCategory": "Carpet Tiles",
-      "family": "CA",
-      "model": "CA 101",
-      "description": "9mm Thick custom design carpet tile.",
-      "imageUrl": "",
-      "price": 19,
-      "productUrl": ""
-    },
-    {
-      "mainCategory": "Flooring & Wet Works",
-      "subCategory": "Carpet Tiles",
-      "family": "CA",
-      "model": "CA 102",
-      "description": "9mm Thick custom design carpet tile.",
-      "imageUrl": "",
-      "price": 19,
-      "productUrl": ""
-    },
-    {
-      "mainCategory": "Flooring & Wet Works",
-      "subCategory": "Carpet Tiles",
-      "family": "CA",
-      "model": "CA 103",
-      "description": "9mm Thick custom design carpet tile, 3000 mm dia.",
-      "imageUrl": "",
-      "price": 19,
-      "productUrl": ""
-    },
-    {
-      "mainCategory": "Flooring & Wet Works",
-      "subCategory": "Carpet Tiles",
-      "family": "CA",
-      "model": "CA 104",
-      "description": "9mm Thick custom design wall to wall tile with underlay.",
-      "imageUrl": "",
-      "price": 19,
-      "productUrl": ""
-    },
-    {
-      "mainCategory": "Flooring & Wet Works",
-      "subCategory": "Carpet Tiles",
-      "family": "CA",
-      "model": "CA 106",
-      "description": "9mm Thick custom design wall to wall carpet with underlay.",
-      "imageUrl": "",
-      "price": 19,
-      "productUrl": ""
+      "family": "FL",
+      "model": "FL-MRB-02",
+      "name": "Omani Limestone / Mechanically Fixed Stone Threshold",
+      "manufacturer": "Al Turki Enterprises (Omani Marble)",
+      "brandSystem": "Omani Marble (Nizwa Limestone / SS-316)",
+      "unit": "SQM",
+      "currency": "OMR",
+      "description": "Value-Engineered / Economy Grade: 20mm thick Omani Nizwa / desert beige natural stone threshold & cladding with SS-316 anchors and sealed Fila MP90 grout joints.",
+      "imageUrl": "https://kfrjsvqhvwaezdvsrgzw.supabase.co/storage/v1/object/public/product-images/fitout-v2/fl-mrb-02.png?v=1795649203226",
+      "finishes": [
+        {
+          "role": "Stone Cut",
+          "code": "Nizwa Desert",
+          "name": "Omani Honed Limestone 20mm",
+          "hex": "#D5C3A5"
+        },
+        {
+          "role": "Mechanical Anchor",
+          "code": "SS-316",
+          "name": "Marine Stainless Kerf Bracket",
+          "hex": "#A4ABB2"
+        },
+        {
+          "role": "Stone Sealer",
+          "code": "FILA-MP90",
+          "name": "Penetrating Oleophobic Seal",
+          "hex": "#E8E3D9"
+        }
+      ],
+      "price": 24,
+      "productUrl": "",
+      "verified": true,
+      "source": "Fitout-Seed-V2"
     },
     {
       "mainCategory": "Flooring & Wet Works",
       "subCategory": "Preparation",
-      "family": "SL",
-      "model": "SL 001",
-      "description": "Supply and fix of self leveling below carpet and any other requirement needed to final fix of carpet.",
-      "imageUrl": "",
-      "price": 10500,
-      "productUrl": ""
+      "family": "FL",
+      "model": "FL-LEV-01",
+      "name": "Mapei Ultraplan Self-Leveling Floor Screed",
+      "manufacturer": "Mapei",
+      "brandSystem": "Mapei® Ultraplan Eco",
+      "unit": "SQM",
+      "currency": "OMR",
+      "description": "Value-Engineered / Economy Grade: Mapei 5-8mm polymer-modified self-leveling cementitious screed and Eco Prim Grip damp-proof primer prior to carpet/vinyl.",
+      "imageUrl": "https://kfrjsvqhvwaezdvsrgzw.supabase.co/storage/v1/object/public/product-images/fitout-v2/fl-lev-01.png?v=1795649203226",
+      "finishes": [
+        {
+          "role": "Compound",
+          "code": "MP-3240",
+          "name": "Cementitious Grey",
+          "hex": "#A4A7A9"
+        },
+        {
+          "role": "Primer",
+          "code": "ECO-PRIM",
+          "name": "Acrylic Grip",
+          "hex": "#7C8B94"
+        }
+      ],
+      "price": 5,
+      "productUrl": "",
+      "verified": true,
+      "source": "Fitout-Seed-V2"
     },
     {
       "mainCategory": "Flooring & Wet Works",
       "subCategory": "Finishing",
-      "family": "SS",
-      "model": "SS TRIM",
-      "description": "3mm stainless steel trim to be considered where change of flooring materials as per approved sample.",
-      "imageUrl": "",
-      "price": 8000,
-      "productUrl": ""
-    },
-    {
-      "mainCategory": "Partitions & Wall Cladding",
-      "subCategory": "Glass Partitions",
-      "family": "GL",
-      "model": "GL 101",
-      "description": "12 mm thick toughened clear glass with vinyl sticker signage.",
-      "imageUrl": "",
-      "price": 55,
-      "productUrl": ""
-    },
-    {
-      "mainCategory": "Partitions & Wall Cladding",
-      "subCategory": "Glass Partitions",
-      "family": "GL",
-      "model": "GL 102",
-      "description": "12 mm thick toughened clear rippled glass.",
-      "imageUrl": "",
-      "price": 110,
-      "productUrl": ""
-    },
-    {
-      "mainCategory": "Partitions & Wall Cladding",
-      "subCategory": "Wood Cladding",
-      "family": "WD",
-      "model": "WD 101",
-      "description": "Natural wood veneer cladded MDF panel.",
-      "imageUrl": "",
-      "price": 65,
-      "productUrl": ""
-    },
-    {
-      "mainCategory": "Partitions & Wall Cladding",
-      "subCategory": "Wood Cladding",
-      "family": "WD",
-      "model": "WD 102",
-      "description": "Prefabricated wooded fluted panel.",
-      "imageUrl": "",
-      "price": 85,
-      "productUrl": ""
-    },
-    {
-      "mainCategory": "Partitions & Wall Cladding",
-      "subCategory": "Metal Cladding",
-      "family": "MT",
-      "model": "MT 101",
-      "description": "Black color PVD coated stainless steel trim or accents.",
-      "imageUrl": "",
-      "price": 20,
-      "productUrl": ""
-    },
-    {
-      "mainCategory": "Partitions & Wall Cladding",
-      "subCategory": "Acoustic Partitions",
-      "family": "AP",
-      "model": "AP 104",
-      "description": "Prefabricated acoustic panel fully enclosed with excellent quality fabrics.",
-      "imageUrl": "",
-      "price": 75,
-      "productUrl": ""
-    },
-    {
-      "mainCategory": "Partitions & Wall Cladding",
-      "subCategory": "Specialized Glass",
-      "family": "GL",
-      "model": "GL FROST",
-      "description": "10 mm thick frosted toughened glass decorative partition.",
-      "imageUrl": "",
-      "price": 45,
-      "productUrl": ""
+      "family": "FL",
+      "model": "FL-TRM-01",
+      "name": "Schlüter Stainless Steel Floor Transition Trim",
+      "manufacturer": "Schlüter-Systems",
+      "brandSystem": "Schlüter®-SCHIENE 304 SS",
+      "unit": "LM",
+      "currency": "OMR",
+      "description": "Value-Engineered / Economy Grade: Schlüter-SCHIENE 3mm brushed 304 stainless steel floor transition strip between dissimilar floor finishes.",
+      "imageUrl": "https://kfrjsvqhvwaezdvsrgzw.supabase.co/storage/v1/object/public/product-images/fitout-v2/fl-trm-01.png?v=1795649203226",
+      "finishes": [
+        {
+          "role": "Profile",
+          "code": "E-304",
+          "name": "Brushed 304 Stainless",
+          "hex": "#C2C7CC"
+        },
+        {
+          "role": "Insert",
+          "code": "ANOD-BK",
+          "name": "Shadow Groove",
+          "hex": "#2E3134"
+        }
+      ],
+      "price": 8.5,
+      "productUrl": "",
+      "verified": true,
+      "source": "Fitout-Seed-V2"
     },
     {
       "mainCategory": "Partitions & Wall Cladding",
       "subCategory": "Masonry & Gypsum",
-      "family": "GYP",
-      "model": "GYP DOOR",
-      "description": "Gypsum decorative board wall with single glass door.",
-      "imageUrl": "",
-      "price": 30,
-      "productUrl": ""
+      "family": "PT",
+      "model": "PT-DRY-01",
+      "name": "Knauf Acoustic Drywall Partition (100-125mm)",
+      "manufacturer": "Knauf",
+      "brandSystem": "Knauf® GKB 12.5mm + Isover®",
+      "unit": "SQM",
+      "currency": "OMR",
+      "description": "Value-Engineered / Economy Grade: Knauf 125mm acoustic drywall: double 12.5mm Knauf GKB gypsum boards each side on 70mm GI studs with 50mm 60kg/m3 rockwool.",
+      "imageUrl": "https://kfrjsvqhvwaezdvsrgzw.supabase.co/storage/v1/object/public/product-images/fitout-v2/pt-dry-01.png?v=1795649203226",
+      "finishes": [
+        {
+          "role": "Paint Finish",
+          "code": "Jotun 1624",
+          "name": "Skylight Matte Emulsion",
+          "hex": "#ECEBE6"
+        },
+        {
+          "role": "Gypsum Board & Stud",
+          "code": "Knauf GKB 12.5",
+          "name": "Double Ivory Board + 70mm GI",
+          "hex": "#D8D4C9"
+        },
+        {
+          "role": "Acoustic Core",
+          "code": "Rockwool 60",
+          "name": "60kg/m³ Mineral Wool Batts",
+          "hex": "#C7B68A"
+        }
+      ],
+      "price": 19.5,
+      "productUrl": "",
+      "verified": true,
+      "source": "Fitout-Seed-V2"
+    },
+    {
+      "mainCategory": "Partitions & Wall Cladding",
+      "subCategory": "Masonry & Gypsum",
+      "family": "PT",
+      "model": "PT-DRY-02",
+      "name": "Knauf Moisture-Resistant Wet Area Drywall Partition",
+      "manufacturer": "Knauf",
+      "brandSystem": "Knauf® GKBI Moisture-Resistant",
+      "unit": "SQM",
+      "currency": "OMR",
+      "description": "Value-Engineered / Economy Grade: Knauf 125mm moisture-resistant GKBI (green core) double-board gypsum partition with acoustic rockwool infill for pantry/WC.",
+      "imageUrl": "https://kfrjsvqhvwaezdvsrgzw.supabase.co/storage/v1/object/public/product-images/fitout-v2/pt-dry-02.png?v=1795649203226",
+      "finishes": [
+        {
+          "role": "Board Core",
+          "code": "Knauf GKBI",
+          "name": "Moisture-Resistant Green Core",
+          "hex": "#9EBCA3"
+        },
+        {
+          "role": "Stud System",
+          "code": "Knauf CW-70",
+          "name": "0.6mm Galvanized Track",
+          "hex": "#B4BAC0"
+        },
+        {
+          "role": "Acoustic Infill",
+          "code": "Isover 50mm",
+          "name": "Foil-Faced Mineral Wool",
+          "hex": "#CBB882"
+        }
+      ],
+      "price": 22,
+      "productUrl": "",
+      "verified": true,
+      "source": "Fitout-Seed-V2"
+    },
+    {
+      "mainCategory": "Partitions & Wall Cladding",
+      "subCategory": "Glass Partitions",
+      "family": "PT",
+      "model": "PT-GLS-01",
+      "name": "Guardian / Optima Single-Glazed Acoustic Partition 12mm",
+      "manufacturer": "Guardian Glass / Optima",
+      "brandSystem": "Guardian® Planibel + Optima®",
+      "unit": "SQM",
+      "currency": "OMR",
+      "description": "Value-Engineered / Economy Grade: Guardian 12mm clear toughened safety glass partition in slimline Optima black/anodized aluminum U-channels, Dow 995 silicone joints.",
+      "imageUrl": "https://kfrjsvqhvwaezdvsrgzw.supabase.co/storage/v1/object/public/product-images/fitout-v2/pt-gls-01.png?v=1795649203226",
+      "finishes": [
+        {
+          "role": "Glazing",
+          "code": "SG-12mm",
+          "name": "Low-Iron Clear Glass",
+          "hex": "#CDE4ED"
+        },
+        {
+          "role": "Track Profile",
+          "code": "RAL 9005",
+          "name": "Slim Matte Black Alum",
+          "hex": "#1C1D20"
+        },
+        {
+          "role": "Silicone",
+          "code": "Dow 995",
+          "name": "Crystal Clear Joint",
+          "hex": "#E3EEF2"
+        }
+      ],
+      "price": 41,
+      "productUrl": "",
+      "verified": true,
+      "source": "Fitout-Seed-V2"
+    },
+    {
+      "mainCategory": "Partitions & Wall Cladding",
+      "subCategory": "Glass Partitions",
+      "family": "PT",
+      "model": "PT-GLS-02",
+      "name": "Optima Double-Glazed Acoustic Partition (45dB)",
+      "manufacturer": "Optima",
+      "brandSystem": "Optima® Revolution 100",
+      "unit": "SQM",
+      "currency": "OMR",
+      "description": "Value-Engineered / Economy Grade: Optima Revolution 100 double-glazed 10mm+10mm acoustic laminated glass partition in 75mm powder-coated aluminum framing.",
+      "imageUrl": "https://kfrjsvqhvwaezdvsrgzw.supabase.co/storage/v1/object/public/product-images/fitout-v2/pt-gls-02.png?v=1795649203226",
+      "finishes": [
+        {
+          "role": "Acoustic Glass",
+          "code": "Stadip Silence",
+          "name": "Crystal Twin Glaze",
+          "hex": "#BFE0EC"
+        },
+        {
+          "role": "75mm Frame",
+          "code": "RAL 7021",
+          "name": "Black-Grey Anodized",
+          "hex": "#2F3236"
+        },
+        {
+          "role": "Manifestation",
+          "code": "3M Dusted",
+          "name": "Architectural Mist Band",
+          "hex": "#E7EDF0"
+        }
+      ],
+      "price": 67,
+      "productUrl": "",
+      "verified": true,
+      "source": "Fitout-Seed-V2"
+    },
+    {
+      "mainCategory": "Partitions & Wall Cladding",
+      "subCategory": "Specialized Glass",
+      "family": "PT",
+      "model": "PT-GLS-03",
+      "name": "Saint-Gobain Frosted / Fluted Decorative Glass Partition",
+      "manufacturer": "Saint-Gobain",
+      "brandSystem": "Saint-Gobain Satinovo® Fluted",
+      "unit": "SQM",
+      "currency": "OMR",
+      "description": "Value-Engineered / Economy Grade: Saint-Gobain Satinovo 10-12mm frosted/fluted toughened glass partition with concealed perimeter channels and 3M manifestation film.",
+      "imageUrl": "https://kfrjsvqhvwaezdvsrgzw.supabase.co/storage/v1/object/public/product-images/fitout-v2/pt-gls-03.png?v=1795649203226",
+      "finishes": [
+        {
+          "role": "Fluted Glass",
+          "code": "Satinovo-R",
+          "name": "Translucent Reeded",
+          "hex": "#D8E8EE"
+        },
+        {
+          "role": "Channel",
+          "code": "RAL 9005",
+          "name": "Matte Black Slim",
+          "hex": "#1E2022"
+        },
+        {
+          "role": "Sealant",
+          "code": "CLR-02",
+          "name": "Frosted Joint",
+          "hex": "#E8EFF2"
+        }
+      ],
+      "price": 50,
+      "productUrl": "",
+      "verified": true,
+      "source": "Fitout-Seed-V2"
     },
     {
       "mainCategory": "Partitions & Wall Cladding",
       "subCategory": "Temporary Works",
-      "family": "TEMP",
-      "model": "TEMP PART",
-      "description": "2000 mm high temporary partition.",
-      "imageUrl": "",
-      "price": 25,
-      "productUrl": ""
+      "family": "PT",
+      "model": "PT-TMP-01",
+      "name": "Temporary Site Hoarding Partition (2400mm H)",
+      "manufacturer": "",
+      "brandSystem": "GCC Site Protection Standard",
+      "unit": "SQM",
+      "currency": "OMR",
+      "description": "Value-Engineered / Economy Grade: 2000-2400mm high painted plywood/gypsum temporary dust-barrier hoarding with lockable access.",
+      "imageUrl": "https://kfrjsvqhvwaezdvsrgzw.supabase.co/storage/v1/object/public/product-images/fitout-v2/pt-tmp-01.png?v=1795649203226",
+      "finishes": [
+        {
+          "role": "Panel Finish",
+          "code": "RAL 9010",
+          "name": "Pure Site White",
+          "hex": "#F2F1EC"
+        },
+        {
+          "role": "Trim",
+          "code": "RAL 7037",
+          "name": "Dusty Grey",
+          "hex": "#7D8285"
+        }
+      ],
+      "price": 12.5,
+      "productUrl": "",
+      "verified": true,
+      "source": "Fitout-Seed-V2"
+    },
+    {
+      "mainCategory": "Partitions & Wall Cladding",
+      "subCategory": "Wood Cladding",
+      "family": "WC",
+      "model": "WC-WOD-01",
+      "name": "Alpi / Egger Natural Wood Veneer Wall Cladding",
+      "manufacturer": "Alpi / Egger",
+      "brandSystem": "Alpi® / Egger® Quarter-Cut",
+      "unit": "SQM",
+      "currency": "OMR",
+      "description": "Value-Engineered / Economy Grade: 18mm FR-grade MDF wall cladding finished in quarter-cut Alpi oak/walnut veneer & Egger backing on concealed Z-clips.",
+      "imageUrl": "https://kfrjsvqhvwaezdvsrgzw.supabase.co/storage/v1/object/public/product-images/fitout-v2/wc-wod-01.png?v=1795649203226",
+      "finishes": [
+        {
+          "role": "Veneer Face",
+          "code": "ALPI-10.30",
+          "name": "Quarter-Cut White Oak",
+          "hex": "#C6A375"
+        },
+        {
+          "role": "Alternate",
+          "code": "H3702",
+          "name": "Smoked Walnut",
+          "hex": "#5D4030"
+        },
+        {
+          "role": "Shadow Reveal",
+          "code": "RAL 9005",
+          "name": "Black Concealed Clip",
+          "hex": "#1D1E21"
+        }
+      ],
+      "price": 46,
+      "productUrl": "",
+      "verified": true,
+      "source": "Fitout-Seed-V2"
+    },
+    {
+      "mainCategory": "Partitions & Wall Cladding",
+      "subCategory": "Wood Cladding",
+      "family": "WC",
+      "model": "WC-FLT-01",
+      "name": "Autex Fluted Timber / Slatted Acoustic Wall Panel",
+      "manufacturer": "Autex",
+      "brandSystem": "Autex® + Natural Timber Slats",
+      "unit": "SQM",
+      "currency": "OMR",
+      "description": "Value-Engineered / Economy Grade: Prefabricated fluted natural oak timber slats over 9mm black Autex PET acoustic felt backing & timber battens.",
+      "imageUrl": "https://kfrjsvqhvwaezdvsrgzw.supabase.co/storage/v1/object/public/product-images/fitout-v2/wc-flt-01.png?v=1795649203226",
+      "finishes": [
+        {
+          "role": "Timber Slat",
+          "code": "OAK-FLT-01",
+          "name": "Natural European Oak",
+          "hex": "#C29D6E"
+        },
+        {
+          "role": "PET Backing",
+          "code": "Autex Noir",
+          "name": "9mm Acoustic Black",
+          "hex": "#1E2023"
+        },
+        {
+          "role": "End Trim",
+          "code": "RAL 9005",
+          "name": "Matte Black Angle",
+          "hex": "#2A2C30"
+        }
+      ],
+      "price": 59,
+      "productUrl": "",
+      "verified": true,
+      "source": "Fitout-Seed-V2"
+    },
+    {
+      "mainCategory": "Partitions & Wall Cladding",
+      "subCategory": "Acoustic Partitions",
+      "family": "WC",
+      "model": "WC-ACU-01",
+      "name": "Autex / Vescom Fabric-Wrapped Acoustic Wall Panel",
+      "manufacturer": "Autex / Vescom",
+      "brandSystem": "Autex® / Vescom® Acoustic",
+      "unit": "SQM",
+      "currency": "OMR",
+      "description": "Value-Engineered / Economy Grade: 50mm high-density fiberglass core wrapped in acoustically transparent fire-rated Vescom / Camira commercial fabric (NRC 0.85).",
+      "imageUrl": "https://kfrjsvqhvwaezdvsrgzw.supabase.co/storage/v1/object/public/product-images/fitout-v2/wc-acu-01.png?v=1795649203226",
+      "finishes": [
+        {
+          "role": "Primary Textile",
+          "code": "Camira Sonus",
+          "name": "Warm Pebble Acoustic",
+          "hex": "#B4ACA0"
+        },
+        {
+          "role": "Accent Textile",
+          "code": "Autex Highland",
+          "name": "Deep Petrol Slate",
+          "hex": "#344B57"
+        },
+        {
+          "role": "Core",
+          "code": "OC-703",
+          "name": "High-Density Core",
+          "hex": "#D8C78E"
+        }
+      ],
+      "price": 53,
+      "productUrl": "",
+      "verified": true,
+      "source": "Fitout-Seed-V2"
+    },
+    {
+      "mainCategory": "Partitions & Wall Cladding",
+      "subCategory": "Metal Cladding",
+      "family": "WC",
+      "model": "WC-MTL-01",
+      "name": "Rimex PVD Brushed / Black Stainless Steel Wall Trim",
+      "manufacturer": "Rimex Metals",
+      "brandSystem": "Rimex® / Grade 304 PVD",
+      "unit": "LM",
+      "currency": "OMR",
+      "description": "Value-Engineered / Economy Grade: Rimex black/brass PVD-coated 1.5mm Grade 304 stainless steel shadow-gap trim or decorative wall inlay.",
+      "imageUrl": "https://kfrjsvqhvwaezdvsrgzw.supabase.co/storage/v1/object/public/product-images/fitout-v2/wc-mtl-01.png?v=1795649203226",
+      "finishes": [
+        {
+          "role": "Primary PVD",
+          "code": "PVD-BRS",
+          "name": "Brushed Champagne Brass",
+          "hex": "#B7995B"
+        },
+        {
+          "role": "Dark PVD",
+          "code": "PVD-BLK",
+          "name": "Black Satin PVD 304",
+          "hex": "#232428"
+        }
+      ],
+      "price": 14,
+      "productUrl": "",
+      "verified": true,
+      "source": "Fitout-Seed-V2"
+    },
+    {
+      "mainCategory": "Ceiling Works",
+      "subCategory": "Gypsum Ceiling",
+      "family": "CL",
+      "model": "CL-GYP-01",
+      "name": "Knauf Suspended Gypsum False Ceiling (12.5mm)",
+      "manufacturer": "Knauf",
+      "brandSystem": "Knauf® MF Ceiling + Jotun®",
+      "unit": "SQM",
+      "currency": "OMR",
+      "description": "Value-Engineered / Economy Grade: Knauf 12.5mm taper-edge gypsum plasterboard on 0.5mm concealed GI MF grid, shadow gap perimeter, Jotun matte emulsion.",
+      "imageUrl": "https://kfrjsvqhvwaezdvsrgzw.supabase.co/storage/v1/object/public/product-images/fitout-v2/cl-gyp-01.png?v=1795649203226",
+      "finishes": [
+        {
+          "role": "Ceiling Paint",
+          "code": "Jotun 9918",
+          "name": "Classic White Ultra Matte",
+          "hex": "#F3F2EE"
+        },
+        {
+          "role": "Board / Grid",
+          "code": "Knauf GKB 12.5",
+          "name": "Flush Skimmed Taper-Edge",
+          "hex": "#F5F5F3"
+        },
+        {
+          "role": "Perimeter Shadow",
+          "code": "MF Shadow Angle",
+          "name": "20mm Matte Black Reveal",
+          "hex": "#2B2E33"
+        }
+      ],
+      "price": 11,
+      "productUrl": "",
+      "verified": true,
+      "source": "Fitout-Seed-V2"
     },
     {
       "mainCategory": "Ceiling Works",
       "subCategory": "Acoustic Ceiling",
-      "family": "AP",
-      "model": "AP 101",
-      "description": "Prefabricated acoustic panel with custom design, fully enclosed with fabrics.",
-      "imageUrl": "",
-      "price": 90,
-      "productUrl": ""
+      "family": "CL",
+      "model": "CL-ACU-01",
+      "name": "Knauf / Armstrong Acoustic Mineral Fiber Ceiling 600x600mm",
+      "manufacturer": "Knauf Ceiling Solutions",
+      "brandSystem": "Knauf® Armstrong® Zentia Dune",
+      "unit": "SQM",
+      "currency": "OMR",
+      "description": "Value-Engineered / Economy Grade: Knauf Ceiling Solutions / Armstrong 600x600x15mm tegular mineral fiber acoustic tiles (NRC 0.70) on 15mm exposed white T-bar grid.",
+      "imageUrl": "https://kfrjsvqhvwaezdvsrgzw.supabase.co/storage/v1/object/public/product-images/fitout-v2/cl-acu-01.png?v=1795649203226",
+      "finishes": [
+        {
+          "role": "Mineral Tile",
+          "code": "ZT-BP14",
+          "name": "Clean Fine White",
+          "hex": "#F2F3F0"
+        },
+        {
+          "role": "Exposed T-Bar",
+          "code": "15mm White",
+          "name": "Silhouette Grid White",
+          "hex": "#E5E7EB"
+        }
+      ],
+      "price": 10.5,
+      "productUrl": "",
+      "verified": true,
+      "source": "Fitout-Seed-V2"
     },
     {
       "mainCategory": "Ceiling Works",
       "subCategory": "Acoustic Ceiling",
-      "family": "AP",
-      "model": "AP 102",
-      "description": "Prefabricated acoustic panel with custom design, fully enclosed with fabrics.",
-      "imageUrl": "",
-      "price": 90,
-      "productUrl": ""
+      "family": "CL",
+      "model": "CL-ACU-02",
+      "name": "Autex Suspended Fabric Acoustic Baffles / Clouds",
+      "manufacturer": "Autex",
+      "brandSystem": "Autex® Cube Baffles / Clouds",
+      "unit": "SQM",
+      "currency": "OMR",
+      "description": "Value-Engineered / Economy Grade: Autex custom suspended acoustic ceiling clouds/baffles wrapped in commercial fabric with galvanized wire hangers.",
+      "imageUrl": "https://kfrjsvqhvwaezdvsrgzw.supabase.co/storage/v1/object/public/product-images/fitout-v2/cl-acu-02.png?v=1795649203226",
+      "finishes": [
+        {
+          "role": "Baffle Felt",
+          "code": "Autex Mist",
+          "name": "Warm Silver Grey",
+          "hex": "#B8BDC2"
+        },
+        {
+          "role": "Feature Baffle",
+          "code": "Autex Terracotta",
+          "name": "Warm Clay",
+          "hex": "#A55A42"
+        },
+        {
+          "role": "Hanger",
+          "code": "SS-1.5",
+          "name": "Braided Wire Drop",
+          "hex": "#7F868D"
+        }
+      ],
+      "price": 63,
+      "productUrl": "",
+      "verified": true,
+      "source": "Fitout-Seed-V2"
     },
     {
       "mainCategory": "Ceiling Works",
       "subCategory": "Wood Ceilings",
-      "family": "WS",
-      "model": "WS 101",
-      "description": "White oak veneered Wood Slats suspended from ceiling.",
-      "imageUrl": "",
-      "price": 35,
-      "productUrl": ""
+      "family": "CL",
+      "model": "CL-WOD-01",
+      "name": "Hunter Douglas Suspended Wood Slat / Baffle Ceiling",
+      "manufacturer": "Hunter Douglas",
+      "brandSystem": "Hunter Douglas® HeartFelt / Baffle",
+      "unit": "SQM",
+      "currency": "OMR",
+      "description": "Value-Engineered / Economy Grade: Hunter Douglas white oak veneered aluminum/timber slats suspended on primary black carrier rails with acoustic fleece.",
+      "imageUrl": "https://kfrjsvqhvwaezdvsrgzw.supabase.co/storage/v1/object/public/product-images/fitout-v2/cl-wod-01.png?v=1795649203226",
+      "finishes": [
+        {
+          "role": "Slat Veneer",
+          "code": "HD-Oak-02",
+          "name": "Natural White Oak",
+          "hex": "#C6A476"
+        },
+        {
+          "role": "Carrier Rail",
+          "code": "RAL 9005",
+          "name": "Matte Black U-Carrier",
+          "hex": "#1C1D1F"
+        },
+        {
+          "role": "Acoustic Fleece",
+          "code": "NF-BK",
+          "name": "Black Non-Woven",
+          "hex": "#282A2E"
+        }
+      ],
+      "price": 39,
+      "productUrl": "",
+      "verified": true,
+      "source": "Fitout-Seed-V2"
     },
     {
       "mainCategory": "Ceiling Works",
       "subCategory": "Painting",
-      "family": "C",
-      "model": "C 01",
-      "description": "Smooth finished cement with approved paint as per architect approval.",
-      "imageUrl": "",
-      "price": 8,
-      "productUrl": ""
+      "family": "CL",
+      "model": "CL-PNT-01",
+      "name": "Jotun Exposed Soffit Spray Paint Finish",
+      "manufacturer": "Jotun",
+      "brandSystem": "Jotun® Majestic Exposed Soffit",
+      "unit": "SQM",
+      "currency": "OMR",
+      "description": "Value-Engineered / Economy Grade: Jotun Majestic two-coat matte black/dark-grey anti-dust acrylic spray coating to exposed concrete soffit & services.",
+      "imageUrl": "https://kfrjsvqhvwaezdvsrgzw.supabase.co/storage/v1/object/public/product-images/fitout-v2/cl-pnt-01.png?v=1795649203226",
+      "finishes": [
+        {
+          "role": "Soffit Spray",
+          "code": "RAL 7021",
+          "name": "Black-Grey Anti-Dust",
+          "hex": "#2B2E31"
+        },
+        {
+          "role": "Services Coat",
+          "code": "RAL 9005",
+          "name": "Jet Black Matte",
+          "hex": "#1B1C1E"
+        }
+      ],
+      "price": 5.5,
+      "productUrl": "",
+      "verified": true,
+      "source": "Fitout-Seed-V2"
     },
     {
       "mainCategory": "Doors & Windows",
-      "subCategory": "Window Treatments",
-      "family": "CUR",
-      "model": "CUR 2600",
-      "description": "Horizontal window curtain for window size 2600x2800 mm.",
-      "imageUrl": "",
-      "price": 85,
-      "productUrl": ""
+      "subCategory": "Timber Doors",
+      "family": "DR",
+      "model": "DR-SWG-01",
+      "name": "Solid-Core Timber Flush Door & Dormakaba Closer 900x2100mm",
+      "manufacturer": "Dormakaba",
+      "brandSystem": "HPL Timber Core + Dormakaba®",
+      "unit": "Nos",
+      "currency": "OMR",
+      "description": "Value-Engineered / Economy Grade: 900x2100x45mm solid-core flush timber door with Egger HPL finish, hardwood frame, stainless hardware & Dormakaba door closer.",
+      "imageUrl": "https://kfrjsvqhvwaezdvsrgzw.supabase.co/storage/v1/object/public/product-images/fitout-v2/dr-swg-01.png?v=1795649203226",
+      "finishes": [
+        {
+          "role": "Door Leaf HPL",
+          "code": "Formica 8843",
+          "name": "Natural Ash Laminate",
+          "hex": "#C4A57B"
+        },
+        {
+          "role": "Subframe",
+          "code": "RAL 9005",
+          "name": "Matte Black Aluminum",
+          "hex": "#1E2022"
+        },
+        {
+          "role": "Ironmongery",
+          "code": "Dormakaba SS",
+          "name": "Brushed 304 Stainless",
+          "hex": "#C2C7CC"
+        }
+      ],
+      "price": 180,
+      "productUrl": "",
+      "verified": true,
+      "source": "Fitout-Seed-V2"
     },
     {
       "mainCategory": "Doors & Windows",
-      "subCategory": "Window Treatments",
-      "family": "CUR",
-      "model": "CUR 6200",
-      "description": "Horizontal window curtain for window size 6200x2800 mm.",
-      "imageUrl": "",
-      "price": 201,
-      "productUrl": ""
+      "subCategory": "Timber Doors",
+      "family": "DR",
+      "model": "DR-SWG-02",
+      "name": "Double-Leaf Acoustic Timber Door + Dormakaba 1800x2100mm",
+      "manufacturer": "Dormakaba",
+      "brandSystem": "Acoustic Double Leaf + Dormakaba®",
+      "unit": "Nos",
+      "currency": "OMR",
+      "description": "Value-Engineered / Economy Grade: 1800x2100x45mm double-leaf solid-core acoustic/fire-rated timber door with vision panel & Dormakaba panic/lever set.",
+      "imageUrl": "https://kfrjsvqhvwaezdvsrgzw.supabase.co/storage/v1/object/public/product-images/fitout-v2/dr-swg-02.png?v=1795649203226",
+      "finishes": [
+        {
+          "role": "Timber Veneer",
+          "code": "Walnut FR",
+          "name": "Quarter-Cut Walnut",
+          "hex": "#634331"
+        },
+        {
+          "role": "Vision Bead",
+          "code": "RAL 9005",
+          "name": "Matte Black",
+          "hex": "#202225"
+        },
+        {
+          "role": "Panic / Closer",
+          "code": "Dormakaba TS93",
+          "name": "Brushed Stainless",
+          "hex": "#C5CACF"
+        }
+      ],
+      "price": 335,
+      "productUrl": "",
+      "verified": true,
+      "source": "Fitout-Seed-V2"
+    },
+    {
+      "mainCategory": "Doors & Windows",
+      "subCategory": "Glass Doors",
+      "family": "DR",
+      "model": "DR-GLS-01",
+      "name": "Optima Frameless Glass Swing Door + Dormakaba Patch",
+      "manufacturer": "Dormakaba / Optima",
+      "brandSystem": "Optima® + Dormakaba® Patch",
+      "unit": "Nos",
+      "currency": "OMR",
+      "description": "Value-Engineered / Economy Grade: 12mm Guardian toughened clear glass single door 900x2400mm with Dormakaba hydraulic patch fittings, drop seal & brushed SS pull handle.",
+      "imageUrl": "https://kfrjsvqhvwaezdvsrgzw.supabase.co/storage/v1/object/public/product-images/fitout-v2/dr-gls-01.png?v=1795649203226",
+      "finishes": [
+        {
+          "role": "Door Leaf",
+          "code": "SG-12mm",
+          "name": "Clear Toughened Safety",
+          "hex": "#CEE5EE"
+        },
+        {
+          "role": "Patch / Handle",
+          "code": "SS-304",
+          "name": "Satin Stainless / Black",
+          "hex": "#BFC5CA"
+        }
+      ],
+      "price": 240,
+      "productUrl": "",
+      "verified": true,
+      "source": "Fitout-Seed-V2"
     },
     {
       "mainCategory": "Doors & Windows",
       "subCategory": "Specialized Doors",
-      "family": "SLD",
-      "model": "SLD 01",
-      "description": "Sliding door unit (GL-101, GL-102, MT-101, FB-101), overall size 3400x3300 mm.",
-      "imageUrl": "",
-      "price": 400,
-      "productUrl": ""
+      "family": "DR",
+      "model": "DR-SLD-01",
+      "name": "Dormakaba MUTO Acoustic Glass Sliding Door Unit",
+      "manufacturer": "Dormakaba",
+      "brandSystem": "Dormakaba® MUTO + Tempered Glass",
+      "unit": "Nos",
+      "currency": "OMR",
+      "description": "Value-Engineered / Economy Grade: Heavy-duty Dormakaba MUTO overhead aluminum track sliding glass door with soft-close dampers and 3M privacy manifestation.",
+      "imageUrl": "https://kfrjsvqhvwaezdvsrgzw.supabase.co/storage/v1/object/public/product-images/fitout-v2/dr-sld-01.png?v=1795649203226",
+      "finishes": [
+        {
+          "role": "Glass Panel",
+          "code": "SG-10mm",
+          "name": "Clear Tempered Glass",
+          "hex": "#CBE3EC"
+        },
+        {
+          "role": "Overhead Track",
+          "code": "RAL 9005",
+          "name": "Anodized Matte Black",
+          "hex": "#1D1E21"
+        },
+        {
+          "role": "Manifestation",
+          "code": "3M 7725",
+          "name": "Frosted Architectural Film",
+          "hex": "#E6ECEF"
+        }
+      ],
+      "price": 295,
+      "productUrl": "",
+      "verified": true,
+      "source": "Fitout-Seed-V2"
+    },
+    {
+      "mainCategory": "Doors & Windows",
+      "subCategory": "Window Treatments",
+      "family": "WN",
+      "model": "WN-BLD-01",
+      "name": "Phifer / Coulisse Manual Sunscreen Roller Blind (5%)",
+      "manufacturer": "Phifer / Coulisse",
+      "brandSystem": "Phifer® SheerWeave + Coulisse®",
+      "unit": "SQM",
+      "currency": "OMR",
+      "description": "Value-Engineered / Economy Grade: Phifer SheerWeave fire-retardant fiberglass sunscreen fabric (5% openness) with Coulisse aluminum tube & SS chain drive.",
+      "imageUrl": "https://kfrjsvqhvwaezdvsrgzw.supabase.co/storage/v1/object/public/product-images/fitout-v2/wn-bld-01.png?v=1795649203226",
+      "finishes": [
+        {
+          "role": "Screen Mesh",
+          "code": "SW-2390 V10",
+          "name": "Chalk / Pearl 5%",
+          "hex": "#E3DFD6"
+        },
+        {
+          "role": "Charcoal Option",
+          "code": "SW-2390 Q06",
+          "name": "Charcoal Bronze 5%",
+          "hex": "#4B4A48"
+        },
+        {
+          "role": "Bottom Bar",
+          "code": "ANOD-SL",
+          "name": "Clear Anodized Alum",
+          "hex": "#B8BDC2"
+        }
+      ],
+      "price": 15.5,
+      "productUrl": "",
+      "verified": true,
+      "source": "Fitout-Seed-V2"
+    },
+    {
+      "mainCategory": "Doors & Windows",
+      "subCategory": "Window Treatments",
+      "family": "WN",
+      "model": "WN-CUR-01",
+      "name": "Somfy Motorized Blackout Curtain / Roller Blind System",
+      "manufacturer": "Somfy",
+      "brandSystem": "Somfy® Sonesse + Dimout Fabric",
+      "unit": "SQM",
+      "currency": "OMR",
+      "description": "Value-Engineered / Economy Grade: Somfy Sonesse motorized blackout roller blind or ripple-fold drapery on heavy-duty ceiling track with wall switch.",
+      "imageUrl": "https://kfrjsvqhvwaezdvsrgzw.supabase.co/storage/v1/object/public/product-images/fitout-v2/wn-cur-01.png?v=1795649203226",
+      "finishes": [
+        {
+          "role": "Drapery Textile",
+          "code": "Vescom Tica",
+          "name": "Warm Sand Blackout",
+          "hex": "#C7BFB1"
+        },
+        {
+          "role": "Sheer Layer",
+          "code": "Creation Baumann",
+          "name": "Ivory Voile",
+          "hex": "#F1EEE7"
+        },
+        {
+          "role": "Track",
+          "code": "Somfy Glydea",
+          "name": "Recessed White Track",
+          "hex": "#ECECE8"
+        }
+      ],
+      "price": 34,
+      "productUrl": "",
+      "verified": true,
+      "source": "Fitout-Seed-V2"
     },
     {
       "mainCategory": "Finishes (Painting & Decoration)",
       "subCategory": "Painting",
-      "family": "PT",
-      "model": "PT 202",
-      "description": "Textured paint matt finish brushed suede effect Low VOC emulation paint.",
-      "imageUrl": "",
-      "price": 8,
-      "productUrl": ""
+      "family": "FN",
+      "model": "FN-PNT-01",
+      "name": "Jotun Fenomastic Low-VOC Matte Emulsion Wall Paint",
+      "manufacturer": "Jotun",
+      "brandSystem": "Jotun® Fenomastic My Home",
+      "unit": "SQM",
+      "currency": "OMR",
+      "description": "Value-Engineered / Economy Grade: Two coats Jotun Fenomastic My Home washable matte emulsion over Knauf/cement skim coat and alkali-resistant primer.",
+      "imageUrl": "https://kfrjsvqhvwaezdvsrgzw.supabase.co/storage/v1/object/public/product-images/fitout-v2/fn-pnt-01.png?v=1795649203226",
+      "finishes": [
+        {
+          "role": "Field Wall",
+          "code": "Jotun 1624",
+          "name": "Skylight Pure Matte",
+          "hex": "#F3F1EC"
+        },
+        {
+          "role": "Warm Neutral",
+          "code": "Jotun 10678",
+          "name": "Space Warm Greige",
+          "hex": "#D8CFC2"
+        },
+        {
+          "role": "Accent Wall",
+          "code": "Jotun 9938",
+          "name": "Dempet Sort Charcoal",
+          "hex": "#383A3D"
+        }
+      ],
+      "price": 4,
+      "productUrl": "",
+      "verified": true,
+      "source": "Fitout-Seed-V2"
     },
     {
       "mainCategory": "Finishes (Painting & Decoration)",
       "subCategory": "Painting",
-      "family": "PT",
-      "model": "PT 103",
-      "description": "Textured paint matt finish (Low VOC).",
-      "imageUrl": "",
-      "price": 8,
-      "productUrl": ""
+      "family": "FN",
+      "model": "FN-PNT-02",
+      "name": "Jotun Lady Minerals Textured Feature Wall Paint",
+      "manufacturer": "Jotun",
+      "brandSystem": "Jotun® Lady Minerals Lime",
+      "unit": "SQM",
+      "currency": "OMR",
+      "description": "Value-Engineered / Economy Grade: Jotun Lady Minerals limewash / brushed-suede Low-VOC decorative feature wall paint coating with protective sealer.",
+      "imageUrl": "https://kfrjsvqhvwaezdvsrgzw.supabase.co/storage/v1/object/public/product-images/fitout-v2/fn-pnt-02.png?v=1795649203226",
+      "finishes": [
+        {
+          "role": "Mineral Wash",
+          "code": "Jotun 12078",
+          "name": "Comfort Grey Lime",
+          "hex": "#B6B0A6"
+        },
+        {
+          "role": "Clay Option",
+          "code": "Jotun 20142",
+          "name": "Daydream Terracotta",
+          "hex": "#9E6E5B"
+        },
+        {
+          "role": "Top Sealer",
+          "code": "Matte Coat",
+          "name": "Breathable Sealer",
+          "hex": "#E6E2DA"
+        }
+      ],
+      "price": 8.5,
+      "productUrl": "",
+      "verified": true,
+      "source": "Fitout-Seed-V2"
     },
     {
       "mainCategory": "Finishes (Painting & Decoration)",
       "subCategory": "Wallpaper",
-      "family": "WP",
-      "model": "WP 101",
-      "description": "Non-woven vinyl backed textured wallpaper cladded over MDF.",
-      "imageUrl": "",
-      "price": 35,
-      "productUrl": ""
+      "family": "FN",
+      "model": "FN-WLP-01",
+      "name": "Vescom Commercial Vinyl Textured Wallcovering (Type II)",
+      "manufacturer": "Vescom",
+      "brandSystem": "Vescom® Type II Vinyl (B-s1,d0)",
+      "unit": "SQM",
+      "currency": "OMR",
+      "description": "Value-Engineered / Economy Grade: Vescom heavy-duty Type II non-woven backed textured commercial vinyl wallcovering with fungicidal adhesive.",
+      "imageUrl": "https://kfrjsvqhvwaezdvsrgzw.supabase.co/storage/v1/object/public/product-images/fitout-v2/fn-wlp-01.png?v=1795649203226",
+      "finishes": [
+        {
+          "role": "Primary Weave",
+          "code": "VS-2055.02",
+          "name": "Natural Woven Flax",
+          "hex": "#D1C9BA"
+        },
+        {
+          "role": "Dark Linen",
+          "code": "VS-2055.19",
+          "name": "Smoke Taupe",
+          "hex": "#7A746C"
+        },
+        {
+          "role": "Joint",
+          "code": "Overlap-Cut",
+          "name": "Seamless Butted",
+          "hex": "#E4DFD6"
+        }
+      ],
+      "price": 18,
+      "productUrl": "",
+      "verified": true,
+      "source": "Fitout-Seed-V2"
     },
     {
       "mainCategory": "Finishes (Painting & Decoration)",
       "subCategory": "Skirting",
-      "family": "SK",
-      "model": "SK 101",
-      "description": "18 thickness, 100 mm high solid wood skirting HDPE wood skirting.",
-      "imageUrl": "",
-      "price": 12,
-      "productUrl": ""
+      "family": "FN",
+      "model": "FN-SKT-01",
+      "name": "Gulf Extrusions 100mm Anodized Aluminum / Oak Skirting",
+      "manufacturer": "Gulf Extrusions",
+      "brandSystem": "Gulf Extrusions® Anodized / Oak",
+      "unit": "LM",
+      "currency": "OMR",
+      "description": "Value-Engineered / Economy Grade: 18x100mm moisture-resistant Gulf Extrusions anodized aluminum or solid oak skirting with flush/shadow-gap trim.",
+      "imageUrl": "https://kfrjsvqhvwaezdvsrgzw.supabase.co/storage/v1/object/public/product-images/fitout-v2/fn-skt-01.png?v=1795649203226",
+      "finishes": [
+        {
+          "role": "Profile",
+          "code": "RAL 9005",
+          "name": "Anodized Matte Black",
+          "hex": "#232528"
+        },
+        {
+          "role": "Timber Match",
+          "code": "OAK-100",
+          "name": "Natural Oak Matched",
+          "hex": "#C4A274"
+        }
+      ],
+      "price": 8.5,
+      "productUrl": "",
+      "verified": true,
+      "source": "Fitout-Seed-V2"
     },
     {
       "mainCategory": "Finishes (Painting & Decoration)",
       "subCategory": "Mirrors",
-      "family": "MR",
-      "model": "MR 101",
-      "description": "Silver mirror 6mm thick with vanity lighting, size 400x1200 mm.",
-      "imageUrl": "",
-      "price": 75,
-      "productUrl": ""
+      "family": "FN",
+      "model": "FN-MIR-01",
+      "name": "Saint-Gobain Miralite Backlit Vanity Mirror 6mm",
+      "manufacturer": "Saint-Gobain",
+      "brandSystem": "Saint-Gobain Miralite® Revolution",
+      "unit": "Nos",
+      "currency": "OMR",
+      "description": "Value-Engineered / Economy Grade: Saint-Gobain Miralite 6mm copper-free beveled silver mirror on waterproof backing with concealed warm-white 3000K LED strip.",
+      "imageUrl": "https://kfrjsvqhvwaezdvsrgzw.supabase.co/storage/v1/object/public/product-images/fitout-v2/fn-mir-01.png?v=1795649203226",
+      "finishes": [
+        {
+          "role": "Silver Glass",
+          "code": "Miralite 6mm",
+          "name": "Clear Polished Mirror",
+          "hex": "#D8E3E8"
+        },
+        {
+          "role": "LED Halo",
+          "code": "3000K CRI90",
+          "name": "Warm Backlit Strip",
+          "hex": "#F6DF9F"
+        },
+        {
+          "role": "Edge Frame",
+          "code": "PVC-BK",
+          "name": "Brushed Black Seal",
+          "hex": "#25272A"
+        }
+      ],
+      "price": 59,
+      "productUrl": "",
+      "verified": true,
+      "source": "Fitout-Seed-V2"
     },
     {
       "mainCategory": "Finishes (Painting & Decoration)",
       "subCategory": "Artwork",
-      "family": "ART",
-      "model": "ART 1920",
-      "description": "Art work (overall size 1900x2000 mm).",
-      "imageUrl": "",
-      "price": 210,
-      "productUrl": ""
-    },
-    {
-      "mainCategory": "Finishes (Painting & Decoration)",
-      "subCategory": "Artwork",
-      "family": "ART",
-      "model": "ART 0610",
-      "description": "Art work (overall size 600x1000 mm).",
-      "imageUrl": "",
-      "price": 65,
-      "productUrl": ""
+      "family": "FN",
+      "model": "FN-ART-01",
+      "name": "Framed Feature Wall Artwork / Acoustic Print",
+      "manufacturer": "",
+      "brandSystem": "Bespoke Acoustic Print",
+      "unit": "Nos",
+      "currency": "OMR",
+      "description": "Value-Engineered / Economy Grade: Custom framed giclee/textured canvas artwork up to 1900x2000mm with concealed security cleats.",
+      "imageUrl": "https://kfrjsvqhvwaezdvsrgzw.supabase.co/storage/v1/object/public/product-images/fitout-v2/fn-art-01.png?v=1795649203226",
+      "finishes": [
+        {
+          "role": "Frame",
+          "code": "RAL 9005",
+          "name": "Gallery Matte Black",
+          "hex": "#1F2022"
+        },
+        {
+          "role": "Mat Board",
+          "code": "Museum Rag",
+          "name": "Warm Cotton Rag",
+          "hex": "#F4F1EA"
+        },
+        {
+          "role": "Palette",
+          "code": "Terracotta/Indigo",
+          "name": "Curated Tone",
+          "hex": "#5D6E7A"
+        }
+      ],
+      "price": 145,
+      "productUrl": "",
+      "verified": true,
+      "source": "Fitout-Seed-V2"
     },
     {
       "mainCategory": "Pantry & Cabinetry",
       "subCategory": "Custom Cabinets",
-      "family": "LA",
-      "model": "LA 201 B",
-      "description": "Laminate matte brushed finish base cabinet with korean countertop.",
-      "imageUrl": "",
-      "price": 140,
-      "productUrl": ""
+      "family": "JN",
+      "model": "JN-PNT-01",
+      "name": "Egger Pantry Base Cabinet with Silestone Quartz Counter",
+      "manufacturer": "Cosentino Silestone / Egger",
+      "brandSystem": "Egger® HPL + Silestone® Quartz",
+      "unit": "LM",
+      "currency": "OMR",
+      "description": "Value-Engineered / Economy Grade: 600mm deep HMR MDF/Egger HPL base cabinetry with Blum soft-close hinges, 20mm Cosentino Silestone quartz top & SS sink cutout.",
+      "imageUrl": "https://kfrjsvqhvwaezdvsrgzw.supabase.co/storage/v1/object/public/product-images/fitout-v2/jn-pnt-01.png?v=1795649203226",
+      "finishes": [
+        {
+          "role": "Countertop",
+          "code": "Silestone Glow",
+          "name": "20mm White Quartz",
+          "hex": "#F1EFEA"
+        },
+        {
+          "role": "Door Front",
+          "code": "Egger H1385",
+          "name": "Casella Natural Oak",
+          "hex": "#C5A274"
+        },
+        {
+          "role": "Kick Plinth",
+          "code": "RAL 9005",
+          "name": "Matte Black Recessed",
+          "hex": "#1E2022"
+        }
+      ],
+      "price": 100,
+      "productUrl": "",
+      "verified": true,
+      "source": "Fitout-Seed-V2"
     },
     {
       "mainCategory": "Pantry & Cabinetry",
       "subCategory": "Custom Cabinets",
-      "family": "LF",
-      "model": "LF 29A O",
-      "description": "Overhead cabinet including gypsum board cover up to ceiling.",
-      "imageUrl": "",
-      "price": 155,
-      "productUrl": ""
+      "family": "JN",
+      "model": "JN-PNT-02",
+      "name": "Egger / Blum Built-in Pantry Overhead Wall Cabinet",
+      "manufacturer": "Egger / Blum",
+      "brandSystem": "Egger® Matte HPL + Blum®",
+      "unit": "LM",
+      "currency": "OMR",
+      "description": "Value-Engineered / Economy Grade: 350mm deep overhead wall cabinetry in matte Egger HPL/HMR MDF with Blum hinges and gypsum bulkhead filler to soffit.",
+      "imageUrl": "https://kfrjsvqhvwaezdvsrgzw.supabase.co/storage/v1/object/public/product-images/fitout-v2/jn-pnt-02.png?v=1795649203226",
+      "finishes": [
+        {
+          "role": "Cabinet Door",
+          "code": "Egger U708",
+          "name": "Light Warm Grey HPL",
+          "hex": "#D2D0CB"
+        },
+        {
+          "role": "Bulkhead",
+          "code": "Jotun 1624",
+          "name": "Flush Gypsum White",
+          "hex": "#F3F2EE"
+        }
+      ],
+      "price": 81,
+      "productUrl": "",
+      "verified": true,
+      "source": "Fitout-Seed-V2"
     },
     {
       "mainCategory": "Pantry & Cabinetry",
-      "subCategory": "Furniture",
-      "family": "COF",
-      "model": "COF TBL",
-      "description": "Fixed coffee table 20 mm table top.",
-      "imageUrl": "",
-      "price": 105,
-      "productUrl": ""
+      "subCategory": "Custom Cabinets",
+      "family": "JN",
+      "model": "JN-VAN-01",
+      "name": "DuPont Corian / Quartz Floating Washroom Vanity Counter",
+      "manufacturer": "DuPont Corian",
+      "brandSystem": "DuPont™ Corian® + Moisture HMR",
+      "unit": "LM",
+      "currency": "OMR",
+      "description": "Value-Engineered / Economy Grade: 600mm deep floating DuPont Corian solid surface vanity counter with undermount ceramic basins & moisture-resistant apron.",
+      "imageUrl": "https://kfrjsvqhvwaezdvsrgzw.supabase.co/storage/v1/object/public/product-images/fitout-v2/jn-van-01.png?v=1795649203226",
+      "finishes": [
+        {
+          "role": "Solid Surface",
+          "code": "Corian Glacier",
+          "name": "Glacier White Seamless",
+          "hex": "#F5F4F0"
+        },
+        {
+          "role": "Lower Apron",
+          "code": "ALPI Walnut",
+          "name": "Sealed Timber / Slate",
+          "hex": "#635347"
+        },
+        {
+          "role": "Faucet Spec",
+          "code": "Grohe Chrome",
+          "name": "Polished Chrome",
+          "hex": "#C9CFD4"
+        }
+      ],
+      "price": 130,
+      "productUrl": "",
+      "verified": true,
+      "source": "Fitout-Seed-V2"
     },
     {
       "mainCategory": "Pantry & Cabinetry",
       "subCategory": "Specialized Units",
-      "family": "WB",
-      "model": "WB 101",
-      "description": "Integrated whiteboard unit with artificial plant accents.",
-      "imageUrl": "",
-      "price": 70,
-      "productUrl": ""
+      "family": "JN",
+      "model": "JN-WB-01",
+      "name": "Saint-Gobain Magnetic Glass Whiteboard & Planter Unit",
+      "manufacturer": "Saint-Gobain",
+      "brandSystem": "Saint-Gobain® Planilaque Glass",
+      "unit": "Nos",
+      "currency": "OMR",
+      "description": "Value-Engineered / Economy Grade: Recessed Saint-Gobain Planilaque magnetic back-painted glass whiteboard unit flanked by integrated biophilic planter ledge.",
+      "imageUrl": "https://kfrjsvqhvwaezdvsrgzw.supabase.co/storage/v1/object/public/product-images/fitout-v2/jn-wb-01.png?v=1795649203226",
+      "finishes": [
+        {
+          "role": "Writing Glass",
+          "code": "RAL 9010",
+          "name": "Low-Iron Magnetic White",
+          "hex": "#EFF4F6"
+        },
+        {
+          "role": "Frame Tray",
+          "code": "OAK-01",
+          "name": "Quarter-Cut Oak Ledge",
+          "hex": "#C4A274"
+        },
+        {
+          "role": "Foliage Insert",
+          "code": "BG-01",
+          "name": "Natural Olive/Pothos",
+          "hex": "#5C7C54"
+        }
+      ],
+      "price": 98,
+      "productUrl": "",
+      "verified": true,
+      "source": "Fitout-Seed-V2"
     },
     {
       "mainCategory": "Electrical & Mechanical (MEP)",
       "subCategory": "Lighting",
-      "family": "BRS",
-      "model": "BRS LOGO",
-      "description": "Metal logo with back-lighting (Brushed brass finish).",
-      "imageUrl": "",
-      "price": 450,
-      "productUrl": ""
+      "family": "MEP",
+      "model": "MEP-LGT-01",
+      "name": "Signify Philips / Zumtobel Recessed LED Downlight",
+      "manufacturer": "Signify Philips / Zumtobel",
+      "brandSystem": "Signify® Philips / Zumtobel® PANOS",
+      "unit": "Nos",
+      "currency": "OMR",
+      "description": "Value-Engineered / Economy Grade: Signify Philips / Zumtobel PANOS 36W 600x600mm or recessed UGR<19 architectural LED downlight 4000K CRI>90 DALI dimmable.",
+      "imageUrl": "https://kfrjsvqhvwaezdvsrgzw.supabase.co/storage/v1/object/public/product-images/fitout-v2/mep-lgt-01.png?v=1795649203226",
+      "finishes": [
+        {
+          "role": "Bezel Trim",
+          "code": "RAL 9016",
+          "name": "Matte Plaster White",
+          "hex": "#F4F4F1"
+        },
+        {
+          "role": "Reflector",
+          "code": "AL-SPEC",
+          "name": "Low-Glare Darklight",
+          "hex": "#383C42"
+        },
+        {
+          "role": "CCT",
+          "code": "4000K CRI90",
+          "name": "Neutral Architectural",
+          "hex": "#FFF4DC"
+        }
+      ],
+      "price": 27,
+      "productUrl": "",
+      "verified": true,
+      "source": "Fitout-Seed-V2"
     },
     {
       "mainCategory": "Electrical & Mechanical (MEP)",
       "subCategory": "Lighting",
-      "family": "MT",
-      "model": "MT 101 L",
-      "description": "Black PVD coated steel including metal Logo and LED strip light.",
-      "imageUrl": "",
-      "price": 40,
-      "productUrl": ""
+      "family": "MEP",
+      "model": "MEP-LGT-02",
+      "name": "Zumtobel Architectural Linear Suspended / Cove LED Profile",
+      "manufacturer": "Zumtobel",
+      "brandSystem": "Zumtobel® TECTON / Linear",
+      "unit": "LM",
+      "currency": "OMR",
+      "description": "Value-Engineered / Economy Grade: Zumtobel extruded anodized aluminum linear LED profile 4000K 18W/m CRI>90 with opal diffuser & remote driver.",
+      "imageUrl": "https://kfrjsvqhvwaezdvsrgzw.supabase.co/storage/v1/object/public/product-images/fitout-v2/mep-lgt-02.png?v=1795649203226",
+      "finishes": [
+        {
+          "role": "Housing",
+          "code": "RAL 9005",
+          "name": "Anodized Black Alum",
+          "hex": "#1E2023"
+        },
+        {
+          "role": "Diffuser",
+          "code": "PMMA-OP",
+          "name": "Satin Opal Acrylic",
+          "hex": "#FAF8F0"
+        }
+      ],
+      "price": 22,
+      "productUrl": "",
+      "verified": true,
+      "source": "Fitout-Seed-V2"
+    },
+    {
+      "mainCategory": "Electrical & Mechanical (MEP)",
+      "subCategory": "Lighting",
+      "family": "MEP",
+      "model": "MEP-LOG-01",
+      "name": "Backlit Brushed Brass / PVD Reception Signage Logo",
+      "manufacturer": "",
+      "brandSystem": "Bespoke PVD Brass Signage",
+      "unit": "Nos",
+      "currency": "OMR",
+      "description": "Value-Engineered / Economy Grade: CNC-cut brushed brass / black PVD stainless steel signage letters with concealed halo LED backlighting.",
+      "imageUrl": "https://kfrjsvqhvwaezdvsrgzw.supabase.co/storage/v1/object/public/product-images/fitout-v2/mep-log-01.png?v=1795649203226",
+      "finishes": [
+        {
+          "role": "CNC Face",
+          "code": "BRS-PVD",
+          "name": "Brushed Brass 304 SS",
+          "hex": "#B89A58"
+        },
+        {
+          "role": "Halo Glow",
+          "code": "LED-3000K",
+          "name": "Warm Backlight",
+          "hex": "#F8DDA0"
+        }
+      ],
+      "price": 315,
+      "productUrl": "",
+      "verified": true,
+      "source": "Fitout-Seed-V2"
     },
     {
       "mainCategory": "Electrical & Mechanical (MEP)",
       "subCategory": "Plumbing",
-      "family": "ABL",
-      "model": "ABL BST",
-      "description": "Ablution base with TL-101 finish, size 500x500x500 mm.",
-      "imageUrl": "",
-      "price": 110,
-      "productUrl": ""
+      "family": "MEP",
+      "model": "MEP-SAN-01",
+      "name": "Franke Undermount Pantry Sink & Grohe Pull-Out Mixer",
+      "manufacturer": "Franke / Grohe",
+      "brandSystem": "Franke® 304 SS + Grohe® Mixer",
+      "unit": "Nos",
+      "currency": "OMR",
+      "description": "Value-Engineered / Economy Grade: Franke 304 brushed stainless steel single-bowl undermount sink with Grohe pull-out chrome mixer & trap.",
+      "imageUrl": "https://kfrjsvqhvwaezdvsrgzw.supabase.co/storage/v1/object/public/product-images/fitout-v2/mep-san-01.png?v=1795649203226",
+      "finishes": [
+        {
+          "role": "Bowl Finish",
+          "code": "SS-304 Satin",
+          "name": "Brushed Stainless",
+          "hex": "#C3C8CD"
+        },
+        {
+          "role": "Mixer",
+          "code": "Grohe StarLight",
+          "name": "Polished Chrome",
+          "hex": "#DCE1E6"
+        }
+      ],
+      "price": 81,
+      "productUrl": "",
+      "verified": true,
+      "source": "Fitout-Seed-V2"
     },
     {
       "mainCategory": "Electrical & Mechanical (MEP)",
-      "subCategory": "Sanitary",
-      "family": "ST",
-      "model": "ST 101",
-      "description": "20 mm thick artificial stone ledge wall top and counter top.",
-      "imageUrl": "",
-      "price": 52,
-      "productUrl": ""
+      "subCategory": "Sanitaryware",
+      "family": "MEP",
+      "model": "MEP-SAN-02",
+      "name": "Duravit Ceramic WC Toilet Suite & Geberit Cistern",
+      "manufacturer": "Duravit / Geberit",
+      "brandSystem": "Duravit® ME by Starck + Geberit®",
+      "unit": "Nos",
+      "currency": "OMR",
+      "description": "Value-Engineered / Economy Grade: Duravit white vitreous china close-coupled or wall-hung WC toilet suite with Geberit dual-flush cistern, soft-close seat & angle valves.",
+      "imageUrl": "https://kfrjsvqhvwaezdvsrgzw.supabase.co/storage/v1/object/public/product-images/fitout-v2/mep-san-02.png?v=1795649203226",
+      "finishes": [
+        {
+          "role": "Ceramic Body",
+          "code": "Alpin 00",
+          "name": "Gloss White Vitreous",
+          "hex": "#F8F8F6"
+        },
+        {
+          "role": "Flush Plate",
+          "code": "Geberit Sigma",
+          "name": "Brushed Chrome / Black",
+          "hex": "#C6CBD0"
+        }
+      ],
+      "price": 130,
+      "productUrl": "",
+      "verified": true,
+      "source": "Fitout-Seed-V2"
     },
     {
-      "brand": "FitOut V2",
-      "mainCategory": "Furniture",
-      "subCategory": "Conference Tables",
-      "family": "N/A",
-      "model": "Standard Rectangular Conference Table",
-      "description": "Information for 'Standard Rectangular Conference Table' by 'FitOut V2' could not be found on official brand websites or reputable secondary sources. The name 'FitOut V2' appears to be associated with website templates or fit-out services rather than a distinct furniture manufacturing brand with a product catalog. Therefore, specific product details, including a professional description and technical specifications, are unavailable.",
-      "imageUrl": "",
-      "productUrl": "N/A",
-      "price": 0,
-      "lastUpdated": "2026-04-05T21:57:19.443Z",
-      "source": "AI-Specialist-Discovery"
+      "mainCategory": "Electrical & Mechanical (MEP)",
+      "subCategory": "Sanitaryware",
+      "family": "MEP",
+      "model": "MEP-SAN-03",
+      "name": "Duravit Washroom Basin & Grohe Eurosmart Mixer",
+      "manufacturer": "Duravit / Grohe",
+      "brandSystem": "Duravit® Vero + Grohe® Eurosmart",
+      "unit": "Nos",
+      "currency": "OMR",
+      "description": "Value-Engineered / Economy Grade: Duravit white ceramic undermount or countertop wash basin complete with Grohe Eurosmart single-lever chrome mixer tap, bottle trap & pop-up waste.",
+      "imageUrl": "https://kfrjsvqhvwaezdvsrgzw.supabase.co/storage/v1/object/public/product-images/fitout-v2/mep-san-03.png?v=1795649203226",
+      "finishes": [
+        {
+          "role": "Basin",
+          "code": "Alpin 00",
+          "name": "Vitreous China White",
+          "hex": "#F8F8F6"
+        },
+        {
+          "role": "Mixer Tap",
+          "code": "Grohe Eurosmart",
+          "name": "Chrome StarLight",
+          "hex": "#C8CDD2"
+        }
+      ],
+      "price": 100,
+      "productUrl": "",
+      "verified": true,
+      "source": "Fitout-Seed-V2"
     },
     {
-      "brand": "FitOut V2",
-      "mainCategory": "Furniture",
-      "subCategory": "Conference Chairs",
-      "family": "N/A",
-      "model": "Conference Chair with Arms",
-      "description": "Product details for 'Conference Chair with Arms' under the brand 'FitOut V2' could not be found on official or reputable secondary sources. It is possible that 'FitOut V2' is not a standalone furniture brand or that this specific product is not publicly cataloged under this name.",
-      "imageUrl": "",
-      "productUrl": "N/A",
-      "price": 0,
-      "lastUpdated": "2026-04-05T21:57:48.090Z",
-      "source": "AI-Specialist-Discovery"
+      "mainCategory": "Electrical & Mechanical (MEP)",
+      "subCategory": "Sanitaryware",
+      "family": "MEP",
+      "model": "MEP-SAN-04",
+      "name": "Grohe Tempesta Thermostatic Shower Head & Mixer Set",
+      "manufacturer": "Grohe",
+      "brandSystem": "Grohe® Tempesta Thermostatic",
+      "unit": "Nos",
+      "currency": "OMR",
+      "description": "Value-Engineered / Economy Grade: Grohe Tempesta chrome-plated brass wall-mounted thermostatic shower mixer valve with overhead rain shower, hand shower & flexible hose.",
+      "imageUrl": "https://kfrjsvqhvwaezdvsrgzw.supabase.co/storage/v1/object/public/product-images/fitout-v2/mep-san-04.png?v=1795649203226",
+      "finishes": [
+        {
+          "role": "Valve & Head",
+          "code": "StarLight CR",
+          "name": "Mirror Polished Chrome",
+          "hex": "#D0D6DC"
+        },
+        {
+          "role": "Enclosure Trim",
+          "code": "AL-BK",
+          "name": "Brushed Nickel / Black",
+          "hex": "#4B5056"
+        }
+      ],
+      "price": 115,
+      "productUrl": "",
+      "verified": true,
+      "source": "Fitout-Seed-V2"
     },
     {
-      "brand": "FitOut V2",
-      "mainCategory": "Furniture",
-      "subCategory": "Doors",
-      "family": "N/A",
-      "model": "DOOR SW 01",
-      "description": "Information not publicly available. FitOut (The FITOUT) specializes in bespoke interior fit-out solutions, including the manufacturing and installation of various types of doors and joinery for commercial and residential projects. Specific product details for 'DOOR-SW-01' are not listed in a public catalog.",
-      "imageUrl": "",
-      "productUrl": "FAILED",
-      "price": 0,
-      "lastUpdated": "2026-04-05T21:58:10.214Z",
-      "source": "AI-Specialist-Discovery"
+      "mainCategory": "Electrical & Mechanical (MEP)",
+      "subCategory": "Power & Data",
+      "family": "MEP",
+      "model": "MEP-WRG-01",
+      "name": "Legrand Arteor / Schneider Floor Box Power & Cat6A Point",
+      "manufacturer": "Legrand / Schneider Electric",
+      "brandSystem": "Legrand® Arteor + Schneider® Cat6A",
+      "unit": "Nos",
+      "currency": "OMR",
+      "description": "Value-Engineered / Economy Grade: Legrand Arteor flush floor box or Schneider dado trunking double 13A switched socket + dual Cat6A RJ45 data outlet, tested.",
+      "imageUrl": "https://kfrjsvqhvwaezdvsrgzw.supabase.co/storage/v1/object/public/product-images/fitout-v2/mep-wrg-01.png?v=1795649203226",
+      "finishes": [
+        {
+          "role": "Floor Lid",
+          "code": "SS-BR",
+          "name": "Brushed Stainless Steel",
+          "hex": "#B9BFC5"
+        },
+        {
+          "role": "Insert Module",
+          "code": "Legrand Graphite",
+          "name": "Anthracite Socket",
+          "hex": "#383B40"
+        }
+      ],
+      "price": 31,
+      "productUrl": "",
+      "verified": true,
+      "source": "Fitout-Seed-V2"
     },
     {
-      "brand": "FitOut V2",
-      "mainCategory": "Furniture",
-      "subCategory": "Partitions",
-      "family": "N/A",
-      "model": "Drywall Partition",
-      "description": "Information for 'Drywall Partition' by 'FitOut V2' could not be found as a distinct branded furniture product. 'FitOut' generally refers to interior construction and furnishing services, and 'V2' likely denotes a project version rather than a specific product line. Drywall partitions are standard construction components typically installed by fit-out contractors.",
-      "imageUrl": "",
-      "productUrl": "N/A",
-      "price": 0,
-      "lastUpdated": "2026-04-05T21:58:33.328Z",
-      "source": "AI-Specialist-Discovery"
-    },
-    {
-      "brand": "FitOut V2",
-      "mainCategory": "N/A",
-      "subCategory": "N/A",
-      "family": "N/A",
-      "model": "Standard Interior Emulsion Matte White",
-      "description": "No official product details, brand website, or direct product page could be found for 'Standard Interior Emulsion - Matte White' by 'FitOut V2' through deep search. The term 'FitOut V2' appears in various contexts related to construction projects and documents, rather than as a specific paint manufacturer or product line.",
-      "imageUrl": "",
-      "productUrl": "FAILED",
-      "price": 0,
-      "lastUpdated": "2026-04-05T21:59:03.543Z",
-      "source": "AI-Specialist-Discovery"
-    },
-    {
-      "brand": "FitOut V2",
-      "mainCategory": "Furniture",
-      "subCategory": "Ceiling Panels",
-      "family": "Gridline",
-      "model": "Gridline Ceiling Panel",
-      "description": "Product details for 'Gridline Ceiling Panel' by 'FitOut V2' could not be found. The brand 'FitOut V2' as a manufacturer of this specific product could not be identified through official or secondary sources.",
-      "imageUrl": "",
-      "productUrl": "FAILED",
-      "price": 0,
-      "lastUpdated": "2026-04-05T21:59:28.807Z",
-      "source": "AI-Specialist-Discovery"
-    },
-    {
-      "brand": "FitOut V2",
-      "mainCategory": "Furniture",
-      "subCategory": "Coffee Table",
-      "family": "N/A",
-      "model": "MR CT 01",
-      "description": "Product details for 'MR-CT-01' by FitOut V2 could not be found through extensive public search. The alphanumeric code 'MR-CT-01' suggests it may be an internal product identifier for a custom fit-out project or a component not publicly cataloged by a distinct furniture brand named 'FitOut V2'.",
-      "imageUrl": "",
-      "productUrl": "FAILED",
-      "price": 0,
-      "lastUpdated": "2026-04-05T22:03:19.174Z",
-      "source": "AI-Specialist-Discovery"
-    },
-    {
-      "brand": "FitOut V2",
-      "mainCategory": "Furniture",
-      "subCategory": "Sofa",
-      "family": "Not specified",
-      "model": "Curved Lounge Sofa",
-      "description": "A curved lounge sofa by FitOut V2. Specific technical specifications are not available through public search. The brand 'FitOut V2' appears to be associated with general fit-out services or a generic e-commerce template, rather than a distinct furniture manufacturer with a dedicated product catalog.",
-      "imageUrl": "",
-      "productUrl": "Not Found",
-      "price": 0,
-      "lastUpdated": "2026-04-05T22:06:12.555Z",
-      "source": "AI-Specialist-Discovery"
-    },
-    {
-      "brand": "FitOut V2",
-      "mainCategory": "Furniture",
-      "subCategory": "Coffee Table",
-      "family": "N/A",
-      "model": "[REC CT 01]",
-      "description": "Product details for 'FitOut V2 [REC-CT-01]' could not be definitively identified through public search. The 'REC-CT-01' designation appears to be a unique internal code or potentially a misinterpretation, as similar patterns were found in recreation department listings (REC-CT) rather than furniture product catalogs. While 'CT-01' could suggest a coffee table, no specific product from a brand named 'FitOut V2' matching this model was found.",
-      "imageUrl": "",
-      "productUrl": "N/A",
-      "price": 0,
-      "lastUpdated": "2026-04-05T22:06:43.481Z",
-      "source": "AI-Specialist-Discovery"
-    },
-    {
-      "brand": "FitOut V2",
-      "mainCategory": "Furniture",
-      "subCategory": "Office Desks",
-      "family": "Apex Executive Series",
-      "model": "Apex Executive L Desk",
-      "description": "Command the boardroom with this ultra-premium luxury executive L-shaped standing desk, designed for C-suite leaders and discerning managers. It features an expansive 2000-2400mm width with 1000-1200mm depths, a dual-motor electric system for height adjustment from 700-1200mm, and a premium 25mm thick MFC tabletop with integrated drawers for executive storage. The desk boasts a 120kg load capacity, operates at 48dB or less, and includes 3 memory preset positions.",
-      "imageUrl": "",
-      "productUrl": "FAILED",
-      "price": 0,
-      "lastUpdated": "2026-04-05T22:08:08.018Z",
-      "source": "AI-Specialist-Discovery"
-    },
-    {
-      "brand": "FitOut V2",
-      "mainCategory": "Furniture",
-      "subCategory": "Office Chairs",
-      "family": "N/A",
-      "model": "Executive Chair",
-      "description": "A direct product for an 'Executive Chair' by a brand explicitly named 'FitOut V2' could not be found in the search results. The term 'FitOut' is primarily associated with interior fit-out services or as a descriptor within retail categories (e.g., 'Interior 4WD Fit Out'). 'V2' appears as a version indicator for other products or website templates, but not as a standalone furniture brand. While various executive chairs from other brands were found (e.g., WorkPro 12000 V2 Series, Coolhut Big and Tall Office Chair), none are directly attributed to 'FitOut V2' as the manufacturer.",
-      "imageUrl": "",
-      "productUrl": "N/A",
-      "price": 0,
-      "lastUpdated": "2026-04-05T22:08:33.424Z",
-      "source": "AI-Specialist-Discovery"
-    },
-    {
-      "brand": "FitOut V2",
-      "mainCategory": "Furniture",
-      "subCategory": "Unknown",
-      "family": "Unknown",
-      "model": "OC3 VCH 01",
-      "description": "A deep search for 'FitOut V2 OC3-VCH-01' as a furniture product did not yield specific product details. While 'FITSOUT' (a company specializing in custom furniture and interior solutions) was identified as a potential related entity, their official website does not list a product with the model number 'OC3-VCH-01'. The 'VCH-01' component of the model number consistently led to results for electrical connector housings from Carling Technologies, indicating a potential misidentification of the product category or brand.",
-      "imageUrl": "",
-      "productUrl": "FAILED",
-      "price": 0,
-      "lastUpdated": "2026-04-05T22:08:56.296Z",
-      "source": "AI-Specialist-Discovery"
-    },
-    {
-      "brand": "FitOut V2",
-      "mainCategory": "Furniture",
-      "subCategory": "Workstation",
-      "family": "N/A",
-      "model": "OO WS 01",
-      "description": "Product details for 'OO-WS-01' by FitOut V2 could not be definitively identified from publicly available information. While 'V2' and 'WS' (Workstation) appear in descriptions of various standing desks and custom fit-outs, a direct product listing for 'FitOut V2 OO-WS-01' with specific technical specifications was not found. It is possible this is an internal product code, a niche offering, or from a brand with limited online presence for this specific model.",
-      "imageUrl": "",
-      "productUrl": "FAILED",
-      "price": 0,
-      "lastUpdated": "2026-04-05T22:10:04.806Z",
-      "source": "AI-Specialist-Discovery"
-    },
-    {
-      "brand": "FitOut V2",
-      "mainCategory": "Furniture",
-      "subCategory": "Office Chair",
-      "family": "N/A",
-      "model": "Ergo Task Pro",
-      "description": "Information for 'ErgoTask Pro' by 'FitOut V2' could not be definitively located under a specific furniture manufacturer named 'FitOut V2'. Search results indicate 'ErgoTask' chairs are offered by various brands such as Marketlab, Ergolink, and Grayline Medical, but none are directly attributed to 'FitOut V2' as a furniture brand. 'FitOut V2' appears in contexts related to website templates or general fit-out services, not as a specific furniture manufacturer for this product.",
-      "imageUrl": "",
-      "productUrl": "N/A",
-      "price": 0,
-      "lastUpdated": "2026-04-05T22:10:30.308Z",
-      "source": "AI-Specialist-Discovery"
-    },
-    {
-      "brand": "FitOut V2",
-      "mainCategory": "Furniture",
-      "subCategory": "Standing Desks",
-      "family": "UPLIFT L-Shaped Standing Desk Series",
-      "model": "UPLIFT L Shaped Standing Desk V2",
-      "description": "The UPLIFT L-Shaped Standing Desk V2 is a strong, stable, and ergonomic height-adjustable desk designed for multitasking and efficiency. Featuring a three-leg frame with three precision-drive motors, it boasts a total lifting capacity of 535 lbs and quiet operation below 48 dB. Its 3-stage legs offer 33% faster movement and greater height range (V2: 25.3\"-50.9\"; V2-Commercial: 22.6\"-48.7\"), with one-touch adjustment and included wire management. It is rated #1 by Wirecutter.",
-      "imageUrl": "https://www.upliftdesk.com/content/images/thumbs/0000000_uplift-l-shaped-standing-desk_1200.jpeg",
-      "productUrl": "https://www.upliftdesk.com/l-shaped-standing-desks/",
-      "price": 0,
-      "lastUpdated": "2026-04-05T22:11:29.142Z",
-      "source": "AI-Specialist-Discovery"
-    },
-    {
-      "brand": "FitOut V2",
-      "mainCategory": "Furniture",
-      "subCategory": "Unknown",
-      "family": "Unknown",
-      "model": "F MT 01",
-      "description": "Product details for 'F-MT-01' by FitOut V2 could not be found on any official or widely indexed furniture platforms. The search results indicate that 'FitOut' is often associated with interior fit-out services or vehicle customisations, rather than a standalone furniture brand with this specific product code. No direct product page or image was located.",
-      "imageUrl": "",
-      "productUrl": "N/A",
-      "price": 0,
-      "lastUpdated": "2026-04-05T22:30:39.353Z",
-      "source": "AI-Specialist-Discovery"
+      "mainCategory": "Electrical & Mechanical (MEP)",
+      "subCategory": "AV & Display Systems",
+      "family": "MEP",
+      "model": "MEP-AV-01",
+      "name": "Samsung QMC 65\"-75\" 4K Commercial Display & Chief Mount",
+      "manufacturer": "Samsung",
+      "brandSystem": "Samsung® QMC 4K + Chief® Mount",
+      "unit": "Nos",
+      "currency": "OMR",
+      "description": "Value-Engineered / Economy Grade: Samsung QMC 65-inch 4K anti-glare commercial LED display complete with Chief slim tilt wall bracket, concealed conduit & HDMI/Cat6A termination.",
+      "imageUrl": "https://kfrjsvqhvwaezdvsrgzw.supabase.co/storage/v1/object/public/product-images/fitout-v2/mep-av-01.png?v=1795649203226",
+      "finishes": [
+        {
+          "role": "Bezel & Frame",
+          "code": "Slim 28mm",
+          "name": "Anodized Titan Black",
+          "hex": "#1B1D20"
+        },
+        {
+          "role": "Display Panel",
+          "code": "QMC Non-Glare",
+          "name": "Anti-Reflective Obsidian",
+          "hex": "#282C34"
+        },
+        {
+          "role": "Wall Bracket",
+          "code": "Chief LTM1U",
+          "name": "Micro-Tilt Steel Black",
+          "hex": "#383C42"
+        }
+      ],
+      "price": 295,
+      "productUrl": "",
+      "verified": true,
+      "source": "Fitout-Seed-V2"
     }
-  ],
-  "budget_tier": "budgetary"
+  ]
 }

@@ -565,6 +565,62 @@ p.resultNote {
     color: var(--text-muted, #94a3b8);
 }
 
+.programmeCard {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.65rem 1rem;
+    margin-top: 0.85rem;
+    padding: 0.75rem 0.9rem;
+    border: 1px solid rgba(13, 148, 136, 0.35);
+    border-radius: 12px;
+    background: linear-gradient(135deg, rgba(13, 148, 136, 0.08), rgba(6, 182, 212, 0.08));
+}
+
+.programmeText {
+    display: grid;
+    gap: 0.15rem;
+    min-width: 0;
+    flex: 1 1 240px;
+}
+
+.programmeTitle {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--text-primary, #0f172a);
+}
+
+.programmeSub {
+    font-size: 0.76rem;
+    line-height: 1.35;
+    color: var(--text-secondary, #64748b);
+}
+
+.programmeActions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.programmeBtn {
+    min-height: 40px;
+    padding: 0.45rem 0.95rem;
+    background: #0f766e !important;
+    color: #ffffff !important;
+    border-color: #0d9488 !important;
+    font-weight: 700 !important;
+}
+
+.programmeBtnAlt {
+    min-height: 40px;
+    padding: 0.45rem 0.95rem;
+    background: #ffffff !important;
+    color: #0f766e !important;
+    border-color: rgba(13, 148, 136, 0.55) !important;
+    font-weight: 700 !important;
+}
+
 /* The offer documents: two to a row on a phone, as many as fit on wider screens. */
 .docs {
     display: grid;

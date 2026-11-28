@@ -10,20 +10,17 @@ export default function BrandManagement({ onBrandAdded, onBrandUpdated, onClose,
     const [origin, setOrigin] = useState('');
     const [budgetTier, setBudgetTier] = useState('mid');
     const [scrapingMethod, setScrapingMethod] = useState('standard');
-    const [scrapingEngine, setScrapingEngine] = useState('js'); // 'js' or 'python'
-    const [scraperSource, setScraperSource] = useState('railway'); // 'railway' or 'local'
+    const [scrapingEngine, setScrapingEngine] = useState('supabase'); // 'supabase' native engine
+    const [scraperSource] = useState('supabase');
     const [loading, setLoading] = useState(false);
 
-    // Railway Restore State
-    const [railwayFiles, setRailwayFiles] = useState([]);
-    const [importingRailway, setImportingRailway] = useState(null);
-    const [dashboardUrl, setDashboardUrl] = useState(null);
+    // Supabase Native Queue State
+    const [queueJobs, setQueueJobs] = useState([]);
 
     // DB Management State
     const [allBrands, setAllBrands] = useState([]);
     const [importingId, setImportingId] = useState(null);
     const [deletingId, setDeletingId] = useState(null);
-    const [deletingRailway, setDeletingRailway] = useState(null);
     const [isSupabaseDashboardOpen, setIsSupabaseDashboardOpen] = useState(false);
     const fileInputRef = useRef(null);
 
@@ -39,66 +36,21 @@ export default function BrandManagement({ onBrandAdded, onBrandUpdated, onClose,
 
     useEffect(() => {
         fetchBrands();
-        fetchRailwayFiles();
-        const apiBase = getApiBase();
-        fetch(`${apiBase}/api/scraper-config?t=${Date.now()}`)
-            .then(r => r.json())
-            .then(d => setDashboardUrl(d.dashboardUrl))
-            .catch(e => console.error('Config fetch failed', e));
+        fetchQueueJobs();
     }, []);
 
-    const fetchRailwayFiles = async () => {
-        setRailwayFiles([]);
+    const fetchQueueJobs = async () => {
         try {
             const apiBase = getApiBase();
-            const res = await fetch(`${apiBase}/api/railway-brands?t=${Date.now()}`);
+            const res = await fetch(`${apiBase}/api/supabase-jobs?limit=20&t=${Date.now()}`);
             if (res.ok) {
                 const data = await res.json();
-                if (data.brands && Array.isArray(data.brands)) {
-                    setRailwayFiles(data.brands.sort((a, b) => new Date(b.completedAt) - new Date(a.completedAt)));
+                if (data.jobs && Array.isArray(data.jobs)) {
+                    setQueueJobs(data.jobs);
                 }
             }
         } catch (err) {
-            console.error('Failed to fetch railway backups:', err);
-        }
-    };
-
-    const handleImportRailway = async (filename) => {
-        if (!confirm(`Recover "${filename}" to Supabase? (A backup will be kept on Railway for safety)`)) return;
-        setImportingRailway(filename);
-        try {
-            const apiBase = getApiBase();
-            const res = await fetch(`${apiBase}/api/railway-brands/import/${filename}`, { method: 'POST' });
-            const data = await res.json();
-
-            if (data.success) {
-                alert(` Recovered "${data.brandName}" to Supabase! (Backup preserved on cloud)`);
-                fetchBrands();
-            } else {
-                throw new Error(data.error || 'Unknown error');
-            }
-        } catch (e) {
-            alert(`Recovery Failed: ${e.message}`);
-        } finally {
-            setImportingRailway(null);
-        }
-    };
-
-    const handleDeleteRailway = async (filename) => {
-        if (!confirm(`Permanently delete cloud backup "${filename}"?`)) return;
-        setDeletingRailway(filename);
-        try {
-            const apiBase = getApiBase();
-            const res = await fetch(`${apiBase}/api/railway-brands/${filename}`, { method: 'DELETE' });
-            if (res.ok) {
-                setRailwayFiles(prev => prev.filter(f => f.filename !== filename));
-            } else {
-                throw new Error('Delete failed');
-            }
-        } catch (e) {
-            alert(`Delete Failed: ${e.message}`);
-        } finally {
-            setDeletingRailway(null);
+            console.error('Failed to fetch Supabase scrape queue:', err);
         }
     };
 
@@ -349,119 +301,74 @@ export default function BrandManagement({ onBrandAdded, onBrandUpdated, onClose,
 
                 <div className={styles.engineContainer}>
                     <div className={styles.formGroup} style={{ marginBottom: '1.25rem' }}>
-                        <label className={styles.label}>Scraping Service (Engine)</label>
+                        <label className={styles.label}>Scraping Engine</label>
                         <div className={styles.engineSelector}>
                             <button
                                 type="button"
-                                className={`${styles.engineBtn} ${scrapingEngine === 'js' ? styles.activeEngine : ''}`}
-                                onClick={() => handleEngineChange('js')}
+                                className={`${styles.engineBtn} ${styles.activeEngine}`}
+                                onClick={() => handleEngineChange('supabase')}
                             >
                                 <span className={styles.engineIcon}></span>
                                 <div className={styles.engineInfo}>
-                                    <span className={styles.engineName}>JS Scraper Service</span>
-                                    <span className={styles.engineDesc}>Playwright & Crawlee (High Fidelity)</span>
-                                </div>
-                            </button>
-                            <button
-                                type="button"
-                                className={`${styles.engineBtn} ${scrapingEngine === 'python' ? styles.activeEngine : ''}`}
-                                onClick={() => handleEngineChange('python')}
-                            >
-                                <span className={styles.engineIcon}></span>
-                                <div className={styles.engineInfo}>
-                                    <span className={styles.engineName}>Python Scraper Service</span>
-                                    <span className={styles.engineDesc}>FastAPI, Requests & AI (High Performance)</span>
+                                    <span className={styles.engineName}>Supabase Native Engine</span>
+                                    <span className={styles.engineDesc}>Sitemap + JSON-LD + Browserless + Storage Mirror</span>
                                 </div>
                             </button>
                         </div>
                     </div>
 
                     <div className={styles.formGroup} style={{ marginBottom: '0.75rem' }}>
-                        <label className={styles.label}>Scraping Strategy</label>
+                        <label className={styles.label}>Harvest Strategy</label>
                         <select 
                             className={styles.select} 
                             value={scrapingMethod} 
                             onChange={e => setScrapingMethod(e.target.value)}
                         >
-                            {scrapingEngine === 'js' ? (
-                                <>
-                                    <option value="standard"> Universal Scraper (Intelligent WooCommerce/Standard)</option>
-                                    <option value="architonic"> Specialized Scraper (Architonic)</option>
-                                    <option value="ai"> AI Scraper (Legacy Structure-based)</option>
-                                    <option value="scrapling"> Scrapling (Legacy Playwright Python)</option>
-                                </>
-                            ) : (
-                                <>
-                                    <option value="py_universal"> Universal Scraper (Python API)</option>
-                                    <option value="py_architonic"> Architonic Platform (Python API)</option>
-                                    <option value="py_requests"> Python Requests (Fast / API-based)</option>
-                                    <option value="italian"> Italian Furniture (Martex, Manerba, etc.)</option>
-                                    <option value="firecrawl"> Firecrawl AI (Complex / Unstructured sites)</option>
-                                </>
-                            )}
+                            <option value="standard">Supabase Native (Sitemap + JSON-LD + Browserless)</option>
+                            <option value="architonic">Architonic / Official Hybrid Discovery</option>
+                            <option value="py_universal">Fast Sync (Queued Immediate)</option>
                         </select>
                     </div>
                 </div>
 
                 <div className={styles.actionRow}>
                     <button className={styles.getProductsBtn} onClick={handleScraping} disabled={loading || !name || !website}>
-                        {loading ? 'Processing...' : ' Start Harvesting'}
+                        {loading ? 'Processing...' : 'Start Harvesting to Supabase'}
                     </button>
                 </div>
 
-                {/* Cloud Recovery */}
+                {/* Supabase Scrape Queue */}
                 <div className={styles.cloudBackupsHeader}>
                     <div className={styles.cloudBackupsTitle}>
-                        <span> Cloud Backups (Railway)</span>
+                        <span>Supabase Scrape &amp; Enrichment Queue</span>
                         <button 
-                            onClick={(e) => { e.preventDefault(); fetchRailwayFiles(); }}
+                            onClick={(e) => { e.preventDefault(); fetchQueueJobs(); }}
                             className={styles.refreshIconBtn}
-                            title="Force Refresh"
-                            aria-label="Force Refresh Cloud Backups"
+                            title="Refresh Queue"
+                            aria-label="Refresh Supabase Scrape Queue"
                         >
                             ↻
                         </button>
                     </div>
-                    {dashboardUrl && (
-                        <a href={dashboardUrl} target="_blank" rel="noopener noreferrer" className={styles.externalLink}>
-                             Manage Volume
-                        </a>
-                    )}
+                    <button type="button" className={styles.externalLink} onClick={() => setIsSupabaseDashboardOpen(true)}>
+                        Open Supabase Hub
+                    </button>
                 </div>
                 <div className={styles.description}>
-                    Restore scraped data from the cloud volume.
+                    Async brand enrichment and catalog harvest jobs stored in Supabase.
                 </div>
                 <div className={`${styles.brandListContainer} ${styles.cloudList}`}>
-                    {(!railwayFiles || railwayFiles.length === 0) ? (
-                        <div className={styles.emptyList}>No cloud backups found.</div>
+                    {(!queueJobs || queueJobs.length === 0) ? (
+                        <div className={styles.emptyList}>No recent scrape jobs in queue.</div>
                     ) : (
                         <div className={styles.brandList}>
-                            {railwayFiles.map((file) => (
-                                <div key={file.filename} className={styles.brandItem}>
+                            {queueJobs.map((job) => (
+                                <div key={job.id} className={styles.brandItem}>
                                     <div className={styles.brandInfo}>
-                                        <div className={styles.brandNameText}>{file.name || file.filename}</div>
+                                        <div className={styles.brandNameText}>{job.brand_name || job.job_type}</div>
                                         <div className={styles.brandStats}>
-                                            {file.productCount || 0} Products • {file.completedAt ? new Date(file.completedAt).toLocaleDateString() : 'N/A'}
+                                            {job.status?.toUpperCase()} ({job.progress || 0}%) • {job.job_type} • {job.created_at ? new Date(job.created_at).toLocaleDateString() : ''}
                                         </div>
-                                    </div>
-                                    <div className={styles.brandActions}>
-                                        <button
-                                            className={`${styles.actionBtn} ${styles.miniUploadBtn}`}
-                                            onClick={() => handleImportRailway(file.filename)}
-                                            disabled={importingRailway === file.filename || deletingRailway === file.filename}
-                                            title="Recover brand backup from Railway"
-                                        >
-                                            {importingRailway === file.filename ? 'Recovering...' : '⬇ Recover'}
-                                        </button>
-                                        <button
-                                            className={`${styles.actionBtn} ${styles.miniDeleteBtn}`}
-                                            onClick={() => handleDeleteRailway(file.filename)}
-                                            disabled={importingRailway === file.filename || deletingRailway === file.filename}
-                                            title="Delete backup"
-                                            aria-label="Delete backup"
-                                        >
-                                            {deletingRailway === file.filename ? '...' : '✕'}
-                                        </button>
                                     </div>
                                 </div>
                             ))}

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import styles from '../styles/Landing.module.css';
 import { getFullUrl } from '../utils/urlUtils';
+import LandingRadarSection from './LandingRadarSection';
 
 const ROTATING_WORDS = ['Floor Plans', 'Tender BOQs', 'Spec Sheets', 'PDF Schedules'];
 
@@ -553,6 +554,9 @@ export default function LandingShowcase({
     onOpenValueEngineer,
     onOpenMultiBudget,
     onOpenSettings,
+    onOpenScanner,
+    onEstimateLead,
+    onScannerStats,
     brands = [],
     allBrands = [],
     brandTotalCount = 0,
@@ -611,12 +615,14 @@ export default function LandingShowcase({
 
     const features = [
         { icon: 'ri-vip-diamond-line', title: 'Value Engineer', onClick: onOpenValueEngineer, featured: true },
+        { icon: 'ri-radar-line', title: 'GCC Market Radar', onClick: () => onOpenScanner?.({ tab: 'radar' }), featured: true },
         { icon: 'ri-compasses-2-line', title: 'Plan Takeoff', onClick: () => planInputRef.current?.click() },
         { icon: 'ri-layers-line', title: '3-Tier Offers', onClick: onOpenMultiBudget },
         { icon: 'ri-slideshow-line', title: 'PPTX Catalogs', onClick: onOpenMultiBudget },
         { icon: 'ri-file-shield-2-line', title: 'MAS · MIR · WIR', onClick: () => boqInputRef.current?.click() },
         { icon: 'ri-building-4-line', title: 'Fitout', onClick: onOpenMultiBudget },
-        { icon: 'ri-global-line', title: 'Brand Harvester', onClick: onOpenSettings }
+        { icon: 'ri-global-line', title: 'Brand Harvester', onClick: onOpenSettings },
+        { icon: 'ri-government-line', title: 'eTender Autofill', onClick: () => onOpenScanner?.({ tab: 'portals' }), featured: true }
     ];
 
     const renderMarqueeItem = (brandItem, i, baseLength) => (
@@ -713,6 +719,11 @@ export default function LandingShowcase({
                             <i className="ri-equalizer-line" />
                             <span>New BOQ</span>
                         </button>
+
+                        <button type="button" className={`${styles.cta} ${styles.ctaRadar} ${styles.enter}`} style={{ animationDelay: '370ms' }} onClick={() => onOpenScanner?.({ tab: 'radar' })}>
+                            <i className="ri-radar-line" />
+                            <span>Find Tenders</span>
+                        </button>
                     </div>
 
                     {/* Interactive Motion Pipeline */}
@@ -729,6 +740,13 @@ export default function LandingShowcase({
                     <span />
                 </div>
             </section>
+
+            {/* ===== LIVE GCC & OMAN TENDER RADAR ===== */}
+            <LandingRadarSection
+                onOpenScanner={onOpenScanner}
+                onEstimateLead={onEstimateLead}
+                onScannerStats={onScannerStats}
+            />
 
             {/* ===== DUAL-ROW BRAND MARQUEE ===== */}
             {marqueeRowA.length > 0 && (

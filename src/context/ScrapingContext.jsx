@@ -38,30 +38,21 @@ export function ScrapingProvider({ children }) {
         return 2500; // 2.5s normal
     }, []);
 
-    // Check for saved files on Railway (Smart Recovery)
+    // Check for completed jobs in Supabase scrape_jobs queue
     const checkForSavedFile = useCallback(async (brandName) => {
         try {
-            // normalizing name for comparison
             const targetName = brandName.toLowerCase().trim();
             const apiBase = getApiBase();
 
-            const res = await fetch(`${apiBase}/api/railway-brands`);
+            const res = await fetch(`${apiBase}/api/supabase-jobs?limit=25`);
             if (!res.ok) return null;
 
             const data = await res.json();
-            if (!data.brands || data.brands.length === 0) return null;
-
-            // Find most recent matching file
-            const match = data.brands
-                .filter(b => b.name.toLowerCase().trim() === targetName)
-                .sort((a, b) => new Date(b.completedAt) - new Date(a.completedAt))[0];
-
-            if (match) {
-                console.log(` Found saved backup for ${brandName}:`, match.filename);
-                return match;
-            }
+            const jobs = data.jobs || [];
+            const match = jobs.find(j => j.status === 'completed' && String(j.brand_name || '').toLowerCase().trim() === targetName);
+            if (match) return match;
         } catch (e) {
-            console.warn('Failed to check for saved files:', e);
+            console.warn('Failed to check Supabase job queue:', e);
         }
         return null;
     }, []);
@@ -88,7 +79,7 @@ export function ScrapingProvider({ children }) {
         // Recursive polling function that adapts to errors
         const poll = async () => {
             try {
-                // Longer timeout - Railway can be slow under load
+                // Longer timeout under active batch load
                 const controller = new AbortController();
                 const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout
                 const apiBase = getApiBase();
@@ -178,41 +169,23 @@ export function ScrapingProvider({ children }) {
                         : prev.stage
                 }));
 
-                // SMART RECOVERY: If connection is bad, check if file was saved anyway!
+                // SMART RECOVERY: Check if Supabase job completed despite polling timeout
                 if (currentErrorCount > 2) {
-                    const savedFile = await checkForSavedFile(brandName);
-                    if (savedFile) {
-                        try {
-                            const apiBase = getApiBase();
-                            const fileRes = await fetch(`${apiBase}/api/railway-brands/${savedFile.filename}`);
-                            if (fileRes.ok) {
-                                const fileData = await fileRes.json();
-
-                                // Only use if it looks new enough (created after we started)
-                                const fileTime = new Date(fileData.completedAt).getTime();
-                                if (fileTime > startTime) {
-                                    console.log(' RECOVERED FROM SAVED FILE!');
-
-                                    if (pollIntervalId) clearTimeout(pollIntervalId);
-                                    pollingRef.current = null;
-
-                                    setScrapingState(prev => ({ ...prev, progress: 100, stage: 'Recovered from backup!' }));
-
-                                    setTimeout(() => {
-                                        setSuccessData({
-                                            brandName: fileData.brandInfo.name,
-                                            count: fileData.productCount,
-                                            enriched: 0
-                                        });
-                                        setScrapingState(prev => ({ ...prev, isActive: false }));
-                                        if (onComplete) onComplete(fileData);
-                                    }, 500);
-                                    return;
-                                }
-                            }
-                        } catch (recError) {
-                            console.error('Recovery failed:', recError);
-                        }
+                    const completedJob = await checkForSavedFile(brandName);
+                    if (completedJob && new Date(completedJob.updated_at || completedJob.created_at).getTime() > startTime) {
+                        if (pollIntervalId) clearTimeout(pollIntervalId);
+                        pollingRef.current = null;
+                        setScrapingState(prev => ({ ...prev, progress: 100, stage: 'Completed in Supabase!' }));
+                        setTimeout(() => {
+                            setSuccessData({
+                                brandName: completedJob.brand_name || brandName,
+                                count: completedJob.result_summary?.totalProducts || 0,
+                                enriched: completedJob.result_summary?.scrapedCount || 0
+                            });
+                            setScrapingState(prev => ({ ...prev, isActive: false }));
+                            if (onComplete) onComplete(completedJob);
+                        }, 500);
+                        return;
                     }
                 }
 

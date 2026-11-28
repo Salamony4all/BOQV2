@@ -22,6 +22,9 @@ const FIELDS = [
     { key: 'originatorDesignation', label: 'Originator Designation', placeholder: 'e.g. QA/QC Engineer', icon: '' },
     { key: 'clientRepName', label: 'Client Rep Name', placeholder: 'e.g. Jane Smith', icon: '' },
     { key: 'clientRepDesignation', label: 'Client Rep Designation', placeholder: 'e.g. Project Manager', icon: '' },
+    { key: 'projectManager', label: 'Project Manager (Schedule)', placeholder: 'e.g. Eng. Mohamed Zain', icon: '' },
+    { key: 'contractDurationDays', label: 'Contract Duration (Days)', placeholder: 'Auto-scaled if blank (e.g. 45)', icon: '' },
+    { key: 'vatPercent', label: 'VAT % (Project Control)', placeholder: 'e.g. 5', icon: '' },
 ];
 
 export default function ProjectSettingsPanel({ isOpen, onClose }) {

@@ -2,7 +2,6 @@ import { spawn, execSync } from 'child_process';
 import path from 'path';
 import { promises as fs } from 'fs';
 import os from 'os';
-import axios from 'axios';
 
 /**
  * Checks if a command exists in the system path (Linux/macOS)
@@ -17,10 +16,67 @@ const commandExists = (cmd) => {
 };
 
 /**
+ * Pure-JS embedded raster extractor for Excel EMF/WMF metafiles (zero Railway sidecar needed).
+ * Extracts embedded PNG, JPEG, or Windows DIB bitmaps directly from EMF/WMF records.
+ */
+export function extractEmbeddedRasterFromMetafile(buffer) {
+    if (!Buffer.isBuffer(buffer) || buffer.length < 32) return null;
+
+    // 1. Scan for embedded PNG stream (89 50 4E 47 0D 0A 1A 0A ... IEND AE 42 60 82)
+    const pngSig = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+    const pngIdx = buffer.indexOf(pngSig);
+    if (pngIdx !== -1) {
+        const iendSig = Buffer.from([0x49, 0x45, 0x4e, 0x44, 0xae, 0x42, 0x60, 0x82]);
+        const endIdx = buffer.indexOf(iendSig, pngIdx + 8);
+        if (endIdx !== -1) {
+            return { ext: '.png', data: buffer.subarray(pngIdx, endIdx + 8) };
+        }
+    }
+
+    // 2. Scan for embedded JPEG stream (FF D8 FF ... FF D9)
+    const jpgSig = Buffer.from([0xff, 0xd8, 0xff]);
+    const jpgIdx = buffer.indexOf(jpgSig);
+    if (jpgIdx !== -1) {
+        const eoiSig = Buffer.from([0xff, 0xd9]);
+        const endIdx = buffer.lastIndexOf(eoiSig);
+        if (endIdx > jpgIdx + 16) {
+            return { ext: '.jpg', data: buffer.subarray(jpgIdx, endIdx + 2) };
+        }
+    }
+
+    // 3. Parse EMF EMR_STRETCHDIBITS (0x51) or EMR_BITBLT (0x4C) DIB payload into a BMP buffer
+    if (buffer.readUInt32LE(0) === 1 && buffer.length > 88) {
+        let offset = buffer.readUInt32LE(4); // header nSize
+        while (offset + 8 <= buffer.length) {
+            const recType = buffer.readUInt32LE(offset);
+            const recSize = buffer.readUInt32LE(offset + 4);
+            if (recSize < 8 || offset + recSize > buffer.length) break;
+            if (recType === 81 && recSize >= 80) { // EMR_STRETCHDIBITS
+                const offBmi = buffer.readUInt32LE(offset + 48);
+                const cbBmi = buffer.readUInt32LE(offset + 52);
+                const offBits = buffer.readUInt32LE(offset + 56);
+                const cbBits = buffer.readUInt32LE(offset + 60);
+                if (cbBmi >= 40 && cbBits > 0 && offBmi + cbBmi <= recSize && offBits + cbBits <= recSize) {
+                    const bmi = buffer.subarray(offset + offBmi, offset + offBmi + cbBmi);
+                    const bits = buffer.subarray(offset + offBits, offset + offBits + cbBits);
+                    const fileHeader = Buffer.alloc(14);
+                    fileHeader.write('BM', 0, 'ascii');
+                    fileHeader.writeUInt32LE(14 + cbBmi + cbBits, 2);
+                    fileHeader.writeUInt32LE(14 + cbBmi, 10);
+                    return { ext: '.bmp', data: Buffer.concat([fileHeader, bmi, bits]) };
+                }
+            }
+            if (recType === 14) break; // EMR_EOF
+            offset += recSize;
+        }
+    }
+    return null;
+}
+
+/**
  * Converts EMF/WMF files to PNG.
- * Uses Windows GDI+ via PowerShell on Windows.
- * Falls back to Inkscape, LibreOffice, or ImageMagick on Linux/macOS.
- * Further falls back to Railway sidecar if local tools are missing (e.g. on Vercel).
+ * Uses Windows GDI+ via PowerShell on Windows, Inkscape/LibreOffice/ImageMagick on Linux,
+ * and falls back to pure-JS embedded raster extraction on serverless runtimes (no Railway).
  */
 export async function convertEmfToPng(inputPath) {
     // Verify input file exists
@@ -164,9 +220,7 @@ Try {
 }
 
 async function convertOnLinux(inputPath, outputPath) {
-    const JS_SCRAPER_SERVICE_URL = process.env.JS_SCRAPER_SERVICE_URL;
-
-    // 1. Try local tools first (if available)
+    // 1. Try local OS tools first (if available)
     let cmd = '';
     let args = [];
 
@@ -202,7 +256,6 @@ async function convertOnLinux(inputPath, outputPath) {
                         console.log(`[EMF Converter] Successfully converted on Linux: ${path.basename(inputPath)} -> PNG using ${cmd}`);
                         resolve(outputPath);
                     } catch (e) {
-                        console.error(`[EMF Converter] File not found after successful exit code using ${cmd}`);
                         resolve(null);
                     }
                 } else {
@@ -217,42 +270,24 @@ async function convertOnLinux(inputPath, outputPath) {
                 resolve(null);
             });
         });
-    } else {
-        console.warn(`[EMF Converter] No local conversion tools (inkscape, soffice, magick) found on Linux environment.`);
     }
 
-    // 2. Fallback to Railway Sidecar (if configured)
-    if (JS_SCRAPER_SERVICE_URL) {
-        console.log(`[EMF Converter] Offloading ${path.basename(inputPath)} to Railway sidecar at ${JS_SCRAPER_SERVICE_URL}...`);
-        try {
-            const buffer = await fs.readFile(inputPath);
-            const base64Image = buffer.toString('base64');
-            
-            const response = await axios.post(`${JS_SCRAPER_SERVICE_URL}/convert-image`, {
-                image: base64Image,
-                filename: path.basename(inputPath)
-            }, { timeout: 30000 });
-
-            if (response.data && response.data.success && response.data.image) {
-                const pngBuffer = Buffer.from(response.data.image, 'base64');
-                await fs.writeFile(outputPath, pngBuffer);
-                console.log(`[EMF Converter] Successfully converted via Railway: ${path.basename(inputPath)} -> PNG`);
-                return outputPath;
-            } else {
-                console.warn(`[EMF Converter] Railway sidecar conversion failed: ${response.data?.error || 'Unknown error'}`);
-                if (response.data?.details) console.warn(`[EMF Converter] Railway sidecar details: ${response.data.details}`);
-            }
-        } catch (err) {
-            console.error(`[EMF Converter] Error calling Railway sidecar for conversion at ${JS_SCRAPER_SERVICE_URL}:`, err.message);
-            if (err.response) {
-                console.error(`[EMF Converter] Sidecar response status: ${err.response.status}`);
-                console.error(`[EMF Converter] Sidecar response data:`, err.response.data);
-            }
+    // 2. Serverless Pure-JS Fallback: extract embedded PNG/JPEG/DIB directly from EMF/WMF
+    try {
+        const metaBuf = await fs.readFile(inputPath);
+        const extracted = extractEmbeddedRasterFromMetafile(metaBuf);
+        if (extracted && extracted.data) {
+            const targetOut = extracted.ext === '.png'
+                ? outputPath
+                : outputPath.replace(/\.png$/i, extracted.ext);
+            await fs.writeFile(targetOut, extracted.data);
+            console.log(`[EMF Converter] Pure-JS metafile raster extracted: ${path.basename(targetOut)} (${extracted.data.length} bytes)`);
+            return targetOut;
         }
-    } else {
-        console.warn(`[EMF Converter] JS_SCRAPER_SERVICE_URL not configured. Check Vercel environment variables.`);
+    } catch (e) {
+        console.warn(`[EMF Converter] Pure-JS extraction warning for ${path.basename(inputPath)}:`, e.message);
     }
 
-    console.warn(`[EMF Converter] Conversion failed for ${path.basename(inputPath)}. Local tools: ${!!cmd}, Sidecar: ${!!JS_SCRAPER_SERVICE_URL}`);
+    console.warn(`[EMF Converter] Pure vector EMF without embedded raster on serverless Linux: ${path.basename(inputPath)}`);
     return null;
 }

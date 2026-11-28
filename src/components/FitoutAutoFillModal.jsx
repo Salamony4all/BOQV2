@@ -14,15 +14,25 @@ export default function FitoutAutoFillModal({ isOpen, onClose, allBrands = [], a
     
     const [selectedBrands, setSelectedBrands] = useState([]);
 
-    // Filter brands containing 'fitout' or tagged as fitout (case-insensitive)
+    // Filter brands containing 'fitout' or tagged as fitout (case-insensitive), deduplicating by name
     const fitoutBrands = useMemo(() => {
-        const filtered = allBrands.filter(b => 
-            b.name.toLowerCase().includes('fitout') || 
-            (b.type || '').toLowerCase() === 'fitout'
+        const filtered = allBrands.filter(b =>
+            b?.name && (
+                b.name.toLowerCase().includes('fitout') ||
+                (b.type || '').toLowerCase() === 'fitout'
+            )
         );
+        const seen = new Set();
+        const unique = [];
+        for (const b of filtered) {
+            const key = b.name.trim().toLowerCase();
+            if (seen.has(key)) continue;
+            seen.add(key);
+            unique.push(b);
+        }
         // If no fitout brands found in database, fallback to a default one
-        if (filtered.length === 0) return [{ name: 'FitOut V2', budgetTier: 'mid', type: 'fitout' }];
-        return filtered;
+        if (unique.length === 0) return [{ name: 'FitOut V2', budgetTier: 'mid', type: 'fitout' }];
+        return unique;
     }, [allBrands]);
 
     // Reset selection on open

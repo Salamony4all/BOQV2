@@ -3,10 +3,16 @@ import { useCompanyProfile } from '../context/CompanyContext';
 import styles from '../styles/TableViewer.module.css';
 
 // Removed hardcoded ITEMS_PER_PAGE to use state
-function TenderAutofillModal({ isOpen, onClose, tables, apiBase }) {
+function TenderAutofillModal({ isOpen, onClose, tables, apiBase, initialDomain = '' }) {
     const { aiSettings } = useCompanyProfile();
-    const [domainName, setDomainName] = useState('etendering.tenderboard.gov.om');
+    const [domainName, setDomainName] = useState(initialDomain || 'etendering.tenderboard.gov.om');
     const [isSandbox, setIsSandbox] = useState(false);
+
+    useEffect(() => {
+        if (initialDomain) {
+            setDomainName(initialDomain);
+        }
+    }, [initialDomain]);
     
     const [tenderStatus, setTenderStatus] = useState('idle'); // idle, loading_browser, ready, executing, page_done, completed, error
     const [sessionInfo, setSessionInfo] = useState({ id: null, vncUrl: null });

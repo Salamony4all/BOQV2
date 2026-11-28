@@ -7,6 +7,9 @@ import MultiBudgetModal from './MultiBudgetModal';
 import { Pipeline, PipelineStep, QuickMatchStatus, DesignBuildSuite, ExportSource } from './OfferPipeline';
 import { designBuild, productsFromTables } from '../features/designBuild/designBuildStore';
 import { captureFiles, saveFile, savePdf } from '../utils/fileSink';
+import { buildDynamicProjectPlan, buildProjectPlanExcel, buildMsProjectXml } from '../features/projectPlan/dynamicProjectPlanner';
+import { applyGeometricEnrichmentToTables } from '../features/boq/geometricBoqEnricher';
+import { resolveFitoutManufacturer, resolveFitoutCardImageUrl } from '../utils/officialBrandFinishes';
 
 /** An offer applied here also furnishes the Design & Build model (and feeds its export suite). */
 const shareOfferWithDesignBuild = (offerTables) => {
@@ -105,7 +108,8 @@ function TableViewer({
     planPreviewUrl,
     planPreviewType,
     planPreviewName,
-    seededItems = null
+    seededItems = null,
+    initialTenderDomain = ''
 }) {
     const profile = useCompanyProfile();
     const { companyName, logoOriginal, logoWhite, website, accentColor, secondaryColor } = profile;
@@ -3761,8 +3765,11 @@ function TableViewer({
         let itemNum = 1;
         let lastSection = '';
         const headerSubColor = layoutStyle === 'minimalist' ? '64748B' : 'E2E8F0';
+        const groupedTables = (sourceTables || []).map((t) => (
+            !t?.recategorizeMode || t.recategorizeMode === 'original' ? recategorizeTables([t], 'item')[0] : t
+        ));
 
-        for (const table of sourceTables) {
+        for (const table of groupedTables) {
             const header = table.header || [];
             let descIdx = header.findIndex(h => !/image|photo|picture|img/i.test(h) && /description|details|spec|specification/i.test(h));
             if (descIdx === -1) {
@@ -3806,10 +3813,6 @@ function TableViewer({
                 const slide = pres.addSlide({ masterName: 'BOQ_MASTER' });
                 drawSlideDecorations(slide);
 
-                // Get all images from the row
-                const imageCell = row.cells?.find(c => c?.images?.length > 0 || c?.image);
-                const allImages = imageCell?.images || (imageCell?.image ? [imageCell.image] : []);
-
                 // Get product info safely
                 let desc = descIdx > -1 ? String(row.cells?.[descIdx]?.value || '').trim() : '';
 
@@ -3830,6 +3833,14 @@ function TableViewer({
                 const brandVal = brandIdx > -1 ? String(row.cells?.[brandIdx]?.value || '') : '';
                 const qty = qtyIdx > -1 ? String(row.cells?.[qtyIdx]?.value || '') : '';
                 const finish = finishIdx > -1 ? String(row.cells?.[finishIdx]?.value || '') : '';
+
+                // Get all images from the row (with canonical FitOut material swatch card fallback)
+                const imageCell = row.cells?.find(c => c?.images?.length > 0 || c?.image);
+                const rowImages = imageCell?.images || (imageCell?.image ? [imageCell.image] : []);
+                const fallbackFitoutImg = (!rowImages.length && /fitout/i.test(`${row.sectionCategory || ''} ${row.sectionLabel || ''} ${brandVal}`))
+                    ? resolveFitoutCardImageUrl({ brand: brandVal, code: row.code || row.skuCode, model: row.selectedModel, description: row.sourceDescription || desc })
+                    : '';
+                const allImages = rowImages.length ? rowImages : (fallbackFitoutImg ? [fallbackFitoutImg] : []);
 
                 // Extract first line/product name for header title (short, no overflow)
                 const firstLine = desc.split(/[\n*•]/)[0].trim();
@@ -4047,7 +4058,10 @@ function TableViewer({
                 });
 
                 // Brand, Qty & Finish inside a clean architectural metadata card
-                const rowBrand = brandVal.trim();
+                const rawRowBrand = brandVal.trim();
+                const rowBrand = rawRowBrand === 'FitOut V2'
+                    ? (resolveFitoutManufacturer({ brand: rawRowBrand, code: row.code || row.skuCode, model: row.selectedModel, description: row.sourceDescription || desc }) || 'GCC Contract Standard')
+                    : rawRowBrand;
                 const brand = rowBrand || project.brand || project.brandOrigin || companyName || 'N/A';
                 const cleanFinish = finish.trim();
 
@@ -4287,7 +4301,10 @@ function TableViewer({
         doc.text(`Date: ${today}  |  Total Items: ${totalItems}`, pageWidth / 2, 68, { align: 'center' });
 
         // ===== PRODUCT PAGES =====
-        for (const table of sourceTables) {
+        const groupedPdfTables = (sourceTables || []).map((t) => (
+            !t?.recategorizeMode || t.recategorizeMode === 'original' ? recategorizeTables([t], 'item')[0] : t
+        ));
+        for (const table of groupedPdfTables) {
             const header = table.header || [];
             const descIdx = header.findIndex(h => /description|desc/i.test(h));
             const brandIdx = header.findIndex(h => /brand|maker|origin/i.test(h));
@@ -4885,6 +4902,57 @@ function TableViewer({
     // The offer PDF and Excel, MAS, MIR, WIR and delivery note, made by the exports below
     // from the same source (the offer in the costed results, or the BOQ as extracted),
     // with the company profile and project details: collected instead of downloaded.
+    const handleDownloadProjectPlan = async (sourceTables, format = 'xlsx') => {
+        const srcTables = Array.isArray(sourceTables) && sourceTables.length ? sourceTables : exportSrc.tables;
+        if (!srcTables?.length) return;
+        const dbState = designBuild.getState();
+        const cur = costingFactors?.toCurrency || srcTables[0]?.summary?.currency || 'OMR';
+        const plan = buildDynamicProjectPlan({
+            tables: srcTables,
+            products: dbState.products || [],
+            takeoff: dbState.takeoff || null,
+            project: { ...project, contractor: project.contractor || companyName },
+            brand: { company: companyName, website },
+            currency: cur,
+            costingFactors,
+            planName: dbState.plan?.name || project.projectName || 'BOQ Project',
+        });
+        const slug = String(plan.meta.title || 'Project').replace(/[^\p{L}\p{N}]+/gu, '_').replace(/^_+|_+$/g, '').slice(0, 50) || 'Project';
+        if (format === 'xml') {
+            const blob = buildMsProjectXml(plan);
+            await saveFile(blob, `${slug}_MS_Project_Schedule.xml`);
+        } else {
+            const blob = await buildProjectPlanExcel(plan);
+            await saveFile(blob, `${slug}_Action_and_Project_Plan.xlsx`);
+        }
+    };
+
+    const boqEnrichRef = useRef(null);
+    const activeTablesRef = useRef([]);
+    activeTablesRef.current = appliedOffer?.tables?.length ? appliedOffer.tables : tables;
+    useEffect(() => {
+        boqEnrichRef.current = ({ updates = [], additions = [] } = {}) => {
+            const targetTables = appliedOffer?.tables?.length ? appliedOffer.tables : tables;
+            if (!targetTables?.length) return false;
+            const enriched = applyGeometricEnrichmentToTables(targetTables, updates, additions);
+            if (appliedOffer?.tables?.length) {
+                setAppliedOffer((prev) => (prev ? { ...prev, tables: enriched } : prev));
+            } else {
+                setTables(enriched);
+            }
+            shareOfferWithDesignBuild(enriched);
+            return true;
+        };
+    });
+    useEffect(() => {
+        designBuild.setBoqEnricher((payload) => boqEnrichRef.current?.(payload) ?? false);
+        designBuild.setTablesGetter(() => activeTablesRef.current || []);
+        return () => {
+            designBuild.setBoqEnricher(null);
+            designBuild.setTablesGetter(null);
+        };
+    }, []);
+
     const makePackageDocuments = async ({ onProgress } = {}) => {
         const src = exportSrc;
         if (!src.tables?.length) return null;
@@ -5092,6 +5160,29 @@ function TableViewer({
                         title={exportOffer ? offerName : 'Original offer'}
                     />
 
+                    <div className={pipeStyles.programmeCard}>
+                        <div className={pipeStyles.programmeText}>
+                            <span className={pipeStyles.programmeTitle}>Project Action &amp; Full Plan</span>
+                            <span className={pipeStyles.programmeSub}>Dynamic 10-sheet WBS, Action Tracker, EVM, S-Curve, Gantt &amp; MS Project schedule scaled to this BOQ</span>
+                        </div>
+                        <div className={pipeStyles.programmeActions}>
+                            <button
+                                className={`${actionStyles.actionBtn} ${pipeStyles.programmeBtn}`}
+                                onClick={() => handleDownloadProjectPlan(exportSrc.tables, 'xlsx')}
+                                title="Generate Dynamic 10-Sheet Project Action & Control Plan (Excel with EVM, Gantt, S-Curve & Risks)"
+                            >
+                                Project Plan (.xlsx)
+                            </button>
+                            <button
+                                className={`${actionStyles.actionBtn} ${pipeStyles.programmeBtnAlt}`}
+                                onClick={() => handleDownloadProjectPlan(exportSrc.tables, 'xml')}
+                                title="Export Native Microsoft Project MSPDI Schedule (.xml)"
+                            >
+                                MS Project (.xml)
+                            </button>
+                        </div>
+                    </div>
+
                     <p className={pipeStyles.docsTitle}>Offer documents</p>
                     <div className={pipeStyles.docs}>
                         <button className={actionStyles.actionBtn} onClick={() => handleDownloadPDF(exportSrc.summary, exportSrc.file)} title={exportSrc.costed ? 'Download Costed PDF' : 'Download Offer PDF'}>Offer PDF</button>
@@ -5140,7 +5231,7 @@ function TableViewer({
                 </PipelineStep>
             </Pipeline>
 
-            <TenderAutofillModal isOpen={isTenderAutofillOpen} onClose={() => setTenderAutofillOpen(false)} tables={tables} apiBase={API_BASE} />
+            <TenderAutofillModal isOpen={isTenderAutofillOpen} onClose={() => setTenderAutofillOpen(false)} tables={tables} apiBase={API_BASE} initialDomain={initialTenderDomain} />
 
             <MultiBudgetModal
                 isOpen={isMultiBudgetOpen}

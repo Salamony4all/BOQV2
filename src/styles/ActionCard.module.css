@@ -1,8 +1,8 @@
 .uploadContainer {
-    margin: 0;
-    width: 550px;
-    height: 260px;
-    max-width: 95vw;
+    margin: 0 auto;
+    width: 100%;
+    max-width: 550px;
+    height: 235px;
     animation: fadeIn 0.6s ease-out 0.2s both;
 }
 
@@ -115,14 +115,28 @@
 @media (max-width: 768px) {
     .uploadContainer {
         width: 100%;
-        height: 220px;
+        max-width: 100%;
+        height: auto;
+        min-height: 144px;
+    }
+
+    .dropZone {
+        padding: 1.3rem 1.1rem;
+        border-radius: 16px;
     }
 
     .uploadIcon {
-        font-size: 3.5rem;
+        font-size: 2.6rem;
+        margin-bottom: 0.45rem;
+        letter-spacing: 2px;
     }
 
     .uploadTitle {
-        font-size: 1.1rem;
+        font-size: 1.08rem;
+    }
+
+    .uploadHint {
+        font-size: 0.85rem;
+        margin-bottom: 0.4rem;
     }
 }

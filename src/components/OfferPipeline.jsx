@@ -130,7 +130,7 @@ export function QuickMatchStatus({ run, offerActive, onView, onReview }) {
     return null;
 }
 
-const SUITE_FILES = '3D model · renders · offer & BOQ · MAS, MIR, WIR · FF&E schedule · mood board · drawings · presentation, with your logo and project details';
+const SUITE_FILES = '3D model · renders · offer & BOQ · project action & plan (.xlsx + MS Project .xml) · MAS, MIR, WIR · FF&E schedule · mood board · drawings · presentation, with your logo and project details';
 
 /**
  * The Design & Build export suite in the exports: the one-click button (the plan in 3D,
@@ -139,16 +139,19 @@ const SUITE_FILES = '3D model · renders · offer & BOQ · MAS, MIR, WIR · FF&E
 export function DesignBuildSuite({ getTables, title }) {
     const s = useDesignBuild();
     const approved = s.open && s.renders.some((r) => r.id === s.approvedRenderId);
+    const canExport = approved || (s.open && s.status === 'ready');
     const waiting = s.open && !approved && s.renders.length > 0;
     const busy = !!s.exporting;
     const hint = busy
         ? s.exporting.label || 'Preparing the package…'
-        : s.exportError && approved
+        : s.exportError && canExport
             ? `The package could not be made: ${s.exportError}`
-            : approved
+            : canExport
                 ? s.exportResult
-                    ? `Saved ${s.exportResult.files} file${s.exportResult.files === 1 ? '' : 's'} to your downloads.`
-                    : `Render approved: the package is ready${s.offer?.title ? ` (${s.offer.title})` : ''}.`
+                    ? (s.exportResult.asZip !== false
+                        ? `Saved .zip suite (${s.exportResult.files} files incl. Project Plan & BOQ) to your downloads.`
+                        : `Saved ${s.exportResult.files} file${s.exportResult.files === 1 ? '' : 's'} to your downloads.`)
+                    : `${approved ? 'Render approved' : '3D model ready'}: the package is ready${s.offer?.title ? ` (${s.offer.title})` : ''}.`
                 : waiting
                     ? `${s.renders.length} render${s.renders.length === 1 ? '' : 's'} in Design & Build: use the newest for the package, or review them there.`
                     : s.open
@@ -165,7 +168,7 @@ export function DesignBuildSuite({ getTables, title }) {
             </div>
             <div className={styles.suiteActions}>
                 <DesignBuildButton getTables={getTables} title={title} />
-                {approved && (
+                {canExport && (
                     <button type="button" className={styles.suiteBtn} onClick={() => designBuild.downloadPackage()} disabled={busy}>
                         {busy ? 'Preparing…' : 'Download package'}
                     </button>
@@ -181,9 +184,9 @@ export function DesignBuildSuite({ getTables, title }) {
                     </button>
                 )}
             </div>
-            <span className={`${styles.suiteHint} ${s.exportError && approved && !busy ? styles.suiteHintError : ''}`} role="status" aria-live="polite">
+            <span className={`${styles.suiteHint} ${s.exportError && canExport && !busy ? styles.suiteHintError : ''}`} role="status" aria-live="polite">
                 {hint}
-                {approved && !busy && (
+                {canExport && !busy && (
                     <>
                         {' '}
                         <button type="button" className={styles.linkBtn} onClick={() => designBuild.openExportSuite()}>

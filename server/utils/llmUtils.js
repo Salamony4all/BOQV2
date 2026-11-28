@@ -4,6 +4,9 @@ import axios from 'axios';
 import 'dotenv/config';
 import { TAXONOMY } from './normalizer.js';
 import { readSettings } from '../settings.js';
+import { preprocessPlanFiles } from './planPreprocessor.js';
+import { detectCustomFabrication } from './customFabricationDetector.js';
+import { searchFabricationHybrid } from '../repositories/supabaseCatalogRepo.js';
 import {
     PIPELINE_TIMEOUT_MS,
     isGoogleFreeTierActive,
@@ -110,7 +113,9 @@ export function getGoogleAI(modelName) {
 }
 
 export const LOCAL_MODEL = 'local/yolov8-llama3.2';
-export const PYTHON_SERVICE_URL = process.env.PYTHON_SERVICE_URL || 'http://localhost:8001';
+export const PYTHON_SERVICE_URL = (process.env.NODE_ENV === 'development' && process.env.PYTHON_SERVICE_URL)
+    ? process.env.PYTHON_SERVICE_URL
+    : '';
 
 // Deprecated: kept for any stale callers — resolves dynamically at runtime
 const genAI = (() => {
@@ -1230,26 +1235,33 @@ Write a crisp, tender-grade technical BOQ specification for EVERY item derived a
 
 ### 🧭 CATEGORY & SCOPE MAPPING:
 1. Map every item to an accurate main typology hint aligned with: ${ALLOWED_CATEGORIES}.
-2. SEPARATION OF CONCERNS:
-   - "Furniture": Chairs, Desks, Conference Tables, Workstations, Reception Desks, Cafe/Coffee Tables, Pedestals, Filing Cabinets, Sofas, Lounge Armchairs, Acoustic Pods.
-   - "Fitout (Architectural)": Partition Walls, Glass Partitions, Flooring finishes (Carpet Tile, Porcelain Tile, Vinyl, Marble), False Ceilings (Gypsum / Acoustic Grid), Swing Doors, Sliding Doors, Wall Cladding, Skirting.
-   - "Fitout (Joinery)": Built-in Pantry Cabinets, Built-in Wall Units, Countertops & Sink Vanity Joinery.
+2. SEPARATION OF CONCERNS (4 SCOPES):
+   - "Furniture": Standard catalog chairs, desks, conference tables (<=3200mm), workstations, cafe/coffee tables, pedestals, filing cabinets, loose sofas, lounge armchairs, acoustic pods.
+   - "Custom Fabrication": Bespoke workshop/site-fabricated items — custom/curved/L-shaped reception counters, built-in upholstered banquettes & booth seating, oversized boardroom tables (>3600mm or 14+ pax), full-height executive wall joinery/lockers, fluted timber/slatted acoustic feature walls, CNC screens/metal dividers, custom planter troughs, built-in pantry/vanity counters, monolithic terrazzo benches.
+   - "Fitout (Architectural)": Partition walls, glass partitions, flooring finishes (Carpet Tile, Porcelain Tile, Vinyl, Marble), false ceilings (Gypsum / Acoustic Grid), swing/sliding doors, skirting, window blinds.
    - "Fitout (Lighting)" / "Fitout (MEP)" / "Fitout (AV)": Only if clearly indicated on the plan.
 
 Return ONLY valid JSON. No markdown fences or conversational text.
 
 ### 📦 OUTPUT FORMAT:
 {
+  "zones": [
+    { "name": "Room / Zone", "areaSqm": 28.5, "perimeterLm": 22.0, "floorFinish": "Carpet Tile", "ceilingType": "Gypsum Board" }
+  ],
   "items": [
     {
       "location": "Exact Room / Zone Name from Plan",
-      "scope": "Furniture" | "Fitout (Architectural)" | "Fitout (Joinery)" | "Fitout (Lighting)" | "Fitout (MEP)" | "Fitout (AV)",
-      "code": "Tag if shown on plan or systematic code e.g. CH-01, WS-01, FL-01, DR-01",
+      "scope": "Furniture" | "Custom Fabrication" | "Fitout (Architectural)" | "Fitout (Joinery)" | "Fitout (Lighting)" | "Fitout (MEP)" | "Fitout (AV)",
+      "code": "Tag if shown on plan or systematic code e.g. CH-01, WS-01, FAB-01, FL-01, DR-01",
       "name": "Concise Standardized Item Title (no brand/model names)",
       "dimensions": "Calibrated L x W x H mm or module size (e.g. '4200 x 1400 x 750 mm')",
-      "materialSpec": "Short non-repeating finish/construction spec (only used if description is brief)",
-      "categoryHint": "Valid category from allowed categories or Fitout trade",
+      "shape": "rectangular" | "curved" | "l-shape" | "u-shape" | "round",
+      "designBuildKind": "reception" | "sofa" | "table" | "cabinet" | "counter" | "partition" | "seat" | "desk" | "bench" | "planter",
+      "materialSpec": "Short non-repeating finish/construction spec",
+      "categoryHint": "Valid category from allowed categories, Custom Fabrication, or Fitout trade",
       "description": "One clean, non-repetitive tender BOQ specification (title + dimensions + key construction specs in ~20-32 words, no 'Supply and installation of')",
+      "confidence": "high" | "medium" | "low",
+      "evidence": "Brief visual/CAD basis e.g. 'Counted 12 chairs + CAD tag CH-01 at 1:100 scale'",
       "qty": 12.5,
       "unit": "Nos" | "SQM" | "LM"
     }
@@ -1261,12 +1273,19 @@ Return ONLY valid JSON. No markdown fences or conversational text.
 const normalizePlanScope = (rawScope, desc, includeFitout) => {
     const scopeStr = String(rawScope || '').trim();
     const lowerDesc = String(desc || '').toLowerCase();
+    if (/custom\s*fab|bespoke|millwork/i.test(scopeStr)) return 'Custom Fabrication';
+
+    const fabCheck = detectCustomFabrication(desc, scopeStr);
+    if (fabCheck.isCustomFabrication && !/\b(carpet\s*tile|porcelain|gypsum\s*ceiling|drywall|glass\s*partition|swing\s*door)\b/i.test(lowerDesc)) {
+        return 'Custom Fabrication';
+    }
+
     const isClearArchitecturalFitout = /\b(carpet tile|carpet flooring|porcelain tile|tile flooring|vinyl flooring|marble flooring|gypsum ceiling|false ceiling|mineral fiber ceiling|acoustic grid ceiling|partition wall|drywall partition|glass partition|swing door|sliding door|wall cladding|skirting|ceiling finish|floor finish)\b/i.test(lowerDesc)
-        && !/\b(mobile|freestanding|acoustic pod|phone booth|desk screen|privacy screen)\b/i.test(lowerDesc);
+        && !/\b(mobile|freestanding|acoustic pod|phone booth|desk screen|privacy screen|banquette|reception counter)\b/i.test(lowerDesc);
     const isClearFixedJoinery = /\b(pantry cabinet|built-in pantry|vanity counter|pantry sink|undermount sink)\b/i.test(lowerDesc);
 
     if (isClearArchitecturalFitout) return 'Fitout (Architectural)';
-    if (isClearFixedJoinery && /fitout|joinery|cabinet|pantry/i.test(scopeStr || lowerDesc)) return 'Fitout (Joinery)';
+    if (isClearFixedJoinery && /fitout|joinery|cabinet|pantry/i.test(scopeStr || lowerDesc)) return 'Custom Fabrication';
     if (scopeStr) return scopeStr;
     return includeFitout ? 'Fitout (Architectural)' : 'Furniture';
 };
@@ -1647,14 +1666,17 @@ export async function analyzePlan(filesData, options = {}) {
     }
 
     try {
-        const promptText = PLAN_ANALYSIS_PROMPT(includeFitout);
-        const file = filesData[0];
+        // Hybrid CAD Vector + High-DPI Image Preprocessing via mupdf
+        const { visionAssets, cadContext } = await preprocessPlanFiles(filesData);
+        const activeAssets = visionAssets.length > 0 ? visionAssets : filesData;
+        const promptText = cadContext
+            ? `${PLAN_ANALYSIS_PROMPT(includeFitout)}\n\n### 📐 GROUND-TRUTH CAD VECTOR CALIBRATION CONTEXT (from PDF text layer — trust these exact scales, m² areas, dimensions, and tag codes):\n${cadContext}`
+            : PLAN_ANALYSIS_PROMPT(includeFitout);
 
         let parsed;
         let actualModelUsed = selectedModel;
 
         if (provider === 'google') {
-            // Use Google Gemini SDK with pipeline-optimal Free-Tier model & failover chain
             const rawModel = reqGoogleModel || providerModel || VISION_MODEL;
             const forceBilledSuffix = String(rawModel || '').toLowerCase().trim().endsWith(':billed') ? ':billed' : '';
             const freeTier = isGoogleFreeTierActive(aiKeyStorage, rawModel);
@@ -1667,11 +1689,13 @@ export async function analyzePlan(filesData, options = {}) {
                 useSearch: false,
                 modelMapping: MODEL_MAPPING
             });
-            const timeoutMs = PIPELINE_TIMEOUT_MS.plan_vision || 95000;
+            const onServerless = process.env.VERCEL === '1';
+            const totalBudgetMs = onServerless ? 48000 : (PIPELINE_TIMEOUT_MS.plan_vision || 95000);
+            const startedAt = Date.now();
 
             const promptParts = [
                 { text: promptText },
-                ...filesData.map(f => ({
+                ...activeAssets.map(f => ({
                     inlineData: { data: f.base64Data, mimeType: f.mimeType }
                 }))
             ];
@@ -1679,18 +1703,27 @@ export async function analyzePlan(filesData, options = {}) {
             let lastPlanErr = null;
             for (let i = 0; i < candidates.length; i++) {
                 const candidate = candidates[i];
+                const remainingMs = totalBudgetMs - (Date.now() - startedAt);
+                if (remainingMs < 7000) {
+                    console.warn(`  ⏳ [Plan Analyzer] Time budget exhausted before "${candidate}".`);
+                    break;
+                }
+                const attemptTimeout = Math.min(onServerless ? 38000 : (PIPELINE_TIMEOUT_MS.plan_vision || 95000), remainingMs);
                 try {
-                    console.log(`  📍 [Plan Analyzer] Attempt ${i + 1}/${candidates.length} using Google model: ${candidate} (FreeTier=${freeTier})`);
+                    console.log(`  📍 [Plan Analyzer] Attempt ${i + 1}/${candidates.length} using Google model: ${candidate} (${activeAssets.length} sheet images, FreeTier=${freeTier})`);
                     const genAIInstance = getGoogleAI(`${candidate}${forceBilledSuffix}`);
+                    const genCfg = { temperature: 0.1, responseMimeType: 'application/json' };
+                    if (onServerless && /^gemini/i.test(candidate)) {
+                        genCfg.thinkingConfig = { thinkingBudget: 1024 };
+                    }
                     const model = genAIInstance.getGenerativeModel({
                         model: candidate,
-                        // Omit hard maxOutputTokens cap so thinking/reasoning models use their full native output budget without truncating large BOQ JSON
-                        generationConfig: { temperature: 0.1, responseMimeType: 'application/json' }
+                        generationConfig: genCfg
                     });
 
                     const result = await withModelTimeout(
                         model.generateContent({ contents: [{ role: 'user', parts: promptParts }] }),
-                        timeoutMs,
+                        attemptTimeout,
                         `PlanAnalyzer(${candidate})`
                     );
                     const candidateRes = result.response?.candidates?.[0];
@@ -1716,75 +1749,101 @@ export async function analyzePlan(filesData, options = {}) {
                 throw lastPlanErr || new Error('All Google vision models failed to analyze floor plan');
             }
 
-        } else if (provider === 'openrouter') {
-            // Use OpenRouter API with multimodal support
-            const modelName = providerModel || OPENROUTER_MODEL;
-            const openrouterApiKey = resolveKey('openrouterApiKey', 'openrouterApiKey') || process.env.OPENROUTER_API_KEY || '';
-            if (!openrouterApiKey) throw new Error('OpenRouter API key is not configured. Open Settings → AI Configuration to add your key.');
-            console.log(`  📍 Using OpenRouter model: ${modelName}`);
+        } else if (provider === 'openrouter' || provider === 'nvidia') {
+            const isOR = provider === 'openrouter';
+            const modelName = providerModel || (isOR ? OPENROUTER_MODEL : NVIDIA_MODEL);
+            const apiKey = isOR
+                ? (resolveKey('openrouterApiKey', 'openrouterApiKey') || process.env.OPENROUTER_API_KEY || '')
+                : (resolveKey('nvidiaApiKey', 'nvidiaApiKey') || process.env.NVIDIA_API_KEY || '');
+            if (!apiKey) throw new Error(`${isOR ? 'OpenRouter' : 'NVIDIA'} API key is not configured. Open Settings → AI Configuration to add your key.`);
+            const endpoint = isOR ? 'https://openrouter.ai/api/v1/chat/completions' : 'https://integrate.api.nvidia.com/v1/chat/completions';
 
-            parsed = await callVisionAPI(
-                promptText,
-                'Analyze this floor plan PDF and extract BOQ items as JSON',
-                file.base64Data,
-                file.mimeType,
-                modelName,
-                'https://openrouter.ai/api/v1/chat/completions',
-                openrouterApiKey
-            );
-
-        } else if (provider === 'nvidia') {
-            // Use NVIDIA NIM API with multimodal support
-            const modelName = providerModel || NVIDIA_MODEL;
-            const nvidiaApiKey = resolveKey('nvidiaApiKey', 'nvidiaApiKey') || process.env.NVIDIA_API_KEY || '';
-            if (!nvidiaApiKey) throw new Error('NVIDIA API key is not configured. Open Settings → AI Configuration to add your key.');
-            console.log(`  📍 Using NVIDIA model: ${modelName}`);
-
-            parsed = await callVisionAPI(
-                promptText,
-                'Analyze this floor plan PDF and extract BOQ items as JSON',
-                file.base64Data,
-                file.mimeType,
-                modelName,
-                'https://integrate.api.nvidia.com/v1/chat/completions',
-                nvidiaApiKey
-            );
+            // Process ALL preprocessed sheet images instead of silently dropping files[1..]
+            const allItemsMerged = [];
+            for (const sheet of activeAssets) {
+                const resSheet = await callVisionAPI(
+                    promptText,
+                    `Analyze architectural sheet "${sheet.originalname || 'floorplan'}" and extract BOQ items as JSON`,
+                    sheet.base64Data,
+                    sheet.mimeType,
+                    modelName,
+                    endpoint,
+                    apiKey
+                );
+                if (resSheet?.items?.length) allItemsMerged.push(...resSheet.items);
+            }
+            parsed = { items: allItemsMerged, planSummary: `Extraction completed across ${activeAssets.length} sheet(s).` };
 
         } else if (provider === 'local') {
-            console.log(`  📍 Using Local Vision Engine (YOLOv8 + Llama 3.2)`);
-            parsed = await callLocalVision(file.base64Data, file.mimeType);
+            if (!PYTHON_SERVICE_URL) {
+                throw new Error('Local Python Vision Engine is disabled in serverless production (set NODE_ENV=development and PYTHON_SERVICE_URL locally).');
+            }
+            parsed = await callLocalVision(activeAssets[0].base64Data, activeAssets[0].mimeType);
 
         } else {
             throw new Error(`Unknown provider: ${provider}. Supported: google, openrouter, nvidia`);
         }
 
-        // Process extracted items
+        // Process extracted items + Early Custom Fabrication enrichment
         let flatItems = [];
         if (parsed.items && Array.isArray(parsed.items)) {
-            flatItems = parsed.items
+            flatItems = await Promise.all(parsed.items
                 .filter(item => item && (item.description || item.name))
-                .map(item => {
+                .map(async (item) => {
                     const enrichedDescription = formatEnrichedPlanDescription(item);
                     const normalizedScope = normalizePlanScope(item.scope, enrichedDescription, includeFitout);
+                    const unit = String(item.unit || 'Nos').trim();
+                    const qty = cleanQty(item.qty);
+                    const fabDetect = detectCustomFabrication(enrichedDescription, normalizedScope);
+
+                    let fabFields = {};
+                    if (normalizedScope === 'Custom Fabrication' || fabDetect.isCustomFabrication) {
+                        const hits = await searchFabricationHybrid({
+                            queryText: enrichedDescription,
+                            tier: 'mid',
+                            designBuildKind: item.designBuildKind || fabDetect.designBuildKind,
+                            shape: item.shape || fabDetect.shape,
+                            parsedDimsMm: fabDetect.parsedDimsMm,
+                            qty,
+                            unit,
+                            topK: 1,
+                        }).catch(() => []);
+                        const tpl = hits[0];
+                        fabFields = {
+                            fulfillmentType: 'custom_fabrication',
+                            fabricationId: tpl?.id || tpl?.sku_code || '',
+                            skuCode: tpl?.sku_code || '',
+                            designBuildKind: item.designBuildKind || tpl?.design_build_kind || fabDetect.designBuildKind || '',
+                            shape: item.shape || tpl?.shape || fabDetect.shape || 'rectangular',
+                            workshopTrade: tpl?.workshop_trade || 'Joinery',
+                            leadTimeDays: tpl?.lead_time_days || 21,
+                            estimatedRate: tpl?.computedRate || 0,
+                        };
+                    }
+
                     return {
                         location: String(item.location || 'General Area').trim(),
-                        scope: normalizedScope,
-                        code: item.code ? String(item.code).trim() : '',
+                        scope: (fabFields.fulfillmentType === 'custom_fabrication') ? 'Custom Fabrication' : normalizedScope,
+                        code: item.code ? String(item.code).trim() : (fabFields.skuCode || ''),
                         name: item.name ? String(item.name).trim() : '',
-                        dimensions: item.dimensions ? String(item.dimensions).trim() : '',
+                        dimensions: item.dimensions ? String(item.dimensions).trim() : (fabDetect.parsedDimsMm?.raw || ''),
                         materialSpec: (item.materialSpec || item.material_spec) ? String(item.materialSpec || item.material_spec).trim() : '',
                         categoryHint: (item.categoryHint || item.category_hint) ? String(item.categoryHint || item.category_hint).trim() : '',
+                        confidence: ['high', 'medium', 'low'].includes(String(item.confidence || '').toLowerCase()) ? String(item.confidence).toLowerCase() : 'medium',
+                        evidence: item.evidence ? String(item.evidence).trim() : '',
                         description: enrichedDescription,
-                        qty: cleanQty(item.qty),
-                        unit: String(item.unit || 'Nos').trim()
+                        qty,
+                        unit,
+                        ...fabFields,
                     };
-                });
+                }));
 
-            // Safety Filter: If user requested Furniture only, strip out anything labeled as Fitout
+            // Safety Filter: If user requested Furniture only, strip out flat Architectural Fitout (keep Furniture & Custom Fabrication pieces)
             if (!includeFitout) {
                 const beforeCount = flatItems.length;
-                flatItems = flatItems.filter(item => 
-                    String(item.scope).toLowerCase().includes('furniture') || 
+                flatItems = flatItems.filter(item =>
+                    String(item.scope).toLowerCase().includes('furniture') ||
+                    String(item.scope).toLowerCase().includes('custom fabrication') ||
                     !String(item.scope).toLowerCase().includes('fitout')
                 );
                 if (flatItems.length < beforeCount) {
@@ -1796,6 +1855,7 @@ export async function analyzePlan(filesData, options = {}) {
         return {
             status: 'success',
             planSummary: parsed.planSummary || `Extracted ${flatItems.length} items.`,
+            zones: Array.isArray(parsed.zones) ? parsed.zones : [],
             items: flatItems,
             provider: provider,
             model: actualModelUsed || providerModel || (provider === 'google' ? VISION_MODEL : provider === 'openrouter' ? OPENROUTER_MODEL : NVIDIA_MODEL)

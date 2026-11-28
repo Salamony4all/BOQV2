@@ -17,6 +17,13 @@ import { getFullUrl } from '../utils/urlUtils';
 import { findDescColumn, cellImageUrls } from '../utils/boqUtils';
 import { recategorizeBoqRows } from '../utils/boqGroupingUtils';
 import {
+    PROJECT_PALETTE_PRESETS,
+    resolveItemFinishes,
+    getBrandFinishOptions,
+    formatFinishSummary,
+    resolveFitoutSkuCode
+} from '../utils/officialBrandFinishes';
+import {
     FURNITURE_SET_TYPES,
     createEmptySetComponent,
     computeSetParentRollup,
@@ -123,6 +130,8 @@ export default function ValueEngineeredModal({
     const [setExportMode, setSetExportMode] = useState('lump_sum');
     const [exportSetOptions, setExportSetOptions] = useState(false);
     const [matchingOptionRowId, setMatchingOptionRowId] = useState(null);
+    const [projectPalette, setProjectPalette] = useState('auto');
+    const [openFinishPopoverKey, setOpenFinishPopoverKey] = useState(null);
     const [isCostingOpen, setIsCostingOpen] = useState(false);
     const [costingFactors, setCostingFactors] = useState(null);
 
@@ -394,6 +403,8 @@ export default function ValueEngineeredModal({
                 location: row.location || '',
                 scope: row.scope || '',
                 code: row.code || '',
+                finishes: getRowEffectiveFinishes(row),
+                finishSummary: formatFinishSummary(getRowEffectiveFinishes(row)),
                 categoryHint: row.categoryHint || '',
                 selectedBrand: row.selectedBrand || '',
                 selectedMainCat: row.selectedMainCat || '',
@@ -446,6 +457,12 @@ export default function ValueEngineeredModal({
                         selectedBrand: optionSummary.brands[0] || '',
                         selectedMainCat: optionSummary.typeLabel,
                         selectedSubCat: `${optionSummary.itemCount} Components`,
+                        finishes: resolveItemFinishes({
+                            brand: optionSummary.brands[0] || '',
+                            model: optionSummary.models[0] || '',
+                            description: optionSummary.label || '',
+                            category: optionSummary.typeLabel || ''
+                        }, projectPalette),
                         cells: [
                             { value: `${parentSn} (Option)` },
                             { value: '', image: optionSummary.images[0] || null, images: optionSummary.images.map(u => ({ url: u })) },
@@ -484,35 +501,40 @@ export default function ValueEngineeredModal({
                 return [parentExport, ...optionExports];
             }
 
-            const subExports = row.setItems.map((sub, sIdx) => ({
-                location: row.location || '',
-                scope: row.scope || '',
-                code: row.code || '',
-                categoryHint: row.categoryHint || '',
-                selectedBrand: sub.selectedBrand || '',
-                selectedMainCat: sub.selectedMainCat || '',
-                selectedSubCat: sub.selectedSubCat || '',
-                sectionLabel: row.sectionLabel || '',
-                sectionCategory: row.sectionCategory || '',
-                sectionSubheader: row.sectionSubheader || '',
-                submissionTitle: row.submissionTitle || '',
-                isSetSubItem: true,
-                cells: [
-                    { value: `${parentSn}.${sIdx + 1}` },
-                    {
-                        value: '',
-                        image: sub.brandImage || null,
-                        images: sub.brandImage ? [{ url: sub.brandImage }] : []
-                    },
-                    { value: `↳ ${sub.label || sub.description}${sub.brandDesc ? ` — ${sub.brandDesc}` : ''}` },
-                    { value: sub.selectedBrand || '' },
-                    { value: sub.selectedModel || '' },
-                    { value: String(sub.qty || '1') },
-                    { value: String(sub.unit || 'Nos') },
-                    { value: String(sub.rate || '0') },
-                    { value: 'Included' }
-                ]
-            }));
+            const subExports = row.setItems.map((sub, sIdx) => {
+                const subFinishes = getRowEffectiveFinishes(sub, row);
+                return {
+                    location: row.location || '',
+                    scope: row.scope || '',
+                    code: sub.code || row.code || '',
+                    finishes: subFinishes,
+                    finishSummary: formatFinishSummary(subFinishes),
+                    categoryHint: row.categoryHint || '',
+                    selectedBrand: sub.selectedBrand || '',
+                    selectedMainCat: sub.selectedMainCat || '',
+                    selectedSubCat: sub.selectedSubCat || '',
+                    sectionLabel: row.sectionLabel || '',
+                    sectionCategory: row.sectionCategory || '',
+                    sectionSubheader: row.sectionSubheader || '',
+                    submissionTitle: row.submissionTitle || '',
+                    isSetSubItem: true,
+                    cells: [
+                        { value: `${parentSn}.${sIdx + 1}` },
+                        {
+                            value: '',
+                            image: sub.brandImage || null,
+                            images: sub.brandImage ? [{ url: sub.brandImage }] : []
+                        },
+                        { value: `↳ ${sub.label || sub.description}${sub.brandDesc ? ` — ${sub.brandDesc}` : ''}` },
+                        { value: sub.selectedBrand || '' },
+                        { value: sub.selectedModel || '' },
+                        { value: String(sub.qty || '1') },
+                        { value: String(sub.unit || 'Nos') },
+                        { value: String(sub.rate || '0') },
+                        { value: 'Included' }
+                    ]
+                };
+            });
 
             return [parentExport, ...subExports, ...optionExports];
         });
@@ -531,6 +553,75 @@ export default function ValueEngineeredModal({
             }]
         };
         return { updatedRows, formattedData };
+    };
+
+    const applyProjectPalette = (paletteId) => {
+        setProjectPalette(paletteId);
+        setOpenFinishPopoverKey(null);
+        setRows(prev => prev.map(r => {
+            if (!r || isHeaderRow(r.description, r) || r.isTotalRow) return r;
+            const nextFinishes = resolveItemFinishes({
+                brand: r.selectedBrand || '',
+                code: r.code || r.skuCode || '',
+                model: r.selectedModel || '',
+                description: r.brandDesc || r.description || '',
+                category: r.selectedMainCat || r.categoryHint || ''
+            }, paletteId, { forcePalette: true });
+            const nextSetItems = Array.isArray(r.setItems) && r.setItems.length > 0
+                ? r.setItems.map(sub => ({
+                    ...sub,
+                    finishes: resolveItemFinishes({
+                        brand: sub.selectedBrand || r.selectedBrand || '',
+                        code: sub.code || r.code || '',
+                        model: sub.selectedModel || '',
+                        description: sub.brandDesc || sub.description || sub.label || '',
+                        category: sub.selectedMainCat || ''
+                    }, paletteId, { forcePalette: true })
+                }))
+                : r.setItems;
+            return { ...r, finishes: nextFinishes, setItems: nextSetItems };
+        }));
+    };
+
+    const handleSelectFinishSwatch = (rowIdx, slotRole, swatch, subIdx = null) => {
+        setRows(prev => prev.map((r, i) => {
+            if (i !== rowIdx) return r;
+            const patchList = (itemObj) => {
+                const current = Array.isArray(itemObj.finishes) && itemObj.finishes.length > 0
+                    ? itemObj.finishes
+                    : resolveItemFinishes({
+                        brand: itemObj.selectedBrand || r.selectedBrand || '',
+                        code: itemObj.code || itemObj.skuCode || '',
+                        model: itemObj.selectedModel || '',
+                        description: itemObj.brandDesc || itemObj.description || itemObj.label || '',
+                        category: itemObj.selectedMainCat || ''
+                    }, projectPalette);
+                const idx = current.findIndex(f => f.role === slotRole);
+                const nextEntry = { role: slotRole, code: swatch.code, name: swatch.name, hex: swatch.hex };
+                if (idx === -1) return [...current, nextEntry];
+                return current.map((f, fi) => (fi === idx ? nextEntry : f));
+            };
+            if (subIdx !== null && Array.isArray(r.setItems)) {
+                return {
+                    ...r,
+                    setItems: r.setItems.map((sub, si) => si === subIdx ? { ...sub, finishes: patchList(sub) } : sub)
+                };
+            }
+            return { ...r, finishes: patchList(r) };
+        }));
+        setOpenFinishPopoverKey(null);
+    };
+
+    const getRowEffectiveFinishes = (itemObj, fallbackRow = null) => {
+        if (Array.isArray(itemObj?.finishes) && itemObj.finishes.length > 0) return itemObj.finishes;
+        if (!itemObj?.selectedBrand && !itemObj?.selectedModel && !itemObj?.code) return [];
+        return resolveItemFinishes({
+            brand: itemObj.selectedBrand || fallbackRow?.selectedBrand || '',
+            code: itemObj.code || itemObj.skuCode || fallbackRow?.code || '',
+            model: itemObj.selectedModel || '',
+            description: itemObj.brandDesc || itemObj.description || itemObj.label || '',
+            category: itemObj.selectedMainCat || ''
+        }, projectPalette);
     };
 
     const handleApplyCosting = (factors) => {
@@ -616,6 +707,15 @@ export default function ValueEngineeredModal({
                     row.brandDesc = product.description || product.model;
                     row.brandImage = product.imageUrl || '';
                     row.selectedModelUrl = product.productUrl || product.imageUrl || row.selectedModelUrl;
+                    row.code = product.skuCode || product.code || resolveFitoutSkuCode({ model: product.model, description: product.description }) || row.code || '';
+                    row.finishes = resolveItemFinishes({
+                        brand: row.selectedBrand,
+                        code: row.code,
+                        model: product.model,
+                        description: product.description || row.description,
+                        category: product.mainCategory || row.selectedMainCat,
+                        finishes: product.finishes
+                    }, projectPalette);
                     const basePrice = parseFloat(product.price) || 0;
                     if (basePrice > 0) {
                         row.rate = basePrice.toFixed(2);
@@ -882,6 +982,7 @@ export default function ValueEngineeredModal({
             ok: true,
             fields: {
                 selectedBrand: matchedBrand,
+                code: match.skuCode || match.code || resolveFitoutSkuCode({ model: finalModel, description: finalBrandDesc }) || '',
                 selectedMainCat: resolvedMainCat,
                 selectedSubCat: resolvedSubCat,
                 selectedFamily: resolvedFamily,
@@ -890,6 +991,14 @@ export default function ValueEngineeredModal({
                 brandImage: finalImageUrl,
                 brandLogo: match.brandLogo || localBrand?.logo || result.newBrand?.logo || '',
                 brandDesc: finalBrandDesc || match.description || finalModel || '',
+                finishes: resolveItemFinishes({
+                    brand: matchedBrand,
+                    code: match.skuCode || match.code || '',
+                    model: finalModel,
+                    description: finalBrandDesc || description,
+                    category: resolvedMainCat,
+                    finishes: match.finishes
+                }, projectPalette),
                 rate: finalRate,
                 basePrice: finalBasePrice,
                 amount: rateNum > 0 ? (qtyNum * rateNum).toFixed(2) : '',
@@ -960,6 +1069,7 @@ export default function ValueEngineeredModal({
                     resolvedMap.set(idx, {
                         ...(suggestedQty > 0 ? { qty: String(suggestedQty) } : {}),
                         selectedBrand: matchedBrand,
+                        code: match.skuCode || match.code || '',
                         selectedMainCat: match.mainCategory || '',
                         selectedSubCat: match.subCategory || '',
                         selectedFamily: match.family || '',
@@ -968,6 +1078,14 @@ export default function ValueEngineeredModal({
                         brandImage: finalImageUrl,
                         brandLogo: match.brandLogo || localBrand?.logo || '',
                         brandDesc: finalBrandDesc,
+                        finishes: resolveItemFinishes({
+                            brand: matchedBrand,
+                            code: match.skuCode || match.code || '',
+                            model: finalModel,
+                            description: finalBrandDesc || sub.description,
+                            category: match.mainCategory || '',
+                            finishes: match.finishes
+                        }, projectPalette),
                         rate: finalRate,
                         basePrice: finalBasePrice,
                         amount: rateNum > 0 ? (qtyNum * rateNum).toFixed(2) : '',
@@ -1496,6 +1614,55 @@ export default function ValueEngineeredModal({
                                 {modelOptions.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
                             </select>
                         )}
+                        {(() => {
+                            const subFinishes = getRowEffectiveFinishes(sub, parentRow);
+                            if (!subFinishes.length) return null;
+                            const popKey = `sub_${parentRow.id}_${sub.id}`;
+                            const bookOpts = getBrandFinishOptions(sub.selectedBrand || parentRow.selectedBrand, `${sub.brandDesc || ''} ${sub.selectedModel || ''}`);
+                            const slotGroups = [
+                                ...(bookOpts.upholstery.length ? [{ role: 'Upholstery', list: bookOpts.upholstery }] : []),
+                                ...(bookOpts.surfaces.length ? [{ role: subFinishes.find(f => /surface|top|carcass/i.test(f.role))?.role || 'Primary Surface', list: bookOpts.surfaces }] : []),
+                                ...(bookOpts.frames.length ? [{ role: subFinishes.find(f => /frame|base|plinth/i.test(f.role))?.role || 'Frame / Base', list: bookOpts.frames }] : []),
+                            ];
+                            return (
+                                <div className={mbs.finishBar}>
+                                    {subFinishes.map((fn, fIdx) => (
+                                        <button
+                                            key={`${fn.role}_${fIdx}`}
+                                            type="button"
+                                            className={mbs.finishChip}
+                                            title={`${fn.role}: ${fn.code} ${fn.name} — Click to change official finish`}
+                                            onClick={() => setOpenFinishPopoverKey(openFinishPopoverKey === popKey ? null : popKey)}
+                                        >
+                                            <span className={mbs.finishDot} style={{ background: fn.hex || '#94a3b8' }} />
+                                            <span className={mbs.finishChipText}>{fn.code || fn.name}</span>
+                                        </button>
+                                    ))}
+                                    {openFinishPopoverKey === popKey && slotGroups.length > 0 && (
+                                        <div className={mbs.finishPopover} onClick={e => e.stopPropagation()}>
+                                            {slotGroups.map(grp => (
+                                                <div key={grp.role} className={mbs.finishPopoverGroup}>
+                                                    <div className={mbs.finishPopoverHeading}>{grp.role} ({bookOpts.brandSystem})</div>
+                                                    <div className={mbs.finishPopoverList}>
+                                                        {grp.list.map(sw => (
+                                                            <button
+                                                                key={sw.code}
+                                                                type="button"
+                                                                className={`${mbs.finishOptionBtn} ${subFinishes.some(f => f.code === sw.code) ? mbs.finishOptionActive : ''}`}
+                                                                onClick={() => handleSelectFinishSwatch(parentIndex, grp.role, sw, subIndex)}
+                                                            >
+                                                                <span className={mbs.finishDot} style={{ background: sw.hex }} />
+                                                                <span>{sw.code} {sw.name}</span>
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        })()}
                     </div>
                 </td>
                 <td style={{ verticalAlign: 'middle' }}>
@@ -1839,6 +2006,55 @@ export default function ValueEngineeredModal({
                                             {modelOptions.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
                                         </select>
                                     )}
+                                    {(() => {
+                                        const rowFinishes = getRowEffectiveFinishes(row);
+                                        if (!rowFinishes.length) return null;
+                                        const popKey = `row_${row.id}`;
+                                        const bookOpts = getBrandFinishOptions(row.selectedBrand, `${row.brandDesc || ''} ${row.selectedModel || ''}`);
+                                        const slotGroups = [
+                                            ...(bookOpts.upholstery.length ? [{ role: 'Upholstery', list: bookOpts.upholstery }] : []),
+                                            ...(bookOpts.surfaces.length ? [{ role: rowFinishes.find(f => /surface|top|carcass/i.test(f.role))?.role || 'Primary Surface', list: bookOpts.surfaces }] : []),
+                                            ...(bookOpts.frames.length ? [{ role: rowFinishes.find(f => /frame|base|plinth/i.test(f.role))?.role || 'Frame / Base', list: bookOpts.frames }] : []),
+                                        ];
+                                        return (
+                                            <div className={mbs.finishBar}>
+                                                {rowFinishes.map((fn, fIdx) => (
+                                                    <button
+                                                        key={`${fn.role}_${fIdx}`}
+                                                        type="button"
+                                                        className={mbs.finishChip}
+                                                        title={`${fn.role}: ${fn.code} ${fn.name} — Click to change official finish`}
+                                                        onClick={() => setOpenFinishPopoverKey(openFinishPopoverKey === popKey ? null : popKey)}
+                                                    >
+                                                        <span className={mbs.finishDot} style={{ background: fn.hex || '#94a3b8' }} />
+                                                        <span className={mbs.finishChipText}>{fn.code || fn.name}</span>
+                                                    </button>
+                                                ))}
+                                                {openFinishPopoverKey === popKey && slotGroups.length > 0 && (
+                                                    <div className={mbs.finishPopover} onClick={e => e.stopPropagation()}>
+                                                        {slotGroups.map(grp => (
+                                                            <div key={grp.role} className={mbs.finishPopoverGroup}>
+                                                                <div className={mbs.finishPopoverHeading}>{grp.role} ({bookOpts.brandSystem})</div>
+                                                                <div className={mbs.finishPopoverList}>
+                                                                    {grp.list.map(sw => (
+                                                                        <button
+                                                                            key={sw.code}
+                                                                            type="button"
+                                                                            className={`${mbs.finishOptionBtn} ${rowFinishes.some(f => f.code === sw.code) ? mbs.finishOptionActive : ''}`}
+                                                                            onClick={() => handleSelectFinishSwatch(index, grp.role, sw, null)}
+                                                                        >
+                                                                            <span className={mbs.finishDot} style={{ background: sw.hex }} />
+                                                                            <span>{sw.code} {sw.name}</span>
+                                                                        </button>
+                                                                    ))}
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                    })()}
                                 </>
                             )}
                         </div>
@@ -2288,6 +2504,7 @@ export default function ValueEngineeredModal({
                 description: enrichedDesc,
                 qty: row.qty,
                 unit: row.unit,
+                scope: row.scope || '',
                 providerModel: aiSettings?.model,
                 ...(row.imageRef && isAuto ? { imageUrl: row.imageRef } : {}),
                 ...(!isAuto ? { brand: effectiveBrand } : {}),
@@ -2425,6 +2642,7 @@ export default function ValueEngineeredModal({
                     setRows(prev => prev.map((r, i) => i === rowIndex ? {
                         ...r,
                         selectedBrand: matchedBrand,
+                        code: match.skuCode || match.code || resolveFitoutSkuCode({ model: finalModel, description: finalBrandDesc }) || r.code || '',
                         selectedMainCat: resolvedMainCat,
                         selectedSubCat: resolvedSubCat,
                         selectedFamily: resolvedFamily,
@@ -2433,10 +2651,29 @@ export default function ValueEngineeredModal({
                         brandImage: finalImageUrl,
                         brandLogo: match.brandLogo || localBrand?.logo || result.newBrand?.logo || '',
                         brandDesc: finalBrandDesc || match.description || finalModel || '',
+                        finishes: resolveItemFinishes({
+                            brand: matchedBrand,
+                            code: match.skuCode || match.code || '',
+                            model: finalModel,
+                            description: finalBrandDesc || r.description,
+                            category: resolvedMainCat,
+                            finishes: match.finishes
+                        }, projectPalette),
                         rate: finalRate,
                         basePrice: finalBasePrice,
                         amount: (parseFloat(finalRate) * (parseFloat(r.qty) || 0)).toFixed(2),
                         aiStatus: 'success',
+                        ...(result.fulfillmentType === 'custom_fabrication' || match.fulfillmentType === 'custom_fabrication' ? {
+                            fulfillmentType: 'custom_fabrication',
+                            fabricationId: match.fabricationId || '',
+                            skuCode: match.skuCode || '',
+                            designBuildKind: match.designBuildKind || '',
+                            shape: match.shape || '',
+                            dimensionsMm: match.dimensionsMm || '',
+                            materialSpec: match.materialSpec || '',
+                            workshopTrade: match.workshopTrade || 'Joinery',
+                            leadTimeDays: match.leadTimeDays || 21
+                        } : {}),
                         matchTier: result.matchTier || (result.confidenceScore >= 95 ? 'EXACT_MATCH' : (result.confidenceScore >= 80 ? 'HIGH_CONFIDENCE' : 'SUGGESTED')),
                         confidenceScore: result.confidenceScore || 95,
                         evidence: result.evidence || match.evidence || null,
@@ -2783,6 +3020,20 @@ export default function ValueEngineeredModal({
                                         <option value="original">Original Order (As Is)</option>
                                         <option value="item">Item wise</option>
                                         <option value="room">Room wise</option>
+                                    </select>
+                                </div>
+
+                                <div className={mbs.recatControlCard} title="Apply coordinated official manufacturer finishes across all BOQ items">
+                                    <span className={mbs.recatLabel}>Palette</span>
+                                    <select
+                                        className={mbs.recatSelect}
+                                        value={projectPalette}
+                                        onChange={(e) => applyProjectPalette(e.target.value)}
+                                        aria-label="Project Finish Palette"
+                                    >
+                                        {PROJECT_PALETTE_PRESETS.map(p => (
+                                            <option key={p.id} value={p.id}>{p.label}</option>
+                                        ))}
                                     </select>
                                 </div>
                             </div>

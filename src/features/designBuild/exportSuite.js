@@ -5,14 +5,26 @@
 // come from BOQ Flow's own generators when its table is open. Everything is made in the
 // browser; nothing is uploaded.
 
-import { extractImageUrl, loadExportImageData } from '../../utils/urlUtils';
-import { fixArabic, hasArabic, loadArabicFont } from '../../utils/arabicPdfUtils';
-import { offerColumns } from './designBuildStore';
+import { extractImageUrl, loadExportImageData } from '../../utils/urlUtils.js';
+import { fixArabic, hasArabic, loadArabicFont } from '../../utils/arabicPdfUtils.js';
+import { offerColumns } from './designBuildStore.js';
+import { buildDynamicProjectPlan, buildProjectPlanExcel, buildMsProjectXml } from '../projectPlan/dynamicProjectPlanner.js';
+import {
+    resolveItemFinishes,
+    formatFinishSummary,
+    resolveFitoutSkuCode,
+    inferCanonicalFitoutSku,
+    resolveFitoutCardImageUrl,
+    isGccFitoutBrand,
+    resolveFitoutManufacturer,
+    FITOUT_OFFICIAL_FINISH_CARDS,
+} from '../../utils/officialBrandFinishes.js';
 
 /** The package, folder by folder (Design & Build's full-suite structure). */
 export const SUITE_GROUPS = [
     { key: 'boq', folder: 'BOQ', label: 'BOQ', files: ['Offer PDF', 'Offer Excel'] },
     { key: 'submittals', folder: 'Submittals', label: 'Submittals', files: ['MAS', 'MIR', 'WIR', 'Delivery note'] },
+    { key: 'programme', folder: 'Programme', label: 'Project Programme', files: ['Action_and_Project_Plan.xlsx', 'MS_Project_Schedule.xml'] },
     { key: 'drawings', folder: 'Drawings', label: 'Drawings', files: ['Source_Drawing.pdf', 'Extracted_Plan.png', 'Annotated_Plan.png'] },
     { key: 'presentation', folder: 'Presentation', label: 'Presentation', files: ['Design_and_Build_Presentation.pptx'] },
     { key: 'ffe', folder: 'FF&E', label: 'FF&E', files: ['FF&E_Schedule.xlsx', 'Mood_Board.pdf', 'Catalogue_Links.xlsx'] },
@@ -256,9 +268,149 @@ function detectCurrency(tables) {
 
 // ---------------------------------------------------------------- context
 
+const EXPORT_DIVISIONS = [
+    { key: 'furniture', order: 1, title: 'Loose Furniture & FF&E', shortTitle: '1. Loose Furniture (FF&E)', accent: '2D66F6' },
+    { key: 'joinery', order: 2, title: 'Custom Joinery & Fabrication', shortTitle: '2. Custom Joinery & Fabrication', accent: '9A5B25' },
+    { key: 'fitout', order: 3, title: 'Architectural Fit-Out & Material Finishes', shortTitle: '3. Architectural Fit-Out & MEP Finishes', accent: '0F766E' },
+];
+
+const DIVISION_MAP = Object.fromEntries(EXPORT_DIVISIONS.map((d) => [d.key, d]));
+
+const FITOUT_SPEC_KEYWORDS_RX = /\b(porcelain|ceramic\s*tile|carpet\s*tile|broadloom|vinyl\s*flooring|lvt|marble\s*flooring|stone\s*flooring|screed|transition\s*trim|gypsum|plasterboard|false\s*ceiling|mineral\s*fiber|baffle\s*ceiling|soffit|drywall|glass\s*partition|fluted\s*glass|hoarding|wall\s*cladding|wall\s*panel|skirting|emulsion|wall\s*paint|limewash|wallcovering|wallpaper|swing\s*door|sliding\s*door|glass\s*door|roller\s*blind|blackout\s*curtain|vanity\s*counter|pantry\s*cabinet|downlight|linear\s*led|toilet\s*suite|wall[\s-]*hung\s*wc|wash\s*basin|shower\s*head|floor\s*box|cat6a?|mobilization|debris\s*disposal|post[\s-]*construction\s*cleaning|car\s*insurance)\b/i;
+const LOOSE_FURNITURE_NOUN_RX = /\b(task\s*chair|office\s*chair|executive\s*chair|visitor\s*chair|meeting\s*chair|conference\s*chair|lounge\s*chair|bar\s*stool|counter\s*stool|sofa|couch|armchair|ottoman|pouf|workstation|office\s*desk|manager\s*desk|executive\s*desk|conference\s*table|meeting\s*table|coffee\s*table|side\s*table|pedestal|credenza|bookcase|freestanding|acoustic\s*pod|phone\s*booth)\b/i;
+
+function classifyExportDivision(p) {
+    const specText = `${p.sourceDescription || ''} ${p.description || ''} ${p.model || ''}`;
+    const hay = `${p.brand || ''} ${p.section || ''} ${p.category || ''} ${p.model || ''} ${specText}`;
+    const unitStr = String(p.unit || '').trim();
+    const code = p.code || p.skuCode || resolveFitoutSkuCode(p);
+
+    if (p.fulfillmentType === 'custom_fabrication' || /\bcustom\s*fab|bespoke\s*joinery\b/i.test(hay) || /^FAB-/i.test(code)) {
+        const subGroup = /\b(banquette|booth|bench|sofa|upholster)\b/i.test(hay)
+            ? 'Banquettes & Booths'
+            : /\b(steel|brass|metal|frame|partition|screen|planter)\b/i.test(hay)
+                ? 'Metalwork & Feature Joinery'
+                : 'Counters & Millwork';
+        return { divisionKey: 'joinery', divisionOrder: 2, divisionTitle: DIVISION_MAP.joinery.title, subGroup, code };
+    }
+
+    const inferredCode = code || inferCanonicalFitoutSku(p);
+    const hasAreaUnit = /^(sqm|sq\.?\s*m|m2|m²)$/i.test(unitStr);
+    const hasLinearOrLotUnit = /^(lm|l\.?\s*m|rm|ls|lot)$/i.test(unitStr) && !LOOSE_FURNITURE_NOUN_RX.test(specText);
+    const isFitout = /fitout|fit-out/i.test(`${p.brand || ''} ${p.section || ''} ${p.category || ''}`)
+        || isGccFitoutBrand(p.brand)
+        || Boolean(inferredCode && FITOUT_OFFICIAL_FINISH_CARDS[inferredCode])
+        || hasAreaUnit
+        || hasLinearOrLotUnit
+        || FITOUT_SPEC_KEYWORDS_RX.test(specText);
+
+    if (isFitout) {
+        const effCode = inferredCode || code;
+        const subGroup = /^(MOB|UTIL|HSE|DEB|CLN|INS)\b/i.test(effCode) || /\b(mobilization|prelim|hoarding|cleaning|disposal)\b/i.test(hay)
+            ? 'Preliminaries & Site Works'
+            : /^(MEP-SAN|JN-PNT|JN-VAN)/i.test(effCode) || /\b(sanitary|wc|basin|urinal|pantry|vanity)\b/i.test(hay)
+                ? 'Sanitary, Pantry & MEP Fixtures'
+                : /^(CL|DR|WN|MEP)/i.test(effCode) || /\b(ceiling|door|glazing|lighting|av|display)\b/i.test(hay)
+                    ? 'Ceilings, Doors, Lighting & AV'
+                    : 'Flooring & Wall Finishes';
+        return { divisionKey: 'fitout', divisionOrder: 3, divisionTitle: DIVISION_MAP.fitout.title, subGroup, code: effCode };
+    }
+
+    const subGroup = /\b(chair|stool|sofa|armchair|lounge|bench|pouf|ottoman)\b/i.test(hay)
+        ? 'Seating & Lounge'
+        : /\b(desk|table|workstation|console|meeting|conference)\b/i.test(hay)
+            ? 'Desks & Tables'
+            : 'Storage & Accessories';
+    return { divisionKey: 'furniture', divisionOrder: 1, divisionTitle: DIVISION_MAP.furniture.title, subGroup, code };
+}
+
+function renderFinishCardDataUrl(p) {
+    if (typeof document === 'undefined') return null;
+    try {
+        const c = canvasOf(640, 400);
+        const ctx = c.getContext('2d');
+        if (!ctx) return null;
+        const div = DIVISION_MAP[p.divisionKey] || DIVISION_MAP.furniture;
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillRect(0, 0, 640, 400);
+        ctx.fillStyle = `#${div.accent}`;
+        ctx.fillRect(0, 0, 640, 42);
+        ctx.fillStyle = '#FFFFFF';
+        ctx.font = 'bold 15px sans-serif';
+        ctx.fillText(`${div.shortTitle.toUpperCase()}  ·  ${String(p.subGroup || '').toUpperCase()}`, 20, 26);
+
+        ctx.fillStyle = '#0F172A';
+        ctx.font = 'bold 21px sans-serif';
+        ctx.fillText(clip(productLabel(p), 44), 20, 80);
+
+        ctx.fillStyle = '#475569';
+        ctx.font = '14px sans-serif';
+        const desc = clip(p.description || p.productText || '', 110);
+        ctx.fillText(desc.slice(0, 58), 20, 108);
+        if (desc.length > 58) ctx.fillText(desc.slice(58), 20, 128);
+
+        const finishes = Array.isArray(p.finishes) && p.finishes.length
+            ? p.finishes.slice(0, 3)
+            : [{ role: 'Standard Finish', code: p.code || 'STD', name: p.brand || 'Specification', hex: `#${div.accent}` }];
+        const cardW = Math.floor((600 - (finishes.length - 1) * 14) / finishes.length);
+        finishes.forEach((f, idx) => {
+            const x = 20 + idx * (cardW + 14);
+            const y = 152;
+            ctx.fillStyle = '#F8FAFC';
+            ctx.fillRect(x, y, cardW, 212);
+            ctx.strokeStyle = '#E2E8F0';
+            ctx.lineWidth = 1.5;
+            ctx.strokeRect(x, y, cardW, 212);
+            ctx.fillStyle = f.hex || '#94A3B8';
+            ctx.fillRect(x + 12, y + 12, cardW - 24, 118);
+            ctx.strokeStyle = 'rgba(15,23,42,0.18)';
+            ctx.strokeRect(x + 12, y + 12, cardW - 24, 118);
+            ctx.fillStyle = '#64748B';
+            ctx.font = 'bold 11px sans-serif';
+            ctx.fillText(clip(String(f.role || 'FINISH').toUpperCase(), 24), x + 12, y + 150);
+            ctx.fillStyle = '#0F172A';
+            ctx.font = 'bold 14px sans-serif';
+            ctx.fillText(clip(f.code || '—', 22), x + 12, y + 172);
+            ctx.fillStyle = '#334155';
+            ctx.font = '12px sans-serif';
+            ctx.fillText(clip(f.name || '', 26), x + 12, y + 194);
+        });
+        return { dataUrl: c.toDataURL('image/jpeg', 0.9), width: 640, height: 400 };
+    } catch {
+        return null;
+    }
+}
+
+function dedupeVisualCards(items, placedOf) {
+    const byKey = new Map();
+    items.forEach((p, idx) => {
+        const key = `${p.divisionKey}|${clean(p.brand).toLowerCase()}|${clean(p.model || p.code).toLowerCase()}`;
+        const cur = byKey.get(key);
+        const placedCount = placedOf(p);
+        if (!cur) {
+            byKey.set(key, {
+                ...p,
+                sourceIndex: idx,
+                placedCount,
+                locations: p.location ? [p.location] : [],
+            });
+        } else {
+            cur.qty = num(cur.qty) + num(p.qty);
+            cur.amount = num(cur.amount) + num(p.amount);
+            cur.placedCount += placedCount;
+            if (p.location && !cur.locations.includes(p.location)) cur.locations.push(p.location);
+            if (!cur.imageUrl && p.imageUrl) {
+                cur.imageUrl = p.imageUrl;
+                cur.sourceIndex = idx;
+            }
+        }
+    });
+    return [...byKey.values()];
+}
+
 function suiteContext(input) {
     const planName = input.plan?.name || input.artifacts?.planName || '';
-    const products = input.products || [];
+    const rawProducts = input.products || [];
     const placed = new Map((input.furnished?.products || []).map((m) => [m.productId, Number(m.placed) || 0]));
     const colours = new Map((input.furnished?.colours || []).map((c) => [c.id, c]));
     const renders = input.renders || [];
@@ -275,7 +427,41 @@ function suiteContext(input) {
         }
         return cache.get(key);
     };
-    const ordered = [...products].sort((a, b) => (placed.get(b.id) || 0) - (placed.get(a.id) || 0));
+    const MISMATCHED_FURNITURE_BRAND_RX = /\b(narbutas|b\s*&\s*t|herman\s*miller|sedus|arper|amara|ottimo)\b/i;
+    const enriched = rawProducts.map((p) => {
+        const div = classifyExportDivision(p);
+        const finishes = resolveItemFinishes({ ...p, code: div.code }, 'auto');
+        const mfg = resolveFitoutManufacturer({ ...p, code: div.code });
+        const rawBrand = String(p.brand || '').trim();
+        const isSurfaceFitout = div.divisionKey === 'fitout' && (/^(sqm|sq\.?\s*m|m2|m²|lm|l\.?\s*m|rm|ls|lot)$/i.test(String(p.unit || '').trim()) || MISMATCHED_FURNITURE_BRAND_RX.test(rawBrand));
+        const needsFitoutBrandSwap = div.divisionKey === 'fitout' && (rawBrand === 'FitOut V2' || !rawBrand || isSurfaceFitout);
+        const resolvedBrand = needsFitoutBrandSwap
+            ? (mfg || (/^(MOB|DEB|INS|FN-ART)/i.test(div.code) ? 'GCC Contract Standard' : 'FitOut V2'))
+            : rawBrand;
+        const fallbackCardUrl = div.divisionKey === 'fitout' ? resolveFitoutCardImageUrl({ ...p, code: div.code }) : '';
+        const resolvedImageUrl = p.imageUrl || p.imageRef || fallbackCardUrl;
+        const resolvedImageRef = p.imageRef || p.imageUrl || fallbackCardUrl;
+        return {
+            ...p,
+            brand: resolvedBrand,
+            model: div.divisionKey === 'fitout' && (!p.model || needsFitoutBrandSwap) ? (div.code || p.model) : p.model,
+            code: div.code,
+            imageUrl: resolvedImageUrl,
+            imageRef: resolvedImageRef,
+            finishes,
+            finishSummary: formatFinishSummary(finishes),
+            divisionKey: div.divisionKey,
+            divisionOrder: div.divisionOrder,
+            divisionTitle: div.divisionTitle,
+            subGroup: div.subGroup,
+        };
+    });
+    const ordered = enriched.sort((a, b) =>
+        (a.divisionOrder - b.divisionOrder)
+        || a.subGroup.localeCompare(b.subGroup)
+        || ((placed.get(b.id) || 0) - (placed.get(a.id) || 0))
+    );
+    const visualCards = dedupeVisualCards(ordered, (p) => placed.get(p.id) || 0);
     // The project details and company profile set in BOQ Flow name and brand every file.
     const proj = input.project || {};
     const brand = input.brand || {};
@@ -302,6 +488,7 @@ function suiteContext(input) {
         heading: [title, client].filter(Boolean).join(' · '),
         logo: { onDark: null, onLight: null, client: null },
         products: ordered,
+        visualCards,
         placedOf: (p) => placed.get(p.id) || 0,
         colourOf: (p) => colours.get(p.id) || null,
         renders: approved ? [approved, ...renders.filter((r) => r !== approved)] : renders,
@@ -318,11 +505,12 @@ function suiteContext(input) {
     };
 }
 
-/** Pictures of every product, loaded a few at a time (a list in product order). */
+/** Pictures of every product, loaded a few at a time (falls back to a generated Finish Card so nothing is blank). */
 async function productPictures(ctx, maxWidth = 640) {
     const out = new Array(ctx.products.length).fill(null);
     await pool(ctx.products, 6, async (p, i) => {
-        out[i] = p.imageRef || p.imageUrl ? await ctx.picture(p.imageRef || p.imageUrl, maxWidth) : null;
+        const fetched = (p.imageRef || p.imageUrl) ? await ctx.picture(p.imageRef || p.imageUrl, maxWidth) : null;
+        out[i] = fetched || renderFinishCardDataUrl(p);
     });
     return out;
 }
@@ -872,55 +1060,68 @@ async function buildPresentation(ctx, pictures) {
         placeLogo(slide, ctx.logo.onDark, { x: W - 0.35 - 1.7, y: 6.8, w: 1.7, h: 0.42 });
     }
 
-    // Products, six to a slide.
-    const shown = ctx.products.slice(0, 48);
-    for (let start = 0; start < shown.length; start += 6) {
-        const slide = pres.addSlide();
-        chrome(slide);
-        heading(slide, 'Furniture & products', start === 0 ? `${ctx.products.length} lines from the applied offer${ctx.input.offer?.title ? ` · ${clip(ctx.input.offer.title, 60)}` : ''}` : '');
-        for (let k = 0; k < 6 && start + k < shown.length; k++) {
-            const p = shown[start + k];
-            const col = k % 3;
-            const row = Math.floor(k / 3);
-            const x = 0.5 + col * 4.16;
-            const y = 1.35 + row * 2.8;
-            slide.addShape(pres.ShapeType.rect, { x, y, w: 4.0, h: 2.68, fill: { color: 'FFFFFF' }, line: { color: LINE, width: 0.75 } });
-            const img = pictures[ctx.products.indexOf(p)];
-            if (img?.dataUrl) {
-                const f = contain(img.width, img.height, { x: x + 0.15, y: y + 0.12, w: 3.7, h: 1.34 });
-                slide.addImage({ data: img.dataUrl, ...f });
-            } else {
-                slide.addShape(pres.ShapeType.rect, { x: x + 0.15, y: y + 0.12, w: 3.7, h: 1.34, fill: { color: SOFT }, line: { color: SOFT } });
+    // Products & Materials, organized cleanly by Division (Loose Furniture -> Custom Joinery -> Architectural Fit-Out), 6 cards/slide.
+    for (const div of EXPORT_DIVISIONS) {
+        const divCards = (ctx.visualCards || []).filter((c) => c.divisionKey === div.key).slice(0, 30);
+        for (let start = 0; start < divCards.length; start += 6) {
+            const slide = pres.addSlide();
+            chrome(slide);
+            heading(slide, div.shortTitle, start === 0 ? `${divCards.length} specified system${divCards.length === 1 ? '' : 's'} with official brand finishes` : `${div.title} (continued)`);
+            for (let k = 0; k < 6 && start + k < divCards.length; k++) {
+                const p = divCards[start + k];
+                const col = k % 3;
+                const row = Math.floor(k / 3);
+                const x = 0.5 + col * 4.16;
+                const y = 1.35 + row * 2.8;
+                slide.addShape(pres.ShapeType.rect, { x, y, w: 4.0, h: 2.68, fill: { color: 'FFFFFF' }, line: { color: LINE, width: 0.75 } });
+                const img = pictures[p.sourceIndex] || renderFinishCardDataUrl(p);
+                if (img?.dataUrl) {
+                    const f = contain(img.width, img.height, { x: x + 0.15, y: y + 0.1, w: 3.7, h: 1.24 });
+                    slide.addImage({ data: img.dataUrl, ...f });
+                } else {
+                    slide.addShape(pres.ShapeType.rect, { x: x + 0.15, y: y + 0.1, w: 3.7, h: 1.24, fill: { color: SOFT }, line: { color: SOFT } });
+                }
+                const colour = ctx.colourOf(p);
+                const placed = p.placedCount ?? ctx.placedOf(p);
+                if (colour) slide.addShape(pres.ShapeType.ellipse, { x: x + 0.16, y: y + 1.44, w: 0.16, h: 0.16, fill: { color: colour.hex.replace('#', '') }, line: { color: 'FFFFFF', width: 1 } });
+                slide.addText(clip(productLabel(p), 46), { x: x + (colour ? 0.36 : 0.15), y: y + 1.38, w: 3.5, h: 0.3, fontFace: font, fontSize: 11, bold: true, color: NAVY, valign: 'middle', fit: 'shrink' });
+                slide.addText(clip(p.description, 95), { x: x + 0.15, y: y + 1.68, w: 3.7, h: 0.36, fontFace: font, fontSize: 8.5, color: MUTED, valign: 'top', fit: 'shrink' });
+
+                // Official Brand Finish Swatch Strip
+                const sws = (p.finishes || []).slice(0, 3);
+                if (sws.length) {
+                    sws.forEach((sw, sIdx) => {
+                        const sx = x + 0.16 + sIdx * 1.24;
+                        slide.addShape(pres.ShapeType.ellipse, { x: sx, y: y + 2.09, w: 0.14, h: 0.14, fill: { color: (sw.hex || '94A3B8').replace('#', '') }, line: { color: 'CBD5E1', width: 0.5 } });
+                        slide.addText(clip(sw.code || sw.name, 14), { x: sx + 0.17, y: y + 2.05, w: 1.04, h: 0.22, fontFace: font, fontSize: 7.5, color: INK, valign: 'middle', fit: 'shrink' });
+                    });
+                }
+                const modelNote = p.divisionKey === 'fitout' ? `${p.subGroup}` : (placed ? `${placed} in model` : 'Schedule item');
+                slide.addText(`Qty ${p.qty}${p.unit ? ` ${p.unit}` : ''} · ${modelNote}`, { x: x + 0.15, y: y + 2.34, w: 3.7, h: 0.28, fontFace: font, fontSize: 9, bold: true, color: INK });
             }
-            const colour = ctx.colourOf(p);
-            const placed = ctx.placedOf(p);
-            if (colour) slide.addShape(pres.ShapeType.ellipse, { x: x + 0.17, y: y + 1.6, w: 0.2, h: 0.2, fill: { color: colour.hex.replace('#', '') }, line: { color: 'FFFFFF', width: 1 } });
-            slide.addText(clip(productLabel(p), 48), { x: x + (colour ? 0.42 : 0.15), y: y + 1.52, w: 3.4, h: 0.36, fontFace: font, fontSize: 12, bold: true, color: NAVY, valign: 'middle', fit: 'shrink' });
-            slide.addText(clip(p.description, 110), { x: x + 0.15, y: y + 1.86, w: 3.7, h: 0.42, fontFace: font, fontSize: 9, color: MUTED, valign: 'top', fit: 'shrink' });
-            slide.addText(`Qty ${p.qty}${p.unit ? ` ${p.unit}` : ''}${placed ? ` · ${placed} in the model` : ' · not on the drawing'}`, { x: x + 0.15, y: y + 2.3, w: 3.7, h: 0.3, fontFace: font, fontSize: 9.5, bold: true, color: INK });
         }
     }
 
-    // Schedule.
+    // Schedule (categorized by Division with Official Finishes column).
     if (ctx.products.length) {
         const cur = ctx.currency ? ` (${ctx.currency})` : '';
-        const head = ['Ref', 'Product', 'Brand', 'Model', 'Qty', 'Unit', `Amount${cur}`].map((t) => ({ text: t, options: { bold: true, color: 'FFFFFF', fill: { color: NAVY } } }));
+        const head = ['Ref', 'Division / Item', 'Brand & Model', 'Official Finishes', 'Qty', 'Unit', `Amount${cur}`].map((t) => ({ text: t, options: { bold: true, color: 'FFFFFF', fill: { color: NAVY } } }));
         for (let start = 0; start < ctx.products.length; start += 13) {
             const slide = pres.addSlide();
             chrome(slide);
-            heading(slide, 'Schedule', start === 0 ? 'Quantities and amounts from the offer' : '');
+            heading(slide, 'Schedule by Division', start === 0 ? 'Quantities, amounts and official finishes from the offer' : '');
             const rows = ctx.products.slice(start, start + 13).map((p) => [
-                p.sn || '',
-                clip(p.description, 70),
-                clip(p.brand, 22),
-                clip(p.model, 26),
+                p.sn || p.code || '',
+                `${DIVISION_MAP[p.divisionKey]?.shortTitle || p.divisionTitle} — ${clip(p.description, 52)}`,
+                clip(productLabel(p), 28),
+                clip(p.finishSummary || 'Standard', 34),
                 String(p.qty),
                 p.unit || '',
                 p.amount ? money(p.amount) : '',
             ]);
             slide.addTable([head, ...rows], {
-                x: 0.5, y: 1.35, w: 12.33, colW: [0.7, 5.0, 1.7, 2.1, 0.8, 0.8, 1.23],
-                fontFace: font, fontSize: 9.5, color: INK, valign: 'middle',
+                x: 0.5, y: 1.35, w: 12.33, colW: [0.7, 3.8, 2.2, 2.8, 0.75, 0.75, 1.33],
+                fontFace: font, fontSize: 9, color: INK, valign: 'middle',
                 border: { type: 'solid', color: LINE, pt: 0.5 },
                 rowH: 0.36,
             });
@@ -965,9 +1166,9 @@ async function buildFfeSchedule(ctx, pictures) {
     wb.created = new Date();
     const ws = wb.addWorksheet('FF&E Schedule', { properties: { tabColor: { argb: argb(ACCENT) } } });
     const cur = ctx.currency ? ` (${ctx.currency})` : '';
-    const header = ['Ref', 'Image', 'Key', 'BOQ item', 'Brand', 'Model', 'Product description', 'Qty', 'Unit', 'In the model', `Rate${cur}`, `Amount${cur}`, 'Location', 'Category'];
-    const widths = [8, 12, 11, 44, 18, 22, 44, 8, 8, 12, 13, 15, 18, 26];
-    sheetTitle(ws, ctx, `FF&E schedule — products of the applied offer, as placed in the Design & Build model · ${ctx.date}`, header.length);
+    const header = ['Ref', 'Image', 'Key', 'BOQ item', 'Brand', 'Model', 'Product description', 'Qty', 'Unit', 'In the model', `Rate${cur}`, `Amount${cur}`, 'Location', 'Category', 'Official Finishes'];
+    const widths = [8, 12, 11, 40, 18, 22, 38, 8, 8, 12, 13, 15, 18, 24, 38];
+    sheetTitle(ws, ctx, `FF&E & Fit-Out schedule by Division — official finishes & placements · ${ctx.date}`, header.length);
     widths.forEach((w, i) => {
         ws.getColumn(i + 1).width = w;
     });
@@ -977,15 +1178,28 @@ async function buildFfeSchedule(ctx, pictures) {
     styleHeaderRow(head);
     let r = 5;
     let total = 0;
+    let activeDivKey = '';
     for (let i = 0; i < ctx.products.length; i++) {
         const p = ctx.products[i];
+        if (p.divisionKey !== activeDivKey) {
+            activeDivKey = p.divisionKey;
+            const divInfo = DIVISION_MAP[activeDivKey] || DIVISION_MAP.furniture;
+            ws.mergeCells(r, 1, r, header.length);
+            const divRow = ws.getRow(r);
+            divRow.getCell(1).value = divInfo.shortTitle.toUpperCase();
+            divRow.getCell(1).font = { bold: true, size: 10.5, color: { argb: 'FFFFFFFF' } };
+            divRow.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: argb(divInfo.accent) } };
+            divRow.getCell(1).alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
+            divRow.height = 22;
+            r++;
+        }
         const colour = ctx.colourOf(p);
         const placed = ctx.placedOf(p);
         const row = ws.getRow(r);
         const productText = p.productText && p.productText !== p.description ? p.productText : '';
-        row.values = [p.sn || String(i + 1), '', colour ? colour.name : '', p.description, p.brand || '', p.model || '', productText, p.qty, p.unit || '', placed, p.rate || '', p.amount || '', p.location || '', p.category || ''];
+        row.values = [p.sn || String(i + 1), '', colour ? colour.name : '', p.description, p.brand || '', p.model || '', productText, p.qty, p.unit || '', placed, p.rate || '', p.amount || '', p.location || '', `${p.divisionTitle} / ${p.subGroup}`, p.finishSummary || ''];
         row.eachCell({ includeEmpty: true }, (cell, c) => {
-            cell.alignment = { vertical: 'middle', wrapText: c === 4 || c === 7, horizontal: c === 4 || c === 7 || c >= 13 ? 'left' : 'center' };
+            cell.alignment = { vertical: 'middle', wrapText: c === 4 || c === 7 || c === 15, horizontal: c === 4 || c === 7 || c >= 13 ? 'left' : 'center' };
             cell.font = { size: 9.5, color: { argb: argb(INK) } };
             cell.border = { bottom: { style: 'hair', color: { argb: argb(LINE) } } };
             if (c === 11 || c === 12) cell.numFmt = '#,##0.00';
@@ -1051,6 +1265,56 @@ async function buildFfeSchedule(ctx, pictures) {
             if (!p) row.getCell(2).font = { italic: true, color: { argb: argb(MUTED) } };
         });
         ps.views = [{ state: 'frozen', ySplit: 4 }];
+    }
+
+    // Custom Fabrication & Joinery Schedule (when bespoke/custom items are present)
+    const fabItems = ctx.products.filter((p) => p.fulfillmentType === 'custom_fabrication' || p.custom === true || /custom\s*fab/i.test(p.brand || ''));
+    if (fabItems.length) {
+        const fsSheet = wb.addWorksheet('Fabrication Schedule', { properties: { tabColor: { argb: argb('7C3AED') } } });
+        const fHeader = ['SKU / Ref', 'Item Name', 'Category', 'Dimensions', 'Material & Finish Spec', 'Workshop Trade', 'Lead Time (d)', 'Qty', 'Unit', `Rate${cur}`, `Amount${cur}`, 'In 3D Model'];
+        sheetTitle(fsSheet, ctx, `Custom Fabrication & Joinery Schedule · ${ctx.date}`, fHeader.length);
+        [14, 30, 20, 18, 42, 16, 13, 8, 8, 12, 14, 12].forEach((w, i) => {
+            fsSheet.getColumn(i + 1).width = w;
+        });
+        sheetLogo(wb, fsSheet, ctx, fHeader.length);
+        const fh = fsSheet.getRow(4);
+        fh.values = fHeader;
+        styleHeaderRow(fh);
+        let fabTotal = 0;
+        fabItems.forEach((p, i) => {
+            const row = fsSheet.getRow(5 + i);
+            const amt = num(p.amount) || (num(p.rate) * num(p.qty));
+            fabTotal += amt;
+            row.values = [
+                p.skuCode || p.sn || `FAB-${i + 1}`,
+                p.model || p.description,
+                p.category || 'Custom Fabrication',
+                p.dimensionsMm || 'As per plan',
+                p.materialSpec || p.productText || p.description,
+                p.workshopTrade || 'Joinery',
+                p.leadTimeDays || 21,
+                p.qty,
+                p.unit || 'Nos',
+                num(p.rate),
+                amt,
+                ctx.placedOf(p),
+            ];
+            row.getCell(10).numFmt = '#,##0.00';
+            row.getCell(11).numFmt = '#,##0.00';
+            row.eachCell({ includeEmpty: true }, (cell, c) => {
+                cell.alignment = { vertical: 'middle', wrapText: c === 2 || c === 5, horizontal: c === 2 || c === 5 ? 'left' : 'center' };
+                cell.font = { size: 9.5, color: { argb: argb(INK) } };
+            });
+        });
+        const ftr = fsSheet.getRow(5 + fabItems.length + 1);
+        ftr.getCell(10).value = 'Fab Total';
+        ftr.getCell(11).value = fabTotal;
+        ftr.getCell(11).numFmt = '#,##0.00';
+        [10, 11].forEach((c) => {
+            ftr.getCell(c).font = { bold: true, color: { argb: argb(NAVY) } };
+            ftr.getCell(c).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: argb(SOFT) } };
+        });
+        fsSheet.views = [{ state: 'frozen', ySplit: 4 }];
     }
 
     // The furniture Design & Build read from the drawing.
@@ -1123,11 +1387,12 @@ async function buildMoodBoard(ctx, pictures) {
         doc.setLineWidth(0.8);
         doc.line(15, 31, 60, 31);
     };
-    const tile = (p, img, x, y, w, h) => {
+    const tile = (p, rawImg, x, y, w, h) => {
+        const img = rawImg || renderFinishCardDataUrl(p);
         doc.setDrawColor(...rgb(LINE));
         doc.setLineWidth(0.25);
         doc.roundedRect(x, y, w, h, 2, 2, 'S');
-        const imgBox = { x: x + 3, y: y + 3, w: w - 6, h: h - 20 };
+        const imgBox = { x: x + 3, y: y + 3, w: w - 6, h: h - 24 };
         if (img?.dataUrl) {
             const f = contain(img.width, img.height, imgBox);
             doc.addImage(img.dataUrl, 'JPEG', f.x, f.y, f.w, f.h);
@@ -1138,19 +1403,36 @@ async function buildMoodBoard(ctx, pictures) {
         const colour = ctx.colourOf(p);
         if (colour) {
             doc.setFillColor(...rgb(colour.hex));
-            doc.circle(x + 5.5, y + h - 11.5, 2.2, 'F');
+            doc.circle(x + 5.2, y + h - 16.5, 1.8, 'F');
         }
-        doc.setFontSize(8);
+        doc.setFontSize(7.6);
         doc.setTextColor(...rgb(INK));
-        pdfText(doc, clip(productLabel(p), 40), x + (colour ? 10 : 3), y + h - 10.5, { maxWidth: w - (colour ? 13 : 6) }, 'bold');
+        pdfText(doc, clip(productLabel(p), 36), x + (colour ? 8.8 : 3), y + h - 15.5, { maxWidth: w - (colour ? 11.5 : 6) }, 'bold');
+
+        // Official Finish Swatch Strip
+        const sws = (p.finishes || []).slice(0, 3);
+        if (sws.length) {
+            const swW = (w - 6) / sws.length;
+            sws.forEach((sw, sIdx) => {
+                const sx = x + 3 + sIdx * swW;
+                doc.setFillColor(...rgb(sw.hex || '#94A3B8'));
+                doc.circle(sx + 1.5, y + h - 9.8, 1.4, 'F');
+                doc.setFont('helvetica', 'normal');
+                doc.setFontSize(5.8);
+                doc.setTextColor(...rgb(INK));
+                pdfText(doc, clip(sw.code || sw.name, 11), sx + 4, y + h - 9, { maxWidth: swW - 4.5 });
+            });
+        }
+
         doc.setFont('helvetica', 'normal');
-        doc.setFontSize(7);
+        doc.setFontSize(6.6);
         doc.setTextColor(...rgb(MUTED));
-        const placed = ctx.placedOf(p);
-        doc.text(`Qty ${p.qty}${placed ? ` · ${placed} in the model` : ''}`, x + 3, y + h - 4);
+        const placed = p.placedCount ?? ctx.placedOf(p);
+        const tag = p.divisionKey === 'fitout' ? p.subGroup : (placed ? `${placed} in model` : 'Schedule item');
+        doc.text(`Qty ${p.qty}${p.unit ? ` ${p.unit}` : ''} · ${tag}`, x + 3, y + h - 3.5);
     };
 
-    top('Mood board — the approved render with the real products of the offer');
+    top('Mood board — approved render & key interior selections');
     const hero = ctx.approved?.image || ctx.overview;
     if (hero) {
         const j = await asJpeg(hero, 2400);
@@ -1164,21 +1446,29 @@ async function buildMoodBoard(ctx, pictures) {
         const f = contain(j.width, j.height, { x: 15 + i * 86, y: 234, w: 82, h: 50 });
         doc.addImage(j.dataUrl, 'JPEG', f.x, f.y, f.w, f.h);
     }
-    // Products beside the render, then on further pages.
-    const first = ctx.products.slice(0, 8);
+    // Key Furniture & Joinery hero cards beside the render.
+    const allCards = ctx.visualCards || ctx.products;
+    const heroCards = allCards.filter((c) => c.divisionKey !== 'fitout').slice(0, 8);
+    const first = heroCards.length ? heroCards : allCards.slice(0, 8);
+    const firstSet = new Set(first);
     first.forEach((p, k) => {
         const col = k % 2;
         const row = Math.floor(k / 2);
-        tile(p, pictures[ctx.products.indexOf(p)], 280 + col * 64, 38 + row * 62, 60, 58);
+        tile(p, pictures[p.sourceIndex], 280 + col * 64, 38 + row * 62, 60, 58);
     });
-    for (let start = 8; start < ctx.products.length; start += 18) {
-        doc.addPage();
-        top('Mood board — products');
-        ctx.products.slice(start, start + 18).forEach((p, k) => {
-            const col = k % 6;
-            const row = Math.floor(k / 6);
-            tile(p, pictures[ctx.products.indexOf(p)], 15 + col * 66, 40 + row * 82, 62, 78);
-        });
+    // Dedicated Division pages: Loose Furniture -> Custom Joinery -> Architectural Fit-Out Finishes
+    for (const div of EXPORT_DIVISIONS) {
+        const divCards = allCards.filter((c) => c.divisionKey === div.key && (div.key === 'fitout' || !firstSet.has(c) || allCards.length > 8));
+        if (!divCards.length) continue;
+        for (let start = 0; start < divCards.length; start += 18) {
+            doc.addPage();
+            top(`Mood board — ${div.shortTitle}`);
+            divCards.slice(start, start + 18).forEach((p, k) => {
+                const col = k % 6;
+                const row = Math.floor(k / 6);
+                tile(p, pictures[p.sourceIndex], 15 + col * 66, 40 + row * 82, 62, 78);
+            });
+        }
     }
     pdfFooters(doc, ctx);
     return doc.output('blob');
@@ -1304,8 +1594,14 @@ export async function buildExportSuite(input, { groups, onProgress } = {}) {
     if (boqDocuments.length) files.push(...boqDocuments);
     if (want.has('submittals')) {
         const submittals = documentsIn('Submittals');
-        if (submittals.length) files.push(...submittals);
-        else notes.push('Submittals: open the BOQ table in BOQ Flow to add the MAS, MIR, WIR and delivery note.');
+        if (submittals.length) {
+            files.push(...submittals);
+        } else {
+            progress('Generating submittals (MAS, MIR, WIR, Delivery Note)…');
+            const { buildFallbackSubmittals } = await import('../submittals/submittalSuiteBuilder');
+            const generated = await buildFallbackSubmittals(ctx, await pics());
+            files.push(...generated);
+        }
     }
     if (input.documents?.notes?.length) notes.push(...input.documents.notes);
     let pictures = null;
@@ -1316,12 +1612,30 @@ export async function buildExportSuite(input, { groups, onProgress } = {}) {
         }
         return pictures;
     };
+    let programmePlan = null;
+    const getProgrammePlan = () => {
+        if (!programmePlan) {
+            programmePlan = buildDynamicProjectPlan({
+                tables: ctx.tables || [],
+                products: ctx.products || [],
+                takeoff: input.takeoff || input.artifacts?.takeoff || null,
+                project: input.project || {},
+                brand: input.brand || {},
+                currency: ctx.currency || 'OMR',
+                planName: ctx.title,
+            });
+        }
+        return programmePlan;
+    };
+
     const steps = [
         // Without BOQ Flow's own offer documents, the package makes its own BOQ from the offer.
         ...(boqDocuments.length ? [] : [
             ['boq', 'BOQ/Detailed_BOQ.xlsx', () => buildDetailedBoq(ctx)],
             ['boq', 'BOQ/BOQ_Summary.pdf', () => buildBoqSummary(ctx)],
         ]),
+        ['programme', 'Programme/Action_and_Project_Plan.xlsx', () => buildProjectPlanExcel(getProgrammePlan())],
+        ['programme', 'Programme/MS_Project_Schedule.xml', () => buildMsProjectXml(getProgrammePlan())],
         ['drawings', 'Drawings/Source_Drawing.pdf', async () => input.plan?.file || null],
         ['drawings', 'Drawings/Extracted_Plan.png', async () => (ctx.planPlain ? asPngBlob(ctx.planPlain) : null)],
         ['drawings', 'Drawings/Annotated_Plan.png', () => buildAnnotatedPlan(ctx)],

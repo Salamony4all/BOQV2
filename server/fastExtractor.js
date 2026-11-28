@@ -1257,8 +1257,8 @@ async function uploadMatchedMedia(matchedCandidates, mediaEntriesByName, imagesD
             }
 
             let directUrl = null;
-            const bucketName = 'assets';
-            const supabasePath = `extracted-images/${timestamp}_${currentFileName}`;
+            const bucketName = 'extracted-images';
+            const supabasePath = `boq/${timestamp}_${currentFileName}`;
 
             if (supabase) {
                 try {
@@ -1270,7 +1270,8 @@ async function uploadMatchedMedia(matchedCandidates, mediaEntriesByName, imagesD
                             contentType: currentFileName.toLowerCase().endsWith('.png')
                                 ? 'image/png'
                                 : (currentFileName.toLowerCase().match(/\.(jpg|jpeg)$/) ? 'image/jpeg' : 'application/octet-stream'),
-                            cacheControl: '3600'
+                            cacheControl: '31536000',
+                            public: true
                         }
                     );
                     if (url) {
@@ -1279,20 +1280,6 @@ async function uploadMatchedMedia(matchedCandidates, mediaEntriesByName, imagesD
                     }
                 } catch (supabaseErr) {
                     console.error(`[FastExtractor] Supabase upload failed for ${currentFileName}:`, supabaseErr.message);
-                }
-            }
-
-            if (!directUrl && process.env.JS_SCRAPER_SERVICE_URL) {
-                try {
-                    const response = await axios.post(`${process.env.JS_SCRAPER_SERVICE_URL}/upload-media`, {
-                        image: data.toString('base64'),
-                        filename: currentFileName
-                    }, { timeout: 15000 });
-                    if (response.data && response.data.url) {
-                        directUrl = process.env.JS_SCRAPER_SERVICE_URL + response.data.url;
-                    }
-                } catch (eRail) {
-                    console.warn(`[FastExtractor] Railway sidecar upload failed for ${currentFileName}:`, eRail.message);
                 }
             }
 

@@ -3,6 +3,7 @@ import {
     designBuild,
     useDesignBuild,
     customProducts,
+    productsFromTables,
     prepareProductPictures,
     productForBridge,
     smallPicture,
@@ -13,8 +14,10 @@ import DesignBuildExportPanel from './DesignBuildExportPanel';
 import ProjectSettingsPanel from './ProjectSettingsPanel';
 import { useCompanyProfile } from '../context/CompanyContext';
 import { useProject } from '../context/ProjectContext';
+import { getApiBase } from '../utils/apiBase';
 import { SUITE_GROUPS, buildExportSuite, saveExportSuite } from '../features/designBuild/exportSuite';
 import { suiteGroupState } from '../features/designBuild/exportGroups';
+import { buildGeometricEnrichmentPlan } from '../features/boq/geometricBoqEnricher';
 import styles from '../styles/DesignBuildDock.module.css';
 
 // Design & Build express modal. Design & Build runs inside an iframe in its
@@ -35,6 +38,7 @@ const VIEW_LABEL = { cutaway: '3D cutaway', 'eye-level': 'Eye-level view', inter
 
 const STEPS = [
     { key: 'model', label: '3D model' },
+    { key: 'enrich', label: 'Enrich BOQ' },
     { key: 'furnish', label: 'Furnish' },
     { key: 'render', label: 'Render' },
     { key: 'export', label: 'Export suite' },
@@ -80,7 +84,19 @@ const KIND_LABEL = {
     storage: 'Storage', plant: 'Plant', screen: 'Screen', sanitary: 'Sanitary fitting', equipment: 'Equipment',
     joinery: 'Joinery', unknown: 'Furniture',
 };
-const kindLabel = (k) => KIND_LABEL[k] || 'Furniture';
+const SUBTYPE_LABEL = {
+    chair: 'Chair', armchair: 'Armchair', stool: 'Stool', sofa: 'Sofa', 'l-sofa': 'L-shaped sofa',
+    'curved-sofa': 'Curved sofa', bench: 'Bench', 'dining-table': 'Dining table', 'meeting-table': 'Meeting table',
+    'coffee-table': 'Coffee table', 'side-table': 'Side table', desk: 'Desk', 'reception-counter': 'Reception counter',
+    'retail-kiosk': 'Retail display kiosk', 'bar-counter': 'Bar counter', 'feature-column': 'Fluted column', 'slat-screen': 'Slat privacy screen',
+    booth: 'Acoustic booth', banquette: 'Built-in banquette', 'wall-art': 'Wall artwork', 'wall-cladding': 'Wall cladding & artwork',
+    'rotunda-canopy': 'Rotunda canopy ceiling', 'ceiling-bulkhead': 'Ceiling bulkhead / baffle',
+    'single-bed': 'Single bed', 'double-bed': 'Double bed', cabinet: 'Cabinet', wardrobe: 'Wardrobe',
+    credenza: 'Credenza', 'kitchen-counter': 'Kitchen counter', island: 'Kitchen island', shelving: 'Shelving',
+    joinery: 'Joinery', wc: 'WC', basin: 'Basin', shower: 'Shower', bathtub: 'Bathtub', urinal: 'Urinal',
+    plant: 'Plant', screen: 'Screen', appliance: 'Appliance', equipment: 'Equipment',
+};
+const kindLabel = (k, sub) => (sub && SUBTYPE_LABEL[sub]) || KIND_LABEL[k] || 'Furniture';
 const TYPE_ID = /^[\w-]{1,40}$/;
 
 /** The drawn furniture types (from Design & Build's schedule), checked field by field. */
@@ -90,6 +106,8 @@ function scheduleFromMessage(list) {
     return list.slice(0, 400).filter((t) => t && typeof t === 'object').map((t) => ({
         typeId: typeof t.typeId === 'string' && TYPE_ID.test(t.typeId) ? t.typeId : '',
         kind: text(t.kind, 30),
+        subtype: text(t.subtype, 30),
+        customModel: !!t.customModel,
         shape: text(t.shape, 30),
         widthM: num(t.widthM),
         depthM: num(t.depthM),
@@ -100,12 +118,101 @@ function scheduleFromMessage(list) {
 const sizeText = (t) => (t.widthM > 0 && t.depthM > 0 ? `${t.widthM.toFixed(t.widthM < 1 ? 2 : 1)} × ${t.depthM.toFixed(t.depthM < 1 ? 2 : 1)} m` : '');
 const SHAPE_LABEL = { round: 'round', curved: 'curved', 'l-shape': 'L-shaped', free: 'free-form' };
 const shapeText = (shape) => SHAPE_LABEL[shape] || '';
-/** "Curved sofa", "Round table", "Chair": a first name for a custom item. */
+/** "Curved reception counter", "Round table", "Chair": a first name for a custom item. */
 const defaultName = (t) => {
+    const label = kindLabel(t.kind, t.subtype);
+    if (t.subtype && SUBTYPE_LABEL[t.subtype]) return label;
     const shape = shapeText(t.shape);
-    const kind = kindLabel(t.kind);
-    return shape ? `${shape.charAt(0).toUpperCase()}${shape.slice(1)} ${kind.toLowerCase()}` : kind;
+    return shape ? `${shape.charAt(0).toUpperCase()}${shape.slice(1)} ${label.toLowerCase()}` : label;
 };
+
+const FAB_KIND_COMPAT = {
+    desk: ['desk', 'table'],
+    table: ['table', 'desk'],
+    storage: ['storage', 'joinery'],
+    joinery: ['joinery', 'storage'],
+    sofa: ['sofa'],
+    seat: ['sofa', 'seat'],
+    screen: ['screen', 'storage'],
+    plant: ['plant'],
+    sanitary: ['sanitary', 'storage'],
+};
+
+const SUBTYPE_FAB_TERMS = {
+    'reception-counter': ['reception', 'counter'],
+    'retail-kiosk': ['kiosk', 'duty', 'vitrine', 'display'],
+    'bar-counter': ['counter', 'island', 'bar'],
+    'feature-column': ['column', 'fluted'],
+    'slat-screen': ['slat', 'screen', 'divider', 'louver'],
+    'rotunda-canopy': ['rotunda', 'canopy', 'slatted', 'ceiling'],
+    'ceiling-bulkhead': ['ceiling', 'baffle', 'canopy'],
+    'kitchen-counter': ['pantry', 'kitchenette'],
+    island: ['island', 'waterfall', 'pantry'],
+    cabinet: ['cabinet', 'locker', 'backwall'],
+    credenza: ['credenza', 'tea', 'printer'],
+    wardrobe: ['wardrobe', 'locker', 'full-height'],
+    shelving: ['divider', 'display', 'shelving'],
+    bench: ['banquette', 'bench'],
+    booth: ['booth', 'acoustic booth', 'dining booth', 'banquette'],
+    banquette: ['banquette', 'booth', 'bench'],
+    'l-sofa': ['l-shape', 'banquette', 'booth'],
+    'curved-sofa': ['curved', 'banquette', 'booth'],
+    'meeting-table': ['boardroom', 'conference', 'boat'],
+    basin: ['vanity', 'washroom'],
+    'wall-art': ['artwork', 'wall artwork', 'bas-relief', 'gallery'],
+    'wall-cladding': ['cladding', 'fluted', 'veneer', 'panel', 'artwork', 'bas-relief', 'feature wall'],
+};
+
+const normShape = (s) => (s === 'rect' ? 'rectangular' : String(s || '').toLowerCase());
+
+function rankFabricationTemplates(templates, draft) {
+    if (!Array.isArray(templates) || !draft) return [];
+    const compat = FAB_KIND_COMPAT[draft.kind] || [];
+    const subTerms = SUBTYPE_FAB_TERMS[draft.subtype] || [];
+    const dShape = normShape(draft.shape);
+    return templates
+        .map((tpl) => {
+            let score = 0;
+            if (draft.subtype && tpl.design_build_subtype && tpl.design_build_subtype === draft.subtype) score += 14;
+            if (draft.kind && tpl.design_build_kind === draft.kind) score += 10;
+            else if (compat.includes(tpl.design_build_kind)) score += 5;
+            if (dShape && normShape(tpl.shape) === dShape) score += 4;
+            if (subTerms.length) {
+                const hay = `${tpl.name || ''} ${tpl.category || ''} ${tpl.sub_category || ''} ${(tpl.detection_keywords || []).join(' ')}`.toLowerCase();
+                if (subTerms.some((term) => hay.includes(term))) score += 8;
+            }
+            return { tpl, score };
+        })
+        .sort((a, b) => b.score - a.score)
+        .filter((x, i) => x.score > 0 || i < 6)
+        .slice(0, 6)
+        .map((x) => x.tpl);
+}
+
+function zonesFromMessage(list) {
+    if (!Array.isArray(list)) return [];
+    const num = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0);
+    return list.slice(0, 50).filter((z) => z && typeof z === 'object' && typeof z.zoneId === 'string').map((z) => ({
+        typeId: z.zoneId,
+        zoneId: z.zoneId,
+        kind: 'ceiling',
+        subtype: text(z.kind, 40) || 'rotunda-canopy',
+        shape: text(z.shape, 30) || 'round',
+        widthM: num(z.widthM),
+        depthM: num(z.depthM),
+        count: 1,
+        label: text(z.label, 80),
+        customModel: true,
+        isZone: true,
+    }));
+}
+
+function freeZonesOf(zones, customItems) {
+    const custom = new Map((customItems || []).map((c) => [c.typeId, c]));
+    return (zones || [])
+        .filter((z) => z.zoneId)
+        .map((z) => ({ ...z, custom: custom.get(z.zoneId) || null }));
+}
 
 /**
  * Drawn furniture types that no offer line took: a custom item (a name and a photo)
@@ -180,6 +287,8 @@ function artifactsFromMessage(m) {
         placements,
         scene: typeof m.scene === 'string' && m.scene.length < 80_000_000 ? m.scene : '',
         counts: m.counts && typeof m.counts === 'object' ? m.counts : null,
+        ...(m.takeoff && typeof m.takeoff === 'object' ? { takeoff: m.takeoff } : {}),
+        ...(Array.isArray(m.zones) ? { zones: m.zones } : {}),
     };
 }
 
@@ -266,8 +375,11 @@ function DockSession({ s }) {
     const [brokenPictures, setBrokenPictures] = useState(() => new Set());
     // Custom item picker: the list of drawn types without a product, then one type's form.
     const [customOpen, setCustomOpen] = useState(false);
+    const [enrichOpen, setEnrichOpen] = useState(false);
+    const [enrichDraft, setEnrichDraft] = useState(null);
     const [draft, setDraft] = useState(null);
     const [draftBusy, setDraftBusy] = useState(false);
+    const [fabTemplates, setFabTemplates] = useState([]);
     const customFileRef = useRef(null);
     // The status, products and actions under the model: folded to a bar on phones.
     const [sheetOpen, setSheetOpen] = useState(() => !isCompact());
@@ -352,9 +464,16 @@ function DockSession({ s }) {
             onProgress?.('Collecting the model from Design & Build…');
             const artifacts = await requestArtifacts();
             const st = designBuild.getState();
+            const activeTables = st.offer?.tables?.length ? st.offer.tables : designBuild.getActiveTables();
+            const effectiveOffer = st.offer?.tables?.length
+                ? st.offer
+                : (activeTables.length ? { tables: activeTables, title: st.documents?.source || 'Extracted BOQ' } : null);
+            const effectiveProducts = st.products.length ? st.products : (activeTables.length ? productsFromTables(activeTables) : []);
+            const effectiveTakeoff = artifacts?.takeoff || st.takeoff;
+            const effectiveState = { ...st, offer: effectiveOffer, products: effectiveProducts, takeoff: effectiveTakeoff };
             const keys = Array.isArray(groups) && groups.length
                 ? groups
-                : SUITE_GROUPS.filter((g) => suiteGroupState(g, st).ok).map((g) => g.key);
+                : SUITE_GROUPS.filter((g) => suiteGroupState(g, effectiveState).ok).map((g) => g.key);
             // BOQ Flow's own offer, BOQ and submittals, from its table's generators.
             const documents = keys.includes('boq') || keys.includes('submittals')
                 ? await designBuild.makeDocuments({ onProgress }).catch((e) => ({ files: [], notes: [`BOQ Flow's documents could not be made (${e?.message || e}).`] }))
@@ -363,12 +482,13 @@ function DockSession({ s }) {
                 {
                     plan: st.plan,
                     artifacts,
-                    products: [...st.products, ...customProducts(st.customItems)],
+                    takeoff: effectiveTakeoff,
+                    products: [...effectiveProducts, ...customProducts(st.customItems)],
                     furnished: st.furnished,
                     furniture: st.furniture,
                     renders: st.renders,
                     approvedRenderId: st.approvedRenderId,
-                    offer: st.offer,
+                    offer: effectiveOffer,
                     counts: st.counts,
                     documents,
                     ...brandingRef.current,
@@ -378,7 +498,7 @@ function DockSession({ s }) {
             if (!result.files.length) throw new Error(result.notes[0] || 'Nothing to export yet.');
             onProgress?.('Saving…');
             await saveExportSuite(result, { asZip, suffix });
-            return { files: result.files.length, notes: result.notes, viewsMissing: !artifacts };
+            return { files: result.files.length, asZip, notes: result.notes, viewsMissing: !artifacts };
         });
         return () => designBuild.setExporter(null);
     }, [requestArtifacts]);
@@ -410,11 +530,24 @@ function DockSession({ s }) {
                     }
                     break;
                 case 'model-ready':
-                    designBuild.set({ status: 'ready', stage: '', counts: m.counts || null, error: null });
+                    designBuild.set({
+                        status: 'ready',
+                        stage: '',
+                        counts: m.counts || null,
+                        ...(m.takeoff ? { takeoff: m.takeoff } : {}),
+                        error: null,
+                    });
                     sendProductsIfNeeded();
                     break;
                 case 'furniture-ready':
-                    designBuild.set({ furniture: { pieces: Number(m.pieces) || 0, schedule: scheduleFromMessage(m.schedule) } });
+                    designBuild.set({
+                        furniture: {
+                            pieces: Number(m.pieces) || 0,
+                            schedule: scheduleFromMessage(m.schedule),
+                            zones: zonesFromMessage(m.zones),
+                        },
+                        ...(m.takeoff ? { takeoff: m.takeoff } : {}),
+                    });
                     break;
                 case 'furnished':
                     designBuild.set({
@@ -441,6 +574,7 @@ function DockSession({ s }) {
                 }
                 case 'artifacts': {
                     const done = pendingArtifactsRef.current.get(m.requestId);
+                    if (m.takeoff) designBuild.set({ takeoff: m.takeoff });
                     if (done) {
                         pendingArtifactsRef.current.delete(m.requestId);
                         done(artifactsFromMessage(m));
@@ -506,8 +640,19 @@ function DockSession({ s }) {
         setReviewId(null);
         setExportOpen(false);
         setDraft(null);
-        setCustomOpen((o) => !o);
-    }, []);
+        setCustomOpen((o) => {
+            const next = !o;
+            if (next && fabTemplates.length === 0) {
+                fetch(`${getApiBase()}/api/fabrication-catalog`)
+                    .then((r) => (r.ok ? r.json() : null))
+                    .then((data) => {
+                        if (data && Array.isArray(data.items)) setFabTemplates(data.items);
+                    })
+                    .catch(() => {});
+            }
+            return next;
+        });
+    }, [fabTemplates.length]);
 
     const closeCustom = useCallback(() => {
         setCustomOpen(false);
@@ -518,15 +663,48 @@ function DockSession({ s }) {
     const pickType = useCallback((t) => {
         setDraft({
             typeId: t.typeId,
+            isZone: !!t.isZone,
+            isWallTarget: !!t.isWallTarget,
             kind: t.kind,
+            subtype: t.subtype || '',
+            shape: t.shape || '',
             count: t.count,
+            widthM: t.widthM || 0,
+            depthM: t.depthM || 0,
             size: sizeText(t),
-            name: t.custom?.name || defaultName(t),
+            name: t.custom?.name || t.label || defaultName(t),
             picture: t.custom?.picture || '',
+            rate: t.custom?.rate ? String(t.custom.rate) : '',
+            materialSpec: t.custom?.materialSpec || '',
+            skuCode: t.custom?.skuCode || '',
+            fabricationId: t.custom?.fabricationId || '',
+            workshopTrade: t.custom?.workshopTrade || 'Joinery',
+            leadTimeDays: t.custom?.leadTimeDays || 21,
+            saveToLibrary: false,
             existing: !!t.custom,
         });
-        focusType(t.typeId);
+        if (!t.isZone && !t.isWallTarget) focusType(t.typeId);
     }, [focusType]);
+
+    const applyFabTemplateToDraft = useCallback((tpl) => {
+        if (!tpl) return;
+        setDraft((d) => {
+            if (!d) return d;
+            const isWallArt = /^FAB-ART-|^FN-ART-|art|relief|mural/i.test(`${tpl.sku_code || ''} ${tpl.name || ''}`);
+            return {
+                ...d,
+                ...(d.isWallTarget ? { subtype: isWallArt ? 'wall-art' : 'wall-cladding' } : {}),
+                name: tpl.name || d.name,
+                picture: tpl.image_url || d.picture,
+                rate: tpl.rate_mid ? String(tpl.rate_mid) : d.rate,
+                materialSpec: tpl.material_spec_mid || tpl.description_template || d.materialSpec,
+                skuCode: tpl.sku_code || d.skuCode,
+                fabricationId: tpl.id || tpl.sku_code || d.fabricationId,
+                workshopTrade: tpl.workshop_trade || d.workshopTrade,
+                leadTimeDays: tpl.lead_time_days || d.leadTimeDays,
+            };
+        });
+    }, []);
 
     const onCustomPicture = useCallback(async (e) => {
         const file = Array.from(e.target.files || []).find(Boolean);
@@ -538,14 +716,56 @@ function DockSession({ s }) {
         setDraft((d) => (d ? { ...d, picture: picture || d.picture, error: picture ? '' : 'Use a JPEG, PNG or WebP picture.' } : d));
     }, []);
 
-    const saveCustom = useCallback(() => {
+    const saveCustom = useCallback(async () => {
         if (!draft || !draft.name.trim()) return;
+        let savedFab = null;
+        if (draft.saveToLibrary) {
+            setDraftBusy(true);
+            try {
+                const res = await fetch(`${getApiBase()}/api/fabrication-catalog`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        name: draft.name.trim().slice(0, 80),
+                        kind: draft.kind,
+                        design_build_kind: draft.kind,
+                        shape: draft.shape || 'rectangular',
+                        rate_mid: parseFloat(draft.rate) || 0,
+                        material_spec_mid: draft.materialSpec || '',
+                        workshop_trade: draft.workshopTrade || 'Joinery',
+                        lead_time_days: Number(draft.leadTimeDays) || 21,
+                        imageDataUrl: /^data:image\//i.test(draft.picture || '') ? draft.picture : '',
+                        imageUrl: /^https?:\/\//i.test(draft.picture || '') ? draft.picture : '',
+                    }),
+                });
+                const json = await res.json().catch(() => null);
+                if (json?.status === 'success' && json.item) {
+                    savedFab = json.item;
+                    setFabTemplates((prev) => [json.item, ...prev.filter((x) => x.sku_code !== json.item.sku_code)]);
+                }
+            } catch { /* non-fatal */ }
+            setDraftBusy(false);
+        }
+
         designBuild.setCustomItem({
             typeId: draft.typeId,
+            isZone: !!draft.isZone,
+            isWallTarget: !!draft.isWallTarget,
             name: draft.name.trim().slice(0, 80),
             kind: draft.kind,
+            subtype: draft.subtype || '',
             count: draft.count,
-            picture: draft.picture || '',
+            widthM: draft.widthM || 0,
+            depthM: draft.depthM || 0,
+            size: draft.size || '',
+            picture: savedFab?.image_url || draft.picture || '',
+            rate: parseFloat(draft.rate) || 0,
+            currency: savedFab?.currency || 'OMR',
+            materialSpec: draft.materialSpec || savedFab?.material_spec_mid || '',
+            skuCode: savedFab?.sku_code || draft.skuCode || '',
+            fabricationId: savedFab?.id || draft.fabricationId || '',
+            workshopTrade: savedFab?.workshop_trade || draft.workshopTrade || 'Joinery',
+            leadTimeDays: savedFab?.lead_time_days || draft.leadTimeDays || 21,
         });
         setCustomOpen(false);
         setDraft(null);
@@ -603,10 +823,28 @@ function DockSession({ s }) {
     const reviewing = reviewId ? s.renders.find((r) => r.id === reviewId) || null : null;
     const stepState = (key) => {
         if (key === 'model') return ready ? 'done' : 'active';
+        if (key === 'enrich') return s.boqEnrichedAt ? 'done' : ready && s.takeoff ? 'active' : 'todo';
         if (key === 'furnish') return furnished ? 'done' : ready && s.products.length ? 'active' : ready ? 'next' : 'todo';
         if (key === 'render') return approved ? 'done' : s.renders.length ? 'active' : furnished || ready ? 'next' : 'todo';
-        return s.exportedAt ? 'done' : approved ? 'active' : 'todo';
+        return s.exportedAt ? 'done' : approved ? 'active' : ready ? 'next' : 'todo';
     };
+
+    const openEnrichBoq = useCallback(() => {
+        const st = designBuild.getState();
+        if (!st.takeoff) return;
+        const plan = buildGeometricEnrichmentPlan(designBuild.getActiveTables(), st.takeoff);
+        setEnrichDraft(plan);
+        setReviewId(null);
+        setExportOpen(false);
+        setCustomOpen(false);
+        setEnrichOpen(true);
+    }, []);
+
+    const applyEnrichBoq = useCallback(() => {
+        if (!enrichDraft) return;
+        designBuild.applyBoqEnrichment({ updates: enrichDraft.updates, additions: enrichDraft.additions });
+        setEnrichOpen(false);
+    }, [enrichDraft]);
     const pieces = s.furniture?.pieces || 0;
     const statusText = (() => {
         if (timedOut) return 'Design & Build did not answer. Check your connection, then try again.';
@@ -626,7 +864,22 @@ function DockSession({ s }) {
     const allProducts = s.customItems.length ? [...s.products, ...customProducts(s.customItems)] : s.products;
     const legend = legendOf(furnished, allProducts);
     const freeTypes = ready ? freeTypesOf(s.furniture?.schedule, furnished, s.customItems) : [];
-    const canCustom = freeTypes.length > 0;
+    const freeZones = ready ? freeZonesOf(s.furniture?.zones, s.customItems) : [];
+    const wallTarget = ready && (s.counts?.walls || 0) > 0
+        ? [{
+            typeId: 'arch_walls',
+            isZone: false,
+            isWallTarget: true,
+            kind: 'screen',
+            subtype: (s.customItems || []).find((c) => c.typeId === 'arch_walls')?.subtype || 'wall-cladding',
+            shape: 'free',
+            count: Math.max(1, Math.min(4, Math.ceil((s.counts?.walls || 1) * 0.25))),
+            label: 'Interior Feature Walls (Cladding / Wall Art)',
+            custom: (s.customItems || []).find((c) => c.typeId === 'arch_walls') || null,
+        }]
+        : [];
+    const customTargets = [...freeZones, ...wallTarget, ...freeTypes];
+    const canCustom = customTargets.length > 0;
     const notFound = (n) => (missing.length ? `Not found on the drawing: ${missing.slice(0, n).join(', ')}${missing.length > n ? ` and ${missing.length - n} more` : ''}.` : '');
     const hint = (() => {
         if (!ready || s.error || approved) return '';
@@ -643,6 +896,14 @@ function DockSession({ s }) {
     // Every action under the model; folded, only the main one shows.
     const actions = [];
     if (timedOut || s.error) actions.push({ key: 'retry', label: 'Try again', short: 'Try again', primary: true });
+    if (ready && s.takeoff && !approved) {
+        actions.push({
+            key: 'enrich',
+            label: s.boqEnrichedAt ? 'BOQ Enriched ✓' : 'Enrich BOQ (3D)',
+            short: 'Enrich BOQ',
+            title: 'Update initial BOQ quantities & add missing surfaces from measured 3D geometry',
+        });
+    }
     if (lastRender && !approved) actions.push({ key: 'review', label: 'Review render' });
     if (ready && !approved) {
         actions.push({
@@ -653,7 +914,7 @@ function DockSession({ s }) {
             title: 'Photoreal render of the current view in Design & Build',
         });
     }
-    if (approved) actions.push({ key: 'files', label: 'Choose files', title: 'Pick the folders of the package' });
+    if (ready) actions.push({ key: 'files', label: approved ? 'Choose files' : 'Export suite', short: 'Export', title: 'Pick and download files from the Design & Build suite' });
     actions.push({
         key: 'continue',
         label: 'Continue in BOQ Flow',
@@ -673,6 +934,7 @@ function DockSession({ s }) {
     }
     const runAction = (key) => {
         if (key === 'retry') retry();
+        else if (key === 'enrich') openEnrichBoq();
         else if (key === 'review' && lastRender) setReviewId(lastRender.id);
         else if (key === 'render') openRender();
         else if (key === 'files') setExportOpen(true);
@@ -680,9 +942,10 @@ function DockSession({ s }) {
         else if (key === 'download') designBuild.downloadPackage();
     };
     // A step that does something: Render opens Design & Build's renders, Export suite the package.
-    const stepGoes = (key) => (key === 'export' && approved) || (key === 'render' && ready);
+    const stepGoes = (key) => (key === 'export' && ready) || (key === 'render' && ready) || (key === 'enrich' && ready && !!s.takeoff);
     const goToStep = (key) => {
         if (key === 'export') setExportOpen(true);
+        else if (key === 'enrich') openEnrichBoq();
         else openRender();
     };
     const mainAction = [...actions].reverse().find((a) => a.primary) || actions[actions.length - 1];
@@ -723,7 +986,7 @@ function DockSession({ s }) {
                                                 type="button"
                                                 className={styles.stepBtn}
                                                 onClick={() => goToStep(step.key)}
-                                                title={step.key === 'export' ? 'Download the package' : 'Render in Design & Build'}
+                                                title={step.key === 'export' ? 'Download the package' : step.key === 'enrich' ? 'Measure 3D surface geometry & enrich BOQ' : 'Render in Design & Build'}
                                             >
                                                 {inner}
                                             </button>
@@ -805,8 +1068,98 @@ function DockSession({ s }) {
                             </div>
                         )}
 
-                        {exportOpen && approved && (
+                        {exportOpen && ready && (
                             <DesignBuildExportPanel s={s} onClose={() => setExportOpen(false)} onEditProject={() => setProjectOpen(true)} />
+                        )}
+
+                        {enrichOpen && enrichDraft && (
+                            <div className={styles.exportLayer}>
+                                <button type="button" className={styles.exportScrim} onClick={() => setEnrichOpen(false)} aria-label="Close Post-Build BOQ Enrichment" />
+                                <aside className={styles.exportPanel} role="dialog" aria-label="Post-Building Geometric BOQ Enrichment">
+                                    <header className={styles.exportHead}>
+                                        <div>
+                                            <h3 className={styles.exportTitle}>Post-Build Measured BOQ Enrichment</h3>
+                                            <p className={styles.exportSub}>Pure 3D surface quantities measured from your live Pascal model (pilot windows excluded). Review updates &amp; additions to apply into BOQ Flow.</p>
+                                        </div>
+                                        <button type="button" className={styles.iconBtn} onClick={() => setEnrichOpen(false)} title="Close">
+                                            <span aria-hidden>×</span>
+                                        </button>
+                                    </header>
+                                    {enrichDraft.summary && (
+                                        <div className={styles.enrichStatsGrid}>
+                                            <div><span>Net Floor Slab</span><strong>{enrichDraft.summary.netFloorAreaM2} m²</strong></div>
+                                            <div><span>Paintable Walls</span><strong>{enrichDraft.summary.solidWallNetPaintAreaM2} m²</strong></div>
+                                            <div><span>Glass Partitions</span><strong>{enrichDraft.summary.glassPartitionAreaM2} m²</strong></div>
+                                            <div><span>Skirting Perimeter</span><strong>{enrichDraft.summary.skirtingLengthLm} lm</strong></div>
+                                            <div><span>Doors / Windows</span><strong>{enrichDraft.summary.doorsCount} / {enrichDraft.summary.windowsCount}</strong></div>
+                                            <div><span>Furniture Count</span><strong>{enrichDraft.summary.furnitureCount} pcs</strong></div>
+                                        </div>
+                                    )}
+                                    <div className={styles.enrichBody}>
+                                        <h4>Quantity Synchronizations ({enrichDraft.updates.length})</h4>
+                                        {enrichDraft.updates.length === 0 ? (
+                                            <p className={styles.groupNote}>Existing BOQ quantities already align with the 3D scene (or no matching surface rows found).</p>
+                                        ) : (
+                                            <ul className={styles.enrichList}>
+                                                {enrichDraft.updates.map((u, idx) => (
+                                                    <li key={u.id}>
+                                                        <label>
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={!!u.selected}
+                                                                onChange={(e) => setEnrichDraft((prev) => ({
+                                                                    ...prev,
+                                                                    updates: prev.updates.map((x, i) => (i === idx ? { ...x, selected: e.target.checked } : x)),
+                                                                }))}
+                                                            />
+                                                            <span>
+                                                                <strong>{u.label}</strong> — {u.currentQty} → <b>{u.measuredQty} {u.unit}</b> ({u.delta >= 0 ? `+${u.delta}` : u.delta})
+                                                                <small>{u.basis}</small>
+                                                            </span>
+                                                        </label>
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        )}
+                                        <h4>Missing 3D Architectural Surfaces ({enrichDraft.additions.length})</h4>
+                                        {enrichDraft.additions.length === 0 ? (
+                                            <p className={styles.groupNote}>All measured 3D fit-out surfaces are already covered in your BOQ.</p>
+                                        ) : (
+                                            <ul className={styles.enrichList}>
+                                                {enrichDraft.additions.map((a, idx) => (
+                                                    <li key={a.id}>
+                                                        <label>
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={!!a.selected}
+                                                                onChange={(e) => setEnrichDraft((prev) => ({
+                                                                    ...prev,
+                                                                    additions: prev.additions.map((x, i) => (i === idx ? { ...x, selected: e.target.checked } : x)),
+                                                                }))}
+                                                            />
+                                                            <span>
+                                                                <strong>{a.model}</strong> — {a.qty} {a.unit} @ {a.rate} OMR
+                                                                <small>{a.basis}</small>
+                                                            </span>
+                                                        </label>
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        )}
+                                    </div>
+                                    <footer className={styles.exportFoot}>
+                                        <button type="button" className={styles.secondaryBtn} onClick={() => setEnrichOpen(false)}>Cancel</button>
+                                        <button
+                                            type="button"
+                                            className={styles.primaryBtn}
+                                            disabled={!enrichDraft.updates.some((u) => u.selected) && !enrichDraft.additions.some((a) => a.selected)}
+                                            onClick={applyEnrichBoq}
+                                        >
+                                            Apply 3D Measured Quantities to BOQ
+                                        </button>
+                                    </footer>
+                                </aside>
+                            </div>
                         )}
                     </div>
 
@@ -883,7 +1236,7 @@ function DockSession({ s }) {
                                             <strong>{draft ? (draft.existing ? 'Change the custom item' : 'Custom item') : 'Custom item'}</strong>
                                             <small>
                                                 {draft
-                                                    ? `${draft.count} drawn ${kindLabel(draft.kind).toLowerCase()}${draft.count === 1 ? '' : 's'}${draft.size ? ` · ${draft.size}` : ''} — shown in the model`
+                                                    ? `${draft.count} drawn ${kindLabel(draft.kind, draft.subtype).toLowerCase()}${draft.count === 1 ? '' : 's'}${draft.size ? ` · ${draft.size}` : ''} — shown in the model`
                                                     : 'Drawn furniture with no product in the offer. Pick one, then give it a name and a photo: the model and the renders show it.'}
                                             </small>
                                         </div>
@@ -893,15 +1246,15 @@ function DockSession({ s }) {
                                     </div>
                                     {!draft ? (
                                         <ul className={styles.customTypes}>
-                                            {freeTypes.map((t) => (
+                                            {customTargets.map((t) => (
                                                 <li key={t.typeId}>
                                                     <button type="button" className={styles.customType} onClick={() => pickType(t)}>
                                                         <span className={styles.customTypePic}>
-                                                            {t.custom?.picture ? <img src={t.custom.picture} alt="" /> : <span aria-hidden>{kindLabel(t.kind).charAt(0)}</span>}
+                                                            {t.custom?.picture ? <img src={t.custom.picture} alt="" /> : <span aria-hidden>{kindLabel(t.kind, t.subtype).charAt(0)}</span>}
                                                         </span>
                                                         <span className={styles.customTypeName}>
-                                                            {t.custom?.name || kindLabel(t.kind)}
-                                                            <small>{[sizeText(t), shapeText(t.shape)].filter(Boolean).join(' · ')}</small>
+                                                            {t.custom?.name || t.label || kindLabel(t.kind, t.subtype)}
+                                                            <small>{[sizeText(t), shapeText(t.shape), t.isZone ? 'overhead zone' : t.isWallTarget ? 'wall finish / art' : t.customModel ? 'custom drawn' : ''].filter(Boolean).join(' · ')}</small>
                                                         </span>
                                                         <span className={styles.customTypeCount}>{t.count}</span>
                                                     </button>
@@ -910,6 +1263,51 @@ function DockSession({ s }) {
                                         </ul>
                                     ) : (
                                         <div className={styles.customForm}>
+                                            {fabTemplates.length > 0 && (() => {
+                                                const ranked = rankFabricationTemplates(fabTemplates, draft);
+                                                return (
+                                                    <div className={styles.customField}>
+                                                        <span>Quick-pick from Fabrication DB ({ranked.length})</span>
+                                                        <div className={styles.fabQuickStrip}>
+                                                            {ranked.map((tpl) => (
+                                                                <button
+                                                                    key={tpl.sku_code || tpl.id}
+                                                                    type="button"
+                                                                    className={`${styles.fabChip} ${draft.skuCode === tpl.sku_code ? styles.fabChipActive : ''}`}
+                                                                    onClick={() => applyFabTemplateToDraft(tpl)}
+                                                                    title={tpl.description_template}
+                                                                >
+                                                                    <span>{tpl.name}</span>
+                                                                    <small>{tpl.rate_mid ? `${tpl.rate_mid} ${tpl.currency || 'OMR'}` : tpl.sku_code}</small>
+                                                                </button>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })()}
+                                            {draft.isWallTarget && (
+                                                <div className={styles.customField}>
+                                                    <span>Wall Application Type</span>
+                                                    <div className={styles.fabQuickStrip}>
+                                                        <button
+                                                            type="button"
+                                                            className={`${styles.fabChip} ${draft.subtype !== 'wall-art' ? styles.fabChipActive : ''}`}
+                                                            onClick={() => setDraft((d) => (d ? { ...d, subtype: 'wall-cladding', workshopTrade: 'Joinery' } : d))}
+                                                        >
+                                                            <span>Wall Cladding</span>
+                                                            <small>Fluted / Veneer / Stone / PVD</small>
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            className={`${styles.fabChip} ${draft.subtype === 'wall-art' ? styles.fabChipActive : ''}`}
+                                                            onClick={() => setDraft((d) => (d ? { ...d, subtype: 'wall-art', workshopTrade: 'Art & Decor' } : d))}
+                                                        >
+                                                            <span>Wall Artwork</span>
+                                                            <small>Framed / Bas-Relief / Triptych</small>
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            )}
                                             <label className={styles.customField}>
                                                 <span>Name</span>
                                                 <input
@@ -923,6 +1321,38 @@ function DockSession({ s }) {
                                                     autoFocus
                                                 />
                                             </label>
+                                            <div className={styles.customRowTwo}>
+                                                <label className={styles.customField}>
+                                                    <span>Unit Rate (OMR)</span>
+                                                    <input
+                                                        type="number"
+                                                        min="0"
+                                                        step="1"
+                                                        placeholder="e.g. 450"
+                                                        value={draft.rate ?? ''}
+                                                        onChange={(e) => setDraft((d) => (d ? { ...d, rate: e.target.value } : d))}
+                                                    />
+                                                </label>
+                                                <label className={styles.customField}>
+                                                    <span>Trade</span>
+                                                    <input
+                                                        type="text"
+                                                        maxLength={32}
+                                                        value={draft.workshopTrade ?? 'Joinery'}
+                                                        onChange={(e) => setDraft((d) => (d ? { ...d, workshopTrade: e.target.value } : d))}
+                                                    />
+                                                </label>
+                                            </div>
+                                            <label className={styles.customField}>
+                                                <span>Material &amp; Finish Spec</span>
+                                                <input
+                                                    type="text"
+                                                    maxLength={220}
+                                                    placeholder="e.g. HMR MDF + white oak veneer + 20mm quartz top"
+                                                    value={draft.materialSpec ?? ''}
+                                                    onChange={(e) => setDraft((d) => (d ? { ...d, materialSpec: e.target.value } : d))}
+                                                />
+                                            </label>
                                             <div className={styles.customPicRow}>
                                                 <span className={styles.customPic}>
                                                     {draft.picture ? <img src={draft.picture} alt="" /> : <small>No photo</small>}
@@ -932,6 +1362,14 @@ function DockSession({ s }) {
                                                         {draftBusy ? 'Reading…' : draft.picture ? 'Change photo' : 'Add a photo'}
                                                     </button>
                                                     <small>A product photo on a plain background renders best.</small>
+                                                    <label className={styles.fabSaveCheck}>
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={!!draft.saveToLibrary}
+                                                            onChange={(e) => setDraft((d) => (d ? { ...d, saveToLibrary: e.target.checked } : d))}
+                                                        />
+                                                        <span>Save to Supabase Fabrication DB</span>
+                                                    </label>
                                                     {draft.error && <small className={styles.customError}>{draft.error}</small>}
                                                 </div>
                                                 <input ref={customFileRef} type="file" accept="image/jpeg,image/png,image/webp" hidden onChange={onCustomPicture} />

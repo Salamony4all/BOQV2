@@ -25,6 +25,9 @@ const DEFAULT_PROJECT = {
     originatorDesignation: '',
     clientRepName: '',
     clientRepDesignation: '',
+    contractDurationDays: '',
+    vatPercent: '5',
+    projectManager: '',
 };
 
 export function ProjectProvider({ children }) {

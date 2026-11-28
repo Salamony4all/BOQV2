@@ -7,6 +7,8 @@
 }
 
 :root {
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
   /* Default Dark Theme (Slate Palette) */
   --bg-primary: #0f172a;
   --bg-secondary: #1e293b;
@@ -111,6 +113,14 @@ body {
 }
 
 /* Mobile-specific optimizations */
+button,
+a,
+label,
+select,
+input {
+  touch-action: manipulation;
+}
+
 @media (max-width: 768px) {
   body {
     /* Prevent text from scaling up on orientation change */
@@ -118,6 +128,16 @@ body {
     text-size-adjust: 100%;
     /* Improve touch scrolling */
     -webkit-overflow-scrolling: touch;
+  }
+
+  input[type="text"],
+  input[type="search"],
+  input[type="email"],
+  input[type="tel"],
+  input[type="number"],
+  select,
+  textarea {
+    font-size: 16px;
   }
 
   /* Improve font rendering on mobile */

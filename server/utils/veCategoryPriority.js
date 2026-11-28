@@ -15,9 +15,11 @@ export const VE_CATEGORY_CONFIG = {
         label: 'Auditorium & Theater Seating',
         priorityBrands: ['TMA', 'LEADCOM', 'Figueras', 'Ferco Seating', 'Quinette Gallay', 'Ezcaray Seating', 'Ares Line', 'Cinearredo', 'Lamm', 'Destro'],
         keywords: [
-            'theatre seats', 'theater seats', 'theatre', 'theater', 'auditorium', 'cinema',
-            'tip-up', 'tip up', 'gravity', 'row numbering', 'wooden armrest', 'wooden panel',
-            'acoustic seat', 'stadium seat', 'spectator seating'
+            'theatre seats', 'theater seats', 'theatre chair', 'theater chair', 'theatre', 'theater',
+            'auditorium chair', 'auditorium seating', 'auditorium', 'cinema chair', 'cinema seating', 'cinema',
+            'tip-up', 'tip up', 'tip-up seat', 'foldable auditorium', 'lecture hall chair', 'acoustic auditorium',
+            'gravity', 'row numbering', 'wooden armrest', 'wooden panel', 'acoustic seat', 'stadium seat',
+            'grandstand', 'spectator seating'
         ]
     },
     classroomAndStackable: {
@@ -44,7 +46,7 @@ export const VE_CATEGORY_CONFIG = {
     desking: {
         id: 'desking',
         label: 'Desking & Tables',
-        priorityBrands: ['Narbutas', 'Ottimo', 'Ismobil', 'LAS Mobili', 'M&W', 'Actiu', 'Fantoni', 'Nurus', 'FREZZA', 'Ofifran', 'MW Structure Test'],
+        priorityBrands: ['Narbutas', 'Ottimo', 'Ismobil', 'LAS Mobili', 'M&W', 'Actiu', 'Fantoni', 'Nurus', 'FREZZA', 'Ofifran'],
         keywords: [
             'desk', 'workstation', 'table', 'meeting', 'conference', 'reception', 'counter',
             'executive desk', 'folding desk', 'bench table', 'managerial desk', 'l-shape', 'l shape',
@@ -80,16 +82,7 @@ export const VE_CATEGORY_CONFIG = {
             'polyethylene outdoor', 'weather resistant', 'outdoor bench', 'exterior seating'
         ]
     },
-    auditoriumAndTheatre: {
-        id: 'auditoriumAndTheatre',
-        label: 'Auditorium & Theatre Seating',
-        priorityBrands: ['TMA', 'LEADCOM', 'Figueras', 'Ferco Seating', 'Quinette Gallay', 'Ezcaray Seating', 'Ares Line', 'Cinearredo', 'Lamm', 'Destro'],
-        keywords: [
-            'auditorium chair', 'auditorium seating', 'theatre chair', 'theatre seating', 'theater chair',
-            'theater seating', 'cinema chair', 'cinema seating', 'tip-up seat', 'foldable auditorium',
-            'lecture hall chair', 'acoustic auditorium', 'stadium seat', 'grandstand'
-        ]
-    },
+    // Alias reference kept so existing callers referencing auditoriumAndTheatre resolve identically
     benchesAndPublicSeating: {
         id: 'benchesAndPublicSeating',
         label: 'Benches & Public Seating',
@@ -121,7 +114,7 @@ export const VE_CATEGORY_CONFIG = {
     storage: {
         id: 'storage',
         label: 'Storage & Cabinetry',
-        priorityBrands: ['NARBUTAS', 'Nurus', 'Ottimo Furniture', 'MW Structure Test', 'LAS', 'Ofifran', 'FREZZA'],
+        priorityBrands: ['NARBUTAS', 'Nurus', 'Ottimo Furniture', 'M&W', 'LAS', 'Ofifran', 'FREZZA'],
         keywords: [
             'high cabinet', 'low cabinet', 'credenza', 'pedestal', 'storage', 'filing',
             'bookcase', 'wardrobe', 'sideboard', 'cupboard', 'drawers', 'tambour'
@@ -130,7 +123,7 @@ export const VE_CATEGORY_CONFIG = {
     heavyDutyAndMobileFiling: {
         id: 'heavyDutyAndMobileFiling',
         label: 'Steel & Mobile Filing Systems',
-        priorityBrands: ['MW Structure Test', 'Ottimo Furniture', 'NARBUTAS', 'FREZZA', 'Nurus', 'LAS', 'Ofifran'],
+        priorityBrands: ['M&W', 'Ottimo Furniture', 'NARBUTAS', 'FREZZA', 'Nurus', 'LAS', 'Ofifran'],
         keywords: [
             'mobile filing', 'mechanical mobile filing', 'mobile shelving', 'compactor',
             'high density filing', 'high-density shelving', 'filing racks', 'filing rack',
@@ -153,7 +146,7 @@ export const VE_CATEGORY_CONFIG = {
     commercialAccessories: {
         id: 'commercialAccessories',
         label: 'Commercial Contract Accessories',
-        priorityBrands: ['B&T Design', 'Ottimo Furniture', 'NARBUTAS', 'MW Structure Test'],
+        priorityBrands: ['B&T Design', 'Ottimo Furniture', 'NARBUTAS', 'M&W'],
         keywords: [
             'planter', 'acoustic pod', 'architectural screen', 'partition', 'lighting',
             'coat stand', 'waste bin', 'contract accessories', 'coffee table', 'side table',
@@ -313,10 +306,13 @@ export function classifyFurnishingCategory(description = '') {
     const isCabinetDoorFurniture = /\b(swing\s*door|sliding\s*door)\b/i.test(text) && /\b(cabinet|credenza|cupboard|bookcase|wardrobe|locker|tambour|pedestal|storage)\b/i.test(text);
     if (!isClearFurnitureOverride && !isCabinetDoorFurniture && (
         /\b(carpet\s*tile|carpet\s*flooring|tufted\s*nylon\s*carpet|prayer\s*room\s*carpet|carpet\s*with\s*underlay|porcelain\s*(floor\s*)?tile|ceramic\s*(floor\s*)?tile|tile\s*flooring|vinyl\s*flooring|marble\s*flooring|stone\s*flooring|floor\s*finish|self\s*leveling)\b/i.test(text)
-        || /\b(gypsum\s*(board\s*)?(false\s*)?ceiling|plasterboard\s*ceiling|false\s*ceiling|mineral\s*fiber\s*(suspended\s*)?ceiling|acoustic\s*(grid\s*|tile\s*)?ceiling|ceiling\s*finish)\b/i.test(text)
-        || /\b(partition\s*wall|drywall\s*partition|gypsum\s*partition|glass\s*partition|acoustic\s*partition|wall\s*cladding|skirting)\b/i.test(text)
+        || /\b(gypsum\s*(board\s*)?(false\s*|suspended\s*|acoustic\s*)?ceiling|plasterboard\s*(?:suspended\s*)?ceiling|suspended\s*(?:gypsum|acoustic|mineral\s*fiber|baffle|metal)?\s*ceiling|false\s*ceiling|mineral\s*fiber\s*(suspended\s*)?ceiling|acoustic\s*(?:perforated|baffle|grid|tile|mineral)?\s*(?:gypsum\s*(?:board\s*)?)?(?:suspended\s*)?ceiling|ceiling\s*finish)\b/i.test(text)
+        || /\b(partition\s*wall|drywall\s*partition|gypsum\s*partition|glass\s*partition|glazed\s*partition|acoustic\s*partition|wall\s*cladding|skirting)\b/i.test(text)
         || /\b(single\s*leaf\s*swing\s*door|double\s*leaf\s*swing\s*door|swing\s*door|sliding\s*door|flush\s*timber\s*door|wooden\s*door|frameless\s*glazed\s*door|pocket\s*sliding\s*door)\b/i.test(text)
         || /\b(pantry\s*cabinet|built-in\s*pantry|pantry\s*counter|pantry\s*sink|undermount\s*sink|vanity\s*counter)\b/i.test(text)
+        || /\b(wc\s*toilet|toilet\s*suite|water\s*closet|wash\s*basin|hand\s*wash\s*basin|shower\s*head|shower\s*mixer|urinal|bidet)\b/i.test(text)
+        || /\b(recessed\s*led|led\s*downlight|downlight|linear\s*led|led\s*strip\s*light|cove\s*light|track\s*light|panel\s*light)\b/i.test(text)
+        || /\b(floor\s*box|emulsion\s*paint|wall\s*paint|wallpaper|wallcovering)\b/i.test(text)
     )) {
         return 'fitoutArchitectural';
     }
@@ -331,9 +327,9 @@ export function classifyFurnishingCategory(description = '') {
         return 'foldingAndPortableSeating';
     }
 
-    // 2. Generic / Retail Minor Accessories & Marketplace items (avoid matching "seat cushion" inside chairs/sofas)
+    // 2. Generic / Retail Minor Accessories, AV/TV Displays & Marketplace items (avoid matching "seat cushion" inside chairs/sofas)
     const isSeatingSpec = /\b(chair|sofa|armchair|lounge|stool|bench|couch|ottoman|pouf)\b/i.test(firstLine);
-    const matchesLooseAccessory = /\b(mobile cart|vendor cart|retail cart|food cart|utility cart|trolley|craft|sewing|hobby|cable grommet|power strip|power box|monitor arm|pencil drawer|extension cord|whiteboard|notice board|waste bin|trash can|desk lamp|floor lamp|table lamp|clock|artwork|art\s*work|painting|sculpture|statue|framed\s*photo|photo\s*frame|portrait|amir\s*photo|emir\s*photo|wall\s*art|decorative\s*object|vase|mirror)\b/i.test(text)
+    const matchesLooseAccessory = /\b(mobile cart|vendor cart|retail cart|food cart|utility cart|trolley|craft|sewing|hobby|cable grommet|power strip|power box|monitor arm|pencil drawer|extension cord|whiteboard|notice board|waste bin|trash can|desk lamp|floor lamp|table lamp|clock|artwork|art\s*work|painting|sculpture|statue|framed\s*photo|photo\s*frame|portrait|amir\s*photo|emir\s*photo|wall\s*art|decorative\s*object|vase|mirror|led\s*tv|oled\s*tv|qled\s*tv|smart\s*tv|television|\d{2}[\s-]?inch\s*(?:led|oled|qled|smart|4k)?\s*tv|tv\s*bracket|tv\s*mount|interactive\s*flat\s*panel|projector|display\s*screen)\b/i.test(text)
         || (!isSeatingSpec && /\b(throw\s*pillow|decorative\s*cushion|pillow|cushion)\b/i.test(firstLine));
     if (matchesLooseAccessory || /https?:\/\/(www\.)?(amazon|noon|homedepot|gear4music|ikea)\./i.test(text)) {
         return 'genericAccessories';
@@ -371,7 +367,7 @@ export function classifyFurnishingCategory(description = '') {
 
     // 6. Auditorium & Theatre Seating
     if (/\b(auditorium|theatre|theater|cinema|tip-up|lecture hall|stadium seat|grandstand)\b/i.test(text)) {
-        return 'auditoriumAndTheatre';
+        return 'auditoriumAndTheater';
     }
 
     // 7. Outdoor & Landscape Seating
@@ -416,15 +412,16 @@ export const KNOWN_CONTRACT_BRANDS = new Set([
  * Brand aliases mapping dictionary
  */
 export const BRAND_ALIASES = {
-    'm&w': 'MW Structure Test',
-    'mw': 'MW Structure Test',
-    'mw structure': 'MW Structure Test',
-    'mw structure test': 'MW Structure Test',
+    'm&w': 'M&W',
+    'mw': 'M&W',
+    'mw structure': 'M&W',
+    'mw structure test': 'M&W',
     'ottimo': 'Ottimo Furniture',
     'ottimo furniture': 'Ottimo Furniture',
     'sedus': 'Sedus Stoll',
     'sedus stoll': 'Sedus Stoll',
     'narbutas': 'NARBUTAS',
+    'nrbutas': 'NARBUTAS',
     'b&t': 'B&T Design',
     'bt': 'B&T Design',
     'bt design': 'B&T Design',
@@ -435,9 +432,9 @@ export const BRAND_ALIASES = {
     'ikea': 'IKEA',
     'home centre': 'Home Centre',
     'homecenter': 'Home Centre',
-    'dauphin': 'Dauphin products, collections and more',
-    'dauphin products': 'Dauphin products, collections and more',
-    'dauphin products, collections and more': 'Dauphin products, collections and more',
+    'dauphin': 'Dauphin',
+    'dauphin products': 'Dauphin',
+    'dauphin products, collections and more': 'Dauphin',
     'workspace': 'Workspace.ae',
     'workspace.ae': 'Workspace.ae',
     'timeout space': 'TON',

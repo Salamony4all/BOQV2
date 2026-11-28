@@ -566,8 +566,8 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                 let newlyAdded = false;
                 let currentMatchData = null;
 
-                if (matchCache.has(cleanDesc)) {
-                    currentMatchData = matchCache.get(cleanDesc);
+                if (matchCache.has(`${tierKey}::${cleanDesc}`)) {
+                    currentMatchData = matchCache.get(`${tierKey}::${cleanDesc}`);
                     product = currentMatchData.product;
                     newlyAdded = !!currentMatchData.newlyAdded;
                 } else {
@@ -584,7 +584,7 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                     if (currentMatchData.status === 'success' && currentMatchData.product) {
                         product = currentMatchData.product;
                         newlyAdded = !!currentMatchData.newlyAdded;
-                        matchCache.set(cleanDesc, currentMatchData);
+                        matchCache.set(`${tierKey}::${cleanDesc}`, currentMatchData);
                     }
                 }
 
@@ -619,7 +619,6 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
                 setTierData(prev => ({ ...prev, [tierKey]: { ...prev[tierKey], rows: prev[tierKey].rows.map(r => String(r.id) === rowId ? { ...r, aiStatus: 'error', aiError: e.message } : r) } }));
             }
             setFitoutProgress(prev => ({ ...prev, [tierKey]: { ...prev[tierKey], current: prev[tierKey].current + 1 } }));
-            await sleep(1000);
         };
 
         const processTier = async (tierKey) => {
@@ -743,6 +742,18 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
             rate: finalRate,
             basePrice,
             amount: (basePrice * (parseFloat(row.qty) || 0)).toFixed(2),
+            priceSource: match.priceSource || result.priceSource || '',
+            ...(result.fulfillmentType === 'custom_fabrication' || match.fabricationId ? {
+                fulfillmentType: 'custom_fabrication',
+                fabricationId: match.fabricationId || '',
+                skuCode: match.skuCode || '',
+                designBuildKind: match.designBuildKind || '',
+                shape: match.shape || '',
+                dimensionsMm: match.dimensionsMm || '',
+                materialSpec: match.materialSpec || '',
+                workshopTrade: match.workshopTrade || 'Joinery',
+                leadTimeDays: match.leadTimeDays || 21
+            } : {}),
             aiStatus: 'success',
             aiResult: result
         };
@@ -1321,18 +1332,108 @@ export default function MultiBudgetModal({ isOpen, onClose, originalTables, onAp
             });
 
         } else {
-            tierKeys.forEach(tierKey => {
-                updateFurnitureStatus(tierKey, { active: true, minimized: false });
-                const rows = tierDataRef.current[tierKey].rows || [];
-                const workableIndices = getDisplayOrderedIndices(
-                    rows,
-                    (r) => !isHeaderRow(r.description, r) && r.aiStatus !== 'success' && (!r.scope || !r.scope.toUpperCase().includes('FITOUT'))
-                );
+            // High-Speed Batch Fast-Path for Standard Multi-Budget (1 shared embedding + strict tier isolation + 1 batched rerank per 10 rows)
+            const firstRows = tierDataRef.current[tierKeys[0]].rows || [];
+            const baseWorkableIndices = getDisplayOrderedIndices(
+                firstRows,
+                (r) => !isHeaderRow(r.description, r) && r.aiStatus !== 'success' && (!r.scope || !r.scope.toUpperCase().includes('FITOUT'))
+            );
+            const setIndicesByTier = Object.fromEntries(tierKeys.map(k => [k, []]));
+            const standardBatchItems = [];
+            const rowIndexLookup = {}; // rowIndex -> { tierKey -> matchingIdx }
 
-                setFurnitureProgress(prev => ({ ...prev, [tierKey]: { current: 0, total: workableIndices.length } }));
+            baseWorkableIndices.forEach((baseIdx) => {
+                const baseRow = refreshRowSetPlan(firstRows[baseIdx]);
+                const wType = baseRow.setType || 'single';
+                if (wType !== 'single' && Array.isArray(baseRow.setItems) && baseRow.setItems.length > 0) {
+                    tierKeys.forEach(tk => { if (tierDataRef.current[tk]?.rows?.[baseIdx]) setIndicesByTier[tk].push(baseIdx); });
+                } else {
+                    const keyId = String(baseIdx);
+                    rowIndexLookup[keyId] = {};
+                    tierKeys.forEach(tk => {
+                        if (tierDataRef.current[tk]?.rows?.[baseIdx]) rowIndexLookup[keyId][tk] = baseIdx;
+                    });
+                    standardBatchItems.push({
+                        id: keyId,
+                        description: baseRow.description,
+                        qty: baseRow.qty,
+                        unit: baseRow.unit,
+                        scope: baseRow.scope,
+                        plannedOption: baseRow.setOption || null
+                    });
+                }
+            });
 
-                const processTierFallback = async () => { await batch(workableIndices, 3, async (idx) => { await processSingleRow(tierKey, idx, brandsByTier[tierKey], null); }); };
-                swarmPromises.push(processTierFallback());
+            tierKeys.forEach(tk => {
+                updateFurnitureStatus(tk, { active: true, minimized: false });
+                setFurnitureProgress(prev => ({ ...prev, [tk]: { current: 0, total: standardBatchItems.length + setIndicesByTier[tk].length } }));
+            });
+
+            if (standardBatchItems.length > 0) {
+                const CHUNK = 10;
+                const batchRunner = async () => {
+                    for (let c = 0; c < standardBatchItems.length; c += CHUNK) {
+                        if (!isMounted?.current) break;
+                        const slice = standardBatchItems.slice(c, c + CHUNK);
+                        try {
+                            const bRes = await fetch(`${API_BASE}/api/multi-budget/match-batch`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    rows: slice,
+                                    tiers: tierKeys,
+                                    brandsByTier,
+                                    providerModel
+                                })
+                            });
+                            const bData = await bRes.json();
+                            const resMap = bData?.results || {};
+
+                            for (const item of slice) {
+                                const tierResults = resMap[item.id] || {};
+                                for (const tk of tierKeys) {
+                                    const rIdx = rowIndexLookup[item.id]?.[tk];
+                                    if (rIdx === undefined) continue;
+                                    const curRow = tierDataRef.current[tk]?.rows?.[rIdx];
+                                    if (!curRow || curRow.aiStatus === 'success') continue;
+                                    const mRes = tierResults[tk];
+                                    if (mRes?.status === 'success' && mRes.product) {
+                                        const planned = refreshRowSetPlan(curRow);
+                                        const { updatedRow, matchedBrandName, finalModel, finalImageUrl } = hydrateMatchedProduct(mRes, planned);
+                                        updateFurnitureStatus(tk, { status: 'success', brand: matchedBrandName, model: finalModel, image: finalImageUrl || null });
+                                        setTierData(prev => ({
+                                            ...prev,
+                                            [tk]: { ...prev[tk], rows: prev[tk].rows.map((r, idx) => idx === rIdx ? updatedRow : r) }
+                                        }));
+                                        globalStats.success++;
+                                    } else {
+                                        // Fallback cleanly to single-row matcher when batch returned no_match (e.g., live web discovery needed)
+                                        await processSingleRow(tk, rIdx, brandsByTier[tk], null);
+                                        continue;
+                                    }
+                                    setFurnitureProgress(prev => ({ ...prev, [tk]: { ...prev[tk], current: prev[tk].current + 1 } }));
+                                }
+                            }
+                        } catch (batchErr) {
+                            console.warn('[MultiBudgetBatch] Falling back to per-row processing:', batchErr.message);
+                            for (const item of slice) {
+                                for (const tk of tierKeys) {
+                                    const rIdx = rowIndexLookup[item.id]?.[tk];
+                                    if (rIdx !== undefined) await processSingleRow(tk, rIdx, brandsByTier[tk], null);
+                                }
+                            }
+                        }
+                    }
+                };
+                swarmPromises.push(batchRunner());
+            }
+
+            // Preserve dedicated Furniture Set pipeline for set rows
+            tierKeys.forEach(tk => {
+                const setIdxs = setIndicesByTier[tk] || [];
+                if (setIdxs.length > 0) {
+                    swarmPromises.push(batch(setIdxs, 3, async (idx) => { await processSingleRow(tk, idx, brandsByTier[tk], null); }));
+                }
             });
         }
 

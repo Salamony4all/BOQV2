@@ -33,6 +33,40 @@ export function cosineSimilarity(vecA, vecB) {
   return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
 }
 
+export const CANONICAL_EMBEDDING_MODEL = 'gemini-embedding-2';
+export const EMBEDDING_DIMENSIONS = 768;
+
+/**
+ * Returns embedding models guaranteed to share the canonical `gemini-embedding-2` 768-d vector space.
+ * Never mixes incompatible vector spaces (such as `gemini-embedding-001`) at query or index time.
+ */
+export function getCanonicalEmbeddingModels(freeTier = true) {
+  const dynamic = getPipelineModelCandidates('embeddings', null, { freeTier })
+    .filter(m => /^gemini-embedding-2\b/i.test(m));
+  return Array.from(new Set([...dynamic, 'gemini-embedding-2', 'gemini-embedding-2-preview']));
+}
+
+function parseRetryDelayMs(err, fallbackMs = 4000) {
+  const msg = String(err?.message || err || '');
+  const m1 = msg.match(/retry in ([\d.]+)s/i);
+  const m2 = msg.match(/retryDelay["']?\s*:\s*["']?(\d+)s?/i);
+  const sec = m1 ? parseFloat(m1[1]) : (m2 ? parseFloat(m2[1]) : 0);
+  if (Number.isFinite(sec) && sec > 0) return Math.min(20000, Math.ceil(sec * 1000) + 500);
+  return fallbackMs;
+}
+
+/**
+ * L2-normalizes an embedding vector so cosine distance works consistently across reduced dimensions.
+ */
+export function normalizeL2(vec) {
+  if (!Array.isArray(vec) || vec.length === 0) return vec;
+  let sumSq = 0;
+  for (let i = 0; i < vec.length; i++) sumSq += vec[i] * vec[i];
+  const norm = Math.sqrt(sumSq);
+  if (!Number.isFinite(norm) || norm === 0) return vec;
+  return vec.map(v => v / norm);
+}
+
 function resolveEmbeddingApiKey(explicitKey) {
   if (explicitKey) return explicitKey;
   const ctx = aiKeyStorage.getStore() || {};
@@ -45,22 +79,24 @@ function resolveEmbeddingApiKey(explicitKey) {
 }
 
 async function embedWithFailover(genAI, text, apiKey = '') {
-  const freeTier = isGoogleFreeTierActive(aiKeyStorage);
+  const freeTier = !apiKey ? isGoogleFreeTierActive(aiKeyStorage) : (apiKey !== readSettings().googleApiKey);
   await ensureLiveCatalogSynced(apiKey);
-  const candidates = getPipelineModelCandidates('embeddings', null, { freeTier });
+  const candidates = getCanonicalEmbeddingModels(freeTier);
   let lastErr = null;
   for (const modelId of candidates) {
     try {
       const t0 = Date.now();
       const model = genAI.getGenerativeModel({ model: modelId });
-      const maxChars = modelId.includes('embedding-2') || /embedding-[3-9]/i.test(modelId) ? 6000 : 2048;
       const result = await withModelTimeout(
-        model.embedContent(String(text || '').slice(0, maxChars)),
+        model.embedContent({
+          content: { parts: [{ text: String(text || '').slice(0, 6000) }] },
+          outputDimensionality: EMBEDDING_DIMENSIONS,
+        }),
         PIPELINE_TIMEOUT_MS.embeddings || 15000,
         `Embedding(${modelId})`
       );
       recordModelSuccess(modelId, { freeTier, latencyMs: Date.now() - t0 });
-      return result.embedding.values;
+      return normalizeL2(result.embedding.values);
     } catch (err) {
       lastErr = err;
       const info = recordModelFailure(modelId, err, { freeTier });
@@ -68,11 +104,11 @@ async function embedWithFailover(genAI, text, apiKey = '') {
       if (!info.retryableOnNextModel) throw err;
     }
   }
-  throw lastErr || new Error('All Google embedding models failed');
+  throw lastErr || new Error('All canonical Gemini embedding-2 models failed');
 }
 
 /**
- * Generate embedding for a single text using dynamically ranked Google embedding models (with failover)
+ * Generate embedding for a single text using canonical `gemini-embedding-2` (768-d, L2-normalized)
  */
 export async function getEmbedding(text, apiKey) {
   const key = resolveEmbeddingApiKey(apiKey);
@@ -85,31 +121,83 @@ export async function getEmbedding(text, apiKey) {
 }
 
 /**
- * Generate embeddings for an array of texts in batch with model failover
+ * Generate embeddings for an array of texts in batch using `batchEmbedContents` with canonical vector space
  */
 export async function getBatchEmbeddings(texts, apiKey) {
   const key = resolveEmbeddingApiKey(apiKey);
   if (!key) {
     throw new Error('No Google Gemini API key configured for embeddings');
   }
+  if (!Array.isArray(texts) || texts.length === 0) return [];
 
   const genAI = new GoogleGenerativeAI(key);
+  const freeTier = apiKey ? (key !== readSettings().googleApiKey) : isGoogleFreeTierActive(aiKeyStorage);
+  await ensureLiveCatalogSynced(key);
 
   const embeddings = [];
-  const CHUNK_SIZE = 8;
+  const CHUNK_SIZE = 100;
   for (let i = 0; i < texts.length; i += CHUNK_SIZE) {
     const chunk = texts.slice(i, i + CHUNK_SIZE);
-    const chunkResults = await Promise.all(
-      chunk.map(async (t) => {
+    const candidates = getCanonicalEmbeddingModels(freeTier);
+    let chunkVectors = null;
+
+    for (const modelId of candidates) {
+      for (let attempt = 0; attempt < 2; attempt++) {
         try {
-          return await embedWithFailover(genAI, t, key);
-        } catch (e) {
-          console.warn(`[Embedding] Warning generating vector for "${String(t || '').slice(0, 40)}":`, e.message);
-          return null;
+          const t0 = Date.now();
+          const model = genAI.getGenerativeModel({ model: modelId });
+          const result = await withModelTimeout(
+            model.batchEmbedContents({
+              requests: chunk.map(t => ({
+                content: { parts: [{ text: String(t || '').slice(0, 6000) }] },
+                outputDimensionality: EMBEDDING_DIMENSIONS,
+              })),
+            }),
+            Math.max(PIPELINE_TIMEOUT_MS.embeddings || 15000, 35000),
+            `BatchEmbedding(${modelId})`
+          );
+          if (Array.isArray(result?.embeddings) && result.embeddings.length === chunk.length) {
+            recordModelSuccess(modelId, { freeTier, latencyMs: Date.now() - t0 });
+            chunkVectors = result.embeddings.map(e => (Array.isArray(e?.values) ? normalizeL2(e.values) : null));
+            break;
+          }
+        } catch (err) {
+          const isRate = /429|503|quota|rate|overloaded/i.test(err.message);
+          if (isRate && attempt === 0) {
+            const waitMs = parseRetryDelayMs(err, 4500);
+            await new Promise(r => setTimeout(r, waitMs));
+            continue;
+          }
+          const info = recordModelFailure(modelId, err, { freeTier });
+          console.warn(`[Embedding Batch] Model "${modelId}" failed (${info.category}): ${err.message}`);
+          if (!info.retryableOnNextModel) break;
         }
-      })
-    );
-    embeddings.push(...chunkResults);
+      }
+      if (chunkVectors) break;
+    }
+
+    if (!chunkVectors) {
+      chunkVectors = [];
+      for (const t of chunk) {
+        let vec = null;
+        for (let attempt = 0; attempt < 2; attempt++) {
+          try {
+            vec = await embedWithFailover(genAI, t, key);
+            break;
+          } catch (e) {
+            if (/429|503|quota|rate/i.test(e.message) && attempt === 0) {
+              await new Promise(r => setTimeout(r, parseRetryDelayMs(e, 3000)));
+              continue;
+            }
+            console.warn(`[Embedding] Warning generating vector for "${String(t || '').slice(0, 40)}":`, e.message);
+            break;
+          }
+        }
+        chunkVectors.push(vec);
+      }
+    }
+
+    embeddings.push(...chunkVectors);
   }
   return embeddings;
 }
@@ -360,19 +448,21 @@ export async function findHybridSemanticMatches({
     const scoredProducts = targetProducts.map(p => {
       const tokenDetail = computeTokenOverlapDetail(description, p);
       const tokenScore = tokenDetail.score;
-      const cosineSim = (queryVector && p._vector) ? cosineSimilarity(queryVector, p._vector) : Math.max(0.75, tokenScore);
+      const hasRealVectors = Boolean(queryVector && p._vector);
+      const cosineSim = hasRealVectors ? Math.max(0, cosineSimilarity(queryVector, p._vector)) : 0;
       const brandAffinity = getBrandAffinityScore(description, brandName || p.brand, archetype);
 
-      // Hybrid Score Calculation
-      const finalScore = (HYBRID_WEIGHTS.w_cosine * cosineSim) +
-                         (HYBRID_WEIGHTS.w_token * tokenScore) +
-                         (HYBRID_WEIGHTS.w_affinity * Math.max(0, brandAffinity));
+      // Honest Hybrid Score Calculation (never fabricate synthetic cosine scores when embeddings are absent)
+      const finalScore = hasRealVectors
+        ? ((HYBRID_WEIGHTS.w_cosine * cosineSim) + (HYBRID_WEIGHTS.w_token * tokenScore) + (HYBRID_WEIGHTS.w_affinity * Math.max(0, brandAffinity)))
+        : ((0.78 * tokenScore) + (0.22 * Math.max(0, brandAffinity)));
 
       const confidencePct = Math.round(Math.min(100, Math.max(0, finalScore * 100)));
 
       return {
         product: p,
         cosineSim,
+        hasRealVectors,
         tokenScore,
         tokenRaw: tokenDetail.raw,
         brandAffinity,

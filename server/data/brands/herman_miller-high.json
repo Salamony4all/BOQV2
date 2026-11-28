@@ -1,0 +1,154 @@
+{
+  "id": "1788514989295",
+  "name": "Herman Miller",
+  "products": [
+    {
+      "brand": "Herman Miller",
+      "model": "Ambit Vertical Cable Management",
+      "price": 105,
+      "family": "Ambit",
+      "source": "grounded-search",
+      "currency": "USD",
+      "imageUrl": "https://www.hermanmiller.com/content/dam/miller-for-business/products/accessories/ambit-workspace-solutions/vertical-cable-management/ambit-vertical-cable-management-mesh-vertical-hero.jpg",
+      "verified": true,
+      "productUrl": "https://www.hermanmiller.com/products/accessories/ambit-workspace-solutions/vertical-cable-management/",
+      "websiteUrl": "https://www.hermanmiller.com/products/accessories/ambit-workspace-solutions/vertical-cable-management/",
+      "description": "The Ambit Vertical Cable Management system is designed to keep power and data cords concealed, tidy, and off the floor, promoting a safe and efficient work environment. It features a cable trough that secures and routes wires up the table's leg, a mesh fabric to contain cords, and a magnetic cover for easy access and secure placement. Dimensions: Height 12.40–17.70 in, Width 1.97 in, Depth 1.56 in. Materials include mesh fabric and a magnetic cover.",
+      "subCategory": "accessories",
+      "mainCategory": "Accessories",
+      "officialProductUrl": "https://www.hermanmiller.com/products/accessories/ambit-workspace-solutions/vertical-cable-management/"
+    },
+    {
+      "brand": "Herman Miller",
+      "model": "Aluminum Group Chairs",
+      "price": 2595,
+      "family": "Eames Aluminum Group",
+      "source": "AI-Specialist-Discovery",
+      "currency": "USD",
+      "imageUrl": "https://www.hermanmiller.com/content/dam/hermanmiller/products/seating/office-chairs/eames-aluminum-group-chairs/product_images/aluminum-group-chairs_hero_1.jpg",
+      "verified": false,
+      "productUrl": "https://www.hermanmiller.com/products/seating/office-chairs/eames-aluminum-group-chairs/",
+      "websiteUrl": "https://www.hermanmiller.com/products/seating/office-chairs/eames-aluminum-group-chairs/",
+      "description": "The Eames Aluminum Group Chairs, designed by Charles and Ray Eames, are iconic pieces of mid-century modern furniture. They feature a die-cast aluminum frame and base, available in polished or powder-coated finishes. The chairs utilize a one-piece seat-back suspension held taut by aluminum side ribs, creating a flexible 'sitting pocket' that conforms to the body. Upholstery options include various leathers, meshes, and fabrics. The chairs are equipped with a pneumatic lift and swivel mechanism for personalized adjustment, and a tilt feature with locking capability. Dimensions vary by model (Executive, Management, Side, Lounge), but typical dimensions for the Management chair are approximately 32.5-34.5\" H x 23\" W x 23\" D, with seat height ranging from 17.5\" to 19.5\". The Executive chair typically measures 40-42\" H x 23\" W x 23\" D. The chairs are constructed with urethane foam cushions and polyester fiber batting. They are also noted for their sustainability, with high recycled content and recyclability, and GREENGUARD certification.",
+      "subCategory": "Lounge Chairs",
+      "mainCategory": "Office Seating",
+      "officialProductUrl": "https://www.hermanmiller.com/products/seating/office-chairs/eames-aluminum-group-chairs/"
+    },
+    {
+      "brand": "Herman Miller",
+      "model": "Verus",
+      "price": 620,
+      "family": "Verus",
+      "source": "AI-Specialist-Discovery",
+      "currency": "USD",
+      "imageUrl": "https://www.hermanmiller.com/content/dam/hermanmiller/products/seating/office-chairs/verus-chairs/verus-chairs-hero-01.jpg",
+      "verified": false,
+      "productUrl": "https://www.hermanmiller.com/products/seating/office-chairs/verus-chairs/",
+      "websiteUrl": "https://www.hermanmiller.com/products/seating/office-chairs/verus-chairs/",
+      "description": "The Herman Miller Verus chair offers ergonomic support and comfort at an accessible price point. It features a choice of two backrest options: Interweave 2 suspension fabric or TriFlex polymer. The chair includes a synchronous tilt mechanism with tilt limiter, PostureFit sacral support, and adjustable lumbar support. Dimensions vary slightly based on configuration, but general dimensions are approximately: Width: 66-70 cm, Depth: 54.5-59.5 cm, Height: 99-113.7 cm, Seat Height: 41.6-57 cm. Materials include a metal and plastic frame, with options for fabric upholstery on the seat and either suspension fabric or polymer for the back. The Verus chair is manufactured in Michigan, USA, and Dongguan, China.",
+      "subCategory": "Conference Chairs",
+      "mainCategory": "Office Seating",
+      "officialProductUrl": "https://www.hermanmiller.com/products/seating/office-chairs/verus-chairs/"
+    },
+    {
+      "brand": "Herman Miller",
+      "model": "Layout Studio",
+      "price": 0,
+      "family": "Layout Studio Workstations",
+      "source": "AI-Discovery-Engine",
+      "currency": "USD",
+      "imageUrl": "https://www.hermanmiller.com/content/dam/hmicom/page_assets/products/layout_studio/og_prd_layout_studio_01.jpg",
+      "verified": true,
+      "productUrl": "https://www.hermanmiller.com/products/workspaces/workstations/layout-studio/",
+      "websiteUrl": "https://www.hermanmiller.com/products/workspaces/workstations/layout-studio/",
+      "description": "A scalable and adaptable benching system for modern workspaces, offering seated and standing heights with integrated storage and tools.",
+      "lastUpdated": "2026-11-25T17:02:31.210Z",
+      "subCategory": "Single Desks",
+      "mainCategory": "Desk & Table",
+      "officialProductUrl": "https://www.hermanmiller.com/products/workspaces/workstations/layout-studio/"
+    },
+    {
+      "brand": "Herman Miller",
+      "model": "Eames 2500 Series Executive Desk",
+      "price": 0,
+      "family": "Eames 2500 Series",
+      "source": "AI-Discovery-Engine",
+      "currency": "USD",
+      "imageUrl": "https://www.hermanmiller.com/content/dam/hmicom/page_assets/products/eames_2500_series_executive_desk/og_desks_eames_2500_series_executive_desk.jpg",
+      "verified": true,
+      "productUrl": "https://www.hermanmiller.com/products/workspaces/desks/eames-2500-series-executive-desk/",
+      "websiteUrl": "https://www.hermanmiller.com/products/workspaces/desks/eames-2500-series-executive-desk/",
+      "description": "Executive desk with T-leg design, premium veneers, and optional leather inlay for home or office use.",
+      "lastUpdated": "2026-11-25T17:02:37.499Z",
+      "subCategory": "Single Desks",
+      "mainCategory": "Desk & Table",
+      "officialProductUrl": "https://www.hermanmiller.com/products/workspaces/desks/eames-2500-series-executive-desk/"
+    },
+    {
+      "brand": "Herman Miller",
+      "model": "Aeron Office Chair",
+      "price": 1495,
+      "family": "Aeron Office Chair",
+      "source": "og:hermanmiller.com",
+      "currency": "USD",
+      "imageUrl": "https://kfrjsvqhvwaezdvsrgzw.supabase.co/storage/v1/object/public/product-images/herman-miller/aeron-office-chair.jpg",
+      "verified": true,
+      "productUrl": "https://www.hermanmiller.com/products/seating/office-chairs/aeron-chairs/",
+      "websiteUrl": "https://www.hermanmiller.com/products/seating/office-chairs/aeron-chairs/",
+      "description": "The Herman Miller Aeron Chair is an iconic office chair designed by Don Chadwick and Bill Stumpf. It features an 8Z Pellicle suspension material for the seat and backrest, providing breathable comfort and even weight distribution. The chair incorporates a PostureFit SL back support system to maintain the natural S-shape of the spine. The Harmonic 2 Tilt mechanism allows for natural reclining movement. The Aeron is available in three sizes (A, B, C) to accommodate a wide range of body types. Materials include plastics (polypropylene, ABS, PET, nylon), aluminum, steel, and elastomeric/polyester mesh (Pellicle). Dimensions vary by size, but general dimensions for Size B are approximately 41.25\" H x 27\" W x 27\" D, with seat height adjustable between 16\"-20.5\" and arm height adjustable between 6.8\"-10.8\" above the seat. The chair is constructed with a focus on sustainability, using over 50% recycled materials, including ocean-bound plastic.",
+      "lastUpdated": "2026-11-25T22:27:38.327Z",
+      "subCategory": "Conference Chairs",
+      "mainCategory": "Office Seating",
+      "sourceImageUrl": "https://www.hermanmiller.com/content/dam/hmicom/page_assets/products/aeron_chair/2026_06/og_seating_aeron_chair.jpg",
+      "officialProductUrl": "https://www.hermanmiller.com/products/seating/office-chairs/aeron-chairs/",
+      "officialRefreshedAt": "2026-11-25T22:27:37.065Z"
+    },
+    {
+      "brand": "Herman Miller",
+      "brandLogo": "https://www.hermanmiller.com/content/dam/hermanmiller/page_elements/logo_hm.svg",
+      "model": "NO_CATALOG_MATCH",
+      "family": "Classic",
+      "mainCategory": "Storage",
+      "subCategory": "Task Chairs",
+      "imageUrl": "https://www.hermanmiller.com/content/dam/hmicom/page_assets/home/shared/og_home.jpg",
+      "websiteUrl": "https://www.hermanmiller.com/",
+      "price": 1250,
+      "currency": "USD",
+      "origin": "United States",
+      "description": "Standard high-performance contract task seating featuring ergonomic adjustments, breathable mesh suspension, adjustable arms, and a durable 5-star base with casters. Dimensions: 685mm W x 685mm D x 970-1100mm H.",
+      "confidenceScore": 80,
+      "evidence": {
+        "sourceDomain": "official_manufacturer",
+        "citationUrls": [
+          "https://www.hermanmiller.com/"
+        ]
+      },
+      "verified": true,
+      "lastUpdated": "2026-11-25T22:43:58.926Z",
+      "source": "VE-AI-Discovery"
+    }
+  ],
+  "source": "VE-Prescan-Discovery",
+  "budget_tier": "high",
+  "logo": "https://media.architonic.com/m-on/3100010/logo/herman-miller_logo_53b0.jpg",
+  "updated_at": "2026-09-04T09:43:10.207951+00:00",
+  "budgetTier": "high",
+  "origin": "VE-Prescan-Discovery",
+  "categoryTree": {
+    "Accessories": [
+      "accessories"
+    ],
+    "Office Seating": [
+      "Lounge Chairs",
+      "Conference Chairs"
+    ],
+    "Desk & Table": [
+      "Single Desks"
+    ]
+  },
+  "categoryList": [
+    "Accessories",
+    "Office Seating",
+    "Desk & Table"
+  ]
+}

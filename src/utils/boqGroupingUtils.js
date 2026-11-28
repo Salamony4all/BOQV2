@@ -5,6 +5,7 @@
  *  - MultiBudgetModal
  *  - TableViewer & Offer/Submission Exports
  */
+import { inferCanonicalFitoutSku, isGccFitoutBrand } from './officialBrandFinishes.js';
 
 const normalizeText = (v) => String(v || '').replace(/\s+/g, ' ').trim();
 
@@ -34,17 +35,30 @@ function isBedItemText(text = '') {
     return otherAt < 0 || bedAt < otherAt;
 }
 
+export function isCustomJoineryRow(row = {}) {
+    if (row.fulfillmentType === 'custom_fabrication') return true;
+    const hay = `${row.scope || ''} ${row.selectedBrand || ''} ${row.brand || ''} ${row.categoryHint || ''}`;
+    if (/\bcustom\s*fab(?:rication)?|bespoke\s*joinery\b/i.test(hay)) return true;
+    const codeStr = `${row.code || ''} ${row.skuCode || ''} ${row.selectedModel || ''} ${row.model || ''}`;
+    return /^FAB-/i.test(codeStr.trim());
+}
+
 /**
  * Determine whether a row belongs to Architectural / MEP / Joinery Fitout vs Furniture.
  */
 export function isFitoutRow(row = {}) {
+    if (isCustomJoineryRow(row)) return false;
     const scopeStr = String(row.scope || '').toLowerCase();
     if (scopeStr.includes('fitout')) return true;
     if (String(row.type || '').toLowerCase() === 'fitout') return true;
-    if (String(row.selectedBrand || '').toLowerCase().includes('fitout')) return true;
+    if (String(row.selectedBrand || row.brand || '').toLowerCase().includes('fitout')) return true;
+    if (isGccFitoutBrand(row.selectedBrand || row.brand)) return true;
+
+    const unitStr = String(row.unit || '').trim();
+    if (/^(sqm|sq\.?\s*m|m2|m²)$/i.test(unitStr)) return true;
 
     const text = stripLeadingTags(
-        `${row.categoryHint || ''} ${row.selectedMainCat || ''} ${row.selectedSubCat || ''} ${row.description || ''}`
+        `${row.categoryHint || ''} ${row.selectedMainCat || ''} ${row.selectedSubCat || ''} ${row.sourceDescription || ''} ${row.description || ''}`
     ).toLowerCase();
 
     const isFurnitureOverride = /\b(task chair|office chair|executive chair|visitor chair|meeting chair|conference table|meeting table|workstation|desk screen|privacy screen|sofa|lounge chair|acoustic pod|phone booth|mobile pedestal|credenza|freestanding)\b/i.test(text);
@@ -52,18 +66,38 @@ export function isFitoutRow(row = {}) {
         return false;
     }
 
+    if (inferCanonicalFitoutSku({ ...row, description: row.sourceDescription || row.description })) return true;
+
     return /\b(carpet tile|carpet flooring|porcelain|ceramic|tile flooring|vinyl flooring|marble flooring|stone flooring|flooring|gypsum|false ceiling|mineral fiber|ceiling|partition wall|drywall|glass partition|wall cladding|skirting|swing door|sliding door|timber door|pantry cabinet|built-in pantry|undermount sink|hvac|mep|sprinkler|diffuser|lighting fixture|led panel)\b/i.test(text);
 }
 
 /**
  * Resolve canonical Trade & Item Category for Item-wise subheaders and Submission separator pages.
- * Handles both Furniture-only and Fitout & Furniture workflows dynamically.
+ * Handles Furniture, Custom Joinery & Fabrication, and Fitout workflows dynamically.
  */
 export function classifyBoqItemGroup(row = {}) {
+    if (isCustomJoineryRow(row)) {
+        const hintText = stripLeadingTags(
+            `${row.categoryHint || ''} ${row.selectedMainCat || ''} ${row.selectedSubCat || ''} ${row.name || ''} ${row.sourceDescription || ''} ${row.description || ''}`
+        ).toLowerCase();
+        const subCategory = /\b(banquette|booth|bench|upholster|seating)\b/i.test(hintText)
+            ? 'Banquettes & Bespoke Seating'
+            : /\b(reception|counter|desk|table|island)\b/i.test(hintText)
+                ? 'Reception & Feature Counters'
+                : 'Architectural Millwork & Metalwork';
+        return {
+            trade: 'Custom Joinery',
+            categoryTitle: 'CUSTOM JOINERY & FABRICATION',
+            subheaderTitle: subCategory,
+            sectionLabel: `CUSTOM JOINERY & FABRICATION — ${subCategory}`,
+            sortOrder: 52
+        };
+    }
+
     const fitout = isFitoutRow(row);
     const scopeStr = normalizeText(row.scope || '');
     const hintText = stripLeadingTags(
-        `${row.categoryHint || ''} ${row.selectedMainCat || ''} ${row.selectedSubCat || ''} ${row.name || ''} ${row.description || ''}`
+        `${row.categoryHint || ''} ${row.selectedMainCat || ''} ${row.selectedSubCat || ''} ${row.name || ''} ${row.sourceDescription || ''} ${row.description || ''}`
     ).toLowerCase();
 
     if (fitout) {
@@ -334,6 +368,8 @@ export function recategorizeTables(tables = [], mode = 'original') {
         const scopeIdx = header.findIndex(h => /^scope$/i.test(normalizeText(h)));
         const locIdx = header.findIndex(h => /^(location|room|zone|area|space)$/i.test(String(h || '')));
         const brandIdx = header.findIndex(h => /\b(brand|maker|origin)\b/i.test(String(h || '')) && !/img|logo|image/i.test(String(h || '')));
+        const modelIdx = header.findIndex(h => /\b(model|code|sku)\b/i.test(String(h || '')));
+        const unitIdx = header.findIndex(h => /^(unit|uom|u\.?o\.?m\.?)$/i.test(normalizeText(h)));
 
         const getCellText = (row, idx) => (idx >= 0 && row.cells?.[idx]?.value !== undefined) ? String(row.cells[idx].value).trim() : '';
 
@@ -356,10 +392,16 @@ export function recategorizeTables(tables = [], mode = 'original') {
             const synthetic = {
                 location: row.location || getCellText(row, locIdx),
                 scope: row.scope || getCellText(row, scopeIdx),
+                fulfillmentType: row.fulfillmentType || '',
+                code: row.code || row.skuCode || '',
+                skuCode: row.skuCode || '',
+                selectedModel: row.selectedModel || getCellText(row, modelIdx),
+                unit: row.unit || getCellText(row, unitIdx),
                 categoryHint: row.categoryHint || '',
                 selectedMainCat: row.selectedMainCat || '',
                 selectedSubCat: row.selectedSubCat || '',
                 selectedBrand: row.selectedBrand || getCellText(row, brandIdx),
+                sourceDescription: row.sourceDescription || '',
                 description: row.description || getCellText(row, descIdx) || getCellText(row, 1) || getCellText(row, 0)
             };
 

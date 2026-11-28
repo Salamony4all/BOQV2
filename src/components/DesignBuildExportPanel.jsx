@@ -54,17 +54,18 @@ function Branding({ onEditProject }) {
 
 export default function DesignBuildExportPanel({ s, onClose, onEditProject }) {
     const approved = s.renders.find((r) => r.id === s.approvedRenderId) || null;
-    const [chosen, setChosen] = useState(() => new Set(SUITE_GROUPS.filter((g) => groupState(g, s).ok).map((g) => g.key)));
+    const [excluded, setExcluded] = useState(() => new Set());
+    const chosenKeys = SUITE_GROUPS.filter((g) => groupState(g, s).ok && !excluded.has(g.key)).map((g) => g.key);
     const busy = !!s.exporting;
     const progress = s.exporting?.label
         || (s.exportResult
-            ? `Saved ${s.exportResult.files} file${s.exportResult.files === 1 ? '' : 's'}${s.exportResult.viewsMissing ? ' (Design & Build did not send its views)' : ''}.`
+            ? `Saved ${s.exportResult.asZip !== false ? `.zip package (${s.exportResult.files} files)` : `${s.exportResult.files} file${s.exportResult.files === 1 ? '' : 's'}`}${s.exportResult.viewsMissing ? ' (Design & Build did not send its views)' : ''}.`
             : '');
     const error = s.exportError || '';
     const notes = !busy && s.exportResult?.notes?.length ? s.exportResult.notes : [];
 
     const toggle = (key) => {
-        setChosen((prev) => {
+        setExcluded((prev) => {
             const next = new Set(prev);
             if (next.has(key)) next.delete(key);
             else next.add(key);
@@ -81,7 +82,9 @@ export default function DesignBuildExportPanel({ s, onClose, onEditProject }) {
                 <header className={styles.exportHead}>
                     <div>
                         <h3 className={styles.exportTitle}>Export suite</h3>
-                        <p className={styles.exportSub}>The full Design &amp; Build package, from the approved render and the offer&apos;s real products, with BOQ Flow&apos;s offer and submittals.</p>
+                        <p className={styles.exportSub}>{approved
+                            ? "The full Design & Build package, from the approved render and the offer's real products, with BOQ Flow's offer and submittals."
+                            : 'The full Design & Build package from your 3D model, real products, BOQ, programme and submittals.'}</p>
                     </div>
                     <button type="button" className={styles.iconBtn} onClick={onClose} disabled={busy} title="Close">
                         <span aria-hidden>×</span>
@@ -109,7 +112,7 @@ export default function DesignBuildExportPanel({ s, onClose, onEditProject }) {
                         return (
                             <li key={g.key} className={`${styles.groupRow} ${st.ok ? '' : styles.groupOff}`}>
                                 <label className={styles.groupCheck}>
-                                    <input type="checkbox" checked={st.ok && chosen.has(g.key)} disabled={!st.ok || busy} onChange={() => toggle(g.key)} />
+                                    <input type="checkbox" checked={st.ok && !excluded.has(g.key)} disabled={!st.ok || busy} onChange={() => toggle(g.key)} />
                                     <span className={styles.groupName}>{g.folder}/</span>
                                 </label>
                                 <div className={styles.groupText}>
@@ -146,8 +149,8 @@ export default function DesignBuildExportPanel({ s, onClose, onEditProject }) {
                     <button
                         type="button"
                         className={styles.primaryBtn}
-                        disabled={busy || chosen.size === 0}
-                        onClick={() => run([...chosen], { asZip: true })}
+                        disabled={busy || chosenKeys.length === 0}
+                        onClick={() => run(chosenKeys, { asZip: true })}
                     >
                         {busy ? 'Preparing…' : 'Download package (.zip)'}
                     </button>

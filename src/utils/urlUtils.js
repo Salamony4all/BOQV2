@@ -1,4 +1,4 @@
-import { getApiBase } from './apiBase';
+import { getApiBase } from './apiBase.js';
 
 const API_BASE = getApiBase();
 

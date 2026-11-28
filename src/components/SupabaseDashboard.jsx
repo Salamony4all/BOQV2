@@ -11,6 +11,7 @@ const SupabaseDashboard = ({ isOpen, onClose }) => {
     const [brands, setBrands] = useState([]);
     const [stats, setStats] = useState({ brands: 0, products: 0, assets: 0 });
     const [loading, setLoading] = useState(true);
+    const [apiError, setApiError] = useState(null);
     const [searchTerm, setSearchTerm] = useState('');
     const [uploading, setUploading] = useState(false);
     const [syncing, setSyncing] = useState(false);
@@ -23,6 +24,7 @@ const SupabaseDashboard = ({ isOpen, onClose }) => {
 
     const fetchAll = async () => {
         setLoading(true);
+        setApiError(null);
         await Promise.all([
             fetchAssets(),
             fetchBrands(),
@@ -35,12 +37,19 @@ const SupabaseDashboard = ({ isOpen, onClose }) => {
         try {
             const apiBase = getApiBase();
             const response = await fetch(`${apiBase}/api/supabase/stats`);
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
             const data = await response.json();
             if (data.success) {
-                setStats(data);
+                setStats(prev => ({
+                    ...prev,
+                    brands: data.brands ?? prev.brands ?? 0,
+                    products: data.products ?? prev.products ?? 0,
+                    ...(typeof data.assets === 'number' ? { assets: data.assets } : {})
+                }));
             }
         } catch (error) {
             console.error('Failed to fetch stats:', error);
+            setApiError('Cannot reach backend API for Supabase stats. Ensure Express server (port 3001 locally) is running and Supabase credentials are configured.');
         }
     };
 
@@ -48,9 +57,16 @@ const SupabaseDashboard = ({ isOpen, onClose }) => {
         try {
             const apiBase = getApiBase();
             const response = await fetch(`${apiBase}/api/blobs`);
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
             const data = await response.json();
             if (data.success) {
-                const sortedAssets = (data.blobs || []).sort((a, b) => 
+                const normalizedAssets = (data.blobs || []).map(b => ({
+                    ...b,
+                    size: b.size ?? b.metadata?.size ?? 0,
+                    uploadedAt: b.uploadedAt || b.created_at || b.updated_at || null,
+                    pathname: b.pathname || b.name || 'asset'
+                }));
+                const sortedAssets = normalizedAssets.sort((a, b) =>
                     new Date(b.uploadedAt || 0) - new Date(a.uploadedAt || 0)
                 );
                 setAssets(sortedAssets);
@@ -58,6 +74,7 @@ const SupabaseDashboard = ({ isOpen, onClose }) => {
             }
         } catch (error) {
             console.error('Failed to fetch assets:', error);
+            setApiError(prev => prev || 'Cannot reach backend API for Supabase storage assets.');
         }
     };
 
@@ -65,12 +82,14 @@ const SupabaseDashboard = ({ isOpen, onClose }) => {
         try {
             const apiBase = getApiBase();
             const response = await fetch(`${apiBase}/api/supabase/brands`);
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
             const data = await response.json();
             if (data.success) {
                 setBrands(data.brands || []);
             }
         } catch (error) {
             console.error('Failed to fetch brands:', error);
+            setApiError(prev => prev || 'Cannot reach backend API for Supabase brands.');
         }
     };
 
@@ -240,6 +259,24 @@ const SupabaseDashboard = ({ isOpen, onClose }) => {
                         </div>
                     </div>
 
+                    {apiError && (
+                        <div style={{
+                            marginBottom: '12px',
+                            padding: '10px 14px',
+                            borderRadius: '10px',
+                            background: 'rgba(239, 68, 68, 0.12)',
+                            border: '1px solid rgba(239, 68, 68, 0.35)',
+                            color: '#dc2626',
+                            fontSize: '0.85rem',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px'
+                        }}>
+                            <i className="ri-error-warning-line"></i>
+                            <span>{apiError}</span>
+                        </div>
+                    )}
+
                     {loading ? (
                         <div className={styles.loading}>
                             <div className={styles.spinner}></div>
@@ -267,7 +304,7 @@ const SupabaseDashboard = ({ isOpen, onClose }) => {
                                         </div>
                                         <div className={styles.assetMeta}>
                                             <span>{formatSize(asset.size)}</span>
-                                            <span>{new Date(asset.uploadedAt).toLocaleDateString()}</span>
+                                            <span>{asset.uploadedAt ? new Date(asset.uploadedAt).toLocaleDateString() : '—'}</span>
                                         </div>
                                     </div>
                                     <div className={styles.assetActions}>

@@ -602,6 +602,65 @@
     gap: 8px;
 }
 
+.customRowTwo {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+}
+
+.fabQuickStrip {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    max-height: 92px;
+    overflow-y: auto;
+}
+
+.fabChip {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1px;
+    padding: 4px 8px;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    background: var(--bg-hover, rgba(148, 163, 184, 0.1));
+    color: var(--text-primary);
+    font-size: 0.72rem;
+    font-weight: 600;
+    cursor: pointer;
+    text-align: left;
+    max-width: 170px;
+}
+
+.fabChip span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 100%;
+}
+
+.fabChip small {
+    font-size: 0.66rem;
+    color: #7c3aed;
+    font-weight: 700;
+}
+
+.fabChipActive {
+    border-color: #7c3aed;
+    background: rgba(124, 58, 237, 0.12);
+}
+
+.fabSaveCheck {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.74rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    cursor: pointer;
+}
+
 .legendMissing {
     flex: none;
     padding: 0 10px;
@@ -1503,4 +1562,72 @@
 .settingsLayer {
     position: relative;
     z-index: 100010;
+}
+
+.enrichStatsGrid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+    margin: 0 0 12px;
+}
+
+.enrichStatsGrid > div {
+    padding: 8px 10px;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    background: var(--bg-secondary, rgba(15, 23, 42, 0.04));
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.enrichStatsGrid span {
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+}
+
+.enrichStatsGrid strong {
+    font-size: 0.92rem;
+    color: var(--text-primary);
+}
+
+.enrichBody {
+    flex: 1;
+    overflow-y: auto;
+    padding-right: 4px;
+}
+
+.enrichBody h4 {
+    margin: 10px 0 6px;
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-secondary);
+}
+
+.enrichList {
+    list-style: none;
+    margin: 0 0 10px;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.enrichList label {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 8px 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    font-size: 0.78rem;
+    cursor: pointer;
+}
+
+.enrichList small {
+    display: block;
+    color: var(--text-secondary);
+    font-size: 0.7rem;
+    margin-top: 2px;
 }
