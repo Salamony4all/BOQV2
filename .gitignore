@@ -87,3 +87,9 @@ scripts/test_single.js
 .lens-jar/
 
 server/data/fabrication_custom.json
+
+# Market scanner lead snapshot (real project leads and contacts) - local fallback only, never commit
+server/data/market_scanner_seed.json
+
+# Supabase CLI working files and local database backups
+supabase/.temp/

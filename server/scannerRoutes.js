@@ -23,6 +23,7 @@ import {
   getDigests,
   getDigestConfig,
   saveDigestConfig,
+  toPublicDigestConfig,
   generateStarterBoqForLead,
   listRegionalCountries,
   getRegionalCountry,
@@ -231,9 +232,11 @@ scannerRouter.get('/digest/history', async (req, res) => {
   }
 });
 
+// These endpoints are open to every visitor, so the saved webhook address is never sent back:
+// the response only says whether one is saved (see toPublicDigestConfig).
 scannerRouter.get('/digest/config', async (_req, res) => {
   try {
-    const config = await getDigestConfig();
+    const config = toPublicDigestConfig(await getDigestConfig());
     res.json({ ok: true, config });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -242,10 +245,10 @@ scannerRouter.get('/digest/config', async (_req, res) => {
 
 scannerRouter.post('/digest/config', async (req, res) => {
   try {
-    const config = await saveDigestConfig(req.body || {});
+    const config = toPublicDigestConfig(await saveDigestConfig(req.body || {}));
     res.json({ ok: true, config });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(err.status || 500).json({ error: err.message });
   }
 });
 

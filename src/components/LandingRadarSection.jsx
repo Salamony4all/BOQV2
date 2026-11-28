@@ -1,11 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import { getApiBase } from '../utils/apiBase';
-import {
-  hasDirectSupabaseScanner,
-  fetchScannerStatsDirect,
-  fetchScannerProjectsDirect,
-} from '../utils/scannerSupabaseFallback';
 import styles from '../styles/MarketScanner.module.css';
+
+// Direct browser-to-Supabase reads are only a fallback for when /api/scanner is unreachable,
+// so that module (and the Supabase client behind it) is fetched only in that case.
+const loadDirectScanner = () => import('../utils/scannerSupabaseFallback');
 
 const COUNTRY_CHIPS = [
   { code: 'ALL', label: 'All GCC', flag: '🌍' },
@@ -68,14 +67,15 @@ export default function LandingRadarSection({
       setStats(data);
       onScannerStats?.(data);
     } catch {
-      if (hasDirectSupabaseScanner()) {
-        try {
-          const fallbackStats = await fetchScannerStatsDirect({ country: 'ALL' });
+      try {
+        const direct = await loadDirectScanner();
+        if (direct.hasDirectSupabaseScanner()) {
+          const fallbackStats = await direct.fetchScannerStatsDirect({ country: 'ALL' });
           setStats(fallbackStats);
           onScannerStats?.(fallbackStats);
-        } catch {
-          // silent fallback
         }
+      } catch {
+        // silent fallback
       }
     }
   }, [apiBase, onScannerStats]);
@@ -93,9 +93,10 @@ export default function LandingRadarSection({
       if (!Array.isArray(data?.projects)) throw new Error('Invalid scanner feed response');
       setLeads(data.projects);
     } catch (apiErr) {
-      if (hasDirectSupabaseScanner()) {
+      const direct = await loadDirectScanner().catch(() => null);
+      if (direct?.hasDirectSupabaseScanner()) {
         try {
-          const directLeads = await fetchScannerProjectsDirect({ country: c, scope: s, sort: 'heat', limit: 6 });
+          const directLeads = await direct.fetchScannerProjectsDirect({ country: c, scope: s, sort: 'heat', limit: 6 });
           setLeads(directLeads);
           setLoadError('');
           return;

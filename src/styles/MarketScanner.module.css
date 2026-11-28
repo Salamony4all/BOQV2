@@ -567,6 +567,21 @@
   height: 100dvh;
 }
 
+/* Shown for the moment the Market Radar code is being fetched on first open. */
+.modalLoading {
+  margin: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 18px;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #e2e8f0;
+  background: rgba(15, 23, 42, 0.85);
+  border: 1px solid rgba(16, 185, 129, 0.42);
+}
+
 .modalShell {
   display: flex;
   flex-direction: column;

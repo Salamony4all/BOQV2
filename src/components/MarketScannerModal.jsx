@@ -325,6 +325,24 @@ export default function MarketScannerModal({
     }
   }, [apiBase, country]);
 
+  // The saved webhook address is never sent to the browser, so the field starts empty:
+  // saving with it empty keeps the saved address, a new value replaces it.
+  const saveDigestConfig = useCallback(async (cfg, okMessage) => {
+    try {
+      const res = await fetch(`${apiBase}/api/scanner/digest/config`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(cfg),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.config) throw new Error(data?.error || `HTTP ${res.status}`);
+      setDigestCfg(data.config);
+      setToast(okMessage);
+    } catch (err) {
+      setToast(`Digest configuration not saved: ${err.message}`);
+    }
+  }, [apiBase]);
+
   const loadPortalsTab = useCallback(async () => {
     try {
       const res = await fetch(`${apiBase}/api/scanner/regional/countries`);
@@ -1343,24 +1361,29 @@ export default function MarketScannerModal({
                   <input
                     className={styles.searchInput}
                     style={{ width: '100%', marginBottom: '8px' }}
-                    placeholder="https://hooks.slack.com/services/..."
+                    placeholder={digestCfg.webhook_set
+                      ? `Saved (${digestCfg.webhook_host || 'webhook'}) — paste a new URL to replace it`
+                      : 'https://hooks.slack.com/services/...'}
                     value={digestCfg.webhook_url || ''}
                     onChange={(e) => setDigestCfg({ ...digestCfg, webhook_url: e.target.value })}
                   />
                   <button
                     type="button"
                     className={styles.btnEstimate}
-                    onClick={async () => {
-                      await fetch(`${apiBase}/api/scanner/digest/config`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(digestCfg),
-                      });
-                      setToast('Digest configuration saved to Supabase');
-                    }}
+                    onClick={() => saveDigestConfig(digestCfg, 'Digest configuration saved to Supabase')}
                   >
                     Save Config
                   </button>
+                  {digestCfg.webhook_set && (
+                    <button
+                      type="button"
+                      className={styles.contactLinkBtn}
+                      style={{ marginLeft: '8px', cursor: 'pointer' }}
+                      onClick={() => saveDigestConfig({ ...digestCfg, webhook_url: '', clear_webhook: true }, 'Digest webhook removed')}
+                    >
+                      Remove webhook
+                    </button>
+                  )}
                 </div>
 
                 {digestHistory.length > 0 && (

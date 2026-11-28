@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import ActionCard from './components/ActionCard';
 import ProgressModal from './components/ProgressModal';
 import { isPdfPlan, planPicture } from './utils/planPicture';
@@ -18,14 +18,16 @@ import PdfModelModal from './components/PdfModelModal';
 import ValueEngineeredModal from './components/ValueEngineeredModal';
 import CostingModal from './components/CostingModal';
 import LandingShowcase from './components/LandingShowcase';
-import MarketScannerModal from './components/MarketScannerModal';
 import { MODEL_OPTIONS } from './utils/aiConstants';
-
-import { createClient } from '@supabase/supabase-js';
 
 import { getApiBase } from './utils/apiBase';
 import { getBrandLogo, getBrandLogoFallback } from './utils/urlUtils';
 import { recategorizeTables } from './utils/boqGroupingUtils';
+
+// Market Radar is a full-screen tool most visits never open, so its code is fetched on demand
+// (first hover/focus of the Radar pill, or the first open) instead of shipping in the main bundle.
+const loadMarketScannerModal = () => import('./components/MarketScannerModal');
+const MarketScannerModal = lazy(loadMarketScannerModal);
 
 const FEATURED_PARTNER_BRANDS = [
   { name: 'NARBUTAS', origin: 'Lithuania • Workstations', aliases: ['narbutas'] },
@@ -346,6 +348,8 @@ function AppContent({ onOpenSettings }) {
     initialCountry: 'ALL',
     initialScope: '',
   });
+  // Stays true after the first open so the modal keeps its filters, map and selection between opens.
+  const [scannerModalMounted, setScannerModalMounted] = useState(false);
   const [scannerStats, setScannerStats] = useState(null);
   const [activeScannerLead, setActiveScannerLead] = useState(null);
 
@@ -978,6 +982,7 @@ function AppContent({ onOpenSettings }) {
   };
 
   const openScannerModal = (opts = {}) => {
+    setScannerModalMounted(true);
     setScannerModalState({
       isOpen: true,
       initialLeadId: opts.leadId || null,
@@ -1024,6 +1029,8 @@ function AppContent({ onOpenSettings }) {
     <button
       type="button"
       onClick={() => openScannerModal({ tab: 'radar' })}
+      onPointerEnter={loadMarketScannerModal}
+      onFocus={loadMarketScannerModal}
       className={scannerStyles.radarNavPill}
       title="Open Live GCC & Oman Market Radar & Top 10 Daily Digest"
     >
@@ -1035,17 +1042,28 @@ function AppContent({ onOpenSettings }) {
     </button>
   );
 
-  const scannerModalNode = (
-    <MarketScannerModal
-      isOpen={scannerModalState.isOpen}
-      onClose={() => setScannerModalState((prev) => ({ ...prev, isOpen: false }))}
-      initialLeadId={scannerModalState.initialLeadId}
-      initialTab={scannerModalState.initialTab}
-      initialCountry={scannerModalState.initialCountry}
-      initialScope={scannerModalState.initialScope}
-      onEstimateLead={handleEstimateLead}
-    />
-  );
+  const scannerModalNode = scannerModalMounted ? (
+    <Suspense
+      fallback={scannerModalState.isOpen ? (
+        <div className={scannerStyles.modalBackdrop} role="status" aria-live="polite">
+          <div className={scannerStyles.modalLoading}>
+            <span className={scannerStyles.liveDot} />
+            <span>Opening Market Radar…</span>
+          </div>
+        </div>
+      ) : null}
+    >
+      <MarketScannerModal
+        isOpen={scannerModalState.isOpen}
+        onClose={() => setScannerModalState((prev) => ({ ...prev, isOpen: false }))}
+        initialLeadId={scannerModalState.initialLeadId}
+        initialTab={scannerModalState.initialTab}
+        initialCountry={scannerModalState.initialCountry}
+        initialScope={scannerModalState.initialScope}
+        onEstimateLead={handleEstimateLead}
+      />
+    </Suspense>
+  ) : null;
 
   // Smooth scroll to top of results when data appears
   useEffect(() => {

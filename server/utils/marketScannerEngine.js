@@ -2066,11 +2066,24 @@ export async function getDigests(limit = 15) {
       .order('created_at', { ascending: false })
       .limit(limit);
     if (!error && Array.isArray(data)) {
-      return data.map((d) => ({ ...d, digest_md: d.summary_text || '' }));
+      return data.map(toPublicDigestRow);
     }
   }
   const snap = loadSeedSnapshot();
-  return (snap.digests || []).slice(0, limit).map((d) => ({ ...d, digest_md: d.summary_text || '' }));
+  return (snap.digests || []).slice(0, limit).map(toPublicDigestRow);
+}
+
+/**
+ * Digest row as sent to the browser. Older rows store the address a digest was mailed to;
+ * the scanner API has no login, so only the channel ("Email") is passed on, never the address.
+ */
+export function toPublicDigestRow(d = {}) {
+  const recipient = String(d.recipient || '');
+  return {
+    ...d,
+    recipient: recipient.includes('@') ? 'Email' : recipient,
+    digest_md: d.summary_text || '',
+  };
 }
 
 export async function getDigestConfig() {
@@ -2084,13 +2097,53 @@ export async function getDigestConfig() {
   return { enabled: true, auto_enrich_top: true, webhook_url: '', schedule_note: 'On-demand & 12h observer' };
 }
 
-export async function saveDigestConfig(cfg = {}) {
-  const merged = {
-    enabled: cfg.enabled !== false,
-    auto_enrich_top: cfg.auto_enrich_top !== false,
-    webhook_url: String(cfg.webhook_url || '').trim(),
-    schedule_note: String(cfg.schedule_note || 'On-demand & 12h observer'),
+/**
+ * Digest settings as sent to the browser. The scanner API has no login, so the webhook address
+ * (whoever holds it can post to that channel) and any stored e-mail stay on the server: the screen
+ * only learns whether a webhook is saved and which service it points at.
+ */
+export function toPublicDigestConfig(cfg = {}) {
+  const url = String(cfg?.webhook_url || '').trim();
+  let host = '';
+  try { host = url ? new URL(url).host : ''; } catch { host = ''; }
+  return {
+    enabled: cfg?.enabled !== false,
+    auto_enrich_top: cfg?.auto_enrich_top !== false,
+    schedule_note: String(cfg?.schedule_note || 'On-demand & 12h observer'),
+    webhook_url: '',
+    webhook_set: Boolean(url),
+    webhook_host: host,
   };
+}
+
+/**
+ * Combine the saved digest settings with a settings form sent from the screen.
+ * The screen never receives the saved webhook address, so an empty field means "keep it";
+ * a new address replaces it and `clear_webhook: true` removes it. Other saved keys are kept.
+ */
+export function mergeDigestConfig(existing = {}, incoming = {}) {
+  const saved = String(existing?.webhook_url || '').trim();
+  const typed = String(incoming?.webhook_url || '').trim();
+  let webhookUrl = saved;
+  if (incoming?.clear_webhook === true) {
+    webhookUrl = '';
+  } else if (typed) {
+    if (!/^https?:\/\/\S+$/i.test(typed)) {
+      throw Object.assign(new Error('Webhook URL must start with https:// (or http://)'), { status: 400 });
+    }
+    webhookUrl = typed;
+  }
+  return {
+    ...(existing && typeof existing === 'object' ? existing : {}),
+    enabled: incoming?.enabled !== false,
+    auto_enrich_top: incoming?.auto_enrich_top !== false,
+    webhook_url: webhookUrl,
+    schedule_note: String(incoming?.schedule_note || existing?.schedule_note || 'On-demand & 12h observer'),
+  };
+}
+
+export async function saveDigestConfig(cfg = {}) {
+  const merged = mergeDigestConfig(await getDigestConfig(), cfg);
   const db = getDbClient();
   if (db) {
     await db.from('scanner_config').upsert({

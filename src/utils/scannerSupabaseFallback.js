@@ -2,8 +2,10 @@
  * Direct browser-to-Supabase read fallback for GCC & Oman Market Scanner.
  * Used transparently whenever Express (/api/scanner/*) is unreachable or returns non-200
  * (e.g., stopped dev server or un-restarted local backend), relying strictly on publishable anon creds.
+ *
+ * The Supabase client is loaded on demand (dynamic import) the first time a direct read is needed,
+ * so it stays out of the main bundle for the normal case where the Express API answers.
  */
-import { createClient } from '@supabase/supabase-js';
 
 export const SCOPES = {
   furniture: { id: 'furniture', label: 'Furniture & FF&E', shortLabel: 'Furniture', priority: 1.6, color: '#60a5fa' },
@@ -271,15 +273,23 @@ function getPublishableEnv() {
   return { url, key };
 }
 
-let cachedClient = null;
-function getBrowserSupabaseClient() {
-  if (cachedClient) return cachedClient;
+let cachedClientPromise = null;
+/** Resolve the shared browser Supabase client, loading the library on first use. */
+async function getBrowserSupabaseClient() {
   const { url, key } = getPublishableEnv();
   if (!url || !key) return null;
-  cachedClient = createClient(url, key, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
-  return cachedClient;
+  if (!cachedClientPromise) {
+    cachedClientPromise = import('@supabase/supabase-js')
+      .then(({ createClient }) => createClient(url, key, {
+        auth: { persistSession: false, autoRefreshToken: false },
+      }))
+      .catch((err) => {
+        // Let the next call retry (e.g. the chunk failed to download on a flaky connection).
+        cachedClientPromise = null;
+        throw err;
+      });
+  }
+  return cachedClientPromise;
 }
 
 /** Return true when publishable Supabase credentials are exposed in browser env. */
@@ -419,7 +429,7 @@ export function formatProjectRow(row = {}, contactCount = 0) {
 }
 
 async function fetchRawProjectsDirect() {
-  const client = getBrowserSupabaseClient();
+  const client = await getBrowserSupabaseClient();
   if (!client) throw new Error('Supabase credentials are not available in browser env');
   const { data, error } = await client
     .from('scanner_projects')
@@ -434,7 +444,7 @@ async function fetchRawProjectsDirect() {
 async function fetchContactCountsDirect(projectIds = []) {
   const counts = new Map();
   if (!Array.isArray(projectIds) || projectIds.length === 0) return counts;
-  const client = getBrowserSupabaseClient();
+  const client = await getBrowserSupabaseClient().catch(() => null);
   if (!client) return counts;
   try {
     const { data, error } = await client
@@ -574,8 +584,9 @@ export async function fetchNearbyProjectsDirect({ lat, lng, radiusKm = 60, count
 /** Fetch full inspector detail (project + contacts + updates + portals) directly from Supabase. */
 export async function fetchProjectDetailDirect(leadId) {
   const numId = Number(leadId);
-  const client = getBrowserSupabaseClient();
-  if (!client || !Number.isFinite(numId)) return null;
+  if (!Number.isFinite(numId)) return null;
+  const client = await getBrowserSupabaseClient();
+  if (!client) return null;
 
   const [{ data: proj, error }, { data: ctRows }, { data: updRows }] = await Promise.all([
     client.from('scanner_projects').select('*').eq('id', numId).maybeSingle(),
@@ -600,11 +611,15 @@ export async function fetchProjectDetailDirect(leadId) {
 
 /** Load Top 10 leads & archived digests directly from Supabase for the Digest tab. */
 export async function fetchDigestTabDirect({ country = 'ALL' } = {}) {
-  const client = getBrowserSupabaseClient();
+  const client = await getBrowserSupabaseClient().catch(() => null);
   const [top10, digestsRes] = await Promise.all([
     fetchScannerProjectsDirect({ country, sort: 'heat', limit: 10 }),
     client
-      ? client.from('scanner_digests').select('*').order('created_at', { ascending: false }).limit(15)
+      ? client
+        .from('scanner_digests')
+        .select('id, created_at, title, leads_count, leads_json, summary_text, dispatched')
+        .order('created_at', { ascending: false })
+        .limit(15)
       : Promise.resolve({ data: [] }),
   ]);
 
