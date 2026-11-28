@@ -20,6 +20,7 @@ import {
   safeParseJSON,
 } from './llmUtils.js';
 import { readSettings } from '../settings.js';
+import { isArticleUrl, cleanArticleUrl, pickSourceLink, siteOfHost } from './sourceLinkResolver.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -798,7 +799,10 @@ export function classifyScopesAndFitout(text = '', { fallbackToFitouts = true } 
   for (const [scopeKey, meta] of Object.entries(SCOPES)) {
     let score = 0;
     for (const [kw, weight] of Object.entries(meta.keywords)) {
-      const rx = new RegExp(kw.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g');
+      // Whole words only (a plural or -ing ending allowed). As a bare substring "ffe" is inside
+      // offer, coffee and buffer, "tiles" inside textiles and "fit out" inside "benefit outcomes",
+      // which turned unrelated headlines into FF&E leads.
+      const rx = new RegExp(`(?<![a-z0-9])${kw.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?:s|es|ing)?(?![a-z0-9])`, 'g');
       const hits = low.match(rx);
       if (hits) score += weight * Math.min(hits.length, 3);
     }
@@ -1218,17 +1222,32 @@ export function detectStageEvidence(text = '') {
  * What the observer may take from one fetched page for one lead. Pure: no network, no database.
  * `stage` is set only when the passages about the lead state a later stage than the lead has.
  */
-export function readLeadFromPage(lead = {}, pageText = '') {
+export function readLeadFromPage(lead = {}, pageText = '', { pageUrl = '' } = {}) {
   const passages = leadPassagesInPage(pageText, lead);
   if (!passages) return { mentioned: false, stage: null, contacts: [] };
   const detected = detectStageEvidence(passages);
   const curIdx = STAGE_ORDER.indexOf(lead?.stage || 'unknown');
   const newIdx = detected ? STAGE_ORDER.indexOf(detected) : -1;
+  let contacts = extractContactsFromText(passages, 'observer');
+  // A lead that came from the news is read from the publisher's article. Addresses on the
+  // publisher's own site are the newsroom's (editor, advertising), not the project's.
+  if (pageUrl && isNewsLead(lead)) {
+    let pageSite = '';
+    try {
+      pageSite = siteOfHost(new URL(pageUrl).hostname);
+    } catch { /* no usable page address: keep every contact */ }
+    if (pageSite) contacts = contacts.filter((c) => !c.email || siteOfHost(c.email.split('@')[1] || '') !== pageSite);
+  }
   return {
     mentioned: true,
     stage: newIdx > curIdx ? detected : null,
-    contacts: extractContactsFromText(passages, 'observer'),
+    contacts,
   };
+}
+
+/** True for a lead that was found in a news feed (as opposed to a tender portal or a manual entry). */
+export function isNewsLead(lead = {}) {
+  return /^(?:bnc|omfeed|feed|web):/.test(String(lead?.ext_id || ''));
 }
 
 // ── Opportunistic Non-Blocking 12h Observer Check (Replaces Vercel Sub-Daily Cron) ─
@@ -1734,7 +1753,7 @@ async function scanDirectOmanFeeds() {
       const rawTitle = $(el).find('title').text().trim();
       const link = $(el).find('link').text().trim();
       const descRaw = $(el).find('description').text().replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
-      if (!rawTitle || !link) return;
+      if (!rawTitle || !link || isStaleFeedDate($(el).find('pubDate').text())) return;
 
       const cleanTitle = rawTitle.replace(/\s*[-–—|]\s*(The Times of Oman|Times of Oman|Oman Observer|Zawya|Reuters).*$/i, '').trim() || rawTitle;
       const combined = `${cleanTitle} ${descRaw}`;
@@ -1893,6 +1912,365 @@ async function scanGoogleNewsRss(country = 'ALL') {
   return { projects, ok, fail };
 }
 
+// ── Publisher feeds: leads that carry the article's own address ───────────────
+
+// Trade publications whose RSS feeds link straight to their own articles (checked 28 Nov 2026:
+// each answers, lets feed readers in through robots.txt and links to its own site). Most cover
+// the whole region, so an item becomes a lead only when its text places it in a tracked country.
+export const REGIONAL_PUBLISHER_FEEDS = [
+  { name: 'Construction Week', url: 'https://www.constructionweekonline.com/feed' },
+  { name: 'MEP Middle East', url: 'https://www.mepmiddleeast.com/feed' },
+  { name: 'Middle East Construction News', url: 'https://meconstructionnews.com/feed' },
+  { name: 'Construction Business News ME', url: 'https://www.cbnme.com/feed/' },
+  { name: 'Saudi Gulf Projects', url: 'https://www.saudigulfprojects.com/feed/' },
+  { name: 'Hotelier Middle East', url: 'https://www.hoteliermiddleeast.com/feed' },
+  { name: 'Hospitality News Middle East', url: 'https://www.hospitalitynewsmag.com/feed/' },
+  { name: 'Commercial Interior Design', url: 'https://www.commercialinteriordesign.com/feed' },
+  { name: 'Design Middle East', url: 'https://design-middleeast.com/feed/' },
+  { name: 'Oman Observer', url: 'https://www.omanobserver.om/rssFeed/business', home: 'OM' },
+];
+
+// Names that place a headline in a tracked country, besides the city names of GCC_COUNTRIES.
+const COUNTRY_ALIASES = {
+  OM: ['oman', 'omani', 'sultanate of oman', 'duqm', 'dhofar', 'musandam', 'omran', 'al mouj'],
+  SA: ['saudi', 'ksa', 'neom', 'diriyah', 'red sea global', 'qiddiya', 'alula', 'makkah', 'mecca', 'madinah', 'medina', 'roshn', 'amaala', 'trojena'],
+  AE: ['uae', 'emirates', 'emirati', 'dubai', 'abu dhabi', 'sharjah', 'ras al khaimah', 'ajman', 'fujairah', 'umm al quwain', 'saadiyat', 'yas island'],
+  QA: ['qatar', 'qatari', 'lusail'],
+  KW: ['kuwait', 'kuwaiti'],
+  BH: ['bahrain', 'bahraini'],
+  EG: ['egypt', 'egyptian', 'new administrative capital', 'new alamein'],
+  JO: ['jordan', 'jordanian', 'aqaba'],
+};
+// City names that are also ordinary words or names elsewhere: not enough to place a headline.
+const AMBIGUOUS_CITY_NAMES = new Set(['adam', 'sur', 'liwa', 'alexandria', 'ibra', 'ibri', 'nakhal', 'barka', 'saham', 'salt']);
+
+// A name as a whole word, written with or without its spaces ("Al Ula", "AlUla", "Al-Ula").
+const wholeWordRx = (word) => new RegExp(`(?<![\\p{L}\\p{N}])${String(word).toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '[\\s-]?')}(?![\\p{L}\\p{N}])`, 'gu');
+
+let countryPlaceIndex = null;
+function getCountryPlaceIndex() {
+  if (countryPlaceIndex) return countryPlaceIndex;
+  countryPlaceIndex = Object.values(GCC_COUNTRIES).map((cfg) => ({
+    code: cfg.code,
+    aliases: [...new Set([cfg.name.toLowerCase(), ...(COUNTRY_ALIASES[cfg.code] || [])])].map(wholeWordRx),
+    cities: Object.keys(cfg.cities || {})
+      .map((c) => c.toLowerCase())
+      .filter((c) => c.length >= 4 && !AMBIGUOUS_CITY_NAMES.has(c))
+      .map(wholeWordRx),
+  }));
+  return countryPlaceIndex;
+}
+
+/**
+ * The tracked country a news item is about, by the places its headline and summary name; the
+ * feed's home country when it names none; '' when it cannot be placed. A headline counts for more
+ * than the summary, a country for more than a city.
+ */
+export function detectLeadCountry(title = '', description = '', homeCode = '') {
+  const head = String(title || '').toLowerCase();
+  const body = String(description || '').toLowerCase();
+  const count = (text, list) => list.reduce((n, rx) => n + (text.match(rx) || []).length, 0);
+  let best = '';
+  let bestInHead = 0;
+  let bestInBody = 0;
+  for (const entry of getCountryPlaceIndex()) {
+    const inHead = count(head, entry.aliases) * 4 + count(head, entry.cities) * 3;
+    const inBody = Math.min(2, count(body, entry.aliases)) * 2 + Math.min(2, count(body, entry.cities));
+    // The headline decides; the summary only breaks a tie or places a headline that names nowhere.
+    if (inHead > bestInHead || (inHead === bestInHead && inBody > bestInBody)) {
+      best = entry.code;
+      bestInHead = inHead;
+      bestInBody = inBody;
+    }
+  }
+  if (bestInHead > 0 || bestInBody >= 2) return best;
+  return GCC_COUNTRIES[String(homeCode || '').toUpperCase()] ? String(homeCode).toUpperCase() : '';
+}
+
+function locateInCountry(cfg, text = '') {
+  if (cfg.code === 'OM') {
+    const om = resolveOmanLocation(text);
+    return { city: om.city, lat: om.lat, lon: om.lng, governorate: om.governorate };
+  }
+  // A headline ends on the place ("... Resort in AlUla"), so of the cities it names the last one
+  // counts; a company named after a place ("UCC Red Sea") usually comes first.
+  const head = String(text || '').split('. ')[0].toLowerCase();
+  const low = String(text || '').toLowerCase();
+  let best = null;
+  let bestAt = -1;
+  let firstInText = null;
+  for (const [cityName, cityObj] of Object.entries(cfg.cities || {})) {
+    const rx = wholeWordRx(cityName);
+    let hit;
+    let lastAt = -1;
+    while ((hit = rx.exec(head))) lastAt = hit.index;
+    if (lastAt > bestAt) {
+      best = [cityName, cityObj];
+      bestAt = lastAt;
+    }
+    if (!firstInText && wholeWordRx(cityName).test(low)) firstInText = [cityName, cityObj];
+  }
+  const found = best || firstInText;
+  if (found) return { city: found[0], lat: found[1].lat, lon: found[1].lng, governorate: found[1].governorate || '' };
+  return { city: cfg.defaultCity, lat: cfg.lat, lon: cfg.lng, governorate: '' };
+}
+
+// Publisher names as they trail a headline in an aggregator ("Headline - Construction Week Online").
+const HEADLINE_PUBLISHER_SUFFIX_RX = /\s*[-–—|]\s*(?:the times of oman|times of oman|oman observer|oman daily observer|muscat daily|zawya|reuters|construction week(?: online)?|gulf news|tradearabia|arabian business|arab news|khaleej times|the national|mep middle east|middle east construction news|construction business news(?: me| middle east)?|saudi gulf projects|hotelier middle east|hospitality news(?: me| middle east)?|commercial interior design|design middle east|[a-z0-9-]+\.(?:com|net|org|om|ae|sa|qa|me|co|news|online)(?:\.[a-z]{2})?)\s*$/i;
+
+/**
+ * A headline reduced to what identifies the story: lower case, no trailing publisher name, no
+ * quotes or punctuation. The same story has the same key whichever feed delivered it.
+ */
+export function headlineKey(title = '') {
+  return String(title || '')
+    .replace(HEADLINE_PUBLISHER_SUFFIX_RX, '')
+    .toLowerCase()
+    .replace(/[‘’“”'"`]/g, '')
+    .replace(/[^\p{L}\p{N}]+/gu, ' ')
+    .trim();
+}
+
+// What a trade-press headline must have to be a lead: a kind of building or interior scope ...
+const NEWS_BUILDING_RX = /(?<![a-z])(?:hotels?|resorts?|malls?|palaces?|towers?|hospitals?|clinics?|campus(?:es)?|schools?|universit(?:y|ies)|mixed-use|residences|residential|villas?|apartments?|housing|homes|townhouses?|offices?|headquarters|hq|retail|restaurants?|terminals?|stadiums?|museums?|mosques?|cinemas?|master ?plans?|fit-?outs?|interiors?|furniture|ff&e|kitchens?|joinery|waterfront|marina|theme park)(?![a-z])/i;
+// ... an event in the life of a project ...
+const NEWS_PROJECT_RX = /(?<![a-z])(?:contracts?|tenders?|award(?:s|ed)?|appoint(?:s|ed)|construction|to build|will build|breaks? ground|broke ground|ground-?breaking|to open|opens|opening|opened|launch(?:es|ed)?|unveil(?:s|ed|ing)?|expan(?:d|ds|ded|ding|sion)|refurbish\w*|renovat\w*|redevelop\w*|fit-?out|master ?plan|develop(?:s|ed|ing|ment|ments)?|projects?|phase|handover|handed over|completion|completed?|topped out|sign(?:s|ed)|debut(?:s|ed)?|announc(?:es|ed)|planned|under ?way|to deliver|delivers?)(?![a-z])/i;
+// ... and it must not be about people, prizes, opinion, jobs, menus or product launches.
+const NEWS_NOT_A_PROJECT_RX = /(?<![a-z])(?:careers?|jobs?|vacanc\w+|hiring|appoint(?:s|ed)\b.{0,70}\b(?:as|new)\b.{0,40}\b(?:ceo|cfo|coo|gm|general manager|director|head|chief|chef|manager|president|vp|partner|lead)|appointed (?:gm|general manager|director|ceo|head|chef)|named .{0,40}(?:of the year|ceo|general manager)|of the year|awards? (?:20\d\d|night|ceremony|winners?|shortlist\w*)|power ?list|ranking|opinion|interview|podcast|webinar|recipe|menu|brunch|iftar|festive|christmas|staycation|review:|q&a|top \d+|\d+ (?:best|things|ways|reasons|tips)|lessons? from|checklist|explained|in pictures|superyacht|collection|attack(?:s|ed)?|injured|killed|strike(?:s)? on|(?:20\d\d )?budget:|portfolio (?:reaches|hits|grows|tops))(?![a-z])|(?:^|[:–—-]\s*)(?:how|why|what|when|where|who)\b/i;
+
+// The stage a headline states. Unlike the observer's statements these include announcements of
+// the future ("to open in 2027" is a project being built), because a new lead has to be placed
+// somewhere; the observer never moves a tracked lead on them.
+const HEADLINE_STAGE_CUES = [
+  ['handover', /\b(?:opens|opened|now open|officially opens?|welcomes (?:its )?first guests|inaugurat(?:es|ed)|hands over|handed over)\b/i],
+  ['completion', /\b(?:tops out|topped out|nears? completion|nearing completion|(?:completes?|completed|finish(?:es|ed))\b[^.]{0,50}\b(?:construction|project|works|tower|hotel|building|fit-?out))\b/i],
+  ['construction', /\b(?:breaks? ground|broke ground|ground-?breaking|under construction|construction (?:begins|starts|under ?way)|to open|will open|opening (?:in|by|date)|targets? (?:a )?20\d\d opening|debut\b[^.]{0,50}\b20\d\d)\b/i],
+  ['award', /\b(?:awards|awarded)\b(?! (?:20\d\d|night|ceremony|winners?|shortlist))|\b(?:wins?|won|secures?|secured|lands?|bags?|clinch(?:es|ed))\b[^.]{0,60}\b(?:contracts?|package|works)\b|\bappoint(?:s|ed)\b[^.]{0,40}\bcontractor\b|\bcontract (?:awarded|signed)\b/i],
+  ['tender', /\b(?:tenders?|invites? bids|bids invited|request for proposals?|rfp|prequalif\w+|expressions? of interest)\b/i],
+  ['design', /\b(?:to design|design(?:s|ed) by|appoint(?:s|ed)\b[^.]{0,40}\b(?:architect|designer|consultant)|design contract)\b/i],
+];
+
+/** The stage a news headline places its project at; 'concept' when it only announces it. */
+export function stageFromHeadline(title = '', description = '') {
+  const head = String(title || '');
+  // "51% construction completion", "85 per cent complete": being built, or nearly built.
+  const progress = /\b(\d{1,3})\s?(?:%|per ?cent)[^.]{0,30}\bcomplet\w+/i.exec(head);
+  if (progress && Number(progress[1]) <= 100) return Number(progress[1]) >= 85 ? 'completion' : 'construction';
+  for (const [stage, rx] of HEADLINE_STAGE_CUES) {
+    if (rx.test(head)) return stage;
+  }
+  return detectStageEvidence(`${head}. ${description || ''}`) || 'concept';
+}
+
+const plainText = (markup = '') => cheerio.load(`<div>${String(markup || '')}</div>`)('div').text().replace(/\s+/g, ' ').trim();
+
+// A feed that stopped publishing keeps serving its last items for years (Khazaen's newest is from
+// 2024). An item with a date older than this is history, not a lead; an undated item is kept.
+const FEED_ITEM_MAX_AGE_DAYS = 365;
+function isStaleFeedDate(published, now = Date.now()) {
+  const at = Date.parse(String(published || ''));
+  return Number.isFinite(at) && now - at > FEED_ITEM_MAX_AGE_DAYS * 86400000;
+}
+
+/** The items of an RSS or Atom feed: headline, link, summary as plain text and date, newest first. */
+export function parseFeedItems(xml = '', limit = 30) {
+  const doc = String(xml || '');
+  if (!/<(?:item|entry)[\s>]/.test(doc)) return [];
+  const $ = cheerio.load(doc, { xmlMode: true });
+  const items = [];
+  $('item, entry').slice(0, Math.max(1, limit)).each((_, el) => {
+    const linkEl = $(el).children('link').first();
+    items.push({
+      title: plainText($(el).children('title').first().text()),
+      link: (linkEl.text().trim() || linkEl.attr('href') || '').trim(),
+      description: plainText($(el).children('description').first().text() || $(el).children('summary').first().text()).slice(0, 700),
+      published: ($(el).children('pubDate').first().text() || $(el).children('published').first().text() || $(el).children('updated').first().text() || '').trim(),
+    });
+  });
+  return items;
+}
+
+/**
+ * One feed item as a lead, or null when it is not one: it needs a real article address, a
+ * building or interior scope in its headline, a project event, and a tracked country.
+ */
+export function leadFromFeedItem(item = {}, feed = {}, { now = Date.now() } = {}) {
+  const title = String(item.title || '').replace(/\s+/g, ' ').trim();
+  const link = cleanArticleUrl(item.link);
+  const description = String(item.description || '').replace(/\s+/g, ' ').trim().slice(0, 700);
+  if (title.length < 12 || !isArticleUrl(link) || isStaleFeedDate(item.published, now)) return null;
+  if (isScannerNoiseText(title) || NEWS_NOT_A_PROJECT_RX.test(title)) return null;
+
+  const scopesInTitle = classifyScopesAndFitout(title, { fallbackToFitouts: false });
+  if (scopesInTitle.matchedCount === 0 && !NEWS_BUILDING_RX.test(title)) return null;
+  const text = `${title}. ${description}`;
+  if (!NEWS_PROJECT_RX.test(text)) return null;
+
+  const code = detectLeadCountry(title, description, feed.home || '');
+  const cfg = GCC_COUNTRIES[code];
+  if (!cfg) return null;
+
+  const scopesInText = classifyScopesAndFitout(text, { fallbackToFitouts: false });
+  const classified = scopesInTitle.matchedCount > 0
+    ? scopesInTitle
+    : (scopesInText.matchedCount > 0 ? scopesInText : classifyScopesAndFitout(title));
+  const stage = stageFromHeadline(title, description);
+  const { valueOmr, note } = detectValueFromText(text, cfg.rateToOmr, cfg.currency);
+  const loc = locateInCountry(cfg, text);
+  const keyHash = crypto.createHash('sha1').update(`${cfg.name}:${headlineKey(title)}`).digest('hex').slice(0, 14);
+
+  return {
+    ext_id: `feed:${cfg.code.toLowerCase()}_${keyHash}`,
+    name: title.slice(0, 160),
+    en_name: title.slice(0, 160),
+    country: cfg.name,
+    city: loc.city,
+    lat: loc.lat,
+    lon: loc.lon,
+    location_name: loc.governorate ? `${loc.city}, ${loc.governorate}` : `${loc.city}, ${cfg.name}`,
+    scopes: classified.scopes,
+    top_scope: classified.top_scope,
+    stage,
+    est_value_omr: valueOmr,
+    value_note: note,
+    summary: `[${feed.name || 'News'}] ${description || title}`.slice(0, 500),
+    source_name: feed.name || 'News',
+    source_url: link,
+    score: Math.max(70, scoreLead({ scopes: classified.scopes, top_scope: classified.top_scope, stage, est_value_omr: valueOmr }, 0)),
+    status: 'active',
+    is_news: false,
+  };
+}
+
+async function scanPublisherFeeds(country = 'ALL') {
+  const only = country && country.toUpperCase() !== 'ALL' ? resolveCountryMeta(country).code : '';
+  const settled = await Promise.allSettled(REGIONAL_PUBLISHER_FEEDS.map(async (feed) => {
+    const xml = await fetchWithTimeout(feed.url, 8500);
+    if (!xml) throw new Error(`no answer from ${feed.name}`);
+    const leads = [];
+    for (const item of parseFeedItems(xml, 30)) {
+      const lead = leadFromFeedItem(item, feed);
+      if (lead && (!only || resolveCountryMeta(lead.country).code === only)) leads.push(lead);
+    }
+    return leads;
+  }));
+  const projects = [];
+  let ok = 0;
+  let fail = 0;
+  for (const res of settled) {
+    if (res.status === 'fulfilled') {
+      ok++;
+      projects.push(...res.value);
+    } else {
+      fail++;
+    }
+  }
+  return { projects, ok, fail };
+}
+
+// ── Saving a scan: one lead per story, and nothing a scan cannot know is overwritten ──
+
+/** The later of two stages. A stage outside the pipeline (on hold) is the user's call and stays. */
+function laterStage(existing, incoming) {
+  const have = STAGE_ORDER.indexOf(existing);
+  const got = STAGE_ORDER.indexOf(incoming);
+  if (existing && have === -1) return existing;
+  if (got === -1) return existing || 'unknown';
+  return got > have ? incoming : existing;
+}
+
+const newsStoryKey = (row) => `${resolveCountryMeta(row.country).code}|${headlineKey(row.name)}`;
+
+/**
+ * Turn what a scan found into the rows to save.
+ *
+ * - One lead per story: the same headline from two feeds is one lead, and a lead already stored
+ *   for that headline is updated instead of a second one being added. Between two sources of
+ *   one story the one with the article's own address wins.
+ * - A scan only knows what its source says. For a lead that is already stored it never moves
+ *   the stage backwards, never revives a lead that was closed, never replaces the article's
+ *   address with a feed redirect, and keeps the client, value, notes, pins and AI brief.
+ * - Every row has the same fields. (Rows with different fields are sent as one statement in
+ *   which the missing ones are NULL; that used to reject every batch that mixed tender-board
+ *   and news leads, and nothing of the batch was saved.)
+ *
+ * Pure: no database, no network. Returns the rows and what they mean for the stored leads.
+ */
+export function mergeScanFindings(findings = [], existingRows = [], nowIso = new Date().toISOString()) {
+  const byExtId = new Map();
+  const byStory = new Map();
+  for (const row of existingRows || []) {
+    if (!row?.ext_id) continue;
+    byExtId.set(String(row.ext_id), row);
+    if (isNewsLead(row) && !row.is_news) {
+      const key = newsStoryKey(row);
+      const held = byStory.get(key);
+      if (!held || (!isArticleUrl(held.source_url) && isArticleUrl(row.source_url))) byStory.set(key, row);
+    }
+  }
+
+  // One finding per story (news) or per id (everything else); the article's own address wins.
+  const chosen = new Map();
+  for (const found of findings || []) {
+    if (!found?.ext_id || !found.name) continue;
+    const key = isNewsLead(found) ? `story:${newsStoryKey(found)}` : `id:${found.ext_id}`;
+    const held = chosen.get(key);
+    if (!held || (!isArticleUrl(held.source_url) && isArticleUrl(found.source_url))) chosen.set(key, found);
+  }
+
+  const rows = new Map();
+  let inserted = 0;
+  let updated = 0;
+  let linksUpgraded = 0;
+  for (const found of chosen.values()) {
+    const existing = byExtId.get(String(found.ext_id)) || (isNewsLead(found) ? byStory.get(newsStoryKey(found)) : null) || null;
+    const extId = existing ? String(existing.ext_id) : String(found.ext_id);
+    if (rows.has(extId)) continue;
+
+    const sourceUrl = existing ? pickSourceLink(existing.source_url, found.source_url) : (found.source_url || null);
+    const keptOwnLink = Boolean(existing) && sourceUrl === existing.source_url && sourceUrl !== found.source_url;
+    const arabicTitle = /[؀-ۿ]/.test(String(found.name || ''));
+    const storedEnName = String(existing?.en_name || '');
+    const foundEnrichment = Object.fromEntries(Object.entries(found.enrichment || {}).filter(([, v]) => v !== undefined && v !== null));
+
+    rows.set(extId, {
+      ext_id: extId,
+      name: found.name,
+      // A longer stored English title of an Arabic tender is an earlier AI translation: keep it.
+      en_name: arabicTitle && storedEnName.length > String(found.en_name || '').length ? storedEnName : (found.en_name || found.name),
+      country: found.country,
+      city: found.city ?? null,
+      lat: found.lat ?? null,
+      lon: found.lon ?? null,
+      location_name: found.location_name ?? null,
+      scopes: Array.isArray(found.scopes) ? found.scopes : [],
+      top_scope: found.top_scope ?? null,
+      stage: existing ? laterStage(existing.stage, found.stage) : (found.stage || 'unknown'),
+      client: existing?.client || found.client || null,
+      est_value_omr: Number(existing?.est_value_omr) > 0 ? existing.est_value_omr : (found.est_value_omr ?? null),
+      value_note: existing?.value_note || found.value_note || null,
+      summary: found.summary ?? null,
+      source_name: keptOwnLink ? (existing.source_name || found.source_name || null) : (found.source_name || null),
+      source_url: sourceUrl,
+      score: Number(found.score) || 0,
+      status: existing?.status || found.status || 'active',
+      is_news: Boolean(found.is_news),
+      enrichment: { ...(existing?.enrichment && typeof existing.enrichment === 'object' ? existing.enrichment : {}), ...foundEnrichment },
+      last_seen: nowIso,
+      updated_at: nowIso,
+    });
+
+    if (existing) {
+      updated++;
+      if (!isArticleUrl(existing.source_url) && isArticleUrl(sourceUrl)) linksUpgraded++;
+    } else {
+      inserted++;
+    }
+  }
+
+  return { rows: [...rows.values()], inserted, updated, linksUpgraded, existingIds: new Set([...rows.keys()].filter((id) => byExtId.has(id))) };
+}
+
 export async function polishShortArabicTitlesWithLLM(items = []) {
   const candidates = items
     .filter((p) => /[\u0600-\u06FF]/.test(String(p.name || '')) && (!p.en_name || String(p.en_name).length < 28))
@@ -1916,6 +2294,23 @@ export async function polishShortArabicTitlesWithLLM(items = []) {
   });
 }
 
+/** Every stored lead with the fields a scan must not overwrite blindly, read page by page. */
+async function fetchStoredLeadsForMerge(db) {
+  const rows = [];
+  const pageSize = 1000; // the API returns at most this many rows per request
+  for (let from = 0; from < 50000; from += pageSize) {
+    const { data, error } = await db
+      .from('scanner_projects')
+      .select('id, ext_id, name, en_name, country, stage, status, is_news, source_name, source_url, client, est_value_omr, value_note, enrichment')
+      .order('id', { ascending: true })
+      .range(from, from + pageSize - 1);
+    if (error) return { rows: [], error };
+    rows.push(...(data || []));
+    if (!data || data.length < pageSize) break;
+  }
+  return { rows, error: null };
+}
+
 export async function runLiveScan({ mode = 'standard', country = 'ALL' } = {}) {
   const t0 = Date.now();
   const db = getDbClient();
@@ -1932,46 +2327,60 @@ export async function runLiveScan({ mode = 'standard', country = 'ALL' } = {}) {
   }
 
   const wantsOman = !country || country.toUpperCase() === 'ALL' || resolveCountryMeta(country).code === 'OM';
-  const [tbLeads, omanFeedsRes, rssRes] = await Promise.all([
+  const [tbLeads, omanFeedsRes, pubFeedsRes, rssRes] = await Promise.all([
     wantsOman ? scanOmanTenderBoard(mode === 'deep' ? 6 : 4) : Promise.resolve([]),
     wantsOman ? scanDirectOmanFeeds() : Promise.resolve({ projects: [], ok: 0, fail: 0 }),
+    scanPublisherFeeds(country),
     scanGoogleNewsRss(country),
   ]);
 
-  const rawDeduped = Array.from(
-    new Map([...tbLeads, ...omanFeedsRes.projects, ...rssRes.projects].map((p) => [String(p.ext_id), p])).values(),
-  );
-  const deduped = await polishShortArabicTitlesWithLLM(rawDeduped);
+  // Publisher feeds come before the aggregator: of two sources of one story the first with the
+  // article's own address is kept.
+  const findings = [...tbLeads, ...omanFeedsRes.projects, ...pubFeedsRes.projects, ...rssRes.projects];
+  const nowIso = new Date().toISOString();
+  let rows = mergeScanFindings(findings, [], nowIso).rows;
   let inserted = 0;
   let updated = 0;
+  let failed = 0;
+  let linksUpgraded = 0;
 
-  if (db && deduped.length > 0) {
-    const extIds = deduped.map((p) => p.ext_id);
-    const { data: existingRows } = await db.from('scanner_projects').select('id, ext_id').in('ext_id', extIds);
-    const existingSet = new Set((existingRows || []).map((r) => r.ext_id));
-
-    const nowIso = new Date().toISOString();
-    const payload = deduped.map((p) => ({ ...p, last_seen: nowIso, updated_at: nowIso }));
-    for (let i = 0; i < payload.length; i += 40) {
-      await db.from('scanner_projects').upsert(payload.slice(i, i + 40), { onConflict: 'ext_id' });
-    }
-    for (const p of deduped) {
-      if (existingSet.has(p.ext_id)) updated++;
-      else inserted++;
+  if (db && findings.length > 0) {
+    const { rows: existingRows, error: readError } = await fetchStoredLeadsForMerge(db);
+    if (readError) {
+      // Without the stored leads a scan cannot tell what it would overwrite: save nothing.
+      console.warn('[MarketScanner] Scan not saved, stored leads could not be read:', readError.message);
+      failed = rows.length;
+    } else {
+      const merged = mergeScanFindings(findings, existingRows || [], nowIso);
+      linksUpgraded = merged.linksUpgraded;
+      rows = await polishShortArabicTitlesWithLLM(merged.rows);
+      for (let i = 0; i < rows.length; i += 40) {
+        const batch = rows.slice(i, i + 40);
+        const { error } = await db.from('scanner_projects').upsert(batch, { onConflict: 'ext_id' });
+        if (error) {
+          failed += batch.length;
+          console.warn(`[MarketScanner] ${batch.length} scan rows were not saved:`, error.message);
+          continue;
+        }
+        for (const row of batch) {
+          if (merged.existingIds.has(row.ext_id)) updated++;
+          else inserted++;
+        }
+      }
     }
   }
 
-  const okCount = rssRes.ok + omanFeedsRes.ok + (tbLeads.length > 0 ? 1 : 0);
-  const failCount = rssRes.fail + omanFeedsRes.fail;
+  const okCount = rssRes.ok + omanFeedsRes.ok + pubFeedsRes.ok + (tbLeads.length > 0 ? 1 : 0);
+  const failCount = rssRes.fail + omanFeedsRes.fail + pubFeedsRes.fail;
   if (db && runId) {
     await db.from('scanner_runs').update({
       finished_at: new Date().toISOString(),
       sources_ok: okCount,
       sources_failed: failCount,
-      findings: deduped.length,
+      findings: rows.length,
       new_projects: inserted,
       updated,
-      log: `Live scan(${mode}, ${country}): findings=${deduped.length}, new=${inserted}, updated=${updated}, tb=${tbLeads.length}, omanFeeds=${omanFeedsRes.projects.length}`,
+      log: `Live scan(${mode}, ${country}): findings=${rows.length}, new=${inserted}, updated=${updated}, not_saved=${failed}, links_upgraded=${linksUpgraded}, tb=${tbLeads.length}, omanFeeds=${omanFeedsRes.projects.length}, publisherFeeds=${pubFeedsRes.projects.length}`,
     }).eq('id', runId);
   }
 
@@ -1979,11 +2388,14 @@ export async function runLiveScan({ mode = 'standard', country = 'ALL' } = {}) {
     ok: true,
     run_id: runId,
     country,
-    discovered: deduped.length,
+    discovered: rows.length,
     inserted,
     updated,
+    failed,
+    links_upgraded: linksUpgraded,
     esnaad_count: tbLeads.length,
     oman_feeds_count: omanFeedsRes.projects.length,
+    publisher_feeds_count: pubFeedsRes.projects.length,
     sources_ok: okCount,
     sources_failed: failCount,
     durationMs: Date.now() - t0,
@@ -2016,7 +2428,7 @@ export async function runObserverCycle({ limit = 12 } = {}) {
         const pageText = $('body').text().replace(/\s+/g, ' ').trim().slice(0, 200000);
         // Only what the page says about this lead counts (see readLeadFromPage): a page that does
         // not name the lead records the check below and changes nothing else.
-        const seen = readLeadFromPage(p, pageText);
+        const seen = readLeadFromPage(p, pageText, { pageUrl: p.source_url });
         if (seen.stage) {
           changes++;
           await db.from('scanner_projects').update({ stage: seen.stage, updated_at: nowIso }).eq('id', p.id);

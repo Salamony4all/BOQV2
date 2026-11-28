@@ -560,7 +560,8 @@ export default function MarketScannerModal({
     };
     for (const p of projects) {
       if (p.source_name === 'Oman Tender Board') groups['Oman Tender Board'].push(p);
-      else if (p.source_name === 'BNC Network' || /BNC|GCC/i.test(p.source_name || '')) groups['GCC Regional Intelligence'].push(p);
+      // Regional news leads, whichever feed delivered them (the aggregator or a publisher's own).
+      else if (p.source_name === 'BNC Network' || /BNC|GCC/i.test(p.source_name || '') || /^(?:bnc|feed):/.test(p.ext_id || '')) groups['GCC Regional Intelligence'].push(p);
       else groups['Other Opportunities'].push(p);
     }
     return Object.entries(groups).filter(([, arr]) => arr.length > 0);
@@ -631,7 +632,7 @@ export default function MarketScannerModal({
           body: JSON.stringify({ mode: 'standard', country }),
         });
         const data = await res.json();
-        setToast(`Live Scan finished: ${data.discovered || 0} feeds checked (${data.inserted || 0} new, ${data.updated || 0} updated)`);
+        setToast(`Live Scan finished: ${data.discovered || 0} leads found (${data.inserted || 0} new, ${data.updated || 0} updated${data.failed ? `, ${data.failed} not saved` : ''})`);
         await fetchProjects();
       } else if (kind === 'observer') {
         const res = await fetch(`${apiBase}/api/scanner/observer/run`, {
