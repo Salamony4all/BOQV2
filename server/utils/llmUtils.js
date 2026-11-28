@@ -5,6 +5,7 @@ import 'dotenv/config';
 import { TAXONOMY } from './normalizer.js';
 import { readSettings } from '../settings.js';
 import { preprocessPlanFiles } from './planPreprocessor.js';
+import { coercePlanAnswer, describePlanAnswer } from './planAnswer.js';
 import { detectCustomFabrication } from './customFabricationDetector.js';
 import { searchFabricationHybrid } from '../repositories/supabaseCatalogRepo.js';
 import {
@@ -1708,7 +1709,11 @@ export async function analyzePlan(filesData, options = {}) {
                     console.warn(`  ⏳ [Plan Analyzer] Time budget exhausted before "${candidate}".`);
                     break;
                 }
-                const attemptTimeout = Math.min(onServerless ? 38000 : (PIPELINE_TIMEOUT_MS.plan_vision || 95000), remainingMs);
+                // On the hosted app the whole request has 48 s. A first model that uses its full 38 s
+                // leaves the next one about 10 s, which is just short of what the fast models need,
+                // so while there is another model to try, the first keeps 15 s back for it.
+                const reserveMs = (onServerless && i === 0 && candidates.length > 1) ? 15000 : 0;
+                const attemptTimeout = Math.min(onServerless ? 38000 : (PIPELINE_TIMEOUT_MS.plan_vision || 95000), remainingMs - reserveMs);
                 try {
                     console.log(`  📍 [Plan Analyzer] Attempt ${i + 1}/${candidates.length} using Google model: ${candidate} (${activeAssets.length} sheet images, FreeTier=${freeTier})`);
                     const genAIInstance = getGoogleAI(`${candidate}${forceBilledSuffix}`);
@@ -1730,9 +1735,20 @@ export async function analyzePlan(filesData, options = {}) {
                     const finishReason = candidateRes?.finishReason || 'UNKNOWN';
                     const rawText = result.response.text();
                     console.log(`  📄 [Plan Analyzer] Response received (${candidate}): finishReason=${finishReason}, chars=${rawText?.length || 0}`);
-                    const candidateParsed = safeParseJSON(rawText);
-                    if (!candidateParsed || !Array.isArray(candidateParsed.items) || candidateParsed.items.length === 0) {
+                    // Models do not always send the object that was asked for (a list per sheet, the
+                    // bare list of lines, another key, one line with a syntax slip): read the lines
+                    // wherever they are before deciding the model found nothing.
+                    let firstRead = null;
+                    try {
+                        firstRead = safeParseJSON(rawText);
+                    } catch { /* unparseable as a whole: the lines are read one by one below */ }
+                    const { answer: candidateParsed, how: readAs } = coercePlanAnswer(firstRead, rawText);
+                    if (candidateParsed.items.length === 0) {
+                        console.warn(`  🧩 [Plan Analyzer] "${candidate}" sent an answer with no BOQ lines in it: ${JSON.stringify(describePlanAnswer(firstRead, rawText))}`);
                         throw new Error(`Model ${candidate} returned 0 items from floor plan`);
+                    }
+                    if (readAs !== 'object') {
+                        console.log(`  🧩 [Plan Analyzer] "${candidate}" answered as "${readAs}", not as the object asked for; read ${candidateParsed.items.length} lines from it.`);
                     }
                     parsed = candidateParsed;
                     actualModelUsed = candidate;
@@ -1770,7 +1786,8 @@ export async function analyzePlan(filesData, options = {}) {
                     endpoint,
                     apiKey
                 );
-                if (resSheet?.items?.length) allItemsMerged.push(...resSheet.items);
+                const sheetItems = coercePlanAnswer(resSheet).answer.items;
+                if (sheetItems.length) allItemsMerged.push(...sheetItems);
             }
             parsed = { items: allItemsMerged, planSummary: `Extraction completed across ${activeAssets.length} sheet(s).` };
 
