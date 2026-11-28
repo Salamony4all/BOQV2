@@ -1062,9 +1062,13 @@ async function fetchWithTimeout(url, timeoutMs = 8000) {
   }
 }
 
+// Words that announce a phone number (English and Arabic), ending right before the digits.
+const PHONE_CUE_RX = /(?:\b(?:tel|telephone|phone|mobile|mob|call|whatsapp|hotline|fax|gsm)\b|هاتف|جوال|نقال|فاكس)[^0-9]{0,18}$/i;
+
 function extractContactsFromText(text = '', source = 'cross-reference') {
   const out = [];
-  const emails = Array.from(new Set(String(text).match(/[\w.+-]+@[\w-]+\.[\w.-]+/g) || []));
+  // An address at the end of a sentence is matched with its full stop: drop it.
+  const emails = Array.from(new Set((String(text).match(/[\w.+-]+@[\w-]+\.[\w.-]+/g) || []).map((e) => e.replace(/[.-]+$/, ''))));
   for (const em of emails.slice(0, 4)) {
     if (/example\.com|noreply|sentry|schema\.org/i.test(em)) continue;
     const name = em.split('@')[0].replace(/[._]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
@@ -1077,21 +1081,154 @@ function extractContactsFromText(text = '', source = 'cross-reference') {
       confidence: 0.82,
     });
   }
-  const phones = Array.from(new Set(String(text).match(/(?:\+(?:968|966|971|974|965|973|20|962)[\s-]?)?\d{4}[\s-]?\d{4}(?:[\s-]?\d{3})?/g) || []));
-  for (const ph of phones.slice(0, 3)) {
-    const digits = ph.replace(/\D/g, '');
-    if (digits.length >= 8 && digits.length <= 15) {
-      out.push({
-        contact_key: `ph:${digits}`,
-        name: 'Project Office Line',
-        role: 'Office Contact',
-        phone: ph.trim(),
-        source,
-        confidence: 0.55,
-      });
-    }
+  // A run of digits counts as a phone only with a regional country code or right after a phone
+  // word. Bare 8-digit runs on portal pages are tender numbers, dates and year ranges far more
+  // often than phones, and the same ones repeat on every lead read from that portal.
+  const str = String(text);
+  const phoneRx = /(\+(?:968|966|971|974|965|973|20|962)[\s-]?)?\d{4}[\s-]?\d{4}(?:[\s-]?\d{3})?/g;
+  const seenPhones = new Set();
+  let m;
+  while ((m = phoneRx.exec(str)) && seenPhones.size < 3) {
+    const before = str.slice(Math.max(0, m.index - 32), m.index);
+    if (!m[1] && !PHONE_CUE_RX.test(before)) continue;
+    // A digit on either side means this is a slice of a longer number.
+    if (/\d/.test(str[m.index - 1] || '') || /\d/.test(str[m.index + m[0].length] || '')) continue;
+    const digits = m[0].replace(/\D/g, '');
+    if (digits.length < 8 || digits.length > 15 || seenPhones.has(digits)) continue;
+    seenPhones.add(digits);
+    out.push({
+      contact_key: `ph:${digits}`,
+      name: 'Project Office Line',
+      role: 'Office Contact',
+      phone: m[0].trim(),
+      source,
+      confidence: 0.55,
+    });
   }
   return out;
+}
+
+// ── Observer evidence: what one fetched page may say about one lead ────────────
+//
+// A lead's source link is often a portal page that is not about the lead: a tender list shell,
+// a consent page, a news redirect. Read as a whole, every such page "says" handover (it has the
+// word "opened") and yields the portal's own numbers as contacts. So the observer uses only the
+// passages that name the lead, and moves a stage only on a statement that the stage was reached.
+
+const LEAD_NAME_STOP_WORDS = new Set([
+  'project', 'projects', 'tender', 'tenders', 'construction', 'supply', 'installation', 'works', 'work',
+  'building', 'buildings', 'development', 'phase', 'package', 'contract', 'design', 'build', 'services',
+  'service', 'maintenance', 'with', 'from', 'into', 'that', 'this', 'will', 'oman', 'muscat', 'sultanate',
+  'ministry', 'company', 'general', 'main', 'including', 'related', 'various', 'proposed', 'existing',
+  'مشروع', 'مناقصة', 'توريد', 'تنفيذ', 'إنشاء', 'انشاء', 'أعمال', 'اعمال', 'تركيب', 'صيانة', 'مبنى',
+  'وزارة', 'سلطنة', 'عمان', 'مسقط', 'شركة', 'على', 'إلى', 'الى', 'عند', 'مرحلة',
+]);
+
+function leadNameTokens(name = '') {
+  const words = String(name || '').toLowerCase().match(/[\p{L}\p{N}]+/gu) || [];
+  const out = [];
+  for (const w of words) {
+    if (/^\d+$/.test(w)) continue; // numbers match dates and reference numbers on any page
+    const latin = /^[a-z0-9]+$/.test(w);
+    if (w.length < (latin ? 4 : 3) || LEAD_NAME_STOP_WORDS.has(w)) continue;
+    if (!out.includes(w)) out.push(w);
+  }
+  return out.slice(0, 10);
+}
+
+/**
+ * The parts of a page that are about this lead: the text around each place where the lead's own
+ * name appears (the whole name, or most of the distinctive words of a longer name close together).
+ * Returns '' when the page never names the lead - then nothing on it may be attributed to the lead.
+ */
+export function leadPassagesInPage(pageText = '', lead = {}, { window = 400, span = 240 } = {}) {
+  const text = String(pageText || '').replace(/\s+/g, ' ');
+  if (!text) return '';
+  const low = text.toLowerCase();
+  const anchors = [];
+  const names = [...new Set([lead?.en_name, lead?.name, lead?.title].map((n) => String(n || '').trim()).filter(Boolean))];
+  for (const rawName of names) {
+    const phrase = rawName.toLowerCase().replace(/\s+/g, ' ');
+    const tokens = leadNameTokens(rawName);
+    // The whole name, word for word. A name of one distinctive word ("Supply of Furniture") is on
+    // too many pages to count unless it is long.
+    if (phrase.length >= 24 || (phrase.length >= 12 && tokens.length >= 2)) {
+      for (let i = low.indexOf(phrase); i !== -1 && anchors.length < 12; i = low.indexOf(phrase, i + phrase.length)) anchors.push(i);
+    }
+    // Or most of its distinctive words close together - only for names with enough of them:
+    // two or three common words ("office furniture") sit together on any tender list.
+    if (tokens.length < 4) continue;
+    const need = Math.min(5, Math.ceil(tokens.length * 0.7));
+    const hits = [];
+    tokens.forEach((tok, ti) => {
+      // Latin words must stand alone ("park" is not "parking"); Arabic words carry prefixes.
+      const rx = /^[a-z0-9]+$/.test(tok)
+        ? new RegExp(`(?<![\\p{L}\\p{N}])${tok}(?![\\p{L}\\p{N}])`, 'gu')
+        : new RegExp(tok.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gu');
+      let hit;
+      while ((hit = rx.exec(low)) && hits.length < 400) hits.push([hit.index, ti]);
+    });
+    hits.sort((a, b) => a[0] - b[0]);
+    for (let s0 = 0; s0 < hits.length && anchors.length < 12; s0++) {
+      const found = new Set();
+      for (let e = s0; e < hits.length && hits[e][0] - hits[s0][0] <= span; e++) found.add(hits[e][1]);
+      if (found.size >= need) anchors.push(hits[s0][0]);
+    }
+  }
+  if (anchors.length === 0) return '';
+  anchors.sort((a, b) => a - b);
+  const parts = [];
+  let from = -1;
+  let to = -1;
+  for (const a of anchors) {
+    const start = Math.max(0, a - window);
+    const end = Math.min(text.length, a + window);
+    if (to >= 0 && start <= to) {
+      to = Math.max(to, end);
+    } else {
+      if (to > from) parts.push(text.slice(from, to));
+      from = start;
+      to = end;
+    }
+  }
+  if (to > from) parts.push(text.slice(from, to));
+  return parts.join(' … ').slice(0, 6000);
+}
+
+// Statements that a stage has been reached, latest stage first. The single words used to classify
+// a new feed item ("opened", "complet", "construction", "award") are on every tender portal page,
+// so they cannot move a lead that is already tracked.
+const STAGE_EVIDENCE = [
+  ['handover', /\b(?:handed over|handover (?:ceremony|completed|took place)|inaugurated|inauguration of|officially opened|opened (?:its|their) doors|(?:is|are) now operational|became operational|started operations)\b/i],
+  ['completion', /\b(?:near(?:s|ing)? completion|\d{2,3}\s?(?:%|per ?cent) completed?|substantially completed?|topped out|snagging|testing and commissioning|(?:construction|project|works?) (?:has|have|was|were) (?:now )?(?:been )?completed)\b/i],
+  ['construction', /\b(?:under construction|construction (?:has |have )?(?:started|begun|commenced)|construction (?:is |are )?(?:under ?way|in progress|ongoing)|breaks? ground|broke ground|ground-?breaking (?:ceremony|held|took place)|works? (?:has|have) (?:started|begun|commenced)|foundation stone (?:laid|laying))\b/i],
+  ['award', /\b(?:awarded (?:to|the)|contract (?:was |has been |is )?(?:awarded|signed)|wins? (?:the |a )?[\w$ .,-]{0,40}?contract|won (?:the |a )?[\w$ .,-]{0,40}?contract|appointed (?:as )?(?:the )?(?:main )?contractor|letter of award|signs? (?:a |an |the )?[\w$ .,-]{0,40}?(?:contract|agreement) (?:with|for))\b/i],
+];
+
+/** The latest stage a text states as reached, or null when it states none. */
+export function detectStageEvidence(text = '') {
+  const str = String(text || '');
+  for (const [stage, rx] of STAGE_EVIDENCE) {
+    if (rx.test(str)) return stage;
+  }
+  return null;
+}
+
+/**
+ * What the observer may take from one fetched page for one lead. Pure: no network, no database.
+ * `stage` is set only when the passages about the lead state a later stage than the lead has.
+ */
+export function readLeadFromPage(lead = {}, pageText = '') {
+  const passages = leadPassagesInPage(pageText, lead);
+  if (!passages) return { mentioned: false, stage: null, contacts: [] };
+  const detected = detectStageEvidence(passages);
+  const curIdx = STAGE_ORDER.indexOf(lead?.stage || 'unknown');
+  const newIdx = detected ? STAGE_ORDER.indexOf(detected) : -1;
+  return {
+    mentioned: true,
+    stage: newIdx > curIdx ? detected : null,
+    contacts: extractContactsFromText(passages, 'observer'),
+  };
 }
 
 // ── Opportunistic Non-Blocking 12h Observer Check (Replaces Vercel Sub-Daily Cron) ─
@@ -1876,24 +2013,24 @@ export async function runObserverCycle({ limit = 12 } = {}) {
       const html = await fetchWithTimeout(p.source_url, 6000);
       if (html) {
         const $ = cheerio.load(html);
-        const txt = $('body').text().replace(/\s+/g, ' ').trim().slice(0, 6000);
-        const detected = detectStage(txt);
-        const curIdx = STAGE_ORDER.indexOf(p.stage || 'unknown');
-        const newIdx = STAGE_ORDER.indexOf(detected);
-        if (detected !== 'unknown' && newIdx > curIdx) {
+        const pageText = $('body').text().replace(/\s+/g, ' ').trim().slice(0, 200000);
+        // Only what the page says about this lead counts (see readLeadFromPage): a page that does
+        // not name the lead records the check below and changes nothing else.
+        const seen = readLeadFromPage(p, pageText);
+        if (seen.stage) {
           changes++;
-          await db.from('scanner_projects').update({ stage: detected, updated_at: nowIso }).eq('id', p.id);
+          await db.from('scanner_projects').update({ stage: seen.stage, updated_at: nowIso }).eq('id', p.id);
           await db.from('scanner_updates').insert({
             project_id: p.id,
             ts: nowIso,
             kind: 'change',
             field: 'stage',
             old_value: p.stage,
-            new_value: detected,
+            new_value: seen.stage,
             note: 'Observer detected stage transition from live portal',
           });
         }
-        for (const c of extractContactsFromText(txt, 'observer')) {
+        for (const c of seen.contacts) {
           await db.from('scanner_contacts').upsert({ project_id: p.id, ...c }, { onConflict: 'project_id,contact_key' });
         }
       }
